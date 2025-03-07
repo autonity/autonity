@@ -177,12 +177,10 @@ func TestGossip(t *testing.T) {
 	committee, blsKeys := committeeAndBlsKeys(csize)
 	msg := message.NewPrevote(1, 1, common.Hash{}, makeSigner(blsKeys[0]), &committee.Members[0], 5)
 
-	addresses := make([]common.Address, 0, committee.Len())
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	for i, val := range committee.Members {
-		addresses = append(addresses, val.Address)
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		// Address n3 is supposed to already have this message
 		if i == 3 {
@@ -220,7 +218,7 @@ func TestGossip(t *testing.T) {
 }
 
 func TestVerifyProposal(t *testing.T) {
-	blockchain, backend := newBlockChain(1)
+	blockchain, backend := newBlockChain(1, nil)
 	blocks := make([]*types.Block, 5)
 	committee, err := blockchain.CommitteeByHeight(0)
 	require.NoError(t, err)
@@ -290,7 +288,7 @@ func TestHasBadProposal(t *testing.T) {
 }
 
 func TestSign(t *testing.T) {
-	_, b := newBlockChain(4)
+	_, b := newBlockChain(4, nil)
 	data := common.HexToHash("0x12345")
 	sig := b.Sign(data)
 
@@ -302,7 +300,7 @@ func TestSign(t *testing.T) {
 
 func TestCommit(t *testing.T) {
 	t.Run("Broadcaster is not set", func(t *testing.T) {
-		chain, backend := newBlockChain(4)
+		chain, backend := newBlockChain(4, nil)
 		committee, err := chain.CommitteeByHeight(0)
 		require.NoError(t, err)
 
@@ -313,7 +311,7 @@ func TestCommit(t *testing.T) {
 		quorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(4)}
 		quorumCertificate.Signers.Increment(&committee.Members[0])
 
-		chain, engine := newBlockChain(1)
+		chain, engine := newBlockChain(1, nil)
 		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 		if err != nil {
 			t.Fatal(err)
@@ -340,7 +338,7 @@ func TestCommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		chain, engine := newBlockChain(1)
+		chain, engine := newBlockChain(1, nil)
 		committee, err := chain.CommitteeByHeight(0)
 		require.NoError(t, err)
 		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -446,7 +444,7 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 
 // Test get contract ABI, it should have the default abi before contract upgrade.
 func TestBackendGetContractABI(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine := newBlockChain(1, nil)
 	block, err := makeBlock(chain, engine, chain.Genesis())
 	if err != nil {
 		t.Fatal(err)
@@ -465,8 +463,8 @@ func TestBackendGetContractABI(t *testing.T) {
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
-func newBlockChain(n int) (*core.BlockChain, *Backend) {
-	genesis, nodeKeys, consensusKeys := getGenesisAndKeys(n)
+func newBlockChain(n int, overrideChainConfig func(config *params.ChainConfig) *params.ChainConfig) (*core.BlockChain, *Backend) {
+	genesis, nodeKeys, consensusKeys := getGenesisAndKeys(n, overrideChainConfig)
 
 	memDB := rawdb.NewMemoryDatabase()
 	msgStore := tdmcore.NewMsgStore()
@@ -508,7 +506,7 @@ func copyConfig(original *params.ChainConfig) *params.ChainConfig {
 	return genesisCopy
 }
 
-func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.SecretKey) {
+func getGenesisAndKeys(n int, overrideChainConfig func(config *params.ChainConfig) *params.ChainConfig) (*core.Genesis, []*ecdsa.PrivateKey, []blst.SecretKey) {
 	genesis := core.DefaultGenesisBlock()
 	// Setup committee
 	var nodeKeys = make([]*ecdsa.PrivateKey, n)
@@ -534,6 +532,10 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.Secret
 	genesis.Nonce = emptyNonce.Uint64()
 	genesis.Mixhash = types.BFTDigest
 	genesis.Timestamp = 1
+
+	if overrideChainConfig != nil {
+		genesis.Config = overrideChainConfig(genesis.Config)
+	}
 
 	AppendValidators(genesis, nodeKeys, consensusKeys)
 	err := genesis.Config.Prepare()

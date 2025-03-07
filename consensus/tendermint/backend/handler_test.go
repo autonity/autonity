@@ -21,6 +21,7 @@ import (
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
 
@@ -41,7 +42,7 @@ func setupMocks(backend *Backend, ctrl *gomock.Controller, t *testing.T) {
 }
 
 func TestTendermintMessage(t *testing.T) {
-	_, backend := newBlockChain(1)
+	_, backend := newBlockChain(1, nil)
 	// generate one msg
 	data := message.NewPrevote(1, 2, common.Hash{}, testSigner, testCommitteeMember, 1)
 	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
@@ -150,7 +151,7 @@ func TestNewChainHead(t *testing.T) {
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		evDispathcer := interfaces.NewMockEventDispatcher(ctrl)
 		evDispathcer.EXPECT().Post(gomock.Any()).MaxTimes(1)
-		chain, _ := newBlockChain(1)
+		chain, _ := newBlockChain(1, nil)
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
@@ -179,7 +180,7 @@ func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 }
 
 func TestSignerJailed(t *testing.T) {
-	chain, backend := newBlockChain(1)
+	chain, backend := newBlockChain(1, nil)
 
 	member := chain.Genesis().Header().Epoch.Committee.Members[0]
 
@@ -211,7 +212,7 @@ func TestSignerJailed(t *testing.T) {
 
 func TestFutureHeightMessage(t *testing.T) {
 	t.Run("received future height message is buffered", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend := newBlockChain(1, nil)
 
 		member := chain.Genesis().Header().Epoch.Committee.Members[0]
 
@@ -236,29 +237,45 @@ func TestFutureHeightMessage(t *testing.T) {
 		require.Equal(t, uint64(1), backend.future.size)
 	})
 	t.Run("if future message buffer is full, messages farther in the future are dropped", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend := newBlockChain(1, nil)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		setupMocks(backend, ctrl, t)
 
 		member := chain.Genesis().Header().Epoch.Committee.Members[0]
-
-		for h := maxFutureMsgs + 100; h > 0; h-- {
-			data := message.NewPrevote(0, uint64(h), common.Hash{}, testSigner, &member, 1)
+		handleMsg := func(msgData int, msgHeight uint64) {
+			hash := make([]byte, 32)
+			for i := 31; i >= 0 && msgData > 0; i-- {
+				hash[i] = byte(msgData & 255) // hash[i] = msgData % 256
+				msgData = msgData >> 8        // msgData = msgData / 256
+			}
+			data := message.NewPrevote(0, msgHeight, common.BytesToHash(hash), testSigner, &member, 1)
 			msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 			errCh := make(chan error, 1)
 			_, err := backend.HandleMsg(testAddress, msg, errCh)
 			require.NoError(t, err)
 		}
 
+		myHeight := backend.core.Height().Uint64()
+		extraMsgs := 100
+		largerHeight := myHeight + 5
+		smallerHeight := largerHeight - 1
+		for i := 0; i < extraMsgs; i++ {
+			handleMsg(i, largerHeight)
+		}
+		// fill the buffer
+		for i := 0; i < maxFutureMsgs; i++ {
+			handleMsg(i, smallerHeight)
+		}
+
 		backend.future.RLock()
 		defer backend.future.RUnlock()
-		require.Equal(t, maxFutureMsgs, len(backend.future.messages))
-		require.Equal(t, uint64(maxFutureMsgs), backend.future.size) // works because we send only one message per height
+		require.Equal(t, 0, len(backend.future.messages[largerHeight]))
+		require.Equal(t, uint64(maxFutureMsgs), backend.future.size)
 	})
 	t.Run("When processing future height messages, future height messages are re-injected", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend := newBlockChain(1, nil)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -268,10 +285,11 @@ func TestFutureHeightMessage(t *testing.T) {
 
 		vote := message.NewPrevote(0, 1, common.Hash{}, testSigner, &member, 1)
 		errCh := make(chan error, 1)
-		backend.saveFutureMsg(vote, errCh, common.Address{})
-		backend.saveFutureMsg(vote, errCh, common.Address{})
-		backend.saveFutureMsg(vote, errCh, common.Address{})
-		backend.saveFutureMsg(vote, errCh, common.Address{})
+		myHeight := backend.core.Height().Uint64()
+		backend.saveFutureMsg(myHeight, vote, errCh, common.Address{})
+		backend.saveFutureMsg(myHeight, vote, errCh, common.Address{})
+		backend.saveFutureMsg(myHeight, vote, errCh, common.Address{})
+		backend.saveFutureMsg(myHeight, vote, errCh, common.Address{})
 
 		backend.future.RLock()
 		require.Equal(t, uint64(4), backend.future.size)
@@ -282,5 +300,59 @@ func TestFutureHeightMessage(t *testing.T) {
 		backend.future.RLock()
 		require.Equal(t, uint64(0), backend.future.size)
 		backend.future.RUnlock()
+	})
+
+	t.Run("messages too far in future are not buffered", func(t *testing.T) {
+		chain, backend := newBlockChain(
+			1,
+			func(config *params.ChainConfig) *params.ChainConfig {
+				config.AutonityContractConfig.EpochPeriod = 200
+				return config
+			},
+		)
+		member := chain.Genesis().Header().Epoch.Committee.Members[0]
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		setupMocks(backend, ctrl, t)
+
+		// generate one msg
+		handleMsg := func(futureHeight uint64, tooFarInFuture bool) {
+			var (
+				heightMsgLen    = len(backend.future.messages[futureHeight])
+				size            = backend.future.size
+				maxFutureHeight = backend.future.maxHeight
+			)
+
+			data := message.NewPrevote(0, futureHeight, common.Hash{}, testSigner, &member, 1)
+			msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+			errCh := make(chan error, 1)
+			_, err := backend.HandleMsg(testAddress, msg, errCh)
+			if tooFarInFuture {
+				require.Equal(t, ErrTooFarInFuture, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			backend.future.RLock()
+			defer backend.future.RUnlock()
+
+			if !tooFarInFuture {
+				size++
+				heightMsgLen++
+				maxFutureHeight = max(maxFutureHeight, futureHeight)
+				require.Equal(t, data.Hash(), backend.future.messages[futureHeight][heightMsgLen-1].Message.Hash())
+			}
+
+			require.Equal(t, heightMsgLen, len(backend.future.messages[futureHeight]))
+			require.Equal(t, maxFutureHeight, backend.future.maxHeight)
+			require.Equal(t, size, backend.future.size)
+		}
+
+		myHeight := backend.core.Height().Uint64()
+		// first send accepted future msg to create the cache
+		handleMsg(myHeight+backend.future.heightThreshold+1, false)
+		maxMsgHeight := backend.future.nextEpochBlock + backend.future.epochPeriod
+		handleMsg(maxMsgHeight+1, true)
+		handleMsg(maxMsgHeight, false)
 	})
 }

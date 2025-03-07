@@ -36,6 +36,9 @@ var (
 	// errJailed is returned when a consensus message is discarded because the signer is jailed
 	ErrJailed    = errors.New("signer is jailed")
 	ErrNotFuture = errors.New("message is not future height anymore")
+	// ErrTooFarInFuture returned when msg is so far in the future that it is not relevant for this node
+	ErrTooFarInFuture = errors.New("message is too far in the future")
+
 	NetworkCodes = map[uint8]uint64{
 		message.ProposalCode:  ProposeNetworkMsg,
 		message.PrevoteCode:   PrevoteNetworkMsg,
@@ -182,7 +185,7 @@ func handleConsensusMsg[T any, PT interface {
 	currentHeight := sb.core.Height().Uint64()
 	if msg.H() > currentHeight {
 		sb.logger.Debug("Saving future height consensus message for later", "msgHeight", msg.H(), "coreHeight", currentHeight)
-		err := sb.saveFutureMsg(msg, errCh, sender)
+		err := sb.saveFutureMsg(currentHeight, msg, errCh, sender)
 		// if we receive `ErrNotFuture`, keep processing the message as it is now a current height message
 		if err == nil || !errors.Is(err, ErrNotFuture) {
 			return true, err
@@ -242,14 +245,17 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 	return true, nil
 }
 
-func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error, sender common.Address) error {
+func (sb *Backend) saveFutureMsg(myHeight uint64, msg message.Msg, errCh chan<- error, sender common.Address) error {
 	// create event that will be re-injected in handleDecodedMsg when we reach the correct height
+	h := msg.H()
+	if sb.isFutureMsgTooFar(myHeight, h) {
+		return ErrTooFarInFuture
+	}
 	e := &events.UnverifiedMessageEvent{
 		Message: msg,
 		ErrCh:   errCh,
 		Sender:  sender,
 	}
-	h := msg.H()
 
 	sb.future.Lock()
 	defer sb.future.Unlock()
@@ -293,6 +299,42 @@ func (sb *Backend) saveFutureMsg(msg message.Msg, errCh chan<- error, sender com
 		}
 	}
 	return nil
+}
+
+func (sb *Backend) isFutureMsgTooFar(myHeight, msgHeight uint64) bool {
+	// `sb.future.heightThreshold` is calculated using `params.BootingTime`
+	// any messages in this threshold is accepted
+	if msgHeight <= myHeight+sb.future.heightThreshold {
+		return false
+	}
+	// For further messages, we consider them necessary if it belongs to the current epoch or next epoch.
+	// Message further than next epoch are considered too far
+
+	// genesis block should be prepared and committed before starting consensus
+	// so we should always have `myHeight > 0`
+	// this update will happen at most once per epoch if there are future messages in some epoch
+	// that are further away than `sb.future.heightThreshold`
+	if sb.future.nextEpochBlock == 0 || sb.future.nextEpochBlock < myHeight-1 {
+		// update epoch info cache
+		epochInfo, err := sb.EpochByHeight(myHeight - 1)
+		if err != nil {
+			sb.logger.Crit("cannot read epoch info from the state", "height", myHeight-1, "err", err)
+		}
+		sb.future.nextEpochBlock = epochInfo.NextEpochBlock.Uint64()
+
+		hearer := sb.blockchain.GetBlockByNumber(myHeight - 1).Header()
+		state, err := sb.blockchain.StateAt(hearer.Root)
+		if err != nil {
+			sb.logger.Crit("Could not retrieve state at head block", "err", err)
+		}
+		epochPeriod, err := sb.blockchain.ProtocolContracts().AutonityContract.EpochPeriod(hearer, state)
+		if err != nil {
+			sb.logger.Crit("Could not retrieve epoch period", "err", err)
+		}
+		sb.future.epochPeriod = epochPeriod.Uint64()
+	}
+
+	return msgHeight > sb.future.nextEpochBlock+sb.future.epochPeriod
 }
 
 // re-inject future height messages

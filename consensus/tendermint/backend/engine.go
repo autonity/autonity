@@ -582,6 +582,11 @@ func (sb *Backend) Start(ctx context.Context) error {
 	sb.UpdateStopChannel(sb.stopped)
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}
+	// set future height threshold
+	// it is calculated from `params.BootingTime`, considering that the node will take `params.BootingTime` time
+	// to recover after shutting down in case of crash or a restart
+	blockDuration := time.Duration(sb.blockchain.Config().AutonityContractConfig.BlockPeriod) * time.Second
+	sb.future.heightThreshold = uint64(params.BootingTime / blockDuration)
 
 	sb.wg.Add(1)
 	go sb.faultyValidatorsWatcher(ctx)
