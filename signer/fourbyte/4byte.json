@@ -192,5 +192,12 @@
   "b6a702b3": "updateVoters()",
   "56833ebe": "vote(uint256,(uint120,uint8)[],uint256,uint8)",
   "0f65875c": "updateVotersAndSymbol()",
-  "b99a00e3": "configuredCommitteeSize()"
+  "b99a00e3": "configuredCommitteeSize()",
+  "5a061362": "setAuctioneerContract(address)",
+  "683dd191": "scaleFactor()",
+  "3fa4f245": "value()",
+  "96e4547c": "paidInterest()",
+  "840c7e24": "cdps(address)",
+  "8ffba9dd": "debtAmountAtTime(address,uint256)",
+  "4914c008": "liquidate(address,uint256,address)"
 }
