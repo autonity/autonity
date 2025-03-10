@@ -17,6 +17,7 @@ import (
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
+	tc "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
@@ -25,7 +26,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto/blst"
-	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 )
@@ -1194,7 +1194,6 @@ func TestAggregatorCoreEvents(t *testing.T) {
 	t.Run("RoundChangeEvent triggers rules re-evaluation - proposal", func(t *testing.T) {
 		futureHeight := uint64(1)
 		futureRound := int64(2)
-		eventMux := event.NewTypeMuxSilent(nil, log.Root())
 
 		ctrl := gomock.NewController(t)
 		defer waitForExpects(t, ctrl)
@@ -1202,12 +1201,14 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		coreMock := interfaces.NewMockCore(ctrl)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		chain := newTestBlockchain()
+		coreEventCh := make(chan events.CoreEvent, tc.EventQueueSize)
 
 		backendMock.EXPECT().MessageCh().Return(make(chan events.UnverifiedMessageEvent)).Times(1)
 		backendMock.EXPECT().BlockChain().Return(chain).AnyTimes()
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
-		backendMock.EXPECT().Subscribe(gomock.Any(), gomock.Any(), gomock.Any()).Return(eventMux.Subscribe(events.RoundChangeEvent{})).Times(1)
+
 		coreMock.EXPECT().Height().Return(common.Big1).AnyTimes()
+		coreMock.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 
 		a := &aggregator{
 			core:     coreMock,
@@ -1220,9 +1221,7 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		a.saveMessage(makeBogusEvent(makeBogusPropose(futureRound, futureHeight, 0)))
 
 		a.start(context.TODO())
-
-		eventMux.Post(events.RoundChangeEvent{Height: futureHeight, Round: futureRound})
-
+		coreEventCh <- events.NewRoundChangeEvent(futureHeight, futureRound)
 		// give time to the aggregator loop to process the proposal
 		time.Sleep(10 * time.Millisecond)
 
@@ -1234,7 +1233,6 @@ func TestAggregatorCoreEvents(t *testing.T) {
 	t.Run("RoundChangeEvent triggers rules re-evaluation - votes", func(t *testing.T) {
 		futureHeight := uint64(1)
 		futureRound := int64(2)
-		eventMux := event.NewTypeMuxSilent(nil, log.Root())
 
 		ctrl := gomock.NewController(t)
 		defer waitForExpects(t, ctrl)
@@ -1242,11 +1240,12 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		coreMock := interfaces.NewMockCore(ctrl)
 		backendMock := interfaces.NewMockBackend(ctrl)
 		chain := newTestBlockchain()
+		coreEventCh := make(chan events.CoreEvent, tc.EventQueueSize)
 
 		backendMock.EXPECT().MessageCh().Return(make(chan events.UnverifiedMessageEvent)).Times(1)
 		backendMock.EXPECT().BlockChain().Return(chain).AnyTimes()
 		backendMock.EXPECT().Post(gomock.Any()).Times(4)
-		backendMock.EXPECT().Subscribe(gomock.Any(), gomock.Any(), gomock.Any()).Return(eventMux.Subscribe(events.RoundChangeEvent{})).Times(1)
+		coreMock.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		coreMock.EXPECT().Height().Return(common.Big1).AnyTimes()
 		coreMock.EXPECT().VotesPowerFor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(message.NewAggregatedPower()).Times(2)
 		coreMock.EXPECT().VotesPower(gomock.Any(), gomock.Any(), gomock.Any()).Return(message.NewAggregatedPower()).Times(2)
@@ -1274,7 +1273,7 @@ func TestAggregatorCoreEvents(t *testing.T) {
 
 		a.start(context.TODO())
 
-		eventMux.Post(events.RoundChangeEvent{Height: futureHeight, Round: futureRound})
+		coreEventCh <- events.NewRoundChangeEvent(futureHeight, futureRound)
 
 		// give time to the aggregator loop to process the votes
 		time.Sleep(10 * time.Millisecond)
@@ -1290,7 +1289,6 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		round := int64(2)
 		code := message.PrevoteCode
 		value := common.Hash{0xca, 0xfe}
-		eventMux := event.NewTypeMuxSilent(nil, log.Root())
 
 		ctrl := gomock.NewController(t)
 		defer waitForExpects(t, ctrl)
@@ -1299,11 +1297,12 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		chain := newTestBlockchain()
 
+		coreEventCh := make(chan events.CoreEvent, tc.EventQueueSize)
 		backendMock.EXPECT().MessageCh().Return(make(chan events.UnverifiedMessageEvent)).Times(1)
 		coreMock.EXPECT().VotesPowerFor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(message.NewAggregatedPower()).Times(2)
 		coreMock.EXPECT().VotesPower(gomock.Any(), gomock.Any(), gomock.Any()).Return(message.NewAggregatedPower()).Times(1)
+		coreMock.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		coreMock.EXPECT().Height().Return(common.Big1).AnyTimes()
-		backendMock.EXPECT().Subscribe(gomock.Any(), gomock.Any(), gomock.Any()).Return(eventMux.Subscribe(events.PowerChangeEvent{})).Times(1)
 		backendMock.EXPECT().BlockChain().Return(chain).AnyTimes()
 
 		a := &aggregator{
@@ -1325,7 +1324,7 @@ func TestAggregatorCoreEvents(t *testing.T) {
 
 		a.start(context.TODO())
 
-		eventMux.Post(events.PowerChangeEvent{Height: height, Round: round, Code: code, Value: value})
+		coreEventCh <- events.NewPowerChangeEvent(code, height, round, value)
 
 		// give time to the aggregator loop to process the prevote
 		time.Sleep(10 * time.Millisecond)
@@ -1338,7 +1337,6 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		height := uint64(1)
 		round := int64(2)
 		value := common.Hash{0xca, 0xfe}
-		eventMux := event.NewTypeMuxSilent(nil, log.Root())
 
 		ctrl := gomock.NewController(t)
 		defer waitForExpects(t, ctrl)
@@ -1347,14 +1345,15 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		chain := newTestBlockchain()
 
+		coreEventCh := make(chan events.CoreEvent, tc.EventQueueSize)
 		backendMock.EXPECT().MessageCh().Return(make(chan events.UnverifiedMessageEvent)).Times(1)
 		coreMock.EXPECT().Height().Return(common.Big1).AnyTimes()
+		coreMock.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		backendMock.EXPECT().BlockChain().Return(chain).AnyTimes()
 		aggregatedPower := message.NewAggregatedPower()
 		aggregatedPower.Set(0, chain.Genesis().Header().Epoch.Committee.TotalVotingPower())
 		coreMock.EXPECT().Power(gomock.Any(), gomock.Any()).Return(aggregatedPower).Times(1)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
-		backendMock.EXPECT().Subscribe(gomock.Any(), gomock.Any(), gomock.Any()).Return(eventMux.Subscribe(events.FuturePowerChangeEvent{})).Times(1)
 
 		a := &aggregator{
 			core:          coreMock,
@@ -1371,7 +1370,7 @@ func TestAggregatorCoreEvents(t *testing.T) {
 
 		a.start(context.TODO())
 
-		eventMux.Post(events.FuturePowerChangeEvent{Height: height, Round: round})
+		coreEventCh <- events.NewFuturePowerChangeEvent(height, round)
 
 		// give time to the aggregator loop to process the prevote
 		time.Sleep(10 * time.Millisecond)

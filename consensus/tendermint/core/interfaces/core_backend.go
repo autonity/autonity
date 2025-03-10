@@ -111,6 +111,7 @@ type Core interface {
 	Power(h uint64, r int64) *message.AggregatedPower
 	VotesPower(h uint64, r int64, code uint8) *message.AggregatedPower
 	VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *message.AggregatedPower
+	EventCh() <-chan events.CoreEvent
 }
 
 type EventDispatcher interface {

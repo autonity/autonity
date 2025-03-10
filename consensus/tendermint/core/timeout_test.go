@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
@@ -73,7 +74,9 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(1)
 
 		mockBackend := interfaces.NewMockBackend(ctrl)
+		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		engine := Core{
+			eventCh:          eventCh,
 			logger:           logger,
 			backend:          mockBackend,
 			address:          currentValidator.Address,
@@ -129,7 +132,9 @@ func TestHandleTimeoutPrecommit(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(1)
 		mockBackend := interfaces.NewMockBackend(ctrl)
 		mockBackend.EXPECT().Post(gomock.Any()).AnyTimes()
+		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		engine := Core{
+			eventCh:          eventCh,
 			logger:           logger,
 			backend:          mockBackend,
 			address:          currentValidator.Address,
@@ -170,7 +175,9 @@ func TestOnTimeoutPrevote(t *testing.T) {
 	mockBackend := interfaces.NewMockBackend(ctrl)
 	messages := message.NewMap()
 	curRoundMessages := messages.GetOrCreate(2)
+	eventCh := make(chan events.CoreEvent, EventQueueSize)
 	engine := Core{
+		eventCh:          eventCh,
 		backend:          mockBackend,
 		logger:           log.New("backend", "test", "id", 0),
 		round:            2,
@@ -202,7 +209,9 @@ func TestOnTimeoutPrecommit(t *testing.T) {
 	mockBackend := interfaces.NewMockBackend(ctrl)
 	messages := message.NewMap()
 	curRoundMessages := messages.GetOrCreate(2)
+	eventCh := make(chan events.CoreEvent, EventQueueSize)
 	engine := Core{
+		eventCh:          eventCh,
 		backend:          mockBackend,
 		logger:           log.New("backend", "test", "id", 0),
 		round:            2,
