@@ -105,7 +105,7 @@ library StabilizationMath {
         uint256 targetDebtPriceACU,
         uint256 mcr
     ) internal pure returns (uint256) {
-        if (collateralPriceACU == 0 || mcr == 0 || targetDebtPriceACU == 0) revert InvalidParameter();
+        if (collateralPriceACU == 0 || mcr == 0 || targetDebtPriceACU == 0) revert InvalidParameter("mcr || targetDebtPrice || collateralPrice");
         return (collateral * collateralPriceACU * SCALE_FACTOR) / (mcr * targetDebtPriceACU);
     }
 
@@ -122,7 +122,7 @@ library StabilizationMath {
         uint256 targetDebtPriceACU,
         uint256 mcr
     ) internal pure returns (uint256) {
-        if (collateralPriceACU == 0 || mcr == 0) revert InvalidParameter();
+        if (collateralPriceACU == 0 || mcr == 0) revert InvalidParameter("collateralPriceACU || mcr");
         return (principal * mcr * targetDebtPriceACU) / (collateralPriceACU * SCALE_FACTOR);
     }
 
@@ -169,7 +169,7 @@ library StabilizationMath {
         uint256 price,
         uint256 liquidationRatio
     ) internal pure returns (uint256) {
-        if (price == 0 || liquidationRatio == 0) revert InvalidParameter();
+        if (price == 0 || liquidationRatio == 0) revert InvalidParameter("price || liquidationRatio");
         return (collateral * price) / liquidationRatio;
     }
 
@@ -197,7 +197,7 @@ library StabilizationMath {
         uint256 startTimestamp,
         uint256 endTimestamp
     ) internal pure returns (uint256) {
-        if (endTimestamp < startTimestamp) revert InvalidParameter();
+        if (endTimestamp < startTimestamp) revert InvalidParameter("endTimestamp || startTimestamp");
         return interestRate * (endTimestamp - startTimestamp) / SECONDS_IN_YEAR;
     }
 }

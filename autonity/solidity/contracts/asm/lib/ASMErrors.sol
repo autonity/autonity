@@ -8,7 +8,7 @@ error InsufficientPayment();
 error InsufficientCollateral();
 error InvalidDebtPosition();
 error InvalidAmount();
-error InvalidParameter();
+error InvalidParameter(string message);
 error InvalidPrice();
 error Liquidatable();
 error NotLiquidatable();
