@@ -23,6 +23,7 @@ contract Auctioneer {
     event AuctionedDebt(address indexed debtor, address indexed biddor, uint256 collateralAmount, uint256 debtAmount);
     event AuctionedInterest(address indexed biddor, uint256 interestAmount, uint256 paymentAmount);
     event NewInterestAuction(uint256 auctionId, uint256 amount, uint256 startRound);
+    event ConfigUpdated(string field);
 
     // Public state
     Config public config;
@@ -180,6 +181,7 @@ contract Auctioneer {
             revert Unauthorized();
         }
         _operator = operator_;
+        emit ConfigUpdated("operator");
     }
 
     // Operator functions
@@ -187,31 +189,41 @@ contract Auctioneer {
     // @notice Set the oracle address
     // @param oracle_ The address of the oracle
     function setOracle(address oracle_) external onlyOperator {
+        if (oracle_ == address(0)) {
+            revert InvalidParameter("oracle_");
+        }
         _oracle = IOracle(oracle_);
+        emit ConfigUpdated("oracle");
     }
 
     // @notice Set the stabilization address
     // @param stabilization_ The address of the stabilization contract
     function setStabilization(address stabilization_) external onlyOperator {
+        if (stabilization_ == address(0)) {
+            revert InvalidParameter("stabilization_");
+        }
         _stabilization = IStabilization(stabilization_);
+        emit ConfigUpdated("stabilization");
     }
 
     // @notice Set the liquidation auction duration
     // @param duration The duration of the liquidation auction
     function setLiquidationAuctionDuration(uint256 duration) external onlyOperator {
         if (duration == 0) {
-            revert InvalidParameter();
+            revert InvalidParameter("duration");
         }
         config.liquidationAuctionDuration = duration;
+        emit ConfigUpdated("liquidationAuctionDuration");
     }
 
     // @notice Set the interest auction duration
     // @param duration The duration of the interest auction
     function setInterestAuctionDuration(uint256 duration) external onlyOperator {
         if (duration == 0) {
-            revert InvalidParameter();
+            revert InvalidParameter("duration");
         }
         config.interestAuctionDuration = duration;
+        emit ConfigUpdated("interestAuctionDuration");
     }
 
     // @notice Set the interest auction discount
@@ -219,24 +231,27 @@ contract Auctioneer {
     // @dev The discount is a value between [0,1) with SCALE_FACTOR precision
     function setInterestAuctionDiscount(uint256 discount) external onlyOperator {
         if (discount >= StabilizationMath.SCALE_FACTOR) {
-            revert InvalidParameter();
+            revert InvalidParameter("discount");
         }
         config.interestAuctionDiscount = discount;
+        emit ConfigUpdated("interestAuctionDiscount");
     }
 
     // @notice Set the interest auction threshold
     // @param threshold The threshold for starting an interest auction
     function setInterestAuctionThreshold(uint256 threshold) external onlyOperator {
         if (threshold == 0) {
-            revert InvalidParameter();
+            revert InvalidParameter("threshold");
         }
         config.interestAuctionThreshold = threshold;
+        emit ConfigUpdated("interestAuctionThreshold");
     }
 
     // @notice Set the proceeds address
     // @param proceedAddress_ The address to send proceeds to
     function setProceedAddress(address proceedAddress_) external onlyOperator {
         proceedAddress = proceedAddress_;
+        emit ConfigUpdated("proceedAddress");
     }
 
 

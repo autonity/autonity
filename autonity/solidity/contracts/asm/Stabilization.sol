@@ -129,7 +129,7 @@ contract Stabilization is IStabilization {
 
     modifier goodTime(address account, uint timestamp) {
         CDP storage cdp = _cdps[account];
-        if (timestamp < cdp.timestamp) revert InvalidParameter();
+        if (timestamp < cdp.timestamp) revert InvalidParameter("timestamp");
         _;
     }
 
@@ -154,7 +154,7 @@ contract Stabilization is IStabilization {
     }
 
     modifier positiveMCR(uint256 ratio) {
-        if (ratio == 0) revert InvalidParameter();
+        if (ratio == 0) revert InvalidParameter("ratio");
         _;
     }
 
@@ -169,7 +169,7 @@ contract Stabilization is IStabilization {
     ) {
         // Liquidation ration must be < minCollateralizationRatio and >= 1
         if (liquidationRatio >= minCollateralizationRatio || liquidationRatio < StabilizationMath.SCALE_FACTOR)
-            revert InvalidParameter();
+            revert InvalidParameter("liquidationRatio || minCollateralizationRatio");
         _;
     }
 
@@ -832,7 +832,7 @@ contract Stabilization is IStabilization {
         CDP storage cdp,
         uint timestamp
     ) internal view returns (uint256 total, uint256 accrued, uint256 totalExponent) {
-        if (timestamp == 0) revert InvalidParameter();
+        if (timestamp == 0) revert InvalidParameter("timestamp");
         uint256 debt = cdp.principal + cdp.interest;
         totalExponent = _calculateAggregatedInterestExponent(timestamp);
         if (debt == 0) {
@@ -903,7 +903,7 @@ contract Stabilization is IStabilization {
 
         // the following condition is enforces because `_aggregatedInterestExponent` state
         // variable stores the aggregated interest until `_borrowInterestActiveTimestamp`
-        if (timestamp < currentRateActiveTimestamp) revert InvalidParameter();
+        if (timestamp < currentRateActiveTimestamp) revert InvalidParameter("timestamp");
 
         (uint pendingRate, uint256 pendingRateActiveTimestamp) = _borrowInterestRate.pending();
         if (pendingRateActiveTimestamp > 0 && pendingRateActiveTimestamp <= timestamp) {
