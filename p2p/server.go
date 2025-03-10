@@ -73,6 +73,9 @@ const (
 	// This time limits inbound connection attempts per source IP.
 	inboundThrottleTime = 30 * time.Second
 
+	// smaller rate limit window on ACN port
+	acnInboundThrottleTime = 10 * time.Second
+
 	// Maximum time allowed for reading a complete message.
 	// This is effectively the amount of time a connection can be idle.
 	frameReadTimeout = 30 * time.Second
@@ -1098,7 +1101,11 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 	if !netutil.IsLAN(remoteIP) && srv.inboundHistory.contains(remoteIP.String()) {
 		return fmt.Errorf("too many attempts")
 	}
-	srv.inboundHistory.add(remoteIP.String(), now.Add(inboundThrottleTime))
+	if srv.Net == Consensus {
+		srv.inboundHistory.add(remoteIP.String(), now.Add(acnInboundThrottleTime))
+	} else {
+		srv.inboundHistory.add(remoteIP.String(), now.Add(inboundThrottleTime))
+	}
 	return nil
 }
 

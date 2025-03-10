@@ -587,8 +587,8 @@ func (sb *Backend) Start(ctx context.Context) error {
 	go sb.faultyValidatorsWatcher(ctx)
 
 	// Start Tendermint
-	sb.aggregator.start(ctx)
 	sb.core.Start(ctx, sb.blockchain.ProtocolContracts())
+	sb.aggregator.start(ctx)
 	sb.coreRunning.CompareAndSwap(false, true)
 	return nil
 }

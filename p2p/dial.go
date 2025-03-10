@@ -39,6 +39,8 @@ const (
 	// private networks.
 	dialHistoryExpiration = inboundThrottleTime + 5*time.Second
 
+	acnDialHistoryExpiration = acnInboundThrottleTime + 2*time.Second
+
 	// Config for the "Looking for peers" message.
 	dialStatsLogInterval = 10 * time.Second // printed at most this often
 	dialStatsPeerLimit   = 3                // but not if more than this many dialed peers
@@ -464,7 +466,11 @@ func (d *dialScheduler) removeFromStaticPool(idx int) {
 func (d *dialScheduler) startDial(task *dialTask) {
 	d.log.Trace("Starting p2p dial", "id", task.dest.ID(), "ip", task.dest.IP(), "flag", task.flags, "server", d.net.String())
 	hkey := string(task.dest.ID().Bytes())
-	d.history.add(hkey, d.clock.Now().Add(dialHistoryExpiration))
+	if d.net == Consensus {
+		d.history.add(hkey, d.clock.Now().Add(acnDialHistoryExpiration))
+	} else {
+		d.history.add(hkey, d.clock.Now().Add(dialHistoryExpiration))
+	}
 	d.dialing[task.dest.ID()] = task
 	go func() {
 		task.run(d)
