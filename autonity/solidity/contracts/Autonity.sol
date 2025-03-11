@@ -78,7 +78,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 requestBlock;
     }
 
-    // todo: add getters for bondingMap and unbonding map
     mapping(uint256 => BondingRequest) internal bondingMap;
     uint256 internal tailBondingID;
     uint256 internal headBondingID;
