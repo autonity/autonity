@@ -14,13 +14,13 @@ o88o     o8888o 8""88888P'  o8o        o888o
 */
 
 import {ISupplyControl} from "./ISupplyControl.sol";
-import {IConfigEvents} from "../interfaces/IConfigEvent.sol";
+import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
 
 /// @title ASM Supply Control Contract Implementation
 /// @notice Controls the supply of Auton on the network.
 /// @dev Intended to be deployed by the protocol at genesis. The stabilizer is
 /// expected to be the Stabilization Contract.
-contract SupplyControl is ISupplyControl {
+contract SupplyControl is ISupplyControl, IConfigEvents {
     /// The account that is authorized to mint and burn.
     address public stabilizer;
 

@@ -15,13 +15,13 @@ o88o     o8888o 8""88888P'  o8o        o888o
 
 import {IACU} from "./IACU.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
-import {IConfigEvents} from "../interfaces/IConfigEvent.sol";
+import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
 
 /// @title ASM ACU Contract
 /// @notice Computes the value of the ACU, an optimal currency basket of
 /// 7 free-floating fiat currencies.
 /// @dev Intended to be deployed by the protocol at genesis.
-contract ACU is IACU {
+contract ACU is IACU, IConfigEvents {
     /// The Oracle round of the current ACU value.
     uint256 public round;
     /// The decimal places used to represent the ACU as a fixed-point integer.

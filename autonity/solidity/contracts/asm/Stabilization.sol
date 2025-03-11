@@ -18,7 +18,7 @@ import {IOracle} from "../interfaces/IOracle.sol";
 import {IStabilization} from "./IStabilization.sol";
 import {ISupplyControl} from "./ISupplyControl.sol";
 import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
-import {IConfigEvents} from "../interfaces/IConfigEvent.sol";
+import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
 
 /// @title ASM Stabilization Contract
 /// @notice A CDP-based stabilization mechanism for the Auton.
@@ -26,7 +26,7 @@ import {IConfigEvents} from "../interfaces/IConfigEvent.sol";
 /// rates, ratios, prices, and amounts are represented as fixed-point integers
 /// with `SCALE` decimal places.
 /* solhint-disable not-rely-on-time */
-contract Stabilization is IStabilization {
+contract Stabilization is IStabilization, IConfigEvents {
     /// Stabilization Configuration.
     struct Config {
         /// The annual continuously-compounded interest rate for borrowing.

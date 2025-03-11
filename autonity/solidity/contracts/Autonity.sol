@@ -20,7 +20,7 @@ import "./ReentrancyGuard.sol";
 import "./ScheduleController.sol";
 import {ISlasher} from "./interfaces/ISlasher.sol";
 import {Slasher} from "./Slasher.sol";
-import {IConfigEvents} from "./interfaces/IConfigEvent.sol";
+import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
 
 uint8 constant DECIMALS = 18;
 

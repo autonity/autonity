@@ -5,7 +5,7 @@ import {Autonity} from "./Autonity.sol";
 import "./interfaces/IAutonity.sol";
 import {Precompiled} from "./lib/Precompiled.sol";
 import {IOmissionAccountability} from "./interfaces/IOmissionAccountability.sol";
-import {IConfigEvents} from "./interfaces/IConfigEvent.sol";
+import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 
 contract OmissionAccountability is IOmissionAccountability, IConfigEvents {

@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "./lib/Precompiled.sol";
-import {IConfigEvents} from "./interfaces/IConfigEvent.sol";
+import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
 
-contract UpgradeManager {
+contract UpgradeManager is IConfigEvents {
     address public autonity;
     address public operator;
 
