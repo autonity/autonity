@@ -141,11 +141,13 @@ type aggregator struct {
 	backend interfaces.Backend
 	core    interfaces.Core
 
-	staleMessages map[common.Hash][]events.UnverifiedMessageEvent
-	messages      map[uint64]map[int64]*RoundInfo
+	staleMessages     map[common.Hash][]events.UnverifiedMessageEvent
+	staleMessagesLock sync.RWMutex
+	messages          map[uint64]map[int64]*RoundInfo
 
 	messagesFrom map[common.Address][]common.Hash
 	toIgnore     map[common.Hash]struct{}
+	trackingLock sync.RWMutex
 
 	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 
@@ -165,6 +167,8 @@ func (a *aggregator) start(ctx context.Context) {
 
 func (a *aggregator) handleInvalidMessage(errorCh chan<- error, err error, sender common.Address) {
 	tryDisconnect(errorCh, err)
+	a.trackingLock.Lock()
+	defer a.trackingLock.Unlock()
 	for _, hash := range a.messagesFrom[sender] {
 		a.toIgnore[hash] = struct{}{}
 	}
@@ -649,6 +653,8 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 }
 
 func (a *aggregator) toSkip(msg message.Msg) bool {
+	a.trackingLock.RLock()
+	defer a.trackingLock.RUnlock()
 	_, ignore := a.toIgnore[msg.Hash()]
 	return ignore
 }
@@ -658,7 +664,9 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	msg := event.Message
 	sender := event.Sender
 
+	a.trackingLock.Lock()
 	a.messagesFrom[sender] = append(a.messagesFrom[sender], msg.Hash())
+	a.trackingLock.Unlock()
 
 	// NOTE: Aggregator and Core run asynchronously. The code needs to take into account that Core can change state at any point here.
 	// This also implies that height checks still needs to be done in Core.
@@ -666,7 +674,9 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	if msg.H() < coreHeight {
 		a.logger.Debug("Storing old height message in the aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
 		signatureInput := msg.SignatureInput()
+		a.staleMessagesLock.Lock()
 		a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], event)
+		a.staleMessagesLock.Unlock()
 		return
 	}
 	if msg.H() > coreHeight {
@@ -858,7 +868,9 @@ loop:
 						//proposals
 						for _, proposal := range roundInfo.proposals {
 							signatureInput := proposal.Message.SignatureInput()
+							a.staleMessagesLock.Lock()
 							a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], proposal)
+							a.staleMessagesLock.Unlock()
 						}
 						// prevotes
 						for _, sameValueVotes := range roundInfo.prevotes {
@@ -866,7 +878,9 @@ loop:
 								continue
 							}
 							signatureInput := sameValueVotes[0].Message.SignatureInput() // all votes have same (h,r,c,v)
+							a.staleMessagesLock.Lock()
 							a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], sameValueVotes...)
+							a.staleMessagesLock.Unlock()
 						}
 						// precommits
 						for _, sameValueVotes := range roundInfo.precommits {
@@ -874,7 +888,9 @@ loop:
 								continue
 							}
 							signatureInput := sameValueVotes[0].Message.SignatureInput() // all votes have same (h,r,c,v)
+							a.staleMessagesLock.Lock()
 							a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], sameValueVotes...)
+							a.staleMessagesLock.Unlock()
 						}
 						delete(a.messages[h], r)
 						continue
@@ -887,11 +903,14 @@ loop:
 				}
 			}
 			// cleanup
+			a.trackingLock.Lock()
 			a.messagesFrom = make(map[common.Address][]common.Hash)
 			a.toIgnore = make(map[common.Hash]struct{})
+			a.trackingLock.Unlock()
 		case <-oldMessagesTicker.C:
 			a.logger.Trace("Processing stale messages in the aggregator")
 			var batches [][]events.UnverifiedMessageEvent
+			a.staleMessagesLock.Lock()
 			for _, batch := range a.staleMessages {
 				// if batch of proposals, validate them individually
 				if batch[0].Message.Code() == message.ProposalCode {
@@ -905,9 +924,10 @@ loop:
 				}
 				batches = append(batches, batch)
 			}
-			a.processBatches(batches, oldHeightEventBuilder)
-
 			a.staleMessages = make(map[common.Hash][]events.UnverifiedMessageEvent)
+			a.staleMessagesLock.Unlock()
+			go a.processBatches(batches, oldHeightEventBuilder)
+
 		case <-ctx.Done():
 			break loop
 		}

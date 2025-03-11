@@ -214,6 +214,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer())
 			return true, ErrJailed
 		}
+		sb.logger.Debug("Proposal arrived in backend", "proposer", m.Signer(), "hash", m.Hash(), "value", m.Value())
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
 		allJailed := true
