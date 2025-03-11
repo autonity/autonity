@@ -381,6 +381,7 @@ func (s *Ethereum) APIs() []rpc.API {
 	// Append any APIs exposed explicitly by the consensus engine
 	apis = append(apis, s.engine.APIs(s.BlockChain())...)
 
+	/* Todo(youssef): revisit aut api
 	if _, ok := s.engine.(consensus.BFT); ok {
 		apis = append(apis, rpc.API{
 			Namespace: "aut",
@@ -389,7 +390,7 @@ func (s *Ethereum) APIs() []rpc.API {
 			Public:    true,
 		})
 	}
-
+	*/
 	return append(apis, []rpc.API{
 		{
 			Namespace: "miner",

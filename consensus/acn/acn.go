@@ -94,9 +94,11 @@ func (acn *ACN) FindPeer(target common.Address) (consensus.Peer, bool) {
 func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFunc) error {
 	acn.wg.Add(1)
 	defer acn.wg.Done()
-
-	genesis := acn.chain.Genesis()
-	forkID := forkid.NewID(acn.chain.Config(), acn.chain.Genesis().Hash(), acn.chain.CurrentHeader().Number.Uint64())
+	var (
+		genesis = acn.chain.Genesis()
+		head    = acn.chain.CurrentHeader()
+	)
+	forkID := forkid.NewID(acn.chain.Config(), genesis, head.Number.Uint64(), head.Time)
 	if err := peer.Handshake(acn.networkID, genesis.Hash(), forkID, acn.forkFilter); err != nil {
 		peer.Log().Debug("Consensus handshake failed", "err", err)
 		return err

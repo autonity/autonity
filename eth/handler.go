@@ -27,7 +27,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/forkid"
-	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/txpool"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -42,7 +41,6 @@ import (
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
-	"github.com/autonity/autonity/triedb/pathdb"
 )
 
 const (
@@ -184,7 +182,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		return nil, errors.New("snap sync not supported with snapshots disabled")
 	}
 	// Construct the downloader (long sync)
-	h.downloader = downloader.New(config.Database, h.eventMux, h.chain, nil, h.removePeer, h.enableSyncedFeatures)
+	h.downloader = downloader.New(config.Database, h.eventMux, h.chain, h.removePeer, h.enableSyncedFeatures)
 
 	// Construct the fetcher (short sync)
 	validator := func(header *types.Header) error {
@@ -634,8 +632,5 @@ func (h *handler) enableSyncedFeatures() {
 	if h.snapSync.Load() {
 		log.Info("Snap sync complete, auto disabling")
 		h.snapSync.Store(false)
-	}
-	if h.chain.TrieDB().Scheme() == rawdb.PathScheme {
-		h.chain.TrieDB().SetBufferSize(pathdb.DefaultBufferSize)
 	}
 }
