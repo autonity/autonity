@@ -1233,6 +1233,36 @@ func TestInterestCalculation(t *testing.T) {
 			getDebt(r, user),
 		)
 	})
+
+	tests.RunWithSetup("deposit followed by borrow", setup, func(r *tests.Runner) {
+		rateActive := r.Evm.Context.Time
+		r.NoError(
+			r.Stabilization.RemoveCDPRestrictions(r.Operator),
+		)
+		currentRate := getCurrentRate(r)
+		require.True(r.T, currentRate.Cmp(common.Big0) > 0)
+		progressTime(r, year)
+		debt := calculateDebt(r, borrowAmount, common.Big0, []interestRateParam{
+			{
+				rate:      currentRate,
+				startTime: rateActive,
+				endTime:   r.Evm.Context.Time,
+			},
+		})
+		require.Equal(r.T, debt, getDebt(r, user))
+
+		r.NoError(
+			r.Autonity.Approve(tests.FromSender(user, nil), r.Stabilization.Address(), depositAmmount),
+		)
+		r.NoError(
+			r.Autonity.Mint(r.Operator, user, depositAmmount),
+		)
+
+		deposit(r, user, depositAmmount)
+		borrow(r, user, borrowAmount)
+		require.Equal(r.T, new(big.Int).Add(debt, borrowAmount), getDebt(r, user))
+
+	})
 }
 
 func TestUpdateBorrowInterestRate(t *testing.T) {
