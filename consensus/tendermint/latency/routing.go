@@ -168,6 +168,15 @@ func (r *Router) setDefaultClusters(committee []common.Address) {
 		clusters[k] = append(clusters[k], addr)
 	}
 	r.clusters.insertClustering(r.curEpochInfo.EpochBlock.Uint64(), &Clusters{clusters, nil})
+	log.Debug("Router: set default clusters", "clusters", func() [][]int {
+		clusterInts := make([][]int, len(clusters))
+		for i, cluster := range clusters {
+			for _, member := range cluster {
+				clusterInts[i] = append(clusterInts[i], slices.Index(committee, member))
+			}
+		}
+		return clusterInts
+	}(), "height", r.curEpochInfo.EpochBlock.Uint64())
 }
 
 // reset clusters, it is used to merge the cluster when we have a small scale of network.
@@ -463,6 +472,14 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 				recipients = append(recipients, *member)
 			}
 		}
+	} else {
+		log.Debug(
+			"Router: not the originator of the proposal, not sending to other clusters",
+			"from",
+			from,
+			"self",
+			s.self,
+		)
 	}
 
 	// if we are receiving the proposal from outside our own cluster, we should send it to our own cluster
@@ -472,6 +489,14 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 				recipients = append(recipients, *member)
 			}
 		}
+	} else {
+		log.Debug(
+			"Router: not receiving from outside cluster, not sending to own cluster",
+			"from",
+			from,
+			"self",
+			s.self,
+		)
 	}
 
 	// there could be some duplication if we are sending to ClusterRedundancyParameter members of each
