@@ -42,6 +42,7 @@ import (
 var (
 	MaxBlockFetch   = 128 // Number of blocks to be fetched per retrieval request
 	MaxHeaderFetch  = 192 // Number of block headers to be fetched per retrieval request
+	MaxSkeletonSize = 128 // Number of header fetches to need for a skeleton assembly
 	MaxReceiptFetch = 256 // Number of transaction receipts to allow fetching per request
 
 	maxQueuedHeaders           = 32 * 1024                        // [eth/62] Maximum number of headers to queue for import (DOS protection)
@@ -49,7 +50,8 @@ var (
 	maxResultsProcess          = 2048                             // Number of content download results to import at once into the chain
 	fullMaxForkAncestry uint64 = params.FullImmutabilityThreshold // Maximum chain reorganisation (locally redeclared so tests can reduce it)
 
-	reorgProtHeaderDelay = 2 // Number of headers to delay delivering to cover mini reorgs
+	reorgProtThreshold   = 48 // Threshold number of recent blocks to disable mini reorg protection
+	reorgProtHeaderDelay = 2  // Number of headers to delay delivering to cover mini reorgs
 
 	fsHeaderSafetyNet = 2048            // Number of headers to discard in case a chain violation is detected
 	fsHeaderContCheck = 3 * time.Second // Time interval to check for header continuations during state download
@@ -67,7 +69,9 @@ var (
 	errCancelStateFetch        = errors.New("state data download canceled (requested)")
 	errCancelContentProcessing = errors.New("content processing canceled (requested)")
 	errCanceled                = errors.New("syncing canceled (requested)")
+	errNoPeers                 = errors.New("no peers to keep download active")
 	errNoPivotHeader           = errors.New("pivot header is not found")
+	errNoAncestorFound         = errors.New("no common ancestor found")
 
 	errUnknownPeer      = errors.New("peer is unknown or unhealthy")
 	errStallingPeer     = errors.New("peer is stalling")
@@ -141,6 +145,7 @@ type Downloader struct {
 	stateSyncStart chan *stateSync
 
 	// Cancellation and termination
+	cancelPeer string         // Identifier of the peer currently being used as the master (cancel on drop)
 	cancelCh   chan struct{}  // Channel to cancel mid-flight syncs
 	cancelLock sync.RWMutex   // Lock to protect the cancel channel and peer in delivers
 	cancelWg   sync.WaitGroup // Make sure all fetcher goroutines have exited.
@@ -316,8 +321,8 @@ func (d *Downloader) UnregisterPeer(id string) error {
 
 // LegacySync tries to sync up our local block chain with a remote peer, both
 // adding various sanity checks as well as wrapping it with various log entries.
-func (d *Downloader) LegacySync(id string, head common.Hash, td, ttd *big.Int, mode ethconfig.SyncMode) error {
-	err := d.synchronise(id, head, td, ttd, mode, false, nil)
+func (d *Downloader) LegacySync(id string, head common.Hash, height *big.Int, mode ethconfig.SyncMode) error {
+	err := d.synchronise(id, head, height, mode)
 
 	switch err {
 	case nil, errBusy, errCanceled:
@@ -350,7 +355,7 @@ func (d *Downloader) LegacySync(id string, head common.Hash, td, ttd *big.Int, m
 // This method has been modified in Autonity from upstream (v1.13 - pre-merge geth) to
 // - remove td/ttd dependency : td = 0
 // - remove beaconPing
-func (d *Downloader) synchronise(id string, hash common.Hash, mode ethconfig.SyncMode) error {
+func (d *Downloader) synchronise(id string, hash common.Hash, height *big.Int, mode ethconfig.SyncMode) error {
 	// Make sure only one goroutine is ever allowed past this point at once
 	if !d.synchronising.CompareAndSwap(false, true) {
 		return errBusy
@@ -397,6 +402,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, mode ethconfig.Syn
 	}
 	// Create cancel channel for aborting mid-flight and mark the master peer
 	d.cancelLock.Lock()
+	d.cancelPeer = id
 	d.cancelCh = make(chan struct{})
 	d.cancelLock.Unlock()
 
@@ -410,7 +416,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, mode ethconfig.Syn
 		return errUnknownPeer
 	}
 
-	return d.syncWithPeer(p, hash, td, ttd)
+	return d.syncWithPeer(p, hash, height)
 }
 
 func (d *Downloader) getMode() SyncMode {
@@ -419,7 +425,7 @@ func (d *Downloader) getMode() SyncMode {
 
 // syncWithPeer starts a block synchronization based on the hash chain from the
 // specified peer and head hash.
-func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td, ttd *big.Int) (err error) {
+func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, target *big.Int) (err error) {
 	d.mux.Post(StartEvent{})
 	defer func() {
 		// reset on error
@@ -432,14 +438,14 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td, ttd *
 	}()
 	mode := d.getMode()
 
-	log.Debug("Synchronising with the network", "peer", p.id, "eth", p.version, "head", hash, "td", td, "mode", mode)
+	log.Debug("Synchronising with the network", "peer", p.id, "eth", p.version, "head", hash, "height", target, "mode", mode)
 
 	defer func(start time.Time) {
 		log.Debug("Synchronisation terminated", "elapsed", common.PrettyDuration(time.Since(start)))
 	}(time.Now())
 
 	// Look up the sync boundaries: the common ancestor and the target block
-	var latest, pivot, final *types.Header
+	var latest, pivot *types.Header
 
 	// In legacy mode, use the master peer to retrieve the headers from
 	latest, pivot, err = d.fetchHead(p)
@@ -518,7 +524,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td, ttd *
 		func() error { return d.fetchHeaders(p, origin+1, latest.Number.Uint64()) }, // Headers are always retrieved
 		func() error { return d.fetchBodies(origin + 1) },                           // Bodies are retrieved during normal and snap sync
 		func() error { return d.fetchReceipts(origin + 1) },                         // Receipts are retrieved during snap sync
-		func() error { return d.processHeaders(origin+1, td, ttd) },
+		func() error { return d.processHeaders(origin+1, target.Uint64()) },
 	}
 	if mode == SnapSync {
 		d.pivotLock.Lock()
@@ -527,161 +533,6 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td, ttd *
 
 		fetchers = append(fetchers, func() error { return d.processSnapSyncContent() })
 	} else if mode == FullSync {
-		fetchers = append(fetchers, func() error { return d.processFullSyncContent(ttd) })
-	}
-	return d.spawnSync(fetchers)
-}
-
-// syncToHead starts a block synchronization based on the hash chain from
-// the specified head hash.
-func (d *Downloader) syncToHead() (err error) {
-	d.mux.Post(StartEvent{})
-	defer func() {
-		// reset on error
-		if err != nil {
-			d.mux.Post(FailedEvent{err})
-		} else {
-			latest := d.blockchain.CurrentHeader()
-			d.mux.Post(DoneEvent{latest})
-		}
-	}()
-	mode := d.getMode()
-
-	log.Debug("Backfilling with the network", "mode", mode)
-	defer func(start time.Time) {
-		log.Debug("Synchronisation terminated", "elapsed", common.PrettyDuration(time.Since(start)))
-	}(time.Now())
-
-	// Look up the sync boundaries: the common ancestor and the target block
-	var latest, pivot, final *types.Header
-	latest, _, final, err = d.skeleton.Bounds()
-	if err != nil {
-		return err
-	}
-	if latest.Number.Uint64() > uint64(fsMinFullBlocks) {
-		number := latest.Number.Uint64() - uint64(fsMinFullBlocks)
-
-		// Retrieve the pivot header from the skeleton chain segment but
-		// fallback to local chain if it's not found in skeleton space.
-		if pivot = d.skeleton.Header(number); pivot == nil {
-			_, oldest, _, _ := d.skeleton.Bounds() // error is already checked
-			if number < oldest.Number.Uint64() {
-				count := int(oldest.Number.Uint64() - number) // it's capped by fsMinFullBlocks
-				headers := d.readHeaderRange(oldest, count)
-				if len(headers) == count {
-					pivot = headers[len(headers)-1]
-					log.Warn("Retrieved pivot header from local", "number", pivot.Number, "hash", pivot.Hash(), "latest", latest.Number, "oldest", oldest.Number)
-				}
-			}
-		}
-		// Print an error log and return directly in case the pivot header
-		// is still not found. It means the skeleton chain is not linked
-		// correctly with local chain.
-		if pivot == nil {
-			log.Error("Pivot header is not found", "number", number)
-			return errNoPivotHeader
-		}
-	}
-	// If no pivot block was returned, the head is below the min full block
-	// threshold (i.e. new chain). In that case we won't really snap sync
-	// anyway, but still need a valid pivot block to avoid some code hitting
-	// nil panics on access.
-	if mode == ethconfig.SnapSync && pivot == nil {
-		pivot = d.blockchain.CurrentBlock()
-	}
-	height := latest.Number.Uint64()
-
-	// In beacon mode, use the skeleton chain for the ancestor lookup
-	origin, err := d.findBeaconAncestor()
-	if err != nil {
-		return err
-	}
-	d.syncStatsLock.Lock()
-	if d.syncStatsChainHeight <= origin || d.syncStatsChainOrigin > origin {
-		d.syncStatsChainOrigin = origin
-	}
-	d.syncStatsChainHeight = height
-	d.syncStatsLock.Unlock()
-
-	// Ensure our origin point is below any snap sync pivot point
-	if mode == ethconfig.SnapSync {
-		if height <= uint64(fsMinFullBlocks) {
-			origin = 0
-		} else {
-			pivotNumber := pivot.Number.Uint64()
-			if pivotNumber <= origin {
-				origin = pivotNumber - 1
-			}
-			// Write out the pivot into the database so a rollback beyond it will
-			// reenable snap sync
-			rawdb.WriteLastPivotNumber(d.stateDB, pivotNumber)
-		}
-	}
-	d.committed.Store(true)
-	if mode == ethconfig.SnapSync && pivot.Number.Uint64() != 0 {
-		d.committed.Store(false)
-	}
-	if mode == ethconfig.SnapSync {
-		// Set the ancient data limitation. If we are running snap sync, all block
-		// data older than ancientLimit will be written to the ancient store. More
-		// recent data will be written to the active database and will wait for the
-		// freezer to migrate.
-		//
-		// If the network is post-merge, use either the last announced finalized
-		// block as the ancient limit, or if we haven't yet received one, the head-
-		// a max fork ancestry limit. One quirky case if we've already passed the
-		// finalized block, in which case the skeleton.Bounds will return nil and
-		// we'll revert to head - 90K. That's fine, we're finishing sync anyway.
-		//
-		// For non-merged networks, if there is a checkpoint available, then calculate
-		// the ancientLimit through that. Otherwise calculate the ancient limit through
-		// the advertised height of the remote peer. This most is mostly a fallback for
-		// legacy networks, but should eventually be dropped. TODO(karalabe).
-		//
-		// Beacon sync, use the latest finalized block as the ancient limit
-		// or a reasonable height if no finalized block is yet announced.
-		if final != nil {
-			d.ancientLimit = final.Number.Uint64()
-		} else if height > fullMaxForkAncestry+1 {
-			d.ancientLimit = height - fullMaxForkAncestry - 1
-		} else {
-			d.ancientLimit = 0
-		}
-		frozen, _ := d.stateDB.Ancients() // Ignore the error here since light client can also hit here.
-
-		// If a part of blockchain data has already been written into active store,
-		// disable the ancient style insertion explicitly.
-		if origin >= frozen && frozen != 0 {
-			d.ancientLimit = 0
-			log.Info("Disabling direct-ancient mode", "origin", origin, "ancient", frozen-1)
-		} else if d.ancientLimit > 0 {
-			log.Debug("Enabling direct-ancient mode", "ancient", d.ancientLimit)
-		}
-		// Rewind the ancient store and blockchain if reorg happens.
-		if origin+1 < frozen {
-			if err := d.blockchain.SetHead(origin); err != nil {
-				return err
-			}
-			log.Info("Truncated excess ancient chain segment", "oldhead", frozen-1, "newhead", origin)
-		}
-	}
-	// Initiate the sync using a concurrent header and content retrieval algorithm
-	d.queue.Prepare(origin+1, mode)
-
-	// In beacon mode, headers are served by the skeleton syncer
-	fetchers := []func() error{
-		func() error { return d.fetchHeaders(origin + 1) },  // Headers are always retrieved
-		func() error { return d.fetchBodies(origin + 1) },   // Bodies are retrieved during normal and snap sync
-		func() error { return d.fetchReceipts(origin + 1) }, // Receipts are retrieved during snap sync
-		func() error { return d.processHeaders(origin + 1) },
-	}
-	if mode == ethconfig.SnapSync {
-		d.pivotLock.Lock()
-		d.pivotHeader = pivot
-		d.pivotLock.Unlock()
-
-		fetchers = append(fetchers, func() error { return d.processSnapSyncContent() })
-	} else if mode == ethconfig.FullSync {
 		fetchers = append(fetchers, func() error { return d.processFullSyncContent() })
 	}
 	return d.spawnSync(fetchers)
@@ -750,9 +601,6 @@ func (d *Downloader) Terminate() {
 	case <-d.quitCh:
 	default:
 		close(d.quitCh)
-
-		// Terminate the internal beacon syncer
-		d.skeleton.Terminate()
 	}
 	d.quitLock.Unlock()
 
@@ -809,7 +657,7 @@ func (d *Downloader) fetchReceipts(from uint64) error {
 // processHeaders takes batches of retrieved headers from an input channel and
 // keeps processing and scheduling them into the header chain and downloader's
 // queue until the stream ends or a failure occurs.
-func (d *Downloader) processHeaders(origin uint64) error {
+func (d *Downloader) processHeaders(origin uint64, height uint64) error {
 	var (
 		mode  = d.getMode()
 		timer = time.NewTimer(time.Second)
@@ -942,16 +790,6 @@ func (d *Downloader) importBlockResults(results []*fetchResult) error {
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		if index < len(results) {
 			log.Debug("Downloaded item processing failed", "number", results[index].Header.Number, "hash", results[index].Header.Hash(), "err", err)
-
-			// In post-merge, notify the engine API of encountered bad chains
-			if d.badBlock != nil {
-				head, _, _, err := d.skeleton.Bounds()
-				if err != nil {
-					log.Error("Failed to retrieve beacon bounds for bad block reporting", "err", err)
-				} else {
-					d.badBlock(blocks[index].Header(), head)
-				}
-			}
 		} else {
 			// The InsertChain method in blockchain.go will sometimes return an out-of-bounds index,
 			// when it needs to preprocess blocks to import a sidechain.
@@ -1258,11 +1096,9 @@ func (d *Downloader) reportSnapSyncProgress(force bool) {
 		return
 	}
 	// Retrieve the current chain head and calculate the ETA
-	latest, _, _, err := d.skeleton.Bounds()
-	if err != nil {
-		// We're going to cheat for non-merged networks, but that's fine
-		latest = d.pivotHeader
-	}
+
+	latest := d.pivotHeader
+
 	if latest == nil {
 		// This should really never happen, but add some defensive code for now.
 		// TODO(karalabe): Remove it eventually if we don't see it blow.
@@ -1322,6 +1158,225 @@ func (d *Downloader) fetchHead(p *peerConnection) (head *types.Header, pivot *ty
 	return head, pivot, nil
 }
 
+// findAncestor tries to locate the common ancestor link of the local chain and
+// a remote peers blockchain. In the general case when our node was in sync and
+// on the correct chain, checking the top N links should already get us a match.
+// In the rare scenario when we ended up on a long reorganisation (i.e. none of
+// the head links match), we do a binary search to find the common ancestor.
+func (d *Downloader) findAncestor(p *peerConnection, remoteHeader *types.Header) (uint64, error) {
+	// Figure out the valid ancestor range to prevent rewrite attacks
+	var (
+		floor        = int64(-1)
+		localHeight  uint64
+		remoteHeight = remoteHeader.Number.Uint64()
+	)
+	mode := d.getMode()
+	switch mode {
+	case FullSync:
+		localHeight = d.blockchain.CurrentBlock().Number.Uint64()
+	case SnapSync:
+		localHeight = d.blockchain.CurrentSnapBlock().Number.Uint64()
+	default:
+		localHeight = d.blockchain.CurrentHeader().Number.Uint64()
+	}
+	p.log.Debug("Looking for common ancestor", "local", localHeight, "remote", remoteHeight)
+
+	// Recap floor value for binary search
+	maxForkAncestry := fullMaxForkAncestry
+	if localHeight >= maxForkAncestry {
+		// We're above the max reorg threshold, find the earliest fork point
+		floor = int64(localHeight - maxForkAncestry)
+	}
+
+	ancestor, err := d.findAncestorSpanSearch(p, mode, remoteHeight, localHeight, floor)
+	if err == nil {
+		return ancestor, nil
+	}
+	// The returned error was not nil.
+	// If the error returned does not reflect that a common ancestor was not found, return it.
+	// If the error reflects that a common ancestor was not found, continue to binary search,
+	// where the error value will be reassigned.
+	if !errors.Is(err, errNoAncestorFound) {
+		return 0, err
+	}
+
+	ancestor, err = d.findAncestorBinarySearch(p, mode, remoteHeight, floor)
+	if err != nil {
+		return 0, err
+	}
+	return ancestor, nil
+}
+
+func (d *Downloader) findAncestorSpanSearch(p *peerConnection, mode SyncMode, remoteHeight, localHeight uint64, floor int64) (uint64, error) {
+	from, count, skip, max := calculateRequestSpan(remoteHeight, localHeight)
+
+	p.log.Trace("Span searching for common ancestor", "count", count, "from", from, "skip", skip)
+	headers, hashes, err := d.fetchHeadersByNumber(p, uint64(from), count, skip, false)
+	if err != nil {
+		return 0, err
+	}
+	// Wait for the remote response to the head fetch
+	number, hash := uint64(0), common.Hash{}
+
+	// Make sure the peer actually gave something valid
+	if len(headers) == 0 {
+		p.log.Warn("Empty head header set")
+		return 0, errEmptyHeaderSet
+	}
+	// Make sure the peer's reply conforms to the request
+	for i, header := range headers {
+		expectNumber := from + int64(i)*int64(skip+1)
+		if number := header.Number.Int64(); number != expectNumber {
+			p.log.Warn("Head headers broke chain ordering", "index", i, "requested", expectNumber, "received", number)
+			return 0, fmt.Errorf("%w: %v", errInvalidChain, errors.New("head headers broke chain ordering"))
+		}
+	}
+	// Check if a common ancestor was found
+	for i := len(headers) - 1; i >= 0; i-- {
+		// Skip any headers that underflow/overflow our requested set
+		if headers[i].Number.Int64() < from || headers[i].Number.Uint64() > max {
+			continue
+		}
+		// Otherwise check if we already know the header or not
+		h := hashes[i]
+		n := headers[i].Number.Uint64()
+
+		var known bool
+		switch mode {
+		case FullSync:
+			known = d.blockchain.HasBlock(h, n)
+		case SnapSync:
+			known = d.blockchain.HasFastBlock(h, n)
+		default:
+			known = d.blockchain.HasHeader(h, n)
+		}
+		if known {
+			number, hash = n, h
+			break
+		}
+	}
+	// If the head fetch already found an ancestor, return
+	if hash != (common.Hash{}) {
+		if int64(number) <= floor {
+			p.log.Warn("Ancestor below allowance", "number", number, "hash", hash, "allowance", floor)
+			return 0, errInvalidAncestor
+		}
+		p.log.Debug("Found common ancestor", "number", number, "hash", hash)
+		return number, nil
+	}
+	return 0, errNoAncestorFound
+}
+
+// calculateRequestSpan calculates what headers to request from a peer when trying to determine the
+// common ancestor.
+// It returns parameters to be used for peer.RequestHeadersByNumber:
+//
+//	from  - starting block number
+//	count - number of headers to request
+//	skip  - number of headers to skip
+//
+// and also returns 'max', the last block which is expected to be returned by the remote peers,
+// given the (from,count,skip)
+func calculateRequestSpan(remoteHeight, localHeight uint64) (int64, int, int, uint64) {
+	var (
+		from     int
+		count    int
+		MaxCount = MaxHeaderFetch / 16
+	)
+	// requestHead is the highest block that we will ask for. If requestHead is not offset,
+	// the highest block that we will get is 16 blocks back from head, which means we
+	// will fetch 14 or 15 blocks unnecessarily in the case the height difference
+	// between us and the peer is 1-2 blocks, which is most common
+	requestHead := int(remoteHeight) - 1
+	if requestHead < 0 {
+		requestHead = 0
+	}
+	// requestBottom is the lowest block we want included in the query
+	// Ideally, we want to include the one just below our own head
+	requestBottom := int(localHeight - 1)
+	if requestBottom < 0 {
+		requestBottom = 0
+	}
+	totalSpan := requestHead - requestBottom
+	span := 1 + totalSpan/MaxCount
+	if span < 2 {
+		span = 2
+	}
+	if span > 16 {
+		span = 16
+	}
+
+	count = 1 + totalSpan/span
+	if count > MaxCount {
+		count = MaxCount
+	}
+	if count < 2 {
+		count = 2
+	}
+	from = requestHead - (count-1)*span
+	if from < 0 {
+		from = 0
+	}
+	max := from + (count-1)*span
+	return int64(from), count, span - 1, uint64(max)
+}
+func (d *Downloader) findAncestorBinarySearch(p *peerConnection, mode SyncMode, remoteHeight uint64, floor int64) (uint64, error) {
+	hash := common.Hash{}
+
+	// Ancestor not found, we need to binary search over our chain
+	start, end := uint64(0), remoteHeight
+	if floor > 0 {
+		start = uint64(floor)
+	}
+	p.log.Trace("Binary searching for common ancestor", "start", start, "end", end)
+
+	for start+1 < end {
+		// Split our chain interval in two, and request the hash to cross check
+		check := (start + end) / 2
+
+		headers, hashes, err := d.fetchHeadersByNumber(p, check, 1, 0, false)
+		if err != nil {
+			return 0, err
+		}
+		// Make sure the peer actually gave something valid
+		if len(headers) != 1 {
+			p.log.Warn("Multiple headers for single request", "headers", len(headers))
+			return 0, fmt.Errorf("%w: multiple headers (%d) for single request", errBadPeer, len(headers))
+		}
+		// Modify the search interval based on the response
+		h := hashes[0]
+		n := headers[0].Number.Uint64()
+
+		var known bool
+		switch mode {
+		case FullSync:
+			known = d.blockchain.HasBlock(h, n)
+		case SnapSync:
+			known = d.blockchain.HasFastBlock(h, n)
+		default:
+			known = d.blockchain.HasHeader(h, n)
+		}
+		if !known {
+			end = check
+			continue
+		}
+		header := d.blockchain.GetHeaderByHash(h) // Independent of sync mode, header surely exists
+		if header.Number.Uint64() != check {
+			p.log.Warn("Received non requested header", "number", header.Number, "hash", header.Hash(), "request", check)
+			return 0, fmt.Errorf("%w: non-requested header (%d)", errBadPeer, header.Number)
+		}
+		start = check
+		hash = h
+	}
+	// Ensure valid ancestry and return
+	if int64(start) <= floor {
+		p.log.Warn("Ancestor below allowance", "number", start, "hash", hash, "allowance", floor)
+		return 0, errInvalidAncestor
+	}
+	p.log.Debug("Found common ancestor", "number", start, "hash", hash)
+	return start, nil
+}
+
 // fetchHeaders keeps retrieving headers concurrently from the number
 // requested, until no more are returned, potentially throttling on the way. To
 // facilitate concurrency but still protect against malicious nodes sending bad
@@ -1339,7 +1394,7 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, head uint64) e
 		skeleton = true  // Skeleton assembly phase or finishing up
 		pivoting = false // Whether the next request is pivot verification
 		ancestor = from
-		mode     = d.getMode()
+		//mode     = d.getMode()
 	)
 	for {
 		// Pull the next batch of headers, it either:
@@ -1486,14 +1541,12 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, head uint64) e
 			if n := len(headers); n > 0 {
 				// Retrieve the current head we're at
 				var head uint64
-				if mode == LightSync {
-					head = d.lightchain.CurrentHeader().Number.Uint64()
-				} else {
-					head = d.blockchain.CurrentSnapBlock().Number.Uint64()
-					if full := d.blockchain.CurrentBlock().Number.Uint64(); head < full {
-						head = full
-					}
+
+				head = d.blockchain.CurrentSnapBlock().Number.Uint64()
+				if full := d.blockchain.CurrentBlock().Number.Uint64(); head < full {
+					head = full
 				}
+
 				// If the head is below the common ancestor, we're actually deduplicating
 				// already existing chain segments, so use the ancestor as the fake head.
 				// Otherwise, we might end up delaying header deliveries pointlessly.

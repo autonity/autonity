@@ -233,11 +233,11 @@ func (ps *peerSet) peerWithHighestHeight() *eth.Peer {
 
 	var (
 		bestPeer *eth.Peer
-		bestTd   *big.Int
+		bestH    *big.Int
 	)
 	for _, p := range ps.peers {
-		if _, td := p.Head(); bestPeer == nil || td.Cmp(bestTd) > 0 {
-			bestPeer, bestTd = p.Peer, td
+		if _, h := p.Head(); bestPeer == nil || h.Cmp(bestH) > 0 {
+			bestPeer, bestH = p.Peer, h
 		}
 	}
 	return bestPeer

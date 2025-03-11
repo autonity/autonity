@@ -25,6 +25,7 @@ import (
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/txpool"
 	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/log"
 )
@@ -61,10 +62,10 @@ type chainSyncer struct {
 
 // chainSyncOp is a scheduled sync operation.
 type chainSyncOp struct {
-	mode downloader.SyncMode
-	peer *eth.Peer
-	td   *big.Int
-	head common.Hash
+	mode   downloader.SyncMode
+	peer   *eth.Peer
+	height *big.Int
+	head   common.Hash
 }
 
 // newChainSyncer creates a chainSyncer.
@@ -154,16 +155,16 @@ func (cs *chainSyncer) nextSyncOp() *chainSyncOp {
 	if cs.handler.peers.len() < minPeers {
 		return nil
 	}
-	// We have enough peers, pick the one with the highest TD, but avoid going
+	// We have enough peers, pick the one with the highest height, but avoid going
 	// over the terminal total difficulty. Above that we expect the consensus
 	// clients to direct the chain head to sync to.
 	peer := cs.handler.peers.peerWithHighestHeight()
 	if peer == nil {
 		return nil
 	}
-	mode, ourTD := cs.modeAndLocalHead()
+	mode, ourHeight := cs.modeAndLocalHead()
 	op := peerToSyncOp(mode, peer)
-	if op.td.Cmp(ourTD) <= 0 {
+	if op.height.Cmp(ourHeight) <= 0 {
 		// we are synced with our current peerset
 		// notify miner about it if not yet done (so consensus can be started if needed)
 		cs.postSyncedEvent()
@@ -173,16 +174,15 @@ func (cs *chainSyncer) nextSyncOp() *chainSyncOp {
 }
 
 func peerToSyncOp(mode downloader.SyncMode, p *eth.Peer) *chainSyncOp {
-	peerHead, peerTD := p.Head()
-	return &chainSyncOp{mode: mode, peer: p, td: peerTD, head: peerHead}
+	peerHead, peerHeight := p.Head()
+	return &chainSyncOp{mode: mode, peer: p, height: peerHeight, head: peerHead}
 }
 
-func (cs *chainSyncer) modeAndLocalHead() (downloader.SyncMode, *big.Int) {
+func (cs *chainSyncer) modeAndLocalHead() (ethconfig.SyncMode, *big.Int) {
 	// If we're in snap sync mode, return that directly
 	if cs.handler.snapSync.Load() {
 		block := cs.handler.chain.CurrentSnapBlock()
-		td := cs.handler.chain.GetTd(block.Hash(), block.Number.Uint64())
-		return downloader.SnapSync, td
+		return ethconfig.SnapSync, block.Number
 	}
 	// We are probably in full sync, but we might have rewound to before the
 	// snap sync pivot, check if we should re-enable snap sync.
@@ -190,8 +190,7 @@ func (cs *chainSyncer) modeAndLocalHead() (downloader.SyncMode, *big.Int) {
 	if pivot := rawdb.ReadLastPivotNumber(cs.handler.database); pivot != nil {
 		if head.Number.Uint64() < *pivot {
 			block := cs.handler.chain.CurrentSnapBlock()
-			td := cs.handler.chain.GetTd(block.Hash(), block.Number.Uint64())
-			return downloader.SnapSync, td
+			return downloader.SnapSync, block.Number
 		}
 	}
 	// We are in a full sync, but the associated head state is missing. To complete
@@ -199,13 +198,11 @@ func (cs *chainSyncer) modeAndLocalHead() (downloader.SyncMode, *big.Int) {
 	// persistent state is corrupted, just mismatch with the head block.
 	if !cs.handler.chain.HasState(head.Root) {
 		block := cs.handler.chain.CurrentSnapBlock()
-		td := cs.handler.chain.GetTd(block.Hash(), block.Number.Uint64())
 		log.Info("Reenabled snap sync as chain is stateless")
-		return downloader.SnapSync, td
+		return downloader.SnapSync, block.Number
 	}
 	// Nope, we're really full syncing
-	td := cs.handler.chain.GetTd(head.Hash(), head.Number.Uint64())
-	return downloader.FullSync, td
+	return downloader.FullSync, head.Number
 }
 
 // startSync launches doSync in a new goroutine.
@@ -217,7 +214,7 @@ func (cs *chainSyncer) startSync(op *chainSyncOp) {
 // doSync synchronizes the local blockchain with a remote peer.
 func (h *handler) doSync(op *chainSyncOp) error {
 	// Run the sync cycle, and disable snap sync if we're past the pivot block
-	err := h.downloader.LegacySync(op.peer.ID(), op.head, op.td, h.chain.Config().TerminalTotalDifficulty, op.mode)
+	err := h.downloader.LegacySync(op.peer.ID(), op.head, op.height, op.mode)
 	if err != nil {
 		return err
 	}

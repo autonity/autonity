@@ -113,13 +113,22 @@ func (p *Peer) Version() uint {
 	return p.version
 }
 
+// SetHead updates the head hash and total difficulty of the peer.
+func (p *Peer) SetHead(hash common.Hash, height *big.Int) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	copy(p.head[:], hash[:])
+	p.height.Set(height)
+}
+
 // Head retrieves the current head hash and latest block height of the peer.
 func (p *Peer) Head() (hash common.Hash, height *big.Int) {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
 	copy(hash[:], p.head[:])
-	return hash, new(big.Int).Set(p.td)
+	return hash, new(big.Int).Set(p.height)
 }
 
 // KnownTransaction returns whether peer is known to already have a transaction.
