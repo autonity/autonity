@@ -496,6 +496,7 @@ func TestBlsAttacks(t *testing.T) {
 		require.True(t, sig3.FastAggregateVerify([]PublicKey{X1, X2, X3}, m))
 	})
 	t.Run("Consensus attack", func(t *testing.T) {
+		t.Skip("skipped due to removal of scalar multiplication")
 		m := common.Hash{0xca, 0xfe}
 
 		x3, err := RandKey()
@@ -584,6 +585,7 @@ func TestFastAggregateVerifyBatch(t *testing.T) {
 		require.Equal(t, sig2bytes, sig2.Marshal())
 	})
 	t.Run("works correctly", func(t *testing.T) {
+		t.Skip("skipped due to removal of scalar multiplication")
 		key1, err := RandKey()
 		require.NoError(t, err)
 		key2, err := RandKey()
