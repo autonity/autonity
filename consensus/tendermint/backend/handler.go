@@ -92,11 +92,11 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 
 	switch msg.Code {
 	case ProposeNetworkMsg:
-		return handleConsensusMsg[message.Propose](sb, sender, msg, errCh)
+		return handleConsensusMsg[message.Propose](sb, sender, msg, errCh, "propose")
 	case PrevoteNetworkMsg:
-		return handleConsensusMsg[message.Prevote](sb, sender, msg, errCh)
+		return handleConsensusMsg[message.Prevote](sb, sender, msg, errCh, "prevote")
 	case PrecommitNetworkMsg:
-		return handleConsensusMsg[message.Precommit](sb, sender, msg, errCh)
+		return handleConsensusMsg[message.Precommit](sb, sender, msg, errCh, "precommit")
 	case SyncNetworkMsg:
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Sync message received but core not running")
@@ -132,7 +132,7 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 func handleConsensusMsg[T any, PT interface {
 	*T
 	message.Msg
-}](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
+}](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error, t string) (bool, error) {
 	// we type cast it to byte.Reader because that's the only reader
 	// type we expect here
 	bReader := p2pMsg.Payload.(*bytes.Reader)
@@ -141,14 +141,20 @@ func handleConsensusMsg[T any, PT interface {
 		log.Error("Failed to hash payload", "error", err)
 		return true, err
 	}
+
+	// print additional debug information
+	sb.logger.Debug("Received consensus message", "p2pFrom", sender, "hash", hash, "type", t)
+
 	TotalMessageReceivedBg.Mark(1)
 	if sb.knownMessages.Contains(hash) {
+		sb.logger.Debug("discarded message because already processed", "hash", hash, "type", t)
 		return true, nil
 	}
 	MessageProcessedBg.Mark(1)
 	bReader.Seek(0, io.SeekStart)
 	p2pMsg.Payload = bReader
 	if !sb.coreRunning.Load() {
+		sb.logger.Debug("buffering because core not running", "hash", hash, "type", t)
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}
@@ -162,7 +168,7 @@ func handleConsensusMsg[T any, PT interface {
 	// Mark peer's message as known.
 	peer, ok := sb.Broadcaster.FindPeer(sender)
 	if !ok {
-		sb.logger.Error("message received from unknown peer", "sender", sender)
+		sb.logger.Error("message received from unknown peer", "sender", sender, "hash", hash, "type", t)
 		return false, nil
 	}
 	if !peer.Cache().Contains(hash) {
@@ -172,7 +178,7 @@ func handleConsensusMsg[T any, PT interface {
 	sb.knownMessages.Add(hash, true)
 	msg := PT(new(T))
 	if err := p2pMsg.Decode(msg); err != nil {
-		sb.logger.Error("Error decoding consensus message", "err", err)
+		sb.logger.Error("Error decoding consensus message", "err", err, "hash", hash, "type", t)
 		return true, err
 	}
 	// if the message is for a future height wrt to consensus engine, buffer it
@@ -181,7 +187,7 @@ func handleConsensusMsg[T any, PT interface {
 	// but remain stuck into the future message buffer forever
 	currentHeight := sb.core.Height().Uint64()
 	if msg.H() > currentHeight {
-		sb.logger.Debug("Saving future height consensus message for later", "msgHeight", msg.H(), "coreHeight", currentHeight)
+		sb.logger.Debug("Saving future height consensus message for later", "msgHeight", msg.H(), "coreHeight", currentHeight, "hash", hash, "type", t)
 		err := sb.saveFutureMsg(msg, errCh, sender)
 		// if we receive `ErrNotFuture`, keep processing the message as it is now a current height message
 		if err == nil || !errors.Is(err, ErrNotFuture) {
@@ -190,6 +196,7 @@ func handleConsensusMsg[T any, PT interface {
 	}
 	// if the height is so old that it is not useful even for accountability, discard it right away. No need to waste resources on this.
 	if sb.isHeightExpired(currentHeight, msg.H()) {
+		sb.logger.Debug("Discarding message because expired", "msgHeight", msg.H(), "coreHeight", currentHeight, "hash", hash, "type", t)
 		return true, nil
 	}
 	return sb.handleDecodedMsg(msg, errCh, sender)
@@ -211,12 +218,12 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 	switch m := msg.(type) {
 	case *message.Propose:
 		if sb.IsJailed(m.Signer()) {
-			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer())
+			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer(), "hash", m.Hash())
 			return true, ErrJailed
 		}
-		sb.logger.Debug("Proposal arrived in backend", "proposer", m.Signer(), "hash", m.Hash(), "value", m.Value())
-	case *message.Prevote, *message.Precommit:
-		vote := m.(message.Vote)
+		sb.logger.Debug("Proposal successfully decoded in backend", "proposer", m.Signer(), "hash", m.Hash(), "value", m.Value())
+	case *message.Prevote:
+		vote := m
 		allJailed := true
 		for _, signerIndex := range vote.Signers().FlattenUniq() {
 			signer := committee.Members[signerIndex].Address
@@ -227,9 +234,26 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		}
 		// unless all signers are jailed, we still process aggregates
 		if allJailed {
-			sb.logger.Debug("Vote message contains only signatures from jailed validators, ignoring message", "signers", vote.Signers().String())
+			sb.logger.Debug("Vote message contains only signatures from jailed validators, ignoring message", "signers", vote.Signers().String(), "hash", vote.Hash())
 			return true, ErrJailed
 		}
+		sb.logger.Debug("Prevote successfully decoded in backend", "hash", m.Hash(), "signers", vote.Signers().String(), "value", m.Value())
+	case *message.Precommit:
+		vote := m
+		allJailed := true
+		for _, signerIndex := range vote.Signers().FlattenUniq() {
+			signer := committee.Members[signerIndex].Address
+			if !sb.IsJailed(signer) {
+				allJailed = false
+				break
+			}
+		}
+		// unless all signers are jailed, we still process aggregates
+		if allJailed {
+			sb.logger.Debug("Vote message contains only signatures from jailed validators, ignoring message", "signers", vote.Signers().String(), "hash", vote.Hash())
+			return true, ErrJailed
+		}
+		sb.logger.Debug("Precommit successfully decoded in backend", "hash", m.Hash(), "signers", vote.Signers().String(), "value", m.Value())
 	default:
 		sb.logger.Crit("Tendermint backend processing unknown message")
 	}
