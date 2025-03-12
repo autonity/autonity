@@ -59,7 +59,7 @@ func (ser Network) String() string {
 }
 
 const (
-	defaultDialTimeout = 15 * time.Second
+	defaultDialTimeout = 20 * time.Second
 
 	// This is the fairness knob for the discovery mixer. When looking for peers, we'll
 	// wait this long for a single source of candidates before moving on and trying other
@@ -502,7 +502,9 @@ func (srv *Server) isConsensusEndpointReachable(id enode.ID) bool {
 	}
 
 	srv.log.Info("verifying connectivity towards consensus endpoint", "ip", ip, "port", port)
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), defaultDialTimeout)
+
+	timeout := 5 * time.Second
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), timeout)
 	if err != nil {
 		srv.log.Warn("unable to reach peer consensus endpoint", "error", err, "ip", ip, "port", port)
 		return false
