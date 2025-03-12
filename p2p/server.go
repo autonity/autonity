@@ -989,31 +989,39 @@ func (srv *Server) enforcePeersLimit(peers map[enode.ID]*Peer) {
 	}
 }
 
-func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
+func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) (err error) {
 	srv.suspendedForBlocks.expire(srv.currentBlock.Load(), nil)
 	srv.suspendedForTimespan.expire(srv.clock.Now(), nil)
+
+	defer func() {
+		if err != nil {
+			srv.log.Error("post handshake check failed", "error", err.Error())
+		}
+	}()
+
 	switch {
 	case !c.is(trustedConn) && len(peers) >= srv.MaxPeers:
-		return DiscTooManyPeers
+		err = DiscTooManyPeers
 	case !c.is(trustedConn) && c.is(inboundConn) && inboundCount >= srv.maxInboundConns():
-		return DiscTooManyPeers
+		err = DiscTooManyPeers
 	case peers[c.node.ID()] != nil:
-		return DiscAlreadyConnected
+		err = DiscAlreadyConnected
 	case c.node.ID() == srv.localnode.ID():
-		return DiscSelf
+		err = DiscSelf
 	case srv.suspendedForBlocks.contains(c.node.ID().String()):
-		return DiscSuspended
+		err = DiscSuspended
 	case srv.suspendedForTimespan.contains(c.node.ID().String()):
-		return DiscSuspended
+		err = DiscSuspended
 	case srv.Net == Consensus && !srv.inCommittee(c.node.ID()):
-		return DiscPeerNotInCommittee
+		err = DiscPeerNotInCommittee
 	case srv.Net == Execution && srv.inCommittee(c.node.ID()) && !srv.inCommitteeSubset(c.node.ID()):
-		return DiscPeerOutsideTopology
-	case srv.Net == Consensus && !srv.isConsensusEndpointReachable(c.node.ID()):
-		return DiscACNPeerNotReachable
+		err = DiscPeerOutsideTopology
+	//case srv.Net == Consensus && !srv.isConsensusEndpointReachable(c.node.ID()):
+	//	return DiscACNPeerNotReachable
 	default:
-		return nil
+		err = nil
 	}
+	return err
 }
 
 func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
@@ -1052,6 +1060,10 @@ func (srv *Server) listenLoop() {
 
 	for {
 		// Wait for a free slot before accepting.
+		if len(slots) < 10 {
+			srv.log.Debug("low connection slots availability", "current slots", len(slots))
+
+		}
 		<-slots
 
 		var (

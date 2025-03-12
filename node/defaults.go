@@ -59,7 +59,7 @@ var DefaultConfig = Config{
 	ConsensusP2P: p2p.Config{
 		ListenAddr:      DefaultATCPort,
 		MaxPeers:        math.MaxInt,
-		MaxPendingPeers: 500,
+		MaxPendingPeers: 1000,
 		NAT:             nat.Any(),
 	},
 }
