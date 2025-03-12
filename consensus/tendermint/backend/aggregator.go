@@ -141,9 +141,8 @@ type aggregator struct {
 	backend interfaces.Backend
 	core    interfaces.Core
 
-	staleMessages     map[common.Hash][]events.UnverifiedMessageEvent
-	staleMessagesLock sync.RWMutex
-	messages          map[uint64]map[int64]*RoundInfo
+	staleMessages map[common.Hash][]events.UnverifiedMessageEvent
+	messages      map[uint64]map[int64]*RoundInfo
 
 	messagesFrom map[common.Address][]common.Hash
 	toIgnore     map[common.Hash]struct{}
@@ -674,9 +673,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	if msg.H() < coreHeight {
 		a.logger.Debug("Storing old height message in the aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
 		signatureInput := msg.SignatureInput()
-		a.staleMessagesLock.Lock()
 		a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], event)
-		a.staleMessagesLock.Unlock()
 		return
 	}
 	if msg.H() > coreHeight {
@@ -868,9 +865,7 @@ loop:
 						//proposals
 						for _, proposal := range roundInfo.proposals {
 							signatureInput := proposal.Message.SignatureInput()
-							a.staleMessagesLock.Lock()
 							a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], proposal)
-							a.staleMessagesLock.Unlock()
 						}
 						// prevotes
 						for _, sameValueVotes := range roundInfo.prevotes {
@@ -878,9 +873,7 @@ loop:
 								continue
 							}
 							signatureInput := sameValueVotes[0].Message.SignatureInput() // all votes have same (h,r,c,v)
-							a.staleMessagesLock.Lock()
 							a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], sameValueVotes...)
-							a.staleMessagesLock.Unlock()
 						}
 						// precommits
 						for _, sameValueVotes := range roundInfo.precommits {
@@ -888,9 +881,7 @@ loop:
 								continue
 							}
 							signatureInput := sameValueVotes[0].Message.SignatureInput() // all votes have same (h,r,c,v)
-							a.staleMessagesLock.Lock()
 							a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], sameValueVotes...)
-							a.staleMessagesLock.Unlock()
 						}
 						delete(a.messages[h], r)
 						continue
@@ -910,7 +901,6 @@ loop:
 		case <-oldMessagesTicker.C:
 			a.logger.Trace("Processing stale messages in the aggregator")
 			var batches [][]events.UnverifiedMessageEvent
-			a.staleMessagesLock.Lock()
 			for _, batch := range a.staleMessages {
 				// if batch of proposals, validate them individually
 				if batch[0].Message.Code() == message.ProposalCode {
@@ -924,9 +914,8 @@ loop:
 				}
 				batches = append(batches, batch)
 			}
-			a.staleMessages = make(map[common.Hash][]events.UnverifiedMessageEvent)
-			a.staleMessagesLock.Unlock()
 			go a.processBatches(batches, oldHeightEventBuilder)
+			a.staleMessages = make(map[common.Hash][]events.UnverifiedMessageEvent)
 
 		case <-ctx.Done():
 			break loop
