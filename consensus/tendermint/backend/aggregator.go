@@ -303,11 +303,14 @@ func (a *aggregator) processRound(h uint64, r int64) {
 
 	roundInfo := a.messages[h][r]
 
+	n := 0
+
 	for _, proposalEvent := range roundInfo.proposals {
 		if a.toSkip(proposalEvent.Message) {
 			continue
 		}
 		a.processProposal(proposalEvent, currentHeightEventBuilder)
+		n++
 	}
 
 	nBatches := len(roundInfo.prevotes) + len(roundInfo.precommits)
@@ -318,13 +321,17 @@ func (a *aggregator) processRound(h uint64, r int64) {
 	for _, events := range roundInfo.prevotes {
 		batches[i] = events
 		i++
+		n += len(events)
 	}
 
 	// batch precommits
 	for _, events := range roundInfo.precommits {
 		batches[i] = events
 		i++
+		n += len(events)
 	}
+
+	a.logger.Debug("processRound processed", "n", n, "nBatches", nBatches)
 
 	a.processBatches(batches, currentHeightEventBuilder)
 
@@ -621,6 +628,7 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 	coreVotesForPower := a.core.VotesPowerFor(height, round, code, value)
 	coreVotesPower := a.core.VotesPower(height, round, code)
 	if vote.Signers().IsComplex() && (coreVotesForPower.Power().Cmp(quorum) < 0 || coreVotesPower.Power().Cmp(quorum) < 0) {
+		a.logger.Debug("validating complex aggregate", "hash", vote.Hash(), "value", vote.Value(), "code", vote.Code())
 		if err := vote.Validate(); err != nil {
 			a.handleInvalidMessage(errCh, err, sender)
 			return
@@ -638,6 +646,7 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 	aggregatorPower := a.votesPowerFor(height, round, code, value)
 	contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
 	if corePower.Power().Cmp(quorum) < 0 && contribution.Add(contribution, corePower.Power()).Cmp(quorum) >= 0 {
+		a.logger.Debug("processVotesFor triggered", "hash", vote.Hash(), "value", vote.Value(), "code", vote.Code())
 		a.processVotesFor(height, round, code, value)
 		return
 	}
@@ -647,6 +656,7 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 	aggregatorPower = a.votesPower(height, round, code)
 	contribution = powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
 	if corePower.Power().Cmp(quorum) < 0 && contribution.Add(contribution, corePower.Power()).Cmp(quorum) >= 0 {
+		a.logger.Debug("processVotes triggered", "hash", vote.Hash(), "value", vote.Value(), "code", vote.Code())
 		a.processVotes(height, round, code)
 	}
 }
@@ -671,7 +681,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	// This also implies that height checks still needs to be done in Core.
 	coreHeight := a.core.Height().Uint64()
 	if msg.H() < coreHeight {
-		a.logger.Debug("Storing old height message in the aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
+		a.logger.Debug("Storing old height message in the aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight, "hash", msg.Hash(), "code", msg.Code())
 		signatureInput := msg.SignatureInput()
 		a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], event)
 		return
@@ -689,6 +699,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 
 	coreRound := a.core.Round()
 	if msg.R() > coreRound {
+		a.logger.Debug("Saving future round message in the aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight, "msgRound", msg.R(), "coreRound", coreRound, "hash", msg.Hash(), "code", msg.Code())
 		// NOTE: here we could be buffering a proposal for future round, or a complex vote aggregate.
 		a.saveMessage(event)
 		// check if power is enough for a round skip
@@ -696,7 +707,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 		corePower := a.core.Power(msg.H(), msg.R())
 		contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
 		if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(committee.TotalVotingPower())) > 0 {
-			a.logger.Debug("Processing future round messages due to possible round skip", "height", msg.H(), "round", msg.R(), "coreRound", coreRound)
+			a.logger.Debug("Processing future round messages due to possible round skip", "height", msg.H(), "round", msg.R(), "coreRound", coreRound, "hash", msg.Hash(), "code", msg.Code())
 			a.processRound(msg.H(), msg.R())
 		}
 		recordMessageProcessingTime(msg.Code(), start)
@@ -707,8 +718,13 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	switch msg.(type) {
 	// if proposal, verify right away
 	case *message.Propose:
+		a.logger.Debug("Processing propose message", "msgHash", msg.Hash(), "value", msg.Value())
 		a.processProposal(event, currentHeightEventBuilder)
-	case *message.Prevote, *message.Precommit:
+	case *message.Prevote:
+		a.logger.Debug("Handling prevote message", "msgHash", msg.Hash(), "value", msg.Value())
+		a.handleVote(event, committee, quorum, true)
+	case *message.Precommit:
+		a.logger.Debug("Handling precommit message", "msgHash", msg.Hash(), "value", msg.Value())
 		a.handleVote(event, committee, quorum, true)
 	default:
 		a.logger.Crit("unknown message type arrived in aggregator")
@@ -737,6 +753,7 @@ loop:
 			if metrics.Enabled {
 				BackendAggregatorTransitBg.Add(time.Since(event.Posted).Nanoseconds())
 			}
+			a.logger.Debug("message arrived in the aggregator", "hash", event.Message.Hash(), "code", event.Message.Code(), "postedAt", event.Posted.String())
 			a.handleEvent(event)
 		case ev, ok := <-a.coreSub.Chan():
 			start := time.Now()
@@ -855,6 +872,7 @@ loop:
 				}
 			}
 		case <-ticker.C:
+			a.logger.Debug("150ms ticker ticking")
 			coreHeight := a.core.Height().Uint64()
 
 			// process all messages in the aggregator
@@ -899,7 +917,7 @@ loop:
 			a.toIgnore = make(map[common.Hash]struct{})
 			a.trackingLock.Unlock()
 		case <-oldMessagesTicker.C:
-			a.logger.Trace("Processing stale messages in the aggregator")
+			a.logger.Debug("Processing stale messages in the aggregator")
 			var batches [][]events.UnverifiedMessageEvent
 			for _, batch := range a.staleMessages {
 				// if batch of proposals, validate them individually
@@ -909,6 +927,7 @@ loop:
 							continue
 						}
 						a.processProposal(proposalEvent, oldHeightEventBuilder)
+						a.logger.Debug("processing stale proposal", "hash", proposalEvent.Message.Hash(), "value", proposalEvent.Message.Value(), "height", proposalEvent.Message.H())
 					}
 					continue
 				}
