@@ -10,3 +10,6 @@ type blstPublicKey = bind.P1Affine
 type blstSignature = bind.P2Affine
 type blstAggregateSignature = bind.P2Aggregate
 type blstAggregatePublicKey = bind.P1Aggregate
+
+type blstPublicKeySet = bind.P1Affines
+type blstSignatureSet = bind.P2Affines

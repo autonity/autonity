@@ -657,8 +657,8 @@ func TestAggregateVotesSimple(t *testing.T) {
 	require.NoError(t, aggregates5[1].Signers().Validate(csize))
 
 	// check that public keys and signatures have been aggregated correctly
-	sig0 := blst.Aggregate([]blst.Signature{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize).Signature(), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize).Signature(), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize).Signature()})
-	sig1 := blst.Aggregate([]blst.Signature{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize).Signature(), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize).Signature()})
+	sig0 := blst.AggregateSignatures([]blst.Signature{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize).Signature(), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize).Signature(), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize).Signature()})
+	sig1 := blst.AggregateSignatures([]blst.Signature{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize).Signature(), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize).Signature()})
 	agg0, _ := blst.AggregatePublicKeys([]blst.PublicKey{testCommittee.Members[0].ConsensusKey, testCommittee.Members[1].ConsensusKey, testCommittee.Members[3].ConsensusKey})
 	agg1, _ := blst.AggregatePublicKeys([]blst.PublicKey{testCommittee.Members[0].ConsensusKey, testCommittee.Members[2].ConsensusKey})
 
