@@ -162,48 +162,42 @@ func FastAggregateVerifyBatch(sigs []Signature, pubkeys []PublicKey, msg [32]byt
 		return false
 	}
 
-	/*
-		// Secure source of RNG
-		randomScalar := func() *blst.Scalar {
-			var rbytes [scalarBytes]byte
+	// Secure source of RNG
+	randomScalar := func() *blst.Scalar {
+		var rbytes [scalarBytes]byte
 
-			_, err := rand.Read(rbytes[:])
-			if err != nil {
-				panic("Cannot source randomness")
-			}
-
-			// Protect against the generator returning 0. Since the scalar value is
-			// derived from a big endian byte slice, we take the last byte.
-			rbytes[len(rbytes)-1] |= 0x01
-			scalar := new(blst.Scalar)
-			scalar.FromBEndian(rbytes[:])
-			return scalar
+		_, err := rand.Read(rbytes[:])
+		if err != nil {
+			panic("Cannot source randomness")
 		}
 
-		// multiply keys and signature by random scalar
-		modifiedKeys := make([]PublicKey, n)
-		modifiedSigs := make([]Signature, n)
-		for i := 0; i < n; i++ {
-			// convert from affine coordinates
-			key := new(blst.P1)
-			key.FromAffine(pubkeys[i].(*BlsPublicKey).p)
-			sig := new(blst.P2)
-			sig.FromAffine(sigs[i].(*BlsSignature).s)
+		// Protect against the generator returning 0. Since the scalar value is
+		// derived from a big endian byte slice, we take the last byte.
+		rbytes[len(rbytes)-1] |= 0x01
+		scalar := new(blst.Scalar)
+		scalar.FromBEndian(rbytes[:])
+		return scalar
+	}
 
-			// multiply key and sig with the random scalar
-			// TODO: to verify with cryptographer, can the scalar multiplication make the sigs or the pubkeys exit the group?
-			scalar := randomScalar()
-			modifiedKey := key.Mult(scalar)
-			modifiedSig := sig.Mult(scalar)
+	// extract raw signatures and public keys (EC points) and generate random scalars
+	var modifiedKeys blstPublicKeySet
+	var modifiedSigs blstSignatureSet
+	var scalars []*blst.Scalar
+	for i := 0; i < n; i++ {
+		modifiedKeys = append(modifiedKeys, *pubkeys[i].(*BlsPublicKey).p)
+		modifiedSigs = append(modifiedSigs, *sigs[i].(*BlsSignature).s)
+		scalars = append(scalars, randomScalar())
+	}
 
-			modifiedKeys[i] = &BlsPublicKey{p: modifiedKey.ToAffine()}
-			modifiedSigs[i] = &BlsSignature{s: modifiedSig.ToAffine()}
-		}*/
+	// multiply keys and sigs with scalar using Pippinger Algorithm
+	// https://hackmd.io/@drouyang/SyYwhWIso
+	aggregatedKey := modifiedKeys.Mult(scalars, scalarBytes)
+	aggregatedSignature := modifiedSigs.Mult(scalars, scalarBytes)
 
-	// aggregate modified signatures
-	aggregatedSignature := AggregateSignatures(sigs)
+	aggregatedKeyAffine := aggregatedKey.ToAffine()
+	aggregatedSignatureAffine := aggregatedSignature.ToAffine()
 
-	return aggregatedSignature.FastAggregateVerify(pubkeys, msg)
+	return aggregatedSignatureAffine.Verify(true, aggregatedKeyAffine, false, msg[:], generalDST)
 }
 
 // AggregateSignatures converts a list of signatures into a single, aggregated sig.
