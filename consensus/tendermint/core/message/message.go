@@ -37,6 +37,7 @@ var (
 	ErrBadSignature            = errors.New("bad signature")
 	ErrUnauthorizedAddress     = errors.New("unauthorized address")
 	ErrInvalidComplexAggregate = errors.New("complex aggregate does not carry quorum")
+	ErrInvalidIndividualVote   = errors.New("individual vote has 0 signature")
 
 	// messages that have been discarded from aggregation due to coefficient breaching
 	boundaryBreaching = metrics.NewRegisteredMeter("aggregation/discarded/boundary", nil)
@@ -190,6 +191,10 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 		return constants.ErrInvalidMessage
 	}
 	if ext.Signature == nil {
+		return constants.ErrInvalidMessage
+	}
+	// proposals are signed by only one validator, signature cannot be 0
+	if ext.Signature.IsZero() {
 		return constants.ErrInvalidMessage
 	}
 	if ext.Round > constants.MaxRound || ext.ValidRound > constants.MaxRound {
@@ -366,6 +371,10 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 	if ext.Signature == nil {
 		return constants.ErrInvalidMessage
 	}
+	// proposals are signed by only one validator, signature cannot be 0
+	if ext.Signature.IsZero() {
+		return constants.ErrInvalidMessage
+	}
 	if ext.Round > constants.MaxRound || ext.ValidRound > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
@@ -467,6 +476,11 @@ func (v *vote) PreValidate(committee *types.Committee) error {
 
 	if err := v.signers.Validate(committee.Len()); err != nil {
 		return fmt.Errorf("invalid signers information: %w", err)
+	}
+
+	// if it is an individual signature, it cannot be 0
+	if v.signers.Len() == 1 && v.signature.IsZero() {
+		return ErrInvalidIndividualVote
 	}
 
 	// compute aggregated key and auxiliary data structures
@@ -644,7 +658,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 			}
 		}
 	}
-	aggregatedSignature := blst.Aggregate(signatures)
+	aggregatedSignature := blst.AggregateSignatures(signatures)
 	aggregatedPublicKey, err := blst.AggregatePublicKeys(publicKeys)
 	if err != nil {
 		panic("Cannot generate aggregate public key from valid votes: " + err.Error()) //nolint
@@ -774,7 +788,7 @@ func AggregateVotesSimple[
 			aggregatedSignature = signaturesList[i][0]
 			aggregatedPublicKey = publicKeysList[i][0]
 		} else {
-			aggregatedSignature = blst.Aggregate(signaturesList[i])
+			aggregatedSignature = blst.AggregateSignatures(signaturesList[i])
 			aggregatedPublicKey, err = blst.AggregatePublicKeys(publicKeysList[i])
 			if err != nil {
 				panic("Cannot generate aggregate public key from valid votes: " + err.Error()) //nolint
