@@ -8,10 +8,9 @@ import (
 )
 
 const (
-	BLSSecretKeyLength       = 32
-	BLSPubkeyLength          = 48
-	BLSSignatureLength       = 96
-	BLSPubKeyHexStringLength = 98
+	BLSSecretKeyLength = 32
+	BLSPubkeyLength    = 48
+	BLSSignatureLength = 96
 )
 
 // ErrSecretHex describes an error on the wrong hex string of secrete key
@@ -35,15 +34,16 @@ type SecretKey interface {
 	PublicKey() PublicKey
 	Sign(msg []byte) Signature
 	POPProof(msg []byte) Signature
+
 	Marshal() []byte
 	Hex() string
 }
 
 // PublicKey represents a BLS public key.
 type PublicKey interface {
+	Validate() bool
 	Marshal() []byte
 	Copy() PublicKey
-	Aggregate(p2 PublicKey) (PublicKey, error)
 	Hex() string
 }
 
@@ -52,9 +52,8 @@ type Signature interface {
 	Verify(pubKey PublicKey, msg []byte) bool
 	POPVerify(pubKey PublicKey, msg []byte) bool
 	IsZero() bool
-	AggregateVerifyStrict(pubKeys []PublicKey, msgs [][32]byte) bool
 	AggregateVerify(pubKeys []PublicKey, msgs [][32]byte) bool
-	FastAggregateVerify(pubKeys []PublicKey, msg [32]byte) bool
+
 	Marshal() []byte
 	Copy() *BlsSignature
 	Hex() string

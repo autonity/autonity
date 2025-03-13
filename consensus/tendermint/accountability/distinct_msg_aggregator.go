@@ -7,6 +7,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
 	"io"
 )
@@ -14,9 +15,9 @@ import (
 var (
 	ErrSignatureInvalid     = errors.New("HighlyAggregatedPrecommit has invalid signature")
 	ErrInvalidSignerIndex   = errors.New("HighlyAggregatedPrecommit has invalid signer index")
-	ErrNoSigners            = errors.New("No signers found")
-	ErrInvalidRound         = errors.New("Invalid round")
-	ErrDuplicatedPrecommits = errors.New("Duplicated precommits")
+	ErrNoSigners            = errors.New("no signers found")
+	ErrInvalidRound         = errors.New("invalid round")
+	ErrDuplicatedPrecommits = errors.New("duplicated precommits")
 )
 
 // Signers is a set that contains signers of the same message with the using of fastAggregate().
@@ -92,7 +93,7 @@ func (r *Signers) PreValidate(committee *types.Committee) error {
 	aggKey, err := blst.AggregatePublicKeys(publicKeys)
 	if err != nil {
 		// should not happen, as the public key is query from the committee by their index.
-		panic(err)
+		panic("cannot aggregate public keys from committee: " + err.Error())
 	}
 
 	r.aggregatedPublicKey = aggKey
@@ -184,15 +185,39 @@ func (h *HighlyAggregatedPrecommit) Validate() error {
 		panic("HighlyAggregatedPrecommit was not pre-validated yet")
 	}
 
-	publicKeys := make([]blst.PublicKey, len(h.MsgSigners))
-	msgs := make([][32]byte, len(h.MsgSigners))
-	for i, m := range h.MsgSigners {
-		publicKeys[i] = m.AggregatedPublicKey()
-		msgs[i] = message.VoteSignatureInput(h.Height, uint64(m.Round), message.PrecommitCode, m.Value)
+	publicKeys := make([]blst.PublicKey, 0, len(h.MsgSigners))
+	msgs := make([][32]byte, 0, len(h.MsgSigners))
+	for _, m := range h.MsgSigners {
+		pubKey := m.AggregatedPublicKey()
+		// if the public key is infinite, skip it. Signature should be valid regardless if legit.
+		if !pubKey.Validate() {
+			log.Warn("detected infinite public key", "signers", m)
+			continue
+		}
+		publicKeys = append(publicKeys, pubKey)
+		msgs = append(msgs, message.VoteSignatureInput(h.Height, uint64(m.Round), message.PrecommitCode, m.Value))
 	}
 
-	if !h.signature.AggregateVerify(publicKeys, msgs) {
-		return ErrSignatureInvalid
+	var aggregatedPublicKey blst.PublicKey
+	if len(publicKeys) > 0 {
+		var err error
+		aggregatedPublicKey, err = blst.AggregatePublicKeys(publicKeys)
+		if err != nil {
+			// should not happen since all public keys are validated at validator registration
+			panic("cannot aggregate public keys from committee: " + err.Error())
+		}
+	}
+
+	// if the aggregated public key is not 0, validate signature
+	// otherwise only check that also the signature is 0
+	if len(publicKeys) > 0 && aggregatedPublicKey.Validate() {
+		if !h.signature.AggregateVerify(publicKeys, msgs) {
+			return ErrSignatureInvalid
+		}
+	} else {
+		if !h.signature.IsZero() {
+			return ErrSignatureInvalid
+		}
 	}
 
 	h.validated = true
@@ -208,8 +233,8 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregat
 	precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[0])
 	height := precommits[0].H()
 
+	// skip duplicated msg
 	for i := 1; i < len(precommits); i++ {
-		// skip duplicated msg.
 		roundMap, ok := presentedMsgs[precommits[i].R()]
 		if !ok {
 			roundMap = make(map[common.Hash]struct{})

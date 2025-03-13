@@ -13,6 +13,7 @@ type bls12SecretKey struct {
 	p *blst.SecretKey
 }
 
+// strings shouldn't be prefixed by 0x
 func SecretKeyFromHex(key string) (SecretKey, error) {
 	if len(key) != BLSSecretKeyLength*2 {
 		return nil, ErrSecretHex
