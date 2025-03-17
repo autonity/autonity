@@ -7,8 +7,9 @@ import "./lib/ASMErrors.sol";
 import {AuctionLib} from "./lib/AuctionLib.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
+import {IAuctioneer} from "./interfaces/IAuctioneer.sol";
 
-contract Auctioneer {
+contract Auctioneer is IAuctioneer {
     using AuctionLib for AuctionLib.AuctionSet;
     struct Config {
         uint256 liquidationAuctionDuration;
