@@ -5,9 +5,10 @@ import (
 	uurl "net/url"
 	"time"
 
+	"github.com/influxdata/influxdb/client"
+
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
-	"github.com/influxdata/influxdb/client"
 )
 
 type reporter struct {
@@ -155,9 +156,10 @@ func (r *reporter) send() error {
 			})
 		case metrics.BufferedGauge:
 			ms := metric.SnapshotAndClear()
+			measurement := fmt.Sprintf("%s%s.bufferedgauge", namespace, name)
 			for _, v := range ms.Values() {
 				pts = append(pts, client.Point{
-					Measurement: fmt.Sprintf("%s%s.bufferedgauge", namespace, name),
+					Measurement: measurement,
 					Tags:        r.tags,
 					Fields: map[string]interface{}{
 						"value": v.Value(),
@@ -165,6 +167,7 @@ func (r *reporter) send() error {
 					Time: v.Timestamp(),
 				})
 			}
+			log.Debug("BufferedGauge", "measurement", measurement, "value count", len(ms.Values()), "tags", len(r.tags))
 		case metrics.GaugeFloat64:
 			ms := metric.Snapshot()
 			pts = append(pts, client.Point{
