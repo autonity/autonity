@@ -183,6 +183,9 @@ contract ACU is IACU, IConfigEvents {
         emit BasketModified(symbols_, quantities_, scale_);
     }
 
+    // Rescale the quantity multiplier.
+    /// @param newQuantityMultiplier The new quantity multiplier
+    /// @notice the quantity multiplier has precision of scaleFactor
     function rescale(uint256 newQuantityMultiplier) external onlyOperator {
         if (newQuantityMultiplier == 0) revert ZeroValue();
         quantityMultiplier = newQuantityMultiplier;
@@ -196,7 +199,8 @@ contract ACU is IACU, IConfigEvents {
     */
 
     /// The latest ACU value that was computed.
-    /// @return ACU value in fixed-point integer representation
+    /// @return ACU value in fixed-point integer representation rescaled by the
+    /// quantity multiplier
     function value() external view returns (int256) {
         if (round == 0) revert NoACUValue();
         return int256(quantityMultiplier) * _value / int256(scaleFactor);
