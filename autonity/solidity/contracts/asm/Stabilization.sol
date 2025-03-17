@@ -268,11 +268,11 @@ contract Stabilization is IStabilization {
 
         CDP storage cdp = _cdps[msg.sender];
         if (cdp.timestamp == 0) _accounts.push(msg.sender);
-        cdp.timestamp = block.timestamp; // opens the CDP
-        cdp.collateral += amount;
+        _updateDebt(cdp, block.timestamp); // update debt before deposit
 
         if (!_collateralToken.transferFrom(msg.sender, address(this), amount))
             revert TransferFailed();
+        cdp.collateral += amount;
         emit Deposit(msg.sender, amount);
     }
 
