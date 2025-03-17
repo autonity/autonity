@@ -61,6 +61,7 @@ contract Auctioneer {
         address autonity_,
         address operator_
     ) {
+        _validateConfig(config_);
         config = config_;
         _stabilization = IStabilization(stabilization_);
         _oracle = IOracle(oracle_);
@@ -314,6 +315,21 @@ contract Auctioneer {
         uint256 oracleScaleFactor = 10 ** _oracle.getDecimals();
         uint256 priceDiscounted = collateralPrice - (collateralPrice * config.interestAuctionDiscount) / StabilizationMath.SCALE_FACTOR;
         return (interestAmount * oracleScaleFactor) / priceDiscounted;
+    }
+    
+    function _validateConfig(Config memory config_) internal pure {
+        if (config_.liquidationAuctionDuration == 0) {
+            revert InvalidParameter("liquidationAuctionDuration");
+        }
+        if (config_.interestAuctionDuration == 0) {
+            revert InvalidParameter("interestAuctionDuration");
+        }
+        if (config_.interestAuctionDiscount >= StabilizationMath.SCALE_FACTOR) {
+            revert InvalidParameter("interestAuctionDiscount");
+        }
+        if (config_.interestAuctionThreshold == 0) {
+            revert InvalidParameter("interestAuctionThreshold");
+        }
     }
 }
 
