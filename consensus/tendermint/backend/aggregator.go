@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"reflect"
 	"sync"
 	"time"
@@ -53,10 +54,14 @@ func recordMessageProcessingTime(code uint8, start time.Time) {
 		ProposalBg.Add(time.Since(start).Nanoseconds())
 		ProposalPackets.Mark(1)
 	case message.PrevoteCode:
-		PrevoteBg.Add(time.Since(start).Nanoseconds())
+		if rand.Intn(100) == 0 { // record 1% of prevote writes
+			PrevoteBg.Add(time.Since(start).Nanoseconds())
+		}
 		PrevotePackets.Mark(1)
 	case message.PrecommitCode:
-		PrecommitBg.Add(time.Since(start).Nanoseconds())
+		if rand.Intn(100) == 0 { // record 1% of precommit writes
+			PrecommitBg.Add(time.Since(start).Nanoseconds())
+		}
 		PrecommitPackets.Mark(1)
 	}
 }
@@ -577,7 +582,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 		}
 
 		// disconnect validators who sent us invalid votes at p2p layer and ignore the msgs coming from them
-		if metrics.Enabled {
+		if metrics.Enabled && len(invalids) > 0 {
 			InvalidBg.Add(int64(len(invalids)))
 		}
 		for _, index := range invalids {
@@ -724,7 +729,7 @@ loop:
 			if !ok {
 				break loop
 			}
-			if metrics.Enabled {
+			if metrics.Enabled && rand.Intn(100) == 0 {
 				BackendAggregatorTransitBg.Add(time.Since(event.Posted).Nanoseconds())
 			}
 			a.handleEvent(event)

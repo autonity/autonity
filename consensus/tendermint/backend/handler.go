@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math/rand"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -155,7 +156,9 @@ func handleConsensusMsg[T any, PT interface {
 
 	if metrics.Enabled {
 		defer func(start time.Time) {
-			getProcessMetric(p2pMsg.Code).Add(time.Since(start).Nanoseconds())
+			if p2pMsg.Code != 0x11 && rand.Intn(100) == 0 { // record 1% of prevote and precommit writes
+				getProcessMetric(p2pMsg.Code).Add(time.Since(start).Nanoseconds())
+			}
 		}(time.Now())
 	}
 

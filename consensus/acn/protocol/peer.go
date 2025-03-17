@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -12,9 +13,9 @@ import (
 )
 
 var (
-	ProposalWriteBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/write", nil, metrics.GetIntPointer(1000))  // time to write proposal to wire
-	PrevoteWriteBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/write", nil, metrics.GetIntPointer(5000))   // time to write prevote to wire
-	PrecommitWriteBg = metrics.NewRegisteredBufferedGauge("acn/precommit/write", nil, metrics.GetIntPointer(5000)) // time to write precommit to wire
+	ProposalWriteBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/write", nil, metrics.GetIntPointer(100))  // time to write proposal to wire
+	PrevoteWriteBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/write", nil, metrics.GetIntPointer(500))   // time to write prevote to wire
+	PrecommitWriteBg = metrics.NewRegisteredBufferedGauge("acn/precommit/write", nil, metrics.GetIntPointer(500)) // time to write precommit to wire
 	DefaultWriteBg   = metrics.NewRegisteredBufferedGauge("acn/any/write", nil, nil)
 )
 
@@ -75,7 +76,9 @@ func (p *Peer) Address() common.Address {
 func (p *Peer) Send(msgcode uint64, data interface{}) error {
 	if metrics.Enabled {
 		defer func(start time.Time) {
-			getWriteMetric(msgcode).Add(time.Since(start).Nanoseconds())
+			if msgcode != 0x11 && rand.Intn(100) == 0 { // record 1% of prevote and precommit writes
+				getWriteMetric(msgcode).Add(time.Since(start).Nanoseconds())
+			}
 		}(time.Now())
 	}
 	return p2p.Send(p.rw, msgcode, data)
