@@ -179,4 +179,12 @@ interface IOracle {
      * @param _slashingAmount Slashing amount of the validator stakes. It can be zero if the penalty does not rise above the threshold.
      */
     event Penalized(address indexed _participant, uint256 _slashingAmount, string _symbol, int256 _median, uint120 _reported);
+
+    /**
+     * @notice Emitted when a participant gets penalized for missing too many reveals in a certain window
+     * @param _voter Voter address
+     * @param _round Round where penalized
+     * @param _missedReveal Count of missed reveal
+     */
+    event NoRevealPenalty(address indexed _voter, uint256 _round, uint256 _missedReveal);
 }
