@@ -19,8 +19,10 @@ contract Oracle is IOracle {
         uint256 round; // The last round the voter participated in
         uint256 commit; // The commit hash of the voter's last report
         uint256 performance; // The performance score of the voter
+        uint256 revealsMissed; // Number of commits that were not revealed
         bool isVoter; // Indicates if the address is a registered voter
         bool reportAvailable; // Indicates if the last report is available for the voter
+        bool commitRevealed; // Indicates if the voter revealed its commit
     }
 
     // Struct to hold price data
@@ -38,6 +40,8 @@ contract Oracle is IOracle {
         int256 outlierDetectionThreshold; // Threshold for outlier detection
         int256 outlierSlashingThreshold; // Threshold for slashing outliers
         uint256 baseSlashingRate; // Base rate for slashing
+        uint256 missedRevealTolerance; // Tolerance threshold for missed reveals
+        uint256 resetRound; // Number of round when missed reveal count is reset
     }
 
     // ==== Public state variables ====
@@ -70,6 +74,10 @@ contract Oracle is IOracle {
     mapping(address => address) public voterValidators;
     mapping(address => uint256) private rewardPeriodPerformance;
     uint256 private rewardPeriodAggregatedScore;
+
+    uint256 private resetCounter;
+    // set of voters penalized in the current round
+    EnumerableSet.AddressSet private penalizedVoters;
 
     /**
      * @dev Constructor to initialize the Oracle contract.
@@ -147,33 +155,36 @@ contract Oracle is IOracle {
         // voters should not be allowed to vote multiple `times in a round
         // because we are refunding the tx fee and this opens up the possibility
         // to spam the node
-        require(voterInfo[msg.sender].round != round, "already voted");
+        VoterInfo storage _voterInfo = voterInfo[msg.sender];
+        require(_voterInfo.round != round, "already voted");
 
-        uint256 _pastCommit = voterInfo[msg.sender].commit;
+        uint256 _pastCommit = _voterInfo.commit;
         // Store the new commit before checking against reveal to ensure an updated commit is
         // available for the next round in case of failures.
-        voterInfo[msg.sender].commit = _commit;
-        uint256 _lastVotedRound = voterInfo[msg.sender].round;
+        _voterInfo.commit = _commit;
+        uint256 _lastVotedRound = _voterInfo.round;
         // considered to be voted whether vote is valid or not
-        voterInfo[msg.sender].round = round;
+        _voterInfo.round = round;
         // new voter/first round
-        if (_lastVotedRound == 0) {
+        if (_lastVotedRound == 0 || _lastVotedRound != round - 1) {
+            _voterInfo.commitRevealed = true; // because we don't have past commit
             return;
         }
 
         // if data is not supplied and voter is not a new voter
         // report must contain the correct price
         if (_reports.length != symbols.length) {
+            _voterInfo.commitRevealed = false; // did not reveal commit, cannot anymore
             return;
         }
 
-        if (_lastVotedRound != round - 1 ||
-            _pastCommit != uint256(keccak256(abi.encode(_reports, _salt, msg.sender)))
-        ) {
+        if (_pastCommit != uint256(keccak256(abi.encode(_reports, _salt, msg.sender)))) {
             // we return the tx fee in all cases, because in both cases voter is slashed during aggregation
             // phase, because the reports contain invalid prices
+            _voterInfo.commitRevealed = false; // did not reveal commit, cannot anymore
             return;
         }
+        _voterInfo.commitRevealed = true;
 
         // Voter voted on every symbols
         for (uint256 i = 0; i < _reports.length; i++) {
@@ -184,7 +195,7 @@ contract Oracle is IOracle {
             );
             reports[symbols[i]][msg.sender] = _reports[i];
         }
-        voterInfo[msg.sender].reportAvailable = true;
+        _voterInfo.reportAvailable = true;
     }
     /**
      * @notice Finalizes the current round and aggregates the votes. Called by the Autonity contract.
@@ -196,6 +207,9 @@ contract Oracle is IOracle {
             return false;
         }
 
+        // first penalize for no reveal
+        _penalizeForNoReveal();
+
         prices.push();
         for (uint i = 0; i < symbols.length; i += 1) {
             _aggregateReports(i);
@@ -206,6 +220,8 @@ contract Oracle is IOracle {
         lastRoundBlock = block.number;
         round += 1;
         emit NewRound(round, block.number, block.timestamp, config.votePeriod);
+
+        _removePenalizedVoters();
         return true;
     }
 
@@ -403,6 +419,10 @@ contract Oracle is IOracle {
         return voters;
     }
 
+    function getMissedRevealTolerance() external view returns (uint256) {
+        return config.missedRevealTolerance;
+    }
+
     /**
     * @notice Retrieve the current round ID.
     * @dev IOracle interface method implementation.
@@ -472,6 +492,10 @@ contract Oracle is IOracle {
     function setVotePeriod(uint _votePeriod) external onlyOperator {
         _checkVotePeriod(_votePeriod);
         config.votePeriod = _votePeriod;
+    }
+
+    function setMissedRevealTolerance(uint256 _tolerance) external onlyOperator {
+        config.missedRevealTolerance = _tolerance;
     }
 
     /**
@@ -651,6 +675,10 @@ contract Oracle is IOracle {
         // Stop considering this reporter for any future calculation.
         // This is symbol independant.
         voterInfo[_outlier].reportAvailable = false;
+        if (penalizedVoters.contains(_outlier)) {
+            // we already slashed this voter
+            return 0;
+        }
         int256 _diffRatio = (int256(uint256(_report.price)) - _median) * 100 / _median;
         //price is 120 bits max so _diffratio squared is at most 240 bits
         _diffRatio = _diffRatio * _diffRatio;
@@ -669,6 +697,55 @@ contract Oracle is IOracle {
         }
 
         return config.autonity.slash(voterValidators[_outlier], _slashingRate);
+    }
+    
+    function _penalizeForNoReveal() internal {
+        // reset missed reveal counter
+        resetCounter++;
+        if (resetCounter >= config.resetRound) {
+            resetCounter = 0;
+        }
+
+        // penalize for commit without reveal
+        for (uint i = 0; i < voters.length; i++) {
+            VoterInfo storage _voterInfo = voterInfo[voters[i]];
+            /*
+                Following two scenarios can happen:
+                    1. Voter voted in this round but did not reveal his commit from
+                        the last round (it's not the first round for the voter).
+                    2. Voter provided commit in the last round but did not vote in this round.
+                In both cases, the voter submitted commit in the last round but did not reveal
+            */
+            if (
+                (!_voterInfo.commitRevealed && _voterInfo.round == round) ||
+                (_voterInfo.round == round-1 && _voterInfo.commit > 0)
+            ) {
+                _voterInfo.revealsMissed++;
+            }
+
+            if (_voterInfo.revealsMissed > config.missedRevealTolerance) {
+                penalizedVoters.add(voters[i]);
+                emit NoRevealPenalty(voters[i], round, _voterInfo.revealsMissed);
+                _voterInfo.revealsMissed = 0;
+                // penalize with highest
+                config.autonity.slash(voters[i], ORACLE_SLASHING_RATE_CAP);
+            }
+            else if (resetCounter == 0) {
+                // counter has been reset
+                _voterInfo.revealsMissed = 0;
+            }
+        }
+    }
+
+    function _removePenalizedVoters() internal {
+        uint256 _length = penalizedVoters.length();
+        while (_length > 0) {
+            address _voter = penalizedVoters.at(0);
+            // don't consider past reports from the penalized voters
+            voterInfo[_voter].reportAvailable = false;
+            require(penalizedVoters.remove(_voter), "voter not removed");
+            _length--;
+        }
     }
 
     /*
