@@ -79,6 +79,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
 	if len(recipients) == 0 {
 		log.Warn("Gossiper: no recipients found for message", "code", code)
 	}
+	lostPeers := make([]common.Address, 0)
 	for _, val := range recipients {
 		if val.Address == g.address {
 			continue
@@ -91,8 +92,11 @@ func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
 			p.Cache().Add(hash, true)
 			go p.SendRaw(code, payload) //nolint
 		} else {
-			log.Debug("Gossiper: peer not found", "address", val.Address)
+			lostPeers = append(lostPeers, val.Address)
 		}
+	}
+	if len(lostPeers) > 0 {
+		g.logger.Debug("Gossiper: peers not found", "len", len(lostPeers), "peers", lostPeers)
 	}
 }
 
