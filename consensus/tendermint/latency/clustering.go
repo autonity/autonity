@@ -12,8 +12,10 @@ import (
 var KmeansClusterSeed = int64(12345)
 
 type Clusters struct {
-	base   [][]common.Address
-	direct []common.Address
+	activatedHeight uint64
+	nextEpochHeight uint64
+	base            [][]common.Address
+	direct          []common.Address
 }
 
 // selectK selects k members from each cluster
@@ -84,7 +86,7 @@ func fromLatencyMat(latencyMat map[common.Address][]uint8) []kmeans.Observation 
 	return nodes
 }
 
-func AssignClusters(latencyMat map[common.Address][]uint8, k int) (*Clusters, error) {
+func AssignClusters(h uint64, nextEpochHeight uint64, latencyMat map[common.Address][]uint8, k int) (*Clusters, error) {
 	nodes := fromLatencyMat(latencyMat)
 	km := kmeans.New()
 	cstrs, err := km.Partition(nodes, k, KmeansClusterSeed)
@@ -98,5 +100,5 @@ func AssignClusters(latencyMat map[common.Address][]uint8, k int) (*Clusters, er
 			result[i][j] = o.(*node).address
 		}
 	}
-	return &Clusters{base: result}, nil
+	return &Clusters{base: result, activatedHeight: h, nextEpochHeight: nextEpochHeight}, nil
 }

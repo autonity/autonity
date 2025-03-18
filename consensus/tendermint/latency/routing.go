@@ -6,11 +6,11 @@ import (
 	"errors"
 	"math"
 	"math/big"
+	"math/rand"
 	"slices"
 	"sync"
 	"time"
 
-	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -29,6 +29,8 @@ var ScaleThresholdForClustering = 10 // by according to the simulation and testi
 // ClusterRedundancyParameter is the number of members of each cluster to send a proposal to
 var ClusterRedundancyParameter = 3
 
+var MeasurementWindow = 10000 // The time window in Millisecond to measure the latency of peers at the beginning of an epoch.
+
 type PeerSelector interface {
 	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember
 }
@@ -36,21 +38,19 @@ type PeerSelector interface {
 type Router struct {
 	self     common.Address
 	nodeKey  *ecdsa.PrivateKey
-	cache    *latencyCache
 	clusters *clusterCache
 
 	broadcaster consensus.Broadcaster
 	contracts   *autonity.ProtocolContracts
 	reporter    *Reporter
 
+	optimizationEventChan chan *autonity.LatencyClusteringViewOptimized
+	optimizationEventSub  event.Subscription
+
 	epochEventChan chan core.EpochHeadEvent
 	epochEventSub  event.Subscription
 
-	chainEventChan chan core.ChainEvent
-	chainEventSub  event.Subscription
-
 	curEpochInfo *types.EpochInfo
-	measured     bool
 
 	pinger       ping.Pinger
 	peerSelector PeerSelector
@@ -66,13 +66,12 @@ func NewRouter(
 	selector PeerSelector,
 ) *Router {
 	r := &Router{
-		broadcaster:    broadcaster,
-		nodeKey:        nodeKey,
-		epochEventChan: make(chan core.EpochHeadEvent),
-		chainEventChan: make(chan core.ChainEvent),
-		pinger:         ping.NewPinger(ping.TCP),
-		cache:          newLatencyCache(),
-		clusters:       newClusterCache(),
+		broadcaster:           broadcaster,
+		nodeKey:               nodeKey,
+		epochEventChan:        make(chan core.EpochHeadEvent),
+		optimizationEventChan: make(chan *autonity.LatencyClusteringViewOptimized),
+		pinger:                ping.NewPinger(ping.TCP),
+		clusters:              newClusterCache(),
 	}
 	r.SetDefaultHandlers()
 
@@ -112,16 +111,21 @@ func (r *Router) ClusteringActive(height uint64) bool {
 
 func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 	log.Info("Router: starting latency router")
+	optimizationEventSub, err := chain.ProtocolContracts().Latency.WatchClusteringViewOptimized(nil, r.optimizationEventChan)
+	if err != nil {
+		log.Error("Error starting latency router for clustering view optimization", err)
+		return
+	}
+
 	curEpoch, err := chain.LatestEpoch()
 	if err != nil {
 		log.Error("Error fetching latest epoch", "err", err)
 		return
 	}
 	r.curEpochInfo = curEpoch
-	r.measured = false // measure on startup
 
+	r.optimizationEventSub = optimizationEventSub
 	r.epochEventSub = chain.SubscribeEpochHeadEvent(r.epochEventChan)
-	r.chainEventSub = chain.SubscribeChainEvent(r.chainEventChan)
 	r.contracts = chain.ProtocolContracts()
 	r.reporter, err = NewReporter(chain.Config().ChainID, r.nodeKey, r.contracts)
 	if err != nil {
@@ -130,6 +134,7 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 	}
 	r.self = r.reporter.txOpts.From
 
+	// set default clusters for current epoch.
 	r.setDefaultClusters(func() []common.Address {
 		result := make([]common.Address, r.curEpochInfo.Committee.Len())
 		for i, member := range r.curEpochInfo.Committee.Members {
@@ -138,6 +143,22 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 		return result
 	}())
 
+	// As from here, we already subscribe the optimization event, however if the optimization was already happened,
+	// we'd need to set optimized clusters for current epoch if it was happened.
+	optimizationHeight, err := r.contracts.GetNewViewHeight(nil)
+	if err != nil {
+		log.Error("failed to get optimized clusters height", "err", err)
+		return
+	}
+
+	if optimizationHeight.Cmp(common.Big0) > 0 {
+		err = r.optimizeCluster(optimizationHeight.Uint64())
+		if err != nil {
+			log.Error("Router: failed to optimize the clustering", "err", err)
+			return
+		}
+	}
+
 	ctx, r.cancel = context.WithCancel(ctx)
 	r.wg.Add(1)
 	go r.loop(ctx)
@@ -145,8 +166,8 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 
 func (r *Router) Stop() {
 	r.cancel()
-	r.chainEventSub.Unsubscribe()
 	r.epochEventSub.Unsubscribe()
+	r.optimizationEventSub.Unsubscribe()
 	r.wg.Wait()
 }
 
@@ -167,7 +188,7 @@ func (r *Router) setDefaultClusters(committee []common.Address) {
 		k := int(math.Min(float64(i/numClusters), float64(numClusters-1)))
 		clusters[k] = append(clusters[k], addr)
 	}
-	r.clusters.insertClustering(r.curEpochInfo.EpochBlock.Uint64(), &Clusters{clusters, nil})
+	r.clusters.insertClustering(&Clusters{r.curEpochInfo.EpochBlock.Uint64(), r.curEpochInfo.NextEpochBlock.Uint64(), clusters, nil})
 	log.Debug("Router: set default clusters", "clusters", func() [][]int {
 		clusterInts := make([][]int, len(clusters))
 		for i, cluster := range clusters {
@@ -179,28 +200,26 @@ func (r *Router) setDefaultClusters(committee []common.Address) {
 	}(), "height", r.curEpochInfo.EpochBlock.Uint64())
 }
 
-// reset clusters, it is used to merge the cluster when we have a small scale of network.
-func (r *Router) resetClusters() {
-	r.clusters = newClusterCache()
+func (r *Router) startMeasurementTask() {
+	go func() {
+		rand.Seed(time.Now().UnixNano())
+		delay := time.Duration(rand.Intn(MeasurementWindow)) * time.Millisecond
+		time.Sleep(delay)
+
+		if err := r.measureToReport(); err != nil {
+			log.Warn("measureToReport", "err", err)
+		}
+	}()
 }
 
-func (r *Router) report() error {
-	if r.contracts == nil {
-		return errors.New("contracts not set, can't report latency")
-	}
+func (r *Router) measureToReport() error {
+	// todo: read committee from local cache.
+	// todo: double check the data race.
 	committee, err := r.contracts.Latency.GetCommittee(nil)
 	if err != nil {
 		return err
 	}
-	missing := r.cache.missingMeasurements(committee)
-	missingLatencies, err := r.fetchLatency(missing)
-	if err != nil {
-		return err
-	}
-	r.cache.insertMeasurements(missing, missingLatencies)
-
-	// this should not have the full measurements
-	latencyVec, err := r.cache.latencyView(committee)
+	latencyVec, err := r.fetchLatency(committee)
 	if err != nil {
 		return err
 	}
@@ -250,103 +269,52 @@ func (r *Router) loop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case optimizationEv := <-r.optimizationEventChan:
+			log.Info("Router: ready to optimize the clustering", "new view will be applied at height", optimizationEv.Height)
+
+			err := r.optimizeCluster(optimizationEv.Height.Uint64())
+			if err != nil {
+				log.Error("Router: failed to optimize the clustering", "err", err)
+			}
+
 		case epochEv := <-r.epochEventChan:
 			log.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
-			r.cache.markNewEpoch()
-			// new epoch, prune height to last epoch block
-			previousEpochBlock := r.curEpochInfo.EpochBlock.Uint64()
 			r.curEpochInfo = &types.EpochInfo{
 				Epoch:      *epochEv.Header.Epoch.Copy(),
 				EpochBlock: epochEv.Header.Number,
 			}
-			r.measured = false
-			// on new epoch, we have a small scale of network, clustering does not benefit anymore.
-			if epochEv.Header.Epoch.Committee.Len() <= ScaleThresholdForClustering {
-				log.Warn("Router: new epoch detected, committee too small resetting clusters")
-				r.resetClusters()
-			} else {
-				committee := make([]common.Address, epochEv.Header.Epoch.Committee.Len())
-				for i, member := range epochEv.Header.Epoch.Committee.Members {
-					committee[i] = member.Address
-				}
-				r.recluster(epochEv.Header.Number.Uint64(), committee)
-			}
-			r.clusters.pruneTo(previousEpochBlock)
-		case ev := <-r.chainEventChan:
-			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
-				log.Info("Router: not going to measure latency within a small network")
-				continue
-			}
-
-			height := ev.Block.Number()
-			if !r.measured {
-				log.Info(
-					"Router: new epoch reporting latency",
-					"height",
-					height,
-					"reporter",
-					r.self,
-				)
-				if err := r.report(); err != nil {
-					log.Error("Router: failed to report latency", "err", err)
-				} else {
-					r.measured = true
-				}
-			}
-			r.processBlock(ev.Block)
+			// start the measurement and try to report the data.
+			r.startMeasurementTask()
 		}
 	}
 }
 
-func (r *Router) processBlock(block *types.Block) {
-	height := block.Number()
-	reports, err := parseReports(block)
+func (r *Router) optimizeCluster(h uint64) error {
+	committee, err := r.contracts.Latency.GetCommittee(nil)
 	if err != nil {
-		log.Error("Router: failed to parse reports", "err", err)
-		return
+		log.Error("Router: optimizeCluster fetch committee", "err", err)
+		return err
 	}
 
-	if len(reports) == 0 {
-		log.Debug("Router: no latency reports in block", "height", height.String())
-		return
-	}
-
-	log.Debug("Router: processing latency reports", "reports", len(reports))
-	committee, err := r.contracts.Latency.GetCommittee(
-		&bind.CallOpts{BlockNumber: height},
-	)
+	latency, err := r.contracts.Latency.Read(nil)
 	if err != nil {
-		log.Error("Router: failed to get committee", "err", err)
-		return
+		log.Error("Router: optimizeCluster failed to read latency", "err", err)
+		return err
 	}
 
-	for _, report := range reports {
-		r.cache.insertMatrixLine(report.reporter, committee, report.latencies)
+	// TODO: validate and fill latency matrix with default values
+	latencyMat := make(map[common.Address][]uint8)
+	for i, validator := range committee {
+		latencyMat[validator] = latency[i]
 	}
 
-	// if the committee is too small, we should not cluster
-	if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
-		log.Info("Router: not going to cluster a small scale network")
-		return
-	}
-
-	// if we have enough reports, we should refresh the clusters
-	if r.shouldCluster() {
-		r.recluster(height.Uint64(), committee)
-	}
-}
-
-func (r *Router) recluster(h uint64, committee []common.Address) {
-	latencyMat, outliers := r.cache.readMatrixWithOutliers(committee)
-	clusters, err := AssignClusters(latencyMat, numClustersFor(len(latencyMat)))
+	clusters, err := AssignClusters(h, r.curEpochInfo.NextEpochBlock.Uint64(), latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
 	if err != nil {
-		log.Error("Router: failed to assign clusters", "err", err, "height", h)
-		return
+		return err
 	}
-	clusters.direct = outliers
 
 	log.Debug(
-		"Router: assigned clusters",
+		"Router: optimizeCluster",
 		"clusters",
 		func() [][]int {
 			clusterInts := make([][]int, len(clusters.base))
@@ -360,28 +328,8 @@ func (r *Router) recluster(h uint64, committee []common.Address) {
 		}(),
 		"height",
 		h,
-		"outliers",
-		func() []int {
-			outlierInts := make([]int, len(outliers))
-			for i, member := range outliers {
-				outlierInts[i] = slices.Index(committee, member)
-			}
-			return outlierInts
-		},
 	)
-	r.clusters.insertClustering(h, clusters)
-}
-
-func (r *Router) shouldCluster() bool {
-	if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
-		return false
-	}
-
-	// if we are in the first epoch, wait for 2/3 of the committee to report
-	if r.curEpochInfo.EpochBlock.Cmp(common.Big0) == 0 {
-		return r.cache.reportsInEpoch() > uint64(2*len(r.curEpochInfo.Committee.Members)/3)
-	}
-	return true
+	return nil
 }
 
 func (r *Router) pingPeers(targets []ping.Target) []uint8 {
@@ -406,7 +354,7 @@ func (r *Router) pingPeers(targets []ping.Target) []uint8 {
 	return results
 }
 
-// mapDurationToUint8 maps a duration to a uint8 value
+// mapDurationToUint8 maps a duration to an uint8 value
 // the duration is clamped to 0-400ms and mapped linearly onto 0-255
 // based on testing, we may need to adjust this mapping
 func mapDurationToUint8(duration time.Duration) uint8 {

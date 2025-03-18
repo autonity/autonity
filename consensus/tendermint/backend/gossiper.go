@@ -91,6 +91,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
 			p.Cache().Add(hash, true)
 			go p.SendRaw(code, payload) //nolint
 		} else {
+			// todo: Jason, shall we select other backups for liveness?
 			log.Debug("Gossiper: peer not found", "address", val.Address)
 		}
 	}

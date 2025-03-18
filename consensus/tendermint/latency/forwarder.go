@@ -50,6 +50,8 @@ func forward(router *Router, bc *core.BlockChain, m message.Msg, sender common.A
 			}
 			p.Cache().Add(m.Hash(), true)
 			go p.SendRaw(proposeNetworkMsg, m.Payload()) //nolint
+		} else {
+			//todo: shall we select other backups for live ness?
 		}
 	}
 }
