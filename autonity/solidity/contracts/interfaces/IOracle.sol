@@ -93,6 +93,16 @@ interface IOracle {
     function setOperator(address _operator) external;
 
     /**
+     * @notice Setter for the tolerance of missed reveal count before the voter gets punished.
+     */
+    function setMissedRevealTolerance(uint256 _tolerance) external;
+
+    /**
+     * @notice Setter for the maximum count of rounds after which missed reveal counter is reset.
+     */
+    function setNoRevealPenaltyResetRound(uint256 _resetRound) external;
+
+    /**
     * @notice Retrieve the vote period.
     */
     function getVotePeriod() external view returns (uint);
@@ -116,6 +126,11 @@ interface IOracle {
     * @notice Scale to be used with price reports
     */
     function getDecimals() external view returns (uint8);
+
+    /**
+     * @notice Returns the tolerance for missed reveal count before the voter gets punished.
+     */
+    function getMissedRevealTolerance() external view returns (uint256);
 
     /**
      * @notice Emitted when the oracle symbol list is updated
