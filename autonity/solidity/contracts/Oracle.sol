@@ -42,7 +42,7 @@ contract Oracle is IOracle, IConfigEvents {
         int256 outlierSlashingThreshold; // Threshold for slashing outliers
         uint256 baseSlashingRate; // Base rate for slashing
         uint256 missedRevealTolerance; // Tolerance threshold for missed reveals
-        uint256 resetRound; // Number of round when missed reveal count is reset
+        uint256 noRevealPenaltyResetRound; // Number of round when missed reveal count is reset
     }
 
     // ==== Public state variables ====
@@ -96,6 +96,10 @@ contract Oracle is IOracle, IConfigEvents {
         string[] memory _symbols,
         Config memory _config
     ) {
+        require(
+            _config.missedRevealTolerance < _config.noRevealPenaltyResetRound && _config.missedRevealTolerance > 0,
+            "invalid config"
+        );
         config = _config;
         symbols = _symbols;
         newSymbols = _symbols;
@@ -445,6 +449,9 @@ contract Oracle is IOracle, IConfigEvents {
         return voters;
     }
 
+    /**
+     * @notice Returns the tolerance for missed reveal count before the voter gets punished.
+     */
     function getMissedRevealTolerance() external view returns (uint256) {
         return config.missedRevealTolerance;
     }
@@ -529,8 +536,26 @@ contract Oracle is IOracle, IConfigEvents {
         emit ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod);
     }
 
+    /**
+     * @notice Setter for the tolerance of missed reveal count before the voter gets punished.
+     */
     function setMissedRevealTolerance(uint256 _tolerance) external onlyOperator {
+        require(
+            _tolerance < config.noRevealPenaltyResetRound && _tolerance > 0,
+            "invalid config"
+        );
         config.missedRevealTolerance = _tolerance;
+    }
+
+    /**
+     * @notice Setter for the maximum count of rounds after which missed reveal counter is reset.
+     */
+    function setNoRevealPenaltyResetRound(uint256 _resetRound) external onlyOperator {
+        require(
+            config.missedRevealTolerance < _resetRound,
+            "invalid config"
+        );
+        config.noRevealPenaltyResetRound = _resetRound;
     }
 
     /**
@@ -740,7 +765,7 @@ contract Oracle is IOracle, IConfigEvents {
     function _penalizeForNoReveal() internal {
         // reset missed reveal counter
         resetCounter++;
-        if (resetCounter >= config.resetRound) {
+        if (resetCounter >= config.noRevealPenaltyResetRound) {
             resetCounter = 0;
         }
 
