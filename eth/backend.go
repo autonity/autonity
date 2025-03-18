@@ -641,7 +641,7 @@ func (s *Ethereum) validatorController() {
 			for {
 				select {
 				case <-ticker.C:
-					if float64(s.consensusServer.PeerCount()) >= (float64(committee.Len()) * (2.0 / 3.0)) {
+					if float64(s.consensusServer.PeerCount()) >= ((float64(committee.Len()) * (2.0 / 3.0)) - 1) {
 						mu.Lock()
 						if !wasValidating {
 							s.miner.Start()
@@ -652,7 +652,7 @@ func (s *Ethereum) validatorController() {
 						return
 					}
 				case <-timeout:
-					s.log.Warn("miner waiting for required peer count", "current peer count", s.consensusServer.PeerCount(), "required", committee.Len())
+					s.log.Warn("miner waiting for required peer count", "current peer count", s.consensusServer.PeerCount(), "minimum required", (float64(committee.Len())*(2.0/3.0))-1)
 				}
 			}
 		}()

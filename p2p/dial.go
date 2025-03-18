@@ -39,7 +39,7 @@ const (
 	// private networks.
 	dialHistoryExpiration = inboundThrottleTime + 5*time.Second
 
-	acnDialHistoryExpiration = acnInboundThrottleTime + 2*time.Second
+	acnDialHistoryExpiration = acnInboundThrottleTime + 5*time.Second
 
 	// Config for the "Looking for peers" message.
 	dialStatsLogInterval = 10 * time.Second // printed at most this often
