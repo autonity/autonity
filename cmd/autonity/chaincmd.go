@@ -22,37 +22,36 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
 	"strconv"
 	"sync/atomic"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
 
-	"github.com/autonity/autonity/common/hexutil"
-	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/ethdb"
-	"github.com/autonity/autonity/metrics"
-	"github.com/autonity/autonity/node"
-
-	"gopkg.in/urfave/cli.v1"
+	"github.com/urfave/cli/v2"
 
 	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/node"
 )
 
 var (
 	importCommand = cli.Command{
-		Action:    utils.MigrateFlags(importChain),
+		Action:    importChain,
 		Name:      "import",
 		Usage:     "Import a blockchain file",
 		ArgsUsage: "<filename> (<filename 2> ... <filename N>) ",
-		Flags: []cli.Flag{
-			utils.DataDirFlag,
+		Flags: slices.Concat([]cli.Flag{
 			utils.CacheFlag,
 			utils.SyncModeFlag,
 			utils.GCModeFlag,
@@ -73,8 +72,11 @@ var (
 			utils.MetricsInfluxDBTokenFlag,
 			utils.MetricsInfluxDBBucketFlag,
 			utils.MetricsInfluxDBOrganizationFlag,
-			utils.TxLookupLimitFlag,
-		},
+			utils.VMTraceFlag,
+			utils.VMTraceJsonConfigFlag,
+			utils.TransactionHistoryFlag,
+			utils.StateHistoryFlag,
+		}, utils.DatabaseFlags),
 		Category: "BLOCKCHAIN COMMANDS",
 		Description: `
 The import command imports blocks from an RLP-encoded form. The form can be one file
@@ -84,7 +86,7 @@ If only one file is used, import error will result in failure. If several files 
 processing will proceed even if an individual RLP-file import failure occurs.`,
 	}
 	exportCommand = cli.Command{
-		Action:    utils.MigrateFlags(exportChain),
+		Action:    exportChain,
 		Name:      "export",
 		Usage:     "Export blockchain into file",
 		ArgsUsage: "<filename> [<blockNumFirst> <blockNumLast>]",
@@ -102,7 +104,7 @@ if already existing. If the file ends with .gz, the output will
 be gzipped.`,
 	}
 	importPreimagesCommand = cli.Command{
-		Action:    utils.MigrateFlags(importPreimages),
+		Action:    importPreimages,
 		Name:      "import-preimages",
 		Usage:     "Import the preimage database from an RLP stream",
 		ArgsUsage: "<datafile>",
@@ -134,7 +136,7 @@ It's deprecated, please use "geth db export" instead.
 `,
 	}
 	dumpCommand = cli.Command{
-		Action:    utils.MigrateFlags(dump),
+		Action:    dump,
 		Name:      "dump",
 		Usage:     "Dump a specific block from storage",
 		ArgsUsage: "[? <blockHash> | <blockNum>]",

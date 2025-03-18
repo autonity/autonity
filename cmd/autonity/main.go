@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/accounts/keystore"
 	"github.com/autonity/autonity/cmd/utils"
@@ -44,8 +46,6 @@ import (
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/autonity/autonity/eth/tracers/js"
 	_ "github.com/autonity/autonity/eth/tracers/native"
-
-	"gopkg.in/urfave/cli.v1"
 )
 
 const (

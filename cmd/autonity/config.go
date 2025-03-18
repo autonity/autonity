@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"os"
 	"reflect"
 	"unicode"
@@ -47,7 +46,7 @@ import (
 
 var (
 	dumpConfigCommand = cli.Command{
-		Action:      utils.MigrateFlags(dumpConfig),
+		Action:      dumpConfig,
 		Name:        "dumpconfig",
 		Usage:       "Show configuration values",
 		ArgsUsage:   "",
@@ -108,6 +107,28 @@ func loadConfig(file string, cfg *autonityConfig) error {
 		err = errors.New(file + ", " + err.Error())
 	}
 	return err
+}
+
+// loadBaseConfig loads the gethConfig based on the given command line
+// parameters and config file.
+func loadBaseConfig(ctx *cli.Context) autonityConfig {
+	// Load defaults.
+	cfg := autonityConfig{
+		Eth:     ethconfig.Defaults,
+		Node:    defaultNodeConfig(),
+		Metrics: metrics.DefaultConfig,
+	}
+
+	// Load config file.
+	if file := ctx.String(configFileFlag.Name); file != "" {
+		if err := loadConfig(file, &cfg); err != nil {
+			utils.Fatalf("%v", err)
+		}
+	}
+
+	// Apply flags.
+	utils.SetNodeConfig(ctx, &cfg.Node)
+	return cfg
 }
 
 func defaultNodeConfig() node.Config {
@@ -220,14 +241,8 @@ func applyGenesis(genesis *core.Genesis, node *node.Node) error {
 func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	stack, cfg := makeConfigNode(ctx)
 
-	if ctx.GlobalIsSet(utils.OverrideArrowGlacierFlag.Name) {
-		cfg.Eth.OverrideArrowGlacier = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideArrowGlacierFlag.Name))
-	}
-	if ctx.GlobalIsSet(utils.OverrideTerminalTotalDifficulty.Name) {
-		cfg.Eth.OverrideTerminalTotalDifficulty = new(big.Int).SetUint64(ctx.GlobalUint64(utils.OverrideTerminalTotalDifficulty.Name))
-	}
 	backend, ethBackend := utils.RegisterEthService(stack, &cfg.Eth)
-	utils.RegisterConsensusService(stack, ethBackend, cfg.Eth.NetworkID)
+	utils.RegisterConsensusService(stack, ethBackend, cfg.Eth.NetworkId)
 	utils.RegisterMonitorService(stack)
 
 	// Configure GraphQL if requested

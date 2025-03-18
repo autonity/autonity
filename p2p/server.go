@@ -106,6 +106,9 @@ type Config struct {
 	// Disabling is useful for protocol debugging (manual topology).
 	NoDiscovery bool
 
+	// DiscoveryV4 specifies whether V4 discovery should be started.
+	DiscoveryV4 bool `toml:",omitempty"`
+
 	// DiscoveryV5 specifies whether the new topic-discovery based V5 discovery
 	// protocol should be started or not.
 	DiscoveryV5 bool `toml:",omitempty"`
@@ -661,6 +664,11 @@ func (srv *Server) setupLocalNode() error {
 func (srv *Server) setupDiscovery() error {
 	srv.discmix = enode.NewFairMix(discmixTimeout)
 
+	// Don't listen on UDP endpoint if DHT is disabled
+	if srv.NoDiscovery || srv.Net == Consensus {
+		return nil
+	}
+
 	// Add protocol-specific discovery sources.
 	added := make(map[string]bool)
 	for _, proto := range srv.Protocols {
@@ -668,11 +676,6 @@ func (srv *Server) setupDiscovery() error {
 			srv.discmix.AddSource(proto.DialCandidates)
 			added[proto.Name] = true
 		}
-	}
-
-	// Don't listen on UDP endpoint if DHT is disabled
-	if srv.NoDiscovery || srv.Net == Consensus {
-		return nil
 	}
 
 	addr, err := net.ResolveUDPAddr("udp", srv.ListenAddr)
