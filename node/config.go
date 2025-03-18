@@ -19,18 +19,16 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 
-	"github.com/autonity/autonity/crypto/blst"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
@@ -518,6 +516,30 @@ func (c *Config) parsePersistentNodes(w *bool, path string) []*enode.Node {
 	return nodes
 }
 
+// GetKeyStoreDir retrieves the key directory and will create
+// and ephemeral one if necessary.
+func (c *Config) GetKeyStoreDir() (string, bool, error) {
+	keydir, err := c.KeyDirConfig()
+	if err != nil {
+		return "", false, err
+	}
+	isEphemeral := false
+	if keydir == "" {
+		// There is no datadir.
+		keydir, err = os.MkdirTemp("", "autonity-keystore")
+		isEphemeral = true
+	}
+
+	if err != nil {
+		return "", false, err
+	}
+	if err := os.MkdirAll(keydir, 0700); err != nil {
+		return "", false, err
+	}
+
+	return keydir, isEphemeral, nil
+}
+
 // KeyDirConfig determines the settings for keydirectory
 func (c *Config) KeyDirConfig() (string, error) {
 	var (
@@ -537,30 +559,6 @@ func (c *Config) KeyDirConfig() (string, error) {
 		keydir, err = filepath.Abs(c.KeyStoreDir)
 	}
 	return keydir, err
-}
-
-// getKeyStoreDir retrieves the key directory and will create
-// and ephemeral one if necessary.
-func getKeyStoreDir(conf *Config) (string, bool, error) {
-	keydir, err := conf.KeyDirConfig()
-	if err != nil {
-		return "", false, err
-	}
-	isEphemeral := false
-	if keydir == "" {
-		// There is no datadir.
-		keydir, err = ioutil.TempDir("", "go-ethereum-keystore")
-		isEphemeral = true
-	}
-
-	if err != nil {
-		return "", false, err
-	}
-	if err := os.MkdirAll(keydir, 0700); err != nil {
-		return "", false, err
-	}
-
-	return keydir, isEphemeral, nil
 }
 
 var warnLock sync.Mutex

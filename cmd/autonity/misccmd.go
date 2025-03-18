@@ -19,24 +19,22 @@ package main
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"os"
+	"runtime"
+	"strings"
+
+	"github.com/urfave/cli/v2"
+
+	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
-	ethproto "github.com/autonity/autonity/eth/protocols/eth"
-	"os"
-	"runtime"
-	"strconv"
-	"strings"
-
-	"github.com/autonity/autonity/cmd/utils"
-	"github.com/autonity/autonity/consensus/ethash"
-	"github.com/autonity/autonity/params"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/autonity/autonity/internal/version"
 )
 
 var (
 	versionCommand = cli.Command{
-		Action:    utils.MigrateFlags(version),
+		Action:    printVersion,
 		Name:      "version",
 		Usage:     "Print version numbers",
 		ArgsUsage: " ",
@@ -47,7 +45,7 @@ The output of this command is supposed to be machine-readable.
 	}
 
 	licenseCommand = cli.Command{
-		Action:    utils.MigrateFlags(license),
+		Action:    license,
 		Name:      "license",
 		Usage:     "Display license information",
 		ArgsUsage: " ",
@@ -55,7 +53,7 @@ The output of this command is supposed to be machine-readable.
 	}
 
 	ownershipProofCommand = cli.Command{
-		Action: utils.MigrateFlags(genOwnershipProof),
+		Action: genOwnershipProof,
 		Name:   "genOwnershipProof",
 		Usage:  "Generate enode proof",
 		Flags: []cli.Flag{
@@ -84,7 +82,7 @@ The output of this command is supposed to be machine-readable.
 	}
 
 	genAutonityKeysCommand = cli.Command{
-		Action: utils.MigrateFlags(genAutonityKeys),
+		Action: genAutonityKeys,
 		Name:   "genAutonityKeys",
 		Usage:  "Generate autonity keys",
 		Flags: []cli.Flag{
@@ -100,49 +98,18 @@ The output of this command is supposed to be machine-readable.
 	}
 )
 
-// makecache generates an ethash verification cache into the provided folder.
-func makecache(ctx *cli.Context) error {
-	args := ctx.Args()
-	if len(args) != 2 {
-		utils.Fatalf(`Usage: autonity makecache <block number> <outputdir>`)
-	}
-	block, err := strconv.ParseUint(args[0], 0, 64)
-	if err != nil {
-		utils.Fatalf("Invalid block number: %v", err)
-	}
-	ethash.MakeCache(block, args[1])
+func printVersion(ctx *cli.Context) error {
+	git, _ := version.VCS()
 
-	return nil
-}
-
-// makedag gene
-//
-//	tes an ethash mining DAG into the provided folder.
-func makedag(ctx *cli.Context) error {
-	args := ctx.Args()
-	if len(args) != 2 {
-		utils.Fatalf(`Usage: autonity makedag <block number> <outputdir>`)
-	}
-	block, err := strconv.ParseUint(args[0], 0, 64)
-	if err != nil {
-		utils.Fatalf("Invalid block number: %v", err)
-	}
-	ethash.MakeDataset(block, args[1])
-
-	return nil
-}
-
-func version(ctx *cli.Context) error {
 	fmt.Println(strings.Title(clientIdentifier))
-	fmt.Println("Version:", params.VersionWithMeta)
-	if gitCommit != "" {
-		fmt.Println("Git Commit:", gitCommit)
+	fmt.Println("Version:", version.WithMeta)
+	if git.Commit != "" {
+		fmt.Println("Git Commit:", git.Commit)
 	}
-	if gitDate != "" {
-		fmt.Println("Git Commit Date:", gitDate)
+	if git.Date != "" {
+		fmt.Println("Git Commit Date:", git.Date)
 	}
 	fmt.Println("Architecture:", runtime.GOARCH)
-	fmt.Println("Protocol Versions:", ethproto.ProtocolVersions)
 	fmt.Println("Go Version:", runtime.Version())
 	fmt.Println("Operating System:", runtime.GOOS)
 	fmt.Printf("GOPATH=%s\n", os.Getenv("GOPATH"))
@@ -151,18 +118,18 @@ func version(ctx *cli.Context) error {
 }
 
 func license(_ *cli.Context) error {
-	fmt.Println(`Autonity is free software: you can redistribute it and/or modify
+	fmt.Println(`Geth is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-Autonity is distributed in the hope that it will be useful,
+Geth is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with autonity. If not, see <http://www.gnu.org/licenses/>.`)
+along with geth. If not, see <http://www.gnu.org/licenses/>.`)
 	return nil
 }
 

@@ -244,14 +244,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 			rawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
 		}
 	}
-	// Override the chain config with provided settings.
-	var overrides core.ChainOverrides
-	if config.OverrideCancun != nil {
-		overrides.OverrideCancun = new(big.Int).SetUint64(*config.OverrideCancun)
-	}
-	if config.OverrideVerkle != nil {
-		overrides.OverrideVerkle = new(big.Int).SetUint64(*config.OverrideVerkle)
-	}
 
 	txSender := func(tx *types.Transaction) error {
 		return eth.txPool.Add([]*types.Transaction{tx}, true)[0]
@@ -269,7 +261,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		config.Genesis,
 		eth.engine,
 		vmConfig,
-		&overrides,
 		&config.TransactionHistory,
 		backends.NewInternalBackend(txSender, eth.APIBackend),
 		eth.log)

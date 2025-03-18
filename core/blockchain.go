@@ -302,7 +302,6 @@ func NewBlockChain(
 	genesis *Genesis,
 	engine consensus.Engine,
 	vmConfig vm.Config,
-	overrides *ChainOverrides,
 	txLookupLimit *uint64,
 	contractBackendCreator func(chain *BlockChain, state ethdb.Database) bind.ContractBackend,
 	log log.Logger,
@@ -322,7 +321,7 @@ func NewBlockChain(
 	// yet. The corresponding chain config will be returned, either from the
 	// provided genesis or from the locally stored configuration if the genesis
 	// has already been initialized.
-	chainConfig, genesisHash, compatErr, err := SetupGenesisBlockWithOverride(db, triedb, genesis, overrides)
+	chainConfig, genesisHash, compatErr, err := SetupGenesisBlockWithOverride(db, triedb, genesis, nil)
 	if err != nil {
 		return nil, err
 	}
