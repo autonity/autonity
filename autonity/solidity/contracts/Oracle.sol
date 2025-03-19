@@ -78,6 +78,8 @@ contract Oracle is IOracle {
     uint256 private resetCounter;
     // set of voters penalized in the current round
     EnumerableSet.AddressSet private penalizedVoters;
+    // set of voters that are detected as outliers in the current round
+    EnumerableSet.AddressSet private outliers;
 
     /**
      * @dev Constructor to initialize the Oracle contract.
@@ -308,13 +310,14 @@ contract Oracle is IOracle {
         string memory _symbol = symbols[_sindex];
         Report[] memory _totalReports = new Report[](voters.length);
         uint256 _count;
+        mapping(address => Report) storage _voterReports = reports[_symbol];
         for (uint i = 0; i < voters.length; i++) {
             address _voter = voters[i];
             // if there is no available report from this validator we must account for it.
             if (!voterInfo[_voter].reportAvailable) {
                 continue;
             }
-            _totalReports[_count++] = reports[_symbol][_voter];
+            _totalReports[_count++] = _voterReports[_voter];
         }
 
         // at this stage if count > 0 we must have valid strictly positive reports available.
@@ -327,8 +330,11 @@ contract Oracle is IOracle {
             if (_reportsCount > 0) {
                 // punish outliers if found
                 for (uint256 i = 0; i < _totalOutliers; i++) {
-                    uint256 _slashingAmount = _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
-                    emit Penalized(_outliers[i], _slashingAmount, _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
+                    (uint256 _slashingAmount, bool _alreadySlashed) = _penalize(_outliers[i], _priceMedian, _voterReports[_outliers[i]]);
+                    // don't want to emit too many events
+                    if (!_alreadySlashed) {
+                        emit Penalized(_outliers[i], _slashingAmount, _symbol, _priceMedian, _voterReports[_outliers[i]].price);
+                    }
                 }
                 prices[round][_symbol] = Price(
                     _calculateWeightedPrice(_filteredReports, _reportsCount),
@@ -696,21 +702,23 @@ contract Oracle is IOracle {
         return _price / _totalConfidence;
     }
 
-    function _penalize(address _outlier, int256 _median, Report memory _report) internal returns (uint256) {
-        // Stop considering this reporter for any future calculation.
-        // This is symbol independant.
-        voterInfo[_outlier].reportAvailable = false;
+    /**
+     * @dev Penalize `_outlier` and returns the slashing amount and if the voter is already slashed.
+     */
+    function _penalize(address _outlier, int256 _median, Report memory _report) internal returns (uint256, bool) {
         if (penalizedVoters.contains(_outlier)) {
-            // we already slashed this voter
-            return 0;
+            // we already slashed this voter with the highest offence
+            return (0, true);
         }
         int256 _diffRatio = (int256(uint256(_report.price)) - _median) * 100 / _median;
         //price is 120 bits max so _diffratio squared is at most 240 bits
         _diffRatio = _diffRatio * _diffRatio;
         if (_diffRatio <= config.outlierSlashingThreshold) {
-            return 0;
+            outliers.add(_outlier);
+            return (0, false);
         }
 
+        penalizedVoters.add(_outlier);
         // `_diffRatio` is a percentage squared, so dividing it by 10_000
         uint256 _slashingRate = (uint256(_diffRatio - config.outlierSlashingThreshold) *
                                uint256(_report.confidence) *
@@ -721,7 +729,7 @@ contract Oracle is IOracle {
             _slashingRate = ORACLE_SLASHING_RATE_CAP;
         }
 
-        return config.autonity.slash(voterValidators[_outlier], _slashingRate);
+        return (config.autonity.slash(voterValidators[_outlier], _slashingRate), false);
     }
     
     function _penalizeForNoReveal() internal {
@@ -769,6 +777,15 @@ contract Oracle is IOracle {
             // don't consider past reports from the penalized voters
             voterInfo[_voter].reportAvailable = false;
             require(penalizedVoters.remove(_voter), "voter not removed");
+            _length--;
+        }
+
+        _length = outliers.length();
+        while (_length > 0) {
+            address _voter = outliers.at(0);
+            // don't consider past reports from the outliers
+            voterInfo[_voter].reportAvailable = false;
+            require(outliers.remove(_voter), "voter not removed");
             _length--;
         }
     }
