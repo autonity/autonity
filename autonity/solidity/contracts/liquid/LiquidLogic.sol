@@ -108,9 +108,10 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      */
     function claimTreasuryATN() external virtual {
         require(msg.sender == treasury, "only treasury can claim his reward");
-        (bool _sent, ) = treasury.call{value: treasuryUnclaimedATN}("");
-        require(_sent, "failed to send ATN");
+        uint256 _rewards = treasuryUnclaimedATN;
         treasuryUnclaimedATN = 0;
+        (bool _sent, ) = treasury.call{value: _rewards}("");
+        require(_sent, "failed to send ATN");
     }
 
     /**
