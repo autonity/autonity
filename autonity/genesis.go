@@ -304,10 +304,6 @@ func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisB
 		Delta:                  new(big.Int).SetUint64(omissionConfig.Delta),
 	}
 
-	treasuries := make([]common.Address, len(config.AutonityContractConfig.Validators))
-	for i, val := range config.AutonityContractConfig.Validators {
-		treasuries[i] = val.Treasury
-	}
 	err := deploy(
 		params.OmissionAccountabilityContractAddress,
 		&generated.OmissionAccountabilityAbi,
@@ -315,7 +311,6 @@ func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisB
 		common.Big0,
 		params.AutonityContractAddress,
 		config.AutonityContractConfig.Operator,
-		treasuries,
 		conf,
 	)
 	if err != nil {

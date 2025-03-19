@@ -67,7 +67,6 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents {
     constructor(
         address payable _autonity,
         address _operator,
-        address[] memory _treasuries,
         Config memory _config
     ) {
         // config sanity checks
@@ -86,8 +85,9 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents {
         for (uint256 i = 0; i < epochInfo.committee.length; i++) {
             committee.push(epochInfo.committee[i]);
             lastActive[committee[i].addr] = - 1;
+            Autonity.Validator memory _validator = autonity.getValidator(epochInfo.committee[i].addr);
+            treasuries.push(_validator.treasury);
         }
-        treasuries = _treasuries;
 
         newLookbackWindow = config.lookbackWindow;
         newDelta = config.delta;
