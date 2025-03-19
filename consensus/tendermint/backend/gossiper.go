@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"errors"
 	"math/big"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 )
 
 type router interface {
-	Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember
+	Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 }
 
@@ -75,11 +76,16 @@ func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
 	code := NetworkCodes[message.Code()]
 	payload := message.Payload()
 
-	recipients := g.router.Route(committee, message, g.address)
-	if len(recipients) == 0 {
-		log.Warn("Gossiper: no recipients found for message", "code", code)
-		return
+	recipients, err := g.router.Route(committee, message, g.address)
+	if err != nil {
+		if !errors.Is(err, consensus.ErrFutureEpochMessage) {
+			log.Debug("No recipients for proposal", "error", err, "height", message.H())
+			return
+		}
+		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
+		recipients = committee.Members
 	}
+
 	for _, val := range recipients {
 		if val.Address == g.address {
 			continue

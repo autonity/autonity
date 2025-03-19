@@ -114,17 +114,17 @@ func TestClusteringResetFNodes(t *testing.T) {
 // NoRelayingSelector is used for not to relay proposal in the network for Faulty nodes.
 type NoRelayingSelector struct{}
 
-func (r *NoRelayingSelector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
+func (r *NoRelayingSelector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
 	// if not part of the committee return
 	if member := committee.MemberByAddress(from); member == nil {
-		return nil
+		return nil, nil
 	}
 
 	if msg.Code() != message.ProposalCode {
-		return committee.Members
+		return committee.Members, nil
 	}
 
-	return nil
+	return nil, nil
 }
 
 func TestFFaultyRelayers(t *testing.T) {

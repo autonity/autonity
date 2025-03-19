@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
-	ring "github.com/zfjagann/golang-ring"
 	"math"
 	"math/big"
 	"math/rand"
@@ -25,6 +24,9 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 )
 
+var errTooOldMessage = errors.New("too old message")
+var errUnknownClusters = errors.New("unknown clustering")
+
 // proposeNetworkMsg is redefined here to avoid circular dependencies
 var proposeNetworkMsg uint64 = 0x11
 
@@ -36,7 +38,7 @@ var ClusterRedundancyParameter = 3
 var MeasurementWindow = 10000 // The time window in Millisecond to measure the latency of peers at the beginning of an epoch.
 
 type PeerSelector interface {
-	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember
+	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
 }
 
 type Router struct {
@@ -47,8 +49,6 @@ type Router struct {
 	epochDefaultCluster   *Clusters
 	epochOptimizedCluster *Clusters
 	lastEpochCluster      *Clusters
-
-	bufferedMsgs ring.Ring
 
 	broadcaster consensus.Broadcaster
 	contracts   *autonity.ProtocolContracts
@@ -82,7 +82,6 @@ func NewRouter(
 		optimizationEventChan: make(chan *autonity.LatencyClusteringViewOptimized),
 		pinger:                ping.NewPinger(ping.TCP),
 	}
-	r.bufferedMsgs.SetCapacity(128)
 	r.SetDefaultHandlers()
 
 	if pinger != nil {
@@ -106,7 +105,7 @@ func (r *Router) PeerSelector() PeerSelector {
 // Exported functions
 
 // Route just select recipients from the clusters, it does not do the message sending.
-func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
+func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
 	return r.PeerSelector().SelectPeers(committee, msg, from)
 }
 
@@ -121,21 +120,24 @@ func (r *Router) Forward(bc *core.BlockChain, m message.Msg, sender common.Addre
 
 	if m.H() >= r.curEpochInfo.NextEpochBlock.Uint64() {
 		log.Info("Buffer future epoch's message", "height", m.H())
-		r.bufferedMsgs.Enqueue(m)
 		return
 	}
 
 	committee, err := bc.CommitteeByHeight(m.H())
 	if err != nil {
-		r.bufferedMsgs.Enqueue(m)
 		log.Info("Forward: Failed to query epoch", "error", err, "height", m.H())
 		return
 	}
 
-	recipients := r.Route(committee, m, sender)
-	if len(recipients) == 0 {
-		log.Debug("No recipients for proposal", "proposal", m)
-		return
+	var recipients []types.CommitteeMember
+	recipients, err = r.Route(committee, m, sender)
+	if err != nil {
+		if !errors.Is(err, consensus.ErrFutureEpochMessage) {
+			log.Debug("No recipients for proposal", "error", err, "height", m.H())
+			return
+		}
+		// forward to all the committee members, as most of them are still in the committee.
+		recipients = committee.Members
 	}
 
 	for _, recipient := range recipients {
@@ -246,25 +248,33 @@ func (r *Router) viewRotation(newDefaultCluster *Clusters) {
 	r.epochOptimizedCluster = nil
 }
 
-func (r *Router) resolveClusters(h uint64) *Clusters {
+func (r *Router) resolveClusters(h uint64) (*Clusters, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+
+	if r.epochDefaultCluster != nil && h >= r.epochDefaultCluster.nextEpochHeight {
+		return nil, consensus.ErrFutureEpochMessage
+	}
+
 	// always try to pick the optimized one 1st
 	if r.epochOptimizedCluster != nil && h >= r.epochOptimizedCluster.activatedHeight && h < r.epochDefaultCluster.nextEpochHeight {
-		return r.epochOptimizedCluster
+		return r.epochOptimizedCluster, nil
 	}
 	// otherwise, try to pick the default clusters.
 	if r.epochDefaultCluster != nil && h >= r.epochDefaultCluster.activatedHeight && h < r.epochDefaultCluster.nextEpochHeight {
-		return r.epochDefaultCluster
+		return r.epochDefaultCluster, nil
 	}
 
 	// edge case, around epoch rotation, some message might be from past epoch.
 	if r.lastEpochCluster != nil && h >= r.lastEpochCluster.activatedHeight && h < r.lastEpochCluster.nextEpochHeight {
-		return r.lastEpochCluster
+		return r.lastEpochCluster, nil
 	}
 
-	// height of future epoch which the clustering haven't been formed.
-	return nil
+	if r.lastEpochCluster != nil && h < r.lastEpochCluster.activatedHeight {
+		return nil, errTooOldMessage
+	}
+
+	return nil, errUnknownClusters
 }
 
 // buildDefaultClusters partitions the committee into default clusters
@@ -295,6 +305,7 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 }
 
 func (r *Router) startMeasurementTask() {
+	// todo: clean shutdown for this go routine.
 	go func() {
 		rand.Seed(time.Now().UnixNano())
 		delay := time.Duration(rand.Intn(MeasurementWindow)) * time.Millisecond
@@ -389,8 +400,6 @@ func (r *Router) loop(ctx context.Context) {
 				}
 				return result
 			}()))
-
-			// todo: process buffered msgs.
 
 			if r.curEpochInfo.Committee.MemberByAddress(r.self) == nil {
 				log.Info("Router: node leaving committee, skip measurement", "height", epochEv.Header.Number.String())
@@ -497,21 +506,19 @@ type Selector struct {
 	*Router
 }
 
-func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
+func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
 	if member := committee.MemberByAddress(from); member == nil {
 		log.Debug("Router: from not part of committee, not routing anywhere", "address", from)
-		return nil
+		return nil, nil
 	}
 
 	if msg.Code() != message.ProposalCode {
-		return committee.Members
+		return committee.Members, nil
 	}
 
-	clusters := s.resolveClusters(msg.H())
-	if clusters == nil {
-		log.Info("Router: buffering future epoch message", "address", from, "height", msg.H())
-		s.bufferedMsgs.Enqueue(msg)
-		return nil
+	clusters, err := s.resolveClusters(msg.H())
+	if err != nil {
+		return nil, err
 	}
 
 	// if we are sending the proposal, we should send it to every cluster
@@ -558,7 +565,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 
 	// there could be some duplication if we are sending to ClusterRedundancyParameter members of each
 	// cluster, that may include our own cluster, so we deduplicate
-	return deduplicate(recipients)
+	return deduplicate(recipients), nil
 }
 
 func deduplicate(recipients []types.CommitteeMember) []types.CommitteeMember {
