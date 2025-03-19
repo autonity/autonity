@@ -176,8 +176,10 @@ func handleConsensusMsg[T any, PT interface {
 		return true, err
 	}
 
-	// forward message as soon as it's decoded
-	if sb.router != nil {
+	// for performance, we relay proposal ASAP. The proposal could be one within current epoch or from the
+	// next epoch when the node is around the epoch rotation. As the clustering haven't been done for new epoch,
+	// the router should be able to buffer the proposal and forward it latter.
+	if sb.router != nil && msg.Code() == message.ProposalCode {
 		go sb.router.Forward(sb.BlockChain(), msg, sender)
 	}
 

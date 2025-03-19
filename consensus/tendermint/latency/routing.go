@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	ring "github.com/zfjagann/golang-ring"
 	"math"
 	"math/big"
 	"math/rand"
@@ -24,8 +25,11 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 )
 
+// proposeNetworkMsg is redefined here to avoid circular dependencies
+var proposeNetworkMsg uint64 = 0x11
+
 // ScaleThresholdForClustering is the minimum number of validators required to do network clustering
-var ScaleThresholdForClustering = 10 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
+var ScaleThresholdForClustering = 9 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
 // ClusterRedundancyParameter is the number of members of each cluster to send a proposal to
 var ClusterRedundancyParameter = 3
 
@@ -36,9 +40,15 @@ type PeerSelector interface {
 }
 
 type Router struct {
-	self     common.Address
-	nodeKey  *ecdsa.PrivateKey
-	clusters *clusterCache
+	self    common.Address
+	nodeKey *ecdsa.PrivateKey
+
+	mu                    sync.RWMutex
+	epochDefaultCluster   *Clusters
+	epochOptimizedCluster *Clusters
+	lastEpochCluster      *Clusters
+
+	bufferedMsgs ring.Ring
 
 	broadcaster consensus.Broadcaster
 	contracts   *autonity.ProtocolContracts
@@ -71,8 +81,8 @@ func NewRouter(
 		epochEventChan:        make(chan core.EpochHeadEvent),
 		optimizationEventChan: make(chan *autonity.LatencyClusteringViewOptimized),
 		pinger:                ping.NewPinger(ping.TCP),
-		clusters:              newClusterCache(),
 	}
+	r.bufferedMsgs.SetCapacity(128)
 	r.SetDefaultHandlers()
 
 	if pinger != nil {
@@ -100,13 +110,49 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 	return r.PeerSelector().SelectPeers(committee, msg, from)
 }
 
+// Forward just forward decoded proposal from p2p msg handler, the proposal could be a future proposal within
+// current epoch or from the next epoch when node is around epoch rotation, thus, the router should be able to buffer
+// future proposals that the clustering haven't been done.
 func (r *Router) Forward(bc *core.BlockChain, m message.Msg, sender common.Address) {
-	forward(r, bc, m, sender)
-}
+	if m.H() < r.curEpochInfo.EpochBlock.Uint64() {
+		log.Info("Don't forward too old message", "height", m.H())
+		return
+	}
 
-func (r *Router) ClusteringActive(height uint64) bool {
-	_, ok := r.clusters.clustersAt(height)
-	return ok
+	if m.H() >= r.curEpochInfo.NextEpochBlock.Uint64() {
+		log.Info("Buffer future epoch's message", "height", m.H())
+		r.bufferedMsgs.Enqueue(m)
+		return
+	}
+
+	committee, err := bc.CommitteeByHeight(m.H())
+	if err != nil {
+		r.bufferedMsgs.Enqueue(m)
+		log.Info("Forward: Failed to query epoch", "error", err, "height", m.H())
+		return
+	}
+
+	recipients := r.Route(committee, m, sender)
+	if len(recipients) == 0 {
+		log.Debug("No recipients for proposal", "proposal", m)
+		return
+	}
+
+	for _, recipient := range recipients {
+		if recipient.Address == sender {
+			continue
+		}
+		if p, ok := r.broadcaster.FindPeer(recipient.Address); ok {
+			if p.Cache().Contains(m.Hash()) {
+				// This peer had this event, skip it
+				continue
+			}
+			p.Cache().Add(m.Hash(), true)
+			go p.SendRaw(proposeNetworkMsg, m.Payload()) //nolint
+		} else {
+			//todo: shall we select other backups for live ness?
+		}
+	}
 }
 
 func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
@@ -135,13 +181,13 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 	r.self = r.reporter.txOpts.From
 
 	// set default clusters for current epoch.
-	r.setDefaultClusters(func() []common.Address {
+	r.setDefaultCluster(r.buildDefaultClusters(func() []common.Address {
 		result := make([]common.Address, r.curEpochInfo.Committee.Len())
 		for i, member := range r.curEpochInfo.Committee.Members {
 			result[i] = member.Address
 		}
 		return result
-	}())
+	}()))
 
 	// As from here, we already subscribe the optimization event, however if the optimization was already happened,
 	// we'd need to set optimized clusters for current epoch if it was happened.
@@ -150,8 +196,7 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 		log.Error("failed to get optimized clusters height", "err", err)
 		return
 	}
-
-	if optimizationHeight.Cmp(common.Big0) > 0 {
+	if optimizationHeight.Cmp(common.Big0) > 0 && optimizationHeight.Cmp(r.curEpochInfo.NextEpochBlock) < 0 {
 		err = r.optimizeCluster(optimizationHeight.Uint64())
 		if err != nil {
 			log.Error("Router: failed to optimize the clustering", "err", err)
@@ -176,11 +221,56 @@ func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 }
 
 // Internal package functions
+func (r *Router) setDefaultCluster(c *Clusters) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.epochDefaultCluster = c
+}
 
-// setDefaultClusters partitions the committee into default clusters
-func (r *Router) setDefaultClusters(committee []common.Address) {
+func (r *Router) setOptimizedCluster(c *Clusters) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.epochOptimizedCluster = c
+}
+
+func (r *Router) viewRotation(newDefaultCluster *Clusters) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.epochOptimizedCluster != nil {
+		r.lastEpochCluster = r.epochOptimizedCluster
+	} else {
+		r.lastEpochCluster = r.epochDefaultCluster
+	}
+
+	r.epochDefaultCluster = newDefaultCluster
+	r.epochOptimizedCluster = nil
+}
+
+func (r *Router) resolveClusters(h uint64) *Clusters {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	// always try to pick the optimized one 1st
+	if r.epochOptimizedCluster != nil && h >= r.epochOptimizedCluster.activatedHeight && h < r.epochDefaultCluster.nextEpochHeight {
+		return r.epochOptimizedCluster
+	}
+	// otherwise, try to pick the default clusters.
+	if r.epochDefaultCluster != nil && h >= r.epochDefaultCluster.activatedHeight && h < r.epochDefaultCluster.nextEpochHeight {
+		return r.epochDefaultCluster
+	}
+
+	// edge case, around epoch rotation, some message might be from past epoch.
+	if r.lastEpochCluster != nil && h >= r.lastEpochCluster.activatedHeight && h < r.lastEpochCluster.nextEpochHeight {
+		return r.lastEpochCluster
+	}
+
+	// height of future epoch which the clustering haven't been formed.
+	return nil
+}
+
+// buildDefaultClusters partitions the committee into default clusters
+func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 	if len(committee) <= ScaleThresholdForClustering {
-		return
+		return nil
 	}
 	numClusters := numClustersFor(len(committee))
 	clusters := make([][]common.Address, numClusters)
@@ -188,7 +278,10 @@ func (r *Router) setDefaultClusters(committee []common.Address) {
 		k := int(math.Min(float64(i/numClusters), float64(numClusters-1)))
 		clusters[k] = append(clusters[k], addr)
 	}
-	r.clusters.insertClustering(&Clusters{r.curEpochInfo.EpochBlock.Uint64(), r.curEpochInfo.NextEpochBlock.Uint64(), clusters, nil})
+
+	defaultCluster := &Clusters{r.curEpochInfo.EpochBlock.Uint64(),
+		r.curEpochInfo.NextEpochBlock.Uint64(), clusters, nil}
+
 	log.Debug("Router: set default clusters", "clusters", func() [][]int {
 		clusterInts := make([][]int, len(clusters))
 		for i, cluster := range clusters {
@@ -198,6 +291,7 @@ func (r *Router) setDefaultClusters(committee []common.Address) {
 		}
 		return clusterInts
 	}(), "height", r.curEpochInfo.EpochBlock.Uint64())
+	return defaultCluster
 }
 
 func (r *Router) startMeasurementTask() {
@@ -271,6 +365,10 @@ func (r *Router) loop(ctx context.Context) {
 			return
 		case optimizationEv := <-r.optimizationEventChan:
 			log.Info("Router: ready to optimize the clustering", "new view will be applied at height", optimizationEv.Height)
+			if optimizationEv.Height.Cmp(r.curEpochInfo.NextEpochBlock) >= 0 {
+				log.Info("Router: skip to optimize the clustering", "activation height over epoch", optimizationEv.Height.Uint64())
+				continue
+			}
 
 			err := r.optimizeCluster(optimizationEv.Height.Uint64())
 			if err != nil {
@@ -283,6 +381,22 @@ func (r *Router) loop(ctx context.Context) {
 				Epoch:      *epochEv.Header.Epoch.Copy(),
 				EpochBlock: epochEv.Header.Number,
 			}
+
+			r.viewRotation(r.buildDefaultClusters(func() []common.Address {
+				result := make([]common.Address, r.curEpochInfo.Committee.Len())
+				for i, member := range r.curEpochInfo.Committee.Members {
+					result[i] = member.Address
+				}
+				return result
+			}()))
+
+			// todo: process buffered msgs.
+
+			if r.curEpochInfo.Committee.MemberByAddress(r.self) == nil {
+				log.Info("Router: node leaving committee, skip measurement", "height", epochEv.Header.Number.String())
+				continue
+			}
+
 			// start the measurement and try to report the data.
 			r.startMeasurementTask()
 		}
@@ -308,17 +422,19 @@ func (r *Router) optimizeCluster(h uint64) error {
 		latencyMat[validator] = latency[i]
 	}
 
-	clusters, err := AssignClusters(h, r.curEpochInfo.NextEpochBlock.Uint64(), latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
+	optimizedClusters, err := AssignClusters(h, r.curEpochInfo.NextEpochBlock.Uint64(), latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
 	if err != nil {
 		return err
 	}
 
+	r.setOptimizedCluster(optimizedClusters)
+
 	log.Debug(
-		"Router: optimizeCluster",
-		"clusters",
+		"Router: optimizeClusters",
+		"optimizedClusters",
 		func() [][]int {
-			clusterInts := make([][]int, len(clusters.base))
-			for i, cluster := range clusters.base {
+			clusterInts := make([][]int, len(optimizedClusters.base))
+			for i, cluster := range optimizedClusters.base {
 				clusterInts[i] = make([]int, len(cluster))
 				for j, member := range cluster {
 					clusterInts[i][j] = slices.Index(committee, member)
@@ -382,27 +498,20 @@ type Selector struct {
 }
 
 func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
-	// currently only proposals are routed through clustering
-	if msg.Code() != message.ProposalCode {
-		return committee.Members
-	}
-
-	// if not part of the committee return
 	if member := committee.MemberByAddress(from); member == nil {
 		log.Debug("Router: from not part of committee, not routing anywhere", "address", from)
 		return nil
 	}
 
-	// if the clusters are not yet formed, or there is no clusters at all, we should default to the full committee
-	if s.clusters == nil {
+	if msg.Code() != message.ProposalCode {
 		return committee.Members
 	}
 
-	clusters, ok := s.clusters.clustersAt(msg.H())
-	if !ok {
-		// we don't have a valid clustering for this height
-		log.Debug("Router: no clusters at height, routing to everyone", "height", msg.H())
-		return committee.Members
+	clusters := s.resolveClusters(msg.H())
+	if clusters == nil {
+		log.Info("Router: buffering future epoch message", "address", from, "height", msg.H())
+		s.bufferedMsgs.Enqueue(msg)
+		return nil
 	}
 
 	// if we are sending the proposal, we should send it to every cluster

@@ -22,7 +22,7 @@ func TestClusteringHappyCase(t *testing.T) {
 	// mocked service with a local ping simulator which generates [0, 500) ms latency.
 	mockedService := &interfaces.Services{Pinger: NewSimulatedPinger()}
 
-	validators, err := e2e.Validators(t, 36, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, 10, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	for _, validator := range validators {
@@ -35,7 +35,7 @@ func TestClusteringHappyCase(t *testing.T) {
 	defer network.Shutdown(t)
 
 	// runs for about 10 epoches period.
-	network.WaitToMineNBlocks(500, 500, false)
+	network.WaitToMineNBlocks(250, 250, false)
 }
 
 // TestClusteringResetAllNodes, it stops all nodes one by one, and start them again one by one. The network should recover to

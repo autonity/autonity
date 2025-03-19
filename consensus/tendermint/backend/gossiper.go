@@ -78,6 +78,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
 	recipients := g.router.Route(committee, message, g.address)
 	if len(recipients) == 0 {
 		log.Warn("Gossiper: no recipients found for message", "code", code)
+		return
 	}
 	for _, val := range recipients {
 		if val.Address == g.address {

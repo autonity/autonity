@@ -119,7 +119,6 @@ type Core interface {
 type Router interface {
 	Start(ctx context.Context, chain *ethcore.BlockChain)
 	Stop()
-	ClusteringActive(h uint64) bool
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 	Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember
 	Forward(bc *ethcore.BlockChain, m message.Msg, sender common.Address)
