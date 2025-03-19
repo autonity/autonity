@@ -110,15 +110,16 @@ func TestSimpleVote(t *testing.T) {
 	}
 }
 
-func genReports(n int, price ...int) []IOracleReport {
+func genReports(n int, prices ...int) []IOracleReport {
 	defaultPrice := 1000
-	if len(price) > 0 {
-		defaultPrice = price[0]
-	}
 	var reports []IOracleReport
 	for i := 0; i < n; i++ {
+		price := defaultPrice
+		if len(prices) > i {
+			price = prices[i]
+		}
 		reports = append(reports, IOracleReport{
-			Price:      big.NewInt(int64(defaultPrice)),
+			Price:      big.NewInt(int64(price)),
 			Confidence: 100,
 		})
 	}
@@ -312,6 +313,161 @@ func TestRewardsDistribution(t *testing.T) {
 		validatorInfo, _, err = r.Autonity.GetValidator(nil, oldVoter.NodeAddress)
 		require.NoError(r.T, err)
 		require.Equal(r.T, new(big.Int).Add(selfBondedStake, rewards.RewardNTN), validatorInfo.SelfBondedStake, "did not get ntn reward")
+	})
+
+	// need (3 * vote period >= epoch period) for this test
+	RunWithSetup("outliers can also get rewards", setup, func(r *Runner) {
+		symbols, _, err := r.Oracle.GetSymbols(nil)
+		require.NoError(r.T, err)
+		outlierPrice := make([]int, 0, len(symbols))
+		normalPrice := make([]int, 0, len(symbols))
+		for i := 0; i < len(symbols); i++ {
+			outlierPrice = append(outlierPrice, 1000)
+			normalPrice = append(normalPrice, 1000)
+		}
+
+		voters := 3
+		validators := make([]common.Address, 0, voters)
+		treasuries := make([]common.Address, 0, voters)
+		oracles := make([]common.Address, 0, voters)
+		for i := 0; i < voters; i++ {
+			validators = append(validators, r.Committee.Validators[i].NodeAddress)
+			treasuries = append(treasuries, r.Committee.Validators[i].Treasury)
+			oracles = append(oracles, r.Committee.Validators[i].OracleAddress)
+		}
+
+		var (
+			targetSymbol int
+			outlier      int
+		)
+		tester := func(r *Runner) {
+			outlierPrice[targetSymbol] = normalPrice[targetSymbol] * 10
+			stakes := make([]*big.Int, voters)
+			balances := make([]*big.Int, voters)
+			for i, v := range validators {
+				info, _, err := r.Autonity.GetValidator(nil, v)
+				require.NoError(r.T, err)
+				stakes[i] = info.BondedStake
+				balances[i] = r.GetBalanceOf(treasuries[i])
+			}
+
+			totalConfidence := new(big.Int)
+			confidenceScores := make([]*big.Int, 0)
+
+			vote := func(reportAvailable bool) {
+				totalConfidence = new(big.Int)
+				confidenceScores = make([]*big.Int, 0)
+				for i, o := range oracles {
+					var reports []IOracleReport
+					if i == outlier {
+						reports = genReports(len(symbols), outlierPrice...)
+					} else {
+						reports = genReports(len(symbols), normalPrice...)
+					}
+
+					r.NoError(
+						r.Oracle.Vote(
+							FromSender(o, nil),
+							MakeOracleCommit(r.T, common.Big0, o, reports),
+							reports,
+							common.Big0,
+							0,
+						),
+					)
+
+					info, _, err := r.Oracle.VoterInfo(nil, o)
+					require.NoError(r.T, err)
+					require.True(r.T, info.IsVoter)
+					require.Equal(r.T, reportAvailable, info.ReportAvailable)
+
+					confidence := new(big.Int)
+					for index, report := range reports {
+						if i == outlier && index == targetSymbol {
+							continue
+						}
+						confidence = new(big.Int).Add(confidence, big.NewInt(int64(report.Confidence)))
+					}
+					totalConfidence = new(big.Int).Add(totalConfidence, confidence)
+					confidenceScores = append(confidenceScores, confidence)
+				}
+			}
+
+			nextRound := func() {
+				round, _, err := r.Oracle.GetRound(nil)
+				require.NoError(r.T, err)
+				voterPeriod, _, err := r.Oracle.GetVotePeriod(nil)
+				require.NoError(r.T, err)
+				r.WaitNBlocks(int(voterPeriod.Int64()))
+				newRound, _, err := r.Oracle.GetRound(nil)
+				require.NoError(r.T, err)
+				require.Equal(r.T, new(big.Int).Add(round, common.Big1), newRound)
+			}
+
+			vote(false)
+			nextRound()
+			vote(true)
+			nextRound()
+			roundBlock := r.Evm.Context.BlockNumber.Int64()
+
+			for i, v := range validators {
+				valInfo, _, err := r.Autonity.GetValidator(nil, v)
+				require.NoError(r.T, err)
+				voterInfo, _, err := r.Oracle.VoterInfo(nil, oracles[i])
+				require.NoError(r.T, err)
+				require.True(r.T, voterInfo.IsVoter)
+
+				if i == outlier {
+					require.True(r.T, valInfo.BondedStake.Cmp(stakes[i]) == -1, "outlier did not get slashed")
+					require.False(r.T, voterInfo.ReportAvailable)
+				} else {
+					require.True(r.T, valInfo.BondedStake.Cmp(stakes[i]) == 0, "voter got slashed")
+					require.True(r.T, voterInfo.ReportAvailable)
+				}
+				stakes[i] = valInfo.BondedStake
+			}
+
+			r.GiveMeSomeMoney(r.Autonity.address, big.NewInt(1000_000_000))
+			rewards := r.RewardsAfterOneEpoch()
+			r.WaitNextEpoch()
+			epochBlock := r.Evm.Context.BlockNumber.Int64()
+			votePeriod, _, err := r.Oracle.GetVotePeriod(nil)
+			require.NoError(r.T, err)
+			rounds := (epochBlock - roundBlock) / votePeriod.Int64()
+
+			// outlier'r report will not be counted again
+			for i := 0; i < len(confidenceScores); i++ {
+				if i != outlier {
+					inc := new(big.Int).Mul(confidenceScores[i], big.NewInt(rounds))
+					totalConfidence = new(big.Int).Add(totalConfidence, inc)
+					confidenceScores[i] = new(big.Int).Add(confidenceScores[i], inc)
+				}
+			}
+
+			for i, v := range validators {
+				valInfo, _, err := r.Autonity.GetValidator(nil, v)
+				require.NoError(r.T, err)
+				balance := r.GetBalanceOf(treasuries[i])
+				autobond := new(big.Int).Div(
+					new(big.Int).Mul(rewards.RewardNTN, confidenceScores[i]),
+					totalConfidence,
+				)
+				gasFee := new(big.Int).Div(
+					new(big.Int).Mul(rewards.RewardATN, confidenceScores[i]),
+					totalConfidence,
+				)
+
+				require.Equal(r.T, gasFee, new(big.Int).Sub(balance, balances[i]))
+				require.Equal(r.T, autobond, new(big.Int).Sub(valInfo.BondedStake, stakes[i]))
+			}
+
+			outlierPrice[targetSymbol] = normalPrice[targetSymbol]
+		}
+
+		for i := 0; i < len(symbols); i++ {
+			targetSymbol = i
+			r.RunAndRevert(tester)
+		}
+
 	})
 }
 
@@ -1165,9 +1321,16 @@ func TestEveryoneIsOutlier(t *testing.T) {
 		validators := make([]common.Address, 2)
 		stakes := make([]*big.Int, 2)
 		treasuryBalances := make([]*big.Int, 2)
-		prices := []int{1, 100}
 		symbols, _, err := r.Oracle.GetSymbols(nil)
 		require.NoError(r.T, err)
+
+		prices := make([][]int, 2)
+		for v := range prices {
+			prices[v] = make([]int, len(symbols))
+			for i := range symbols {
+				prices[v][i] = v*100 + 1
+			}
+		}
 
 		for i := range voters {
 			voters[i] = r.Committee.Validators[i].OracleAddress
@@ -1181,7 +1344,7 @@ func TestEveryoneIsOutlier(t *testing.T) {
 
 		vote := func() {
 			for i, v := range voters {
-				reports := genReports(len(symbols), prices[i])
+				reports := genReports(len(symbols), prices[i]...)
 				r.NoError(
 					r.Oracle.Vote(
 						FromSender(v, nil),

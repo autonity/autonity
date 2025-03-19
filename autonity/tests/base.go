@@ -418,35 +418,6 @@ type EpochReward struct {
 	RewardNTN *big.Int
 }
 
-func (r *Runner) RewardsForValidatorAfterOneEpoch(validator common.Address) EpochReward {
-	committee, _, err := r.Autonity.GetCommittee(nil)
-	require.NoError(r.T, err)
-	found := false
-	var votingPower *big.Int
-	for _, member := range committee {
-		if validator == member.Addr {
-			found = true
-			votingPower = member.VotingPower
-			break
-		}
-	}
-	if !found {
-		return EpochReward{common.Big0, common.Big0}
-	}
-
-	reward := r.RewardsAfterOneEpoch()
-	config, _, err := r.Autonity.Config(nil)
-	require.NoError(r.T, err)
-	treasuryReward := new(big.Int).Div(new(big.Int).Mul(reward.RewardATN, config.Policy.TreasuryFee), params.DecimalFactor)
-
-	totalStake, _, err := r.Autonity.EpochTotalBondedStake(nil)
-	require.NoError(r.T, err)
-	atnReward := new(big.Int).Sub(reward.RewardATN, treasuryReward)
-	atnReward = new(big.Int).Div(new(big.Int).Mul(atnReward, votingPower), totalStake)
-	ntnReward := new(big.Int).Div(new(big.Int).Mul(reward.RewardNTN, votingPower), totalStake)
-	return EpochReward{atnReward, ntnReward}
-}
-
 func (r *Runner) RewardsAfterOneEpoch() (rewardsToDistribute EpochReward) {
 	// get supply and inflationReserve to calculate inflation reward
 	supply, _, err := r.Autonity.CirculatingSupply(nil)
