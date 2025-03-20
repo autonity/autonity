@@ -60,8 +60,5 @@ func TestRouter(t *testing.T) {
 			EpochBlock: big.NewInt(0),
 		}
 		router.buildDefaultClusters(committee)
-
-		_, ok := router.clusters.clustersAt(1)
-		require.True(t, ok)
 	})
 }

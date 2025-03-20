@@ -42,7 +42,7 @@ func (r *Reporter) ReportLatency(latency map[common.Address]uint8) error {
 	}
 
 	// check if the optimization of the clustering view is already done.
-	activationHeight, err := r.protocolContracts.Latency.GetNewViewHeight(nil)
+	activationHeight, err := r.protocolContracts.Latency.GetOptimizedClustersHeight(nil)
 	if err != nil {
 		return err
 	}

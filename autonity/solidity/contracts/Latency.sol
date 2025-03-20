@@ -10,15 +10,15 @@ contract Latency is ILatency, AccessAutonity {
     // to be efficient, so we limit the latency calculations
     uint256 public constant SCALE_THRESHOLD_FOR_CLUSTERING = 1;
 
-    // Frequent cluster reorg will introduce failure and un-robustness in the consensus messaging channel on top of
-    // which we build msg relaying rules. Thus, this improvement aims at to simplify current clustering view
-    // synchronization mechanism: rather than clustering reorg triggering by every measurement, we build a default
-    // clustering view at the beginning of each epoch, then after quorum reports  of latency measurement, an optimized
-    // clustering view will be built by applying latency matrices.
-    // As we are in a semi-synchronized system, we assume that the emitting of the clustering-view-optimized event,
-    // can reach out to most of the nodes within 5 blocks. And the new clustering view should be used for messaging at
-    // height: block.number + CLUSTERING_VIEW_EVOLUTION_BUFFER.
-    uint256 public constant CLUSTERING_VIEW_EVOLUTION_BUFFER = 5;
+    // Frequent cluster reorganizations can lead to proposal relaying failures and reduce the robustness of the
+    // semi synchronous messaging channel, which underpins our message relaying rules. This improvement aims to simplify
+    // the current clustering view synchronization mechanism. Instead of triggering a cluster reorganization with
+    // every measurement, we will establish a default clustering view at the start of each epoch. Following quorum
+    // reports on latency measurements, an optimized clustering view will be generated using latency matrices.
+    // Given that we operate in a semi-synchronized system, we assume that the emission of the KMOptimization
+    // event can reach most nodes within 5 blocks. Consequently, the new clustering view will be utilized for messaging
+    // at height: block.number + KM_OPTIMIZATION_DELTA.
+    uint256 public constant KM_OPTIMIZATION_DELTA = 5;
 
     /*
     ┌────────┐
@@ -34,10 +34,10 @@ contract Latency is ILatency, AccessAutonity {
     event Reported(address indexed reporter, uint256 length);
 
     /**
-     * @dev Emitted when the latency metrics is ready for clustering optimization.
-     * @param height when the new clustering view will be activated for messaging.
+     * @dev Emitted when there are quorum measurements metrics is ready for K Means optimization.
+     * @param height the height when the optimized clusters will be activated for messaging.
      */
-    event ClusteringViewOptimized(uint256 height);
+    event KMOptimization(uint256 height);
 
     /*
     ┌────────┐
@@ -60,11 +60,11 @@ contract Latency is ILatency, AccessAutonity {
     // autonity contract.
     uint256 public epoch;
 
-    // the counter counts the reported validator of an epoch.
-    uint256 public reported;
+    // the counter counts the reported measurements of an epoch.
+    uint256 public reports;
 
-    // the block number that current optimized clustering view will be activated at for the latest epoch.
-    uint256 public newViewHeight;
+    // the block number that the optimized clusters will be activated for current epoch.
+    uint256 public kmOptimizedHeight;
 
     constructor(address payable _autonity, address[] memory initialCommittee) AccessAutonity(_autonity) {
         committee = initialCommittee;
@@ -106,17 +106,17 @@ contract Latency is ILatency, AccessAutonity {
     function report(uint8[] memory _latency) external onlyCommittee(msg.sender) onlyOncePerEpoch {
         require(_latency.length == committee.length, "Latency: invalid length");
         require(committee.length > SCALE_THRESHOLD_FOR_CLUSTERING, "Latency: committee too small");
-        require(newViewHeight == 0, "Latency: clustering optimization already done for current epoch");
+        require(kmOptimizedHeight == 0, "Latency: clustering optimization already done for current epoch");
 
         for (uint256 i = 0; i < _latency.length; i++) {
             latency[msg.sender][committee[i]] = _latency[i];
         }
         lastReportedEpoch[msg.sender] = epoch;
-        reported++;
+        reports++;
         emit Reported(msg.sender, _latency.length);
-        if (reported >= committee.length*2/3) {
-            newViewHeight = block.number+CLUSTERING_VIEW_EVOLUTION_BUFFER;
-            emit ClusteringViewOptimized(newViewHeight);
+        if (reports >= committee.length*2/3) {
+            kmOptimizedHeight = block.number+ KM_OPTIMIZATION_DELTA;
+            emit KMOptimization(kmOptimizedHeight);
         }
     }
 
@@ -132,8 +132,8 @@ contract Latency is ILatency, AccessAutonity {
     function setCommittee(address[] memory _committee) external onlyAutonity {
         committee = _committee;
         epoch++;
-        reported = 0;
-        newViewHeight = 0;
+        reports = 0;
+        kmOptimizedHeight = 0;
     }
 
     /*
@@ -172,9 +172,9 @@ contract Latency is ILatency, AccessAutonity {
         return committee;
     }
 
-    /// @notice Get the height that the optimized clustering view is activated at.
-    /// @return The height that the optimized clustering view is activated at.
-    function getNewViewHeight() external view returns (uint256) {
-        return newViewHeight;
+    /// @notice Get the height that the optimized clustering is activated at.
+    /// @return The height that the optimized clustering is activated at.
+    function getOptimizedClustersHeight() external view returns (uint256) {
+        return kmOptimizedHeight;
     }
 }

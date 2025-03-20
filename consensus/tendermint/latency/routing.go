@@ -54,7 +54,7 @@ type Router struct {
 	contracts   *autonity.ProtocolContracts
 	reporter    *Reporter
 
-	optimizationEventChan chan *autonity.LatencyClusteringViewOptimized
+	optimizationEventChan chan *autonity.LatencyKMOptimization
 	optimizationEventSub  event.Subscription
 
 	epochEventChan chan core.EpochHeadEvent
@@ -79,7 +79,7 @@ func NewRouter(
 		broadcaster:           broadcaster,
 		nodeKey:               nodeKey,
 		epochEventChan:        make(chan core.EpochHeadEvent),
-		optimizationEventChan: make(chan *autonity.LatencyClusteringViewOptimized),
+		optimizationEventChan: make(chan *autonity.LatencyKMOptimization),
 		pinger:                ping.NewPinger(ping.TCP),
 	}
 	r.SetDefaultHandlers()
@@ -110,8 +110,8 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 }
 
 // Forward just forward decoded proposal from p2p msg handler, the proposal could be a future proposal within
-// current epoch or from the next epoch when node is around epoch rotation, thus, the router should be able to buffer
-// future proposals that the clustering haven't been done.
+// current epoch or from the next epoch when node is around epoch rotation, thus, the router should forward them
+// to all the members as most of them are still in the committee after the reshuffling.
 func (r *Router) Forward(bc *core.BlockChain, m message.Msg, sender common.Address) {
 	if m.H() < r.curEpochInfo.EpochBlock.Uint64() {
 		log.Info("Don't forward too old message", "height", m.H())
@@ -159,7 +159,7 @@ func (r *Router) Forward(bc *core.BlockChain, m message.Msg, sender common.Addre
 
 func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 	log.Info("Router: starting latency router")
-	optimizationEventSub, err := chain.ProtocolContracts().Latency.WatchClusteringViewOptimized(nil, r.optimizationEventChan)
+	optimizationEventSub, err := chain.ProtocolContracts().Latency.WatchKMOptimization(nil, r.optimizationEventChan)
 	if err != nil {
 		log.Error("Error starting latency router for clustering view optimization", err)
 		return
@@ -193,7 +193,7 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 
 	// As from here, we already subscribe the optimization event, however if the optimization was already happened,
 	// we'd need to set optimized clusters for current epoch if it was happened.
-	optimizationHeight, err := r.contracts.GetNewViewHeight(nil)
+	optimizationHeight, err := r.contracts.GetOptimizedClustersHeight(nil)
 	if err != nil {
 		log.Error("failed to get optimized clusters height", "err", err)
 		return
