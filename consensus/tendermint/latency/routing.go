@@ -78,8 +78,8 @@ func NewRouter(
 	r := &Router{
 		broadcaster:           broadcaster,
 		nodeKey:               nodeKey,
-		epochEventChan:        make(chan core.EpochHeadEvent),
-		optimizationEventChan: make(chan *autonity.LatencyClusteringViewOptimized),
+		epochEventChan:        make(chan core.EpochHeadEvent, 2),
+		optimizationEventChan: make(chan *autonity.LatencyClusteringViewOptimized, 2),
 		pinger:                ping.NewPinger(ping.TCP),
 	}
 	r.SetDefaultHandlers()

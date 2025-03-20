@@ -119,6 +119,7 @@ func (ms *monitorService) collectCPUDump(profileDir, postfix string) {
 		return
 	}
 	defer f.Close()
+	pprof.StopCPUProfile()
 	err = pprof.StartCPUProfile(f)
 	if err != nil {
 		log.Error("Couldn't start cpu profiling", "error", err)
