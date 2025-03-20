@@ -68,8 +68,8 @@ func NewRouter(
 	r := &Router{
 		broadcaster:    broadcaster,
 		nodeKey:        nodeKey,
-		epochEventChan: make(chan core.EpochHeadEvent),
-		chainEventChan: make(chan core.ChainEvent),
+		epochEventChan: make(chan core.EpochHeadEvent, 2),
+		chainEventChan: make(chan core.ChainEvent, 2),
 		pinger:         ping.NewPinger(ping.TCP),
 		cache:          newLatencyCache(),
 		clusters:       newClusterCache(),
