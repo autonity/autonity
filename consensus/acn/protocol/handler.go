@@ -112,6 +112,7 @@ func handleMessage(backend Backend, peer *Peer, errCh chan<- error) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := peer.rw.ReadMsg()
 	if err != nil {
+		peer.Log().Debug("failed to read message `acn`", "err", err)
 		return err
 	}
 	if msg.Size > MaxMessageSize {
