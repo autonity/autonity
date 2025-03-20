@@ -994,7 +994,7 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 	srv.suspendedForTimespan.expire(srv.clock.Now(), nil)
 
 	defer func() {
-		if err != nil {
+		if err != nil && srv.Net == Consensus {
 			srv.log.Error("post handshake check failed", "error", err.Error())
 		}
 	}()
