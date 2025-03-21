@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"math"
 	"math/big"
 	"math/rand"
@@ -54,6 +55,8 @@ type Router struct {
 	contracts   *autonity.ProtocolContracts
 	reporter    *Reporter
 
+	lastMeasuredEpoch *big.Int
+
 	optimizationEventChan chan *autonity.LatencyKMOptimization
 	optimizationEventSub  event.Subscription
 
@@ -81,6 +84,7 @@ func NewRouter(
 		epochEventChan:        make(chan core.EpochHeadEvent, 2),
 		optimizationEventChan: make(chan *autonity.LatencyKMOptimization, 2),
 		pinger:                ping.NewPinger(ping.TCP),
+		lastMeasuredEpoch:     new(big.Int).SetInt64(0),
 	}
 	r.SetDefaultHandlers()
 
@@ -193,11 +197,12 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 
 	// As from here, we already subscribe the optimization event, however if the optimization was already happened,
 	// we'd need to set optimized clusters for current epoch if it was happened.
-	optimizationHeight, err := r.contracts.GetOptimizedClustersHeight(nil)
+	_, _, optimizationHeight, err := r.contracts.GetMetricsStatus(nil, r.self)
 	if err != nil {
 		log.Error("failed to get optimized clusters height", "err", err)
 		return
 	}
+
 	if optimizationHeight.Cmp(common.Big0) > 0 && optimizationHeight.Cmp(r.curEpochInfo.NextEpochBlock) < 0 {
 		err = r.optimizeCluster(optimizationHeight.Uint64())
 		if err != nil {
@@ -370,10 +375,52 @@ func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]u
 
 func (r *Router) loop(ctx context.Context) {
 	defer r.wg.Done()
+
+	ticker := time.NewTicker(5 * time.Second)
+
 	for {
 		select {
 		case <-ctx.Done():
+			ticker.Stop()
 			return
+		case <-ticker.C:
+			// skip measurement if node is not in the committee.
+			if r.curEpochInfo.Committee.MemberByAddress(r.self) == nil {
+				continue
+			}
+
+			// fetch states by node.
+			reportedEpoch, curEpoch, optimizationHeight, err := r.contracts.GetMetricsStatus(nil, r.self)
+			if err != nil {
+				log.Error("failed to get GetMetricsStatus", "err", err)
+				continue
+			}
+
+			// if node already reported or the optimization already done, skip the task.
+			if reportedEpoch.Cmp(curEpoch) == 0 || optimizationHeight.Cmp(common.Big0) > 0 {
+				continue
+			}
+
+			// if current node already did the measurement, skip the task too.
+			if r.lastMeasuredEpoch.Cmp(curEpoch) == 0 {
+				continue
+			}
+
+			// otherwise, we trigger the measurement once we have quorum peers connected.
+			connectedPeers := r.broadcaster.FindPeers(func() []common.Address {
+				result := make([]common.Address, r.curEpochInfo.Committee.Len())
+				for i, member := range r.curEpochInfo.Committee.Members {
+					result[i] = member.Address
+				}
+				return result
+			}())
+
+			quorum := bft.Quorum(new(big.Int).SetInt64(int64(r.curEpochInfo.Committee.Len())))
+			if int64(len(connectedPeers)) >= quorum.Int64() {
+				r.startMeasurementTask()
+				r.lastMeasuredEpoch = curEpoch
+			}
+
 		case optimizationEv := <-r.optimizationEventChan:
 			log.Info("Router: ready to optimize the clustering", "new view will be applied at height", optimizationEv.Height)
 			if optimizationEv.Height.Cmp(r.curEpochInfo.NextEpochBlock) >= 0 {
@@ -400,14 +447,9 @@ func (r *Router) loop(ctx context.Context) {
 				}
 				return result
 			}()))
-
-			if r.curEpochInfo.Committee.MemberByAddress(r.self) == nil {
-				log.Info("Router: node leaving committee, skip measurement", "height", epochEv.Header.Number.String())
-				continue
-			}
-
-			// start the measurement and try to report the data.
-			r.startMeasurementTask()
+			// we cannot trigger measurement at epoch rotation immediately since members need time
+			// to create connections with new members, and for new members they need more time to create full mesh
+			// connectivity with other members.
 		}
 	}
 }

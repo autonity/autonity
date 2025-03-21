@@ -172,9 +172,9 @@ contract Latency is ILatency, AccessAutonity {
         return committee;
     }
 
-    /// @notice Get the height that the optimized clustering is activated at.
-    /// @return The height that the optimized clustering is activated at.
-    function getOptimizedClustersHeight() external view returns (uint256) {
-        return kmOptimizedHeight;
+    /// @notice Get latency metrics status for current epoch.
+    /// @return A tuple which contains the caller's last report epoch, current epoch, and the KM optimization height of current epoch.
+    function getMetricsStatus(address reporter) external view returns (uint256, uint256, uint256) {
+        return (lastReportedEpoch[reporter], epoch, kmOptimizedHeight);
     }
 }

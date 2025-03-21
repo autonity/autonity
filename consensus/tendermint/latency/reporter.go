@@ -2,7 +2,6 @@ package latency
 
 import (
 	"crypto/ecdsa"
-	"errors"
 	"math/big"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
@@ -42,13 +41,13 @@ func (r *Reporter) ReportLatency(latency map[common.Address]uint8) error {
 	}
 
 	// check if the optimization of the clustering view is already done.
-	activationHeight, err := r.protocolContracts.Latency.GetOptimizedClustersHeight(nil)
+	reportedEpoch, curEpoch, activationHeight, err := r.protocolContracts.Latency.GetMetricsStatus(nil, r.txOpts.From)
 	if err != nil {
 		return err
 	}
 
-	if activationHeight.Cmp(common.Big0) > 0 {
-		return errors.New("clustering optimization was already done")
+	if activationHeight.Cmp(common.Big0) > 0 || reportedEpoch.Cmp(curEpoch) == 0 {
+		return nil
 	}
 
 	_, err = r.protocolContracts.Latency.Report(r.txOpts, latencyVec)
