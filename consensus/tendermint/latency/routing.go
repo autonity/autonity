@@ -33,8 +33,11 @@ var proposeNetworkMsg uint64 = 0x11
 
 // ScaleThresholdForClustering is the minimum number of validators required to do network clustering
 var ScaleThresholdForClustering = 9 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
-// ClusterRedundancyParameter is the number of members of each cluster to send a proposal to
-var ClusterRedundancyParameter = 5
+
+// VerticalRelayingRedundancy is the number of members of each cluster to send a proposal to
+var VerticalRelayingRedundancy = 3
+
+var HorizontalRelayingRedundancy = 1
 
 var MeasurementWindow = 10000 // The time window in Millisecond to measure the latency of peers at the beginning of an epoch.
 
@@ -563,10 +566,10 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		return nil, err
 	}
 
-	// if we are sending the proposal, we should send it to every cluster
+	// if we are sending the proposal, we should send it to every cluster vertically.
 	var recipients []types.CommitteeMember
 	if from == s.self {
-		for _, addr := range clusters.selectK(ClusterRedundancyParameter, seed(msg)) {
+		for _, addr := range clusters.selectK(VerticalRelayingRedundancy, seed(msg)) {
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
 			}
@@ -588,9 +591,16 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		)
 	}
 
-	// if we are receiving the proposal from outside our own cluster, we should send it to our own cluster
+	// if we are receiving the proposal from outside our own cluster, we should send it to our own cluster vertically.
 	if ownCluster := clusters.clusterContaining(s.self); ownCluster != clusters.clusterContaining(from) && ownCluster >= 0 {
 		for _, addr := range clusters.base[ownCluster] {
+			if member := committee.MemberByAddress(addr); member != nil {
+				recipients = append(recipients, *member)
+			}
+		}
+
+		// to add robustness, we also relay message to other clusters horizontally.
+		for _, addr := range clusters.selectK(HorizontalRelayingRedundancy, seed(msg)) {
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
 			}
@@ -605,7 +615,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		)
 	}
 
-	// there could be some duplication if we are sending to ClusterRedundancyParameter members of each
+	// there could be some duplication if we are sending to VerticalRelayingRedundancy members of each
 	// cluster, that may include our own cluster, so we deduplicate
 	return deduplicate(recipients), nil
 }
