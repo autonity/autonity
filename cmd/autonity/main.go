@@ -22,13 +22,11 @@ import (
 	"os"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/urfave/cli/v2"
 
 	"github.com/autonity/autonity/accounts"
-	"github.com/autonity/autonity/accounts/keystore"
 	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/console/prompt"
@@ -182,13 +180,12 @@ func init() {
 	// Initialize the CLI app and start Autonity
 	app.Action = autonity
 	app.HideVersion = true // we have a command to print the version
-	app.Copyright = "Copyright 2013-2022 The go-ethereum Authors"
-	app.Commands = []cli.Command{
+	app.Copyright = ""
+	app.Commands = []*cli.Command{
 		// See chaincmd.go:
 		importCommand,
 		exportCommand,
 		importPreimagesCommand,
-		exportPreimagesCommand,
 		removedbCommand,
 		dumpCommand,
 		// See accountcmd.go:
@@ -206,8 +203,6 @@ func init() {
 		dumpConfigCommand,
 		// see dbcmd.go
 		dbCommand,
-		// See cmd/utils/flags_legacy.go
-		utils.ShowDeprecated,
 		// See snapshot.go
 		snapshotCommand,
 	}
@@ -241,7 +236,7 @@ func main() {
 func prepare(ctx *cli.Context) {
 	// If we're running a known preset, log it for convenience.
 	switch {
-	case ctx.GlobalIsSet(utils.PiccadillyFlag.Name):
+	case ctx.IsSet(utils.PiccadillyFlag.Name):
 		log.Info(`Starting Autonity on Piccadilly Testnet
 
 ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα		
@@ -270,7 +265,7 @@ X:        https://twitter.com/autonity_
 
 
 `)
-	case ctx.GlobalIsSet(utils.BakerlooFlag.Name):
+	case ctx.IsSet(utils.BakerlooFlag.Name):
 		log.Info("Starting Autonity on Bakerloo testnet")
 	case ctx.IsSet(utils.DeveloperFlag.Name):
 		log.Info("Starting Autonity in ephemeral dev mode")
@@ -293,22 +288,14 @@ X:        https://twitter.com/autonity_
 	--keystore <account's keystore directory path>
 `)
 	default:
-		log.Info("Starting the Autonity node client", "version", params.Version, "networkid", ctx.GlobalInt(utils.NetworkIdFlag.Name))
+		log.Info("Starting the Autonity node client", "version", params.Version, "networkid", ctx.Int(utils.NetworkIdFlag.Name))
 	}
 	// If we're a full node on mainnet without --cache specified, bump default cache allowance
-	if ctx.GlobalString(utils.SyncModeFlag.Name) != syncModeLight && !ctx.GlobalIsSet(utils.CacheFlag.Name) &&
-		!ctx.GlobalIsSet(utils.NetworkIdFlag.Name) && !ctx.IsSet(utils.DeveloperFlag.Name) {
+	if ctx.String(utils.SyncModeFlag.Name) != syncModeLight && !ctx.IsSet(utils.CacheFlag.Name) &&
+		!ctx.IsSet(utils.NetworkIdFlag.Name) && !ctx.IsSet(utils.DeveloperFlag.Name) {
 		// Make sure we're not on any supported preconfigured testnet either
-		ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(4096))
+		ctx.Set(utils.CacheFlag.Name, strconv.Itoa(4096))
 	}
-	// If we're running a light client on any network, drop the cache to some meaningfully low amount
-	if ctx.GlobalString(utils.SyncModeFlag.Name) == syncModeLight && !ctx.GlobalIsSet(utils.CacheFlag.Name) {
-		log.Info("Dropping default light client cache", "provided", ctx.GlobalInt(utils.CacheFlag.Name), "updated", 128)
-		ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(128))
-	}
-
-	// Start metrics export if enabled
-	utils.SetupMetrics(ctx)
 
 	// Start system runtime metrics collection
 	go metrics.CollectProcessMetrics(3 * time.Second)
@@ -318,16 +305,16 @@ X:        https://twitter.com/autonity_
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
 func autonity(ctx *cli.Context) error {
-	if args := ctx.Args(); len(args) > 0 {
+	if args := ctx.Args().Slice(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 
 	prepare(ctx)
 
-	stack, backend := makeFullNode(ctx)
+	stack := makeFullNode(ctx)
 	defer stack.Close()
 
-	startNode(ctx, stack, backend, false)
+	startNode(ctx, stack, false)
 	stack.Wait()
 
 	return nil
@@ -344,7 +331,10 @@ func startNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
 	stack.AccountManager().Subscribe(events)
 
 	// Create a client to interact with local geth node.
-	rpcClient := stack.Attach()
+	rpcClient, err := stack.Attach()
+	if err != nil {
+		log.Crit("Error attaching node", "err", err)
+	}
 	ethClient := ethclient.NewClient(rpcClient)
 
 	go func() {
@@ -402,31 +392,5 @@ func startNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
 				}
 			}
 		}()
-	}
-}
-
-// unlockAccounts unlocks any account specifically requested.
-func unlockAccounts(ctx *cli.Context, stack *node.Node) {
-	var unlocks []string
-	inputs := strings.Split(ctx.GlobalString(utils.UnlockedAccountFlag.Name), ",")
-	for _, input := range inputs {
-		if trimmed := strings.TrimSpace(input); trimmed != "" {
-			unlocks = append(unlocks, trimmed)
-		}
-	}
-	// Short circuit if there is no account to unlock.
-	if len(unlocks) == 0 {
-		return
-	}
-
-	// If insecure account unlocking is not allowed if node's APIs are exposed to external.
-	// Print warning log to user and skip unlocking.
-	if !stack.Config().InsecureUnlockAllowed && stack.Config().ExtRPCEnabled() {
-		utils.Fatalf("Account unlock with HTTP access is forbidden!")
-	}
-	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-	passwords := utils.MakePasswordList(ctx)
-	for i, account := range unlocks {
-		unlockAccount(ks, account, i, passwords)
 	}
 }

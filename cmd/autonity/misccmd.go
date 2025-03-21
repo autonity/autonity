@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	versionCommand = cli.Command{
+	versionCommand = &cli.Command{
 		Action:    printVersion,
 		Name:      "version",
 		Usage:     "Print version numbers",
@@ -44,7 +44,7 @@ The output of this command is supposed to be machine-readable.
 `,
 	}
 
-	licenseCommand = cli.Command{
+	licenseCommand = &cli.Command{
 		Action:    license,
 		Name:      "license",
 		Usage:     "Display license information",
@@ -52,7 +52,7 @@ The output of this command is supposed to be machine-readable.
 		Category:  "MISCELLANEOUS COMMANDS",
 	}
 
-	ownershipProofCommand = cli.Command{
+	ownershipProofCommand = &cli.Command{
 		Action: genOwnershipProof,
 		Name:   "genOwnershipProof",
 		Usage:  "Generate enode proof",
@@ -81,7 +81,7 @@ The output of this command is supposed to be machine-readable.
 		Category:  "MISCELLANEOUS COMMANDS",
 	}
 
-	genAutonityKeysCommand = cli.Command{
+	genAutonityKeysCommand = &cli.Command{
 		Action: genAutonityKeys,
 		Name:   "genAutonityKeys",
 		Usage:  "Generate autonity keys",
@@ -137,7 +137,7 @@ along with geth. If not, see <http://www.gnu.org/licenses/>.`)
 // If the input node key file is with a legacy format which missing a consensus key, the function will generate a random
 // consensus secret key and append it in the legacy node key file.
 func genOwnershipProof(ctx *cli.Context) error {
-	args := ctx.Args()
+	args := ctx.Args().Slice()
 	if len(args) != 1 {
 		utils.Fatalf(`Usage: autonity genOwnershipProof [options] <treasuryAddress>`)
 	}
@@ -146,7 +146,7 @@ func genOwnershipProof(ctx *cli.Context) error {
 	var consensusKey blst.SecretKey
 	var err error
 	// load node key and consensus key, if the consensus key is missing, it generates new one for legacy node key file.
-	if nodeKeyFile := ctx.GlobalString(utils.AutonityKeysFileFlag.Name); nodeKeyFile != "" {
+	if nodeKeyFile := ctx.String(utils.AutonityKeysFileFlag.Name); nodeKeyFile != "" {
 		s, err := os.Stat(nodeKeyFile)
 		if err != nil {
 			utils.Fatalf("Failed to load the node private key: %v", err)
@@ -178,7 +178,7 @@ func genOwnershipProof(ctx *cli.Context) error {
 				utils.Fatalf("Failed to load the node private key: %v", err)
 			}
 		}
-	} else if privateKeysHex := ctx.GlobalString(utils.AutonityKeysHexFlag.Name); privateKeysHex != "" {
+	} else if privateKeysHex := ctx.String(utils.AutonityKeysHexFlag.Name); privateKeysHex != "" {
 		// if the consensus key is missing from the input hex string, terminate the execution.
 		nodePrivateKey, consensusKey, err = crypto.HexToAutonityKeys(privateKeysHex)
 		if err != nil {
@@ -189,12 +189,12 @@ func genOwnershipProof(ctx *cli.Context) error {
 	}
 
 	// load oracle node key from file or from input hex string.
-	if oracleKeyFile := ctx.GlobalString(utils.OracleKeyFileFlag.Name); oracleKeyFile != "" {
+	if oracleKeyFile := ctx.String(utils.OracleKeyFileFlag.Name); oracleKeyFile != "" {
 		oraclePrivateKey, err = crypto.LoadECDSA(oracleKeyFile)
 		if err != nil {
 			utils.Fatalf("Failed to load the oracle private key: %v", err)
 		}
-	} else if oracleKeyHex := ctx.GlobalString(utils.OracleKeyHexFlag.Name); oracleKeyHex != "" {
+	} else if oracleKeyHex := ctx.String(utils.OracleKeyHexFlag.Name); oracleKeyHex != "" {
 		oraclePrivateKey, err = crypto.HexToECDSA(oracleKeyHex)
 		if err != nil {
 			utils.Fatalf("Failed to parse the oracle private key: %v", err)
@@ -232,7 +232,7 @@ func genAutonityKeys(ctx *cli.Context) error {
 		utils.Fatalf("could not save key %v", err)
 	}
 
-	writeAddr := ctx.GlobalBool(utils.WriteAddrFlag.Name)
+	writeAddr := ctx.Bool(utils.WriteAddrFlag.Name)
 	if writeAddr {
 		fmt.Printf("Node address: %s\n", crypto.PubkeyToAddress(nodeKey.PublicKey).String())
 		fmt.Printf("Node public key: 0x%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])
