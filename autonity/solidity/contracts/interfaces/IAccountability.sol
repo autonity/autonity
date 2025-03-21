@@ -31,7 +31,7 @@ interface IAccountability {
     /**
     * @notice Event emitted when a reporter is rewarded for submitting a valid proof
     */
-    event ReporterRewarded(address reporter, address indexed offender, uint256 value);
+    event ReporterRewarded(address _reporter, address indexed _offender, uint256 _ntnReward, uint256 _atnReward);
 
     /**
     * @notice Event emitted after receiving an accusation, the reported validator has

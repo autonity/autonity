@@ -104,11 +104,11 @@ contract SupplyControl is ISupplyControl, IConfigEvents {
     }
 
     /// Update the stabilizer that is authorized to mint and burn.
-    /// @param _stabilizer The new stabilizer account
+    /// @param stabilizer_ The new stabilizer account
     /// @dev Only the operator can update the stabilizer address.
-    function setStabilizer(address _stabilizer) external onlyOperator {
-        emit IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, _stabilizer);
-        stabilizer = _stabilizer;
+    function setStabilizer(address stabilizer_) external onlyOperator {
+        emit IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, stabilizer_);
+        stabilizer = stabilizer_;
     }
 
     /// The supply of Auton available for minting.

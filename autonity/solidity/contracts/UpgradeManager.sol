@@ -31,9 +31,13 @@ contract UpgradeManager is IConfigEvents {
             let result := delegatecall(gas(), precompile, add(_input, 32), mload(_input), 0, 0)
             success := result
             returnSize := returndatasize()
+            //load free memory pointer
             returnData := mload(0x40)
+            // update free memory pointer to point to the end of the allocated space for returnData
             mstore(0x40, add(returnData, add(returnSize, 32)))
+            // write the size of the returnData first
             mstore(returnData, returnSize)
+            // copy actual return data after the length
             returndatacopy(add(returnData, 32), 0, returnSize)
         }
         emit UpgradeResult(_target, success);
@@ -41,6 +45,7 @@ contract UpgradeManager is IConfigEvents {
             if iszero(success) {
                 revert(add(returnData, 32), returnSize)
             }
+            // return raw data skipping the length
             return(add(returnData, 32), returnSize)
         }
     }

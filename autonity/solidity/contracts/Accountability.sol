@@ -152,8 +152,11 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
         // well, too bad, it goes to the autonity global treasury.
         if(!ok) {
             autonity.getTreasuryAccount().call{value:msg.value}("");
+            // 0 atn rewards for reporter
+            emit ReporterRewarded(_reporter.nodeAddress, _offender, _ntnReward, 0);
+        } else {
+            emit ReporterRewarded(_reporter.nodeAddress, _offender, _ntnReward, msg.value);
         }
-        emit ReporterRewarded(_reporter.nodeAddress, _offender, _ntnReward);
         delete beneficiaries[_offender];
     }
 

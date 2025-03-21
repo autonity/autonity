@@ -11,7 +11,7 @@ import "./ValidatorManager.sol";
  * @notice It does not support to act as a treasury account. So only delegated staking works with this.
  * @dev Only one smart contract is deployed by `StakeableVestingManager` which is used by separate accounts.
  */
-contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, ValidatorManager, IStakeableVesting {
+contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, ValidatorManager, IStakeableVesting, IConfigEvents {
 
     using QueueLib for StakingRequestQueue;
 
@@ -48,7 +48,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @custom:restricted-to operator account
      */
     function setManagerContract(address _managerContract) virtual external onlyOperator {
-        //todo: config event
+        emit IConfigEvents.ConfigUpdateAddress("managerContract", address(managerContract), _managerContract);
         managerContract = IStakeableVestingManager(payable(_managerContract));
     }
 

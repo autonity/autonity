@@ -99,6 +99,8 @@ contract Stabilization is IStabilization, IConfigEvents {
     /// @param account The CDP account address
     /// @param liquidator The liquidator address
     event Liquidate(address indexed account, address liquidator);
+    /// Transition out of the initial CDP restrictions
+    event CDPRestrictionsRemoved();
 
     error InsufficientAllowance();
     error InsufficientPayment();
@@ -408,7 +410,7 @@ contract Stabilization is IStabilization, IConfigEvents {
     /// @param amount The minimum debt amount
     /// @dev Restricted to the operator.
     function setMinDebtRequirement(uint256 amount) external onlyOperator {
-        //todo: event
+        emit IConfigEvents.ConfigUpdateUint("minDebtRequirement", config.minDebtRequirement, amount);
         config.minDebtRequirement = amount;
     }
 
@@ -416,7 +418,7 @@ contract Stabilization is IStabilization, IConfigEvents {
     /// @param supplyControl The SupplyControl Contract address
     /// @dev Restricted to the operator.
     function setSupplyControl(address supplyControl) external onlyOperator {
-        //todo: event
+        emit IConfigEvents.ConfigUpdateAddress("supplyControl", address(_supplyControl), supplyControl);
         _supplyControl = ISupplyControl(supplyControl);
     }
 
@@ -424,16 +426,16 @@ contract Stabilization is IStabilization, IConfigEvents {
     /// @param atnSupplyOperator The _atnSupplyOperator address
     /// @dev Restricted to the operator.
     function setAtnSupplyOperator(address atnSupplyOperator) external onlyOperator {
-        //todo: event
+        emit IConfigEvents.ConfigUpdateAddress("atnSupplyOperator", _atnSupplyOperator, atnSupplyOperator);
         _atnSupplyOperator = atnSupplyOperator;
     }
 
     /// Transition out of the restricted state.
     /// @dev Restricted to the operator.
     function removeCDPRestrictions() external onlyOperator {
-        //todo: event for removeRestrictions - will happen only once
         _restricted = false;
         config.borrowInterestRate = _defaultGenesisBorrowInterestRate;
+        emit CDPRestrictionsRemoved();
     }
 
     /*
@@ -446,7 +448,7 @@ contract Stabilization is IStabilization, IConfigEvents {
     /// @param operator Address of the new Governance Operator
     /// @dev Restricted to the Autonity Contract.
     function setOperator(address operator) external onlyAutonity {
-        //todo: event
+        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
         _operator = operator;
     }
 
@@ -454,7 +456,7 @@ contract Stabilization is IStabilization, IConfigEvents {
     /// @param oracle Address of the new Oracle Contract
     /// @dev Restricted to the Autonity Contract.
     function setOracle(address oracle) external onlyAutonity {
-        //todo: event
+        emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle);
         _oracle = IOracle(oracle);
     }
 
