@@ -16,9 +16,9 @@ contract Latency is ILatency, AccessAutonity {
     // every measurement, we will establish a default clustering view at the start of each epoch. Following quorum
     // reports on latency measurements, an optimized clustering view will be generated using latency matrices.
     // Given that we operate in a semi-synchronized system, we assume that the emission of the KMOptimization
-    // event can reach most nodes within 5 blocks. Consequently, the new clustering view will be utilized for messaging
+    // event can reach most nodes within 10 blocks. Consequently, the new clustering view will be utilized for messaging
     // at height: block.number + KM_OPTIMIZATION_DELTA.
-    uint256 public constant KM_OPTIMIZATION_DELTA = 5;
+    uint256 public constant KM_OPTIMIZATION_DELTA = 10;
 
     /*
     ┌────────┐
