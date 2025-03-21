@@ -464,16 +464,15 @@ func (r *Router) optimizeCluster(h uint64) error {
 		return err
 	}
 
-	latency, err := r.contracts.Latency.Read(nil)
-	if err != nil {
-		log.Error("Router: optimizeCluster failed to read latency", "err", err)
-		return err
-	}
-
-	// TODO: validate and fill latency matrix with default values
 	latencyMat := make(map[common.Address][]uint8)
-	for i, validator := range committee {
-		latencyMat[validator] = latency[i]
+	for _, validator := range committee {
+		latency, err := r.contracts.Latency.ReadReport(nil, validator)
+		if err != nil {
+			log.Error("Router: optimizeCluster failed to read latency", "err", err)
+			return err
+		}
+
+		latencyMat[validator] = latency
 	}
 
 	optimizedClusters, err := AssignClusters(h, r.curEpochInfo.NextEpochBlock.Uint64(), latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
