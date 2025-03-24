@@ -37,7 +37,7 @@ library StabilizationMath {
         uint256 duration
     ) internal pure returns (uint256) {
         if (currentTimestamp < startTimestamp) {
-            return 0;
+            revert InvalidParameter("currentTimestamp > startTimestamp");
         }
         uint256 timeDelta = currentTimestamp - startTimestamp;
         // if the auction has been running for longer than the auction duration
@@ -72,7 +72,7 @@ library StabilizationMath {
         uint256 duration
     ) internal pure returns (uint256){
         if (currentTimestamp < startTimestamp) {
-            return 0;
+            revert InvalidParameter("currentTimestamp > startTimestamp");
         }
         uint256 timeDelta = currentTimestamp - startTimestamp;
         // if the auction has been running for longer than the auction duration
