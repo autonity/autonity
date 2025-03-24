@@ -40,9 +40,6 @@ var NetworkCodes = map[uint8]uint64{
 var errTooOldMessage = errors.New("too old message")
 var errUnknownClusters = errors.New("unknown clustering")
 
-// proposeNetworkMsg is redefined here to avoid circular dependencies
-var proposeNetworkMsg uint64 = 0x11
-
 // ScaleThresholdForClustering is the minimum number of validators required to do network clustering
 var ScaleThresholdForClustering = 9 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
 
