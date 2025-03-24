@@ -17,8 +17,7 @@ type Clusters struct {
 	base            [][]common.Address
 }
 
-// selectK selects k members from each cluster
-
+// selectK selects pseudo random k members from each cluster
 func (c *Clusters) selectK(k int, seed int64) []common.Address {
 	var result []common.Address
 	r := rand.New(rand.NewSource(seed))
