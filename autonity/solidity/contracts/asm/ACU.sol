@@ -187,9 +187,10 @@ contract ACU is IACU, IConfigEvents {
     /// @param newQuantityMultiplier The new quantity multiplier
     /// @notice the quantity multiplier has precision of scaleFactor
     function rescale(uint256 newQuantityMultiplier) external onlyOperator {
+        uint256 oldQuantityMultiplier = quantityMultiplier;
         if (newQuantityMultiplier == 0) revert ZeroValue();
         quantityMultiplier = newQuantityMultiplier;
-        emit Rescaled(newQuantityMultiplier, quantityMultiplier);
+        emit Rescaled(newQuantityMultiplier, oldQuantityMultiplier);
     }
 
     /*
