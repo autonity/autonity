@@ -242,7 +242,7 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   await supplyControl.setStabilizer(stabilization.address,{from:operator});
 
   // omission accountability contract
-  const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, treasuries, omissionAccountabilityConfig, {from:deployer})
+  const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, omissionAccountabilityConfig, {from:deployer})
 
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
   await autonity.setAcuContract(acu.address, {from: operator});

@@ -594,7 +594,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     }
 
     /**
-     * @notice Returns the amount of unlocked (not vested) LNTN bonded to `_validator` from the contract.
+     * @notice Returns the amount of unlocked (not unbonding) LNTN bonded to `_validator` from the contract.
      * @param _validator validator address
      */
     function unlockedLiquidBalance(address _validator) virtual external view returns (uint256) {
@@ -602,7 +602,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     }
 
     /**
-     * @notice Returns the amount of locked (not unvested) LNTN bonded to `_validator` from the contract.
+     * @notice Returns the amount of locked (unbonding) LNTN bonded to `_validator` from the contract.
      * @param _validator validator address
      */
     function lockedLiquidBalance(address _validator) virtual external view returns (uint256) {
