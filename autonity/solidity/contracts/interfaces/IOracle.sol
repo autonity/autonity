@@ -100,7 +100,7 @@ interface IOracle {
     /**
      * @notice Setter for the maximum count of rounds after which missed reveal counter is reset.
      */
-    function setNoRevealPenaltyResetRound(uint256 _resetRound) external;
+    function setMissedRevealWindow(uint256 _window) external;
 
     /**
     * @notice Retrieve the vote period.
