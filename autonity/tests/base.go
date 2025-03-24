@@ -414,6 +414,11 @@ func (r *Runner) SendAUT(sender, recipient common.Address, value *big.Int) {
 	r.Evm.StateDB.AddBalance(recipient, value)
 }
 
+func (r *Runner) CheckErrorAndGetData(data interface{}, _ uint64, err error) interface{} {
+	require.NoError(r.T, err)
+	return data
+}
+
 type EpochReward struct {
 	RewardATN *big.Int
 	RewardNTN *big.Int

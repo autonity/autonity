@@ -1228,6 +1228,450 @@ func TestEveryoneIsOutlier(t *testing.T) {
 	})
 }
 
+func TestConfigRequirement(t *testing.T) {
+	setup := func() *Runner {
+		return Setup(t, nil)
+	}
+
+	RunWithSetup("missedRevealTolerance < missedRevealWindow", setup, func(r *Runner) {
+		config, _, err := r.Oracle.Config(nil)
+		require.NoError(r.T, err)
+
+		fmt.Printf("confg %v %v\n", config.MissedRevealTolerance, config.MissedRevealWindow)
+
+		// set
+		// missedRevealTolerance = missedRevealWindow
+		_, err = r.Oracle.SetMissedRevealTolerance(r.Operator, config.MissedRevealWindow)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: invalid config", err.Error())
+
+		// missedRevealTolerance > missedRevealWindow
+		_, err = r.Oracle.SetMissedRevealTolerance(
+			r.Operator, new(big.Int).Add(config.MissedRevealWindow, common.Big1),
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: invalid config", err.Error())
+
+		// missedRevealTolerance = missedRevealWindow
+		_, err = r.Oracle.SetMissedRevealWindow(r.Operator, config.MissedRevealTolerance)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: invalid config", err.Error())
+
+		// missedRevealTolerance > missedRevealWindow
+		_, err = r.Oracle.SetMissedRevealWindow(
+			r.Operator, new(big.Int).Sub(config.MissedRevealTolerance, common.Big1),
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: invalid config", err.Error())
+
+		// missedRevealTolerance can be 0
+		r.NoError(
+			r.Oracle.SetMissedRevealTolerance(
+				r.Operator, big.NewInt(0),
+			),
+		)
+
+		// deploy
+		// missedRevealTolerance = missedRevealWindow
+		config.MissedRevealTolerance = big.NewInt(6)
+		config.MissedRevealWindow = big.NewInt(6)
+		_, _, _, err = r.DeployOracle(nil, nil, nil, nil, nil, config)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: invalid config", err.Error())
+
+		// missedRevealTolerance > missedRevealWindow
+		config.MissedRevealTolerance = big.NewInt(6)
+		config.MissedRevealWindow = big.NewInt(5)
+		_, _, _, err = r.DeployOracle(nil, nil, nil, nil, nil, config)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: invalid config", err.Error())
+	})
+}
+
+func TestMissedReveal(t *testing.T) {
+	var missedRevealTolerance int64 = 5
+	var missedRevealWindow int64 = 10
+	setup := func() *Runner {
+		r := Setup(t, SetInflationReserveZero)
+		r.NoError(
+			r.Oracle.SetMissedRevealTolerance(
+				r.Operator,
+				big.NewInt(missedRevealTolerance),
+			),
+		)
+		r.NoError(
+			r.Oracle.SetMissedRevealWindow(
+				r.Operator,
+				big.NewInt(missedRevealWindow),
+			),
+		)
+		return r
+	}
+
+	RunWithSetup("no vote no counter", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.True(r.T, info.RevealsMissed.Cmp(common.Big0) == 0)
+
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err = r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.True(r.T, info.RevealsMissed.Cmp(common.Big0) == 0)
+	})
+
+	vote := func(r *Runner, voter common.Address, symbolCount int) {
+		reports := genReports(symbolCount)
+		r.NoError(
+			r.Oracle.Vote(
+				FromSender(voter, nil),
+				MakeOracleCommit(r.T, common.Big0, voter, reports),
+				reports,
+				common.Big0,
+				0,
+			),
+		)
+	}
+
+	RunWithSetup("no counter for first vote", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+
+		// first vote
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.True(r.T, info.RevealsMissed.Cmp(common.Big0) == 0)
+
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err = r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+
+		// first vote after a gap
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		newInfo, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, info.RevealsMissed, newInfo.RevealsMissed)
+	})
+
+	RunWithSetup("counter increases for missed reveal (no vote)", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, common.Big1, info.RevealsMissed)
+	})
+
+	voteAndCheckReveal := func(r *Runner, voter common.Address, symbolCount, missedReveal int) {
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, int64(missedReveal), info.RevealsMissed.Int64())
+	}
+
+	RunWithSetup("counter increases for missed reveal (vote but invalid report)", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		// invalid report because of symbol count
+		voteAndCheckReveal(r, voter, symbolCount+1, 1)
+	})
+
+	RunWithSetup("counter increases for continuous missed reveal", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		// invalid report because of symbol count
+		voteAndCheckReveal(r, voter, symbolCount+1, 1)
+		voteAndCheckReveal(r, voter, symbolCount+2, 2)
+		voteAndCheckReveal(r, voter, symbolCount+3, 3)
+	})
+
+	RunWithSetup("no overcounting for missed reveal", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, int64(1), info.RevealsMissed.Int64())
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err = r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, int64(1), info.RevealsMissed.Int64())
+	})
+
+	RunWithSetup("doesn't get punished for missed reveal <= threshold", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+		validator := r.Committee.Validators[0].NodeAddress
+		stake := r.CheckErrorAndGetData(
+			r.Autonity.GetValidator(nil, validator),
+		).(AutonityValidator).BondedStake
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+
+		for counter := 0; counter < int(missedRevealTolerance); counter++ {
+			voteAndCheckReveal(r, voter, symbolCount+counter+1, counter+1)
+		}
+		require.Equal(
+			r.T,
+			stake,
+			r.CheckErrorAndGetData(
+				r.Autonity.GetValidator(nil, validator),
+			).(AutonityValidator).BondedStake,
+		)
+	})
+
+	RunWithSetup("punished with highest offence for missed reveal = threshold (no vote in last round)", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+		validator := r.Committee.Validators[0].NodeAddress
+		stake := r.CheckErrorAndGetData(
+			r.Autonity.GetValidator(nil, validator),
+		).(AutonityValidator).BondedStake
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+
+		for counter := 0; counter < int(missedRevealTolerance); counter++ {
+			voteAndCheckReveal(r, voter, symbolCount+counter+1, counter+1)
+		}
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		require.Equal(
+			r.T,
+			new(big.Int).Div(
+				new(big.Int).Mul(stake, big.NewInt(9)),
+				big.NewInt(10),
+			),
+			r.CheckErrorAndGetData(
+				r.Autonity.GetValidator(nil, validator),
+			).(AutonityValidator).BondedStake,
+		)
+
+		// also counter is reset
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, int64(0), info.RevealsMissed.Int64())
+	})
+
+	RunWithSetup("punished with highest offence for missed reveal = threshold (continuous invalid report)", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+		validator := r.Committee.Validators[0].NodeAddress
+		stake := r.CheckErrorAndGetData(
+			r.Autonity.GetValidator(nil, validator),
+		).(AutonityValidator).BondedStake
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+
+		for counter := 0; counter < int(missedRevealTolerance); counter++ {
+			voteAndCheckReveal(r, voter, symbolCount+counter+1, counter+1)
+		}
+		// counter is reset
+		voteAndCheckReveal(r, voter, symbolCount+int(missedRevealTolerance)+1, 0)
+		require.Equal(
+			r.T,
+			new(big.Int).Div(
+				new(big.Int).Mul(stake, big.NewInt(9)),
+				big.NewInt(10),
+			),
+			r.CheckErrorAndGetData(
+				r.Autonity.GetValidator(nil, validator),
+			).(AutonityValidator).BondedStake,
+		)
+	})
+
+	RunWithSetup("counter is reset periodically", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		round := r.CheckErrorAndGetData(
+			r.Oracle.GetRound(nil),
+		).(*big.Int)
+		progressRound(
+			r,
+			round,
+		)
+		round = new(big.Int).Add(
+			round,
+			common.Big1,
+		)
+
+		progressRound(
+			r,
+			round,
+		)
+		round = new(big.Int).Add(
+			round,
+			common.Big1,
+		)
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, int64(1), info.RevealsMissed.Int64())
+
+		for round.Int64() <= missedRevealWindow {
+			progressRound(
+				r,
+				round,
+			)
+			round = new(big.Int).Add(
+				round,
+				common.Big1,
+			)
+		}
+		info, _, err = r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, int64(0), info.RevealsMissed.Int64())
+	})
+}
+
 func getValidator(r *Runner, addr common.Address) AutonityValidator {
 	valInfo, _, err := r.Autonity.GetValidator(nil, addr)
 	require.NoError(r.T, err)
