@@ -72,4 +72,20 @@ interface IStabilization {
     /// @param oracle Address of the new Oracle Contract
     /// @dev Restricted to the Autonity Contract.
     function setOracle(address oracle) external;
+
+    /// Set the Auctioneer contract address.
+    /// @param auctioneer Address of the new Auctioneer Contract
+    /// @dev Restricted to the Autonity Contract.
+    function setAuctioneer(address auctioneer) external;
+
+    /// Set the ACU contract address.
+    /// @param acu Address of the new ACU Contract
+    /// @dev Restricted to the Autonity Contract.
+    function setACU(address acu) external;
+
+    /// Set the Supply Control contract address.
+    /// @param supplyControl Address of the new Supply Control Contract
+    /// @dev Restricted to the Autonity Contract.
+    function setSupplyControl(address supplyControl) external;
+
 }

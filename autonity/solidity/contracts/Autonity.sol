@@ -644,41 +644,43 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         config.contracts.oracleContract = IOracle(_address);
         config.contracts.acuContract.setOracle(_address);
         config.contracts.stabilizationContract.setOracle(_address);
+        config.contracts.auctioneerContract.setOracle(_address);
     }
 
     /*
     * @notice Set the ACU contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setAcuContract(IACU _address) public virtual onlyOperator {
+    function setAcuContract(address _address) public virtual onlyOperator {
         emit ConfigUpdateAddress("acuContract", address(config.contracts.acuContract), address(_address));
-        config.contracts.acuContract = _address;
+        config.contracts.acuContract = IACU(_address);
+        config.contracts.stabilizationContract.setACU(_address);
+    }
+
+    function setAuctioneerContract(address _address) public virtual onlyOperator {
+        emit ConfigUpdateAddress("auctioneerContract", address(config.contracts.auctioneerContract), address(_address));
+        config.contracts.auctioneerContract = IAuctioneer(_address);
+        config.contracts.stabilizationContract.setAuctioneer(_address);
     }
 
     /*
     * @notice Set the SupplyControl contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setSupplyControlContract(ISupplyControl _address) public virtual onlyOperator {
+    function setSupplyControlContract(address _address) public virtual onlyOperator {
         emit ConfigUpdateAddress("supplyControlContract", address(config.contracts.supplyControlContract), address(_address));
-        config.contracts.supplyControlContract = _address;
+        config.contracts.supplyControlContract = ISupplyControl(_address);
+        config.contracts.stabilizationContract.setSupplyControl(_address);
     }
 
     /*
     * @notice Set the Stabilization contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setStabilizationContract(IStabilization _address) public virtual onlyOperator {
+    function setStabilizationContract(address _address) public virtual onlyOperator {
         emit ConfigUpdateAddress("stabilizationContract", address(config.contracts.stabilizationContract), address(_address));
-        config.contracts.stabilizationContract = _address;
-    }
-
-    /*
-    * @notice Set the Auctioneer contract address. Restricted to the Operator account.
-    * @param _address the contract address
-    */
-    function setAuctioneerContract(IAuctioneer _address) public virtual onlyOperator {
-        config.contracts.auctioneerContract = _address;
+        config.contracts.stabilizationContract = IStabilization(_address);
+        config.contracts.auctioneerContract.setStabilization(_address);
     }
 
     /*

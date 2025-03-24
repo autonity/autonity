@@ -8,8 +8,9 @@ import {AuctionLib} from "./lib/AuctionLib.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {IAuctioneer} from "./interfaces/IAuctioneer.sol";
+import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
 
-contract Auctioneer is IAuctioneer {
+contract Auctioneer is IAuctioneer, IConfigEvents {
     using AuctionLib for AuctionLib.AuctionSet;
     struct Config {
         uint256 liquidationAuctionDuration;
@@ -24,7 +25,6 @@ contract Auctioneer is IAuctioneer {
     event AuctionedDebt(address indexed debtor, address indexed biddor, uint256 collateralAmount, uint256 debtAmount);
     event AuctionedInterest(address indexed biddor, uint256 interestAmount, uint256 paymentAmount);
     event NewInterestAuction(uint256 auctionId, uint256 amount, uint256 startRound);
-    event ConfigUpdated(string field);
 
     // Public state
     Config public config;
@@ -49,6 +49,13 @@ contract Auctioneer is IAuctioneer {
 
     modifier onlyOperator() {
         if (msg.sender != _operator) {
+            revert Unauthorized();
+        }
+        _;
+    }
+
+    modifier onlyAutonity(){
+        if (msg.sender != _autonity) {
             revert Unauthorized();
         }
         _;
@@ -151,7 +158,7 @@ contract Auctioneer is IAuctioneer {
         // if the proceeds address has not been set, the collateral will accumulate in this contract until
         // the next auction
         if (proceedAddress != address(0)) {
-            if(!collateralToken.transfer(proceedAddress, collateralToken.balanceOf(address(this)))) {
+            if (!collateralToken.transfer(proceedAddress, collateralToken.balanceOf(address(this)))) {
                 revert TransferFailed();
             }
         }
@@ -176,37 +183,50 @@ contract Auctioneer is IAuctioneer {
         }
     }
 
+    /*
+    ┌────────────────────────┐
+    │ Autonity Functions     │
+    └────────────────────────┘
+    */
+
     // @notice Set the operator address
     // @param operator_ The address of the operator
-    function setOperator(address operator_) external {
-        if (msg.sender != _autonity) {
-            revert Unauthorized();
+    // @dev This function is restricted to the Autonity contract
+    function setOperator(address operator_) external onlyAutonity {
+        if (operator_ == address(0)) {
+            revert InvalidParameter("operator_");
         }
+        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator_);
         _operator = operator_;
-        emit ConfigUpdated("operator");
-    }
-
-    // Operator functions
-
-    // @notice Set the oracle address
-    // @param oracle_ The address of the oracle
-    function setOracle(address oracle_) external onlyOperator {
-        if (oracle_ == address(0)) {
-            revert InvalidParameter("oracle_");
-        }
-        _oracle = IOracle(oracle_);
-        emit ConfigUpdated("oracle");
     }
 
     // @notice Set the stabilization address
     // @param stabilization_ The address of the stabilization contract
-    function setStabilization(address stabilization_) external onlyOperator {
+    // @dev This function is restricted to the Autonity contract
+    function setStabilization(address stabilization_) external onlyAutonity {
         if (stabilization_ == address(0)) {
             revert InvalidParameter("stabilization_");
         }
+        emit IConfigEvents.ConfigUpdateAddress("stabilization", address(_stabilization), stabilization_);
         _stabilization = IStabilization(stabilization_);
-        emit ConfigUpdated("stabilization");
     }
+
+    // @notice Set the oracle address
+    // @param oracle_ The address of the oracle
+    // @dev This function is restricted to the Autonity contract
+    function setOracle(address oracle_) external onlyAutonity {
+        if (oracle_ == address(0)) {
+            revert InvalidParameter("oracle_");
+        }
+        emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle_);
+        _oracle = IOracle(oracle_);
+    }
+
+    /*
+    ┌────────────────────┐
+    │ Operator Functions │
+    └────────────────────┘
+    */
 
     // @notice Set the liquidation auction duration
     // @param duration The duration of the liquidation auction
@@ -214,8 +234,12 @@ contract Auctioneer is IAuctioneer {
         if (duration == 0) {
             revert InvalidParameter("duration");
         }
+        emit IConfigEvents.ConfigUpdateUint(
+            "liquidationAuctionDuration",
+            config.liquidationAuctionDuration,
+            duration
+        );
         config.liquidationAuctionDuration = duration;
-        emit ConfigUpdated("liquidationAuctionDuration");
     }
 
     // @notice Set the interest auction duration
@@ -224,8 +248,12 @@ contract Auctioneer is IAuctioneer {
         if (duration == 0) {
             revert InvalidParameter("duration");
         }
+        emit IConfigEvents.ConfigUpdateUint(
+            "interestAuctionDuration",
+            config.interestAuctionDuration,
+            duration
+        );
         config.interestAuctionDuration = duration;
-        emit ConfigUpdated("interestAuctionDuration");
     }
 
     // @notice Set the interest auction discount
@@ -235,8 +263,12 @@ contract Auctioneer is IAuctioneer {
         if (discount >= StabilizationMath.SCALE_FACTOR) {
             revert InvalidParameter("discount");
         }
+        emit IConfigEvents.ConfigUpdateUint(
+            "interestAuctionDiscount",
+            config.interestAuctionDiscount,
+            discount
+        );
         config.interestAuctionDiscount = discount;
-        emit ConfigUpdated("interestAuctionDiscount");
     }
 
     // @notice Set the interest auction threshold
@@ -245,17 +277,20 @@ contract Auctioneer is IAuctioneer {
         if (threshold == 0) {
             revert InvalidParameter("threshold");
         }
+        emit IConfigEvents.ConfigUpdateUint(
+            "interestAuctionThreshold",
+            config.interestAuctionThreshold,
+            threshold
+        );
         config.interestAuctionThreshold = threshold;
-        emit ConfigUpdated("interestAuctionThreshold");
     }
 
     // @notice Set the proceeds address
     // @param proceedAddress_ The address to send proceeds to
     function setProceedAddress(address proceedAddress_) external onlyOperator {
+        emit IConfigEvents.ConfigUpdateAddress("proceedAddress", proceedAddress, proceedAddress_);
         proceedAddress = proceedAddress_;
-        emit ConfigUpdated("proceedAddress");
     }
-
 
     /*
     ┌────────────────┐
@@ -317,7 +352,7 @@ contract Auctioneer is IAuctioneer {
         uint256 priceDiscounted = collateralPrice - (collateralPrice * config.interestAuctionDiscount) / StabilizationMath.SCALE_FACTOR;
         return (interestAmount * oracleScaleFactor) / priceDiscounted;
     }
-    
+
     function _validateConfig(Config memory config_) internal pure {
         if (config_.liquidationAuctionDuration == 0) {
             revert InvalidParameter("liquidationAuctionDuration");

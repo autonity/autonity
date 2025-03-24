@@ -1,6 +1,17 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
+import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
+import {IERC20} from "../interfaces/IERC20.sol";
+import {IOracle} from "../interfaces/IOracle.sol";
+import {IACU} from "./interfaces/IACU.sol";
+import {IAuctioneer} from "./interfaces/IAuctioneer.sol";
+import {IStabilization} from "./interfaces/IStabilization.sol";
+import {ISupplyControl} from "./interfaces/ISupplyControl.sol";
+import {StabilizationMath} from "./lib/StabilizationMath.sol";
+import {UpdatableConfig} from "./lib/UpdatableConfig.sol";
+import "./lib/ASMErrors.sol";
+
 /*
       .o.        .oooooo..o ooo        ooooo
      .888.      d8P'    `Y8 `88.       .888'
@@ -12,18 +23,6 @@ o88o     o8888o 8""88888P'  o8o        o888o
 
        Auton Stabilization Mechanism
 */
-
-import {IERC20} from "../interfaces/IERC20.sol";
-import {IOracle} from "../interfaces/IOracle.sol";
-import {IStabilization} from "./interfaces/IStabilization.sol";
-import {ISupplyControl} from "./interfaces/ISupplyControl.sol";
-import {IACU} from "./interfaces/IACU.sol";
-import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
-import {StabilizationMath} from "./lib/StabilizationMath.sol";
-import "./lib/ASMErrors.sol";
-import {IAuctioneer} from "./interfaces/IAuctioneer.sol";
-import {UpdatableConfig} from "./lib/UpdatableConfig.sol";
-import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
 
 /// @title ASM Stabilization Contract
 /// @notice A CDP-based stabilization mechanism for the Auton.
@@ -72,8 +71,6 @@ contract Stabilization is IStabilization {
 
     /** @dev Liquidation ratio **/
     UpdatableConfig.UintConfig private _liquidationRatio;
-
-
 
     /// Collateral Token was deposited into a CDP
     /// @param account The CDP account address
@@ -442,24 +439,16 @@ contract Stabilization is IStabilization {
     /// @param amount The minimum debt amount
     /// @dev Restricted to the operator.
     function setMinDebtRequirement(uint256 amount) external onlyOperator {
+        emit IConfigEvents.ConfigUpdateUint("minDebtRequirement", _config.minDebtRequirement, amount);
         _config.minDebtRequirement = amount;
-        emit IConfigEvents.ConfigUpdateUint("minDebtRequirement", config.minDebtRequirement, amount);
-    }
-
-    /// Set the SupplyControl Contract address.
-    /// @param supplyControl The SupplyControl Contract address
-    /// @dev Restricted to the operator.
-    function setSupplyControl(address supplyControl) external onlyOperator {
-        _supplyControl = ISupplyControl(supplyControl);
-        emit IConfigEvents.ConfigUpdateAddress("supplyControl", address(_supplyControl), supplyControl);
     }
 
     /// Set the _atnSupplyOperator address.
     /// @param atnSupplyOperator The _atnSupplyOperator address
     /// @dev Restricted to the operator.
     function setAtnSupplyOperator(address atnSupplyOperator) external onlyOperator {
-        _atnSupplyOperator = atnSupplyOperator;
         emit IConfigEvents.ConfigUpdateAddress("atnSupplyOperator", _atnSupplyOperator, atnSupplyOperator);
+        _atnSupplyOperator = atnSupplyOperator;
     }
 
     /// Transition out of the restricted state.
@@ -469,7 +458,8 @@ contract Stabilization is IStabilization {
         _restricted = false;
         _borrowInterestRate.currentValue = _defaultGenesisBorrowInterestRate;
         _borrowInterestRate.currentActiveFrom = block.timestamp;
-        emit IConfigEvents.ConfigUpdateAddress("atnSupplyOperator", _atnSupplyOperator, atnSupplyOperator);
+        emit IConfigEvents.ConfigUpdateUint("borrowInterestRate", 0, _defaultGenesisBorrowInterestRate);
+        emit CDPRestrictionsRemoved();
     }
 
     /**
@@ -483,6 +473,7 @@ contract Stabilization is IStabilization {
             block.timestamp + _announcementWindow.value()
         );
         emit InterestRateUpdateAnnounced(newInterestRate, _borrowInterestRate.nextActiveFrom, overridden);
+        emit IConfigEvents.ConfigUpdateUint("borrowInterestRate", _borrowInterestRate.value(), newInterestRate);
     }
 
     /**
@@ -497,6 +488,7 @@ contract Stabilization is IStabilization {
         );
         if (overridden) revert AnnouncementWindowPending();
         emit AnnouncementWindowUpdateAnnounced(window, _announcementWindow.nextActiveFrom, overridden);
+        emit IConfigEvents.ConfigUpdateUint("announcementWindow", _announcementWindow.value(), window);
     }
 
     /**
@@ -512,6 +504,7 @@ contract Stabilization is IStabilization {
             block.timestamp + _announcementWindow.value()
         );
         emit LiquidationRatioUpdateAnnounced(newRatio, _liquidationRatio.nextActiveFrom, overridden);
+        emit IConfigEvents.ConfigUpdateUint("liquidationRatio", _liquidationRatio.value(), newRatio);
     }
 
     /**
@@ -527,6 +520,7 @@ contract Stabilization is IStabilization {
             block.timestamp + _announcementWindow.value()
         );
         emit MinCollateralizationRatioUpdateAnnounced(newRatio, _minCollateralizationRatio.nextActiveFrom, overridden);
+        emit IConfigEvents.ConfigUpdateUint("minCollateralizationRatio", _minCollateralizationRatio.value(), newRatio);
     }
 
 
@@ -551,6 +545,32 @@ contract Stabilization is IStabilization {
         emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle);
         _oracle = IOracle(oracle);
     }
+
+
+    /// Set the Auctioneer Contract address.
+    /// @param auctioneer Address of the new Auctioneer Contract
+    /// @dev Restricted to the Autonity Contract.
+    function setAuctioneer(address auctioneer) external onlyAutonity {
+        emit IConfigEvents.ConfigUpdateAddress("auctioneer", _auctioneer, auctioneer);
+        _auctioneer = auctioneer;
+    }
+
+    /// Set the ACU contract address.
+    /// @param acu Address of the new ACU Contract
+    /// @dev Restricted to the Autonity Contract.
+    function setACU(address acu) external onlyAutonity {
+        emit IConfigEvents.ConfigUpdateAddress("acu", _acu, acu);
+        _acu = acu;
+    }
+
+    /// Set the SupplyControl Contract address.
+    /// @param supplyControl Address of the new SupplyControl Contract
+    /// @dev Restricted to the Autonity Contract.
+    function setSupplyControl(address supplyControl) external onlyAutonity {
+        emit IConfigEvents.ConfigUpdateAddress("supplyControl", address(_supplyControl), supplyControl);
+        _supplyControl = ISupplyControl(supplyControl);
+    }
+
 
     /*
     ┌────────────────┐
@@ -778,7 +798,8 @@ contract Stabilization is IStabilization {
     └────────────────┘
     */
 
-    // ToDo(scott): figure out the best way to avoid this redundancy
+    // These are exposed to allow users to calculate values off-chain
+
     function borrowLimit(
         uint256 collateral,
         uint256 collateralPriceACU,
