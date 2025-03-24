@@ -25,6 +25,18 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 )
 
+const (
+	ProposeNetworkMsg   uint64 = 0x11
+	PrevoteNetworkMsg   uint64 = 0x12
+	PrecommitNetworkMsg uint64 = 0x13
+)
+
+var NetworkCodes = map[uint8]uint64{
+	message.ProposalCode:  ProposeNetworkMsg,
+	message.PrevoteCode:   PrevoteNetworkMsg,
+	message.PrecommitCode: PrecommitNetworkMsg,
+}
+
 var errTooOldMessage = errors.New("too old message")
 var errUnknownClusters = errors.New("unknown clustering")
 
@@ -116,34 +128,15 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 	return r.PeerSelector().SelectPeers(committee, msg, from)
 }
 
-// Forward just forward decoded proposal from p2p msg handler, the proposal could be a future proposal within
-// current epoch or from the next epoch when node is around epoch rotation, thus, the router should forward them
-// to all the members as most of them are still in the committee after the reshuffling.
-func (r *Router) Forward(bc *core.BlockChain, m message.Msg, sender common.Address) {
-	if m.H() < r.curEpochInfo.EpochBlock.Uint64() {
-		log.Info("Don't forward too old message", "height", m.H())
-		return
-	}
-
-	if m.H() >= r.curEpochInfo.NextEpochBlock.Uint64() {
-		log.Info("Buffer future epoch's message", "height", m.H())
-		return
-	}
-
-	committee, err := bc.CommitteeByHeight(m.H())
-	if err != nil {
-		log.Info("Forward: Failed to query epoch", "error", err, "height", m.H())
-		return
-	}
-
+func (r *Router) Forward(committee *types.Committee, m message.Msg, sender common.Address) {
 	var recipients []types.CommitteeMember
-	recipients, err = r.Route(committee, m, sender)
+	recipients, err := r.Route(committee, m, sender)
 	if err != nil {
 		if !errors.Is(err, consensus.ErrFutureEpochMessage) {
 			log.Debug("No recipients for proposal", "error", err, "height", m.H())
 			return
 		}
-		// forward to all the committee members, as most of them are still in the committee.
+		// forward to all the committee members if the router cannot resolve recipients.
 		recipients = committee.Members
 	}
 
@@ -157,7 +150,7 @@ func (r *Router) Forward(bc *core.BlockChain, m message.Msg, sender common.Addre
 				continue
 			}
 			p.Cache().Add(m.Hash(), true)
-			go p.SendRaw(proposeNetworkMsg, m.Payload()) //nolint
+			go p.SendRaw(NetworkCodes[m.Code()], m.Payload()) //nolint
 		} else {
 			//todo: shall we select other backups for live ness?
 		}
@@ -268,6 +261,7 @@ func (r *Router) resolveClusters(h uint64) (*Clusters, error) {
 	if r.epochOptimizedCluster != nil && h >= r.epochOptimizedCluster.activatedHeight && h < r.epochDefaultCluster.nextEpochHeight {
 		return r.epochOptimizedCluster, nil
 	}
+
 	// otherwise, try to pick the default clusters.
 	if r.epochDefaultCluster != nil && h >= r.epochDefaultCluster.activatedHeight && h < r.epochDefaultCluster.nextEpochHeight {
 		return r.epochDefaultCluster, nil
@@ -278,6 +272,7 @@ func (r *Router) resolveClusters(h uint64) (*Clusters, error) {
 		return r.lastEpochCluster, nil
 	}
 
+	// todo: double check if we align with the recent 256 blocks range for msg processing.
 	if r.lastEpochCluster != nil && h < r.lastEpochCluster.activatedHeight {
 		return nil, errTooOldMessage
 	}
@@ -551,21 +546,15 @@ type Selector struct {
 }
 
 func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
-	if member := committee.MemberByAddress(from); member == nil {
-		log.Debug("Router: from not part of committee, not routing anywhere", "address", from)
-		return nil, nil
-	}
 
-	if msg.Code() != message.ProposalCode {
-		return committee.Members, nil
-	}
-
+	// in edge case, resolve cluster can be failed since router has its own epoch synchronization context, in this case,
+	// the caller should relay the message to all the members of input committee.
 	clusters, err := s.resolveClusters(msg.H())
 	if err != nil {
 		return nil, err
 	}
 
-	// if we are sending the proposal, we should send it to every cluster vertically.
+	// if we are sending the message, we should select relayers from every cluster vertically.
 	var recipients []types.CommitteeMember
 	if from == s.self {
 		for _, addr := range clusters.selectK(VerticalRelayingRedundancy, seed(msg)) {
@@ -574,23 +563,30 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 			}
 		}
 
+		// todo: check if outlier can be removed.
 		// we should also send directly to every outlier
 		for _, addr := range clusters.direct {
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
 			}
 		}
-	} else {
+		relayers := deduplicate(recipients)
 		log.Debug(
-			"Router: not the originator of the proposal, not sending to other clusters",
+			"Router: originally sending msg to each clusters vertically",
 			"from",
 			from,
 			"self",
 			s.self,
+			"selected relayers",
+			len(recipients),
 		)
+		return relayers, nil
 	}
 
-	// if we are receiving the proposal from outside our own cluster, we should send it to our own cluster vertically.
+	// todo: double check the relaying behaviour of relayers in the same cluster of the original sender.
+
+	// if we are relaying the messages from outside our own cluster, we should forward it to our own cluster vertically.
+	// moreover that, we also need to forward it to the other clusters horizontally to increase the robustness of messaging.
 	if ownCluster := clusters.clusterContaining(s.self); ownCluster != clusters.clusterContaining(from) && ownCluster >= 0 {
 		for _, addr := range clusters.base[ownCluster] {
 			if member := committee.MemberByAddress(addr); member != nil {
@@ -604,19 +600,19 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 				recipients = append(recipients, *member)
 			}
 		}
-	} else {
-		log.Debug(
-			"Router: not receiving from outside cluster, not sending to own cluster",
-			"from",
-			from,
-			"self",
-			s.self,
-		)
 	}
+	receivers := deduplicate(recipients)
+	log.Debug(
+		"Router: vertically relaying message to own cluster, and horizontally relaying to other clusters",
+		"from",
+		from,
+		"self",
+		s.self,
+		"selected receivers",
+		len(receivers),
+	)
 
-	// there could be some duplication if we are sending to VerticalRelayingRedundancy members of each
-	// cluster, that may include our own cluster, so we deduplicate
-	return deduplicate(recipients), nil
+	return receivers, nil
 }
 
 func deduplicate(recipients []types.CommitteeMember) []types.CommitteeMember {

@@ -176,13 +176,6 @@ func handleConsensusMsg[T any, PT interface {
 		return true, err
 	}
 
-	// for performance, we relay proposal ASAP without further checking. The proposal could be one within current epoch
-	// or from the next epoch when the node is around the epoch rotation. As the clustering haven't been done for new epoch,
-	// the router should still forward it as most of the members are still in the committee after the reshuffling.
-	if sb.router != nil && msg.Code() == message.ProposalCode {
-		go sb.router.Forward(sb.BlockChain(), msg, sender)
-	}
-
 	// if the message is for a future height wrt to consensus engine, buffer it
 	// it will be re-injected into the handleDecodedMsg function at the right height
 	// TODO: Due to a race condition a message that is considered as future could become current,
@@ -200,6 +193,7 @@ func handleConsensusMsg[T any, PT interface {
 	if sb.isHeightExpired(currentHeight, msg.H()) {
 		return true, nil
 	}
+
 	return sb.handleDecodedMsg(msg, errCh, sender)
 }
 
@@ -213,6 +207,11 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 	// assign power and bls signer key
 	if err := msg.PreValidate(committee); err != nil {
 		return true, err
+	}
+
+	// structured relaying happens after the pre-validation.
+	if sb.router != nil {
+		go sb.router.Forward(committee, msg, sender)
 	}
 
 	// if the sender is jailed, discard its messages

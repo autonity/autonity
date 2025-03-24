@@ -121,7 +121,7 @@ type Router interface {
 	Stop()
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 	Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
-	Forward(bc *ethcore.BlockChain, m message.Msg, sender common.Address)
+	Forward(committee *types.Committee, m message.Msg, sender common.Address)
 }
 
 type EventDispatcher interface {
