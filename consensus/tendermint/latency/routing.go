@@ -583,7 +583,27 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		return relayers, nil
 	}
 
-	// todo: double check the relaying behaviour of relayers in the same cluster of the original sender.
+	// relay to all the nodes which are in the same cluster of the original sender.
+	if ownCluster := clusters.clusterContaining(s.self); ownCluster == clusters.clusterContaining(from) && ownCluster >= 0 {
+		for _, addr := range clusters.base[ownCluster] {
+			if addr == from || addr == s.self {
+				continue
+			}
+			if member := committee.MemberByAddress(addr); member != nil {
+				recipients = append(recipients, *member)
+			}
+		}
+		log.Debug(
+			"Router: horizontally relaying message to original cluster",
+			"from",
+			from,
+			"self",
+			s.self,
+			"selected receivers",
+			len(recipients),
+		)
+		return recipients, nil
+	}
 
 	// if we are relaying the messages from outside our own cluster, we should forward it to our own cluster vertically.
 	// moreover that, we also need to forward it to the other clusters horizontally to increase the robustness of messaging.
