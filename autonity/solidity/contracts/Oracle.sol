@@ -42,7 +42,7 @@ contract Oracle is IOracle, IConfigEvents {
         int256 outlierSlashingThreshold; // Threshold for slashing outliers
         uint256 baseSlashingRate; // Base rate for slashing
         uint256 missedRevealTolerance; // Tolerance threshold for missed reveals
-        uint256 noRevealPenaltyResetRound; // Number of round when missed reveal count is reset
+        uint256 missedRevealWindow; // Number of round when missed reveal count is reset
     }
 
     // ==== Public state variables ====
@@ -97,7 +97,7 @@ contract Oracle is IOracle, IConfigEvents {
         Config memory _config
     ) {
         require(
-            _config.missedRevealTolerance < _config.noRevealPenaltyResetRound && _config.missedRevealTolerance > 0,
+            _config.missedRevealTolerance < _config.missedRevealWindow,
             "invalid config"
         );
         config = _config;
@@ -541,7 +541,7 @@ contract Oracle is IOracle, IConfigEvents {
      */
     function setMissedRevealTolerance(uint256 _tolerance) external onlyOperator {
         require(
-            _tolerance < config.noRevealPenaltyResetRound && _tolerance > 0,
+            _tolerance < config.missedRevealWindow,
             "invalid config"
         );
         config.missedRevealTolerance = _tolerance;
@@ -550,12 +550,12 @@ contract Oracle is IOracle, IConfigEvents {
     /**
      * @notice Setter for the maximum count of rounds after which missed reveal counter is reset.
      */
-    function setNoRevealPenaltyResetRound(uint256 _resetRound) external onlyOperator {
+    function setMissedRevealWindow(uint256 _window) external onlyOperator {
         require(
-            config.missedRevealTolerance < _resetRound,
+            config.missedRevealTolerance < _window,
             "invalid config"
         );
-        config.noRevealPenaltyResetRound = _resetRound;
+        config.missedRevealWindow = _window;
     }
 
     /**
@@ -765,7 +765,7 @@ contract Oracle is IOracle, IConfigEvents {
     function _penalizeForNoReveal() internal {
         // reset missed reveal counter
         resetCounter++;
-        if (resetCounter >= config.noRevealPenaltyResetRound) {
+        if (resetCounter >= config.missedRevealWindow) {
             resetCounter = 0;
         }
 
