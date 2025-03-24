@@ -95,7 +95,7 @@ func (c *evmContract) callContractFuncAs(statedb vm.StateDB, header *types.Heade
 type Cache struct {
 	// minimum base fee
 	minBaseFee    atomic.Pointer[big.Int]
-	minBaseFeeCh  chan *AutonityMinimumBaseFeeUpdated
+	minBaseFeeCh  chan *AutonityConfigUpdateUint
 	subMinBaseFee event.Subscription
 
 	// epoch period
@@ -121,8 +121,8 @@ func newCache(ac *AutonityContract, head *types.Header, state vm.StateDB) (*Cach
 		}
 	}
 
-	minBaseFeeCh := make(chan *AutonityMinimumBaseFeeUpdated)
-	subMinBaseFee, err := ac.WatchMinimumBaseFeeUpdated(nil, minBaseFeeCh)
+	minBaseFeeCh := make(chan *AutonityConfigUpdateUint)
+	subMinBaseFee, err := ac.WatchConfigUpdateUint(nil, minBaseFeeCh)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +239,9 @@ func (c *Cache) Listen() {
 	for {
 		select {
 		case ev := <-c.minBaseFeeCh:
-			c.minBaseFee.Store(ev.GasPrice)
+			if ev.Name == "minBaseFee" {
+				c.minBaseFee.Store(ev.NewValue)
+			}
 		case ev := <-c.epochPeriodCh:
 			c.epochPeriod.Store(ev.Period)
 		// These should never happen. Errors from subscription can happen only if the subscription is done over an RPC connection.

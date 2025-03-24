@@ -14,12 +14,13 @@ o88o     o8888o 8""88888P'  o8o        o888o
 */
 
 import {ISupplyControl} from "./ISupplyControl.sol";
+import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
 
 /// @title ASM Supply Control Contract Implementation
 /// @notice Controls the supply of Auton on the network.
 /// @dev Intended to be deployed by the protocol at genesis. The stabilizer is
 /// expected to be the Stabilization Contract.
-contract SupplyControl is ISupplyControl {
+contract SupplyControl is ISupplyControl, IConfigEvents {
     /// The account that is authorized to mint and burn.
     address public stabilizer;
 
@@ -98,6 +99,7 @@ contract SupplyControl is ISupplyControl {
     /// @dev Only the Autonity Contract is authorized to set the Governance
     /// Operator account address.
     function setOperator(address operator) external onlyAutonity {
+        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
         _operator = operator;
     }
 
@@ -105,6 +107,7 @@ contract SupplyControl is ISupplyControl {
     /// @param stabilizer_ The new stabilizer account
     /// @dev Only the operator can update the stabilizer address.
     function setStabilizer(address stabilizer_) external onlyOperator {
+        emit IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, stabilizer_);
         stabilizer = stabilizer_;
     }
 

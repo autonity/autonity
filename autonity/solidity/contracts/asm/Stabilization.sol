@@ -18,6 +18,7 @@ import {IOracle} from "../interfaces/IOracle.sol";
 import {IStabilization} from "./IStabilization.sol";
 import {ISupplyControl} from "./ISupplyControl.sol";
 import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
+import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
 
 /// @title ASM Stabilization Contract
 /// @notice A CDP-based stabilization mechanism for the Auton.
@@ -25,7 +26,7 @@ import {UD60x18, ud} from "../lib/prb-math-4.0.1/UD60x18.sol";
 /// rates, ratios, prices, and amounts are represented as fixed-point integers
 /// with `SCALE` decimal places.
 /* solhint-disable not-rely-on-time */
-contract Stabilization is IStabilization {
+contract Stabilization is IStabilization, IConfigEvents {
     /// Stabilization Configuration.
     struct Config {
         /// The annual continuously-compounded interest rate for borrowing.
@@ -98,6 +99,8 @@ contract Stabilization is IStabilization {
     /// @param account The CDP account address
     /// @param liquidator The liquidator address
     event Liquidate(address indexed account, address liquidator);
+    /// Transition out of the initial CDP restrictions
+    event CDPRestrictionsRemoved();
 
     error InsufficientAllowance();
     error InsufficientPayment();
@@ -347,10 +350,10 @@ contract Stabilization is IStabilization {
                 config.liquidationRatio
             )
         ) revert NotLiquidatable();
-        
+
         if (msg.value < debt) revert InsufficientPayment();
         _supplyControl.burn{value: cdp.principal}();
-        
+
         uint surplus = msg.value - debt;
         uint256 collateral = cdp.collateral;
         cdp.timestamp = block.timestamp;
@@ -382,6 +385,7 @@ contract Stabilization is IStabilization {
         validRatios(ratio, config.minCollateralizationRatio)
         onlyOperator
     {
+        emit IConfigEvents.ConfigUpdateUint("liquidationRatio", config.liquidationRatio, ratio);
         config.liquidationRatio = ratio;
     }
 
@@ -398,6 +402,7 @@ contract Stabilization is IStabilization {
         validRatios(config.liquidationRatio, ratio)
         onlyOperator
     {
+        emit IConfigEvents.ConfigUpdateUint("minCollateralizationRatio", config.minCollateralizationRatio, ratio);
         config.minCollateralizationRatio = ratio;
     }
 
@@ -405,6 +410,7 @@ contract Stabilization is IStabilization {
     /// @param amount The minimum debt amount
     /// @dev Restricted to the operator.
     function setMinDebtRequirement(uint256 amount) external onlyOperator {
+        emit IConfigEvents.ConfigUpdateUint("minDebtRequirement", config.minDebtRequirement, amount);
         config.minDebtRequirement = amount;
     }
 
@@ -412,6 +418,7 @@ contract Stabilization is IStabilization {
     /// @param supplyControl The SupplyControl Contract address
     /// @dev Restricted to the operator.
     function setSupplyControl(address supplyControl) external onlyOperator {
+        emit IConfigEvents.ConfigUpdateAddress("supplyControl", address(_supplyControl), supplyControl);
         _supplyControl = ISupplyControl(supplyControl);
     }
 
@@ -419,6 +426,7 @@ contract Stabilization is IStabilization {
     /// @param atnSupplyOperator The _atnSupplyOperator address
     /// @dev Restricted to the operator.
     function setAtnSupplyOperator(address atnSupplyOperator) external onlyOperator {
+        emit IConfigEvents.ConfigUpdateAddress("atnSupplyOperator", _atnSupplyOperator, atnSupplyOperator);
         _atnSupplyOperator = atnSupplyOperator;
     }
 
@@ -427,6 +435,7 @@ contract Stabilization is IStabilization {
     function removeCDPRestrictions() external onlyOperator {
         _restricted = false;
         config.borrowInterestRate = _defaultGenesisBorrowInterestRate;
+        emit CDPRestrictionsRemoved();
     }
 
     /*
@@ -439,6 +448,7 @@ contract Stabilization is IStabilization {
     /// @param operator Address of the new Governance Operator
     /// @dev Restricted to the Autonity Contract.
     function setOperator(address operator) external onlyAutonity {
+        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
         _operator = operator;
     }
 
@@ -446,6 +456,7 @@ contract Stabilization is IStabilization {
     /// @param oracle Address of the new Oracle Contract
     /// @dev Restricted to the Autonity Contract.
     function setOracle(address oracle) external onlyAutonity {
+        emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle);
         _oracle = IOracle(oracle);
     }
 

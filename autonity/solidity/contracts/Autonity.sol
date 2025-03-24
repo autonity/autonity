@@ -20,12 +20,12 @@ import "./ReentrancyGuard.sol";
 import "./ScheduleController.sol";
 import {ISlasher} from "./interfaces/ISlasher.sol";
 import {Slasher} from "./Slasher.sol";
+import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
 
-/** @title Proof-of-Stake Autonity Contract */
-enum ValidatorState {active, paused, jailed, jailbound, jailedForInactivity, jailboundForInactivity}
 uint8 constant DECIMALS = 18;
 
-contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upgradeable {
+/** @title Proof-of-Stake Autonity Contract */
+contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upgradeable, IConfigEvents {
     uint256 internal constant CONSENSUS_KEY_LEN = 48;
     uint256 internal constant BLS_PROOF_LEN = 96;
     uint256 internal constant ECDSA_SIGNATURE_LEN = 65;
@@ -208,54 +208,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
     ISlasher public slasher;
 
-    /* Events */
-    event MintedStake(address indexed addr, uint256 amount);
-    event BurnedStake(address indexed addr, uint256 amount);
-    event CommissionRateChange(address indexed validator, uint256 rate);
-
-    /** @notice This event is emitted when a bonding request to a validator node has been registered.
-    * This request will only be effective at the end of the current epoch however the stake will be
-    * put in custody immediately from the delegator's account.
-    * @param validator The validator node account.
-    * @param delegator The caller.
-    * @param selfBonded True if the validator treasury initiated the request. No LNEW will be issued.
-    * @param amount The amount of NEWTON to be delegated.
-    */
-    event NewBondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
-    event BondingRejected(address indexed validator, address indexed delegator, uint256 amount, ValidatorState state);
-
-    /** @notice This event is emitted when an unbonding request to a validator node has been registered.
-    * This request will only be effective after the unbonding period, rounded to the next epoch.
-    * Please note that because of potential slashing events during this delay period, the released amount
-    * may or may not be correspond to the amount requested.
-    * @param validator The validator node account.
-    * @param delegator The caller.
-    * @param selfBonded True if the validator treasury initiated the request.
-    * @param amount If self-bonded this is the requested amount of NEWTON to be unbonded.
-    * If not self-bonded, this is the amount of Liquid Newton to be unbonded.
-    */
-    event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount);
-
-    event RegisteredValidator(address treasury, address addr, address oracleAddress, string enode, address liquidStateContract);
-    event PausedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
-    event ActivatedValidator(address indexed treasury, address indexed addr, uint256 effectiveBlock);
-    event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount);
-    event EpochPeriodUpdated(uint256 period, uint256 appliedAtBlock);
-    event NewEpoch(uint256 epoch);
-
-    /**
-     * @notice This event is emitted when a call to an address fails in a protocol function (like finalize()).
-     * @param to address
-     * @param methodSignature method signature of the call, empty in case of plain transaction
-     * @param returnData low level return data
-     */
-    event CallFailed(address to, string methodSignature, bytes returnData);
-
-    /**
-     * @dev Emitted when the Minimum Gas Price was updated and set to `gasPrice`.
-     * Note that `gasPrice` may be zero.
-     */
-    event MinimumBaseFeeUpdated(uint256 gasPrice);
 
     constructor(Validator[] memory _validators,
         Config memory _config) {
@@ -306,6 +258,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             accounts[_validators[i].treasury] += _bondedStake;
             stakeSupply += _bondedStake;
             stakeCirculating += _bondedStake;
+            //TODO: registered validator event
+            emit RegisteredValidator(_validators[i].treasury, _validators[i].nodeAddress, _validators[i].oracleAddress,
+                _validators[i].enode, address(_validators[i].liquidStateContract));
             _bond(_validators[i].nodeAddress, _bondedStake, payable(_validators[i].treasury));
         }
     }
@@ -434,6 +389,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         require(_err == 0, "enode error");
 
         require(_val.nodeAddress == _enodePubkey, "validator node address can't be updated");
+        //TODO: event, new enode and the node address
+        emit EnodeUpdate(_val.nodeAddress, _val.enode, _enode);
         _val.enode = _enode;
     }
 
@@ -508,11 +465,10 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     /**
     * @notice Set the minimum gas price. Restricted to the operator account.
     * @param _price Positive integer.
-    * @dev Emit a {MinimumBaseFeeUpdated} event.
     */
     function setMinimumBaseFee(uint256 _price) public virtual onlyOperator {
+        emit ConfigUpdateUint("minBaseFee", config.policy.minBaseFee, _price);
         config.policy.minBaseFee = _price;
-        emit MinimumBaseFeeUpdated(_price);
     }
 
     /**
@@ -520,15 +476,19 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @custom:restricted-to operator account
      */
     function setMaxScheduleDuration(uint256 _newMaxDuration) virtual external onlyOperator {
+        emit ConfigUpdateUint("maxScheduleDuration", config.protocol.maxScheduleDuration, _newMaxDuration);
         config.protocol.maxScheduleDuration = _newMaxDuration;
     }
 
+    // todo: new event for config updated - with params - name of config(string), oldValue, newValue
+    // todo: new event for contract address updated - with params
     /*
     * @notice Set the maximum size of the consensus committee. Restricted to the Operator account.
     * @param _size Positive integer.
     */
     function setCommitteeSize(uint256 _size) public virtual onlyOperator {
         require(_size > 0, "committee size can't be 0");
+        emit ConfigUpdateUint("committeeSize", config.protocol.committeeSize, _size);
         config.protocol.committeeSize = _size;
     }
 
@@ -538,6 +498,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @param _period The new unbonding period, in blocks.
      */
     function setUnbondingPeriod(uint256 _period) public virtual onlyOperator {
+        emit ConfigUpdateUint("unbondingPeriod", config.policy.unbondingPeriod, _period);
         config.policy.unbondingPeriod = _period;
     }
 
@@ -550,6 +511,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      */
     function setProposerRewardRate(uint256 _proposerRewardRate) public virtual onlyOperator {
         require(_proposerRewardRate <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
+        emit ConfigUpdateUint("proposerRewardRate", config.policy.proposerRewardRate, _proposerRewardRate);
         config.policy.proposerRewardRate = _proposerRewardRate;
     }
 
@@ -562,6 +524,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      */
     function setOracleRewardRate(uint256 _oracleRewardRate) public virtual onlyOperator {
         require(_oracleRewardRate <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
+        emit ConfigUpdateUint("oracleRewardRate", config.policy.oracleRewardRate, _oracleRewardRate);
         config.policy.oracleRewardRate = _oracleRewardRate;
     }
 
@@ -573,6 +536,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      */
     function setWithholdingThreshold(uint256 _withholdingThreshold) public virtual onlyOperator {
         require(_withholdingThreshold <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
+        emit ConfigUpdateUint("withholdingThreshold", config.policy.withholdingThreshold, _withholdingThreshold);
         config.policy.withholdingThreshold = _withholdingThreshold;
     }
 
@@ -584,6 +548,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      */
     function setWithheldRewardsPool(address payable _pool) public virtual onlyOperator {
         require(_pool != address(0), "pool cannot be zero address");
+        emit ConfigUpdateAddress("withheldRewardsPool", config.policy.withheldRewardsPool, _pool);
         config.policy.withheldRewardsPool = _pool;
     }
 
@@ -611,6 +576,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _account the new operator account.
     */
     function setOperatorAccount(address _account) public virtual onlyOperator {
+        emit ConfigUpdateAddress("operatorAccount", config.protocol.operatorAccount, _account);
         config.protocol.operatorAccount = _account;
         config.contracts.oracleContract.setOperator(_account);
         config.contracts.acuContract.setOperator(_account);
@@ -635,6 +601,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _account New treasury account.
     */
     function setTreasuryAccount(address payable _account) public virtual onlyOperator {
+        emit ConfigUpdateAddress("treasuryAccount", config.policy.treasuryAccount, _account);
         config.policy.treasuryAccount = _account;
     }
 
@@ -643,6 +610,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _treasuryFee Treasury fee. Precision TBD.
     */
     function setTreasuryFee(uint256 _treasuryFee) public virtual onlyOperator {
+        emit ConfigUpdateUint("treasuryFee", config.policy.treasuryFee, _treasuryFee);
         config.policy.treasuryFee = _treasuryFee;
     }
 
@@ -651,6 +619,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @param _address the contract address
      */
     function setAccountabilityContract(IAccountability _address) public virtual onlyOperator {
+        emit ConfigUpdateAddress("accountabilityContract", address(config.contracts.accountabilityContract), address(_address));
         config.contracts.accountabilityContract = _address;
     }
 
@@ -659,6 +628,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @param _address the contract address
      */
     function setOmissionAccountabilityContract(IOmissionAccountability _address) public virtual onlyOperator {
+        emit ConfigUpdateAddress("omissionAccountabilityContract", address(config.contracts.omissionAccountabilityContract), address(_address));
         config.contracts.omissionAccountabilityContract = _address;
     }
 
@@ -667,6 +637,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setOracleContract(address payable _address) public virtual onlyOperator {
+        emit ConfigUpdateAddress("oracleContract", address(config.contracts.oracleContract), _address);
         config.contracts.oracleContract = IOracle(_address);
         config.contracts.acuContract.setOracle(_address);
         config.contracts.stabilizationContract.setOracle(_address);
@@ -677,6 +648,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setAcuContract(IACU _address) public virtual onlyOperator {
+        emit ConfigUpdateAddress("acuContract", address(config.contracts.acuContract), address(_address));
         config.contracts.acuContract = _address;
     }
 
@@ -685,6 +657,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setSupplyControlContract(ISupplyControl _address) public virtual onlyOperator {
+        emit ConfigUpdateAddress("supplyControlContract", address(config.contracts.supplyControlContract), address(_address));
         config.contracts.supplyControlContract = _address;
     }
 
@@ -693,6 +666,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setStabilizationContract(IStabilization _address) public virtual onlyOperator {
+        emit ConfigUpdateAddress("stabilizationContract", address(config.contracts.stabilizationContract), address(_address));
         config.contracts.stabilizationContract = _address;
     }
 
@@ -701,6 +675,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setInflationControllerContract(IInflationController _address) public virtual onlyOperator {
+        emit ConfigUpdateAddress("inflationControllerContract", address(config.contracts.inflationControllerContract), address(_address));
         config.contracts.inflationControllerContract = _address;
     }
 
@@ -711,6 +686,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address the contract address
     */
     function setUpgradeManagerContract(UpgradeManager _address) public virtual onlyOperator {
+        emit ConfigUpdateAddress("upgradeManagerContract", address(config.contracts.upgradeManagerContract), address(_address));
         config.contracts.upgradeManagerContract = _address;
     }
 
@@ -720,6 +696,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      */
     function SetLiquidLogicContract(address _contract) public virtual onlyOperator {
         require(_contract != address(0), "invalid contract address for liquid logic");
+        emit ConfigUpdateAddress("liquidLogicContract", liquidLogicContract, _contract);
         liquidLogicContract = _contract;
     }
 
@@ -824,6 +801,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
         // finalize all auxiliary contracts
         config.contracts.accountabilityContract.finalize(_epochEnded);
+        //toDO: renaming omissionDelta
         uint256 _delta = config.contracts.omissionAccountabilityContract.finalize(_epochEnded);
         bool newRound = config.contracts.oracleContract.finalize();
 
@@ -870,7 +848,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             // so we should always keep this epoch increment at the end of this block.
             epochID += 1;
             _addEpochInfo(epochID, EpochInfo(committee, _previousEpochBlock, block.number, _nextEpochBlock, _delta));
-            emit NewEpoch(epochID);
+            //todo: add into newepoch inflationreserve, stakeCirculating
+            emit NewEpoch(epochID, inflationReserve, stakeCirculating);
         }
 
         if (newRound) {
@@ -882,6 +861,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         return (contractUpgradeReady, _epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock, _delta);
     }
 
+    //todo: review: continue from here
     /**
     * @notice update the current committee by selecting top staking validators.
     * Restricted to the protocol.
@@ -1037,6 +1017,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
     function setSlasher(address _slasher) public virtual onlyOperator {
         require(_slasher != address(0), "slasher contract cannot be the zero address");
+        emit ConfigUpdateAddress("slasher", address(slasher), _slasher);
         slasher = ISlasher(_slasher);
     }
 
@@ -1047,6 +1028,20 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     */
 
     /**
+
+    /**
+    * @notice Returns the bonding request corresponding to bonding ID.
+    */
+    function getBondingRequestByID(uint256 _id) external view virtual returns (BondingRequest memory) {
+        return bondingMap[_id];
+    }
+
+    /**
+    * @notice Returns the unbonding request corresponding to unbonding ID.
+    */
+    function getUnbondingRequestByID(uint256 _id) external view virtual returns (UnbondingRequest memory) {
+        return unbondingMap[_id];
+    }
 
     /**
     * @notice Returns the epoch period. If there will be an update at epoch end, the new epoch period is returned
@@ -1469,6 +1464,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             _transfer(address(this), config.policy.withheldRewardsPool, _ntnTotalWithheld);
         }
     }
+    //todo: discuss rewards later
 
     // @dev No side effects on this function, so safe to be called in the middle of something (but may revert).
     // We may want to switch to OZ's ERC20 at one point to deal with callbacks
@@ -1495,8 +1491,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * Emits an {Approval} event.
      *
      */
-    function _approve(address owner, address spender, uint256 amount) internal virtual {
-        require(owner != address(0), "ERC20: approve from the zero address");
+    function _approve(address owner, address spender, uint256 amount) internal virtual { require(owner != address(0), "ERC20: approve from the zero address");
         require(spender != address(0), "ERC20: approve to the zero address");
 
         allowances[owner][spender] = amount;
@@ -1599,10 +1594,11 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         accounts[_recipient] -= _amount;
         BondingRequest memory _bonding = BondingRequest(_recipient, _validator, _amount, block.number);
         bondingMap[headBondingID] = _bonding;
-        headBondingID++;
 
         bool _selfBonded = validators[_validator].treasury == _recipient;
-        emit NewBondingRequest(_validator, _recipient, _selfBonded, _amount);
+        //Todo: add headBodingID
+        emit NewBondingRequest(_validator, _recipient, _selfBonded, _amount, headBondingID);
+        headBondingID++;
         return headBondingID - 1;
     }
 
@@ -1662,12 +1658,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             );
             _validator.selfUnbondingStakeLocked += _amount;
         }
+        //Todo: add headUnBodingID
+        emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount, headUnbondingID);
         unbondingMap[headUnbondingID] = UnbondingRequest(
             _recipient, _validatorAddress, _amount, 0, block.number, false, false, selfDelegation
         );
         headUnbondingID++;
 
-        emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount);
         return headUnbondingID - 1;
     }
 

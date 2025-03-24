@@ -2,6 +2,7 @@
 pragma solidity >=0.8.2 < 0.9.0;
 
 import "./interfaces/IOracle.sol";
+import "./interfaces/IAutonity.sol";
 import "./Autonity.sol";
 import {EnumerableSet} from "./utils/AddressSet.sol";
 import {ORACLE_SLASHING_RATE_CAP} from "./ProtocolConstants.sol";
@@ -11,7 +12,7 @@ import {ORACLE_SLASHING_RATE_CAP} from "./ProtocolConstants.sol";
  * @notice This contract implements the Oracle for the Autonity Protocol, allowing voters to submit price reports
  * and aggregate them while detecting outliers.
  */
-contract Oracle is IOracle {
+contract Oracle is IOracle, IConfigEvents {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     // Struct to hold metadata information concerning a voter
@@ -48,7 +49,6 @@ contract Oracle is IOracle {
     mapping(string => mapping(address => Report)) public reports;
 
     // ==== Private state variables ====
-    uint8 private constant DECIMALS = 18;
     string[] private symbols;
     string[] private newSymbols;
 
@@ -158,18 +158,25 @@ contract Oracle is IOracle {
         voterInfo[msg.sender].round = round;
         // new voter/first round
         if (_lastVotedRound == 0) {
+            emit NewVoter(msg.sender);
             return;
         }
 
         // if data is not supplied and voter is not a new voter
         // report must contain the correct price
         if (_reports.length != symbols.length) {
+            emit InvalidVote("ReportLengthMismatch", msg.sender, _reports.length, symbols.length);
             return;
         }
 
-        if (_lastVotedRound != round - 1 ||
-            _pastCommit != uint256(keccak256(abi.encode(_reports, _salt, msg.sender)))
-        ) {
+        if (_lastVotedRound != round - 1) {
+            emit InvalidVote("LastVotedRoundMismatch", msg.sender, round-1,  _lastVotedRound);
+            return;
+        }
+
+        _commit = uint256(keccak256(abi.encode(_reports, _salt, msg.sender)));
+        if (_pastCommit != _commit) {
+            emit InvalidVote("CommitMismatch", msg.sender, _pastCommit, _commit);
             // we return the tx fee in all cases, because in both cases voter is slashed during aggregation
             // phase, because the reports contain invalid prices
             return;
@@ -185,6 +192,7 @@ contract Oracle is IOracle {
             reports[symbols[i]][msg.sender] = _reports[i];
         }
         voterInfo[msg.sender].reportAvailable = true;
+        emit SuccessfulVote(msg.sender);
     }
     /**
      * @notice Finalizes the current round and aggregates the votes. Called by the Autonity contract.
@@ -205,7 +213,7 @@ contract Oracle is IOracle {
 
         lastRoundBlock = block.number;
         round += 1;
-        emit NewRound(round, block.number, block.timestamp, config.votePeriod);
+        emit NewRound(round,  block.timestamp, config.votePeriod);
         return true;
     }
 
@@ -247,6 +255,7 @@ contract Oracle is IOracle {
             rewardPeriodPerformance[_voter] = 0;
             rewardReceivers.remove(_voter);
         }
+        emit TotalOracleRewards(_totalNTN, _totalATN);
         rewardPeriodAggregatedScore = 0;
     }
 
@@ -310,27 +319,33 @@ contract Oracle is IOracle {
                     uint256 _slashingAmount = _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
                     emit Penalized(_outliers[i], _slashingAmount, _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
                 }
+                uint256 _price = _calculateWeightedPrice(_filteredReports, _reportsCount);
                 prices[round][_symbol] = Price(
-                    _calculateWeightedPrice(_filteredReports, _reportsCount),
+                    _price,
                     block.timestamp,
                     true
                 );
+                emit PriceUpdated(_price, round, _symbol, true, block.timestamp);
             } else {
+                uint256 _price = prices[round - 1][_symbol].price;
                 // all voters are detected as outliers, so no valid report found
                 // use past value for price if unsuccesful
                 prices[round][_symbol] = Price(
-                    prices[round - 1][_symbol].price,
+                    _price,
                     block.timestamp,
                     false
                 );
+                emit PriceUpdated(_price, round, _symbol, false, block.timestamp);
             }
         } else {
+            uint256 _price = prices[round - 1][_symbol].price;
             // use past value for price if unsuccesful
             prices[round][_symbol] = Price(
-                prices[round - 1][_symbol].price,
+                _price,
                 block.timestamp,
                 false
             );
+            emit PriceUpdated(_price, round, _symbol, false, block.timestamp);
         }
     }
 
@@ -415,7 +430,7 @@ contract Oracle is IOracle {
     * @notice Decimal places to be used with price reports
     * @dev IOracle interface method implementation.
     */
-    function getDecimals() external view returns (uint8) {
+    function getDecimals() external pure returns (uint8) {
         return DECIMALS;
     }
 
@@ -471,6 +486,7 @@ contract Oracle is IOracle {
     */
     function setVotePeriod(uint _votePeriod) external onlyOperator {
         _checkVotePeriod(_votePeriod);
+        emit ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod);
         config.votePeriod = _votePeriod;
     }
 
@@ -484,12 +500,15 @@ contract Oracle is IOracle {
     external
     onlyOperator
     {
+        emit ConfigUpdateInt("outlierSlashingThreshold", config.outlierSlashingThreshold, _outlierSlashingThreshold);
         config.outlierSlashingThreshold = _outlierSlashingThreshold;
+        emit ConfigUpdateInt("outlierDetectionThreshold", config.outlierDetectionThreshold, _outlierDetectionThreshold);
         config.outlierDetectionThreshold = _outlierDetectionThreshold;
+        emit ConfigUpdateUint("baseSlashingRate", config.baseSlashingRate, _baseSlashingRate);
         config.baseSlashingRate = _baseSlashingRate;
     }
 
-    function _checkVotePeriod(uint _votePeriod) internal {
+    function _checkVotePeriod(uint _votePeriod) internal view {
         // we need this check to update new voters at the end of voting round
         uint256 _epochPeriod = config.autonity.getCurrentEpochPeriod();
         require(_votePeriod * 2 <= _epochPeriod, "vote period is too big");
@@ -637,7 +656,7 @@ contract Oracle is IOracle {
         return (_outliers, _totalOutliers, _filteredReports, _totalReports);
     }
 
-    function _calculateWeightedPrice(Report[] memory _report, uint256 _reportCount) internal returns (uint256) {
+    function _calculateWeightedPrice(Report[] memory _report, uint256 _reportCount) internal pure returns (uint256) {
         uint256 _totalConfidence = 0;
         uint256 _price = 0;
         for (uint256 i = 0; i < _reportCount; i++) {
