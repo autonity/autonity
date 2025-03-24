@@ -15,7 +15,6 @@ type Clusters struct {
 	activatedHeight uint64
 	nextEpochHeight uint64
 	base            [][]common.Address
-	direct          []common.Address
 }
 
 // selectK selects k members from each cluster

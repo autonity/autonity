@@ -290,7 +290,7 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 	}
 
 	defaultCluster := &Clusters{r.curEpochInfo.EpochBlock.Uint64(),
-		r.curEpochInfo.NextEpochBlock.Uint64(), clusters, nil}
+		r.curEpochInfo.NextEpochBlock.Uint64(), clusters}
 
 	log.Debug("Router: set default clusters", "clusters", func() [][]int {
 		clusterInts := make([][]int, len(clusters))
@@ -560,13 +560,6 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 			}
 		}
 
-		// todo: check if outlier can be removed.
-		// we should also send directly to every outlier
-		for _, addr := range clusters.direct {
-			if member := committee.MemberByAddress(addr); member != nil {
-				recipients = append(recipients, *member)
-			}
-		}
 		relayers := deduplicate(recipients)
 		log.Debug(
 			"Router: originally sending msg to each clusters vertically",
