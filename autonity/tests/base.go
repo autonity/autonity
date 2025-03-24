@@ -738,6 +738,7 @@ func RandomValidator() (params.Validator, []byte, *ecdsa.PrivateKey, blst.Secret
 		Enode:         enode,
 		OracleAddress: address,
 		ConsensusKey:  consensusKey.Marshal(),
+		NodeAddress:   &address,
 	}
 	pop, err := crypto.AutonityPOPProof(privateKey, privateKey, address.Hex(), secretKey)
 	return validator, pop, privateKey, secretKey, err

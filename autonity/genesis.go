@@ -181,8 +181,6 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 	err := deploy(
 		params.AutonityContractAddress,
 		&generated.AutonityAbi,
-		// &parsed,
-		// common.FromHex(DebugAut1Bin),
 		generated.AutonityBytecode,
 		common.Big0,
 		validators,
@@ -654,9 +652,7 @@ func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, depl
 	}
 	err := deploy(
 		params.AutonityContractAddress,
-		// &parsed,
 		&generated.AutonityTestAbi,
-		// common.FromHex(DebugAut5Bin),
 		generated.AutonityTestBytecode,
 		common.Big0,
 		validators,

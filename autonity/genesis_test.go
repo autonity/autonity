@@ -95,7 +95,7 @@ func TestGenesisSteps(t *testing.T) {
 					},
 				},
 			},
-		}, evm, append(deployAllContracts(), executeGenesisDelegations))
+		}, evm, append(deployAllContractSteps(), executeGenesisDelegations))
 		require.NoError(t, err)
 		balanceOf := func(addr common.Address) *big.Int {
 			result := new(big.Int)
@@ -155,7 +155,7 @@ func TestGenesisSteps(t *testing.T) {
 			params.TestChainConfig,
 			[]GenesisBond{},
 			evm,
-			append(deployAllContracts(), []genesisStep{executeGenesisDelegations, createAutonitySchedules}...),
+			append(deployAllContractSteps(), []genesisStep{executeGenesisDelegations, createAutonitySchedules}...),
 		)
 		require.NoError(t, err)
 		getCommitteeEnodes := func() []string {
@@ -211,7 +211,7 @@ func TestGenesisSteps(t *testing.T) {
 			[]GenesisBond{},
 			evm,
 			append(
-				deployAllContracts(),
+				deployAllContractSteps(),
 				[]genesisStep{
 					createDefaultStakableVestingContracts,
 				}...,
@@ -320,7 +320,7 @@ func TestGenesisSteps(t *testing.T) {
 			params.TestChainConfig,
 			[]GenesisBond{},
 			evm,
-			deployAllContracts(),
+			deployAllContractSteps(),
 		)
 		require.NoError(t, err)
 
@@ -390,7 +390,7 @@ func callContractFunc(
 	require.NoError(t, err)
 }
 
-func deployAllContracts() []genesisStep {
+func deployAllContractSteps() []genesisStep {
 	return []genesisStep{
 		deployAutonityContract,
 		deployAccountabilityContract,
