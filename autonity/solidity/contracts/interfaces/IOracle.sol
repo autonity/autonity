@@ -93,14 +93,14 @@ interface IOracle {
     function setOperator(address _operator) external;
 
     /**
-     * @notice Setter for the tolerance of missed reveal count before the voter gets punished.
+     * @notice Setter for the threshold of missed reveal count before the voter gets punished.
      */
-    function setMissedRevealTolerance(uint256 _tolerance) external;
+    function setNonRevealThreshold(uint256 _threshold) external;
 
     /**
-     * @notice Setter for the maximum count of rounds after which missed reveal counter is reset.
+     * @notice Setter for the reset interval for missed reveal.
      */
-    function setMissedRevealWindow(uint256 _window) external;
+    function setRevealResetInterval(uint256 _resetInterval) external;
 
     /**
     * @notice Retrieve the vote period.
@@ -130,7 +130,7 @@ interface IOracle {
     /**
      * @notice Returns the tolerance for missed reveal count before the voter gets punished.
      */
-    function getMissedRevealTolerance() external view returns (uint256);
+    function getNonRevealThreshold() external view returns (uint256);
 
     /**
      * @notice Emitted when the oracle symbol list is updated
@@ -202,4 +202,22 @@ interface IOracle {
      * @param _missedReveal Count of missed reveal
      */
     event NoRevealPenalty(address indexed _voter, uint256 _round, uint256 _missedReveal);
+
+    /**
+     * @notice Emitted when `revealResetInterval` is updated in the config.
+     */
+    event RevealResetIntervalUpdated(uint256 _previousInterval, uint256 _currentInterval);
+
+    /**
+     * @notice Emitted when `nonRevealThreshold` is updated in the config.
+     */
+    event NonRevealThresholdUpdated(uint256 _previousThreshold, uint256 _currentThreshold);
+
+    /**
+     * @notice Emitted when a participant submitted commit in the previous round but did not submit reveal in the current round.
+     * @param _voter Voter address
+     * @param _round Round when reveal was missed
+     * @param _nonRevealCount Current count of missed reveal
+     */
+    event CommitRevealMissed(address indexed _voter, uint256 _round, uint256 _nonRevealCount);
 }
