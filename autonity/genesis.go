@@ -335,8 +335,8 @@ func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy gen
 		OutlierDetectionThreshold: new(big.Int).SetUint64(config.OracleContractConfig.OutlierDetectionThreshold),
 		OutlierSlashingThreshold:  new(big.Int).SetUint64(config.OracleContractConfig.OutlierSlashingThreshold),
 		BaseSlashingRate:          new(big.Int).SetUint64(config.OracleContractConfig.BaseSlashingRate),
-		MissedRevealTolerance:     new(big.Int).SetUint64(config.OracleContractConfig.MissedRevealTolerance),
-		MissedRevealWindow:        new(big.Int).SetUint64(config.OracleContractConfig.MissedRevealWindow),
+		NonRevealThreshold:        new(big.Int).SetUint64(config.OracleContractConfig.NonRevealThreshold),
+		RevealResetInterval:       new(big.Int).SetUint64(config.OracleContractConfig.RevealResetInterval),
 	}
 
 	err := deploy(
