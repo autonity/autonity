@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-verkle"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
@@ -31,8 +33,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/trie/trienode"
-
-	"github.com/ethereum/go-verkle"
 )
 
 const (

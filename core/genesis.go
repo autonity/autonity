@@ -611,7 +611,7 @@ func EnableVerkleAtGenesis(db ethdb.Database, genesis *Genesis) (bool, error) {
 			return chainCfg.EnableVerkleAtGenesis, nil
 		}
 	}
-	return false, nil
+	return true, nil
 }
 
 // DefaultGenesisBlock returns a default genesis block for testing purposes.

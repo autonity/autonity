@@ -17,10 +17,9 @@
 package trie
 
 import (
-	"github.com/autonity/autonity/triedb/database"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/triedb/database"
 )
 
 // trieReader is a wrapper of the underlying node reader. It's not safe

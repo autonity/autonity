@@ -12,17 +12,16 @@
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package pathdb
 
 import (
 	"fmt"
 	"io"
+	"maps"
 	"slices"
 	"sync"
-
-	"golang.org/x/exp/maps"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/rawdb"
@@ -175,8 +174,7 @@ func (s *stateSet) accountList() []common.Hash {
 	s.listLock.Lock()
 	defer s.listLock.Unlock()
 
-	list = maps.Keys(s.accountData)
-	slices.SortFunc(list, common.Hash.Cmp)
+	list = slices.SortedFunc(maps.Keys(s.accountData), common.Hash.Cmp)
 	s.accountListSorted = list
 	return list
 }
@@ -206,8 +204,7 @@ func (s *stateSet) storageList(accountHash common.Hash) []common.Hash {
 	s.listLock.Lock()
 	defer s.listLock.Unlock()
 
-	list := maps.Keys(s.storageData[accountHash])
-	slices.SortFunc(list, common.Hash.Cmp)
+	list := slices.SortedFunc(maps.Keys(s.storageData[accountHash]), common.Hash.Cmp)
 	s.storageListSorted[accountHash] = list
 	return list
 }
