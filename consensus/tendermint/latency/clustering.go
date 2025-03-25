@@ -10,13 +10,43 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/latency/kmeans"
 )
 
-// KmeansClusterSeed TODO(scott): should this be derivable from chain state?
+// KmeansClusterSeed is the seed to init the initial center position for each cluster.
 var KmeansClusterSeed = int64(12345)
 
 type Clusters struct {
-	activatedHeight uint64
-	nextEpochHeight uint64
-	base            [][]common.Address
+	activatedHeight  uint64
+	nextEpochHeight  uint64
+	base             [][]common.Address
+	addressToCluster map[common.Address]int
+}
+
+func NewCluster(activationHeight uint64, nextEpochHeight uint64, base [][]common.Address) *Clusters {
+	clusters := &Clusters{
+		base:            base,
+		activatedHeight: activationHeight,
+		nextEpochHeight: nextEpochHeight,
+	}
+
+	clusters.buildAddressIndex()
+	return clusters
+}
+
+// buildAddressIndex builds the index for quick querying of node in clusters, it should be called on the setup phase.
+func (c *Clusters) buildAddressIndex() {
+	c.addressToCluster = make(map[common.Address]int)
+	for i, cluster := range c.base {
+		for _, member := range cluster {
+			c.addressToCluster[member] = i
+		}
+	}
+}
+
+// clusterContaining returns the ID of the cluster which containing the given address
+func (c *Clusters) clusterContaining(address common.Address) int {
+	if idx, exists := c.addressToCluster[address]; exists {
+		return idx
+	}
+	return -1
 }
 
 // selectK selects pseudo random k members from each cluster
@@ -38,18 +68,6 @@ func (c *Clusters) selectK(k int, seed int64) []common.Address {
 		}
 	}
 	return result
-}
-
-// clusterContaining returns the cluster containing the given address
-func (c *Clusters) clusterContaining(address common.Address) int {
-	for i, cluster := range c.base {
-		for _, member := range cluster {
-			if member == address {
-				return i
-			}
-		}
-	}
-	return -1
 }
 
 type node struct {
@@ -110,9 +128,5 @@ func AssignClusters(h uint64, nextEpochHeight uint64, latencyMat map[common.Addr
 		result[i] = addresses
 	}
 
-	return &Clusters{
-		base:            result,
-		activatedHeight: h,
-		nextEpochHeight: nextEpochHeight,
-	}, nil
+	return NewCluster(h, nextEpochHeight, result), nil
 }

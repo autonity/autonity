@@ -59,10 +59,10 @@ type Router struct {
 	self    common.Address
 	nodeKey *ecdsa.PrivateKey
 
-	mu                    sync.RWMutex
-	epochDefaultCluster   *Clusters
-	epochOptimizedCluster *Clusters
-	lastEpochCluster      *Clusters
+	mu                     sync.RWMutex
+	epochDefaultClusters   *Clusters
+	epochOptimizedClusters *Clusters
+	lastEpochClusters      *Clusters
 
 	broadcaster consensus.Broadcaster
 	contracts   *autonity.ProtocolContracts
@@ -225,52 +225,52 @@ func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 func (r *Router) setDefaultCluster(c *Clusters) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.epochDefaultCluster = c
+	r.epochDefaultClusters = c
 }
 
 func (r *Router) setOptimizedCluster(c *Clusters) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.epochOptimizedCluster = c
+	r.epochOptimizedClusters = c
 }
 
 func (r *Router) viewRotation(newDefaultCluster *Clusters) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.epochOptimizedCluster != nil {
-		r.lastEpochCluster = r.epochOptimizedCluster
+	if r.epochOptimizedClusters != nil {
+		r.lastEpochClusters = r.epochOptimizedClusters
 	} else {
-		r.lastEpochCluster = r.epochDefaultCluster
+		r.lastEpochClusters = r.epochDefaultClusters
 	}
 
-	r.epochDefaultCluster = newDefaultCluster
-	r.epochOptimizedCluster = nil
+	r.epochDefaultClusters = newDefaultCluster
+	r.epochOptimizedClusters = nil
 }
 
 func (r *Router) resolveClusters(h uint64) (*Clusters, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	if r.epochDefaultCluster != nil && h >= r.epochDefaultCluster.nextEpochHeight {
+	if r.epochDefaultClusters != nil && h >= r.epochDefaultClusters.nextEpochHeight {
 		return nil, consensus.ErrFutureEpochMessage
 	}
 
 	// always try to pick the optimized one 1st
-	if r.epochOptimizedCluster != nil && h >= r.epochOptimizedCluster.activatedHeight && h < r.epochDefaultCluster.nextEpochHeight {
-		return r.epochOptimizedCluster, nil
+	if r.epochOptimizedClusters != nil && h >= r.epochOptimizedClusters.activatedHeight && h < r.epochDefaultClusters.nextEpochHeight {
+		return r.epochOptimizedClusters, nil
 	}
 
 	// otherwise, try to pick the default clusters.
-	if r.epochDefaultCluster != nil && h >= r.epochDefaultCluster.activatedHeight && h < r.epochDefaultCluster.nextEpochHeight {
-		return r.epochDefaultCluster, nil
+	if r.epochDefaultClusters != nil && h >= r.epochDefaultClusters.activatedHeight && h < r.epochDefaultClusters.nextEpochHeight {
+		return r.epochDefaultClusters, nil
 	}
 
 	// edge case, around epoch rotation, some message might be from past epoch.
-	if r.lastEpochCluster != nil && h >= r.lastEpochCluster.activatedHeight && h < r.lastEpochCluster.nextEpochHeight {
-		return r.lastEpochCluster, nil
+	if r.lastEpochClusters != nil && h >= r.lastEpochClusters.activatedHeight && h < r.lastEpochClusters.nextEpochHeight {
+		return r.lastEpochClusters, nil
 	}
 
-	if r.lastEpochCluster != nil && h < r.lastEpochCluster.activatedHeight {
+	if r.lastEpochClusters != nil && h < r.lastEpochClusters.activatedHeight {
 		return nil, errTooOldMessage
 	}
 
@@ -289,8 +289,7 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 		clusters[k] = append(clusters[k], addr)
 	}
 
-	defaultCluster := &Clusters{r.curEpochInfo.EpochBlock.Uint64(),
-		r.curEpochInfo.NextEpochBlock.Uint64(), clusters}
+	defaultClusters := NewCluster(r.curEpochInfo.EpochBlock.Uint64(), r.curEpochInfo.NextEpochBlock.Uint64(), clusters)
 
 	log.Debug("Router: set default clusters", "clusters", func() [][]int {
 		clusterInts := make([][]int, len(clusters))
@@ -301,7 +300,7 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 		}
 		return clusterInts
 	}(), "height", r.curEpochInfo.EpochBlock.Uint64())
-	return defaultCluster
+	return defaultClusters
 }
 
 func (r *Router) startMeasurementTask(ctx context.Context) (cancel context.CancelFunc) {
