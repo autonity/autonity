@@ -402,7 +402,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	sb.logger.Debug("sent current height messages", "peer", address, "n", len(messages), "msgs", messages)
 	for _, msg := range messages {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go peer.SendRaw(NetworkCodes[msg.Code()], msg.Payload()) //nolint
+		go peer.SendRaw(message.NetworkCodes[msg.Code()], msg.Payload()) //nolint
 	}
 }
 

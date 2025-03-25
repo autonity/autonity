@@ -41,12 +41,29 @@ var (
 	boundaryBreaching = metrics.NewRegisteredMeter("aggregation/discarded/boundary", nil)
 )
 
+// Internal message codes used by tendermint consensus engine and its accountability module.
 const (
 	ProposalCode uint8 = iota
 	PrevoteCode
 	PrecommitCode
 	LightProposalCode
 )
+
+// Message IDs used by the ACN p2p network layer to deliver raw messages of the upper layer.
+const (
+	ProposeNetworkMsg        uint64 = 0x11
+	PrevoteNetworkMsg        uint64 = 0x12
+	PrecommitNetworkMsg      uint64 = 0x13
+	SyncNetworkMsg           uint64 = 0x14
+	AccountabilityNetworkMsg uint64 = 0x15
+)
+
+// NetworkCodes maps msg code to its raw msg ID for msg relaying in ACN network.
+var NetworkCodes = map[uint8]uint64{
+	ProposalCode:  ProposeNetworkMsg,
+	PrevoteCode:   PrevoteNetworkMsg,
+	PrecommitCode: PrecommitNetworkMsg,
+}
 
 type Signer func(hash common.Hash) blst.Signature
 

@@ -50,17 +50,19 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 	g.stopped = stopCh
 }
 
-func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
-	hash := message.Hash()
+func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
+	hash := msg.Hash()
 	if !g.knownMessages.Contains(hash) {
 		g.knownMessages.Add(hash, true)
 	}
 	if g.broadcaster == nil {
 		return
 	}
-	code := NetworkCodes[message.Code()]
-	payload := message.Payload()
-	for _, val := range committee.Members {
+
+	// forward future epoch proposal to all the committee members, as most of them are still in the committee.
+	recipients := committee.Members
+	code := message.NetworkCodes[msg.Code()]
+	for _, val := range recipients {
 		if val.Address == g.address {
 			continue
 		}
@@ -70,7 +72,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
 				continue
 			}
 			p.Cache().Add(hash, true)
-			go p.SendRaw(code, payload) //nolint
+			go p.SendRaw(code, msg.Payload()) //nolint
 		}
 	}
 }
@@ -105,7 +107,7 @@ func (g *Gossiper) AskSync(committee *types.Committee) {
 					break
 				}
 				g.logger.Debug("Asking sync to", "addr", addr)
-				go p.Send(SyncNetworkMsg, []byte{}) //nolint
+				go p.Send(message.SyncNetworkMsg, []byte{}) //nolint
 
 				member := committee.MemberByAddress(addr)
 				if member == nil {
