@@ -4,13 +4,14 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"math"
 	"math/big"
 	"math/rand"
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -545,10 +546,11 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		return nil, err
 	}
 
+	num := seed(msg)
 	// if node is the original msg sender, it selects K*VerticalRelayingRedundancy relayers from every cluster vertically.
 	var recipients []types.CommitteeMember
 	if from == s.self {
-		for _, addr := range clusters.selectK(VerticalRelayingRedundancy, seed(msg)) {
+		for _, addr := range clusters.selectK(VerticalRelayingRedundancy, num) {
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
 			}
@@ -599,7 +601,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		}
 
 		// to add robustness, we also relay message to other clusters horizontally.
-		for _, addr := range clusters.selectK(HorizontalRelayingRedundancy, seed(msg)) {
+		for _, addr := range clusters.selectK(HorizontalRelayingRedundancy, num) {
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
 			}

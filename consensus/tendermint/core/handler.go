@@ -177,14 +177,8 @@ eventLoop:
 				}
 				msg := e.Message
 
-				var hadQuorum bool
-				if !c.noGossip {
-					// check if we have quorum for message type for this round
-					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
-				}
-
 				if err := c.handleMsg(ctx, msg); err != nil {
-					c.logger.Debug("MessageEvent payload failed", "err", err)
+					c.logger.Debug("MessageEvent payload failed", "err", err, "current Height")
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
 						tryDisconnect(e.ErrCh, err)
@@ -195,6 +189,11 @@ eventLoop:
 					}
 				}
 
+				var hadQuorum bool
+				if !c.noGossip {
+					// check if we have quorum for message type for this round
+					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
+				}
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
@@ -286,6 +285,10 @@ func (c *Core) syncLoop(ctx context.Context) {
 		this method is responsible for asking the network to send us the current consensus state
 		and to process sync queries events.
 	*/
+	// syncTime out should be dynamic based on the current round timer
+
+	// TODO: think about sending the bitmap of messages you currently have in sync request
+	// todo: revamp
 	timer := time.NewTimer(syncTimeOut)
 
 	round := c.Round()
@@ -302,6 +305,7 @@ eventLoop:
 			currentHeight := c.Height()
 
 			// we only ask for sync if the current view stayed the same for the past 10 seconds
+			// todo: check if vote timer is running OR
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
 				c.logger.Warn("⚠️ Consensus liveliness lost")
 				c.logger.Warn("Broadcasting sync request..")

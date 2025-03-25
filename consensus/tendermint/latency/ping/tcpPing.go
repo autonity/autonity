@@ -18,7 +18,7 @@ func (*tcpPinger) Ping(t Target, resultCh chan<- time.Duration) {
 		Protocol: tcping.TCP,
 		Host:     t.IP,
 		Port:     t.Port,
-		Counter:  5,
+		Counter:  2,
 		Timeout:  3 * time.Second,
 		Interval: 1 * time.Second,
 	}

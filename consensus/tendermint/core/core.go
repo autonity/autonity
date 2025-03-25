@@ -341,7 +341,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 	// Set initial FSM state
 	c.setInitialState(round)
 	c.SetStep(ctx, Propose)
-	c.logger.Debug("Starting new Round", "Height", c.Height(), "Round", round)
+	c.logger.Info("Starting new Round", "Height", c.Height(), "Round", round)
 
 	// If the node is the proposer for this round then it would propose validValue or a new block, otherwise,
 	// proposeTimeout is started, where the node waits for a proposal from the proposer of the current round.

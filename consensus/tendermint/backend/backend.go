@@ -210,7 +210,7 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 }
 
 func (sb *Backend) AskSync(committee *types.Committee) {
-	sb.gossiper.AskSync(committee)
+	sb.gossiper.AskSync(committee, sb.core.Height().Uint64(), sb.core.Round())
 }
 
 // Gossip implements tendermint.Backend.Gossip
@@ -414,6 +414,7 @@ func (sb *Backend) SyncPeer(address common.Address) {
 		return
 	}
 	sb.logger.Debug("Syncing", "peer", address)
+	//todo: only to selected peers
 	peer, ok := sb.Broadcaster.FindPeer(address)
 	if !ok {
 		return
