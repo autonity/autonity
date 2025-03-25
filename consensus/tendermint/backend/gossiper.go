@@ -86,6 +86,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
 		recipients = committee.Members
 	}
 
+	lostPeers := make([]common.Address, 0)
 	for _, val := range recipients {
 		if val.Address == g.address {
 			continue
@@ -99,15 +100,24 @@ func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
 			go p.SendRaw(code, payload) //nolint
 		} else {
 			// todo: Jason, shall we select other backups for liveness?
-			log.Debug("Gossiper: peer not found", "address", val.Address)
+			lostPeers = append(lostPeers, val.Address)
 		}
+	}
+	if len(lostPeers) > 0 {
+		g.logger.Debug("Gossiper: peers not found", "len", len(lostPeers), "peers", lostPeers)
 	}
 }
 
-func (g *Gossiper) AskSync(committee *types.Committee) {
+func (g *Gossiper) AskSync(committee *types.Committee, coreHeight uint64, round int64) {
+	f := message.Fake{FakeHeight: coreHeight, FakeRound: uint64(round)}
+	recipients, err := g.router.Route(committee, f, g.address)
+	if err != nil {
+		log.Error("Error selecting peers members to broadcast sync", "error", err)
+		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
+	}
 
 	targets := make([]common.Address, 0, committee.Len())
-	for _, val := range committee.Members {
+	for _, val := range recipients {
 		if val.Address != g.address {
 			targets = append(targets, val.Address)
 		}

@@ -66,7 +66,8 @@ func (fg *rawMSGFuzzer) Gossip(committee *types.Committee, msg message.Msg) {
 	}
 }
 
-func (fg *rawMSGFuzzer) AskSync(_ *types.Committee) {
+func (fg *rawMSGFuzzer) AskSync(_ *types.Committee, _ uint64) {
+	// do nothing
 }
 
 func TestRawMessageFuzzer(t *testing.T) {
