@@ -86,7 +86,6 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 	case message.PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, sender, msg, errCh)
 	case message.SyncNetworkMsg:
-
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
