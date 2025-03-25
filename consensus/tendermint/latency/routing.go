@@ -44,9 +44,10 @@ var errUnknownClusters = errors.New("unknown clustering")
 // ScaleThresholdForClustering is the minimum number of validators required to do network clustering
 var ScaleThresholdForClustering = 9 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
 
-// VerticalRelayingRedundancy is the number of members of each cluster to send a proposal to
-var VerticalRelayingRedundancy = 3
+// VerticalRelayingRedundancy is the number of relayers of each cluster to receive the original sender's message.
+var VerticalRelayingRedundancy = 2
 
+// HorizontalRelayingRedundancy is the number of relayers of other clusters to receive the relayer's message.
 var HorizontalRelayingRedundancy = 1
 
 var MeasurementWindow = 10000 // The time window in Millisecond to measure the latency of peers at the beginning of an epoch.
@@ -59,10 +60,10 @@ type Router struct {
 	self    common.Address
 	nodeKey *ecdsa.PrivateKey
 
-	mu                    sync.RWMutex
-	epochDefaultCluster   *Clusters
-	epochOptimizedCluster *Clusters
-	lastEpochCluster      *Clusters
+	mu                     sync.RWMutex
+	epochDefaultClusters   *Clusters
+	epochOptimizedClusters *Clusters
+	lastEpochClusters      *Clusters
 
 	broadcaster consensus.Broadcaster
 	contracts   *autonity.ProtocolContracts
@@ -225,53 +226,52 @@ func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 func (r *Router) setDefaultCluster(c *Clusters) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.epochDefaultCluster = c
+	r.epochDefaultClusters = c
 }
 
 func (r *Router) setOptimizedCluster(c *Clusters) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.epochOptimizedCluster = c
+	r.epochOptimizedClusters = c
 }
 
 func (r *Router) viewRotation(newDefaultCluster *Clusters) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.epochOptimizedCluster != nil {
-		r.lastEpochCluster = r.epochOptimizedCluster
+	if r.epochOptimizedClusters != nil {
+		r.lastEpochClusters = r.epochOptimizedClusters
 	} else {
-		r.lastEpochCluster = r.epochDefaultCluster
+		r.lastEpochClusters = r.epochDefaultClusters
 	}
 
-	r.epochDefaultCluster = newDefaultCluster
-	r.epochOptimizedCluster = nil
+	r.epochDefaultClusters = newDefaultCluster
+	r.epochOptimizedClusters = nil
 }
 
 func (r *Router) resolveClusters(h uint64) (*Clusters, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	if r.epochDefaultCluster != nil && h >= r.epochDefaultCluster.nextEpochHeight {
+	if r.epochDefaultClusters != nil && h >= r.epochDefaultClusters.nextEpochHeight {
 		return nil, consensus.ErrFutureEpochMessage
 	}
 
 	// always try to pick the optimized one 1st
-	if r.epochOptimizedCluster != nil && h >= r.epochOptimizedCluster.activatedHeight && h < r.epochDefaultCluster.nextEpochHeight {
-		return r.epochOptimizedCluster, nil
+	if r.epochOptimizedClusters != nil && h >= r.epochOptimizedClusters.activatedHeight && h < r.epochDefaultClusters.nextEpochHeight {
+		return r.epochOptimizedClusters, nil
 	}
 
 	// otherwise, try to pick the default clusters.
-	if r.epochDefaultCluster != nil && h >= r.epochDefaultCluster.activatedHeight && h < r.epochDefaultCluster.nextEpochHeight {
-		return r.epochDefaultCluster, nil
+	if r.epochDefaultClusters != nil && h >= r.epochDefaultClusters.activatedHeight && h < r.epochDefaultClusters.nextEpochHeight {
+		return r.epochDefaultClusters, nil
 	}
 
 	// edge case, around epoch rotation, some message might be from past epoch.
-	if r.lastEpochCluster != nil && h >= r.lastEpochCluster.activatedHeight && h < r.lastEpochCluster.nextEpochHeight {
-		return r.lastEpochCluster, nil
+	if r.lastEpochClusters != nil && h >= r.lastEpochClusters.activatedHeight && h < r.lastEpochClusters.nextEpochHeight {
+		return r.lastEpochClusters, nil
 	}
 
-	// todo: double check if we align with the recent 256 blocks range for msg processing.
-	if r.lastEpochCluster != nil && h < r.lastEpochCluster.activatedHeight {
+	if r.lastEpochClusters != nil && h < r.lastEpochClusters.activatedHeight {
 		return nil, errTooOldMessage
 	}
 
@@ -290,8 +290,7 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 		clusters[k] = append(clusters[k], addr)
 	}
 
-	defaultCluster := &Clusters{r.curEpochInfo.EpochBlock.Uint64(),
-		r.curEpochInfo.NextEpochBlock.Uint64(), clusters, nil}
+	defaultClusters := NewCluster(r.curEpochInfo.EpochBlock.Uint64(), r.curEpochInfo.NextEpochBlock.Uint64(), clusters)
 
 	log.Debug("Router: set default clusters", "clusters", func() [][]int {
 		clusterInts := make([][]int, len(clusters))
@@ -302,25 +301,26 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 		}
 		return clusterInts
 	}(), "height", r.curEpochInfo.EpochBlock.Uint64())
-	return defaultCluster
+	return defaultClusters
 }
 
-func (r *Router) startMeasurementTask() {
-	// todo: clean shutdown for this go routine.
+func (r *Router) startMeasurementTask(ctx context.Context) (cancel context.CancelFunc) {
+	ctx, cancel = context.WithCancel(ctx)
 	go func() {
-		rand.Seed(time.Now().UnixNano())
 		delay := time.Duration(rand.Intn(MeasurementWindow)) * time.Millisecond
-		time.Sleep(delay)
-
-		if err := r.measureToReport(); err != nil {
-			log.Warn("measureToReport", "err", err)
+		select {
+		case <-time.After(delay):
+			if err := r.measureToReport(); err != nil {
+				log.Warn("measureToReport failed", "err", err)
+			}
+		case <-ctx.Done():
+			log.Info("Measurement task stopped by context cancellation")
 		}
 	}()
+	return cancel
 }
 
 func (r *Router) measureToReport() error {
-	// todo: read committee from local cache.
-	// todo: double check the data race.
 	committee, err := r.contracts.Latency.GetCommittee(nil)
 	if err != nil {
 		return err
@@ -373,6 +373,12 @@ func (r *Router) loop(ctx context.Context) {
 	defer r.wg.Done()
 
 	ticker := time.NewTicker(5 * time.Second)
+	var cancel context.CancelFunc
+	defer func() {
+		if cancel != nil {
+			cancel()
+		}
+	}()
 
 	for {
 		select {
@@ -413,7 +419,7 @@ func (r *Router) loop(ctx context.Context) {
 
 			quorum := bft.Quorum(new(big.Int).SetInt64(int64(r.curEpochInfo.Committee.Len())))
 			if int64(len(connectedPeers)) >= quorum.Int64() {
-				r.startMeasurementTask()
+				cancel = r.startMeasurementTask(ctx)
 				r.lastMeasuredEpoch = curEpoch
 			}
 
@@ -545,15 +551,15 @@ type Selector struct {
 
 func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
 
-	// in edge case, resolve cluster can be failed since router has its own epoch synchronization context, in this case,
-	// the caller should relay the message to all the members of input committee.
+	// around epoch rotation, resolveClusters() can be failed since router has its own epoch synchronization context,
+	// in this case, the caller should relay the message to all the members of input committee.
 	clusters, err := s.resolveClusters(msg.H())
 	if err != nil {
 		return nil, err
 	}
 
 	num := seed(msg)
-	// if we are sending the message, we should select relayers from every cluster vertically.
+	// if node is the original msg sender, it selects K*VerticalRelayingRedundancy relayers from every cluster vertically.
 	var recipients []types.CommitteeMember
 	if from == s.self {
 		for _, addr := range clusters.selectK(VerticalRelayingRedundancy, num) {
@@ -562,13 +568,6 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 			}
 		}
 
-		// todo: check if outlier can be removed.
-		// we should also send directly to every outlier
-		for _, addr := range clusters.direct {
-			if member := committee.MemberByAddress(addr); member != nil {
-				recipients = append(recipients, *member)
-			}
-		}
 		relayers := deduplicate(recipients)
 		log.Debug(
 			"Router: originally sending msg to each clusters vertically",
@@ -582,7 +581,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		return relayers, nil
 	}
 
-	// relay to all the nodes which are in the same cluster of the original sender.
+	// if node is in the same cluster of the original sender, relay the msg to local cluster nodes.
 	if ownCluster := clusters.clusterContaining(s.self); ownCluster == clusters.clusterContaining(from) && ownCluster >= 0 {
 		for _, addr := range clusters.base[ownCluster] {
 			if addr == from || addr == s.self {
