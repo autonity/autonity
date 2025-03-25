@@ -1,8 +1,10 @@
 package latency
 
 import (
+	"bytes"
 	"math"
 	"math/rand"
+	"sort"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/latency/kmeans"
@@ -91,12 +93,26 @@ func AssignClusters(h uint64, nextEpochHeight uint64, latencyMat map[common.Addr
 	if err != nil {
 		return nil, err
 	}
+
 	result := make([][]common.Address, k)
-	for i, c := range cstrs {
-		result[i] = make([]common.Address, len(c.Observations))
-		for j, o := range c.Observations {
-			result[i][j] = o.(*node).address
+	for i, cluster := range cstrs {
+		// Collect addresses from cluster observations
+		var addresses []common.Address
+		for _, obs := range cluster.Observations {
+			addresses = append(addresses, obs.(*node).address)
 		}
+
+		// Sort addresses lexicographically to make it deterministic.
+		sort.Slice(addresses, func(a, b int) bool {
+			return bytes.Compare(addresses[a][:], addresses[b][:]) < 0
+		})
+
+		result[i] = addresses
 	}
-	return &Clusters{base: result, activatedHeight: h, nextEpochHeight: nextEpochHeight}, nil
+
+	return &Clusters{
+		base:            result,
+		activatedHeight: h,
+		nextEpochHeight: nextEpochHeight,
+	}, nil
 }
