@@ -464,8 +464,11 @@ func (g *Genesis) ToBlock(db *triedb.Database) (*types.Block, error) {
 			head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
 		}
 	}
-	statedb.Commit(0, false, false)
-	if err = statedb.Database().TrieDB().Commit(root, true); err != nil {
+	root2, err := statedb.Commit(0, false, false)
+	if err != nil {
+		return nil, err
+	}
+	if err = statedb.Database().TrieDB().Commit(root2, true); err != nil {
 		return nil, err
 	}
 	return types.NewBlock(head, nil, nil, trie.NewStackTrie(nil)), nil
