@@ -204,16 +204,6 @@ interface IOracle {
     event NoRevealPenalty(address indexed _voter, uint256 _round, uint256 _missedReveal);
 
     /**
-     * @notice Emitted when `revealResetInterval` is updated in the config.
-     */
-    event RevealResetIntervalUpdated(uint256 _previousInterval, uint256 _currentInterval);
-
-    /**
-     * @notice Emitted when `nonRevealThreshold` is updated in the config.
-     */
-    event NonRevealThresholdUpdated(uint256 _previousThreshold, uint256 _currentThreshold);
-
-    /**
      * @notice Emitted when a participant submitted commit in the previous round but did not submit reveal in the current round.
      * @param _voter Voter address
      * @param _round Round when reveal was missed
