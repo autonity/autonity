@@ -2,7 +2,6 @@
 pragma solidity >=0.8.2 < 0.9.0;
 
 import "./interfaces/IOracle.sol";
-import "./interfaces/IAutonity.sol";
 import "./Autonity.sol";
 import {EnumerableSet} from "./utils/Set.sol";
 import {ORACLE_SLASHING_RATE_CAP} from "./ProtocolConstants.sol";
@@ -550,7 +549,7 @@ contract Oracle is IOracle, IConfigEvents {
             _threshold < config.revealResetInterval,
             "invalid config"
         );
-        emit NonRevealThresholdUpdated(config.nonRevealThreshold, _threshold);
+        emit ConfigUpdateUint("nonRevealThreshold", config.nonRevealThreshold, _threshold);
         config.nonRevealThreshold = _threshold;
     }
 
@@ -562,7 +561,7 @@ contract Oracle is IOracle, IConfigEvents {
             config.nonRevealThreshold < _resetInterval,
             "invalid config"
         );
-        emit RevealResetIntervalUpdated(config.revealResetInterval, _resetInterval);
+        emit ConfigUpdateUint("revealResetInterval", config.revealResetInterval, _resetInterval);
         config.revealResetInterval = _resetInterval;
     }
 
