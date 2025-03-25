@@ -20,6 +20,11 @@ contract Latency is ILatency, AccessAutonity {
     // at height: block.number + KM_OPTIMIZATION_DELTA.
     uint256 public constant KM_OPTIMIZATION_DELTA = 10;
 
+    // The default latency is the median of [0, 255) which is the value space of uint8.
+    // As we simplified the view synchronization with one-time reorg base on quorum reports,
+    // thus for those validators who missed the report, we applied the default latency for view building.
+    uint8 public constant DEFAULT_LATENCY = 128;
+
     /*
     ┌────────┐
     │ Events │
@@ -159,7 +164,16 @@ contract Latency is ILatency, AccessAutonity {
     /// @param reporter The address of the reporter
     /// @return The latency report of the reporter
     function readReport(address reporter) external onlyCommittee(reporter) view returns (uint8[] memory) {
+        // if the reporter did not report at current epoch, return default latency which is the median of [0, 255).
         uint8[] memory result = new uint8[](committee.length);
+        if (lastReportedEpoch[reporter] != epoch) {
+            for (uint256 i = 0; i < committee.length; i++) {
+                result[i] = DEFAULT_LATENCY;
+            }
+            return result;
+        }
+
+        // return current epoch's reported data of a reporter.
         for (uint256 i = 0; i < committee.length; i++) {
             result[i] = latency[reporter][committee[i]];
         }
