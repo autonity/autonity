@@ -10,7 +10,6 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
@@ -71,7 +70,7 @@ func (cg *customGossiper) Gossip(committee *types.Committee, msg message.Msg) {
 			continue
 		}
 		p.Cache().Add(hash, true)
-		go p.SendRaw(backend.NetworkCodes[msg.Code()], msg.Payload()) //nolint
+		go p.SendRaw(message.NetworkCodes[msg.Code()], msg.Payload()) //nolint
 	}
 }
 

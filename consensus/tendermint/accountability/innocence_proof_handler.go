@@ -3,13 +3,13 @@ package accountability
 import (
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
 
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rlp"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth/protocols/eth"
 )
@@ -365,7 +365,7 @@ func (fd *FaultDetector) sendOffChainAccusationMsg(accusation *Proof, committee 
 	}
 
 	fd.logger.Info("Attempting direct p2p resolution..", "suspect", target)
-	go peer.Send(backend.AccountabilityNetworkMsg, rProof) //nolint
+	go peer.Send(message.AccountabilityNetworkMsg, rProof) //nolint
 }
 
 // sendOffChainInnocenceProof, send an innocence proof to receiver peer.
@@ -382,5 +382,5 @@ func (fd *FaultDetector) sendOffChainInnocenceProof(receiver common.Address, pay
 	}
 
 	fd.logger.Info("Sending requested innocence proof", "addr", receiver)
-	go peer.Send(backend.AccountabilityNetworkMsg, payload) //nolint
+	go peer.Send(message.AccountabilityNetworkMsg, payload) //nolint
 }
