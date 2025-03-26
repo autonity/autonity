@@ -26,18 +26,6 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 )
 
-const (
-	ProposeNetworkMsg   uint64 = 0x11
-	PrevoteNetworkMsg   uint64 = 0x12
-	PrecommitNetworkMsg uint64 = 0x13
-)
-
-var NetworkCodes = map[uint8]uint64{
-	message.ProposalCode:  ProposeNetworkMsg,
-	message.PrevoteCode:   PrevoteNetworkMsg,
-	message.PrecommitCode: PrecommitNetworkMsg,
-}
-
 var errTooOldMessage = errors.New("too old message")
 var errUnknownClusters = errors.New("unknown clustering")
 
@@ -149,7 +137,7 @@ func (r *Router) Forward(committee *types.Committee, m message.Msg, sender commo
 				continue
 			}
 			p.Cache().Add(m.Hash(), true)
-			go p.SendRaw(NetworkCodes[m.Code()], m.Payload()) //nolint
+			go p.SendRaw(message.NetworkCodes[m.Code()], m.Payload()) //nolint
 		} else {
 			//todo: shall we select other backups for live ness?
 		}

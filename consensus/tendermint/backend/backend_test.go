@@ -96,7 +96,7 @@ func TestAskSync(t *testing.T) {
 	for _, val := range committee.Members {
 		addresses = append(addresses, val.Address)
 		mockedPeer := consensus.NewMockPeer(ctrl)
-		mockedPeer.EXPECT().Send(SyncNetworkMsg, gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
+		mockedPeer.EXPECT().Send(message.SyncNetworkMsg, gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
 		peers[val.Address] = mockedPeer
@@ -201,7 +201,7 @@ func TestGossip(t *testing.T) {
 		} else {
 			mockedPeer.EXPECT().SendRaw(gomock.Any(), gomock.Any()).Do(func(msgCode, data interface{}) {
 				// We want to make sure the payload is correct AND that no other messages is sent.
-				if msgCode == PrevoteNetworkMsg && reflect.DeepEqual(data, msg.Payload()) {
+				if msgCode == message.PrevoteNetworkMsg && reflect.DeepEqual(data, msg.Payload()) {
 					atomic.AddUint64(&counter, 1)
 				}
 			}).Times(1)
@@ -409,7 +409,7 @@ func TestSyncPeer(t *testing.T) {
 		payload := messages[0].Payload()
 
 		peer1Mock := consensus.NewMockPeer(ctrl)
-		peer1Mock.EXPECT().SendRaw(PrevoteNetworkMsg, payload)
+		peer1Mock.EXPECT().SendRaw(message.PrevoteNetworkMsg, payload)
 
 		peers := make(map[common.Address]consensus.Peer)
 		peers[peerAddr1] = peer1Mock

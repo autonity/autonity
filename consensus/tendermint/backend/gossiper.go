@@ -65,21 +65,21 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 	g.stopped = stopCh
 }
 
-func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
-	hash := message.Hash()
+func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
+	hash := msg.Hash()
 	if !g.knownMessages.Contains(hash) {
 		g.knownMessages.Add(hash, true)
 	}
 	if g.broadcaster == nil {
 		return
 	}
-	code := NetworkCodes[message.Code()]
-	payload := message.Payload()
+	code := message.NetworkCodes[msg.Code()]
+	payload := msg.Payload()
 
-	recipients, err := g.router.Route(committee, message, g.address)
+	recipients, err := g.router.Route(committee, msg, g.address)
 	if err != nil {
 		if !errors.Is(err, consensus.ErrFutureEpochMessage) {
-			log.Debug("No recipients for proposal", "error", err, "height", message.H())
+			log.Debug("No recipients for proposal", "error", err, "height", msg.H())
 			return
 		}
 		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
@@ -143,7 +143,7 @@ func (g *Gossiper) AskSync(committee *types.Committee, coreHeight uint64, round 
 					break
 				}
 				g.logger.Debug("Asking sync to", "addr", addr)
-				go p.Send(SyncNetworkMsg, []byte{}) //nolint
+				go p.Send(message.SyncNetworkMsg, []byte{}) //nolint
 
 				member := committee.MemberByAddress(addr)
 				if member == nil {
