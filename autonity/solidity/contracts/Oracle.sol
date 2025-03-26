@@ -78,8 +78,7 @@ contract Oracle is IOracle, IConfigEvents {
     mapping(address => uint256) private rewardPeriodPerformance;
     uint256 private rewardPeriodAggregatedScore;
 
-    // set of voters penalized in the current round
-    EnumerableSet.AddressSet private penalizedVoters;
+    EnumerableSet.AddressSet private nonRevealSlashedVoters;
 
     /**
      * @dev Constructor to initialize the Oracle contract.
@@ -745,7 +744,7 @@ contract Oracle is IOracle, IConfigEvents {
         // Stop considering this reporter for any future calculation.
         // This is symbol independant.
         voterInfo[_outlier].reportAvailable = false;
-        if (penalizedVoters.contains(_outlier)) {
+        if (nonRevealSlashedVoters.contains(_outlier)) {
             // we already slashed this voter
             return 0;
         }
@@ -786,7 +785,7 @@ contract Oracle is IOracle, IConfigEvents {
             }
 
             if (_voterInfo.nonRevealCount > config.nonRevealThreshold) {
-                penalizedVoters.add(voters[i]);
+                nonRevealSlashedVoters.add(voters[i]);
                 emit NoRevealPenalty(voters[i], round, _voterInfo.nonRevealCount);
                 _voterInfo.nonRevealCount = 0;
                 // penalize with highest
@@ -796,12 +795,12 @@ contract Oracle is IOracle, IConfigEvents {
     }
 
     function _removePenalizedVoters() internal {
-        uint256 _length = penalizedVoters.length();
+        uint256 _length = nonRevealSlashedVoters.length();
         while (_length > 0) {
-            address _voter = penalizedVoters.at(0);
+            address _voter = nonRevealSlashedVoters.at(0);
             // don't consider past reports from the penalized voters
             voterInfo[_voter].reportAvailable = false;
-            require(penalizedVoters.remove(_voter), "voter not removed");
+            require(nonRevealSlashedVoters.remove(_voter), "voter not removed");
             _length--;
         }
     }
