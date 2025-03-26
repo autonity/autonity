@@ -67,17 +67,17 @@ func New(
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
 	backend := &Backend{
-		database:        database,
-		eventMux:        event.NewTypeMuxSilent(evMux, log),
-		nodeKey:         nodeKey,
-		consensusKey:    consensusKey,
-		address:         crypto.PubkeyToAddress(nodeKey.PublicKey),
-		logger:          log,
-		knownMessages:   knownMessages,
-		vmConfig:        vmConfig,
-		MsgStore:        ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
-		messageCh:       make(chan events.UnverifiedMessageEvent, 5000),
-		isHeightExpired: isHeightExpired,
+		database:            database,
+		eventMux:            event.NewTypeMuxSilent(evMux, log),
+		nodeKey:             nodeKey,
+		consensusKey:        consensusKey,
+		address:             crypto.PubkeyToAddress(nodeKey.PublicKey),
+		logger:              log,
+		knownMessages:       knownMessages,
+		vmConfig:            vmConfig,
+		MsgStore:            ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
+		aggregatorMessageCh: make(chan events.UnverifiedMessageEvent, 5000),
+		isHeightExpired:     isHeightExpired,
 		jailed: jailed{
 			validators: make(map[common.Address]uint64),
 		},
@@ -112,7 +112,7 @@ func New(
 
 	consensusCore := tendermintCore.New(backend, services, backend.address, log, noGossip)
 	backend.core = consensusCore
-	backend.evDispatcher = consensusCore
+	backend.coreEventDispatcher = consensusCore
 
 	backend.aggregator = newAggregator(backend, consensusCore, log, backend.knownMessages)
 
@@ -133,16 +133,16 @@ type Backend struct {
 	hasBadBlock  func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
-	proposalVerifiedCh chan<- *types.Block
-	commitCh           chan<- *types.Block
-	messageCh          chan events.UnverifiedMessageEvent // to send events to the aggregator
-	proposedBlockHash  common.Hash
-	coreStarting       atomic.Bool
-	coreRunning        atomic.Bool
-	core               interfaces.Core
-	evDispatcher       interfaces.EventDispatcher
-	stopped            chan struct{}
-	wg                 sync.WaitGroup
+	proposalVerifiedCh  chan<- *types.Block
+	commitCh            chan<- *types.Block
+	aggregatorMessageCh chan events.UnverifiedMessageEvent // to send events to the aggregator
+	proposedBlockHash   common.Hash
+	coreStarting        atomic.Bool
+	coreRunning         atomic.Bool
+	core                interfaces.Core
+	coreEventDispatcher interfaces.EventDispatcher
+	stopped             chan struct{}
+	wg                  sync.WaitGroup
 
 	// used to save consensus messages while core is stopped
 	pendingMessages ring.Ring
@@ -189,7 +189,7 @@ func (sb *Backend) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 }
 
 func (sb *Backend) MessageCh() <-chan events.UnverifiedMessageEvent {
-	return sb.messageCh
+	return sb.aggregatorMessageCh
 }
 
 // Address implements tendermint.Backend.Address
@@ -266,11 +266,11 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate 
 func (sb *Backend) Post(ev any) {
 	switch ev := ev.(type) {
 	case events.CommitEvent:
-		sb.evDispatcher.Post(ev)
+		sb.coreEventDispatcher.Post(ev)
 	case events.NewCandidateBlockEvent:
-		sb.evDispatcher.Post(ev)
+		sb.coreEventDispatcher.Post(ev)
 	case events.UnverifiedMessageEvent:
-		sb.messageCh <- ev
+		sb.aggregatorMessageCh <- ev
 	default:
 		sb.eventMux.Post(ev)
 	}

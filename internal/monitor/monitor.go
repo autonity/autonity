@@ -42,7 +42,7 @@ type Config struct {
 
 var DefaultMonitorConfig = Config{
 	cpuThreshold:         80,
-	numGoroutines:        6000,
+	numGoroutines:        10000,
 	memThreshold:         6 * 1024 * 1024 * 1024,
 	profilePerDay:        3,
 	monitoringInterval:   time.Second * 60,

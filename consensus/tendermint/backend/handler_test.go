@@ -157,13 +157,13 @@ func TestNewChainHead(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			database:     rawdb.NewMemoryDatabase(),
-			core:         tendermintC,
-			evDispatcher: evDispathcer,
-			gossiper:     g,
-			blockchain:   chain,
-			eventMux:     event.NewTypeMuxSilent(nil, log.Root()),
-			logger:       log.Root(),
+			database:            rawdb.NewMemoryDatabase(),
+			core:                tendermintC,
+			coreEventDispatcher: evDispathcer,
+			gossiper:            g,
+			blockchain:          chain,
+			eventMux:            event.NewTypeMuxSilent(nil, log.Root()),
+			logger:              log.Root(),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.Start(ctx)

@@ -177,6 +177,19 @@ eventLoop:
 				}
 				msg := e.Message
 
+				if c.Height().Uint64() > msg.H() {
+					// TODO: currently old height messages are send directly to the FD, but this check is still needed due to potential TOCTOU race conditions
+					// Moreover, I am still wondering if it would be useful to gossip old height messages, as they could be useful for accountability
+					c.logger.Debug("mainEventLoop: ignoring stale consensus message", "msg", msg.String(), "height", c.Height().Uint64())
+					break
+				}
+
+				var hadQuorum bool
+				if !c.noGossip {
+					// check if we have quorum for message type for this round
+					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
+				}
+
 				if err := c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err, "current Height")
 					// filter errors which needs remote peer disconnection
@@ -189,11 +202,10 @@ eventLoop:
 					}
 				}
 
-				var hadQuorum bool
-				if !c.noGossip {
-					// check if we have quorum for message type for this round
-					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
-				}
+				// valid message, reset sync timeout
+				c.syncState.SetLastValidMsgTime(time.Now())
+				c.syncState.SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
+
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
@@ -258,6 +270,7 @@ eventLoop:
 					c.logTimeoutEvent("Timer expired while at PrecommitDone step, ignoring", "", timeoutE)
 					continue
 				}
+				c.updateSyncTimeout(syncTimeOut) // reset sync timeout to default
 				switch timeoutE.Step {
 				case Propose:
 					c.handleTimeoutPropose(ctx, timeoutE)
@@ -286,10 +299,7 @@ func (c *Core) syncLoop(ctx context.Context) {
 		and to process sync queries events.
 	*/
 	// syncTime out should be dynamic based on the current round timer
-
 	// TODO: think about sending the bitmap of messages you currently have in sync request
-	// todo: revamp
-	timer := time.NewTimer(syncTimeOut)
 
 	round := c.Round()
 	height := c.Height()
@@ -300,26 +310,36 @@ func (c *Core) syncLoop(ctx context.Context) {
 eventLoop:
 	for {
 		select {
-		case <-timer.C:
+		case <-time.After(time.Second * 5): //check for sync every 5 seconds
+
+			if time.Since(c.syncState.GetLastValidMsgTime()) < c.syncState.GetSyncTimeOut() {
+				c.logger.Debug("Sync timeout not reached yet", "last valid message received", c.syncState.GetLastValidMsgTime(), "sync timeout", c.syncState.GetSyncTimeOut())
+				round = c.Round()
+				height = c.Height()
+				continue
+			}
 			currentRound := c.Round()
 			currentHeight := c.Height()
 
-			// we only ask for sync if the current view stayed the same for the past 10 seconds
-			// todo: check if vote timer is running OR
+			// we only ask for sync if the current view stayed the same for the interval syncTimeOut
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
 				c.logger.Warn("⚠️ Consensus liveliness lost")
 				c.logger.Warn("Broadcasting sync request..")
 				c.backend.AskSync(c.committee.Committee())
+				c.syncState.SetOutOfSync(true)
 			}
 			round = currentRound
 			height = currentHeight
-			timer = time.NewTimer(syncTimeOut)
 
 		case ev, ok := <-c.syncEventSub.Chan():
 			if !ok {
 				break eventLoop
 			}
 			event := ev.Data.(events.SyncEvent)
+			if c.syncState.IsOutOfSync() {
+				c.logger.Info("sync request received while we are out of sync, dropping", "from", event.Addr)
+				continue
+			}
 			c.logger.Debug("Processing sync message", "from", event.Addr)
 			c.backend.SyncPeer(event.Addr)
 		case <-ctx.Done():
