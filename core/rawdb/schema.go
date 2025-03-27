@@ -106,6 +106,9 @@ var (
 	blockBodyPrefix     = []byte("b") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
 	blockReceiptsPrefix = []byte("r") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
 
+	// old log index
+	bloomBitsMetaPrefix = []byte("iB")
+
 	txLookupPrefix        = []byte("l") // txLookupPrefix + hash -> transaction/receipt lookup metadata
 	bloomBitsPrefix       = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 	SnapshotAccountPrefix = []byte("a") // SnapshotAccountPrefix + account hash -> account trie value
@@ -148,6 +151,13 @@ var (
 
 	preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
 	preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
+
+	// new log index
+	filterMapsPrefix         = "fm-"
+	filterMapsRangeKey       = []byte(filterMapsPrefix + "R")
+	filterMapRowPrefix       = []byte(filterMapsPrefix + "r") // filterMapRowPrefix + mapRowIndex (uint64 big endian) -> filter row
+	filterMapLastBlockPrefix = []byte(filterMapsPrefix + "b") // filterMapLastBlockPrefix + mapIndex (uint32 big endian) -> block number (uint64 big endian)
+	filterMapBlockLVPrefix   = []byte(filterMapsPrefix + "p") // filterMapBlockLVPrefix + num (uint64 big endian) -> log value pointer (uint64 big endian)
 
 	jailedValidatorCount   = []byte("JailedCount")
 	jailedValidatorAddress = []byte("JailedAddress")
@@ -389,4 +399,35 @@ func ResolveStorageTrieNode(key []byte) (bool, common.Hash, []byte) {
 func IsStorageTrieNode(key []byte) bool {
 	ok, _, _ := ResolveStorageTrieNode(key)
 	return ok
+}
+
+// filterMapRowKey = filterMapRowPrefix + mapRowIndex (uint64 big endian)
+func filterMapRowKey(mapRowIndex uint64, base bool) []byte {
+	extLen := 8
+	if base {
+		extLen = 9
+	}
+	l := len(filterMapRowPrefix)
+	key := make([]byte, l+extLen)
+	copy(key[:l], filterMapRowPrefix)
+	binary.BigEndian.PutUint64(key[l:l+8], mapRowIndex)
+	return key
+}
+
+// filterMapLastBlockKey = filterMapLastBlockPrefix + mapIndex (uint32 big endian)
+func filterMapLastBlockKey(mapIndex uint32) []byte {
+	l := len(filterMapLastBlockPrefix)
+	key := make([]byte, l+4)
+	copy(key[:l], filterMapLastBlockPrefix)
+	binary.BigEndian.PutUint32(key[l:], mapIndex)
+	return key
+}
+
+// filterMapBlockLVKey = filterMapBlockLVPrefix + num (uint64 big endian)
+func filterMapBlockLVKey(number uint64) []byte {
+	l := len(filterMapBlockLVPrefix)
+	key := make([]byte, l+8)
+	copy(key[:l], filterMapBlockLVPrefix)
+	binary.BigEndian.PutUint64(key[l:], number)
+	return key
 }

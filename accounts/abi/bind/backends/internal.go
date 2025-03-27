@@ -263,8 +263,15 @@ func (b *InternalBackend) SendTransaction(ctx context.Context, tx *types.Transac
 // SubscribeFilterLogs creates a subscription that will write all logs matching the
 // given criteria to the given logs channel.
 func (b *InternalBackend) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+	from, to := int64(0), int64(rpc.LatestBlockNumber)
+	if query.FromBlock != nil {
+		from = query.FromBlock.Int64()
+	}
+	if query.ToBlock != nil {
+		to = query.ToBlock.Int64()
+	}
 	// Create a filter for the given criteria
-	filter := b.filterSystem.NewRangeFilter(query.FromBlock.Int64(), query.ToBlock.Int64(), query.Addresses, query.Topics)
+	filter := b.filterSystem.NewRangeFilter(from, to, query.Addresses, query.Topics)
 
 	// Create a subscription that forwards logs to the channel
 	subscription := event.NewSubscription(func(quit <-chan struct{}) error {

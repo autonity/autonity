@@ -29,7 +29,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/lru"
 	"github.com/autonity/autonity/core"
-	"github.com/autonity/autonity/core/bloombits"
+	"github.com/autonity/autonity/core/filtermaps"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
@@ -69,8 +69,7 @@ type Backend interface {
 	SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription
 	SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription
 
-	BloomStatus() (uint64, uint64)
-	ServiceFilter(ctx context.Context, session *bloombits.MatcherSession)
+	NewMatcherBackend() filtermaps.MatcherBackend
 }
 
 // FilterSystem holds resources shared by all filters.

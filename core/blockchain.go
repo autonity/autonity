@@ -2639,3 +2639,11 @@ func (bc *BlockChain) SetTrieFlushInterval(interval time.Duration) {
 func (bc *BlockChain) GetTrieFlushInterval() time.Duration {
 	return time.Duration(bc.flushInterval.Load())
 }
+
+func (bc *BlockChain) StartWatchingCache() {
+	state, err := bc.StateAt(bc.CurrentBlock().Root)
+	if err != nil {
+		log.Crit("error starting cache", "err", err)
+	}
+	bc.protocolContracts.StartCache(bc.currentBlock.Load(), state)
+}

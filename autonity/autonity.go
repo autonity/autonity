@@ -211,12 +211,6 @@ func NewProtocolContracts(
 		proposers:        make(map[uint64]map[int64]common.Address),
 	}
 
-	// initialize protocol contract cache
-	cache, err := newCache(autonityContract, head, state)
-	if err != nil {
-		return nil, err
-	}
-
 	// bind to accountability contract
 	accountabilityContract, err := NewAccountability(params.AccountabilityContractAddress, contractBackend)
 	if err != nil {
@@ -225,11 +219,17 @@ func NewProtocolContracts(
 
 	contract := ProtocolContracts{
 		AutonityContract: autonityContract,
-		Cache:            cache,
 		Accountability:   accountabilityContract,
 	}
 
 	return &contract, nil
+}
+
+func (ac *ProtocolContracts) StartCache(head *types.Header, state vm.StateDB) error {
+	// initialize protocol contract cache
+	var err error
+	ac.Cache, err = newCache(ac.AutonityContract, head, state)
+	return err
 }
 
 func (c *Cache) Listen() {

@@ -23,12 +23,12 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/core/filtermaps"
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core"
-	"github.com/autonity/autonity/core/bloombits"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
@@ -93,10 +93,9 @@ type Backend interface {
 	GetLogs(ctx context.Context, blockHash common.Hash, number uint64) ([][]*types.Log, error)
 	SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription
 	SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription
-	BloomStatus() (uint64, uint64)
-	ServiceFilter(ctx context.Context, session *bloombits.MatcherSession)
 
 	MinBaseFee() *big.Int
+	NewMatcherBackend() filtermaps.MatcherBackend
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {

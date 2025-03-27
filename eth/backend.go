@@ -37,6 +37,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/bloombits"
+	"github.com/autonity/autonity/core/filtermaps"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/state/pruner"
@@ -97,6 +98,9 @@ type Ethereum struct {
 	bloomRequests     chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
 	bloomIndexer      *core.ChainIndexer             // Bloom indexer operating during block imports
 	closeBloomHandler chan struct{}
+
+	filterMaps      *filtermaps.FilterMaps
+	closeFilterMaps chan chan struct{}
 
 	APIBackend *EthAPIBackend
 
@@ -249,6 +253,11 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		return eth.txPool.Add([]*types.Transaction{tx}, true)[0]
 	}
 
+	eth.APIBackend = &EthAPIBackend{stack.Config().ExtRPCEnabled(), stack.Config().AllowUnprotectedTxs, eth, nil}
+	if eth.APIBackend.allowUnprotectedTxs {
+		log.Info("Unprotected transactions allowed")
+	}
+
 	eth.blockchain, err = core.NewBlockChain(
 		chainDb,
 		cacheConfig,
@@ -270,7 +279,17 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		be.SetBlockchain(eth.blockchain)
 	}
 
-	eth.bloomIndexer.Start(eth.blockchain)
+	fmConfig := filtermaps.Config{History: config.LogHistory, Disabled: config.LogNoHistory, ExportFileName: config.LogExportCheckpoints}
+	chainView := eth.newChainView(eth.blockchain.CurrentBlock())
+	// History pruning not supported in Autonity
+	//historyCutoff := eth.blockchain.HistoryPruningCutoff()
+	historyCutoff := uint64(0)
+	var finalBlock uint64
+	if fb := eth.blockchain.CurrentBlock(); fb != nil {
+		finalBlock = fb.Number.Uint64()
+	}
+	eth.filterMaps = filtermaps.NewFilterMaps(chainDb, chainView, historyCutoff, finalBlock, filtermaps.DefaultParams, fmConfig)
+	eth.closeFilterMaps = make(chan chan struct{})
 
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = stack.ResolvePath(config.TxPool.Journal)
@@ -306,10 +325,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		return nil, err
 	}
 
-	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine)
-	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
-	eth.miner.SetPrioAddresses(config.TxPool.Locals)
-
 	eth.netRPCService = ethapi.NewNetAPI(eth.p2pServer, networkID)
 
 	// Once the chain is initialized, load accountability precompiled contracts in EVM environment before chain sync
@@ -327,10 +342,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		eth.blockchain.ProtocolContracts(),
 		eth.log)
 
-	eth.APIBackend = &EthAPIBackend{stack.Config().ExtRPCEnabled(), stack.Config().AllowUnprotectedTxs, eth, nil}
-	if eth.APIBackend.allowUnprotectedTxs {
-		log.Info("Unprotected transactions allowed")
-	}
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, config.GPO, config.Miner.GasPrice)
 	// Start the RPC service
 	eth.netRPCService = ethapi.NewNetAPI(eth.p2pServer, networkID)
@@ -343,7 +354,21 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	// Successful startup; push a marker and check previous unclean shutdowns.
 	eth.shutdownTracker.MarkStartup()
 
+	// filtermap is ready - we can start watching the logs to retrieve cache.
+	eth.blockchain.StartWatchingCache()
+
+	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine)
+	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
+	eth.miner.SetPrioAddresses(config.TxPool.Locals)
+
 	return eth, nil
+}
+
+func (s *Ethereum) newChainView(head *types.Header) *filtermaps.ChainView {
+	if head == nil {
+		return nil
+	}
+	return filtermaps.NewChainView(s.blockchain, head.Number.Uint64(), head.Hash())
 }
 
 func makeExtraData(extra []byte) []byte {
@@ -445,7 +470,6 @@ func (s *Ethereum) Downloader() *downloader.Downloader           { return s.hand
 func (s *Ethereum) Synced() bool                                 { return s.handler.synced.Load() }
 func (s *Ethereum) SetSynced()                                   { s.handler.enableSyncedFeatures() }
 func (s *Ethereum) ArchiveMode() bool                            { return s.config.NoPruning }
-func (s *Ethereum) BloomIndexer() *core.ChainIndexer             { return s.bloomIndexer }
 func (s *Ethereum) SyncMode() downloader.SyncMode {
 	mode, _ := s.handler.chainSync.modeAndLocalHead()
 	return mode

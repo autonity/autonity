@@ -28,6 +28,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/bloombits"
+	"github.com/autonity/autonity/core/filtermaps"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/txpool"
@@ -381,4 +382,8 @@ func (b *EthAPIBackend) StateAtBlock(ctx context.Context, block *types.Block, re
 
 func (b *EthAPIBackend) StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (*types.Transaction, vm.BlockContext, *state.StateDB, tracers.StateReleaseFunc, error) {
 	return b.eth.stateAtTransaction(ctx, block, txIndex, reexec)
+}
+
+func (b *EthAPIBackend) NewMatcherBackend() filtermaps.MatcherBackend {
+	return b.eth.filterMaps.NewMatcherBackend()
 }
