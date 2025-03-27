@@ -197,7 +197,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		return true, err
 	}
 
-	// structured relaying happens after the pre-validation.
+	// structured relaying happens after the pre-validation, only unknown msg is relayed.
 	if sb.router != nil {
 		go sb.router.Forward(committee, msg, sender)
 	}
