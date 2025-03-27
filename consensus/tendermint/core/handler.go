@@ -340,7 +340,6 @@ eventLoop:
 				c.logger.Warn("Failed to ask consensus sync", "err", err)
 				// will automatically retry at next iteration
 			}
-
 		case <-ctx.Done():
 			c.logger.Debug("livenessTrackerLoop is stopped", "event", ctx.Err())
 			break eventLoop

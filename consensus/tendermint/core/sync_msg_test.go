@@ -1,12 +1,14 @@
 package core
 
 import (
+	"math/big"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/rlp"
-	"github.com/stretchr/testify/require"
-	"math/big"
-	"testing"
 )
 
 func TestSyncMsg(t *testing.T) {
