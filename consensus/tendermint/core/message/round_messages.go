@@ -36,6 +36,16 @@ func (s *Map) GetOrCreate(round int64) *RoundMessages {
 	return state
 }
 
+func (s *Map) Snapshot() []*RoundMsgView {
+	s.RLock()
+	defer s.RUnlock()
+	var views []*RoundMsgView
+	for _, v := range s.internal {
+		views = append(views, v.Snapshot())
+	}
+	return views
+}
+
 // TODO: this function has a mutex that can be taken by:
 // 1. the core routine
 // 2. the routine that syncs other peers
@@ -216,4 +226,52 @@ func (s *RoundMessages) AllMessages() []Msg {
 	result = append(result, prevotes...)
 	result = append(result, precommits...)
 	return result
+}
+
+func (s *RoundMessages) Snapshot() *RoundMsgView {
+	s.RLock()
+	defer s.RUnlock()
+	view := &RoundMsgView{}
+	view.Round = uint64(s.Proposal().R())
+
+	if s.proposal != nil {
+		view.Proposal = s.proposal.Value()
+	}
+
+	if s.prevotes != nil {
+		values, signers := s.prevotes.Snapshot()
+		view.Prevotes = values
+		view.PrevotesSigners = signers
+	}
+
+	if s.precommits != nil {
+		values, signers := s.precommits.Snapshot()
+		view.Precommits = values
+		view.PrecommitsSigners = signers
+	}
+	return view
+}
+
+type RoundMsgView struct {
+	Round uint64
+
+	// received proposal, normally only one, could be multiple if proposer equivocated.
+	// different proposals will be exchanged if one find there is an equivocated one.
+	Proposal common.Hash
+
+	// prevoted values in the round
+	Prevotes []common.Hash
+	// signers for each prevoted values listed in the Prevotes slice.
+	PrevotesSigners []*big.Int
+
+	// precommitted values in the round
+	Precommits []common.Hash
+	// signders for each precommitted values listed in the Precommit slice.
+	PrecommitsSigners []*big.Int
+}
+
+// SyncMsg carries all the msgs' views, include future rounds of current consensus engine for tendermint state recovery.
+type SyncMsg struct {
+	Height      uint64
+	RoundsViews []*RoundMsgView
 }

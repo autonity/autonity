@@ -189,8 +189,8 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	})
 }
 
-func (sb *Backend) AskSync(committee *types.Committee) {
-	sb.gossiper.AskSync(committee)
+func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.SyncMsg) {
+	sb.gossiper.AskSync(committee, sb.core.Height().Uint64(), sb.core.Round(), syncMsg)
 }
 
 // Gossip implements tendermint.Backend.Gossip
@@ -389,7 +389,7 @@ func (sb *Backend) CommitteeEnodes() []string {
 }
 
 // SyncPeer Synchronize new connected peer with current height messages
-func (sb *Backend) SyncPeer(address common.Address) {
+func (sb *Backend) SyncPeer(address common.Address, msgs []message.Msg) {
 	if sb.Broadcaster == nil {
 		return
 	}
@@ -398,9 +398,9 @@ func (sb *Backend) SyncPeer(address common.Address) {
 	if !ok {
 		return
 	}
-	messages := sb.core.CurrentHeightMessages()
-	sb.logger.Debug("sent current height messages", "peer", address, "n", len(messages), "msgs", messages)
-	for _, msg := range messages {
+
+	sb.logger.Debug("sent current height messages", "peer", address, "n", len(msgs))
+	for _, msg := range msgs {
 		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
 		go peer.SendRaw(message.NetworkCodes[msg.Code()], msg.Payload()) //nolint
 	}

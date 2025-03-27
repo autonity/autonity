@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"github.com/autonity/autonity/rlp"
 	"math/big"
 	"time"
 
@@ -77,7 +78,12 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	}
 }
 
-func (g *Gossiper) AskSync(committee *types.Committee) {
+func (g *Gossiper) AskSync(committee *types.Committee, coreHeight uint64, round int64, syncMsg *message.SyncMsg) {
+	encoded, err := rlp.EncodeToBytes(syncMsg)
+	if err != nil {
+		log.Error("Error encoding sync msg", "err", err)
+		return
+	}
 
 	targets := make([]common.Address, 0, committee.Len())
 	for _, val := range committee.Members {
@@ -102,12 +108,13 @@ func (g *Gossiper) AskSync(committee *types.Committee) {
 			}
 			count := new(big.Int)
 			for addr, p := range ps {
-				//ask to a quorum nodes to sync, 1 must then be honest and updated
+				// todo: double check if quorum nodes are sufficient for state recovery?
+				// ask to a quorum nodes to sync, 1 must then be honest and updated
 				if count.Cmp(bft.Quorum(committee.TotalVotingPower())) >= 0 {
 					break
 				}
 				g.logger.Debug("Asking sync to", "addr", addr)
-				go p.Send(message.SyncNetworkMsg, []byte{}) //nolint
+				go p.Send(message.SyncNetworkMsg, encoded) //nolint
 
 				member := committee.MemberByAddress(addr)
 				if member == nil {

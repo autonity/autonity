@@ -292,7 +292,8 @@ func (c *Core) syncLoop(ctx context.Context) {
 	height := c.Height()
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.committee.Committee())
+	syncMsg := c.snapshotSyncMsg()
+	c.backend.AskSync(c.committee.Committee(), syncMsg)
 
 eventLoop:
 	for {
@@ -305,7 +306,8 @@ eventLoop:
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
 				c.logger.Warn("⚠️ Consensus liveliness lost")
 				c.logger.Warn("Broadcasting sync request..")
-				c.backend.AskSync(c.committee.Committee())
+				syncMsg = c.snapshotSyncMsg()
+				c.backend.AskSync(c.committee.Committee(), syncMsg)
 			}
 			round = currentRound
 			height = currentHeight
@@ -317,7 +319,8 @@ eventLoop:
 			}
 			event := ev.Data.(events.SyncEvent)
 			c.logger.Debug("Processing sync message", "from", event.Addr)
-			c.backend.SyncPeer(event.Addr)
+			msgs := c.msgsNotSynced(syncMsg)
+			c.backend.SyncPeer(event.Addr, msgs)
 		case <-ctx.Done():
 			c.logger.Debug("syncLoop is stopped", "event", ctx.Err())
 			break eventLoop

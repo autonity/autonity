@@ -81,15 +81,15 @@ func (mr *MockBackendMockRecorder) Address() *gomock.Call {
 }
 
 // AskSync mocks base method.
-func (m *MockBackend) AskSync(committee *types.Committee) {
+func (m *MockBackend) AskSync(committee *types.Committee, syncMsg *message.SyncMsg) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AskSync", committee)
+	m.ctrl.Call(m, "AskSync", committee, syncMsg)
 }
 
 // AskSync indicates an expected call of AskSync.
-func (mr *MockBackendMockRecorder) AskSync(committee any) *gomock.Call {
+func (mr *MockBackendMockRecorder) AskSync(committee, syncMsg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), committee)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), committee, syncMsg)
 }
 
 // BlockChain mocks base method.
@@ -404,15 +404,15 @@ func (mr *MockBackendMockRecorder) Subscribe(types ...any) *gomock.Call {
 }
 
 // SyncPeer mocks base method.
-func (m *MockBackend) SyncPeer(address common.Address) {
+func (m *MockBackend) SyncPeer(address common.Address, msgs []message.Msg) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SyncPeer", address)
+	m.ctrl.Call(m, "SyncPeer", address, msgs)
 }
 
 // SyncPeer indicates an expected call of SyncPeer.
-func (mr *MockBackendMockRecorder) SyncPeer(address any) *gomock.Call {
+func (mr *MockBackendMockRecorder) SyncPeer(address, msgs any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncPeer", reflect.TypeOf((*MockBackend)(nil).SyncPeer), address)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncPeer", reflect.TypeOf((*MockBackend)(nil).SyncPeer), address, msgs)
 }
 
 // VerifyProposal mocks base method.
