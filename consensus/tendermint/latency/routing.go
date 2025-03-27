@@ -550,23 +550,34 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	// if node is the original msg sender, it selects K*VerticalRelayingRedundancy relayers from every cluster vertically.
 	var recipients []types.CommitteeMember
 	if from == s.self {
-		for _, addr := range clusters.selectK(VerticalRelayingRedundancy, num) {
-			if member := committee.MemberByAddress(addr); member != nil {
+		ownCluster := clusters.clusterContaining(from)
+
+		// select relayers from other clusters
+		receivers := clusters.selectK(VerticalRelayingRedundancy, num, ownCluster)
+		numOfRelayers := len(receivers)
+
+		// send to local cluster nodes too.
+		localClusterNodes := clusters.clusterByID(ownCluster)
+		if localClusterNodes != nil {
+			receivers = append(receivers, localClusterNodes...)
+		}
+
+		for _, addr := range receivers {
+			if member := committee.MemberByAddress(addr); member != nil && addr != s.self {
 				recipients = append(recipients, *member)
 			}
 		}
 
-		relayers := deduplicate(recipients)
 		log.Debug(
-			"Router: originally sending msg to each clusters vertically",
-			"from",
-			from,
-			"self",
-			s.self,
-			"selected relayers",
-			len(recipients),
+			"Router: sending msg to other clusters and local cluster",
+			"from", from,
+			"H", msg.H(),
+			"R", msg.R(),
+			"C", msg.Code(),
+			"other cluster", numOfRelayers,
+			"local cluster", len(recipients)-numOfRelayers,
 		)
-		return relayers, nil
+		return recipients, nil
 	}
 
 	// if node is in the same cluster of the original sender, relay the msg to local cluster nodes.
@@ -579,62 +590,53 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 				recipients = append(recipients, *member)
 			}
 		}
-		if rand.Intn(10) == 0 {
-			log.Debug(
-				"Router: horizontally relaying message to original cluster",
-				"from",
-				from,
-				"self",
-				s.self,
-				"selected receivers",
-				len(recipients),
-			)
-		}
+		log.Debug(
+			"Router: sending message to local cluster",
+			"from",
+			from,
+			"self",
+			s.self,
+			"H", msg.H(),
+			"R", msg.R(),
+			"C", msg.Code(),
+			"local cluster",
+			len(recipients),
+		)
 		return recipients, nil
 	}
 
 	// if we are relaying the messages from outside our own cluster, we should forward it to our own cluster vertically.
 	// moreover that, we also need to forward it to the other clusters horizontally to increase the robustness of messaging.
 	if ownCluster := clusters.clusterContaining(s.self); ownCluster != clusters.clusterContaining(from) && ownCluster >= 0 {
+
+		// select local cluster nodes
 		for _, addr := range clusters.base[ownCluster] {
-			if member := committee.MemberByAddress(addr); member != nil {
+			if member := committee.MemberByAddress(addr); member != nil && addr != s.self {
 				recipients = append(recipients, *member)
 			}
 		}
 
 		// to add robustness, we also relay message to other clusters horizontally.
-		for _, addr := range clusters.selectK(HorizontalRelayingRedundancy, num) {
-			if member := committee.MemberByAddress(addr); member != nil {
+		relayers := clusters.selectK(HorizontalRelayingRedundancy, num, ownCluster)
+		for _, addr := range relayers {
+			if member := committee.MemberByAddress(addr); member != nil && addr != from {
 				recipients = append(recipients, *member)
 			}
 		}
-	}
-	receivers := deduplicate(recipients)
-	if rand.Intn(10) == 0 {
 		log.Debug(
-			"Router: vertically relaying message to own cluster, and horizontally relaying to other clusters",
+			"Router: sending message to own cluster, and horizontally relaying to other clusters",
 			"from",
 			from,
 			"self",
 			s.self,
-			"selected receivers",
-			len(receivers),
+			"H", msg.H(),
+			"R", msg.R(),
+			"C", msg.Code(),
+			"local cluster", len(recipients)-len(relayers),
+			"other cluster", len(relayers),
 		)
 	}
-
-	return receivers, nil
-}
-
-func deduplicate(recipients []types.CommitteeMember) []types.CommitteeMember {
-	seen := make(map[common.Address]struct{})
-	var result []types.CommitteeMember
-	for _, rec := range recipients {
-		if _, ok := seen[rec.Address]; !ok {
-			seen[rec.Address] = struct{}{}
-			result = append(result, rec)
-		}
-	}
-	return result
+	return recipients, nil
 }
 
 func seed(msg message.Msg) int64 {

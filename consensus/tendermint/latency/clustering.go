@@ -31,6 +31,13 @@ func NewCluster(activationHeight uint64, nextEpochHeight uint64, base [][]common
 	return clusters
 }
 
+func (c *Clusters) clusterByID(id int) []common.Address {
+	if id >= len(c.base) || id < 0 {
+		return nil
+	}
+	return c.base[id]
+}
+
 // buildAddressIndex builds the index for quick querying of node in clusters, it should be called on the setup phase.
 func (c *Clusters) buildAddressIndex() {
 	c.addressToCluster = make(map[common.Address]int)
@@ -49,11 +56,15 @@ func (c *Clusters) clusterContaining(address common.Address) int {
 	return -1
 }
 
-// selectK selects pseudo random k members from each cluster
-func (c *Clusters) selectK(k int, seed int64) []common.Address {
+// selectK selects pseudo random k members from each cluster exclude the selected cluster.
+func (c *Clusters) selectK(k int, seed int64, excepted int) []common.Address {
 	var result []common.Address
 	r := rand.New(rand.NewSource(seed))
-	for _, cluster := range c.base {
+	for i, cluster := range c.base {
+		if i == excepted {
+			continue
+		}
+
 		if len(cluster) <= k {
 			result = append(result, cluster...)
 		} else {
