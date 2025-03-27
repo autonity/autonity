@@ -145,7 +145,8 @@ func (f FuturePowerChangeEvent) Value() common.Hash {
 }
 
 type SyncEvent struct {
-	Addr common.Address
+	Addr    common.Address
+	Payload []byte
 }
 
 type AccountabilityEvent struct {

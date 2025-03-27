@@ -25,7 +25,7 @@ type Backend interface {
 
 	AddSeal(block *types.Block) (*types.Block, error)
 
-	AskSync(committee *types.Committee)
+	AskSync(committee *types.Committee, syncMsg *message.SyncMsg)
 
 	// Broadcast sends a message to all validators (include self)
 	Broadcast(committee *types.Committee, message message.Msg)
@@ -58,7 +58,7 @@ type Backend interface {
 
 	Subscribe(types ...any) *event.TypeMuxSubscription
 
-	SyncPeer(address common.Address)
+	SyncPeer(address common.Address, msgs []message.Msg)
 
 	// VerifyProposal verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.

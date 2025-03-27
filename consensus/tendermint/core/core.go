@@ -656,7 +656,6 @@ func (c *Core) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *mess
 	return power
 }
 
-// TODO: when we sync a peer, should we send him also the future round messages?
 func (c *Core) CurrentHeightMessages() []message.Msg {
 	return c.messages.All()
 }

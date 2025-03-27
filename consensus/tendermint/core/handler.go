@@ -299,13 +299,13 @@ func (c *Core) syncLoop(ctx context.Context) {
 		and to process sync queries events.
 	*/
 	// syncTime out should be dynamic based on the current round timer
-	// TODO: think about sending the bitmap of messages you currently have in sync request
 
 	round := c.Round()
 	height := c.Height()
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.committee.Committee())
+	syncMsg := c.snapshotSyncMsg()
+	c.backend.AskSync(c.committee.Committee(), syncMsg)
 
 eventLoop:
 	for {
@@ -325,7 +325,8 @@ eventLoop:
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
 				c.logger.Warn("⚠️ Consensus liveliness lost")
 				c.logger.Warn("Broadcasting sync request..")
-				c.backend.AskSync(c.committee.Committee())
+				syncMsg = c.snapshotSyncMsg()
+				c.backend.AskSync(c.committee.Committee(), syncMsg)
 				c.syncState.SetOutOfSync(true)
 			}
 			round = currentRound
@@ -341,7 +342,8 @@ eventLoop:
 				continue
 			}
 			c.logger.Debug("Processing sync message", "from", event.Addr)
-			c.backend.SyncPeer(event.Addr)
+			msgs := c.msgsNotSynced(syncMsg)
+			c.backend.SyncPeer(event.Addr, msgs)
 		case <-ctx.Done():
 			c.logger.Debug("syncLoop is stopped", "event", ctx.Err())
 			break eventLoop
