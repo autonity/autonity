@@ -60,10 +60,10 @@ contract Latency is ILatency, AccessAutonity {
     // committee is the current committee of validators
     address[] public committee;
 
-    // epoch is used to prevent the same validator to report multiple times in the same epoch
+    // epochPlusOne is used to prevent the same validator to report multiple times in the same epoch
     // it is incremented on every committee change, and does not neccessarily have to be the same as the epoch in the
     // autonity contract.
-    uint256 public epoch;
+    uint256 public epochPlusOne;
 
     // the counter counts the reported measurements of an epoch.
     uint256 public reports;
@@ -73,7 +73,7 @@ contract Latency is ILatency, AccessAutonity {
 
     constructor(address payable _autonity, address[] memory initialCommittee) AccessAutonity(_autonity) {
         committee = initialCommittee;
-        epoch = 1;
+        epochPlusOne = 1;
     }
 
     /*
@@ -95,7 +95,7 @@ contract Latency is ILatency, AccessAutonity {
 
 
     modifier onlyOncePerEpoch() {
-        require(lastReportedEpoch[msg.sender] < epoch, "Latency: already reported in this epoch");
+        require(lastReportedEpoch[msg.sender] < epochPlusOne, "Latency: already reported in this epoch");
         _;
     }
 
@@ -116,10 +116,17 @@ contract Latency is ILatency, AccessAutonity {
         for (uint256 i = 0; i < _latency.length; i++) {
             latency[msg.sender][committee[i]] = _latency[i];
         }
-        lastReportedEpoch[msg.sender] = epoch;
+        lastReportedEpoch[msg.sender] = epochPlusOne;
         reports++;
+
         emit Reported(msg.sender, _latency.length);
-        if (reports >= committee.length*2/3) {
+        bool twoThirds = reports * 3 >= committee.length * 2;
+        // Initial trigger at exactly the 2/3 crossing
+        bool initialKMEvent = (reports * 3 >= committee.length * 2) && ((reports - 1) * 3 < committee.length * 2);
+        // Subsequent triggers every 5 reports after crossing the 2/3 threshold OR at reaching committee length
+        bool periodicKMEvent = (twoThirds && ((reports - thresholdReports()) % 5 == 0) || reports == committee.length);
+
+        if (initialKMEvent || periodicKMEvent) {
             kmOptimizedHeight = block.number+ KM_OPTIMIZATION_DELTA;
             emit KMOptimization(kmOptimizedHeight);
         }
@@ -136,7 +143,7 @@ contract Latency is ILatency, AccessAutonity {
     /// @dev This function is intended to be called by the Autonity contract
     function setCommittee(address[] memory _committee) external onlyAutonity {
         committee = _committee;
-        epoch++;
+        epochPlusOne++;
         reports = 0;
         kmOptimizedHeight = 0;
     }
@@ -146,6 +153,10 @@ contract Latency is ILatency, AccessAutonity {
     │ View Functions     │
     └────────────────────┘
     */
+
+    function thresholdReports() internal view returns (uint256) {
+        return (committee.length * 2 + 2) / 3; // +2 for proper ceiling division
+    }
 
     /// @notice Read the latency matrix
     /// @return The latency matrix for the current committee
@@ -166,7 +177,7 @@ contract Latency is ILatency, AccessAutonity {
     function readReport(address reporter) external onlyCommittee(reporter) view returns (uint8[] memory) {
         // if the reporter did not report at current epoch, return default latency which is the median of [0, 255).
         uint8[] memory result = new uint8[](committee.length);
-        if (lastReportedEpoch[reporter] != epoch) {
+        if (lastReportedEpoch[reporter] != epochPlusOne) {
             for (uint256 i = 0; i < committee.length; i++) {
                 result[i] = DEFAULT_LATENCY;
             }
@@ -187,8 +198,8 @@ contract Latency is ILatency, AccessAutonity {
     }
 
     /// @notice Get latency metrics status for current epoch.
-    /// @return A tuple which contains the caller's last report epoch, current epoch, and the KM optimization height of current epoch.
-    function getMetricsStatus(address reporter) external view returns (uint256, uint256, uint256) {
-        return (lastReportedEpoch[reporter], epoch, kmOptimizedHeight);
+    /// @return A tuple which contains the caller's  current epoch, and the KM optimization height of current epoch.
+    function getMetricsStatus(address reporter) external view returns ( uint256) {
+        return kmOptimizedHeight ;
     }
 }

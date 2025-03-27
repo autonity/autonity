@@ -38,7 +38,7 @@ var VerticalRelayingRedundancy = 2
 // HorizontalRelayingRedundancy is the number of relayers of other clusters to receive the relayer's message.
 var HorizontalRelayingRedundancy = 1
 
-var MeasurementWindow = 10000 // The time window in Millisecond to measure the latency of peers at the beginning of an epoch.
+var MeasurementWindow = 2000 // The time window in Millisecond to measure the latency of peers at the beginning of an epoch.
 
 type PeerSelector interface {
 	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
@@ -86,7 +86,7 @@ func NewRouter(
 		epochEventChan:        make(chan core.EpochHeadEvent, 2),
 		optimizationEventChan: make(chan *autonity.LatencyKMOptimization, 2),
 		pinger:                ping.NewPinger(ping.TCP),
-		lastMeasuredEpoch:     new(big.Int).SetInt64(0),
+		lastMeasuredEpoch:     new(big.Int).SetInt64(-1),
 	}
 	r.SetDefaultHandlers()
 
@@ -180,7 +180,7 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 
 	// As from here, we already subscribe the optimization event, however if the optimization was already happened,
 	// we'd need to set optimized clusters for current epoch if it was happened.
-	_, _, optimizationHeight, err := r.contracts.GetMetricsStatus(nil, r.self)
+	optimizationHeight, err := r.contracts.GetMetricsStatus(nil, r.self)
 	if err != nil {
 		log.Error("failed to get optimized clusters height", "err", err)
 		return
@@ -280,6 +280,7 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 
 	defaultClusters := NewCluster(r.curEpochInfo.EpochBlock.Uint64(), r.curEpochInfo.NextEpochBlock.Uint64(), clusters)
 
+	//todo: use the last optimized to cluster to build the default cluster, starting from epoch 1
 	log.Debug("Router: set default clusters", "clusters", func() [][]int {
 		clusterInts := make([][]int, len(clusters))
 		for i, cluster := range clusters {
@@ -295,6 +296,7 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 func (r *Router) startMeasurementTask(ctx context.Context) (cancel context.CancelFunc) {
 	ctx, cancel = context.WithCancel(ctx)
 	go func() {
+		// this is probably not required, but we reduce the measurement window to 2 seconds
 		delay := time.Duration(rand.Intn(MeasurementWindow)) * time.Millisecond
 		select {
 		case <-time.After(delay):
@@ -317,7 +319,12 @@ func (r *Router) measureToReport() error {
 	if err != nil {
 		return err
 	}
-	return r.reporter.ReportLatency(latencyVec)
+
+	err = r.reporter.ReportLatency(latencyVec)
+	if err == nil {
+		log.Info("Router: latency reported", "length latencyVec", len(latencyVec))
+	}
+	return err
 }
 
 func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]uint8, error) {
@@ -360,13 +367,14 @@ func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]u
 func (r *Router) loop(ctx context.Context) {
 	defer r.wg.Done()
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	var cancel context.CancelFunc
 	defer func() {
 		if cancel != nil {
 			cancel()
 		}
 	}()
+	curEpoch := new(big.Int).SetInt64(0)
 
 	for {
 		select {
@@ -379,22 +387,14 @@ func (r *Router) loop(ctx context.Context) {
 				continue
 			}
 
-			// fetch states by node.
-			reportedEpoch, curEpoch, optimizationHeight, err := r.contracts.GetMetricsStatus(nil, r.self)
-			if err != nil {
-				log.Error("failed to get GetMetricsStatus", "err", err)
-				continue
-			}
-
-			// if node already reported or the optimization already done, skip the task.
-			if reportedEpoch.Cmp(curEpoch) == 0 || optimizationHeight.Cmp(common.Big0) > 0 {
-				continue
-			}
-
 			// if current node already did the measurement, skip the task too.
 			if r.lastMeasuredEpoch.Cmp(curEpoch) == 0 {
 				continue
 			}
+
+			// fetch states by node.
+			//todo: is this really required, we do have this information in the router.
+			// curEpoch returned by GetMetricStatus is wrong, we should use the one from the epoch event.
 
 			// otherwise, we trigger the measurement once we have quorum peers connected.
 			connectedPeers := r.broadcaster.FindPeers(func() []common.Address {
@@ -579,15 +579,17 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 				recipients = append(recipients, *member)
 			}
 		}
-		log.Debug(
-			"Router: horizontally relaying message to original cluster",
-			"from",
-			from,
-			"self",
-			s.self,
-			"selected receivers",
-			len(recipients),
-		)
+		if rand.Intn(10) == 0 {
+			log.Debug(
+				"Router: horizontally relaying message to original cluster",
+				"from",
+				from,
+				"self",
+				s.self,
+				"selected receivers",
+				len(recipients),
+			)
+		}
 		return recipients, nil
 	}
 
@@ -608,15 +610,17 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		}
 	}
 	receivers := deduplicate(recipients)
-	log.Debug(
-		"Router: vertically relaying message to own cluster, and horizontally relaying to other clusters",
-		"from",
-		from,
-		"self",
-		s.self,
-		"selected receivers",
-		len(receivers),
-	)
+	if rand.Intn(10) == 0 {
+		log.Debug(
+			"Router: vertically relaying message to own cluster, and horizontally relaying to other clusters",
+			"from",
+			from,
+			"self",
+			s.self,
+			"selected receivers",
+			len(receivers),
+		)
+	}
 
 	return receivers, nil
 }

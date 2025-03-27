@@ -191,7 +191,7 @@ eventLoop:
 				}
 
 				if err := c.handleMsg(ctx, msg); err != nil {
-					c.logger.Debug("MessageEvent payload failed", "err", err, "current Height")
+					c.logger.Debug("MessageEvent payload failed", "err", err, "current Height", c.Height().Uint64(), "msg Height", msg.H(), "msg Round", msg.R())
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
 						tryDisconnect(e.ErrCh, err)
