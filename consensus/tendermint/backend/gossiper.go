@@ -109,21 +109,15 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	}
 }
 
-func (g *Gossiper) AskSync(committee *types.Committee, coreHeight uint64, round int64, syncMsg *message.LostSyncMsg) {
+func (g *Gossiper) AskSync(committee *types.Committee, _ uint64, _ int64, syncMsg *message.LostSyncMsg) {
 	encoded, err := rlp.EncodeToBytes(syncMsg)
 	if err != nil {
 		log.Error("Error encoding sync msg", "err", err)
 		return
 	}
 
-	f := message.Fake{FakeHeight: coreHeight, FakeRound: uint64(round)}
-	recipients, err := g.router.Route(committee, f, g.address)
-	if err != nil {
-		log.Error("Error selecting peers members to broadcast sync", "error", err)
-	}
-
 	targets := make([]common.Address, 0, committee.Len())
-	for _, val := range recipients {
+	for _, val := range committee.Members {
 		if val.Address != g.address {
 			targets = append(targets, val.Address)
 		}

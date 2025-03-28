@@ -115,13 +115,11 @@ func (s *Set) Snapshot() ([]common.Hash, []*big.Int) {
 	s.RLock()
 	defer s.RUnlock()
 
-	values := make([]common.Hash, 0, len(s.powers))
-	signers := make([]*big.Int, 0, len(s.powers))
-	i := 0
+	var values []common.Hash
+	var signers []*big.Int
 	for v, votes := range s.powers {
-		values[i] = v
-		signers[i] = new(big.Int).Set(votes.Signers())
-		i++
+		values = append(values, v)
+		signers = append(signers, new(big.Int).Set(votes.Signers()))
 	}
 
 	return values, signers
