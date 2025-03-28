@@ -112,6 +112,10 @@ func (r *Router) PeerSelector() PeerSelector {
 
 // Route just select recipients from the clusters, it does not do the message sending.
 func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
+	// no route for small network.
+	if len(committee.Members) < ScaleThresholdForClustering {
+		return committee.Members, nil
+	}
 	return r.PeerSelector().SelectPeers(committee, msg, from)
 }
 
@@ -268,9 +272,6 @@ func (r *Router) resolveClusters(h uint64) (*Clusters, error) {
 
 // buildDefaultClusters partitions the committee into default clusters
 func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
-	if len(committee) <= ScaleThresholdForClustering {
-		return nil
-	}
 	numClusters := numClustersFor(len(committee))
 	clusters := make([][]common.Address, numClusters)
 	for i, addr := range committee {
