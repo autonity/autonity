@@ -106,7 +106,7 @@ func NewRouter(
 }
 
 func (r *Router) SetDefaultHandlers() {
-	r.peerSelector = &Selector{Router: r, LoggedHR: make(map[string]uint64), RecentHeights: [10]uint64{}, HeightIndex: 0}
+	r.peerSelector = &Selector{Router: r, LoggedHR: make(map[string]uint64), RecentHeights: [10]uint64{}, HeightIndex: 0, HeightLock: sync.Mutex{}}
 }
 
 func (r *Router) PeerSelector() PeerSelector {
@@ -566,6 +566,7 @@ const (
 
 type Selector struct {
 	*Router
+	HeightLock    sync.Mutex
 	LoggedHR      map[string]uint64
 	RecentHeights [10]uint64
 	HeightIndex   int
@@ -574,6 +575,7 @@ type Selector struct {
 func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, round int64, from common.Address, senderType SenderType, ownClusterID int) {
 	logKey := fmt.Sprintf("%d-%d", height, round)
 
+	s.HeightLock.Lock()
 	if _, logged := s.LoggedHR[logKey]; logged {
 		return
 	}
@@ -590,6 +592,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 	s.RecentHeights[s.HeightIndex] = height
 	s.LoggedHR[logKey] = height
 	s.HeightIndex = (s.HeightIndex + 1) % 10
+	s.HeightLock.Unlock()
 
 	var sb strings.Builder
 	totalDisconnected := 0
@@ -603,7 +606,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 		sender = "remote relayer"
 	}
 
-	sb.WriteString(fmt.Sprintf("Cluster connectivity status:\t, Height=%d, Round=%d, From=%s SenderType=%s localCluster %d\n", height, round, from.Hex(), sender, ownClusterID))
+	sb.WriteString(fmt.Sprintf("\nCluster connectivity status:\t Height=%d, Round=%d, From=%s SenderType=%s localCluster %d\n", height, round, from.Hex(), sender, ownClusterID))
 
 	for clusterID, cluster := range peerCluster {
 		var lostPeers []string
@@ -683,16 +686,20 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 
 	// if node is in the same cluster of the original sender, relay the msg to local cluster nodes.
 	if ownCluster := clusters.clusterContaining(s.self); ownCluster == clusters.clusterContaining(from) && ownCluster >= 0 {
+		localAddress := make([]common.Address, 0)
 		for _, addr := range clusters.base[ownCluster] {
 			if addr == from || addr == s.self {
 				continue
 			}
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
+				localAddress = append(localAddress, addr)
 			}
 		}
+
+		//todo: we should relay to other cluster as well, other wise originator is a single point of failure.
 		results := make([][]common.Address, len(clusters.base))
-		results[ownCluster] = clusters.base[ownCluster]
+		results[ownCluster] = localAddress
 		s.clusterStatus(results, msg.H(), msg.R(), from, localRelayer, ownCluster)
 		log.Debug(
 			"Router: sending message to local cluster",
