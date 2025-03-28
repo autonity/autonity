@@ -40,8 +40,8 @@ func (s *Map) Snapshot() []*RoundMsgView {
 	s.RLock()
 	defer s.RUnlock()
 	var views []*RoundMsgView
-	for _, v := range s.internal {
-		views = append(views, v.Snapshot())
+	for r, v := range s.internal {
+		views = append(views, v.Snapshot(r))
 	}
 	return views
 }
@@ -224,11 +224,11 @@ func (s *RoundMessages) AllMessages() []Msg {
 	return result
 }
 
-func (s *RoundMessages) Snapshot() *RoundMsgView {
+func (s *RoundMessages) Snapshot(round int64) *RoundMsgView {
 	s.RLock()
 	defer s.RUnlock()
 	view := &RoundMsgView{}
-	view.Round = uint64(s.Proposal().R())
+	view.Round = uint64(round)
 
 	if s.proposal != nil {
 		view.Proposal = s.proposal.Value()
