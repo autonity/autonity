@@ -64,14 +64,12 @@ func (c *Core) subscribeEvents() {
 	c.candidateBlockCh = make(chan events.NewCandidateBlockEvent, 1)
 	c.committedCh = make(chan events.CommitEvent, 1)
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
-	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 }
 
 // Unsubscribe all
 func (c *Core) unsubscribeEvents() {
 	c.messageSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
-	c.syncEventSub.Unsubscribe()
 }
 
 func shouldDisconnectSender(err error) bool {
@@ -304,7 +302,7 @@ func (c *Core) syncLoop(ctx context.Context) {
 	height := c.Height()
 
 	// Ask for sync when the engine starts
-	syncMsg := c.snapshotSyncMsg()
+	syncMsg := c.snapshotLostSyncMsg()
 	c.backend.AskSync(c.committee.Committee(), syncMsg)
 
 eventLoop:
@@ -325,25 +323,13 @@ eventLoop:
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
 				c.logger.Warn("⚠️ Consensus liveliness lost")
 				c.logger.Warn("Broadcasting sync request..")
-				syncMsg = c.snapshotSyncMsg()
+				syncMsg = c.snapshotLostSyncMsg()
 				c.backend.AskSync(c.committee.Committee(), syncMsg)
 				c.syncState.SetOutOfSync(true)
 			}
 			round = currentRound
 			height = currentHeight
 
-		case ev, ok := <-c.syncEventSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			event := ev.Data.(events.SyncEvent)
-			if c.syncState.IsOutOfSync() {
-				c.logger.Info("sync request received while we are out of sync, dropping", "from", event.Addr)
-				continue
-			}
-			c.logger.Debug("Processing sync message", "from", event.Addr)
-			msgs := c.msgsNotSynced(syncMsg)
-			c.backend.SyncPeer(event.Addr, msgs)
 		case <-ctx.Done():
 			c.logger.Debug("syncLoop is stopped", "event", ctx.Err())
 			break eventLoop

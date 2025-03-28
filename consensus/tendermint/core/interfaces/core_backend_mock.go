@@ -81,7 +81,7 @@ func (mr *MockBackendMockRecorder) Address() *gomock.Call {
 }
 
 // AskSync mocks base method.
-func (m *MockBackend) AskSync(committee *types.Committee, syncMsg *message.SyncMsg) {
+func (m *MockBackend) AskSync(committee *types.Committee, syncMsg *message.LostSyncMsg) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AskSync", committee, syncMsg)
 }
@@ -479,20 +479,6 @@ func (m *MockCore) CoreState() CoreState {
 func (mr *MockCoreMockRecorder) CoreState() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CoreState", reflect.TypeOf((*MockCore)(nil).CoreState))
-}
-
-// CurrentHeightMessages mocks base method.
-func (m *MockCore) CurrentHeightMessages() []message.Msg {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CurrentHeightMessages")
-	ret0, _ := ret[0].([]message.Msg)
-	return ret0
-}
-
-// CurrentHeightMessages indicates an expected call of CurrentHeightMessages.
-func (mr *MockCoreMockRecorder) CurrentHeightMessages() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentHeightMessages", reflect.TypeOf((*MockCore)(nil).CurrentHeightMessages))
 }
 
 // EventCh mocks base method.

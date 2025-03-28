@@ -10,7 +10,7 @@ import (
 
 type Gossiper interface {
 	Gossip(committee *types.Committee, message message.Msg)
-	AskSync(committee *types.Committee, coreHeight uint64, round int64, syncMsg *message.SyncMsg)
+	AskSync(committee *types.Committee, coreHeight uint64, round int64, syncMsg *message.LostSyncMsg)
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 	Broadcaster() consensus.Broadcaster
 	KnownMessages() *fixsizecache.Cache[common.Hash, bool]

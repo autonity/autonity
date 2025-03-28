@@ -85,7 +85,7 @@ func TestTendermintMessage(t *testing.T) {
 func TestSynchronisationMessage(t *testing.T) {
 	t.Run("engine not running, ignored", func(t *testing.T) {
 		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
-		sub := eventMux.Subscribe(events.SyncEvent{})
+		sub := eventMux.Subscribe(events.LostSyncEvent{})
 		b := &Backend{
 			database: rawdb.NewMemoryDatabase(),
 			logger:   log.New("backend", "test", "id", 0),
@@ -107,7 +107,7 @@ func TestSynchronisationMessage(t *testing.T) {
 
 	t.Run("engine running, sync returned", func(t *testing.T) {
 		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
-		sub := eventMux.Subscribe(events.SyncEvent{})
+		sub := eventMux.Subscribe(events.LostSyncEvent{})
 		b := &Backend{
 			database: rawdb.NewMemoryDatabase(),
 			logger:   log.New("backend", "test", "id", 0),

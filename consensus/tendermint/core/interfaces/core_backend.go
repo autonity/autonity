@@ -25,7 +25,7 @@ type Backend interface {
 
 	AddSeal(block *types.Block) (*types.Block, error)
 
-	AskSync(committee *types.Committee, syncMsg *message.SyncMsg)
+	AskSync(committee *types.Committee, syncMsg *message.LostSyncMsg)
 
 	// Broadcast sends a message to all validators (include self)
 	Broadcast(committee *types.Committee, message message.Msg)
@@ -107,7 +107,6 @@ type Core interface {
 	Precommiter() Precommiter
 	Height() *big.Int
 	Round() int64
-	CurrentHeightMessages() []message.Msg
 
 	// Used by the aggregator
 	Power(h uint64, r int64) *message.AggregatedPower
