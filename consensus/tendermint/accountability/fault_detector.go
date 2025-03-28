@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"math"
 	"math/big"
 	"sort"
@@ -61,6 +62,8 @@ var (
 	errNoEvidenceForPVN = errors.New("no proof of innocence found for rule PVN")
 	errNoEvidenceForPVO = errors.New("no proof of innocence found for rule PVO")
 	errNoEvidenceForC1  = errors.New("no proof of innocence found for rule C1")
+
+	errInvalidLostSyncMsg = errors.New("invalid ask sync message")
 
 	nilValue = common.Hash{}
 )
@@ -271,6 +274,7 @@ tendermintMsgLoop:
 	close(fd.misbehaviourProofCh)
 }
 
+// todo: refine this function.
 func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Address) error {
 	var lostSync message.LostSyncMsg
 	err := rlp.DecodeBytes(payload, &lostSync)
@@ -278,11 +282,177 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 		return err
 	}
 
+	// sanity checks, no duplicated rounds, and msg set bound checks.
+	presentedRounds := make(map[uint64]struct{})
+	for _, v := range lostSync.RoundsViews {
+		if v.Round > constants.MaxRound {
+			return errInvalidLostSyncMsg
+		}
+		if _, ok := presentedRounds[v.Round]; ok {
+			return errInvalidLostSyncMsg
+		} else {
+			presentedRounds[v.Round] = struct{}{}
+		}
+		if len(v.Prevotes) != len(v.PrevotesSigners) || len(v.Precommits) != len(v.PrecommitsSigners) {
+			return errInvalidLostSyncMsg
+		}
+	}
+
 	// todo: consider a rate limit for the sender from DoS, double check if the msg is being relaying.
 
-	// todo: query missing msgs from msg store, with height, round, step and signers.
+	var missingProposals []*message.Propose
+	var missingPrevotes []*message.Prevote
+	var missingPrecommits []*message.Precommit
 
-	// todo: send the msg back to the sender.
+	for _, roundView := range lostSync.RoundsViews {
+		// get missing proposals.
+		if roundView.Proposal == nilValue {
+			proposals := fd.msgStore.GetProposals(lostSync.Height, func(m *message.Propose) bool {
+				return uint64(m.R()) == roundView.Round
+			})
+			if len(proposals) > 0 {
+				missingProposals = append(missingProposals, proposals...)
+			}
+		}
+
+		// get missing prevotes of the round, they could have different value and different signers.
+		presentedPrevoteVal := make(map[common.Hash]struct{})
+		for i, value := range roundView.Prevotes {
+
+			if _, ok := presentedPrevoteVal[value]; ok {
+				return errInvalidLostSyncMsg
+			} else {
+				presentedPrevoteVal[value] = struct{}{}
+			}
+
+			presentedSigners := roundView.PrevotesSigners[i]
+			if presentedSigners == nil {
+				return errInvalidLostSyncMsg
+			}
+
+			// select prevotes of the same round with same value but with different presentedSigners
+			prevotes := fd.msgStore.GetPrevotes(lostSync.Height, func(m *message.Prevote) bool {
+				if uint64(m.R()) == roundView.Round && m.Value() == value {
+					// only with signers which is not in the presentedSigners
+					for _, idx := range m.Signers().FlattenUniq() {
+						if presentedSigners.Bit(idx) == 0 {
+							return true
+						}
+					}
+				}
+				return false
+			})
+
+			if len(prevotes) > 0 {
+				missingPrevotes = append(missingPrevotes, prevotes...)
+			}
+		}
+		// get prevotes of not presented values.
+		prevotes := fd.msgStore.GetPrevotes(lostSync.Height, func(m *message.Prevote) bool {
+			if uint64(m.R()) == roundView.Round {
+				if _, ok := presentedPrevoteVal[m.Value()]; !ok {
+					return true
+				}
+			}
+			return false
+		})
+		if len(prevotes) > 0 {
+			missingPrevotes = append(missingPrevotes, prevotes...)
+		}
+
+		// ----------------------
+
+		// get missing precommits.
+		presentedPrecommitVal := make(map[common.Hash]struct{})
+		for i, value := range roundView.Precommits {
+
+			if _, ok := presentedPrecommitVal[value]; ok {
+				return errInvalidLostSyncMsg
+			} else {
+				presentedPrecommitVal[value] = struct{}{}
+			}
+
+			presentedSigners := roundView.PrecommitsSigners[i]
+			if presentedSigners == nil {
+				return errInvalidLostSyncMsg
+			}
+
+			// select precommit of the same round with same value but with different presentedSigners
+			precommits := fd.msgStore.GetPrecommits(lostSync.Height, func(m *message.Precommit) bool {
+				if uint64(m.R()) == roundView.Round && m.Value() == value {
+					// only with signers which is not in the presentedSigners
+					for _, idx := range m.Signers().FlattenUniq() {
+						if presentedSigners.Bit(idx) == 0 {
+							return true
+						}
+					}
+				}
+				return false
+			})
+
+			if len(precommits) > 0 {
+				missingPrecommits = append(missingPrecommits, precommits...)
+			}
+		}
+		// get precommits of not presented values.
+		precommits := fd.msgStore.GetPrecommits(lostSync.Height, func(m *message.Precommit) bool {
+			if uint64(m.R()) == roundView.Round {
+				if _, ok := presentedPrecommitVal[m.Value()]; !ok {
+					return true
+				}
+			}
+			return false
+		})
+		if len(precommits) > 0 {
+			missingPrecommits = append(missingPrecommits, precommits...)
+		}
+	}
+
+	// select prevotes of not presented rounds.
+	prevotes := fd.msgStore.GetPrevotes(lostSync.Height, func(m *message.Prevote) bool {
+		if _, ok := presentedRounds[uint64(m.R())]; !ok {
+			return true
+		}
+		return false
+	})
+	if len(prevotes) > 0 {
+		missingPrevotes = append(missingPrevotes, prevotes...)
+	}
+
+	// select precommits of not presented rounds.
+	precommit := fd.msgStore.GetPrecommits(lostSync.Height, func(m *message.Precommit) bool {
+		if _, ok := presentedRounds[uint64(m.R())]; !ok {
+			return true
+		}
+		return false
+	})
+
+	if len(precommit) > 0 {
+		missingPrecommits = append(missingPrecommits, precommit...)
+	}
+
+	if fd.broadcaster == nil {
+		fd.logger.Warn("p2p protocol handler is not ready yet")
+		return nil
+	}
+
+	peer, ok := fd.broadcaster.FindPeer(sender)
+	if !ok {
+		fd.logger.Debug("no peer connection for off chain innocence proof event")
+		return nil
+	}
+
+	for _, m := range missingProposals {
+		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
+	}
+
+	for _, m := range missingProposals {
+		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
+	}
+
+	for _, m := range missingPrecommits {
+		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
+	}
 
 	return nil
 }
