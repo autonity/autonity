@@ -239,6 +239,7 @@ tendermintMsgLoop:
 			case events.LostSyncEvent:
 				// process liveness fault from msg store context to release the consensus core locking in large scale network
 				// in which the processing of huge num of AskSyncs would lock the core for a long period.
+				// todo: handle the DoS vectors for this msg.
 				err := fd.handleLostSyncEvent(e.Payload, e.Sender)
 				if err != nil {
 					fd.logger.Error("Accountability: lost sync recovery", "error", err)
@@ -274,35 +275,8 @@ tendermintMsgLoop:
 	close(fd.misbehaviourProofCh)
 }
 
-// todo: refine this function.
-func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Address) error {
-	var lostSync message.LostSyncMsg
-	err := rlp.DecodeBytes(payload, &lostSync)
-	if err != nil {
-		return err
-	}
-
-	// sanity checks, no duplicated rounds, and msg set bound checks.
-	presentedRounds := make(map[uint64]struct{})
-	for _, v := range lostSync.RoundsViews {
-		if v.Round > constants.MaxRound {
-			return errInvalidLostSyncMsg
-		}
-		if _, ok := presentedRounds[v.Round]; ok {
-			return errInvalidLostSyncMsg
-		} else {
-			presentedRounds[v.Round] = struct{}{}
-		}
-		if len(v.Prevotes) != len(v.PrevotesSigners) || len(v.Precommits) != len(v.PrecommitsSigners) {
-			return errInvalidLostSyncMsg
-		}
-	}
-
-	// todo: consider a rate limit for the sender from DoS, double check if the msg is being relaying.
-
+func (fd *FaultDetector) sendMissingProposals(lostSync *message.LostSyncMsg, sender common.Address) {
 	var missingProposals []*message.Propose
-	var missingPrevotes []*message.Prevote
-	var missingPrecommits []*message.Precommit
 
 	for _, roundView := range lostSync.RoundsViews {
 		// get missing proposals.
@@ -314,7 +288,28 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 				missingProposals = append(missingProposals, proposals...)
 			}
 		}
+	}
 
+	if fd.broadcaster == nil {
+		fd.logger.Warn("p2p protocol handler is not ready yet")
+		return
+	}
+
+	peer, ok := fd.broadcaster.FindPeer(sender)
+	if !ok {
+		fd.logger.Debug("no peer connection from sender", "peer", sender)
+		return
+	}
+
+	for _, m := range missingProposals {
+		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
+	}
+	return
+}
+
+func (fd *FaultDetector) sendMissingPrevotes(presentedRounds map[uint64]struct{}, lostSync *message.LostSyncMsg, sender common.Address) error {
+	var missingPrevotes []*message.Prevote
+	for _, roundView := range lostSync.RoundsViews {
 		// get missing prevotes of the round, they could have different value and different signers.
 		presentedPrevoteVal := make(map[common.Hash]struct{})
 		for i, value := range roundView.Prevotes {
@@ -359,9 +354,41 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 		if len(prevotes) > 0 {
 			missingPrevotes = append(missingPrevotes, prevotes...)
 		}
+	}
 
-		// ----------------------
+	// select prevotes of not presented rounds.
+	prevotes := fd.msgStore.GetPrevotes(lostSync.Height, func(m *message.Prevote) bool {
+		if _, ok := presentedRounds[uint64(m.R())]; !ok {
+			return true
+		}
+		return false
+	})
 
+	if len(prevotes) > 0 {
+		missingPrevotes = append(missingPrevotes, prevotes...)
+	}
+
+	if fd.broadcaster == nil {
+		fd.logger.Warn("p2p protocol handler is not ready yet")
+		return nil
+	}
+
+	peer, ok := fd.broadcaster.FindPeer(sender)
+	if !ok {
+		fd.logger.Debug("no peer connection for sender", "peer", sender)
+		return nil
+	}
+
+	for _, m := range missingPrevotes {
+		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
+	}
+	return nil
+}
+
+func (fd *FaultDetector) sendMissingPrecommits(presentedRounds map[uint64]struct{}, lostSync *message.LostSyncMsg, sender common.Address) error {
+	var missingPrecommits []*message.Precommit
+
+	for _, roundView := range lostSync.RoundsViews {
 		// get missing precommits.
 		presentedPrecommitVal := make(map[common.Hash]struct{})
 		for i, value := range roundView.Precommits {
@@ -377,7 +404,7 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 				return errInvalidLostSyncMsg
 			}
 
-			// select precommit of the same round with same value but with different presentedSigners
+			// select precommits of the same round with same value but with different presentedSigners
 			precommits := fd.msgStore.GetPrecommits(lostSync.Height, func(m *message.Precommit) bool {
 				if uint64(m.R()) == roundView.Round && m.Value() == value {
 					// only with signers which is not in the presentedSigners
@@ -408,27 +435,16 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 		}
 	}
 
-	// select prevotes of not presented rounds.
-	prevotes := fd.msgStore.GetPrevotes(lostSync.Height, func(m *message.Prevote) bool {
-		if _, ok := presentedRounds[uint64(m.R())]; !ok {
-			return true
-		}
-		return false
-	})
-	if len(prevotes) > 0 {
-		missingPrevotes = append(missingPrevotes, prevotes...)
-	}
-
 	// select precommits of not presented rounds.
-	precommit := fd.msgStore.GetPrecommits(lostSync.Height, func(m *message.Precommit) bool {
+	precommits := fd.msgStore.GetPrecommits(lostSync.Height, func(m *message.Precommit) bool {
 		if _, ok := presentedRounds[uint64(m.R())]; !ok {
 			return true
 		}
 		return false
 	})
 
-	if len(precommit) > 0 {
-		missingPrecommits = append(missingPrecommits, precommit...)
+	if len(precommits) > 0 {
+		missingPrecommits = append(missingPrecommits, precommits...)
 	}
 
 	if fd.broadcaster == nil {
@@ -438,22 +454,56 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 
 	peer, ok := fd.broadcaster.FindPeer(sender)
 	if !ok {
-		fd.logger.Debug("no peer connection for off chain innocence proof event")
+		fd.logger.Debug("no peer connection for sender", "peer", sender)
 		return nil
-	}
-
-	for _, m := range missingProposals {
-		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
-	}
-
-	for _, m := range missingProposals {
-		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 	}
 
 	for _, m := range missingPrecommits {
 		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 	}
 
+	return nil
+}
+
+func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Address) error {
+	var lostSync message.LostSyncMsg
+	err := rlp.DecodeBytes(payload, &lostSync)
+	if err != nil {
+		return err
+	}
+
+	// sanity checks: no duplicated rounds, and msg set bound checks.
+	presentedRounds := make(map[uint64]struct{})
+	for _, v := range lostSync.RoundsViews {
+		if v.Round > constants.MaxRound {
+			return errInvalidLostSyncMsg
+		}
+		if _, ok := presentedRounds[v.Round]; ok {
+			return errInvalidLostSyncMsg
+		} else {
+			presentedRounds[v.Round] = struct{}{}
+		}
+		if len(v.Prevotes) != len(v.PrevotesSigners) || len(v.Precommits) != len(v.PrecommitsSigners) {
+			return errInvalidLostSyncMsg
+		}
+	}
+
+	// prioritized the missing precomits as it could trigger the remote peer step into next round or to commit a value.
+	err = fd.sendMissingPrecommits(presentedRounds, &lostSync, sender)
+	if err != nil {
+		fd.logger.Error("Going to suspend peer connection", "err", err, "peer", sender)
+		return err
+	}
+
+	// otherwise, we send missing prevotes to get remote peer change its voting step.
+	err = fd.sendMissingPrevotes(presentedRounds, &lostSync, sender)
+	if err != nil {
+		fd.logger.Error("Going to suspend per connection", "err", err, "peer", sender)
+		return err
+	}
+
+	// at the end, we send the most heavy msg, the missing proposals.
+	fd.sendMissingProposals(&lostSync, sender)
 	return nil
 }
 
