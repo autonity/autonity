@@ -121,6 +121,7 @@ func (s *Set) Snapshot() ([]common.Hash, []*big.Int) {
 	for v, votes := range s.powers {
 		values[i] = v
 		signers[i] = new(big.Int).Set(votes.Signers())
+		i++
 	}
 
 	return values, signers
