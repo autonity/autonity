@@ -6,15 +6,8 @@ import (
 	"math/big"
 )
 
-// msgsNotSynced filter out those missing msg of the remote sync asker.
-func (c *Core) msgsNotSynced(syncMsg *message.SyncMsg) []message.Msg {
-	// todo: filter out those messages round by round from local msg store.
-
-	return nil
-}
-
-func (c *Core) snapshotSyncMsg() *message.SyncMsg {
-	msg := &message.SyncMsg{}
+func (c *Core) snapshotLostSyncMsg() *message.LostSyncMsg {
+	msg := &message.LostSyncMsg{}
 	msg.Height = c.Height().Uint64()
 	msg.RoundsViews = c.Messages().Snapshot()
 

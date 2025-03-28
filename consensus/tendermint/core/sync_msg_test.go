@@ -28,7 +28,7 @@ func TestSyncMsg(t *testing.T) {
 		PrecommitsSigners: []*big.Int{},
 	}
 
-	syncMsg := &message.SyncMsg{
+	syncMsg := &message.LostSyncMsg{
 		Height:      100,
 		RoundsViews: []*message.RoundMsgView{round1, round2},
 	}
@@ -36,7 +36,7 @@ func TestSyncMsg(t *testing.T) {
 	encoded, err := rlp.EncodeToBytes(syncMsg)
 	require.NoError(t, err)
 
-	var decodedSyncMsg message.SyncMsg
+	var decodedSyncMsg message.LostSyncMsg
 	err = rlp.DecodeBytes(encoded, &decodedSyncMsg)
 	require.NoError(t, err)
 

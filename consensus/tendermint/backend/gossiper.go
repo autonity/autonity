@@ -78,7 +78,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	}
 }
 
-func (g *Gossiper) AskSync(committee *types.Committee, coreHeight uint64, round int64, syncMsg *message.SyncMsg) {
+func (g *Gossiper) AskSync(committee *types.Committee, coreHeight uint64, round int64, syncMsg *message.LostSyncMsg) {
 	encoded, err := rlp.EncodeToBytes(syncMsg)
 	if err != nil {
 		log.Error("Error encoding sync msg", "err", err)

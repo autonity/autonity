@@ -46,10 +46,6 @@ func (s *Map) Snapshot() []*RoundMsgView {
 	return views
 }
 
-// TODO: this function has a mutex that can be taken by:
-// 1. the core routine
-// 2. the routine that syncs other peers
-// can this be exploited by a malicious peer to slow Core down (by requesting ask sync lots of times)
 func (s *Map) All() []Msg {
 	s.RLock()
 	defer s.RUnlock()
@@ -270,8 +266,8 @@ type RoundMsgView struct {
 	PrecommitsSigners []*big.Int
 }
 
-// SyncMsg carries all the msgs' views, include future rounds of current consensus engine for tendermint state recovery.
-type SyncMsg struct {
+// LostSyncMsg carries all the msgs' views, include future rounds of current consensus engine for tendermint state recovery.
+type LostSyncMsg struct {
 	Height      uint64
 	RoundsViews []*RoundMsgView
 }

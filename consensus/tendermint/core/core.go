@@ -77,7 +77,6 @@ type Core struct {
 	candidateBlockCh    chan events.NewCandidateBlockEvent
 	committedCh         chan events.CommitEvent
 	timeoutEventSub     *event.TypeMuxSubscription
-	syncEventSub        *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
 
@@ -607,10 +606,6 @@ func (c *Core) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *mess
 		c.logger.Crit("unknown message code", "code", code)
 	}
 	return power
-}
-
-func (c *Core) CurrentHeightMessages() []message.Msg {
-	return c.messages.All()
 }
 
 func (c *Core) Backend() interfaces.Backend {
