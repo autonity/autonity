@@ -278,16 +278,18 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 	if len(committee) <= ScaleThresholdForClustering {
 		return nil
 	}
-	numClusters := numClustersFor(len(committee))
+
+	numClusters := int(math.Floor(math.Sqrt(float64(len(committee)))))
 	clusters := make([][]common.Address, numClusters)
 	for i, addr := range committee {
-		k := int(math.Min(float64(i/numClusters), float64(numClusters-1)))
+		//k := int(math.Min(float64(i/numClusters), float64(numClusters-1)))
+		k := i % numClusters
 		clusters[k] = append(clusters[k], addr)
 	}
 
 	defaultClusters := NewCluster(r.curEpochInfo.EpochBlock.Uint64(), r.curEpochInfo.NextEpochBlock.Uint64(), clusters)
 
-	//todo: use the last optimized to cluster to build the default cluster, starting from epoch 1
+	//todo: use the latest(last epoch) optimized to cluster to build the default cluster, starting from epoch 1
 	log.Debug("Router: set default clusters", "clusters", func() [][]int {
 		clusterInts := make([][]int, len(clusters))
 		for i, cluster := range clusters {
@@ -569,7 +571,7 @@ type Selector struct {
 	HeightIndex   int
 }
 
-func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, round int64, from common.Address, senderType SenderType) {
+func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, round int64, from common.Address, senderType SenderType, ownClusterID int) {
 	logKey := fmt.Sprintf("%d-%d", height, round)
 
 	if _, logged := s.LoggedHR[logKey]; logged {
@@ -601,7 +603,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 		sender = "remote relayer"
 	}
 
-	sb.WriteString(fmt.Sprintf("Cluster connectivity status:\t, Height=%d, Round=%d, From=%s SenderType=%s \n", height, round, from.Hex(), sender))
+	sb.WriteString(fmt.Sprintf("Cluster connectivity status:\t, Height=%d, Round=%d, From=%s SenderType=%s localCluster %d\n", height, round, from.Hex(), sender, ownClusterID))
 
 	for clusterID, cluster := range peerCluster {
 		var lostPeers []string
@@ -643,10 +645,10 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	var recipients []types.CommitteeMember
 	if from == s.self {
 		ownCluster := clusters.clusterContaining(from)
+		// select local cluster nodes
 
 		// select relayers from other clusters
 		results := clusters.selectK(VerticalRelayingRedundancy, seed, ownCluster)
-		s.clusterStatus(results, msg.H(), msg.R(), from, originator)
 		receivers := make([]common.Address, 0)
 		for _, receiver := range results {
 			receivers = append(receivers, receiver...)
@@ -657,6 +659,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		localClusterNodes := clusters.clusterByID(ownCluster)
 		if localClusterNodes != nil {
 			receivers = append(receivers, localClusterNodes...)
+			results[ownCluster] = localClusterNodes
 		}
 
 		for _, addr := range receivers {
@@ -664,6 +667,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 				recipients = append(recipients, *member)
 			}
 		}
+		s.clusterStatus(results, msg.H(), msg.R(), from, originator, ownCluster)
 
 		log.Debug(
 			"Router: sending msg to other clusters and local cluster",
@@ -689,7 +693,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		}
 		results := make([][]common.Address, len(clusters.base))
 		results[ownCluster] = clusters.base[ownCluster]
-		s.clusterStatus(results, msg.H(), msg.R(), from, localRelayer)
+		s.clusterStatus(results, msg.H(), msg.R(), from, localRelayer, ownCluster)
 		log.Debug(
 			"Router: sending message to local cluster",
 			"from",
@@ -710,15 +714,16 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	if ownCluster := clusters.clusterContaining(s.self); ownCluster != clusters.clusterContaining(from) && ownCluster >= 0 {
 
 		// select local cluster nodes
+		localAddress := make([]common.Address, 0)
 		for _, addr := range clusters.base[ownCluster] {
 			if member := committee.MemberByAddress(addr); member != nil && addr != s.self {
 				recipients = append(recipients, *member)
+				localAddress = append(localAddress, addr)
 			}
 		}
 
 		// to add robustness, we also relay message to other clusters horizontally.
 		results := clusters.selectK(HorizontalRelayingRedundancy, seed, ownCluster)
-		s.clusterStatus(results, msg.H(), msg.R(), from, RemoteRelayer)
 		relayers := make([]common.Address, 0)
 		for _, relayer := range results {
 			relayers = append(relayers, relayer...)
@@ -728,6 +733,8 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 				recipients = append(recipients, *member)
 			}
 		}
+		results[ownCluster] = localAddress // add local nodes to the results
+		s.clusterStatus(results, msg.H(), msg.R(), from, RemoteRelayer, ownCluster)
 		log.Debug(
 			"Router: sending message to own cluster, and horizontally relaying to other clusters",
 			"from",
