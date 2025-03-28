@@ -111,7 +111,6 @@ contract Latency is ILatency, AccessAutonity {
     function report(uint8[] memory _latency) external onlyCommittee(msg.sender) onlyOncePerEpoch {
         require(_latency.length == committee.length, "Latency: invalid length");
         require(committee.length > SCALE_THRESHOLD_FOR_CLUSTERING, "Latency: committee too small");
-        require(kmOptimizedHeight == 0, "Latency: clustering optimization already done for current epoch");
 
         for (uint256 i = 0; i < _latency.length; i++) {
             latency[msg.sender][committee[i]] = _latency[i];

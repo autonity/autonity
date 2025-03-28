@@ -57,29 +57,35 @@ func (c *Clusters) clusterContaining(address common.Address) int {
 }
 
 // selectK selects pseudo random k members from each cluster exclude the selected cluster.
-func (c *Clusters) selectK(k int, seed int64, excepted int) []common.Address {
-	var result []common.Address
+func (c *Clusters) selectK(k int, seed int64, excepted int) [][]common.Address {
+	result := make([][]common.Address, len(c.base))
 	r := rand.New(rand.NewSource(seed))
+
 	for i, cluster := range c.base {
 		if i == excepted {
 			continue
 		}
 
+		var selectedCluster []common.Address
 		if len(cluster) <= k {
-			result = append(result, cluster...)
+			selectedCluster = append(selectedCluster, cluster...)
 		} else {
-			selected := make(map[int]struct{})
-			for j := 0; j < k; j++ {
+			selectedIndices := make(map[int]struct{})
+			for len(selectedCluster) < k {
 				index := r.Intn(len(cluster))
-				for _, ok := selected[index]; ok; {
-					index = r.Intn(len(cluster))
+				if _, ok := selectedIndices[index]; !ok {
+					selectedIndices[index] = struct{}{}
+					selectedCluster = append(selectedCluster, cluster[index])
 				}
-				result = append(result, cluster[index])
 			}
 		}
+
+		result[i] = selectedCluster
 	}
+
 	return result
 }
+
 
 type node struct {
 	address     common.Address

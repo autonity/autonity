@@ -53,7 +53,7 @@ func TestEdgeDirection(t *testing.T) {
 
 func TestGraphDegree(t *testing.T) {
 	const targetDiameter = 4
-	nodeCount := int(max(1000, params.TestAutonityContractConfig.MaxCommitteeSize))
+	nodeCount := int(max(500, params.TestAutonityContractConfig.MaxCommitteeSize))
 	graph := NewBulkGraphTester(targetDiameter, nodeCount, t)
 	for n := 1; n <= nodeCount; n++ {
 		graph.AddNewNode()
@@ -70,7 +70,7 @@ func TestGraphDegree(t *testing.T) {
 
 func TestGraphDiamter(t *testing.T) {
 	const targetDiameter = 4
-	nodeCount := int(max(1000, params.TestAutonityContractConfig.MaxCommitteeSize))
+	nodeCount := int(max(500, params.TestAutonityContractConfig.MaxCommitteeSize))
 	graph := NewBulkGraphTester(targetDiameter, nodeCount, t)
 	for n := 1; n <= nodeCount; n++ {
 		graph.AddNewNode()

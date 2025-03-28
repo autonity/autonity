@@ -8,9 +8,9 @@ import (
 
 const (
 	// max degree allowed for network in the execution layer
-	MaxDegree = 50
+	MaxDegree = 50 // 25
 	// if the network size exceeds MaxGraphSize, we divide the network in smaller sub-network of size MaxGraphSize
-	MaxGraphSize = 512
+	MaxGraphSize = 512  // 64
 )
 
 type networkTopology struct {

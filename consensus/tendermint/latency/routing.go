@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -62,8 +64,10 @@ type Router struct {
 	optimizationEventChan chan *autonity.LatencyKMOptimization
 	optimizationEventSub  event.Subscription
 
-	epochEventChan chan core.EpochHeadEvent
-	epochEventSub  event.Subscription
+	epochEventChan     chan core.EpochHeadEvent
+	epochEventSub      event.Subscription
+	chainHeadEventSub  event.Subscription
+	chainHeadEventChan chan core.ChainHeadEvent
 
 	curEpochInfo *types.EpochInfo
 
@@ -84,6 +88,7 @@ func NewRouter(
 		broadcaster:           broadcaster,
 		nodeKey:               nodeKey,
 		epochEventChan:        make(chan core.EpochHeadEvent, 2),
+		chainHeadEventChan:    make(chan core.ChainHeadEvent, 2),
 		optimizationEventChan: make(chan *autonity.LatencyKMOptimization, 2),
 		pinger:                ping.NewPinger(ping.TCP),
 		lastMeasuredEpoch:     new(big.Int).SetInt64(-1),
@@ -101,7 +106,7 @@ func NewRouter(
 }
 
 func (r *Router) SetDefaultHandlers() {
-	r.peerSelector = &Selector{r}
+	r.peerSelector = &Selector{Router: r, LoggedHR: make(map[string]uint64), RecentHeights: [10]uint64{}, HeightIndex: 0}
 }
 
 func (r *Router) PeerSelector() PeerSelector {
@@ -161,6 +166,7 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 
 	r.optimizationEventSub = optimizationEventSub
 	r.epochEventSub = chain.SubscribeEpochHeadEvent(r.epochEventChan)
+	r.chainHeadEventSub = chain.SubscribeChainHeadEvent(r.chainHeadEventChan)
 	r.contracts = chain.ProtocolContracts()
 	r.reporter, err = NewReporter(chain.Config().ChainID, r.nodeKey, r.contracts)
 	if err != nil {
@@ -240,6 +246,7 @@ func (r *Router) resolveClusters(h uint64) (*Clusters, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
+	//todo: in a single epoch there could be multiple cluster views, we need to use the view according to the height.
 	if r.epochDefaultClusters != nil && h >= r.epochDefaultClusters.nextEpochHeight {
 		return nil, consensus.ErrFutureEpochMessage
 	}
@@ -364,6 +371,10 @@ func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]u
 	return latency, nil
 }
 
+func (r *Router) printClusterState(ctx context.Context) {
+
+}
+
 func (r *Router) loop(ctx context.Context) {
 	defer r.wg.Done()
 
@@ -422,6 +433,9 @@ func (r *Router) loop(ctx context.Context) {
 			if err != nil {
 				log.Error("Router: failed to optimize the clustering", "err", err)
 			}
+
+		case newHead := <-r.chainHeadEventChan:
+			log.Info("Router: new chain head", "height", newHead.Block.Number().Uint64())
 
 		case epochEv := <-r.epochEventChan:
 			log.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
@@ -533,8 +547,79 @@ func findByAddress(committeeEnodes []*enode.Node, addr common.Address) (*enode.N
 	return nil, false
 }
 
+type SenderType int
+
+const (
+	originator SenderType = iota + 1
+	localRelayer
+	RemoteRelayer
+)
+
 type Selector struct {
 	*Router
+	LoggedHR      map[string]uint64
+	RecentHeights [10]uint64
+	HeightIndex   int
+}
+
+func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, round int64, from common.Address, senderType SenderType) {
+	logKey := fmt.Sprintf("%d-%d", height, round)
+
+	if _, logged := s.LoggedHR[logKey]; logged {
+		return
+	}
+
+	oldHeight := s.RecentHeights[s.HeightIndex]
+	if oldHeight != 0 {
+		for k, h := range s.LoggedHR {
+			if h == oldHeight {
+				delete(s.LoggedHR, k)
+			}
+		}
+	}
+
+	s.RecentHeights[s.HeightIndex] = height
+	s.LoggedHR[logKey] = height
+	s.HeightIndex = (s.HeightIndex + 1) % 10
+
+	var sb strings.Builder
+	totalDisconnected := 0
+	sender := "originator"
+	switch senderType {
+	case originator:
+		sender = "originator"
+	case localRelayer:
+		sender = "local relayer"
+	case RemoteRelayer:
+		sender = "remote relayer"
+	}
+
+	sb.WriteString(fmt.Sprintf("Cluster connectivity status:\t, Height=%d, Round=%d, From=%s SenderType=%s \n", height, round, from.Hex(), sender))
+
+	for clusterID, cluster := range peerCluster {
+		var lostPeers []string
+
+		for _, peer := range cluster {
+			_, ok := s.broadcaster.FindPeer(peer)
+			if !ok {
+				lostPeers = append(lostPeers, fmt.Sprintf("%s ", peer.Hex()))
+				totalDisconnected++
+			}
+		}
+
+		sb.WriteString(fmt.Sprintf("  Cluster #%d: total selected %d peers, disconnected %d peers\n", clusterID, len(cluster), len(lostPeers)))
+
+		if len(lostPeers) > 0 {
+			sb.WriteString("    X Disconnected peers:\n")
+			for _, peerInfo := range lostPeers {
+				sb.WriteString(fmt.Sprintf("      - %s\n", peerInfo))
+			}
+		}
+	}
+
+	sb.WriteString(fmt.Sprintf("Total disconnected peers: %d\n", totalDisconnected))
+
+	log.Info(sb.String())
 }
 
 func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
@@ -546,14 +631,19 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		return nil, err
 	}
 
-	num := seed(msg)
+	seed := seed(msg)
 	// if node is the original msg sender, it selects K*VerticalRelayingRedundancy relayers from every cluster vertically.
 	var recipients []types.CommitteeMember
 	if from == s.self {
 		ownCluster := clusters.clusterContaining(from)
 
 		// select relayers from other clusters
-		receivers := clusters.selectK(VerticalRelayingRedundancy, num, ownCluster)
+		results := clusters.selectK(VerticalRelayingRedundancy, seed, ownCluster)
+		s.clusterStatus(results, msg.H(), msg.R(), from, originator)
+		receivers := make([]common.Address, 0)
+		for _, receiver := range results {
+			receivers = append(receivers, receiver...)
+		}
 		numOfRelayers := len(receivers)
 
 		// send to local cluster nodes too.
@@ -590,6 +680,9 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 				recipients = append(recipients, *member)
 			}
 		}
+		results := make([][]common.Address, len(clusters.base))
+		results[ownCluster] = clusters.base[ownCluster]
+		s.clusterStatus(results, msg.H(), msg.R(), from, localRelayer)
 		log.Debug(
 			"Router: sending message to local cluster",
 			"from",
@@ -617,7 +710,12 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		}
 
 		// to add robustness, we also relay message to other clusters horizontally.
-		relayers := clusters.selectK(HorizontalRelayingRedundancy, num, ownCluster)
+		results := clusters.selectK(HorizontalRelayingRedundancy, seed, ownCluster)
+		s.clusterStatus(results, msg.H(), msg.R(), from, RemoteRelayer)
+		relayers := make([]common.Address, 0)
+		for _, relayer := range results {
+			relayers = append(relayers, relayer...)
+		}
 		for _, addr := range relayers {
 			if member := committee.MemberByAddress(addr); member != nil && addr != from {
 				recipients = append(recipients, *member)
@@ -642,13 +740,14 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 func seed(msg message.Msg) int64 {
 	// this ensures we end up with a seed that is > 0 < math.MaxInt64, but is still reliant on
 	// the message hash and the message height and round
-	mh := int64(msg.H())*msg.R() + 1
-	hash := new(big.Int).
-		Mod(
-			msg.Hash().Big(),
-			new(big.Int).Div(big.NewInt(math.MaxInt64), big.NewInt(mh)),
-		)
-	return mh * hash.Int64()
+	mh := int64(msg.H()) + msg.R() + 1
+	//hash := new(big.Int).
+	//	Mod(
+	//		msg.Hash().Big(),
+	//		new(big.Int).Div(big.NewInt(math.MaxInt64), big.NewInt(mh)),
+	//	)
+	//return mh * hash.Int64()
+	return mh
 }
 
 func numClustersFor(length int) int {

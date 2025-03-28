@@ -90,6 +90,10 @@ func (p *Peer) SendRaw(msgcode uint64, data []byte) error {
 	return p2p.SendRaw(p.rw, msgcode, data)
 }
 
+func (p *Peer) Enode() *enode.Node {
+	return p.Node()
+}
+
 func getWriteMetric(msgCode uint64) metrics.BufferedGauge {
 	switch msgCode {
 	case 0x11:
