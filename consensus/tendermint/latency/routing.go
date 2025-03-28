@@ -385,7 +385,9 @@ func (r *Router) loop(ctx context.Context) {
 			cancel()
 		}
 	}()
-	curEpoch := new(big.Int).SetInt64(0)
+	measured := false
+	//todo: remove
+	disableClustering := true
 
 	for {
 		select {
@@ -399,7 +401,11 @@ func (r *Router) loop(ctx context.Context) {
 			}
 
 			// if current node already did the measurement, skip the task too.
-			if r.lastMeasuredEpoch.Cmp(curEpoch) == 0 {
+			if measured {
+				continue
+			}
+
+			if disableClustering {
 				continue
 			}
 
@@ -419,7 +425,7 @@ func (r *Router) loop(ctx context.Context) {
 			quorum := bft.Quorum(new(big.Int).SetInt64(int64(r.curEpochInfo.Committee.Len())))
 			if int64(len(connectedPeers)) >= quorum.Int64() {
 				cancel = r.startMeasurementTask(ctx)
-				r.lastMeasuredEpoch = curEpoch
+				measured = true
 			}
 
 		case optimizationEv := <-r.optimizationEventChan:
@@ -439,6 +445,7 @@ func (r *Router) loop(ctx context.Context) {
 
 		case epochEv := <-r.epochEventChan:
 			log.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
+			measured = false
 			r.curEpochInfo = &types.EpochInfo{
 				Epoch:      *epochEv.Header.Epoch.Copy(),
 				EpochBlock: epochEv.Header.Number,
