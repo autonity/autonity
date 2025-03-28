@@ -577,6 +577,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 
 	s.HeightLock.Lock()
 	if _, logged := s.LoggedHR[logKey]; logged {
+		s.HeightLock.Unlock()
 		return
 	}
 
