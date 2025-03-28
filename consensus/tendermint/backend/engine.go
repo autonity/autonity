@@ -61,7 +61,7 @@ var (
 	errCannotFindHash           = errors.New("cannot find hash")
 )
 var (
-	defaultDifficulty             = big.NewInt(1)
+	defaultDifficulty             = big.NewInt(0)
 	allowedFutureBlockTimeSeconds = int64(1)
 	nilUncleHash                  = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 	emptyNonce                    = types.BlockNonce{}

@@ -935,6 +935,7 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Header) (*
 	num := parent.Number
 	header := &types.Header{
 		ParentHash: parent.Hash(),
+		Difficulty: common.Big0,
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.CalcGasLimit(parent.GasLimit, w.config.GasCeil),
 		Time:       timestamp,

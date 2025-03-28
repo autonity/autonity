@@ -623,6 +623,7 @@ func DefaultGenesisBlock() *Genesis {
 		GasLimit:   5000,
 		Difficulty: big.NewInt(0),
 		BaseFee:    big.NewInt(params.InitialBaseFee),
+		Mixhash:    types.BFTDigest,
 	}
 }
 
