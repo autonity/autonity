@@ -621,7 +621,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 		msgType = "Unknown"
 	}
 
-	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message %s SenderType=%s localCluster %d\n", height, round, from.Hex(), msgType, sender, ownClusterID))
+	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s SenderType=%s localCluster=%d\n", height, round, from.Hex(), msgType, sender, ownClusterID))
 
 	for clusterID, cluster := range peerCluster {
 		var lostPeers, connectedPeers []string
@@ -647,7 +647,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 		if len(connectedPeers) > 0 {
 			sb.WriteString("     Connected peers:\n")
 			for _, peerInfo := range connectedPeers {
-				sb.WriteString(fmt.Sprintf("      - %s ", peerInfo))
+				sb.WriteString(fmt.Sprintf("      - %s\n", peerInfo))
 			}
 		}
 	}

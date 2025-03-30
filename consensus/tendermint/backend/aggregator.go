@@ -938,7 +938,7 @@ loop:
 			sb := strings.Builder{}
 			sb.Grow(len(stats) * 100)
 
-			sb.WriteString("\nMessage Statistics by Height and Round\n")
+			sb.WriteString("\nStale message Statistics by Height and Round\n")
 			sb.WriteString("=====================================\n")
 			for height, rounds := range stats {
 				for round, counts := range rounds {
