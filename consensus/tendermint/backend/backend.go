@@ -42,7 +42,7 @@ const (
 	// while asking sync for consensus messages, if we do not find any peers we try again after 10 ms
 	retryPeriod = 10
 	// number of buckets to allocate in the fixed cache
-	numBuckets = 1999
+	numBuckets = 5987
 	// max number of entries in each packet
 	numEntries = 10
 )
