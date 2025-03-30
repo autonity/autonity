@@ -592,7 +592,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 
 	s.RecentHeights[s.HeightIndex] = height
 	s.LoggedHR[logKey] = height
-	s.HeightIndex = (s.HeightIndex + 1) % 30
+	s.HeightIndex = (s.HeightIndex + 1) % 20
 	s.HeightLock.Unlock()
 
 	var sb strings.Builder
