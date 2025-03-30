@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/latency/kmeans"
 )
 
@@ -57,25 +58,35 @@ func (c *Clusters) clusterContaining(address common.Address) int {
 }
 
 // selectK selects pseudo random k members from each cluster exclude the selected cluster.
-func (c *Clusters) selectK(k int, seed int64, excepted int) [][]common.Address {
+func (c *Clusters) selectK(k int, seed int64, excepted int, broadcaster consensus.Broadcaster) [][]common.Address {
 	result := make([][]common.Address, len(c.base))
 	r := rand.New(rand.NewSource(seed))
 
+	maxTrials := k * 5
 	for i, cluster := range c.base {
 		if i == excepted {
+			result[i] = []common.Address{}
 			continue
 		}
 
 		var selectedCluster []common.Address
 		if len(cluster) <= k {
-			selectedCluster = append(selectedCluster, cluster...)
+			for _, addr := range cluster {
+				if _, ok := broadcaster.FindPeer(addr); ok {
+					selectedCluster = append(selectedCluster, addr)
+				}
+			}
 		} else {
 			selectedIndices := make(map[int]struct{})
-			for len(selectedCluster) < k {
+			tries := 0
+			for len(selectedCluster) < k && tries < maxTrials {
 				index := r.Intn(len(cluster))
 				if _, ok := selectedIndices[index]; !ok {
-					selectedIndices[index] = struct{}{}
-					selectedCluster = append(selectedCluster, cluster[index])
+					if _, ok := broadcaster.FindPeer(cluster[index]); ok {
+						selectedIndices[index] = struct{}{}
+						selectedCluster = append(selectedCluster, cluster[index])
+					}
+					tries++
 				}
 			}
 		}
@@ -85,7 +96,6 @@ func (c *Clusters) selectK(k int, seed int64, excepted int) [][]common.Address {
 
 	return result
 }
-
 
 type node struct {
 	address     common.Address

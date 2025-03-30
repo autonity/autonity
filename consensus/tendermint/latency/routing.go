@@ -106,7 +106,7 @@ func NewRouter(
 }
 
 func (r *Router) SetDefaultHandlers() {
-	r.peerSelector = &Selector{Router: r, LoggedHR: make(map[string]uint64), RecentHeights: [10]uint64{}, HeightIndex: 0, HeightLock: sync.Mutex{}}
+	r.peerSelector = &Selector{Router: r, LoggedHR: make(map[string]uint64), RecentHeights: [20]uint64{}, HeightIndex: 0, HeightLock: sync.Mutex{}}
 }
 
 func (r *Router) PeerSelector() PeerSelector {
@@ -568,12 +568,12 @@ type Selector struct {
 	*Router
 	HeightLock    sync.Mutex
 	LoggedHR      map[string]uint64
-	RecentHeights [10]uint64
+	RecentHeights [20]uint64
 	HeightIndex   int
 }
 
-func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, round int64, from common.Address, senderType SenderType, ownClusterID int) {
-	logKey := fmt.Sprintf("%d-%d", height, round)
+func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, round int64, code uint8, from common.Address, senderType SenderType, ownClusterID int) {
+	logKey := fmt.Sprintf("%d-%d-%d", height, round, code)
 
 	s.HeightLock.Lock()
 	if _, logged := s.LoggedHR[logKey]; logged {
@@ -592,7 +592,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 
 	s.RecentHeights[s.HeightIndex] = height
 	s.LoggedHR[logKey] = height
-	s.HeightIndex = (s.HeightIndex + 1) % 10
+	s.HeightIndex = (s.HeightIndex + 1) % 30
 	s.HeightLock.Unlock()
 
 	var sb strings.Builder
@@ -607,25 +607,47 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 		sender = "remote relayer"
 	}
 
-	sb.WriteString(fmt.Sprintf("\nCluster connectivity status:\t Height=%d, Round=%d, From=%s SenderType=%s localCluster %d\n", height, round, from.Hex(), sender, ownClusterID))
+	msgType := "proposal"
+	switch code {
+	case message.ProposalCode:
+		msgType = "Proposal"
+	case message.PrevoteCode:
+		msgType = "Prevote"
+	case message.PrecommitCode:
+		msgType = "Precommit"
+	case message.LightProposalCode:
+		msgType = "Light Proposal"
+	default:
+		msgType = "Unknown"
+	}
+
+	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message %s SenderType=%s localCluster %d\n", height, round, from.Hex(), msgType, sender, ownClusterID))
 
 	for clusterID, cluster := range peerCluster {
-		var lostPeers []string
+		var lostPeers, connectedPeers []string
 
 		for _, peer := range cluster {
-			_, ok := s.broadcaster.FindPeer(peer)
-			if !ok {
+			p, ok := s.broadcaster.FindPeer(peer)
+			if ok {
+				connectedPeers = append(connectedPeers, fmt.Sprintf("%s %s", peer.Hex(), p.Enode().IP().String()))
+			} else {
 				lostPeers = append(lostPeers, fmt.Sprintf("%s ", peer.Hex()))
 				totalDisconnected++
 			}
 		}
 
-		sb.WriteString(fmt.Sprintf("  Cluster #%d: total selected %d peers, disconnected %d peers\n", clusterID, len(cluster), len(lostPeers)))
+		sb.WriteString(fmt.Sprintf("  Cluster #%d: total selected %d peers, connected %d disconnected %d peers\n", clusterID, len(cluster), len(connectedPeers), len(lostPeers)))
 
 		if len(lostPeers) > 0 {
 			sb.WriteString("    X Disconnected peers:\n")
 			for _, peerInfo := range lostPeers {
 				sb.WriteString(fmt.Sprintf("      - %s\n", peerInfo))
+			}
+		}
+		if len(connectedPeers) > 0 {
+			sb.WriteString("     Connected peers:\n")
+			for _, peerInfo := range connectedPeers {
+				sb.WriteString(fmt.Sprintf("      - %s ", peerInfo))
 			}
 		}
 	}
@@ -652,12 +674,12 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		// select local cluster nodes
 
 		// select relayers from other clusters
-		results := clusters.selectK(VerticalRelayingRedundancy, seed, ownCluster)
+		results := clusters.selectK(VerticalRelayingRedundancy, seed, ownCluster, s.broadcaster)
 		receivers := make([]common.Address, 0)
 		for _, receiver := range results {
 			receivers = append(receivers, receiver...)
 		}
-		numOfRelayers := len(receivers)
+		//numOfRelayers := len(receivers)
 
 		// send to local cluster nodes too.
 		localClusterNodes := clusters.clusterByID(ownCluster)
@@ -671,49 +693,79 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 				recipients = append(recipients, *member)
 			}
 		}
-		s.clusterStatus(results, msg.H(), msg.R(), from, originator, ownCluster)
+		s.clusterStatus(results, msg.H(), msg.R(), msg.Code(), from, originator, ownCluster)
 
-		log.Debug(
-			"Router: sending msg to other clusters and local cluster",
-			"from", from,
-			"H", msg.H(),
-			"R", msg.R(),
-			"C", msg.Code(),
-			"other cluster", numOfRelayers,
-			"local cluster", len(recipients)-numOfRelayers,
-		)
+		//log.Debug(
+		//	"Router: sending msg to other clusters and local cluster",
+		//	"from", from,
+		//	"H", msg.H(),
+		//	"R", msg.R(),
+		//	"C", msg.Code(),
+		//	"other cluster", numOfRelayers,
+		//	"local cluster", len(recipients)-numOfRelayers,
+		//)
 		return recipients, nil
 	}
 
 	// if node is in the same cluster of the original sender, relay the msg to local cluster nodes.
 	if ownCluster := clusters.clusterContaining(s.self); ownCluster == clusters.clusterContaining(from) && ownCluster >= 0 {
-		localAddress := make([]common.Address, 0)
-		for _, addr := range clusters.base[ownCluster] {
-			if addr == from || addr == s.self {
-				continue
+		//todo: define a redundancy factor for this.
+		// select and forward to 1 relayer in other clusters
+		results := clusters.selectK(HorizontalRelayingRedundancy, seed, ownCluster, s.broadcaster)
+		receivers := make([]common.Address, 0)
+		for _, receiver := range results {
+			receivers = append(receivers, receiver...)
+		}
+
+		cluster := clusters.base[ownCluster]
+		// relayer in local cluster also tries to send to local members, but only to the sqrt
+		k := int(math.Sqrt(float64(len(cluster))))
+		if k == 0 && len(cluster) > 0 {
+			k = 1
+		}
+		validIndices := make([]int, 0, len(cluster))
+		for i, addr := range cluster {
+			if addr != from && addr != s.self {
+				if _, ok := s.broadcaster.FindPeer(addr); ok {
+					validIndices = append(validIndices, i)
+				}
 			}
+		}
+		rand.Shuffle(len(validIndices), func(i, j int) {
+			validIndices[i], validIndices[j] = validIndices[j], validIndices[i]
+		})
+		selectCount := k
+		if selectCount > len(validIndices) {
+			selectCount = len(validIndices)
+		}
+
+		localAddress := make([]common.Address, 0)
+		for i := 0; i < selectCount; i++ {
+			addr := cluster[validIndices[i]]
+			receivers = append(receivers, addr)
+			localAddress = append(localAddress, addr)
+		}
+
+		for _, addr := range receivers {
 			if member := committee.MemberByAddress(addr); member != nil {
 				recipients = append(recipients, *member)
-				localAddress = append(localAddress, addr)
 			}
 		}
 
-		//todo: we should relay to other cluster as well, other wise originator is a single point of failure.
-		results := make([][]common.Address, len(clusters.base))
 		results[ownCluster] = localAddress
-		s.clusterStatus(results, msg.H(), msg.R(), from, localRelayer, ownCluster)
-		log.Debug(
-			"Router: sending message to local cluster",
-			"from",
-			from,
-			"self",
-			s.self,
-			"H", msg.H(),
-			"R", msg.R(),
-			"C", msg.Code(),
-			"local cluster",
-			len(recipients),
-		)
+		s.clusterStatus(results, msg.H(), msg.R(), msg.Code(), from, localRelayer, ownCluster)
+		//log.Debug(
+		//	"Router: sending message to local cluster",
+		//	"from",
+		//	from,
+		//	"self",
+		//	s.self,
+		//	"H", msg.H(),
+		//	"R", msg.R(),
+		//	"C", msg.Code(),
+		//	"local cluster",
+		//	len(recipients),
+		//)
 		return recipients, nil
 	}
 
@@ -721,40 +773,44 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	// moreover that, we also need to forward it to the other clusters horizontally to increase the robustness of messaging.
 	if ownCluster := clusters.clusterContaining(s.self); ownCluster != clusters.clusterContaining(from) && ownCluster >= 0 {
 
-		// select local cluster nodes
+		// select local cluster nodes only
 		localAddress := make([]common.Address, 0)
 		for _, addr := range clusters.base[ownCluster] {
 			if member := committee.MemberByAddress(addr); member != nil && addr != s.self {
-				recipients = append(recipients, *member)
-				localAddress = append(localAddress, addr)
+				// try only connected peers
+				if _, ok := s.broadcaster.FindPeer(addr); ok {
+					recipients = append(recipients, *member)
+					localAddress = append(localAddress, addr)
+				}
 			}
 		}
 
 		// to add robustness, we also relay message to other clusters horizontally.
-		results := clusters.selectK(HorizontalRelayingRedundancy, seed, ownCluster)
-		relayers := make([]common.Address, 0)
-		for _, relayer := range results {
-			relayers = append(relayers, relayer...)
-		}
-		for _, addr := range relayers {
-			if member := committee.MemberByAddress(addr); member != nil && addr != from {
-				recipients = append(recipients, *member)
-			}
-		}
+		//results := clusters.selectK(HorizontalRelayingRedundancy, seed, ownCluster, s.broadcaster)
+		//relayers := make([]common.Address, 0)
+		//for _, relayer := range results {
+		//	relayers = append(relayers, relayer...)
+		//}
+		//for _, addr := range relayers {
+		//	if member := committee.MemberByAddress(addr); member != nil && addr != from {
+		//		recipients = append(recipients, *member)
+		//	}
+		//}
+		results := make([][]common.Address, len(clusters.base))
 		results[ownCluster] = localAddress // add local nodes to the results
-		s.clusterStatus(results, msg.H(), msg.R(), from, RemoteRelayer, ownCluster)
-		log.Debug(
-			"Router: sending message to own cluster, and horizontally relaying to other clusters",
-			"from",
-			from,
-			"self",
-			s.self,
-			"H", msg.H(),
-			"R", msg.R(),
-			"C", msg.Code(),
-			"local cluster", len(recipients)-len(relayers),
-			"other cluster", len(relayers),
-		)
+		s.clusterStatus(results, msg.H(), msg.R(), msg.Code(), from, RemoteRelayer, ownCluster)
+		//log.Debug(
+		//	"Router: sending message to own cluster, and horizontally relaying to other clusters",
+		//	"from",
+		//	from,
+		//	"self",
+		//	s.self,
+		//	"H", msg.H(),
+		//	"R", msg.R(),
+		//	"C", msg.Code(),
+		//	"local cluster", len(recipients)-len(relayers),
+		//	"other cluster", len(relayers),
+		//)
 	}
 	return recipients, nil
 }
