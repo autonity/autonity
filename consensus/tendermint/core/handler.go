@@ -16,7 +16,6 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
-// todo: resolve proper tendermint state synchronization timeout from block period.
 const syncTimeOut = 30 * time.Second
 
 // Start implements core.Tendermint.Start
