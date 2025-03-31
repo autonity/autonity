@@ -642,7 +642,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 				fmt.Sprintf("C%d:%d", clusterID, len(cluster)))
 			totalConnected += connectedCount
 		} else {
-			sb.WriteString(fmt.Sprintf("Cluster #%d: selected%d connected%d\n", clusterID, len(cluster), connectedCount))
+			sb.WriteString(fmt.Sprintf("Cluster #%d: selected:%d connected:%d\n", clusterID, len(cluster), connectedCount))
 			sb.WriteString("  X disconnected:")
 			for _, peerHex := range lostPeers {
 				sb.WriteString(" ")
@@ -663,7 +663,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 		sb.WriteByte('\n')
 	}
 
-	sb.WriteString(fmt.Sprintf("Total: slected%d connected%d disconnected%d\n", totalSelected, totalConnected, totalDisconnected))
+	sb.WriteString(fmt.Sprintf("Total: slected:%d connected:%d disconnected:%d\n", totalSelected, totalConnected, totalDisconnected))
 
 	log.Info(sb.String())
 }
