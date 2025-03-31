@@ -542,6 +542,8 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	}
 	genesisConfig.Config.AutonityContractConfig = autonityGenesis
 
+	genesisConfig.Config.SetDefaults()
+
 	// ToDo: we should probably override this in the specific tests where it is needed
 	if genesisConfig.Config.StakeableVestingConfig.TotalNominal.Cmp(common.Big0) == 0 {
 		genesisConfig.Config.StakeableVestingConfig.TotalNominal = new(big.Int).Mul(big.NewInt(1_000_000), params.NTNDecimalFactor) // 1M NTN

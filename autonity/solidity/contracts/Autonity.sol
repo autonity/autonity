@@ -681,6 +681,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         emit ConfigUpdateAddress("stabilizationContract", address(config.contracts.stabilizationContract), address(_address));
         config.contracts.stabilizationContract = IStabilization(_address);
         config.contracts.auctioneerContract.setStabilization(_address);
+        config.contracts.supplyControlContract.setStabilizer(_address);
     }
 
     /*

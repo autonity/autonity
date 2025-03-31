@@ -173,23 +173,6 @@ contract Stabilization is IStabilization {
         _;
     }
 
-    modifier validLiquidationRatio(uint256 liquidationRatio, uint256 activeAt) {
-        // Liquidation ration must be >= 1
-        if (liquidationRatio < StabilizationMath.SCALE_FACTOR) revert InvalidParameter("liquidationRatio");
-
-        // Liquidation ratio must be < minCollateralizationRatio
-        if (liquidationRatio >= _minCollateralizationRatio.valueAt(activeAt))
-            revert InvalidParameter("liquidationRatio || minCollateralizationRatio");
-        _;
-    }
-
-    modifier validMinCollateralizationRatio(uint256 minCollateralizationRatio, uint256 activeAt) {
-        // Min collateralization ratio must be >= liquidationRatio
-        if (minCollateralizationRatio < _liquidationRatio.valueAt(activeAt))
-            revert InvalidParameter("liquidationRatio || minCollateralizationRatio");
-        _;
-    }
-
     // Restricted to the atnSupplyOperator during the initial CDP restrictions
     modifier restrictedSupplyOperator() {
         if (_restricted && msg.sender != _atnSupplyOperator) revert Unauthorized();
@@ -287,6 +270,12 @@ contract Stabilization is IStabilization {
         if (!_collateralToken.transferFrom(msg.sender, address(this), amount))
             revert TransferFailed();
         cdp.collateral += amount;
+
+        // we need to double check that a user is not trying to update their timestamp to
+        // influence a liquidation auction, so if you deposit while liquidatable, the deposit
+        // must be big enough to make you non-liquidatable
+        if(isLiquidatable(msg.sender)) revert Liquidatable();
+
         emit Deposit(msg.sender, amount);
     }
 
@@ -508,37 +497,32 @@ contract Stabilization is IStabilization {
         emit IConfigEvents.ConfigUpdateUint("announcementWindow", _announcementWindow.value(), window);
     }
 
-    /**
-    * @notice Updates the liquidation ratio. The new ratio `newRatio` will take affect after the `config.announcementWindow` (in seconds).
-    * @param newRatio The new liquidation ratio
-    */
-    function updateLiquidationRatio(
-        uint256 newRatio
-    ) external onlyOperator validLiquidationRatio(newRatio, block.timestamp + _announcementWindow.value()) {
-        if (newRatio == 0) revert ZeroValue();
-        bool overridden = _liquidationRatio.update(
-            newRatio,
-            block.timestamp + _announcementWindow.value()
-        );
-        emit LiquidationRatioUpdateAnnounced(newRatio, _liquidationRatio.nextActiveFrom, overridden);
-        emit IConfigEvents.ConfigUpdateUint("liquidationRatio", _liquidationRatio.value(), newRatio);
-    }
 
     /**
-    * @notice Updates the min collateralization ratio. The new ratio `newRatio` will take affect after the `config.announcementWindow` (in seconds).
-    * @param newRatio The new min collateralization ratio
+    * @notice Updates min collateralization ratio and liquidation ratio.
+    * @param newLiquidationRatio The new liquidation ratio
+    * @param newMinCollateralizationRatio The new min collateralization ratio
     */
-    function updateMinCollateralizationRatio(
-        uint256 newRatio
-    ) external onlyOperator validMinCollateralizationRatio(newRatio, block.timestamp + _announcementWindow.value()) {
-        if (newRatio == 0) revert ZeroValue();
-        bool overridden = _minCollateralizationRatio.update(
-            newRatio,
+    function updateRatios(
+        uint256 newLiquidationRatio,
+        uint256 newMinCollateralizationRatio
+    ) external onlyOperator validRatios(newLiquidationRatio, newMinCollateralizationRatio) {
+        bool lrOverridden = _liquidationRatio.update(
+            newLiquidationRatio,
             block.timestamp + _announcementWindow.value()
         );
-        emit MinCollateralizationRatioUpdateAnnounced(newRatio, _minCollateralizationRatio.nextActiveFrom, overridden);
-        emit IConfigEvents.ConfigUpdateUint("minCollateralizationRatio", _minCollateralizationRatio.value(), newRatio);
+
+        bool mcrOverridden = _minCollateralizationRatio.update(
+            newMinCollateralizationRatio,
+            block.timestamp + _announcementWindow.value()
+        );
+
+        emit LiquidationRatioUpdateAnnounced(newLiquidationRatio, _liquidationRatio.nextActiveFrom, lrOverridden);
+        emit MinCollateralizationRatioUpdateAnnounced(newMinCollateralizationRatio, _minCollateralizationRatio.nextActiveFrom, mcrOverridden);
+        emit IConfigEvents.ConfigUpdateUint("liquidationRatio", _liquidationRatio.value(), newLiquidationRatio);
+        emit IConfigEvents.ConfigUpdateUint("minCollateralizationRatio", _minCollateralizationRatio.value(), newMinCollateralizationRatio);
     }
+
 
     /*
     ┌────────────────────┐
@@ -646,7 +630,7 @@ contract Stabilization is IStabilization {
     /// Determine if the CDP is currently liquidatable.
     /// @param account The CDP account address
     /// @return Whether the CDP is liquidatable
-    function isLiquidatable(address account) external view returns (bool) {
+    function isLiquidatable(address account) public view returns (bool) {
         CDP storage cdp = _cdps[account];
         (uint256 debt, ,) = _calculateDebtAmount(
             cdp,
