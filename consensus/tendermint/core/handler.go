@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -189,8 +190,9 @@ eventLoop:
 					// check if we have quorum for message type for this round
 					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 				}
+				var err error
 
-				if err := c.handleMsg(ctx, msg); err != nil {
+				if err = c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err, "current Height", c.Height().Uint64(), "msg Height", msg.H(), "msg Round", msg.R())
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
@@ -218,10 +220,14 @@ eventLoop:
 						}
 					}
 
-					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-					if !hasQuorum {
-						// gossip only if we did not have quorum
-						go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
+						// gossip message. We should arrive here only if we did not already gossip a complex aggregate
+						if rand.Intn(5) == 0 { // for old round messages reduce the frequency
+							go func() {
+								time.Sleep(10 * time.Millisecond) // minor sleep for old round messages
+								c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+							}()
+						}
 					}
 					recordMessageProcessingTime(msg.Code(), start)
 				}
@@ -256,9 +262,7 @@ eventLoop:
 					}
 
 					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-					if !hasQuorum {
-						go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-					}
+					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 					recordMessageProcessingTime(msg.Code(), start)
 				}
 			case StateRequestEvent:

@@ -79,7 +79,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	recipients, err := g.router.Route(committee, msg, g.address)
 	if err != nil {
 		if !errors.Is(err, consensus.ErrFutureEpochMessage) {
-			log.Debug("No recipients for proposal", "error", err, "height", msg.H())
+			log.Debug("No recipients for message", "error", err, "height", msg.H(), "message type", msg.Code())
 			return
 		}
 		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
