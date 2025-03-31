@@ -157,7 +157,7 @@ func (i *InnocenceProofBuffer) getInnocenceProofFromCache(challengeHash common.H
 // NOTE: sender is the p2p sender of the offchain accountability message
 func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sender common.Address) error {
 	// drop peer if the accusation exceed the rate limit during the last 1 seconds.
-	err := fd.rateLimiter.validAccusationRate(sender)
+	err := fd.accusationRateLimiter.validAccusationRate(sender)
 	if err != nil {
 		fd.logger.Error("accountability abuse detected!", "err", err)
 		return err
@@ -165,7 +165,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 	// drop peer if it sent duplicated accusation event.
 	msgHash := crypto.Hash(payload)
-	err = fd.rateLimiter.checkPeerDuplicatedAccusation(sender, msgHash)
+	err = fd.accusationRateLimiter.checkPeerDuplicatedAccusation(sender, msgHash)
 	if err != nil {
 		fd.logger.Error("duplicated accusation from peer", "err", err)
 		return err
@@ -199,7 +199,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 	}
 
 	// drop peer if one send more than the number of accusations could be produced by rule engine over a height.
-	err = fd.rateLimiter.checkHeightAccusationRate(sender, msgHeight)
+	err = fd.accusationRateLimiter.checkHeightAccusationRate(sender, msgHeight)
 	if err != nil {
 		fd.logger.Info("over rated accusation over a height", "error", err)
 		return err
