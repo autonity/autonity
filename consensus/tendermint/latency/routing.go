@@ -106,7 +106,7 @@ func NewRouter(
 }
 
 func (r *Router) SetDefaultHandlers() {
-	r.peerSelector = &Selector{Router: r, LoggedHR: make(map[string]uint64), RecentHeights: [20]uint64{}, HeightIndex: 0, HeightLock: sync.Mutex{}}
+	r.peerSelector = &Selector{Router: r, LoggedHR: make(map[string]uint64), RecentHeights: [50]uint64{}, HeightIndex: 0, HeightLock: sync.Mutex{}}
 }
 
 func (r *Router) PeerSelector() PeerSelector {
@@ -373,10 +373,6 @@ func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]u
 	return latency, nil
 }
 
-func (r *Router) printClusterState(ctx context.Context) {
-
-}
-
 func (r *Router) loop(ctx context.Context) {
 	defer r.wg.Done()
 
@@ -568,7 +564,7 @@ type Selector struct {
 	*Router
 	HeightLock    sync.Mutex
 	LoggedHR      map[string]uint64
-	RecentHeights [20]uint64
+	RecentHeights [50]uint64
 	HeightIndex   int
 }
 
@@ -592,11 +588,14 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 
 	s.RecentHeights[s.HeightIndex] = height
 	s.LoggedHR[logKey] = height
-	s.HeightIndex = (s.HeightIndex + 1) % 20
+	s.HeightIndex = (s.HeightIndex + 1) % 50
 	s.HeightLock.Unlock()
 
 	var sb strings.Builder
 	totalDisconnected := 0
+	totalSelected := 0
+	var zeroDisconnectClusters []string
+	var totalConnected int
 	sender := "originator"
 	switch senderType {
 	case originator:
@@ -624,35 +623,47 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s SenderType=%s localCluster=%d\n", height, round, from.Hex(), msgType, sender, ownClusterID))
 
 	for clusterID, cluster := range peerCluster {
-		var lostPeers, connectedPeers []string
+		var lostPeers []string
+		connectedCount := 0
 
 		for _, peer := range cluster {
-			p, ok := s.broadcaster.FindPeer(peer)
+			_, ok := s.broadcaster.FindPeer(peer)
 			if ok {
-				connectedPeers = append(connectedPeers, fmt.Sprintf("%s %s", peer.Hex(), p.Enode().IP().String()))
+				connectedCount++
 			} else {
-				lostPeers = append(lostPeers, fmt.Sprintf("%s ", peer.Hex()))
+				lostPeers = append(lostPeers, peer.Hex())
 				totalDisconnected++
 			}
+			totalSelected++
 		}
 
-		sb.WriteString(fmt.Sprintf("  Cluster #%d: total selected %d peers, connected %d disconnected %d peers\n", clusterID, len(cluster), len(connectedPeers), len(lostPeers)))
-
-		if len(lostPeers) > 0 {
-			sb.WriteString("    X Disconnected peers:\n")
-			for _, peerInfo := range lostPeers {
-				sb.WriteString(fmt.Sprintf("      - %s\n", peerInfo))
+		if len(lostPeers) == 0 {
+			zeroDisconnectClusters = append(zeroDisconnectClusters,
+				fmt.Sprintf("C%d:%d", clusterID, len(cluster)))
+			totalConnected += connectedCount
+		} else {
+			sb.WriteString(fmt.Sprintf("Cluster #%d: selected%d connected%d\n", clusterID, len(cluster), connectedCount))
+			sb.WriteString("  X disconnected:")
+			for _, peerHex := range lostPeers {
+				sb.WriteString(" ")
+				sb.WriteString(peerHex)
 			}
-		}
-		if len(connectedPeers) > 0 {
-			sb.WriteString("     Connected peers:\n")
-			for _, peerInfo := range connectedPeers {
-				sb.WriteString(fmt.Sprintf("      - %s\n", peerInfo))
-			}
+			sb.WriteByte('\n')
 		}
 	}
 
-	sb.WriteString(fmt.Sprintf("Total disconnected peers: %d\n", totalDisconnected))
+	if len(zeroDisconnectClusters) > 0 {
+		sb.WriteString("Fully connected: ")
+		for i, clusterInfo := range zeroDisconnectClusters {
+			if i > 0 {
+				sb.WriteString(" ")
+			}
+			sb.WriteString(clusterInfo)
+		}
+		sb.WriteByte('\n')
+	}
+
+	sb.WriteString(fmt.Sprintf("Total: slected%d connected%d disconnected%d\n", totalSelected, totalConnected, totalDisconnected))
 
 	log.Info(sb.String())
 }

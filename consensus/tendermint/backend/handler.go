@@ -197,17 +197,16 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		return true, err
 	}
 
-	// structured relaying happens after the pre-validation, only unknown msg is relayed.
-	if sb.router != nil {
-		go sb.router.Forward(committee, msg, sender)
-	}
-
 	// if the sender is jailed, discard its messages
 	switch m := msg.(type) {
 	case *message.Propose:
 		if sb.IsJailed(m.Signer()) {
 			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer())
 			return true, ErrJailed
+		}
+		// structured relaying happens after the pre-validation, only unknown msg is relayed.
+		if sb.router != nil { // fast relay only for proposal, for prevotes it would happen from gossip flow
+			go sb.router.Forward(committee, msg, sender)
 		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)

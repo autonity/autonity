@@ -184,7 +184,7 @@ eventLoop:
 					break
 				}
 
-				var hadQuorum bool
+				var hadQuorum, hasQuorum bool
 				if !c.noGossip {
 					// check if we have quorum for message type for this round
 					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
@@ -206,11 +206,11 @@ eventLoop:
 				c.syncState.SetLastValidMsgTime(time.Now())
 				c.syncState.SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
 
-				if !c.noGossip {
+				if !c.noGossip && msg.Code() != message.ProposalCode {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
 						// gossip the (complex) aggregate with quorum to everyone instead of the current message
-						hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
+						hasQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 						if hasQuorum {
 							c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
 							recordMessageProcessingTime(msg.Code(), start)
@@ -219,7 +219,10 @@ eventLoop:
 					}
 
 					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+					if !hasQuorum {
+						// gossip only if we did not have quorum
+						go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+					}
 					recordMessageProcessingTime(msg.Code(), start)
 				}
 			case backlogMessageEvent:
@@ -228,7 +231,7 @@ eventLoop:
 
 				msg := e.msg
 
-				var hadQuorum bool
+				var hadQuorum, hasQuorum bool
 				if !c.noGossip {
 					// check if we have quorum for message type for this round
 					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
@@ -240,11 +243,11 @@ eventLoop:
 					continue
 				}
 
-				if !c.noGossip {
+				if !c.noGossip && msg.Code() != message.ProposalCode {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
 						// gossip the (complex) aggregate with quorum to everyone instead of the current message
-						hasQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
+						hasQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 						if hasQuorum {
 							c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
 							recordMessageProcessingTime(msg.Code(), start)
@@ -253,7 +256,9 @@ eventLoop:
 					}
 
 					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+					if !hasQuorum {
+						go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+					}
 					recordMessageProcessingTime(msg.Code(), start)
 				}
 			case StateRequestEvent:
