@@ -641,7 +641,7 @@ func (s *Ethereum) validatorController() {
 			for {
 				select {
 				case <-ticker.C:
-					if float64(s.consensusServer.PeerCount()) >= (float64(committee.Len()) * (2.0 / 3.0)) {
+					if float64(s.consensusServer.PeerCount()+1) >= (float64(committee.Len()) * (2.0 / 3.0)) {
 						mu.Lock()
 						if !wasValidating {
 							s.miner.Start()
