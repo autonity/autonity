@@ -119,8 +119,8 @@ type Router interface {
 	Start(ctx context.Context, chain *ethcore.BlockChain)
 	Stop()
 	SetBroadcaster(broadcaster consensus.Broadcaster)
-	Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
-	Forward(committee *types.Committee, m message.Msg, sender common.Address)
+	Route(broadcaster consensus.Broadcaster, committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
+	Forward(broadcaster consensus.Broadcaster, committee *types.Committee, m message.Msg, sender common.Address)
 }
 
 type EventDispatcher interface {

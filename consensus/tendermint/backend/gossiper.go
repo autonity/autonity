@@ -16,7 +16,7 @@ import (
 )
 
 type router interface {
-	Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
+	Route(broadcaster consensus.Broadcaster, committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 }
 
@@ -77,7 +77,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	code := message.NetworkCodes[msg.Code()]
 	payload := msg.Payload()
 
-	recipients, err := g.router.Route(committee, msg, g.address)
+	recipients, err := g.router.Route(g.broadcaster, committee, msg, g.address)
 	if err != nil {
 		if !errors.Is(err, consensus.ErrFutureEpochMessage) {
 			log.Debug("No recipients for proposal", "error", err, "height", msg.H())

@@ -41,7 +41,7 @@ var HorizontalRelayingRedundancy = 1
 var MeasurementWindow = 2000 // The time window in Millisecond to measure the latency of peers at the beginning of an epoch.
 
 type PeerSelector interface {
-	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
+	SelectPeers(broadcaster consensus.Broadcaster, committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
 }
 
 type Router struct {
@@ -110,18 +110,18 @@ func (r *Router) PeerSelector() PeerSelector {
 
 // Exported functions
 
-// Route just select recipients from the clusters, it does not do the message sending.
-func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
+// Route just select active/connected recipients from the clusters, it does not do the message sending.
+func (r *Router) Route(broadcaster consensus.Broadcaster, committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
 	// no route for small network.
 	if len(committee.Members) < ScaleThresholdForClustering {
 		return committee.Members, nil
 	}
-	return r.PeerSelector().SelectPeers(committee, msg, from)
+	return r.PeerSelector().SelectPeers(broadcaster, committee, msg, from)
 }
 
-func (r *Router) Forward(committee *types.Committee, m message.Msg, sender common.Address) {
+func (r *Router) Forward(broadcaster consensus.Broadcaster, committee *types.Committee, m message.Msg, sender common.Address) {
 	var recipients []types.CommitteeMember
-	recipients, err := r.Route(committee, m, sender)
+	recipients, err := r.Route(broadcaster, committee, m, sender)
 	if err != nil {
 		if !errors.Is(err, consensus.ErrFutureEpochMessage) {
 			log.Debug("No recipients for proposal", "error", err, "height", m.H())
@@ -538,7 +538,7 @@ type Selector struct {
 	*Router
 }
 
-func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
+func (s *Selector) SelectPeers(broadcaster consensus.Broadcaster, committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
 
 	// around epoch rotation, resolveClusters() can be failed since router has its own epoch synchronization context,
 	// in this case, the caller should relay the message to all the members of input committee.
@@ -554,7 +554,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		ownCluster := clusters.clusterContaining(from)
 
 		// select relayers from other clusters
-		receivers := clusters.selectK(VerticalRelayingRedundancy, num, ownCluster)
+		receivers := clusters.selectK(broadcaster, VerticalRelayingRedundancy, num, ownCluster)
 		numOfRelayers := len(receivers)
 
 		// send to local cluster nodes too.
@@ -618,7 +618,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		}
 
 		// to add robustness, we also relay message to other clusters horizontally.
-		relayers := clusters.selectK(HorizontalRelayingRedundancy, num, ownCluster)
+		relayers := clusters.selectK(broadcaster, HorizontalRelayingRedundancy, num, ownCluster)
 		for _, addr := range relayers {
 			if member := committee.MemberByAddress(addr); member != nil && addr != from {
 				recipients = append(recipients, *member)

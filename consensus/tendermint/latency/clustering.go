@@ -2,6 +2,7 @@ package latency
 
 import (
 	"bytes"
+	"github.com/autonity/autonity/consensus"
 	"math"
 	"math/rand"
 	"sort"
@@ -57,27 +58,40 @@ func (c *Clusters) clusterContaining(address common.Address) int {
 }
 
 // selectK selects pseudo random k members from each cluster exclude the selected cluster.
-func (c *Clusters) selectK(k int, seed int64, excepted int) []common.Address {
+func (c *Clusters) selectK(broadcaster consensus.Broadcaster, k int, seed int64, excepted int) []common.Address {
 	var result []common.Address
 	r := rand.New(rand.NewSource(seed))
-	for i, cluster := range c.base {
+
+	for i, nodes := range c.base {
 		if i == excepted {
 			continue
 		}
 
-		if len(cluster) <= k {
-			result = append(result, cluster...)
+		if len(nodes) <= k {
+			result = append(result, nodes...)
 		} else {
-			selected := make(map[int]struct{})
-			for j := 0; j < k; j++ {
-				index := r.Intn(len(cluster))
-				for _, ok := selected[index]; ok; {
-					index = r.Intn(len(cluster))
+			selectedIndices := make(map[int]struct{})
+			count := 0
+			var selectedNodes []common.Address
+			for len(selectedNodes) < k && count < len(nodes) {
+				index := r.Intn(len(nodes))
+				if _, ok := selectedIndices[index]; !ok {
+					count++
+					_, connected := broadcaster.FindPeer(nodes[index])
+					if connected {
+						selectedIndices[index] = struct{}{}
+						selectedNodes = append(selectedNodes, nodes[index])
+					}
 				}
-				result = append(result, cluster[index])
+			}
+
+			if len(selectedNodes) > 0 {
+				result = append(result, selectedNodes...)
 			}
 		}
+
 	}
+
 	return result
 }
 

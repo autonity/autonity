@@ -205,7 +205,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 
 	// structured relaying happens after the pre-validation, only unknown msg is relayed.
 	if sb.router != nil {
-		go sb.router.Forward(committee, msg, sender)
+		go sb.router.Forward(sb.Broadcaster, committee, msg, sender)
 	}
 
 	// if the sender is jailed, discard its messages
