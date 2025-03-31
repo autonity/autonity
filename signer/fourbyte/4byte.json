@@ -205,5 +205,6 @@
   "4914c008": "liquidate(address,uint256,address)",
   "4b8ef943": "setACU(address)",
   "00ede7e4": "setAuctioneer(address)",
-  "52e5a050": "setSupplyControl(address)"
+  "52e5a050": "setSupplyControl(address)",
+  "15ef30f8": "setLiquidLogicContract(address)"
 }

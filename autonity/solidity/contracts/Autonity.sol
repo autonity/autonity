@@ -707,7 +707,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @notice Set address of the liquid logic contact.
      * @custom:restricted-to operator account
      */
-    function SetLiquidLogicContract(address _contract) public virtual onlyOperator {
+    function setLiquidLogicContract(address _contract) public virtual onlyOperator {
         require(_contract != address(0), "invalid contract address for liquid logic");
         emit ConfigUpdateAddress("liquidLogicContract", liquidLogicContract, _contract);
         liquidLogicContract = _contract;

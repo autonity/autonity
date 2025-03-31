@@ -1478,6 +1478,38 @@ func TestUpdateLiquidationRatio(t *testing.T) {
 		require.Equal(t, cfg.LiquidationRatio, readRatio)
 		require.Equal(t, newRatio, readRatio)
 	})
+
+	tests.RunWithSetup("liquidation ratio restrictions are based on future applicable min col ratio", setup, func(r *tests.Runner) {
+		newLiquidationRatio := toBase("3", 18)
+		cfg, _, err := r.Stabilization.Config(nil)
+		require.NoError(r.T, err)
+
+		// current min col ratio is lower
+		require.True(r.T, cfg.MinCollateralizationRatio.Cmp(newLiquidationRatio) < 0)
+
+		// should fail as current min col ratio is lower
+		_, err = r.Stabilization.UpdateLiquidationRatio(r.Operator, newLiquidationRatio)
+		require.ErrorAs(r.T, err, &tests.StabilizationInvalidParameterError{})
+
+		// now we increase the future min col ratio
+		newMinCollateralizationRatio := toBase("3.5", 18)
+		r.NoError(
+			r.Stabilization.UpdateMinCollateralizationRatio(
+				r.Operator,
+				newMinCollateralizationRatio,
+			),
+		)
+
+		r.WaitNBlocks(1)
+
+		// now the liquidation ratio can be updated, even though the current min col ratio is lower
+		r.NoError(
+			r.Stabilization.UpdateLiquidationRatio(
+				r.Operator,
+				newLiquidationRatio,
+			),
+		)
+	})
 }
 
 func TestUpdateMinCollateralizationRatio(t *testing.T) {
@@ -1522,6 +1554,36 @@ func TestUpdateMinCollateralizationRatio(t *testing.T) {
 		require.NoError(r.T, err)
 		require.Equal(t, cfg.MinCollateralizationRatio, readRatio)
 		require.Equal(t, newRatio, readRatio)
+	})
+
+	tests.RunWithSetup("min collateralization ratio restrictions are based on future applicable liquidation ratio", setup, func(r *tests.Runner) {
+		newMinCollateralizationRatio := toBase("1.5", 18)
+		cfg, _, err := r.Stabilization.Config(nil)
+		require.NoError(r.T, err)
+		currentLiquidationRatio := cfg.LiquidationRatio
+		require.True(r.T, currentLiquidationRatio.Cmp(newMinCollateralizationRatio) > 0)
+		require.True(r.T, cfg.AnnouncementWindow.Cmp(common.Big0) > 0)
+
+		// should fail as current liquidation ratio is bigger
+		_, err = r.Stabilization.UpdateMinCollateralizationRatio(r.Operator, newMinCollateralizationRatio)
+		require.ErrorAs(r.T, err, &tests.StabilizationInvalidParameterError{})
+
+		// now we reduce the future liquidation ratio
+		newLiquidationRatio := toBase("1.2", 18)
+		r.NoError(
+			r.Stabilization.UpdateLiquidationRatio(
+				r.Operator,
+				newLiquidationRatio,
+			),
+		)
+		r.WaitNBlocks(1)
+		// now the min collateralization ratio can be updated, even though the current liquidation ratio is higher
+		r.NoError(
+			r.Stabilization.UpdateMinCollateralizationRatio(
+				r.Operator,
+				newMinCollateralizationRatio,
+			),
+		)
 	})
 }
 

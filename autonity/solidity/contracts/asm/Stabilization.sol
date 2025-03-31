@@ -173,6 +173,23 @@ contract Stabilization is IStabilization {
         _;
     }
 
+    modifier validLiquidationRatio(uint256 liquidationRatio, uint256 activeAt) {
+        // Liquidation ration must be >= 1
+        if (liquidationRatio < StabilizationMath.SCALE_FACTOR) revert InvalidParameter("liquidationRatio");
+
+        // Liquidation ratio must be < minCollateralizationRatio
+        if (liquidationRatio >= _minCollateralizationRatio.valueAt(activeAt))
+            revert InvalidParameter("liquidationRatio || minCollateralizationRatio");
+        _;
+    }
+
+    modifier validMinCollateralizationRatio(uint256 minCollateralizationRatio, uint256 activeAt) {
+        // Min collateralization ratio must be >= liquidationRatio
+        if (minCollateralizationRatio < _liquidationRatio.valueAt(activeAt))
+            revert InvalidParameter("liquidationRatio || minCollateralizationRatio");
+        _;
+    }
+
     // Restricted to the atnSupplyOperator during the initial CDP restrictions
     modifier restrictedSupplyOperator() {
         if (_restricted && msg.sender != _atnSupplyOperator) revert Unauthorized();
@@ -204,8 +221,8 @@ contract Stabilization is IStabilization {
         address acu,
         IERC20 collateralToken
     )
-        positiveMCR(config_.minCollateralizationRatio)
-        validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
+    positiveMCR(config_.minCollateralizationRatio)
+    validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
     {
         if (config_.announcementWindow == 0) revert ZeroValue();
         _config = config_;
@@ -328,11 +345,11 @@ contract Stabilization is IStabilization {
         uint256 price = collateralPrice();
         if (
             StabilizationMath.underCollateralized(
-                cdp.collateral,
-                price,
-                debt,
-                _liquidationRatio.value()
-            )
+            cdp.collateral,
+            price,
+            debt,
+            _liquidationRatio.value()
+        )
         ) revert Liquidatable();
 
         uint256 limit = maxBorrow(cdp.collateral);
@@ -404,10 +421,10 @@ contract Stabilization is IStabilization {
         );
         if (
             !StabilizationMath.underCollateralized(
-                cdp.collateral,
-                collateralPrice(),
-                debt,
-                _liquidationRatio.value()
+            cdp.collateral,
+            collateralPrice(),
+            debt,
+            _liquidationRatio.value()
         )
         ) revert NotLiquidatable();
 
@@ -497,7 +514,7 @@ contract Stabilization is IStabilization {
     */
     function updateLiquidationRatio(
         uint256 newRatio
-    ) external onlyOperator validRatios(newRatio, _minCollateralizationRatio.value()) {
+    ) external onlyOperator validLiquidationRatio(newRatio, block.timestamp + _announcementWindow.value()) {
         if (newRatio == 0) revert ZeroValue();
         bool overridden = _liquidationRatio.update(
             newRatio,
@@ -513,7 +530,7 @@ contract Stabilization is IStabilization {
     */
     function updateMinCollateralizationRatio(
         uint256 newRatio
-    ) external onlyOperator validRatios(_liquidationRatio.value(), newRatio) {
+    ) external onlyOperator validMinCollateralizationRatio(newRatio, block.timestamp + _announcementWindow.value()) {
         if (newRatio == 0) revert ZeroValue();
         bool overridden = _minCollateralizationRatio.update(
             newRatio,
@@ -522,7 +539,6 @@ contract Stabilization is IStabilization {
         emit MinCollateralizationRatioUpdateAnnounced(newRatio, _minCollateralizationRatio.nextActiveFrom, overridden);
         emit IConfigEvents.ConfigUpdateUint("minCollateralizationRatio", _minCollateralizationRatio.value(), newRatio);
     }
-
 
     /*
     ┌────────────────────┐
@@ -545,7 +561,6 @@ contract Stabilization is IStabilization {
         emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle);
         _oracle = IOracle(oracle);
     }
-
 
     /// Set the Auctioneer Contract address.
     /// @param auctioneer Address of the new Auctioneer Contract
@@ -570,7 +585,6 @@ contract Stabilization is IStabilization {
         emit IConfigEvents.ConfigUpdateAddress("supplyControl", address(_supplyControl), supplyControl);
         _supplyControl = ISupplyControl(supplyControl);
     }
-
 
     /*
     ┌────────────────┐
@@ -895,9 +909,9 @@ contract Stabilization is IStabilization {
         CDP storage cdp,
         uint256 amount
     )
-        internal
-        view
-        returns (uint256 interest, uint256 principal, uint256 surplus)
+    internal
+    view
+    returns (uint256 interest, uint256 principal, uint256 surplus)
     {
         uint256 debt = cdp.principal + cdp.interest;
         interest = amount < cdp.interest ? amount : cdp.interest;
