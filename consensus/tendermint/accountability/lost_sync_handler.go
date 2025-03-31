@@ -37,6 +37,7 @@ func (r *AskSyncRateLimiter) overRated(asker common.Address) bool {
 		return false
 	}
 
+	r.lastRequestTSs[asker] = now
 	timeDiff := now - lastTS
 
 	return timeDiff < int64(askSyncInterval)
