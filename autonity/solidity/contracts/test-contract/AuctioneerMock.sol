@@ -13,4 +13,12 @@ contract AuctioneerMock is IAuctioneer {
     function setOperator(address _operator) external override {
         operator = _operator;
     }
+
+    function setOracle(address _oracle) external override {
+        // do nothing
+    }
+
+    function setStabilization(address _stabilization) external override {
+        // do nothing
+    }
 }

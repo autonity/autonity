@@ -6,11 +6,11 @@ import "../asm/interfaces/IStabilization.sol";
 contract StabilizationMock is IStabilization {
     // Public state retrieval functions
     function config() external view returns (Config memory) {
-        return Config(0,0,0,0,0,0);
+        return Config(0, 0, 0, 0, 0, 0);
     }
 
     function cdps(address owner) external view returns (CDP memory) {
-        return CDP(0,0,0,0,0);
+        return CDP(0, 0, 0, 0, 0);
     }
 
     // view functions
@@ -38,10 +38,19 @@ contract StabilizationMock is IStabilization {
         // do nothing
     }
 
-    /// Set the Oracle Contract address.
-    /// @param oracle Address of the new Oracle Contract
-    /// @dev Restricted to the Autonity Contract.
     function setOracle(address oracle) external {
+        // do nothing
+    }
+
+    function setAuctioneer(address auctioneer) external {
+        // do nothing
+    }
+
+    function setACU(address acu) external {
+        // do nothing
+    }
+
+    function setSupplyControl(address supplyControl) external {
         // do nothing
     }
 }
