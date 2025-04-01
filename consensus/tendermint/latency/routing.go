@@ -121,17 +121,16 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 }
 
 func (r *Router) Forward(committee *types.Committee, m message.Msg, sender common.Address) {
-	var recipients []types.CommitteeMember
 	recipients, err := r.Route(committee, m, sender)
 	if err != nil {
-		if !errors.Is(err, consensus.ErrFutureEpochMessage) {
-			log.Debug("No recipients for proposal", "error", err, "height", m.H())
-			return
-		}
+		//if !errors.Is(err, consensus.ErrFutureEpochMessage) {
+		//	log.Debug("No recipients for proposal", "error", err, "height", m.H())
+		//	return
+		//}
 		// forward to all the committee members if the router cannot resolve recipients.
 		recipients = committee.Members
 	}
-
+	lostPeers := make([]common.Address, 0)
 	for _, recipient := range recipients {
 		if recipient.Address == sender {
 			continue
@@ -144,8 +143,11 @@ func (r *Router) Forward(committee *types.Committee, m message.Msg, sender commo
 			p.Cache().Add(m.Hash(), true)
 			go p.SendRaw(message.NetworkCodes[m.Code()], m.Payload()) //nolint
 		} else {
-			//todo: shall we select other backups for live ness?
+			lostPeers = append(lostPeers, recipient.Address)
 		}
+	}
+	if len(lostPeers) > 0 {
+		log.Debug("Router: peers not found", "len", len(lostPeers), "peers", lostPeers)
 	}
 }
 
@@ -248,6 +250,7 @@ func (r *Router) resolveClusters(h uint64) (*Clusters, error) {
 
 	//todo: in a single epoch there could be multiple cluster views, we need to use the view according to the height.
 	if r.epochDefaultClusters != nil && h >= r.epochDefaultClusters.nextEpochHeight {
+		log.Error("returning future epoch message", "height", h, "nextEpochHeight", r.epochDefaultClusters.nextEpochHeight, "cluster", r.epochDefaultClusters)
 		return nil, consensus.ErrFutureEpochMessage
 	}
 
