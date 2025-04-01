@@ -69,16 +69,21 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 
 func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
 	// only gossip to very small committee
-	numTargets := int(math.Sqrt(float64(len(committee.Members))))
+	numTargets := len(committee.Members)
+	if numTargets > 10 { // todo: minimum nodes to start slow gossip
+		numTargets = int(math.Sqrt(float64(len(committee.Members))))
+	} else if numTargets == 0 {
+		return
+	}
 	targetIndices := rand.Perm(numTargets)
 	recipients := make([]types.CommitteeMember, 0, numTargets)
 	for i := 0; i < numTargets; i++ {
 		recipients[i] = committee.Members[targetIndices[i]]
 	}
-	g.gossip(committee, msg, recipients)
+	g.gossip(msg, recipients)
 }
 
-func (g *Gossiper) gossip(committee *types.Committee, msg message.Msg, recipients []types.CommitteeMember) {
+func (g *Gossiper) gossip(msg message.Msg, recipients []types.CommitteeMember) {
 	hash := msg.Hash()
 	if !g.knownMessages.Contains(hash) {
 		g.knownMessages.Add(hash, true)
@@ -121,7 +126,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
 		recipients = committee.Members
 	}
-	g.gossip(committee, msg, recipients)
+	g.gossip(msg, recipients)
 }
 
 func (g *Gossiper) AskSync(committee *types.Committee, coreHeight uint64, round int64) {
