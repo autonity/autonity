@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"errors"
 	"math"
 	"math/big"
 	"math/rand"
@@ -73,10 +72,12 @@ func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
 	if numTargets > 10 { // todo: minimum nodes to start slow gossip
 		numTargets = int(math.Sqrt(float64(len(committee.Members))))
 	} else if numTargets == 0 {
+		log.Error("no target to slow gossip", "num", len(committee.Members), "numTargets", numTargets, "committee", committee.Members)
 		return
 	}
 	targetIndices := rand.Perm(numTargets)
-	recipients := make([]types.CommitteeMember, 0, numTargets)
+	recipients := make([]types.CommitteeMember, numTargets)
+	log.Debug("total committee members", "num", len(committee.Members), "numTargets", numTargets, "committee", committee.Members)
 	for i := 0; i < numTargets; i++ {
 		recipients[i] = committee.Members[targetIndices[i]]
 	}
@@ -119,10 +120,10 @@ func (g *Gossiper) gossip(msg message.Msg, recipients []types.CommitteeMember) {
 func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	recipients, err := g.router.Route(committee, msg, g.address)
 	if err != nil {
-		if !errors.Is(err, consensus.ErrFutureEpochMessage) {
-			log.Debug("No recipients for message", "error", err, "height", msg.H(), "message type", msg.Code())
-			return
-		}
+		//if !errors.Is(err, consensus.ErrFutureEpochMessage) {
+		//	log.Debug("No recipients for message", "error", err, "height", msg.H(), "message type", msg.Code())
+		//	return
+		//}
 		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
 		recipients = committee.Members
 	}
@@ -134,6 +135,7 @@ func (g *Gossiper) AskSync(committee *types.Committee, coreHeight uint64, round 
 	recipients, err := g.router.Route(committee, f, g.address)
 	if err != nil {
 		log.Error("Error selecting peers members to broadcast sync", "error", err)
+		recipients = committee.Members
 	}
 
 	targets := make([]common.Address, 0, committee.Len())
