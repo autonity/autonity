@@ -14,7 +14,7 @@ import (
 // more over that, future round messages can be synced now and the handling of AskSync msg does not block the consensus
 // engine anymore.
 
-var askSyncInterval = 20 // 20s
+var askSyncInterval = 5 // 5s
 
 var errAskSyncOverRated = errors.New("ask sync over rated")
 

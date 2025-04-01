@@ -320,8 +320,8 @@ eventLoop:
 
 			// we only ask for sync if the current view stayed the same for the interval syncTimeOut
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
-				c.logger.Warn("⚠️ Consensus liveliness lost")
-				c.logger.Warn("Broadcasting sync request..")
+				c.logger.Warn("⚠️ Consensus liveliness lost", "node", c.Address(), "height", height, "round", currentRound, "step", c.Step())
+				c.logger.Warn("Broadcasting sync request..", "node", c.Address(), "height", height, "round", currentRound, "step", c.Step())
 				syncMsg = c.snapshotLostSyncMsg()
 				c.backend.AskSync(c.committee.Committee(), syncMsg)
 				c.syncState.SetOutOfSync(true)
