@@ -263,9 +263,6 @@ func finalizeAutonityInitialization(config *params.ChainConfig, _ GenesisBonds, 
 }
 
 func deployAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.AccountabilityConfig == nil {
-		config.AccountabilityConfig = params.DefaultAccountabilityConfig
-	}
 	accountabilityConfig := AccountabilityConfig{
 		InnocenceProofSubmissionWindow: new(big.Int).SetUint64(config.AccountabilityConfig.InnocenceProofSubmissionWindow),
 		BaseSlashingRates: AccountabilityBaseSlashingRates{
@@ -322,11 +319,6 @@ func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisB
 }
 
 func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.OracleContractConfig == nil {
-		log.Info("Using default genesis parameters for the Oracle Contract")
-		config.OracleContractConfig = params.DefaultGenesisOracleConfig
-	}
-
 	voters := make([]common.Address, len(config.AutonityContractConfig.Validators))
 	treasuries := make([]common.Address, len(config.AutonityContractConfig.Validators))
 	validators := make([]common.Address, len(config.AutonityContractConfig.Validators))
@@ -363,11 +355,6 @@ func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy gen
 }
 
 func deployACUContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.ASM.ACUContractConfig == nil {
-		log.Info("Config missing, using default parameters for the ACU contract")
-		config.ASM.ACUContractConfig = params.DefaultAcuContractGenesis
-	}
-
 	bigQuantities := make([]*big.Int, len(config.ASM.ACUContractConfig.Quantities))
 	for i := range config.ASM.ACUContractConfig.Quantities {
 		bigQuantities[i] = new(big.Int).SetUint64(config.ASM.ACUContractConfig.Quantities[i])
@@ -392,11 +379,6 @@ func deployACUContract(config *params.ChainConfig, _ GenesisBonds, deploy generi
 }
 
 func deploySupplyControlContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.ASM.SupplyControlConfig == nil {
-		log.Info("Config missing, using default parameters for the Supply Control contract")
-		config.ASM.SupplyControlConfig = params.DefaultSupplyControlGenesis
-	}
-
 	value := (*big.Int)(config.ASM.SupplyControlConfig.InitialAllocation)
 	err := deploy(
 		params.SupplyControlContractAddress,
@@ -429,11 +411,6 @@ func deployUpgradeManagerContract(config *params.ChainConfig, _ GenesisBonds, de
 }
 
 func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.ASM.StabilizationContractConfig == nil {
-		log.Info("Config missing, using default parameters for the Stabilization contract")
-		config.ASM.StabilizationContractConfig = params.DefaultStabilizationGenesis
-	}
-
 	stabilizationConfig := IStabilizationConfig{
 		BorrowInterestRate:        (*big.Int)(config.ASM.StabilizationContractConfig.BorrowInterestRate),
 		AnnouncementWindow:        (*big.Int)(config.ASM.StabilizationContractConfig.AnnouncementWindow),
@@ -464,10 +441,6 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 }
 
 func deployInflationControllerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.InflationContractConfig == nil {
-		log.Info("Config missing, using default parameters for the Inflation Controller contract")
-		config.InflationContractConfig = params.DefaultInflationControllerGenesis
-	}
 	param := InflationControllerParams{
 		InflationRateInitial:      (*big.Int)(config.InflationContractConfig.InflationRateInitial),
 		InflationRateTransition:   (*big.Int)(config.InflationContractConfig.InflationRateTransition),
@@ -488,11 +461,7 @@ func deployInflationControllerContract(config *params.ChainConfig, _ GenesisBond
 	return nil
 }
 
-func deployStakableVestingManagerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.StakeableVestingConfig == nil {
-		log.Info("Config missing, using default parameters for the Stakable Vesting contract")
-		config.StakeableVestingConfig = params.DefaultStakeableVestingGenesis
-	}
+func deployStakableVestingManagerContract(_ *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
 	err := deploy(
 		params.StakeableVestingManagerContractAddress,
 		&generated.StakeableVestingManagerAbi,
@@ -581,10 +550,6 @@ func createDefaultNonStakableVestingContracts(config *params.ChainConfig, _ Gene
 }
 
 func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.ASM.AuctioneerContractConfig == nil {
-		log.Info("Config missing, using default parameters for the Auctioneer contract")
-		config.ASM.AuctioneerContractConfig = params.DefaultAuctioneerGenesis
-	}
 	auctioneerConfig := AuctioneerConfig{
 		LiquidationAuctionDuration: config.ASM.AuctioneerContractConfig.LiquidationAuctionDuration,
 		InterestAuctionDuration:    config.ASM.AuctioneerContractConfig.InterestAuctionDuration,
