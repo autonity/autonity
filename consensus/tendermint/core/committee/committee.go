@@ -128,6 +128,8 @@ func getMemberIndex(committee *types.Committee, memberAddr common.Address) int64
 
 type WeightedRandomSamplingCommittee struct {
 	committee        *types.Committee
+	totalVotingPower *big.Int
+	quorum           *big.Int
 	previousHeader   *types.Header
 	autonityContract *autonity.ProtocolContracts
 }
@@ -135,6 +137,8 @@ type WeightedRandomSamplingCommittee struct {
 func NewWeightedRandomSamplingCommittee(previousHeader *types.Header, committee *types.Committee, autonityContract *autonity.ProtocolContracts) *WeightedRandomSamplingCommittee {
 	return &WeightedRandomSamplingCommittee{
 		committee:        committee,
+		totalVotingPower: committee.TotalVotingPower(),
+		quorum:           new(big.Int).Set(bft.Quorum(committee.TotalVotingPower())),
 		previousHeader:   previousHeader,
 		autonityContract: autonityContract,
 	}
@@ -142,6 +146,8 @@ func NewWeightedRandomSamplingCommittee(previousHeader *types.Header, committee 
 
 func (w *WeightedRandomSamplingCommittee) SetCommittee(committee *types.Committee) {
 	w.committee = committee
+	w.totalVotingPower = committee.TotalVotingPower()
+	w.quorum = bft.Quorum(committee.TotalVotingPower())
 }
 
 // Return the underlying types.Committee
@@ -184,7 +190,8 @@ func (w *WeightedRandomSamplingCommittee) GetProposer(round int64) *types.Commit
 
 // Get the optimal quorum size
 func (w *WeightedRandomSamplingCommittee) Quorum() *big.Int {
-	return bft.Quorum(w.committee.TotalVotingPower())
+	// quorum copy
+	return new(big.Int).Set(w.quorum)
 }
 
 func (w *WeightedRandomSamplingCommittee) F() *big.Int {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -184,7 +183,7 @@ eventLoop:
 					c.logger.Debug("mainEventLoop: ignoring stale consensus message", "msg", msg.String(), "height", c.Height().Uint64())
 					break
 				}
-
+				// old height message should be rejected before checking quorum, because message map only stores round messages for current height
 				var hadQuorum, hasQuorum bool
 				if !c.noGossip {
 					// check if we have quorum for message type for this round
@@ -208,7 +207,7 @@ eventLoop:
 				c.syncState.SetLastValidMsgTime(time.Now())
 				c.syncState.SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
 
-				if !c.noGossip && msg.Code() != message.ProposalCode {
+				if !c.noGossip && msg.Code() != message.ProposalCode { // proposals are forwarded in the backend as soon as they are received
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
 						// gossip the (complex) aggregate with quorum to everyone instead of the current message
@@ -221,13 +220,16 @@ eventLoop:
 					}
 
 					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
-						// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-						if rand.Intn(5) == 0 { // for old round messages reduce the frequency
-							go func() {
-								time.Sleep(10 * time.Millisecond) // minor sleep for old round messages
-								c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-							}()
-						}
+						go func() {
+							time.Sleep(5 * time.Millisecond) // minor sleep for old round messages
+							c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
+						}()
+					} else if hadQuorum {
+						// current round message quorum already achieved, gossip for accountability
+						go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
+					} else {
+						// current round messages no qourum yet, gossip to everyone
+						go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 					}
 					recordMessageProcessingTime(msg.Code(), start)
 				}

@@ -2,7 +2,9 @@ package backend
 
 import (
 	"errors"
+	"math"
 	"math/big"
+	"math/rand"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -65,7 +67,18 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 	g.stopped = stopCh
 }
 
-func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
+func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
+	// only gossip to very small committee
+	numTargets := int(math.Sqrt(float64(len(committee.Members))))
+	targetIndices := rand.Perm(numTargets)
+	recipients := make([]types.CommitteeMember, 0, numTargets)
+	for i := 0; i < numTargets; i++ {
+		recipients[i] = committee.Members[targetIndices[i]]
+	}
+	g.gossip(committee, msg, recipients)
+}
+
+func (g *Gossiper) gossip(committee *types.Committee, msg message.Msg, recipients []types.CommitteeMember) {
 	hash := msg.Hash()
 	if !g.knownMessages.Contains(hash) {
 		g.knownMessages.Add(hash, true)
@@ -75,17 +88,6 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	}
 	code := message.NetworkCodes[msg.Code()]
 	payload := msg.Payload()
-
-	recipients, err := g.router.Route(committee, msg, g.address)
-	if err != nil {
-		if !errors.Is(err, consensus.ErrFutureEpochMessage) {
-			log.Debug("No recipients for message", "error", err, "height", msg.H(), "message type", msg.Code())
-			return
-		}
-		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
-		recipients = committee.Members
-	}
-
 	lostPeers := make([]common.Address, 0)
 	for _, val := range recipients {
 		if val.Address == g.address {
@@ -106,6 +108,20 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	if len(lostPeers) > 0 {
 		g.logger.Debug("Gossiper: peers not found", "len", len(lostPeers), "peers", lostPeers)
 	}
+
+}
+
+func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
+	recipients, err := g.router.Route(committee, msg, g.address)
+	if err != nil {
+		if !errors.Is(err, consensus.ErrFutureEpochMessage) {
+			log.Debug("No recipients for message", "error", err, "height", msg.H(), "message type", msg.Code())
+			return
+		}
+		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
+		recipients = committee.Members
+	}
+	g.gossip(committee, msg, recipients)
 }
 
 func (g *Gossiper) AskSync(committee *types.Committee, coreHeight uint64, round int64) {

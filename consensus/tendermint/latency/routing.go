@@ -700,6 +700,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		}
 
 		for _, addr := range receivers {
+			//todo: this check should move to receivers selection itself, else we run a risk of not selecting peers at all
 			if member := committee.MemberByAddress(addr); member != nil && addr != s.self {
 				recipients = append(recipients, *member)
 			}

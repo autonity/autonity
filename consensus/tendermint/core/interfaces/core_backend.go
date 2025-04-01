@@ -40,6 +40,9 @@ type Backend interface {
 	// Gossip sends a message to all validators (exclude self)
 	Gossip(committee *types.Committee, message message.Msg)
 
+	// SlowGossip sends a message to a subset of validators
+	SlowGossip(committee *types.Committee, message message.Msg)
+
 	KnownMsgHash() []common.Hash
 
 	HandleUnhandledMsgs(ctx context.Context)

@@ -218,6 +218,10 @@ func (sb *Backend) Gossip(committee *types.Committee, msg message.Msg) {
 	sb.gossiper.Gossip(committee, msg)
 }
 
+func (sb *Backend) SlowGossip(committee *types.Committee, msg message.Msg) {
+	sb.gossiper.SlowGossip(committee, msg)
+}
+
 // UpdateStopChannel implements tendermint.Backend.Gossip
 func (sb *Backend) UpdateStopChannel(stopCh chan struct{}) {
 	sb.gossiper.UpdateStopChannel(stopCh)
