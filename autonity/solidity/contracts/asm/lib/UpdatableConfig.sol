@@ -19,18 +19,6 @@ library UpdatableConfig {
         return config.currentValue;
     }
 
-    // Returns the value of the configuration at a specific timestamp
-    // @param config The configuration to read from
-    // @param timestamp The timestamp to read the value from
-    // @return The value of the configuration at the given timestamp
-    // @dev This might not give the expected result if the timestamp is in the past
-    function valueAt(UintConfig storage config, uint256 timestamp) internal view returns (uint256) {
-        if (config.nextActiveFrom > 0 && config.nextActiveFrom <= timestamp) {
-            return config.nextValue;
-        }
-        return config.currentValue;
-    }
-
     // Updates the configuration with a new value and active from timestamp
     // @param config The configuration to update
     // @param newValue The new value to set
