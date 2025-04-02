@@ -48,11 +48,6 @@ contract SupplyControl is ISupplyControl, IConfigEvents {
         _;
     }
 
-    modifier onlyOperator() {
-        if (msg.sender != _operator) revert Unauthorized();
-        _;
-    }
-
     modifier onlyStabilizer() {
         if (msg.sender != stabilizer) revert Unauthorized();
         _;
@@ -105,8 +100,8 @@ contract SupplyControl is ISupplyControl, IConfigEvents {
 
     /// Update the stabilizer that is authorized to mint and burn.
     /// @param stabilizer_ The new stabilizer account
-    /// @dev Only the operator can update the stabilizer address.
-    function setStabilizer(address stabilizer_) external onlyOperator {
+    /// @dev Only the autonity contract can update the stabilizer address.
+    function setStabilizer(address stabilizer_) external onlyAutonity {
         emit IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, stabilizer_);
         stabilizer = stabilizer_;
     }

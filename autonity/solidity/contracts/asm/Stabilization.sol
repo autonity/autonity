@@ -203,10 +203,7 @@ contract Stabilization is IStabilization {
         address auctioneer,
         address acu,
         IERC20 collateralToken
-    )
-    positiveMCR(config_.minCollateralizationRatio)
-    validRatios(config_.liquidationRatio, config_.minCollateralizationRatio)
-    {
+    ) positiveMCR(config_.minCollateralizationRatio) validRatios(config_.liquidationRatio, config_.minCollateralizationRatio) {
         if (config_.announcementWindow == 0) revert ZeroValue();
         _config = config_;
         _autonity = autonity;
@@ -274,7 +271,7 @@ contract Stabilization is IStabilization {
         // we need to double check that a user is not trying to update their timestamp to
         // influence a liquidation auction, so if you deposit while liquidatable, the deposit
         // must be big enough to make you non-liquidatable
-        if(isLiquidatable(msg.sender)) revert Liquidatable();
+        if (isLiquidatable(msg.sender)) revert Liquidatable();
 
         emit Deposit(msg.sender, amount);
     }
@@ -497,7 +494,6 @@ contract Stabilization is IStabilization {
         emit IConfigEvents.ConfigUpdateUint("announcementWindow", _announcementWindow.value(), window);
     }
 
-
     /**
     * @notice Updates min collateralization ratio and liquidation ratio.
     * @param newLiquidationRatio The new liquidation ratio
@@ -522,7 +518,6 @@ contract Stabilization is IStabilization {
         emit IConfigEvents.ConfigUpdateUint("liquidationRatio", _liquidationRatio.value(), newLiquidationRatio);
         emit IConfigEvents.ConfigUpdateUint("minCollateralizationRatio", _minCollateralizationRatio.value(), newMinCollateralizationRatio);
     }
-
 
     /*
     ┌────────────────────┐
@@ -892,11 +887,7 @@ contract Stabilization is IStabilization {
     function _allocatePayment(
         CDP storage cdp,
         uint256 amount
-    )
-    internal
-    view
-    returns (uint256 interest, uint256 principal, uint256 surplus)
-    {
+    ) internal view returns (uint256 interest, uint256 principal, uint256 surplus) {
         uint256 debt = cdp.principal + cdp.interest;
         interest = amount < cdp.interest ? amount : cdp.interest;
         principal = amount < debt ? amount - interest : cdp.principal;

@@ -237,19 +237,18 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
   const stabilization = await Stabilization.new({from:deployer});
   const upgradeManager = await UpgradeManager.new(autonity.address,operator,{from:deployer})
 
-  await supplyControl.setStabilizer(stabilization.address,{from:operator});
-
   // omission accountability contract
   const omissionAccountability = await OmissionAccountability.new(autonity.address, operator, omissionAccountabilityConfig, {from:deployer})
 
+  await autonity.setSupplyControlContract(supplyControl.address, {from: operator});
+  await autonity.setAuctioneerContract(auctioneer.address, {from: operator});
+  await autonity.setStabilizationContract(stabilization.address, {from: operator});
   await autonity.setAccountabilityContract(accountability.address, {from:operator});
   await autonity.setAcuContract(acu.address, {from: operator});
-  await autonity.setSupplyControlContract(acu.address, {from: operator});
-  await autonity.setStabilizationContract(acu.address, {from: operator});
   await autonity.setOracleContract(oracle.address, {from:operator});
   await autonity.setUpgradeManagerContract(upgradeManager.address, {from:operator});
   await autonity.setOmissionAccountabilityContract(omissionAccountability.address, {from: operator});
-  await autonity.setAuctioneerContract(auctioneer.address, {from: operator});
+
 }
 
 // deploys protocol contracts

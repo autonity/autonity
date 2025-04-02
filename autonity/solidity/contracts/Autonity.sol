@@ -654,13 +654,17 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     function setAcuContract(address _address) public virtual onlyOperator {
         emit ConfigUpdateAddress("acuContract", address(config.contracts.acuContract), address(_address));
         config.contracts.acuContract = IACU(_address);
-        config.contracts.stabilizationContract.setACU(_address);
+        if (address(config.contracts.stabilizationContract) != address(0)) {
+            config.contracts.stabilizationContract.setACU(_address);
+        }
     }
 
     function setAuctioneerContract(address _address) public virtual onlyOperator {
         emit ConfigUpdateAddress("auctioneerContract", address(config.contracts.auctioneerContract), address(_address));
         config.contracts.auctioneerContract = IAuctioneer(_address);
-        config.contracts.stabilizationContract.setAuctioneer(_address);
+        if (address(config.contracts.stabilizationContract) != address(0)) {
+            config.contracts.stabilizationContract.setAuctioneer(_address);
+        }
     }
 
     /*
@@ -670,7 +674,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     function setSupplyControlContract(address _address) public virtual onlyOperator {
         emit ConfigUpdateAddress("supplyControlContract", address(config.contracts.supplyControlContract), address(_address));
         config.contracts.supplyControlContract = ISupplyControl(_address);
-        config.contracts.stabilizationContract.setSupplyControl(_address);
+        if (address(config.contracts.stabilizationContract) != address(0)) {
+            config.contracts.stabilizationContract.setSupplyControl(_address);
+        }
     }
 
     /*
@@ -680,8 +686,12 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     function setStabilizationContract(address _address) public virtual onlyOperator {
         emit ConfigUpdateAddress("stabilizationContract", address(config.contracts.stabilizationContract), address(_address));
         config.contracts.stabilizationContract = IStabilization(_address);
-        config.contracts.auctioneerContract.setStabilization(_address);
-        config.contracts.supplyControlContract.setStabilizer(_address);
+        if (address(config.contracts.auctioneerContract) != address(0)) {
+            config.contracts.auctioneerContract.setStabilization(_address);
+        }
+        if (address(config.contracts.supplyControlContract) != address(0)) {
+            config.contracts.supplyControlContract.setStabilizer(_address);
+        }
     }
 
     /*
@@ -893,7 +903,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         }
         Precompiled.computeCommitteePrecompiled(input);
         // store committee size used to compute committee
-        configuredCommitteeSize  = config.protocol.committeeSize;
+        configuredCommitteeSize = config.protocol.committeeSize;
         // get oracle address of committee members
         // calculate committeeNodes
         delete committeeNodes;
@@ -1505,7 +1515,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * Emits an {Approval} event.
      *
      */
-    function _approve(address owner, address spender, uint256 amount) internal virtual { require(owner != address(0), "ERC20: approve from the zero address");
+    function _approve(address owner, address spender, uint256 amount) internal virtual {
+        require(owner != address(0), "ERC20: approve from the zero address");
         require(spender != address(0), "ERC20: approve to the zero address");
 
         allowances[owner][spender] = amount;
