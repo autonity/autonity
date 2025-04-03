@@ -335,7 +335,13 @@ func (r *Router) measureToReport() error {
 
 	err = r.reporter.ReportLatency(latencyVec)
 	if err == nil {
-		log.Info("Router: latency reported", "length latencyVec", len(latencyVec))
+		var sb strings.Builder
+		sb.WriteString("\nRouter: latency reported!!\n")
+		for addr, lat := range latencyVec {
+			sb.WriteString(fmt.Sprintf("[%s → %dms]\n", addr.Hex(), lat))
+		}
+		sb.WriteString("\n")
+		log.Info(sb.String())
 	}
 	return err
 }

@@ -77,7 +77,6 @@ func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
 	}
 	targetIndices := rand.Perm(numTargets)
 	recipients := make([]types.CommitteeMember, numTargets)
-	log.Debug("total committee members", "num", len(committee.Members), "numTargets", numTargets, "committee", committee.Members)
 	for i := 0; i < numTargets; i++ {
 		recipients[i] = committee.Members[targetIndices[i]]
 	}
