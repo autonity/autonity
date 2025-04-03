@@ -388,7 +388,7 @@ func (r *Router) loop(ctx context.Context) {
 	}()
 	measured := false
 	//todo: remove
-	disableClustering := true
+	disableClustering := false
 
 	for {
 		select {
