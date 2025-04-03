@@ -255,7 +255,8 @@ func (r *Router) resolveClusters(h uint64) (*Clusters, error) {
 	}
 
 	// always try to pick the optimized one 1st
-	if r.epochOptimizedClusters != nil && h >= r.epochOptimizedClusters.activatedHeight && h < r.epochDefaultClusters.nextEpochHeight {
+	if r.epochOptimizedClusters != nil && h >= r.epochOptimizedClusters.activatedHeight &&
+		r.epochDefaultClusters != nil && h < r.epochDefaultClusters.nextEpochHeight {
 		return r.epochOptimizedClusters, nil
 	}
 
