@@ -77,7 +77,6 @@ func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
 	}
 	targetIndices := rand.Perm(numTargets)
 	recipients := make([]types.CommitteeMember, numTargets)
-	log.Debug("total committee members", "num", len(committee.Members), "numTargets", numTargets, "committee", committee.Members)
 	for i := 0; i < numTargets; i++ {
 		recipients[i] = committee.Members[targetIndices[i]]
 	}
@@ -121,7 +120,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	recipients, err := g.router.Route(committee, msg, g.address)
 	if err != nil {
 		//if !errors.Is(err, consensus.ErrFutureEpochMessage) {
-		//	log.Debug("No recipients for message", "error", err, "height", msg.H(), "message type", msg.Code())
+		log.Debug("Gossiper: No recipients for message from router, broadcast", "error", err, "height", msg.H(), "message type", msg.Code())
 		//	return
 		//}
 		// forward future epoch proposal to all the committee members, as most of them are still in the committee.

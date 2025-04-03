@@ -129,7 +129,7 @@ func (r *Router) Forward(committee *types.Committee, m message.Msg, sender commo
 	recipients, err := r.Route(committee, m, sender)
 	if err != nil {
 		//if !errors.Is(err, consensus.ErrFutureEpochMessage) {
-		//	log.Debug("No recipients for proposal", "error", err, "height", m.H())
+		log.Debug("Forward: No recipients for message from router, broadcast", "error", err, "height", m.H(), "message type", m.Code())
 		//	return
 		//}
 		// forward to all the committee members if the router cannot resolve recipients.
@@ -260,7 +260,8 @@ func (r *Router) resolveClusters(h uint64) (*Clusters, error) {
 	}
 
 	// always try to pick the optimized one 1st
-	if r.epochOptimizedClusters != nil && h >= r.epochOptimizedClusters.activatedHeight && h < r.epochDefaultClusters.nextEpochHeight {
+	if r.epochOptimizedClusters != nil && h >= r.epochOptimizedClusters.activatedHeight &&
+		r.epochDefaultClusters != nil && h < r.epochDefaultClusters.nextEpochHeight {
 		return r.epochOptimizedClusters, nil
 	}
 
@@ -339,7 +340,13 @@ func (r *Router) measureToReport() error {
 
 	err = r.reporter.ReportLatency(latencyVec)
 	if err == nil {
-		log.Info("Router: latency reported", "length latencyVec", len(latencyVec))
+		var sb strings.Builder
+		sb.WriteString("\nRouter: latency reported!!\n")
+		for addr, lat := range latencyVec {
+			sb.WriteString(fmt.Sprintf("[%s → %dms]\n", addr.Hex(), lat))
+		}
+		sb.WriteString("\n")
+		log.Info(sb.String())
 	}
 	return err
 }
