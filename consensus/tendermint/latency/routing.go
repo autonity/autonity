@@ -124,7 +124,7 @@ func (r *Router) Forward(committee *types.Committee, m message.Msg, sender commo
 	recipients, err := r.Route(committee, m, sender)
 	if err != nil {
 		//if !errors.Is(err, consensus.ErrFutureEpochMessage) {
-		//	log.Debug("No recipients for proposal", "error", err, "height", m.H())
+		log.Debug("Forward: No recipients for message from router, broadcast", "error", err, "height", m.H(), "message type", m.Code())
 		//	return
 		//}
 		// forward to all the committee members if the router cannot resolve recipients.
