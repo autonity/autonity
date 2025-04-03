@@ -48,11 +48,9 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		stepChange:             time.Now(),
 		noGossip:               noGossip,
 		eventCh:                make(chan events.CoreEvent, EventQueueSize),
-		syncState:              &SyncState{},
 	}
-	c.syncState.SetOutOfSync(false)             // initial state
-	c.syncState.SetLastValidMsgTime(time.Now()) // set initial timestamp
-	c.syncState.SetSyncTimeOut(syncTimeOut)     // e.g., syncTimeOut = 10*time.Second
+	// init sync state on construction.
+	_ = c.SyncState()
 	c.SetDefaultHandlers()
 	if services != nil {
 		c.broadcaster = services.Broadcaster(c)
@@ -177,6 +175,17 @@ type Core struct {
 	noGossip           bool
 
 	eventCh chan events.CoreEvent // channel to communicate events from core to other modules (aggregator)
+}
+
+// SyncState return the pointer of the syncState, a helper to init it easier in the tests.
+func (c *Core) SyncState() *SyncState {
+	if c.syncState == nil {
+		c.syncState = &SyncState{}
+		c.syncState.SetOutOfSync(false)
+		c.syncState.SetLastValidMsgTime(time.Now())
+		c.syncState.SetSyncTimeOut(syncTimeOut)
+	}
+	return c.syncState
 }
 
 func (c *Core) EventCh() <-chan events.CoreEvent {
@@ -409,11 +418,11 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 
 func (c *Core) updateSyncTimeout(timeout time.Duration) {
 	// if a round timer is greater than the current sync timeout, update the sync timeout
-	if timeout > c.syncState.GetSyncTimeOut() {
-		c.syncState.SetSyncTimeOut(timeout)
+	if timeout > c.SyncState().GetSyncTimeOut() {
+		c.SyncState().SetSyncTimeOut(timeout)
 	} else {
 		// otherwise reset to default
-		c.syncState.SetSyncTimeOut(syncTimeOut)
+		c.SyncState().SetSyncTimeOut(syncTimeOut)
 	}
 }
 

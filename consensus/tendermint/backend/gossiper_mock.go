@@ -38,11 +38,12 @@ func (m *Mockrouter) EXPECT() *MockrouterMockRecorder {
 }
 
 // Route mocks base method.
-func (m *Mockrouter) Route(committee *types.Committee, msg message.Msg, from common.Address) []types.CommitteeMember {
+func (m *Mockrouter) Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Route", committee, msg, from)
 	ret0, _ := ret[0].([]types.CommitteeMember)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Route indicates an expected call of Route.
