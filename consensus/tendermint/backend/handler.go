@@ -211,7 +211,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 			return true, ErrJailed
 		}
 		// structured relaying happens after the pre-validation, only unknown msg is relayed.
-		if sb.router != nil { // fast relay only for proposal, for prevotes it would happen from gossip flow
+		if sb.router != nil && sb.core.Height().Uint64() == msg.H() && msg.R() == sb.core.Round() { // same height and round messages early forward
 			go sb.router.Forward(committee, msg, sender)
 		}
 	case *message.Prevote, *message.Precommit:
@@ -228,6 +228,9 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		if allJailed {
 			sb.logger.Debug("Vote message contains only signatures from jailed validators, ignoring message", "signers", vote.Signers().String())
 			return true, ErrJailed
+		}
+		if sb.router != nil && sb.core.Height().Uint64() == msg.H() && msg.R() == sb.core.Round() { // same height and round messages early forward
+			go sb.router.Forward(committee, msg, sender)
 		}
 	default:
 		sb.logger.Crit("Tendermint backend processing unknown message")

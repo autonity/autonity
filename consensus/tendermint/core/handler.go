@@ -207,7 +207,7 @@ eventLoop:
 				c.SyncState().SetLastValidMsgTime(time.Now())
 				c.SyncState().SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
 
-				if !c.noGossip && msg.Code() != message.ProposalCode { // proposals are forwarded in the backend as soon as they are received
+				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
 						// gossip the (complex) aggregate with quorum to everyone instead of the current message
@@ -224,12 +224,7 @@ eventLoop:
 							time.Sleep(5 * time.Millisecond) // minor sleep for old round messages
 							c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 						}()
-					} else if hadQuorum {
-						// current round message quorum already achieved, gossip for accountability
-						go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
-					} else {
 						// current round messages no qourum yet, gossip to everyone
-						go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 					}
 					recordMessageProcessingTime(msg.Code(), start)
 				}
