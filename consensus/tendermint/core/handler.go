@@ -179,8 +179,7 @@ eventLoop:
 
 				if c.Height().Uint64() > msg.H() {
 					// TODO: currently old height messages are send directly to the FD, but this check is still needed due to potential TOCTOU race conditions
-					// Moreover, I am still wondering if it would be useful to gossip old height messages, as they could be useful for accountability
-					c.logger.Debug("mainEventLoop: ignoring stale consensus message", "msg", msg.String(), "height", c.Height().Uint64())
+					c.logger.Debug("mainEventLoop: ignoring stale consensus message", "msg type", msg.Code(), "core height", c.Height().Uint64(), "msgHeight", msg.H(), "msgRound", msg.R())
 					break
 				}
 				// old height message should be rejected before checking quorum, because message map only stores round messages for current height
@@ -196,6 +195,7 @@ eventLoop:
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
 						tryDisconnect(e.ErrCh, err)
+						break
 					}
 					// we still want to gossip old round messages
 					if !errors.Is(err, constants.ErrOldRoundMessage) {
