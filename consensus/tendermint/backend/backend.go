@@ -210,7 +210,7 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 }
 
 func (sb *Backend) AskSync(committee *types.Committee) {
-	sb.gossiper.AskSync(committee, sb.core.Height().Uint64(), sb.core.Round())
+	sb.gossiper.AskSync(committee)
 }
 
 // Gossip implements tendermint.Backend.Gossip

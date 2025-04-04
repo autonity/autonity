@@ -204,8 +204,8 @@ eventLoop:
 				}
 
 				// valid message, reset sync timeout
-				c.syncState.SetLastValidMsgTime(time.Now())
-				c.syncState.SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
+				c.SyncState().SetLastValidMsgTime(time.Now())
+				c.SyncState().SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
 
 				if !c.noGossip && msg.Code() != message.ProposalCode { // proposals are forwarded in the backend as soon as they are received
 					if !hadQuorum {
@@ -323,8 +323,8 @@ eventLoop:
 		select {
 		case <-time.After(time.Second * 5): //check for sync every 5 seconds
 
-			if time.Since(c.syncState.GetLastValidMsgTime()) < c.syncState.GetSyncTimeOut() {
-				c.logger.Debug("Sync timeout not reached yet", "last valid message received", c.syncState.GetLastValidMsgTime(), "sync timeout", c.syncState.GetSyncTimeOut())
+			if time.Since(c.SyncState().GetLastValidMsgTime()) < c.SyncState().GetSyncTimeOut() {
+				c.logger.Debug("Sync timeout not reached yet", "last valid message received", c.SyncState().GetLastValidMsgTime(), "sync timeout", c.SyncState().GetSyncTimeOut())
 				round = c.Round()
 				height = c.Height()
 				continue
@@ -337,7 +337,7 @@ eventLoop:
 				c.logger.Warn("⚠️ Consensus liveliness lost")
 				c.logger.Warn("Broadcasting sync request..")
 				c.backend.AskSync(c.committee.Committee())
-				c.syncState.SetOutOfSync(true)
+				c.SyncState().SetOutOfSync(true)
 			}
 			round = currentRound
 			height = currentHeight
@@ -347,7 +347,7 @@ eventLoop:
 				break eventLoop
 			}
 			event := ev.Data.(events.SyncEvent)
-			if c.syncState.IsOutOfSync() {
+			if c.SyncState().IsOutOfSync() {
 				c.logger.Info("sync request received while we are out of sync, dropping", "from", event.Addr)
 				continue
 			}

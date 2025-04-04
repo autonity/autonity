@@ -200,6 +200,4 @@ type Peer interface {
 	SendRaw(msgcode uint64, data []byte) error
 
 	Cache() *fixsizecache.Cache[common.Hash, bool]
-
-	Enode() *enode.Node
 }

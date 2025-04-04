@@ -129,16 +129,10 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	g.gossip(msg, recipients)
 }
 
-func (g *Gossiper) AskSync(committee *types.Committee, coreHeight uint64, round int64) {
-	f := message.Fake{FakeHeight: coreHeight, FakeRound: uint64(round), FakeCode: uint8(message.SyncNetworkMsg)}
-	recipients, err := g.router.Route(committee, f, g.address)
-	if err != nil {
-		log.Error("Error selecting peers members to broadcast sync", "error", err)
-		recipients = committee.Members
-	}
+func (g *Gossiper) AskSync(committee *types.Committee) {
 
 	targets := make([]common.Address, 0, committee.Len())
-	for _, val := range recipients {
+	for _, val := range committee.Members {
 		if val.Address != g.address {
 			targets = append(targets, val.Address)
 		}

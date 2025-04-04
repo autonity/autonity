@@ -117,6 +117,11 @@ func (r *Router) PeerSelector() PeerSelector {
 
 // Route just select recipients from the clusters, it does not do the message sending.
 func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
+	// no route for small scale network.
+	if committee.Len() <= ScaleThresholdForClustering {
+		return committee.Members, nil
+	}
+	
 	return r.PeerSelector().SelectPeers(committee, msg, from)
 }
 
@@ -417,6 +422,10 @@ func (r *Router) loop(ctx context.Context) {
 				continue
 			}
 
+			// there is no broadcaster for unit test context.
+			if r.broadcaster == nil {
+				continue
+			}
 			// fetch states by node.
 			//todo: is this really required, we do have this information in the router.
 			// curEpoch returned by GetMetricStatus is wrong, we should use the one from the epoch event.
