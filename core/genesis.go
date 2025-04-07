@@ -475,6 +475,7 @@ func (g *Genesis) ToBlock(db *triedb.Database) (*types.Block, error) {
 }
 
 func genesisEVM(genesis *Genesis, statedb vm.StateDB) *vm.EVM {
+	zeroHash := common.Hash{}
 	evmContext := vm.BlockContext{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
@@ -484,6 +485,7 @@ func genesisEVM(genesis *Genesis, statedb vm.StateDB) *vm.EVM {
 		Time:        genesis.Timestamp,
 		GasLimit:    genesis.GasLimit,
 		Difficulty:  genesis.Difficulty,
+		Random:      &zeroHash, // RANDDAO is not supported by autonity
 
 		ActivityProof:      nil,
 		ActivityProofRound: 0,

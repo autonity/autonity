@@ -509,10 +509,10 @@ var (
 		big.NewInt(0),
 		big.NewInt(0),
 		big.NewInt(0),
-		nil,
-		nil,
-		nil,
-		nil,
+		big.NewInt(0),
+		big.NewInt(0),
+		big.NewInt(0),
+		big.NewInt(0),
 		true,
 		nil,
 		new(EthashConfig),
@@ -1190,6 +1190,7 @@ func (c *ChainConfig) Rules(num *big.Int, isMerge bool) Rules {
 	if chainID == nil {
 		chainID = new(big.Int)
 	}
+	isVerkle := c.IsVerkle(num)
 	return Rules{
 		ChainID:          new(big.Int).Set(chainID),
 		IsHomestead:      c.IsHomestead(num),
@@ -1203,6 +1204,11 @@ func (c *ChainConfig) Rules(num *big.Int, isMerge bool) Rules {
 		IsBerlin:         c.IsBerlin(num),
 		IsLondon:         c.IsLondon(num),
 		IsMerge:          isMerge,
+		IsShanghai:       isMerge && c.IsLondon(num),
+		IsCancun:         isMerge && c.IsCancun(num),
+		IsPrague:         isMerge && c.IsPrague(num),
+		IsVerkle:         isVerkle,
+		IsEIP4762:        isVerkle,
 	}
 }
 

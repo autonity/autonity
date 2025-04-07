@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"math/big"
 	"math/rand"
 	"os"
@@ -23,6 +21,8 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -32,9 +32,9 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
-	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/triedb"
 )
 
 // This test checks that we can process transactions that transfer value from
@@ -163,7 +163,7 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 	sendAndWait(tx)
 
 	deltaRespected := func(node *Node, delta uint64, epochPeriod uint64) bool {
-		currentBlock := node.Eth.BlockChain().CurrentBlock().Number().Uint64()
+		currentBlock := node.Eth.BlockChain().CurrentBlock().Number.Uint64()
 		if currentBlock%epochPeriod <= delta {
 			t.Fatal("Not enough blocks in the epoch") // cannot really check if delta is correctly respected if we don't have at least delta + 1 blocks in the epoch
 		}
@@ -388,8 +388,9 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 	node0Core.Messages().Reset()
 
 	// get latest inserted block and generate proposal out of it
-	block := node.Eth.BlockChain().CurrentBlock()
-	proposal := message.NewPropose(0, block.NumberU64(), -1, block, func(hash common.Hash) blst.Signature {
+	header := node.Eth.BlockChain().CurrentBlock()
+	block := node.Eth.BlockChain().GetBlock(header.Hash(), header.Number.Uint64())
+	proposal := message.NewPropose(0, header.Number.Uint64(), -1, block, func(hash common.Hash) blst.Signature {
 		return node.ConsensusKey.Sign(hash.Bytes())
 	}, &types.CommitteeMember{
 		Address:           node.Address,
@@ -399,8 +400,8 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 	})
 	//reset cache to force verify proposal
 	ethDb := rawdb.NewMemoryDatabase()
-	db := state.NewDatabase(ethDb)
-	stateDB, _ := state.New(common.Hash{}, db, nil)
+	db := state.NewDatabase(triedb.NewDatabase(ethDb, nil), nil)
+	stateDB, _ := state.New(common.Hash{}, db)
 	node0Core.Backend().BlockChain().CacheProposalState(common.Hash{}, nil, 0, stateDB)
 
 	// handle the proposal
@@ -938,9 +939,9 @@ func TestLargeNetwork(t *testing.T) {
 	//
 
 	// DefaultVerbosity will set the log levels for the main components: consensus, eth, blockchain..
-	log.DefaultVerbosity = log.LvlError
+	//log.DefaultVerbosity = log.LvlError
 	//Set the root logger level for everything else.
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	// Fast epoch to see changes in committee reflected fast
 	params.TestAutonityContractConfig.EpochPeriod = 5
 	// total peers to be deployed
@@ -1064,7 +1065,7 @@ func TestLoad(t *testing.T) {
 						})
 						signed, err := types.SignTx(rawTx, types.LatestSigner(network[0].EthConfig.Genesis.Config), network[id].Key)
 						require.NoError(t, err)
-						network[id].Eth.TxPool().AddLocal(signed)
+						network[id].Eth.TxPool().Add([]*types.Transaction{signed}, false)
 						nonce++
 					}
 				case <-closeCh:

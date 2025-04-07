@@ -17,6 +17,7 @@ import (
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
+	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/graph"
 	"github.com/autonity/autonity/consensus/acn"
@@ -151,25 +152,27 @@ func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int
 	ethConfig.Miner.GasPrice = (&big.Int{}).SetUint64(genesis.Config.AutonityContractConfig.MinBaseFee)
 	ethConfig.Miner.Etherbase = crypto.PubkeyToAddress(validator.NodeKey.PublicKey)
 	ethConfig.Genesis = genesis
-	ethConfig.NetworkID = genesis.Config.ChainID.Uint64()
+	ethConfig.NetworkId = genesis.Config.ChainID.Uint64()
 
 	// Give this logger context based on the node address so that we can easily
 	// trace single node execution in the logs. We set the logger only on the
 	// copy, since it is not useful for black box testing and it is also not
 	// marshalable since the implementation contains unexported fields.
-	logger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.FormatFunc(func(record *log.Record) []byte {
-		b := log.TerminalFormat(false).Format(record)
-		if id < len(terminalColors) {
-			prefix := []byte(terminalColors[id].background + terminalColors[id].foreground)
-			suffix := []byte("\x1b[0;K\033[0m\n")
-			return append(append(prefix, b[:len(b)-1]...), suffix...)
-		}
-		return b
-	})))
+	logger := log.NewGlogHandler(log.NewTerminalHandler(os.Stderr, true))
 
+	/*
+		log.FormatFunc(func(record *log.Record) []byte {
+				b := log.TerminalFormat(false).Format(record)
+				if id < len(terminalColors) {
+					prefix := []byte(terminalColors[id].background + terminalColors[id].foreground)
+					suffix := []byte("\x1b[0;K\033[0m\n")
+					return append(append(prefix, b[:len(b)-1]...), suffix...)
+				}
+				return b
+			})
+	*/
 	logger.Verbosity(verbosity)
-	nodeConfig.Logger = log.New()
-	nodeConfig.Logger.SetHandler(logger)
+	nodeConfig.Logger = log.NewLogger(logger)
 
 	// set custom tendermint services
 	nodeConfig.SetTendermintServices(validator.TendermintServices)
@@ -226,25 +229,26 @@ func NewNoneValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id
 		return nil, err
 	}
 	ethConfig.Genesis = genesis
-	ethConfig.NetworkID = genesis.Config.ChainID.Uint64()
+	ethConfig.NetworkId = genesis.Config.ChainID.Uint64()
 
-	// Give this logger context based on the node address so that we can easily
-	// trace single node execution in the logs. We set the logger only on the
-	// copy, since it is not useful for black box testing and it is also not
-	// marshalable since the implementation contains unexported fields.
-	logger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.FormatFunc(func(record *log.Record) []byte {
-		b := log.TerminalFormat(false).Format(record)
-		if id < len(terminalColors) {
-			prefix := []byte(terminalColors[id].background + terminalColors[id].foreground)
-			suffix := []byte("\x1b[0;K\033[0m\n")
-			return append(append(prefix, b[:len(b)-1]...), suffix...)
-		}
-		return b
-	})))
+	//
+	//// Give this logger context based on the node address so that we can easily
+	//// trace single node execution in the logs. We set the logger only on the
+	//// copy, since it is not useful for black box testing and it is also not
+	//// marshalable since the implementation contains unexported fields.
+	//logger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.FormatFunc(func(record *log.Record) []byte {
+	//	b := log.TerminalFormat(false).Format(record)
+	//	if id < len(terminalColors) {
+	//		prefix := []byte(terminalColors[id].background + terminalColors[id].foreground)
+	//		suffix := []byte("\x1b[0;K\033[0m\n")
+	//		return append(append(prefix, b[:len(b)-1]...), suffix...)
+	//	}
+	//	return b
+	//})))
 
-	logger.Verbosity(verbosity)
-	nodeConfig.Logger = log.New()
-	nodeConfig.Logger.SetHandler(logger)
+	//logger.Verbosity(verbosity)
+	//nodeConfig.Logger = log.New()
+	//nodeConfig.Logger.SetHandler(logger)
 
 	n := &Node{
 		Config:       nodeConfig,
@@ -291,7 +295,9 @@ func (n *Node) Start() error {
 		return fmt.Errorf("cannot create new eth: %w", err)
 	}
 
-	acn.New(n.Node, n.Eth, ethconfig.Defaults.NetworkID)
+	utils.RegisterFilterAPI(n.Node, n.Eth.APIBackend, n.EthConfig)
+
+	acn.New(n.Node, n.Eth, ethconfig.Defaults.NetworkId)
 	if err = n.Node.Start(); err != nil {
 		return fmt.Errorf("failed to start a node: %w", err)
 	}
@@ -614,7 +620,7 @@ func (nw Network) CheckReimbursement(height uint64, reporter common.Address) err
 		preState, err := n.Eth.BlockChain().StateAt(preHeight.Root())
 		if err != nil {
 			// for debugging in the ci test context.
-			curHeight := n.Eth.BlockChain().CurrentBlock().NumberU64()
+			curHeight := n.Eth.BlockChain().CurrentBlock().Number.Uint64()
 			for h := uint64(0); h <= curHeight; h++ {
 				b := n.Eth.BlockChain().GetBlockByNumber(h)
 				_, err = n.Eth.BlockChain().StateAt(b.Root())

@@ -443,7 +443,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
 	header.Epoch = epochInfo
-	return types.NewBlock(header, body, *receipts, new(trie.Trie)), nil
+	return types.NewBlock(header, body, *receipts, trie.NewStackTrie(nil)), nil
 }
 
 // Seal generates a new block for the given input block with the local miner's
