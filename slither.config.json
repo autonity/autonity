@@ -1,0 +1,7 @@
+{
+  "exclude_informational": true,
+  "exclude_low": true,
+  "exclude_optimization": true,
+  "filter_paths": "test-contracts/|mock-precompile/|bindings/",
+  "triage_database": "slither.db.json"
+}

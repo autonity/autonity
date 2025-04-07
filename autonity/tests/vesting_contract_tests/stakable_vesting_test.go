@@ -171,11 +171,11 @@ func TestReleaseFromStakeableContract(t *testing.T) {
 		// contract has the context of last block, so time is 1s less than currentTime
 		unlocked := currentTime - 1 - start
 		require.True(r.T, contractTotalAmount > unlocked, "cannot test if all funds unlocked")
-		epochID, _, err := r.Autonity.EpochID(nil)
+		epochID, _, err := r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		// mine some more blocks, release should be epoch based
 		r.WaitNBlocks(10)
-		newEpochID, _, err := r.Autonity.EpochID(nil)
+		newEpochID, _, err := r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, epochID, newEpochID, "cannot test if epoch progresses")
 		unlockedFunds, _, err := stakeableContract.VestedFunds(nil)
@@ -190,7 +190,7 @@ func TestReleaseFromStakeableContract(t *testing.T) {
 		// contract has the context of last block, so time is 1s less than currentTime
 		unlocked := currentTime - 1 - start
 		require.True(r.T, contractTotalAmount > unlocked, "cannot test if all funds unlocked")
-		epochID, _, err := r.Autonity.EpochID(nil)
+		epochID, _, err := r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		// mine some more blocks, release should be epoch based
 		r.WaitNBlocks(10)
@@ -201,7 +201,7 @@ func TestReleaseFromStakeableContract(t *testing.T) {
 		currentTime += 10
 		require.Equal(r.T, big.NewInt(currentTime), r.Evm.Context.Time, "time mismatch, release won't work")
 		// no more should be released as epoch did not change
-		newEpochID, _, err := r.Autonity.EpochID(nil)
+		newEpochID, _, err := r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, epochID, newEpochID, "cannot test if epoch progresses")
 		checkReleaseAllNTN(r, user, contractID, common.Big0)
@@ -223,12 +223,12 @@ func TestReleaseFromStakeableContract(t *testing.T) {
 		userNewBalance, _, err := r.Autonity.BalanceOf(nil, user)
 		require.NoError(r.T, err)
 		require.Equal(r.T, new(big.Int).Add(userBalance, unlockFraction), userNewBalance, "balance mismatch")
-		data, _, err := r.Autonity.EpochID(nil)
+		data, _, err := r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		require.True(r.T, data.IsInt64(), "invalid data")
 		epochID := data.Int64()
 		r.WaitNBlocks(10)
-		data, _, err = r.Autonity.EpochID(nil)
+		data, _, err = r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		require.True(r.T, data.IsInt64(), "invalid data")
 		require.Equal(r.T, epochID, data.Int64(), "epoch progressed, more funds will release")
@@ -1212,7 +1212,7 @@ func TestSlashingAffect(t *testing.T) {
 		stakeableContract *tests.IStakeableVesting,
 	) {
 		// deploy accountability test contract to slash
-		config, _, err := r.Accountability.Config(nil)
+		config, _, err := r.Accountability.GetConfig(nil)
 		require.NoError(r.T, err)
 		_, _, accountabilityContract, err = r.DeployAccountabilityTest(nil, r.Autonity.Address(), config)
 		require.NoError(r.T, err)

@@ -50,9 +50,9 @@ autonity:
 
 bindings:
 	@echo Generating protocol contracts bindings
-	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol "$(CONTRACTS_DIR)/bindings.sol" --out ./autonity/bindings.go
+	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol "$(CONTRACTS_DIR)/bindings/bindings.sol" --out ./autonity/bindings.go
 	@echo Generating internal testing bindings
-	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/tests/bindings.go
+	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings/bindings.sol --out ./autonity/tests/bindings.go
 
 
 # Builds Autonity without contract compilation, useful with alpine containers not supporting
@@ -105,9 +105,9 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	cd signer/fourbyte && go generate
 	# Generate go bindings
 	@echo Generating protocol contracts bindings
-	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/bindings.go
+	$(ABIGEN_BINARY)  --pkg autonity --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings/bindings.sol --out ./autonity/bindings.go
 	@echo Generating internal testing bindings
-	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings.sol --out ./autonity/tests/bindings.go
+	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings/bindings.sol --out ./autonity/tests/bindings.go
 
 $(SOLC_BINARY):
 	mkdir -p $(BINDIR)

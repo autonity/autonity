@@ -18,12 +18,6 @@ abstract contract BeneficiaryHandler is AccessAutonity {
 
     event BeneficiaryChanged(address indexed newBeneficiary, address indexed oldBeneficiary, uint256 contractID);
 
-    /*
-    ============================================================
-         Internals
-    ============================================================
-     */
-
     function _newContractCreated(address _beneficiary) internal returns (uint256) {
         uint256 _contractID = totalContractsCreated;
         beneficiaryContracts[_beneficiary].push(_contractID);
@@ -54,17 +48,11 @@ abstract contract BeneficiaryHandler is AccessAutonity {
         emit BeneficiaryChanged(_recipient, _beneficiary, _contractID);
     }
 
-    /*
-    ============================================================
-         Getters
-    ============================================================
-     */
-
     /**
      * @notice Returns the number of contracts entitled to some beneficiary.
      * @param _beneficiary address of the beneficiary
      */
-    function totalContracts(address _beneficiary) virtual external view returns (uint256) {
+    function _totalContracts(address _beneficiary) virtual internal view returns (uint256) {
         return beneficiaryContracts[_beneficiary].length;
     }
 
@@ -73,7 +61,7 @@ abstract contract BeneficiaryHandler is AccessAutonity {
      * @param _beneficiary address of the contract holder
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
      */
-    function getUniqueContractID(address _beneficiary, uint256 _id) public view returns (uint256) {
+    function _getUniqueContractID(address _beneficiary, uint256 _id) internal view returns (uint256) {
         require(beneficiaryContracts[_beneficiary].length > _id, "invalid contract id");
         return beneficiaryContracts[_beneficiary][_id];
     }

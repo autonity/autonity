@@ -47,5 +47,5 @@ interface IACU {
 
     /// Get the scale factor for ACU values.
     /// @return The scale factor
-    function scaleFactor() external view returns (uint256);
+    function getScaleFactor() external view returns (uint256);
 }

@@ -42,6 +42,16 @@ abstract contract ReentrancyGuard {
         _nonReentrantAfter();
     }
 
+    /**
+    * @dev supposed to be used with views that cannot be re-entered
+    *      it prevents read-only reentrancy attacks
+    *      ref: https://officercia.mirror.xyz/DBzFiDuxmDOTQEbfXhvLdK0DXVpKu1Nkurk0Cqk3QKc
+    */
+    modifier nonReentrantView() {
+        require(_reentrancyGuardEntered() == false, "read only reentrancy detected");
+        _;
+    }
+
     function _nonReentrantBefore() private {
         // On the first call to nonReentrant, status will be NOT_ENTERED
         require(status == NOT_ENTERED, "reentrancy detected");

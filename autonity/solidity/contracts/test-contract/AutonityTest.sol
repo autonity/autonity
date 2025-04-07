@@ -29,10 +29,6 @@ contract AutonityTest is Autonity {
        _stakingOperations();
    }
 
-     function getEpochTotalBondedStake() public view returns (uint256) {
-          return epochTotalBondedStake;
-     }
-
    function getBondingRequest(uint256 _id) public view returns (BondingRequest memory) {
         return bondingMap[_id];
    }
@@ -57,9 +53,13 @@ contract AutonityTest is Autonity {
      return lastUnlockedUnbonding;     
    }
 
+    function computeCommittee() public onlyProtocol returns (address[] memory, address[] memory, address[] memory){
+        return _computeCommittee();
+    }
+
    function testComputeCommittee() public {
       _stakingOperations();
-      (address[] memory voters, address[] memory reporters, address[] memory treasuries) = computeCommittee();
+      (address[] memory voters, address[] memory reporters, address[] memory treasuries) = _computeCommittee();
       address[] memory addresses = new address[](voters.length);
       uint256 totalStake = 0;
       uint256 lastStake = 0;

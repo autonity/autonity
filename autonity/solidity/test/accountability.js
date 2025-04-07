@@ -31,7 +31,7 @@ async function slashAndVerify(autonity,accountability,accountabilityConfig,event
   let offender = await autonity.getValidator(event.offender)
 
   let baseRate = utils.ruleToRate(accountabilityConfig,event.rule)
-  let history = await accountability.history(offender.nodeAddress);
+  let history = await accountability.getHistory(offender.nodeAddress);
 
   let slashingRate = toBN(baseRate).add(toBN(epochOffenceCount).mul(toBN(accountabilityConfig.factors.collusion))).add(toBN(history).mul(toBN(accountabilityConfig.factors.history)));
   // cannot slash more than 100%
@@ -76,7 +76,7 @@ async function slashAndVerify(autonity,accountability,accountabilityConfig,event
   assert.equal(parseInt(offenderSlashed.totalSlashed), parseInt(offender.totalSlashed) + originalSlashingAmount)
 
   // check that history count increases
-  let historyAfterSlash = await accountability.history(offenderSlashed.nodeAddress)
+  let historyAfterSlash = await accountability.getHistory(offenderSlashed.nodeAddress)
   assert.equal(parseInt(historyAfterSlash), parseInt(history) + 1)
 
   // check that validator is jailed for correct amount of time
@@ -239,7 +239,7 @@ contract('Accountability', function (accounts) {
         assert.equal(offender.bondedStake,offender.selfBondedStake)
         offenders.push(offender)
 
-        histories.push(await accountability.history(offender.nodeAddress))
+        histories.push(await accountability.getHistory(offender.nodeAddress))
         await accountability.handleValidFaultProof(event)
       }
 
@@ -293,7 +293,7 @@ contract('Accountability', function (accounts) {
       await accountability.handleValidFaultProof(event)
 
       await accountability.performSlashingTasks()
-      let history = await accountability.history(offender.nodeAddress)
+      let history = await accountability.getHistory(offender.nodeAddress)
       assert.equal(history,'3')
 
       // check slashing rate on fourth offence
@@ -350,7 +350,7 @@ contract('Accountability', function (accounts) {
       truffleAssert.eventNotEmitted(tx, 'NewFaultProof')
 
       // misb should lead to slashing
-      let history = await accountability.history(offender.nodeAddress);
+      let history = await accountability.getHistory(offender.nodeAddress);
       tx = await accountability.performSlashingTasks()
       truffleAssert.eventEmitted(tx,'SlashingEvent')
         

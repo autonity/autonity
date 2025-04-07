@@ -36,7 +36,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         uint256 _startTime,
         uint256 _cliffDuration,
         uint256 _totalDuration
-    ) virtual external onlyManager {
+    ) virtual external onlyManager nonReentrant {
         require(beneficiary == address(0), "contract already created");
         beneficiary = _beneficiary;
         stakeableContract = _createContract(_beneficiary, _amount, _startTime, _cliffDuration, _totalDuration, true);
@@ -47,7 +47,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @notice Set the address of the manager contract.
      * @custom:restricted-to operator account
      */
-    function setManagerContract(address _managerContract) virtual external onlyOperator {
+    function setManagerContract(address _managerContract) virtual external onlyOperator nonReentrant {
         emit IConfigEvents.ConfigUpdateAddress("managerContract", address(managerContract), _managerContract);
         managerContract = IStakeableVestingManager(payable(_managerContract));
     }
@@ -66,7 +66,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      *
      * So before calling `releaseFunds()`, see the `linkedValidators` list using the function `getLinkedValidators()`.
      */
-    function releaseFunds() virtual external onlyBeneficiary {
+    function releaseFunds() virtual external onlyBeneficiary nonReentrant {
         _updateFunds();
         (uint256 _unlocked, uint256 _totalValue) = _withdrawableVestedFunds();
         // first NTN is released
@@ -80,7 +80,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     /**
      * @notice Used by beneficiary to transfer all vested NTN to his own address.
      */
-    function releaseAllNTN() virtual external onlyBeneficiary {
+    function releaseAllNTN() virtual external onlyBeneficiary nonReentrant {
         _cleanup();
         (uint256 _unlocked, uint256 _totalValue) = _withdrawableVestedFunds();
         uint256 _remainingUnlocked = _releaseNTN(stakeableContract, _unlocked);
@@ -99,7 +99,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      *
      * So before calling `releaseAllLNTN()`, see the `linkedValidators` list using the function `getLinkedValidators()`.
      */
-    function releaseAllLNTN() virtual external onlyBeneficiary {
+    function releaseAllLNTN() virtual external onlyBeneficiary nonReentrant {
         _updateFunds();
         (uint256 _unlocked, uint256 _totalValue) = _withdrawableVestedFunds();
         uint256 _remainingUnlocked = _releaseAllVestedLNTN(_unlocked);
@@ -112,7 +112,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @notice Used by beneficiary to transfer some amount of vested NTN to his own address.
      * @param _amount amount of NTN to transfer
      */
-    function releaseNTN(uint256 _amount) virtual external onlyBeneficiary {
+    function releaseNTN(uint256 _amount) virtual external onlyBeneficiary nonReentrant {
         _cleanup();
         (uint256 _unlocked, uint256 _totalValue) = _withdrawableVestedFunds();
         require(_amount <= _unlocked, "not enough unlocked funds");
@@ -126,7 +126,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @param _validator address of the validator
      * @param _amount amount of LNTN to transfer
      */
-    function releaseLNTN(address _validator, uint256 _amount) virtual external onlyBeneficiary {
+    function releaseLNTN(address _validator, uint256 _amount) virtual external onlyBeneficiary nonReentrant {
         require(_amount > 0, "require positive amount to transfer");
         _updateFunds();
 
@@ -151,7 +151,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @param _recipient whome the contract is transferred to
      * @custom:restricted-to operator account
      */
-    function changeContractBeneficiary(address _recipient) virtual external onlyManager {
+    function changeContractBeneficiary(address _recipient) virtual external onlyManager nonReentrant {
         _claimAndSendRewards(true);
         _clearValidators();
         emit BeneficiaryChanged(_recipient, beneficiary, address(this));
@@ -162,14 +162,14 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @notice In case some funds are missing due to some pending staking operation that failed,
      * this function updates the funds by handling the pending requests.
      */
-    function updateFunds() virtual external onlyBeneficiary {
+    function updateFunds() virtual external onlyBeneficiary nonReentrant {
         _updateFunds();
     }
 
     /**
      * @notice Updates the funds of the contract and returns the contract.
      */
-    function updateFundsAndGetContract() external onlyBeneficiary returns (ContractBase.Contract memory) {
+    function updateFundsAndGetContract() external onlyBeneficiary nonReentrant returns (ContractBase.Contract memory) {
         _updateFunds();
         return stakeableContract;
     }
@@ -180,7 +180,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @param _validator address of the validator for bonding
      * @param _amount amount of NTN to bond
      */
-    function bond(address _validator, uint256 _amount) virtual external onlyBeneficiary returns (uint256) {
+    function bond(address _validator, uint256 _amount) virtual external onlyBeneficiary nonReentrant returns (uint256) {
         uint256 _epochID = _getEpochID();
         bondingQueue.enqueue(
             PendingStakingRequest(_epochID, _validator, _amount, 0) // requestID not needed
@@ -194,7 +194,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @param _validator address of the validator
      * @param _amount amount of LNTN to unbond
      */
-    function unbond(address _validator, uint256 _amount) virtual external onlyBeneficiary returns (uint256) {
+    function unbond(address _validator, uint256 _amount) virtual external onlyBeneficiary nonReentrant returns (uint256) {
         uint256 _unbondingID = autonity.unbond(_validator, _amount);
         uint256 _epochID = _getEpochID();
         unbondingQueue.enqueue(
@@ -207,7 +207,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @notice Used by beneficiary to claim rewards from bonding to validator.
      * @param _validator validator address
      */
-    function claimRewards(address _validator) virtual external onlyBeneficiary {
+    function claimRewards(address _validator) virtual external onlyBeneficiary nonReentrant {
         _claimAndSendRewards(_validator);
         _clearValidators();
     }
@@ -215,7 +215,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     /**
      * @notice Used by beneficiary to claim all rewards from bonding to all the validators.
      */
-    function claimAllRewards() virtual external onlyBeneficiary {
+    function claimAllRewards() virtual external onlyBeneficiary nonReentrant {
         _claimAndSendRewards(false);
         _clearValidators();
     }
@@ -275,7 +275,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         uint256 _length = linkedValidators.length;
         for (uint256 i = 0; i < _length; i++) {
             _validator = linkedValidators[i];
-            _balance = liquidBalance(_validator);
+            _balance = _liquidBalance(_getLiquidStateContract(_validator));
             _totalValue += _calculateLNTNValue(_validator, _balance);
         }
         return _totalValue + _calculateNewtonUnderBonding() + _calculateNewtonUnderUnbonding();
@@ -330,7 +330,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     }
 
     function _withdrawableVestedFunds() internal view returns (uint256 _unlockedValue, uint256 _totalValue) {
-        if (autonity.lastEpochTime() < stakeableContract.start + stakeableContract.cliffDuration) {
+        if (autonity.getLastEpochTime() < stakeableContract.start + stakeableContract.cliffDuration) {
             return (0, 0);
         }
         return _vestedFunds();
@@ -340,7 +340,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @dev Calculates the amount of vested funds in NTN until last epoch time.
      */
     function _vestedFunds() internal view returns (uint256 _unlockedValue, uint256 _totalValue) {
-        uint256 _time = autonity.lastEpochTime();
+        uint256 _time = autonity.getLastEpochTime();
         uint256 _start = stakeableContract.start;
         if (_time < _start) {
             return (0, 0);
@@ -519,14 +519,14 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @notice Returns unclaimed rewards from bonding to validator.
      * @param _validator validator address
      */
-    function unclaimedRewards(address _validator) virtual external view returns (uint256) {
+    function unclaimedRewards(address _validator) virtual external view nonReentrantView returns (uint256) {
         return _unclaimedRewards(_validator);
     }
 
     /**
      * @notice Returns the amount of all unclaimed rewards due to all the bonding from the contract entitled to beneficiary.
      */
-    function unclaimedRewards() virtual external view returns (uint256) {
+    function unclaimedRewards() virtual external view nonReentrantView returns (uint256) {
         uint256 _atnRewards;
         for (uint256 i = 0; i < linkedValidators.length; i++) {
             _atnRewards += _unclaimedRewards(linkedValidators[i]);
@@ -537,7 +537,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     /**
      * @notice Returns the amount of vested funds and withdrawable in NTN.
      */
-    function withdrawableVestedFunds() virtual external view returns (uint256) {
+    function withdrawableVestedFunds() virtual external view nonReentrantView returns (uint256) {
         (uint256 _unlocked, ) = _withdrawableVestedFunds();
         return _unlocked;
     }
@@ -545,7 +545,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     /**
      * @notice Returns the amount of vested funds in NTN.
      */
-    function vestedFunds() virtual external view returns (uint256) {
+    function vestedFunds() virtual external view nonReentrantView returns (uint256) {
         (uint256 _unlocked, ) = _vestedFunds();
         return _unlocked;
     }
@@ -553,35 +553,35 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     /**
      * @notice Returns the current total value of the contract in NTN.
      */
-    function contractTotalValue() external view returns (uint256) {
+    function contractTotalValue() external view nonReentrantView returns (uint256) {
         return _calculateTotalValue();
     }
 
     /**
      * @notice Returns the contract.
      */
-    function getContract() virtual external view returns (ContractBase.Contract memory) {
+    function getContract() virtual external view nonReentrantView returns (ContractBase.Contract memory) {
         return stakeableContract;
     }
 
     /**
      * @notice Returns the address of the `StakeableVestingManager` smart contract.
      */
-    function getManagerContractAddress() virtual external view returns (address) {
+    function getManagerContractAddress() virtual external view nonReentrantView returns (address) {
         return address(managerContract);
     }
 
     /**
      * @notice Returns the beneficiary address of the contract.
      */
-    function getBeneficiary() virtual external view returns (address) {
+    function getBeneficiary() virtual external view nonReentrantView returns (address) {
         return beneficiary;
     }
 
     /**
      * @notice Returns the list of validators that are bonded to or have some unclaimed rewards.
      */
-    function getLinkedValidators() virtual external view returns (address[] memory) {
+    function getLinkedValidators() virtual external view nonReentrantView returns (address[] memory) {
         return linkedValidators;
     }
 
@@ -589,7 +589,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @notice Returns the amount of LNTN bonded to `_validator` from the contract.
      * @param _validator validator address
      */
-    function liquidBalance(address _validator) virtual public view returns (uint256) {
+    function liquidBalance(address _validator) virtual external view nonReentrantView returns (uint256) {
         return _liquidBalance(_getLiquidStateContract(_validator));
     }
 
@@ -597,7 +597,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @notice Returns the amount of unlocked (not unbonding) LNTN bonded to `_validator` from the contract.
      * @param _validator validator address
      */
-    function unlockedLiquidBalance(address _validator) virtual external view returns (uint256) {
+    function unlockedLiquidBalance(address _validator) virtual external view nonReentrantView returns (uint256) {
         return _unlockedLiquidBalance(_getLiquidStateContract(_validator));
     }
 
@@ -605,7 +605,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @notice Returns the amount of locked (unbonding) LNTN bonded to `_validator` from the contract.
      * @param _validator validator address
      */
-    function lockedLiquidBalance(address _validator) virtual external view returns (uint256) {
+    function lockedLiquidBalance(address _validator) virtual external view nonReentrantView returns (uint256) {
         return _lockedLiquidBalance(_getLiquidStateContract(_validator));
     }
 

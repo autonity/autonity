@@ -623,7 +623,7 @@ func (a *AutonityContractAPI) Config() (*autonity.AutonityConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return a.ac.CallConfig(st, cb.Header())
+	return a.ac.CallGetConfig(st, cb.Header())
 }
 
 func (a *AutonityContractAPI) Address() common.Address {

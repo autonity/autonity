@@ -143,7 +143,7 @@ func (r *Runner) LiquidStateContract(validatorAddress common.Address) *ILiquid {
 }
 
 func (r *Runner) slasherContract() *Slasher {
-	slasherAddr, _, err := r.Autonity.Slasher(nil)
+	slasherAddr, _, err := r.Autonity.GetSlasher(nil)
 	require.NoError(r.T, err)
 	abi, err := SlasherMetaData.GetAbi()
 	require.NoError(r.T, err)
@@ -315,7 +315,7 @@ func (r *Runner) lastMinedHeight() uint64 {
 
 // for omission
 func (r *Runner) lastTargetHeight() uint64 {
-	config, _, err := r.OmissionAccountability.Config(nil)
+	config, _, err := r.OmissionAccountability.GetConfig(nil)
 	require.NoError(r.T, err)
 	delta := config.Delta.Uint64()
 
@@ -332,7 +332,7 @@ func (r *Runner) lastTargetHeight() uint64 {
 func (r *Runner) FinalizeBlock() {
 	// Finalize is not the only block closing operation - fee redistribution is missing and prob
 	// other stuff. Left as todo.
-	epochID, _, err := r.Autonity.EpochID(nil)
+	epochID, _, err := r.Autonity.GetEpochID(nil)
 	require.NoError(r.T, err)
 	_, err = r.Autonity.Finalize(&runOptions{origin: common.Address{}})
 	// consider monitoring gas cost here and fail if it's too much
@@ -343,7 +343,7 @@ func (r *Runner) FinalizeBlock() {
 	r.Evm.Context.ActivityProof = nil
 	r.Evm.Context.ActivityProofRound = 0
 	r.Evm.Context.Coinbase = common.Address{}
-	newEpochID, _, err := r.Autonity.EpochID(nil)
+	newEpochID, _, err := r.Autonity.GetEpochID(nil)
 	require.NoError(r.T, err)
 	if newEpochID.Cmp(epochID) != 0 {
 		r.generateNewCommittee()
@@ -441,11 +441,11 @@ func (r *Runner) RewardsForValidatorAfterOneEpoch(validator common.Address) Epoc
 	}
 
 	reward := r.RewardsAfterOneEpoch()
-	config, _, err := r.Autonity.Config(nil)
+	config, _, err := r.Autonity.GetConfig(nil)
 	require.NoError(r.T, err)
 	treasuryReward := new(big.Int).Div(new(big.Int).Mul(reward.RewardATN, config.Policy.TreasuryFee), params.DecimalFactor)
 
-	totalStake, _, err := r.Autonity.EpochTotalBondedStake(nil)
+	totalStake, _, err := r.Autonity.GetEpochTotalBondedStake(nil)
 	require.NoError(r.T, err)
 	atnReward := new(big.Int).Sub(reward.RewardATN, treasuryReward)
 	atnReward = new(big.Int).Div(new(big.Int).Mul(atnReward, votingPower), totalStake)
@@ -457,12 +457,12 @@ func (r *Runner) RewardsAfterOneEpoch() (rewardsToDistribute EpochReward) {
 	// get supply and inflationReserve to calculate inflation reward
 	supply, _, err := r.Autonity.CirculatingSupply(nil)
 	require.NoError(r.T, err)
-	inflationReserve, _, err := r.Autonity.InflationReserve(nil)
+	inflationReserve, _, err := r.Autonity.GetInflationReserve(nil)
 	require.NoError(r.T, err)
 	info, _, err := r.Autonity.GetEpochInfo(nil)
 	require.NoError(r.T, err)
 	// get inflation reward
-	lastEpochTime, _, err := r.Autonity.LastEpochTime(nil)
+	lastEpochTime, _, err := r.Autonity.GetLastEpochTime(nil)
 	require.NoError(r.T, err)
 	currentEpochTime := new(big.Int).Add(lastEpochTime, new(big.Int).Sub(info.NextEpochBlock, info.EpochBlock))
 	inflationReward, _, err := r.InflationController.CalculateSupplyDelta(nil, supply, inflationReserve, lastEpochTime, currentEpochTime)

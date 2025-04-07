@@ -170,19 +170,19 @@ interface IOracle {
      * @param expValue expected value in report
      * @param actualValue actual value in report
      */
-    event InvalidVote(string cause, address indexed reporter, uint256 expValue, uint256 actualValue);
+    event InvalidVote(string cause, address indexed reporter, uint256 expValue, uint256 actualValue, uint8 extra);
 
     /**
      * @notice Emitted when a valid report is accepted
      * @param reporter report submitter
      */
-    event SuccessfulVote(address indexed reporter);
+    event SuccessfulVote(address indexed reporter, uint8 extra);
 
     /**
      * @notice Emitted when a new reporter submits a report
      * @param reporter report submitter
      */
-    event NewVoter(address reporter);
+    event NewVoter(address reporter, uint8 extra);
 
     /**
      * @notice Emitted when a new price is calculated for a symbol

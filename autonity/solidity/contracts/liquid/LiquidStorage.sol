@@ -2,8 +2,9 @@
 
 pragma solidity ^0.8.3;
 import "../Autonity.sol";
+import {ReentrancyGuard} from "../ReentrancyGuard.sol";
 
-contract LiquidStorage {
+contract LiquidStorage is ReentrancyGuard {
     mapping(address => uint256) internal balances;
     mapping(address => uint256) internal lockedBalances;
 

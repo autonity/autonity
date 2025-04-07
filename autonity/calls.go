@@ -114,23 +114,23 @@ func (c *AutonityContract) CallGetCommitteeEnodes(state vm.StateDB, header *type
 	return types.NewNodes(returnedEnodes, asACN), nil
 }
 
-func (c *AutonityContract) CallConfig(state vm.StateDB, header *types.Header) (*AutonityConfig, error) {
+func (c *AutonityContract) CallGetConfig(state vm.StateDB, header *types.Header) (*AutonityConfig, error) {
 	var config AutonityConfig
 	_, err := AutonityContractCall(
 		c.contractABI,
 		c.evmProvider(header, params.DeployerAddress, state),
-		"config",
+		"getConfig",
 		&config,
 	)
 	return &config, err
 }
 
-func (c *AutonityContract) CallEpochID(state vm.StateDB, header *types.Header) (*big.Int, error) {
+func (c *AutonityContract) CallGetEpochID(state vm.StateDB, header *types.Header) (*big.Int, error) {
 	epochID := new(big.Int)
 	_, err := AutonityContractCall(
 		c.contractABI,
 		c.evmProvider(header, params.DeployerAddress, state),
-		"epochID",
+		"getEpochID",
 		&epochID,
 	)
 	if err != nil {

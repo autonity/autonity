@@ -58,15 +58,17 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * Update lastUnrealisedFeeFactor and transfer treasury fees.
      * @custom:restricted-to the autonity contract
      */
-    function redistribute(uint256 _ntnReward) external virtual payable onlyAutonity returns (uint256) {
+    function redistribute(uint256 _ntnReward) external virtual payable nonReentrant onlyAutonity returns (uint256) {
         uint256 _atnReward = msg.value;
-        // Step 1 : transfer entitled amount of fees to validator's
-        // treasury account.
+
+        // Step 1 : transfer entitled amount of fees to validator's treasury account.
         uint256 _atnValidatorReward = _calculateValidatorCommission(_atnReward);
-        _atnReward -= _atnValidatorReward;
-        (bool _sent, ) = treasury.call{value: _atnValidatorReward, gas:2300}("");
-        if (_sent == false) {
-            treasuryUnclaimedATN += _atnValidatorReward;
+        if(_atnValidatorReward > 0) {
+            _atnReward -= _atnValidatorReward;
+            (bool _sent, ) = treasury.call{value: _atnValidatorReward, gas:2300}("");
+            if (_sent == false) {
+                treasuryUnclaimedATN += _atnValidatorReward;
+            }
         }
 
         uint256 _ntnValidatorReward = _calculateValidatorCommission(_ntnReward);
@@ -89,7 +91,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @notice Mint new tokens and transfer them to the target account.
      * @custom:restricted-to the autonity contract.
      */
-    function mint(address _account, uint256 _amount) external virtual onlyAutonity {
+    function mint(address _account, uint256 _amount) external virtual nonReentrant onlyAutonity {
         _increaseBalance(_account, _amount);
         emit Transfer(address(0), _account, _amount);
     }
@@ -98,31 +100,31 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @notice Burn tokens from the target account.
      * @custom:restricted-to Restricted to the autonity contract.
      */
-    function burn(address _account, uint256 _amount) external virtual onlyAutonity {
+    function burn(address _account, uint256 _amount) external virtual nonReentrant onlyAutonity {
         _requireAndDecreaseBalance(_account, _amount);
         emit Transfer(_account, address(0), _amount);
     }
 
     /**
-     * @notice Send the unclaimed ATN entitled to treasury to treasury account
+     * @notice Send the unclaimed ATN entitled to treasury account
      */
-    function claimTreasuryATN() external virtual {
+    function claimTreasuryATN() external virtual nonReentrant {
         require(msg.sender == treasury, "only treasury can claim his reward");
         uint256 _rewards = treasuryUnclaimedATN;
         treasuryUnclaimedATN = 0;
-        (bool _sent, ) = treasury.call{value: _rewards}("");
+        (bool _sent, ) = treasury.call{value: _rewards, gas: 2300}("");
         require(_sent, "failed to send ATN");
     }
 
     /**
      * @notice Withdraws all fees earned so far by the caller.
      */
-    function claimRewards() external virtual {
+    function claimRewards() external virtual nonReentrant {
         uint256 _atnRealisedFees = _realiseFees(msg.sender);
         delete atnRealisedFees[msg.sender];
 
         //   solhint-disable-next-line avoid-low-level-calls
-        (bool _sent, ) = msg.sender.call{value: _atnRealisedFees}("");
+        (bool _sent, ) = msg.sender.call{value: _atnRealisedFees, gas: 2300}("");
         require(_sent, "Failed to send ATN");
     }
 
@@ -133,7 +135,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      *
      * @dev Emits a {Transfer} event. Implementation of {IERC20 transfer}
      */
-    function transfer(address _to, uint256 _amount) external virtual returns (bool _success) {
+    function transfer(address _to, uint256 _amount) external virtual nonReentrant returns (bool _success) {
         _requireAndDecreaseBalance(msg.sender, _amount);
         _increaseBalance(_to, _amount);
         emit Transfer(msg.sender, _to, _amount);
@@ -147,7 +149,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      *
      * - `_spender` cannot be the zero address.
      */
-    function approve(address _spender, uint256 _amount) external virtual returns (bool) {
+    function approve(address _spender, uint256 _amount) external virtual nonReentrant returns (bool) {
         _approve(msg.sender, _spender, _amount);
         return true;
     }
@@ -164,7 +166,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * - the caller must have allowance for ``_sender``'s tokens of at least
      * `_amount`.
      */
-    function transferFrom(address _sender, address _recipient, uint256 _amount) external virtual returns (bool) {
+    function transferFrom(address _sender, address _recipient, uint256 _amount) external virtual nonReentrant returns (bool) {
         uint256 _currentAllowance = allowances[_sender][msg.sender];
         require(_currentAllowance >= _amount, "ERC20: transfer amount exceeds allowance");
         _approve(_sender, msg.sender, _currentAllowance - _amount);
@@ -180,7 +182,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @notice Setter for the commission rate, restricted to the Autonity Contract.
      * @param _rate New rate.
      */
-    function setCommissionRate(uint256 _rate) external virtual onlyAutonity {
+    function setCommissionRate(uint256 _rate) external virtual nonReentrant onlyAutonity {
         commissionRate = _rate;
     }
 
@@ -189,7 +191,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @param _account address of the account to lock funds .
               _amount LNTN amount of tokens to lock.
      */
-    function lock(address _account, uint256 _amount) external virtual onlyAutonity {
+    function lock(address _account, uint256 _amount) external virtual nonReentrant onlyAutonity {
         require(balances[_account] - lockedBalances[_account] >= _amount, "can't lock more funds than available");
         lockedBalances[_account] += _amount;
     }
@@ -199,13 +201,13 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @param _account address of the account to lock funds .
               _amount LNTN amount of tokens to lock.
      */
-    function unlock(address _account, uint256 _amount) external virtual onlyAutonity {
+    function unlock(address _account, uint256 _amount) external virtual nonReentrant onlyAutonity {
         require(lockedBalances[_account] >= _amount, "can't unlock more funds than locked");
         lockedBalances[_account] -= _amount;
     }
 
     /**
-     * @dev It is not expected to fall into the fallback function. Implemeted fallback() to get a reverting message.
+     * @dev It is not expected to fall into the fallback function. Implemented fallback() to get a reverting message.
      */
     fallback() payable external virtual {
         revert("fallback not implemented for LiquidLogic");
@@ -327,7 +329,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @notice Calculates the total claimable fees (ATN) earned by the delegator to-date.
      * @param _account Delegator account.
      */
-    function unclaimedRewards(address _account) external virtual view returns (uint256) {
+    function unclaimedRewards(address _account) external virtual view nonReentrantView returns (uint256) {
         uint256 _balance = balances[_account];
         uint256 _atnUnrealisedFee = _computeUnrealisedFees(_balance, atnLastUnrealisedFeeFactor, atnUnrealisedFeeFactors[_account]);
         return atnRealisedFees[_account] + _atnUnrealisedFee;
@@ -336,7 +338,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     /**
      * @notice Returns the total amount of stake token issued.
      */
-    function totalSupply() external virtual view returns (uint256) {
+    function totalSupply() external virtual view nonReentrantView returns (uint256) {
         return supply;
     }
 
@@ -351,48 +353,48 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     /**
      * @notice Returns the amount of liquid newtons held by the account (ERC-20).
      */
-    function balanceOf(address _delegator) external virtual view returns (uint256) {
+    function balanceOf(address _delegator) external virtual view nonReentrantView returns (uint256) {
         return balances[_delegator];
     }
 
     /**
      * @notice Returns the amount of locked liquid newtons held by the account.
      */
-    function lockedBalanceOf(address _delegator) external virtual view returns (uint256) {
+    function lockedBalanceOf(address _delegator) external virtual view nonReentrantView returns (uint256) {
         return lockedBalances[_delegator];
     }
 
     /**
      * @notice Returns the amount of unlocked liquid newtons held by the account.
      */
-    function unlockedBalanceOf(address _delegator) external virtual view returns (uint256) {
+    function unlockedBalanceOf(address _delegator) external virtual view nonReentrantView returns (uint256) {
         return  balances[_delegator] - lockedBalances[_delegator];
     }
 
     /**
      * @notice See {IERC20-allowance}.
      */
-    function allowance(address _owner, address _spender) external virtual view returns (uint256) {
+    function allowance(address _owner, address _spender) external virtual view nonReentrantView returns (uint256) {
         return allowances[_owner][_spender];
     }
 
-    function name() external virtual view returns (string memory) {
+    function name() external virtual view nonReentrantView returns (string memory) {
         return liquidName;
     }
 
-    function symbol() external virtual view returns (string memory) {
+    function symbol() external virtual view nonReentrantView returns (string memory) {
         return liquidSymbol;
     }
 
-    function getValidator() external virtual view returns (address) {
+    function getValidator() external virtual view nonReentrantView returns (address) {
         return validator;
     }
 
-    function getTreasury() external virtual view returns (address) {
+    function getTreasury() external virtual view nonReentrantView returns (address) {
         return treasury;
     }
 
-    function getCommissionRate() external virtual view returns (uint256) {
+    function getCommissionRate() external virtual view nonReentrantView returns (uint256) {
         return commissionRate;
     }
 
@@ -400,7 +402,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @notice Returns the ATN amount that is yet to claim by treasury.
      * Call function `claimTreasuryATN()` to claim.
      */
-    function getTreasuryUnclaimedATN() external virtual view returns (uint256) {
+    function getTreasuryUnclaimedATN() external virtual view nonReentrantView returns (uint256) {
         return treasuryUnclaimedATN;
     }
 

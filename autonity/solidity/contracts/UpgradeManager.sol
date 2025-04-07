@@ -3,10 +3,11 @@ pragma solidity ^0.8.0;
 
 import "./lib/Precompiled.sol";
 import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
+import {ReentrancyGuard} from "./ReentrancyGuard.sol";
 
-contract UpgradeManager is IConfigEvents {
-    address public autonity;
-    address public operator;
+contract UpgradeManager is IConfigEvents, ReentrancyGuard {
+    address internal autonity;
+    address internal operator;
 
     constructor(address _autonity, address _operator){
         autonity = _autonity;
@@ -19,7 +20,7 @@ contract UpgradeManager is IConfigEvents {
     *  @param _target is the target contract address to be updated.
     *  @param _data is the contract creation code.
     */
-    function upgrade(address _target, string memory _data) external onlyOperator {
+    function upgrade(address _target, string memory _data) external virtual nonReentrant onlyOperator {
         address precompile = Precompiled.UPGRADER_CONTRACT;
         bytes memory _input = abi.encodePacked(_target, _data);
 
@@ -50,11 +51,21 @@ contract UpgradeManager is IConfigEvents {
         }
     }
 
+    /// @return returns the autonity contract address
+    function getAutonity() external virtual view nonReentrantView returns (address) {
+        return autonity;
+    }
+
+    /// @return returns the operator address
+    function getOperator() external virtual view nonReentrantView returns (address) {
+        return operator;
+    }
+
     /*
     * @notice Set the Operator account. Restricted to the Operator account.
     * @param _account the new operator account.
     */
-    function setOperator(address _account) external onlyAutonity {
+    function setOperator(address _account) external virtual nonReentrant onlyAutonity {
         emit IConfigEvents.ConfigUpdateAddress("operator", operator, _account);
         operator = _account;
     }

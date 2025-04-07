@@ -1714,7 +1714,7 @@ func primePrices(r *tests.Runner, ntnAtnPrice *big.Int, ntnUsdPrice *big.Int) {
 	require.NoError(r.T, err)
 	oracleDecimals := int64(oracleScale)
 
-	acuScale, _, err := r.Acu.Scale(nil)
+	acuScale, _, err := r.Acu.GetScale(nil)
 	require.NoError(r.T, err)
 	acuDecimals := acuScale.Int64()
 

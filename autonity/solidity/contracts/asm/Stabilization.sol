@@ -11,6 +11,7 @@ import {ISupplyControl} from "./interfaces/ISupplyControl.sol";
 import {StabilizationMath} from "./lib/StabilizationMath.sol";
 import {UpdatableConfig} from "./lib/UpdatableConfig.sol";
 import "./lib/ASMErrors.sol";
+import {ReentrancyGuard} from "../ReentrancyGuard.sol";
 
 /*
       .o.        .oooooo..o ooo        ooooo
@@ -30,7 +31,7 @@ o88o     o8888o 8""88888P'  o8o        o888o
 /// rates, ratios, prices, and amounts are represented as fixed-point integers
 /// with `SCALE` decimal places.
 /* solhint-disable not-rely-on-time */
-contract Stabilization is IStabilization {
+contract Stabilization is IStabilization, ReentrancyGuard {
     using UpdatableConfig for UpdatableConfig.UintConfig;
 
     /// The Config object that stores Stabilization Contract parameters.
@@ -256,7 +257,7 @@ contract Stabilization is IStabilization {
     /// Stabilization contract to spend Collateral Token on their behalf for
     /// the full amount to be deposited.
     /// @param amount Units of Collateral Token to deposit (non-zero)
-    function deposit(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator {
+    function deposit(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator nonReentrant {
         if (_collateralToken.allowance(msg.sender, address(this)) < amount)
             revert InsufficientAllowance();
 
@@ -271,7 +272,7 @@ contract Stabilization is IStabilization {
         // we need to double check that a user is not trying to update their timestamp to
         // influence a liquidation auction, so if you deposit while liquidatable, the deposit
         // must be big enough to make you non-liquidatable
-        if (isLiquidatable(msg.sender)) revert Liquidatable();
+        if (_isLiquidatable(msg.sender)) revert Liquidatable();
 
         emit Deposit(msg.sender, amount);
     }
@@ -281,14 +282,14 @@ contract Stabilization is IStabilization {
     /// The CDP must not be liquidatable and the withdrawal must not reduce the
     /// remaining Collateral Token amount below the minimum collateral amount.
     /// @param amount Units of Collateral Token to withdraw
-    function withdraw(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator {
+    function withdraw(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator nonReentrant {
         CDP storage cdp = _cdps[msg.sender];
         if (amount > cdp.collateral) revert InvalidAmount();
         (uint256 debt, ,) = _calculateDebtAmount(
             cdp,
             block.timestamp
         );
-        uint256 price = collateralPrice();
+        uint256 price = _collateralPrice();
         if (
             StabilizationMath.underCollateralized(
             cdp.collateral,
@@ -301,7 +302,7 @@ contract Stabilization is IStabilization {
             cdp.collateral - amount <
             StabilizationMath.minimumCollateral(
                 cdp.principal,
-                collateralPriceACU(),
+                _collateralPriceACU(),
                 _config.targetPrice,
                 _minCollateralizationRatio.value()
             )
@@ -320,7 +321,7 @@ contract Stabilization is IStabilization {
     /// borrow limit, the debt after borrowing must satisfy the minimum debt
     /// requirement.
     /// @param amount Auton to borrow
-    function borrow(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator {
+    function borrow(uint256 amount) external nonZeroAmount(amount) restrictedSupplyOperator nonReentrant {
         CDP storage cdp = _cdps[msg.sender];
         uint256 debt = _updateDebt(
             cdp,
@@ -328,7 +329,7 @@ contract Stabilization is IStabilization {
         );
         debt += amount;
         if (debt < _config.minDebtRequirement) revert InvalidDebtPosition();
-        uint256 price = collateralPrice();
+        uint256 price = _collateralPrice();
         if (
             StabilizationMath.underCollateralized(
             cdp.collateral,
@@ -338,7 +339,7 @@ contract Stabilization is IStabilization {
         )
         ) revert Liquidatable();
 
-        uint256 limit = maxBorrow(cdp.collateral);
+        uint256 limit = _maxBorrow(cdp.collateral);
         if (cdp.principal + amount > limit) revert InsufficientCollateral();
 
         cdp.principal += amount;
@@ -351,7 +352,7 @@ contract Stabilization is IStabilization {
     /// The transaction value is the payment amount. The debt after payment
     /// must satisfy the minimum debt requirement. The payment first covers
     /// the outstanding interest debt before the principal debt.
-    function repay() external payable restrictedSupplyOperator {
+    function repay() external payable restrictedSupplyOperator nonReentrant {
         if (msg.value == 0) revert ZeroValue();
         CDP storage cdp = _cdps[msg.sender];
         if (cdp.principal == 0) revert NoDebtPosition();
@@ -396,7 +397,7 @@ contract Stabilization is IStabilization {
         address account,
         uint256 collateralSold,
         address bidder
-    ) external payable restricted onlyAuctioneer {
+    ) external payable restricted onlyAuctioneer nonReentrant {
         if (msg.value == 0) revert ZeroValue();
         CDP storage cdp = _cdps[account];
         if (cdp.principal == 0) revert NoDebtPosition();
@@ -408,7 +409,7 @@ contract Stabilization is IStabilization {
         if (
             !StabilizationMath.underCollateralized(
             cdp.collateral,
-            collateralPrice(),
+            _collateralPrice(),
             debt,
             _liquidationRatio.value()
         )) revert NotLiquidatable();
@@ -440,7 +441,7 @@ contract Stabilization is IStabilization {
     /// Set the minimum debt requirement.
     /// @param amount The minimum debt amount
     /// @dev Restricted to the operator.
-    function setMinDebtRequirement(uint256 amount) external onlyOperator {
+    function setMinDebtRequirement(uint256 amount) external onlyOperator nonReentrant {
         emit IConfigEvents.ConfigUpdateUint("minDebtRequirement", _config.minDebtRequirement, amount);
         _config.minDebtRequirement = amount;
     }
@@ -448,14 +449,14 @@ contract Stabilization is IStabilization {
     /// Set the _atnSupplyOperator address.
     /// @param atnSupplyOperator The _atnSupplyOperator address
     /// @dev Restricted to the operator.
-    function setAtnSupplyOperator(address atnSupplyOperator) external onlyOperator {
+    function setAtnSupplyOperator(address atnSupplyOperator) external onlyOperator nonReentrant {
         emit IConfigEvents.ConfigUpdateAddress("atnSupplyOperator", _atnSupplyOperator, atnSupplyOperator);
         _atnSupplyOperator = atnSupplyOperator;
     }
 
     /// Transition out of the restricted state.
     /// @dev Restricted to the operator.
-    function removeCDPRestrictions() external onlyOperator {
+    function removeCDPRestrictions() external onlyOperator nonReentrant {
         if (_restricted == false) revert NotRestricted();
         _restricted = false;
         _borrowInterestRate.currentValue = _defaultGenesisBorrowInterestRate;
@@ -468,7 +469,7 @@ contract Stabilization is IStabilization {
      * @notice Updates the borrow interest rate. The new rate `newInterestRate` will take affect after the `config.announcementWindow` (in seconds).
      * @param newInterestRate The new interest rate multiplied by 10**18. If it is 5% then it should be `(5/100)*(10**18) = 50_000_000_000_000_000`
      */
-    function updateBorrowInterestRate(uint256 newInterestRate) external restricted onlyOperator {
+    function updateBorrowInterestRate(uint256 newInterestRate) external restricted onlyOperator nonReentrant {
         _applyInterestRateUpdate();
         bool overridden = _borrowInterestRate.update(
             newInterestRate,
@@ -482,7 +483,7 @@ contract Stabilization is IStabilization {
      * @notice Updates the announcement window. The new window `window` will take affect after the `config.announcementWindow` (in seconds).
      * It requires that there is no announcement window in pending.
      */
-    function updateAnnouncementWindow(uint256 window) external onlyOperator {
+    function updateAnnouncementWindow(uint256 window) external onlyOperator nonReentrant {
         if (window == 0) revert ZeroValue();
         bool overridden = _announcementWindow.update(
             window,
@@ -501,7 +502,7 @@ contract Stabilization is IStabilization {
     function updateRatios(
         uint256 newLiquidationRatio,
         uint256 newMinCollateralizationRatio
-    ) external onlyOperator validRatios(newLiquidationRatio, newMinCollateralizationRatio) {
+    ) external onlyOperator validRatios(newLiquidationRatio, newMinCollateralizationRatio) nonReentrant {
         bool lrOverridden = _liquidationRatio.update(
             newLiquidationRatio,
             block.timestamp + _announcementWindow.value()
@@ -527,7 +528,7 @@ contract Stabilization is IStabilization {
     /// Set the Governance Operator account address.
     /// @param operator Address of the new Governance Operator
     /// @dev Restricted to the Autonity Contract.
-    function setOperator(address operator) external onlyAutonity {
+    function setOperator(address operator) external onlyAutonity nonReentrant {
         emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
         _operator = operator;
     }
@@ -535,7 +536,7 @@ contract Stabilization is IStabilization {
     /// Set the Oracle Contract address.
     /// @param oracle Address of the new Oracle Contract
     /// @dev Restricted to the Autonity Contract.
-    function setOracle(address oracle) external onlyAutonity {
+    function setOracle(address oracle) external onlyAutonity nonReentrant {
         emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle);
         _oracle = IOracle(oracle);
     }
@@ -543,7 +544,7 @@ contract Stabilization is IStabilization {
     /// Set the Auctioneer Contract address.
     /// @param auctioneer Address of the new Auctioneer Contract
     /// @dev Restricted to the Autonity Contract.
-    function setAuctioneer(address auctioneer) external onlyAutonity {
+    function setAuctioneer(address auctioneer) external onlyAutonity nonReentrant {
         emit IConfigEvents.ConfigUpdateAddress("auctioneer", _auctioneer, auctioneer);
         _auctioneer = auctioneer;
     }
@@ -551,7 +552,7 @@ contract Stabilization is IStabilization {
     /// Set the ACU contract address.
     /// @param acu Address of the new ACU Contract
     /// @dev Restricted to the Autonity Contract.
-    function setACU(address acu) external onlyAutonity {
+    function setACU(address acu) external onlyAutonity nonReentrant {
         emit IConfigEvents.ConfigUpdateAddress("acu", _acu, acu);
         _acu = acu;
     }
@@ -559,7 +560,7 @@ contract Stabilization is IStabilization {
     /// Set the SupplyControl Contract address.
     /// @param supplyControl Address of the new SupplyControl Contract
     /// @dev Restricted to the Autonity Contract.
-    function setSupplyControl(address supplyControl) external onlyAutonity {
+    function setSupplyControl(address supplyControl) external onlyAutonity nonReentrant {
         emit IConfigEvents.ConfigUpdateAddress("supplyControl", address(_supplyControl), supplyControl);
         _supplyControl = ISupplyControl(supplyControl);
     }
@@ -572,7 +573,7 @@ contract Stabilization is IStabilization {
 
     /// Retrieve the current Stabilization configuration.
     /// @return The Stabilization configuration
-    function config() external view returns (Config memory) {
+    function config() external view nonReentrantView returns (Config memory) {
         return Config(
             _borrowInterestRate.value(),
             _announcementWindow.value(),
@@ -586,20 +587,20 @@ contract Stabilization is IStabilization {
     /// Retrieve the CDP for an account address.
     /// @param owner The CDP account address
     /// @return The CDP object
-    function cdps(address owner) external view returns (CDP memory) {
+    function cdps(address owner) external view nonReentrantView returns (CDP memory) {
         return _cdps[owner];
     }
 
     /// Retrieve all the accounts that have opened a CDP.
     /// @return Array of CDP account addresses
-    function accounts() external view returns (address[] memory) {
+    function accounts() external view nonReentrantView returns (address[] memory) {
         return _accounts;
     }
 
     /// Calculate the current debt amount outstanding for a CDP.
     /// @param account The CDP account address
     /// @return debt The debt amount
-    function debtAmount(address account) external view returns (uint256 debt) {
+    function debtAmount(address account) external view nonReentrantView returns (uint256 debt) {
         return this.debtAmountAtTime(account, block.timestamp);
     }
 
@@ -613,7 +614,7 @@ contract Stabilization is IStabilization {
     function debtAmountAtTime(
         address account,
         uint timestamp
-    ) external view goodTime(account, timestamp) returns (uint256 debt) {
+    ) external view goodTime(account, timestamp) nonReentrantView returns (uint256 debt) {
         CDP storage cdp = _cdps[account];
         (debt,,) = _calculateDebtAmount(
             cdp,
@@ -624,18 +625,8 @@ contract Stabilization is IStabilization {
     /// Determine if the CDP is currently liquidatable.
     /// @param account The CDP account address
     /// @return Whether the CDP is liquidatable
-    function isLiquidatable(address account) public view returns (bool) {
-        CDP storage cdp = _cdps[account];
-        (uint256 debt, ,) = _calculateDebtAmount(
-            cdp,
-            block.timestamp
-        );
-        return StabilizationMath.underCollateralized(
-            cdp.collateral,
-            collateralPrice(),
-            debt,
-            _liquidationRatio.value()
-        );
+    function isLiquidatable(address account) external view nonReentrantView returns (bool) {
+        return _isLiquidatable(account);
     }
 
     /// Calculate the maximum amount that can be borrowed against the collateral.
@@ -643,23 +634,10 @@ contract Stabilization is IStabilization {
     /// the max borrow limit, whichever is lower will determine the max borrow
     /// @param collateral The amount of Collateral Token
     /// @return The maximum borrow amount
-    function maxBorrow(
-        uint256 collateral
-    ) public view returns (uint256) {
-        uint256 borrowLimit = StabilizationMath.borrowLimit(
-            collateral,
-            collateralPriceACU(),
-            _config.targetPrice,
-            _minCollateralizationRatio.value()
-        );
-
-        uint256 debtLimit = StabilizationMath.debtLimit(
-            collateral,
-            collateralPrice(),
-            _liquidationRatio.value()
-        );
-        return borrowLimit > debtLimit ? debtLimit : borrowLimit;
+    function maxBorrow(uint256 collateral) external view nonReentrantView returns (uint256) {
+        return _maxBorrow(collateral);
     }
+
 
     /// Price the Collateral Token in Auton.
     ///
@@ -667,10 +645,8 @@ contract Stabilization is IStabilization {
     /// converts it to Auton.
     /// @return price Price of Collateral Token
     /// @dev The function reverts in case the price is invalid or unavailable.
-    function collateralPrice() public view returns (uint256 price) {
-        IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_SYMBOL);
-        if (data.price <= 0) revert InvalidPrice();
-        price = data.price;
+    function collateralPrice() external view nonReentrantView returns (uint256 price) {
+        return _collateralPrice();
     }
 
     /// Price the Collateral Token in ACU
@@ -678,11 +654,8 @@ contract Stabilization is IStabilization {
     /// Retrieves the Collateral Token price from the Oracle Contract in USD
     /// and converts it to ACU
     /// @return price Price of Collateral Token in ACU
-    function collateralPriceACU() public view returns (uint256) {
-        IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_USD_SYMBOL);
-        if (data.price <= 0) revert InvalidPrice();
-        uint256 acuUsd = acuPrice();
-        return data.price * StabilizationMath.SCALE_FACTOR / acuUsd;
+    function collateralPriceACU() external view nonReentrantView returns (uint256) {
+        return _collateralPriceACU();
     }
 
     /// Price the ACU value in USD.
@@ -691,15 +664,8 @@ contract Stabilization is IStabilization {
     /// StabilizationMath.SCALE_FACTOR precision.
     /// @return price Price of ACU value
     /// @dev The function reverts in case the price is invalid or unavailable.
-    function acuPrice() public view returns (uint256 price) {
-        try IACU(_acu).value() returns (uint256 acuValue) {
-            return StabilizationMath.toScaleFactor(
-                acuValue,
-                IACU(_acu).scaleFactor()
-            );
-        } catch {
-            revert PriceUnavailable("ACU-USD");
-        }
+    function acuPrice() external view nonReentrantView returns (uint256 price) {
+        return _acuPrice();
     }
 
     /**
@@ -707,28 +673,28 @@ contract Stabilization is IStabilization {
      * @return uint256 The pending rate
      * @return uint256 The timestamp since it will be active
      */
-    function getPendingInterestRateInfo() public view returns (uint256, uint256) {
+    function getPendingInterestRateInfo() external view nonReentrantView returns (uint256, uint256) {
         return _borrowInterestRate.pending();
     }
 
     /**
      * @notice Get aggregated interest exponent which is the summation of all interest rate multiplied by their respective time window (in years).
      */
-    function getAggregatedInterestExponent() public view returns (uint256) {
+    function getAggregatedInterestExponent() external view nonReentrantView returns (uint256) {
         return _calculateAggregatedInterestExponent(block.timestamp);
     }
 
     /**
      * @notice Get the timestamp since when the current rate is active.
      */
-    function getCurrentRateActiveTimestamp() public view returns (uint256) {
+    function getCurrentRateActiveTimestamp() external view nonReentrantView returns (uint256) {
         return _borrowInterestRate.currentActiveFrom;
     }
 
     /**
      * @notice Get the active current rate.
      */
-    function getCurrentRate() public view returns (uint256) {
+    function getCurrentRate() external view nonReentrantView returns (uint256) {
         return _borrowInterestRate.value();
     }
 
@@ -737,14 +703,14 @@ contract Stabilization is IStabilization {
      * @return uint256 The pending announcement window
      * @return uint256 The timestamp since the pending announcement window will be active
      */
-    function getPendingAnnouncementWindowInfo() public view returns (uint256, uint256) {
+    function getPendingAnnouncementWindowInfo() external view nonReentrantView returns (uint256, uint256) {
         return _announcementWindow.pending();
     }
 
     /**
      * @notice Get the announcement window in seconds.
      */
-    function getAnnouncementWindow() public view returns (uint256) {
+    function getAnnouncementWindow() external view nonReentrantView returns (uint256) {
         return _announcementWindow.value();
     }
 
@@ -752,7 +718,7 @@ contract Stabilization is IStabilization {
      * @notice Get the min collateralization ratio.
      * @return uint256 The pending min collateralization ratio
      */
-    function minCollateralizationRatio() public view returns (uint256) {
+    function minCollateralizationRatio() external view nonReentrantView returns (uint256) {
         return _minCollateralizationRatio.value();
     }
 
@@ -761,7 +727,7 @@ contract Stabilization is IStabilization {
      * @return uint256 The pending min collateralization ratio
      * @return uint256 The timestamp since the pending min collateralization ratio will be active
      */
-    function getPendingMinCollateralizationRatioInfo() public view returns (uint256, uint256) {
+    function getPendingMinCollateralizationRatioInfo() external view nonReentrantView returns (uint256, uint256) {
         return _minCollateralizationRatio.pending();
     }
 
@@ -769,7 +735,7 @@ contract Stabilization is IStabilization {
      * @notice Get the liquidation ratio.
      * @return uint256 The liquidation ratio
      */
-    function liquidationRatio() public view returns (uint256) {
+    function liquidationRatio() external view nonReentrantView returns (uint256) {
         return _liquidationRatio.value();
     }
 
@@ -778,7 +744,7 @@ contract Stabilization is IStabilization {
      * @return uint256 The pending liquidation ratio
      * @return uint256 The timestamp since the pending liquidation ratio will be active
      */
-    function getPendingLiquidationRatioInfo() public view returns (uint256, uint256) {
+    function getPendingLiquidationRatioInfo() external view nonReentrantView returns (uint256, uint256) {
         return _liquidationRatio.pending();
     }
 
@@ -786,7 +752,7 @@ contract Stabilization is IStabilization {
      * @notice Get the last updated timestamp of the updatable config parameters
      * @return LastUpdated The last updated timestamps
      */
-    function lastUpdated() external view returns (LastUpdated memory) {
+    function lastUpdated() external view nonReentrantView returns (LastUpdated memory) {
         return LastUpdated(
             _borrowInterestRate.activeFrom(),
             _announcementWindow.activeFrom(),
@@ -860,6 +826,60 @@ contract Stabilization is IStabilization {
     │ Internal Functions │
     └────────────────────┘
     */
+
+    function _acuPrice() internal view returns (uint256 price) {
+        try IACU(_acu).value() returns (uint256 acuValue) {
+            return StabilizationMath.toScaleFactor(
+                acuValue,
+                IACU(_acu).getScaleFactor()
+            );
+        } catch {
+            revert PriceUnavailable("ACU-USD");
+        }
+    }
+
+    function _collateralPriceACU() internal view returns (uint256) {
+        IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_USD_SYMBOL);
+        if (data.price <= 0) revert InvalidPrice();
+        uint256 acuUsd = _acuPrice();
+        return data.price * StabilizationMath.SCALE_FACTOR / acuUsd;
+    }
+
+    function _collateralPrice() internal view returns (uint256 price) {
+        IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_SYMBOL);
+        if (data.price <= 0) revert InvalidPrice();
+        price = data.price;
+    }
+
+    function _isLiquidatable(address account) internal view returns (bool) {
+        CDP storage cdp = _cdps[account];
+        (uint256 debt, ,) = _calculateDebtAmount(
+            cdp,
+            block.timestamp
+        );
+        return StabilizationMath.underCollateralized(
+            cdp.collateral,
+            _collateralPrice(),
+            debt,
+            _liquidationRatio.value()
+        );
+    }
+
+    function _maxBorrow(uint256 collateral) internal view returns (uint256) {
+        uint256 borrowLimit = StabilizationMath.borrowLimit(
+            collateral,
+            _collateralPriceACU(),
+            _config.targetPrice,
+            _minCollateralizationRatio.value()
+        );
+
+        uint256 debtLimit = StabilizationMath.debtLimit(
+            collateral,
+            _collateralPrice(),
+            _liquidationRatio.value()
+        );
+        return borrowLimit > debtLimit ? debtLimit : borrowLimit;
+    }
 
     function _calculateDebtAmount(
         CDP storage cdp,

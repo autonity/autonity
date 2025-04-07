@@ -293,7 +293,7 @@ loop:
 			fd.checkMsgStoreGC(ev.Block.NumberU64())
 		case accusation := <-fd.accountabilityEventCh:
 			fd.logger.Warn("Local node byzantine accusation!")
-			accusationEvent, err := fd.protocolContracts.Events(nil, accusation.Id)
+			accusationEvent, err := fd.protocolContracts.GetEvent(nil, accusation.Id)
 			if err != nil {
 				// this should never happen
 				fd.logger.Crit("Can't retrieve accountability event", "id", accusation.Id.Uint64())

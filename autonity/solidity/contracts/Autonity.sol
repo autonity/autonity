@@ -159,22 +159,22 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 delta;
     }
 
-    Config public config;
+    Config internal config;
     address[] internal validatorList;
 
     // Stake token state transitions happen every epoch.
-    uint256 public epochID;
+    uint256 internal epochID;
     mapping(uint256 => uint256) internal blockEpochMap;
 
     // save new epoch period on epoch period update,
     // it is applied to the protocol right after the end of current epoch.
-    uint256 public newEpochPeriod;
+    uint256 internal newEpochPeriod;
 
-    uint256 public lastFinalizedBlock;
-    uint256 public lastEpochTime;
-    uint256 public epochTotalBondedStake;
+    uint256 internal lastFinalizedBlock;
+    uint256 internal lastEpochTime;
+    uint256 internal epochTotalBondedStake;
 
-    uint256 public configuredCommitteeSize;
+    uint256 internal configuredCommitteeSize;
 
     // epochInfos, save epoch info per epoch in the history
     mapping(uint256 => EpochInfo) internal epochInfos;
@@ -189,7 +189,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     mapping(address => uint256) internal oraclesExist; // 0 for false, true otherwise
     uint256 internal stakeSupply;
     uint256 internal stakeCirculating;
-    uint256 public inflationReserve;
+    uint256 internal inflationReserve;
 
     /*
     We're saving the address of who is deploying the contract and we use it
@@ -198,7 +198,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     In normal conditions, it is set to the zero address. We're not simply hardcoding
     it only because of testing purposes.
     */
-    address public deployer;
+    address internal deployer;
 
     /**
      * @notice Address of the `LiquidLogic` contract. This contract contains all the logic for liquid newton related operations.
@@ -206,9 +206,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * registering a new validator. To do any operation related to liquid newton, we call `LiquidState` contract of the related
      * validator and that contract does a delegate call to `LiquidLogic` contract.
      */
-    address public liquidLogicContract;
+    address internal liquidLogicContract;
 
-    ISlasher public slasher;
+    ISlasher internal slasher;
 
 
     constructor(Validator[] memory _validators,
@@ -229,7 +229,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
         // deploy liquid logic and slasher
         liquidLogicContract = address(new LiquidLogic());
-        slasher = ISlasher(address(new Slasher(address(this))));
+        slasher = ISlasher(address(new Slasher()));
 
         /* We are sharing the same Validator data structure for both genesis
            initialization and runtime. It's not an ideal solution but
@@ -267,9 +267,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         }
     }
 
-    function finalizeInitialization(uint256 delta) onlyProtocol nonReentrant public {
+    function finalizeInitialization(uint256 delta) onlyProtocol nonReentrant external {
         _stakingOperations();
-        computeCommittee();
+        _computeCommittee();
         lastEpochTime = block.timestamp;
         lastFinalizedBlock = block.number;
         // init the 1st epoch info for the protocol with epochID 0 and its corresponding boundary.
@@ -309,7 +309,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @return the number of decimals the NTN token uses.
     * @dev ERC-20 Optional.
     */
-    function decimals() public virtual pure returns (uint8) {
+    function decimals() external virtual pure returns (uint8) {
         return DECIMALS;
     }
 
@@ -326,7 +326,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         uint256 _amount,
         uint256 _startTime,
         uint256 _totalDuration
-    ) public virtual onlyOperator {
+    ) external virtual onlyOperator nonReentrant {
         require(config.protocol.maxScheduleDuration >= _totalDuration, "schedule total duration exceeds max allowed duration");
         _mint(_scheduleVault, _amount);
         stakeCirculating -= _amount;
@@ -346,7 +346,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         2. a message containing treasury account and signed by Oracle account private key .
     * @dev Emit a {RegisteredValidator} event.
     */
-    function registerValidator(string memory _enode, address _oracleAddress, bytes memory _consensusKey, bytes memory _signatures) public virtual {
+    function registerValidator(string memory _enode, address _oracleAddress, bytes memory _consensusKey, bytes memory _signatures) external virtual nonReentrant {
         Validator memory _val = Validator(
             payable(msg.sender),     // treasury
             address(0),              // address
@@ -379,7 +379,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _nodeAddress This identifies the validator you want to update
     * @param _enode new enode to be updated
     */
-    function updateEnode(address _nodeAddress, string memory _enode) public virtual {
+    function updateEnode(address _nodeAddress, string memory _enode) external virtual nonReentrant {
         Validator storage _val = validators[_nodeAddress];
         require(_val.nodeAddress == _nodeAddress, "validator not registered");
         require(_val.treasury == msg.sender, "require caller to be validator treasury account");
@@ -391,7 +391,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         require(_err == 0, "enode error");
 
         require(_val.nodeAddress == _enodePubkey, "validator node address can't be updated");
-        //TODO: event, new enode and the node address
         emit EnodeUpdate(_val.nodeAddress, _val.enode, _enode);
         _val.enode = _enode;
     }
@@ -403,7 +402,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _validator address of the validator to delegate stake to.
     * @param _amount total amount of NTN to bond.
     */
-    function bond(address _validator, uint256 _amount) public virtual nonReentrant returns (uint256) {
+    function bond(address _validator, uint256 _amount) external virtual nonReentrant returns (uint256) {
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
         require(validators[_validator].state == ValidatorState.active, "validator need to be active");
         return _bond(_validator, _amount, payable(msg.sender));
@@ -416,7 +415,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _validator address of the validator to unbond stake to.
     * @param _amount total amount of LNTN (or NTN if self delegated) to unbond.
     */
-    function unbond(address _validator, uint256 _amount) public virtual nonReentrant returns (uint256) {
+    function unbond(address _validator, uint256 _amount) external virtual nonReentrant returns (uint256) {
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
         require(_amount > 0, "unbonding amount is 0");
         return _unbond(_validator, _amount, payable(msg.sender));
@@ -427,7 +426,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _address address to be disabled.
     * @dev emit a {DisabledValidator} event.
     */
-    function pauseValidator(address _address) public virtual nonReentrant {
+    function pauseValidator(address _address) external virtual nonReentrant {
         require(validators[_address].nodeAddress == _address, "validator must be registered");
         require(validators[_address].treasury == msg.sender, "require caller to be validator admin account");
         _pauseValidator(_address);
@@ -437,7 +436,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Re-activate the specified validator.
     * @param _address address to be enabled.
     */
-    function activateValidator(address _address) public virtual nonReentrant {
+    function activateValidator(address _address) external virtual nonReentrant {
         require(validators[_address].nodeAddress == _address, "validator must be registered");
         Validator storage _val = validators[_address];
         require(_val.treasury == msg.sender, "require caller to be validator treasury account");
@@ -454,7 +453,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @param _validator address to be enabled.
             _rate new commission rate, ranging between 0-10000 (10000 = 100%).
     */
-    function changeCommissionRate(address _validator, uint256 _rate) public virtual {
+    function changeCommissionRate(address _validator, uint256 _rate) external virtual nonReentrant {
         require(validators[_validator].nodeAddress == _validator, "validator must be registered");
         require(validators[_validator].treasury == msg.sender, "require caller to be validator admin account");
         require(_rate <= STANDARD_SCALE_FACTOR, "require correct commission rate");
@@ -468,7 +467,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Set the minimum gas price. Restricted to the operator account.
     * @param _price Positive integer.
     */
-    function setMinimumBaseFee(uint256 _price) public virtual onlyOperator {
+    function setMinimumBaseFee(uint256 _price) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateUint("minBaseFee", config.policy.minBaseFee, _price);
         config.policy.minBaseFee = _price;
     }
@@ -477,18 +476,16 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @notice Sets the max allowed duration of any schedule or contract.
      * @custom:restricted-to operator account
      */
-    function setMaxScheduleDuration(uint256 _newMaxDuration) virtual external onlyOperator {
+    function setMaxScheduleDuration(uint256 _newMaxDuration) virtual external onlyOperator nonReentrant {
         emit ConfigUpdateUint("maxScheduleDuration", config.protocol.maxScheduleDuration, _newMaxDuration);
         config.protocol.maxScheduleDuration = _newMaxDuration;
     }
 
-    // todo: new event for config updated - with params - name of config(string), oldValue, newValue
-    // todo: new event for contract address updated - with params
     /*
     * @notice Set the maximum size of the consensus committee. Restricted to the Operator account.
     * @param _size Positive integer.
     */
-    function setCommitteeSize(uint256 _size) public virtual onlyOperator {
+    function setCommitteeSize(uint256 _size) external virtual onlyOperator nonReentrant {
         require(_size > 0, "committee size can't be 0");
         emit ConfigUpdateUint("committeeSize", config.protocol.committeeSize, _size);
         config.protocol.committeeSize = _size;
@@ -499,7 +496,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @dev Can only be called by an operator. Updates `config.policy.unbondingPeriod`.
      * @param _period The new unbonding period, in blocks.
      */
-    function setUnbondingPeriod(uint256 _period) public virtual onlyOperator {
+    function setUnbondingPeriod(uint256 _period) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateUint("unbondingPeriod", config.policy.unbondingPeriod, _period);
         config.policy.unbondingPeriod = _period;
     }
@@ -511,7 +508,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      *     - The proposer reward rate plus the oracle reward rate must not exceed 100%
      * @param _proposerRewardRate The new reward rate for proposers (scaled by `STANDARD_SCALE_FACTOR`).
      */
-    function setProposerRewardRate(uint256 _proposerRewardRate) public virtual onlyOperator {
+    function setProposerRewardRate(uint256 _proposerRewardRate) external virtual onlyOperator nonReentrant {
         require(_proposerRewardRate <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
         emit ConfigUpdateUint("proposerRewardRate", config.policy.proposerRewardRate, _proposerRewardRate);
         config.policy.proposerRewardRate = _proposerRewardRate;
@@ -524,7 +521,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      *      - The proposer reward rate plus the oracle reward rate must not exceed 100%
      * @param _oracleRewardRate The new reward rate for oracles (scaled by `STANDARD_SCALE_FACTOR`).
      */
-    function setOracleRewardRate(uint256 _oracleRewardRate) public virtual onlyOperator {
+    function setOracleRewardRate(uint256 _oracleRewardRate) external virtual onlyOperator nonReentrant {
         require(_oracleRewardRate <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
         emit ConfigUpdateUint("oracleRewardRate", config.policy.oracleRewardRate, _oracleRewardRate);
         config.policy.oracleRewardRate = _oracleRewardRate;
@@ -536,7 +533,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      *      The threshold must not exceed `STANDARD_SCALE_FACTOR` (100%).
      * @param _withholdingThreshold The new withholding threshold (scaled by `STANDARD_SCALE_FACTOR`).
      */
-    function setWithholdingThreshold(uint256 _withholdingThreshold) public virtual onlyOperator {
+    function setWithholdingThreshold(uint256 _withholdingThreshold) external virtual onlyOperator nonReentrant {
         require(_withholdingThreshold <= STANDARD_SCALE_FACTOR, "Cannot exceed 100%");
         emit ConfigUpdateUint("withholdingThreshold", config.policy.withholdingThreshold, _withholdingThreshold);
         config.policy.withholdingThreshold = _withholdingThreshold;
@@ -548,7 +545,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      *      The provided address must not be the zero address.
      * @param _pool The address of the withheld rewards pool.
      */
-    function setWithheldRewardsPool(address payable _pool) public virtual onlyOperator {
+    function setWithheldRewardsPool(address payable _pool) external virtual onlyOperator nonReentrant {
         require(_pool != address(0), "pool cannot be zero address");
         emit ConfigUpdateAddress("withheldRewardsPool", config.policy.withheldRewardsPool, _pool);
         config.policy.withheldRewardsPool = _pool;
@@ -558,7 +555,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Set the epoch period. It will be applied at epoch end. Restricted to the Operator account.
     * @param _period Positive integer. Needs to respect the equation epochPeriod > delta+lookback-1
     */
-    function setEpochPeriod(uint256 _period) public virtual onlyOperator {
+    function setEpochPeriod(uint256 _period) external virtual onlyOperator nonReentrant {
         uint256 _lookbackWindow = config.contracts.omissionAccountabilityContract.getLookbackWindow();
         uint256 _delta = config.contracts.omissionAccountabilityContract.getDelta();
         require(_period > 0, "epoch period cannot be 0");
@@ -579,7 +576,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Set the Operator account. Restricted to the Operator account.
     * @param _account the new operator account.
     */
-    function setOperatorAccount(address _account) public virtual onlyOperator {
+    function setOperatorAccount(address _account) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateAddress("operatorAccount", config.protocol.operatorAccount, _account);
         config.protocol.operatorAccount = _account;
         config.contracts.oracleContract.setOperator(_account);
@@ -605,7 +602,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Set the global treasury account. Restricted to the Operator account.
     * @param _account New treasury account.
     */
-    function setTreasuryAccount(address payable _account) public virtual onlyOperator {
+    function setTreasuryAccount(address payable _account) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateAddress("treasuryAccount", config.policy.treasuryAccount, _account);
         config.policy.treasuryAccount = _account;
     }
@@ -614,7 +611,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Set the treasury fee. Restricted to the Operator account.
     * @param _treasuryFee Treasury fee. Precision TBD.
     */
-    function setTreasuryFee(uint256 _treasuryFee) public virtual onlyOperator {
+    function setTreasuryFee(uint256 _treasuryFee) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateUint("treasuryFee", config.policy.treasuryFee, _treasuryFee);
         config.policy.treasuryFee = _treasuryFee;
     }
@@ -623,7 +620,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @notice Set the accountability contract address. Restricted to the Operator account.
      * @param _address the contract address
      */
-    function setAccountabilityContract(IAccountability _address) public virtual onlyOperator {
+    function setAccountabilityContract(IAccountability _address) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateAddress("accountabilityContract", address(config.contracts.accountabilityContract), address(_address));
         config.contracts.accountabilityContract = _address;
     }
@@ -632,7 +629,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @notice Set the omission accountability contract address. Restricted to the Operator account.
      * @param _address the contract address
      */
-    function setOmissionAccountabilityContract(IOmissionAccountability _address) public virtual onlyOperator {
+    function setOmissionAccountabilityContract(IOmissionAccountability _address) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateAddress("omissionAccountabilityContract", address(config.contracts.omissionAccountabilityContract), address(_address));
         config.contracts.omissionAccountabilityContract = _address;
     }
@@ -641,7 +638,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Set the oracle contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setOracleContract(address payable _address) public virtual onlyOperator {
+    function setOracleContract(address payable _address) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateAddress("oracleContract", address(config.contracts.oracleContract), _address);
         config.contracts.oracleContract = IOracle(_address);
         config.contracts.acuContract.setOracle(_address);
@@ -653,7 +650,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Set the ACU contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setAcuContract(address _address) public virtual onlyOperator {
+    function setAcuContract(address _address) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateAddress("acuContract", address(config.contracts.acuContract), address(_address));
         config.contracts.acuContract = IACU(_address);
         if (address(config.contracts.stabilizationContract) != address(0)) {
@@ -661,7 +658,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         }
     }
 
-    function setAuctioneerContract(address _address) public virtual onlyOperator {
+    function setAuctioneerContract(address _address) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateAddress("auctioneerContract", address(config.contracts.auctioneerContract), address(_address));
         config.contracts.auctioneerContract = IAuctioneer(_address);
         if (address(config.contracts.stabilizationContract) != address(0)) {
@@ -673,7 +670,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Set the SupplyControl contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setSupplyControlContract(address _address) public virtual onlyOperator {
+    function setSupplyControlContract(address _address) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateAddress("supplyControlContract", address(config.contracts.supplyControlContract), address(_address));
         config.contracts.supplyControlContract = ISupplyControl(_address);
         if (address(config.contracts.stabilizationContract) != address(0)) {
@@ -685,7 +682,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Set the Stabilization contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setStabilizationContract(address _address) public virtual onlyOperator {
+    function setStabilizationContract(address _address) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateAddress("stabilizationContract", address(config.contracts.stabilizationContract), address(_address));
         config.contracts.stabilizationContract = IStabilization(_address);
         if (address(config.contracts.auctioneerContract) != address(0)) {
@@ -700,7 +697,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Set the Inflation Controller contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setInflationControllerContract(IInflationController _address) public virtual onlyOperator {
+    function setInflationControllerContract(IInflationController _address) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateAddress("inflationControllerContract", address(config.contracts.inflationControllerContract), address(_address));
         config.contracts.inflationControllerContract = _address;
     }
@@ -711,7 +708,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * 0x3C368B86AF00565Df7a3897Cfa9195B9434A59f9 will break the upgrade function live!
     * @param _address the contract address
     */
-    function setUpgradeManagerContract(UpgradeManager _address) public virtual onlyOperator {
+    function setUpgradeManagerContract(UpgradeManager _address) external virtual onlyOperator nonReentrant {
         emit ConfigUpdateAddress("upgradeManagerContract", address(config.contracts.upgradeManagerContract), address(_address));
         config.contracts.upgradeManagerContract = _address;
     }
@@ -720,7 +717,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @notice Set address of the liquid logic contact.
      * @custom:restricted-to operator account
      */
-    function setLiquidLogicContract(address _contract) public virtual onlyOperator {
+    function setLiquidLogicContract(address _contract) external virtual onlyOperator {
         require(_contract != address(0), "invalid contract address for liquid logic");
         emit ConfigUpdateAddress("liquidLogicContract", liquidLogicContract, _contract);
         liquidLogicContract = _contract;
@@ -730,7 +727,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Mint new stake token (NTN) and add it to the recipient balance. Restricted to the Operator account.
     * @dev emit a MintStake event.
     */
-    function mint(address _addr, uint256 _amount) public virtual onlyOperator {
+    function mint(address _addr, uint256 _amount) external virtual onlyOperator nonReentrant {
         _mint(_addr, _amount);
     }
 
@@ -738,7 +735,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Burn the specified amount of NTN stake token from an account. Restricted to the Operator account.
     * This won't burn associated Liquid tokens.
     */
-    function burn(address _addr, uint256 _amount) public virtual onlyOperator {
+    function burn(address _addr, uint256 _amount) external virtual onlyOperator nonReentrant {
         require(accounts[_addr] >= _amount, "Amount exceeds balance");
         accounts[_addr] -= _amount;
         stakeSupply -= _amount;
@@ -753,7 +750,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     *
     * @dev Emits a {Transfer} event. Implementation of {IERC20 transfer}
     */
-    function transfer(address _recipient, uint256 _amount) external virtual override returns (bool) {
+    function transfer(address _recipient, uint256 _amount) external virtual override nonReentrant returns (bool) {
         _transfer(msg.sender, _recipient, _amount);
         emit Transfer(msg.sender, _recipient, _amount);
         return true;
@@ -766,7 +763,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 amount) external virtual override returns (bool) {
+    function approve(address spender, uint256 amount) external virtual override nonReentrant returns (bool) {
         _approve(msg.sender, spender, amount);
         return true;
     }
@@ -783,7 +780,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * - the caller must have allowance for ``sender``'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address _sender, address _recipient, uint256 _amount) external virtual override returns (bool) {
+    function transferFrom(address _sender, address _recipient, uint256 _amount) external virtual override nonReentrant returns (bool) {
         uint256 _currentAllowance = allowances[_sender][msg.sender];
         require(_currentAllowance >= _amount, "ERC20: transfer amount exceeds allowance");
         _transfer(_sender, _recipient, _amount);
@@ -795,7 +792,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     /**
     * @dev See {IERC20-allowance}.
     */
-    function allowance(address owner, address spender) external view virtual override returns (uint256) {
+    function allowance(address owner, address spender) external view virtual override nonReentrantView returns (uint256) {
         return allowances[owner][spender];
     }
 
@@ -856,7 +853,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             _applyNewCommissionRates();
 
             // compute the committee for new epoch
-            (address[] memory _newOracles, address[] memory _newCommittee, address[] memory _newTreasuries) = computeCommittee();
+            (address[] memory _newOracles, address[] memory _newCommittee, address[] memory _newTreasuries) = _computeCommittee();
             config.contracts.oracleContract.setVoters(_newOracles, _newTreasuries, _newCommittee);
             config.contracts.accountabilityContract.setCommittee(_newCommittee);
             config.contracts.omissionAccountabilityContract.setCommittee(committee, _newTreasuries);
@@ -874,7 +871,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             // so we should always keep this epoch increment at the end of this block.
             epochID += 1;
             _addEpochInfo(epochID, EpochInfo(committee, _previousEpochBlock, block.number, _nextEpochBlock, _delta));
-            //todo: add into newepoch inflationreserve, stakeCirculating
             emit NewEpoch(epochID, inflationReserve, stakeCirculating);
         }
 
@@ -887,43 +883,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         return (contractUpgradeReady, _epochEnded, committee, epochInfos[epochID].previousEpochBlock, epochInfos[epochID].nextEpochBlock, _delta);
     }
 
-    //todo: review: continue from here
-    /**
-    * @notice update the current committee by selecting top staking validators.
-    * Restricted to the protocol.
-    */
-    function computeCommittee() public virtual onlyProtocol returns (address[] memory, address[] memory, address[] memory){
-        // Left public for testing purposes.
-        require(validatorList.length > 0, "There must be validators");
-        uint256[5] memory input;
-        input[4] = config.protocol.committeeSize;
-        assembly {
-            mstore(input, validatorList.slot)
-            mstore(add(input, 0x20), validators.slot)
-            mstore(add(input, 0x40), committee.slot)
-            mstore(add(input, 0x60), epochTotalBondedStake.slot)
-        }
-        Precompiled.computeCommitteePrecompiled(input);
-        // store committee size used to compute committee
-        configuredCommitteeSize = config.protocol.committeeSize;
-        // get oracle address of committee members
-        // calculate committeeNodes
-        delete committeeNodes;
-        uint256 committeeSize = committee.length;
-        require(committeeSize > 0, "committee is empty");
-        address[] memory _oracleVoters = new address[](committeeSize);
-        address[] memory _afdReporters = new address[](committeeSize);
-        address[] memory _treasuries = new address[](committeeSize);
-        for (uint i = 0; i < committeeSize; i++) {
-            Validator storage _member = validators[committee[i].addr];
-            committeeNodes.push(_member.enode);
-            _oracleVoters[i] = _member.oracleAddress;
-            _afdReporters[i] = _member.nodeAddress;
-            _treasuries[i] = _member.treasury;
-        }
-        return (_oracleVoters, _afdReporters, _treasuries);
-    }
-
+    // Note: reentrancy from reward distributors is expected and allowed
     function autobond(address _validator, uint256 _selfBond, uint256 _delegated) external virtual onlyAtEpochEnd onlyRewardDistributor(_validator) {
         require(accounts[msg.sender] >= _selfBond + _delegated, "not enough balance");
         require(_validator != address(0), "validator address cannot be zero");
@@ -936,6 +896,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     /*
     ============================================================
         Slashing API
+        Note: reentrancy from accountability contract is expected
+        and allowed
     ============================================================
     */
 
@@ -955,6 +917,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     ){
         Validator memory _jailedVal = slasher.jail(
             _getValidator(_nodeAddress),
+            block.number,
             _jailtime,
             _newJailedState
         );
@@ -1031,6 +994,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         (_slashedVal, slashingAmount, isJailbound) = slasher.slashAndJail(
             _getValidator(_nodeAddress),
             _slashingRate,
+            block.number,
             _jailtime,
             _newJailedState,
             _newJailboundState
@@ -1041,7 +1005,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         validators[_nodeAddress] = _slashedVal;
     }
 
-    function setSlasher(address _slasher) public virtual onlyOperator {
+    function setSlasher(address _slasher) external virtual onlyOperator nonReentrant {
         require(_slasher != address(0), "slasher contract cannot be the zero address");
         emit ConfigUpdateAddress("slasher", address(slasher), _slasher);
         slasher = ISlasher(_slasher);
@@ -1054,25 +1018,45 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     */
 
     /**
+    * @notice Returns the slasher contract address
+    */
+    function getSlasher() external view virtual nonReentrantView returns (address) {
+        return address(slasher);
+    }
+
+    /**
+    * @notice Returns the liquid logic contract
+    * @param _validator, only used for access control
+    */
+    function getLiquidLogicContract(address _validator) external view virtual returns (address) {
+        // allow reentrancy from the liquid state contracts.
+        // This is why the `nonReentrantView` modifier is not explicitly used.
+        require(
+            _reentrancyGuardEntered() == false ||
+            address(validators[_validator].liquidStateContract) == msg.sender,
+            "read only reentrancy detected"
+        );
+        return liquidLogicContract;
+    }
 
     /**
     * @notice Returns the bonding request corresponding to bonding ID.
     */
-    function getBondingRequestByID(uint256 _id) external view virtual returns (BondingRequest memory) {
+    function getBondingRequestByID(uint256 _id) external view virtual nonReentrantView returns (BondingRequest memory) {
         return bondingMap[_id];
     }
 
     /**
     * @notice Returns the unbonding request corresponding to unbonding ID.
     */
-    function getUnbondingRequestByID(uint256 _id) external view virtual returns (UnbondingRequest memory) {
+    function getUnbondingRequestByID(uint256 _id) external view virtual nonReentrantView returns (UnbondingRequest memory) {
         return unbondingMap[_id];
     }
 
     /**
     * @notice Returns the epoch period. If there will be an update at epoch end, the new epoch period is returned
     */
-    function getEpochPeriod() external view virtual returns (uint256) {
+    function getEpochPeriod() external view virtual nonReentrantView returns (uint256) {
         return newEpochPeriod;
     }
 
@@ -1080,41 +1064,91 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Returns the epoch period of the current epoch
     */
     function getCurrentEpochPeriod() external view virtual returns (uint256) {
+        // allow reentrancy only from the accountability contracts.
+        // This is why the `nonReentrantView` modifier is not explicitly used.
+        require(
+            _reentrancyGuardEntered() == false ||
+            msg.sender == address(config.contracts.accountabilityContract) ||
+            msg.sender == address(config.contracts.omissionAccountabilityContract),
+            "read only reentrancy detected"
+        );
         return config.protocol.epochPeriod;
     }
 
     /**
     * @notice Returns the block period.
     */
-    function getBlockPeriod() external view virtual returns (uint256) {
+    function getBlockPeriod() external view virtual nonReentrantView returns (uint256) {
         return config.protocol.blockPeriod;
     }
 
     /**
      * @notice Returns the un-bonding period.
      */
-    function getUnbondingPeriod() external view virtual returns (uint256) {
+    function getUnbondingPeriod() external view virtual nonReentrantView returns (uint256) {
         return config.policy.unbondingPeriod;
+    }
+
+    /**
+     * @notice Returns the current epoch ID
+     */
+    function getEpochID() external view virtual returns (uint256) {
+        // allow reentrancy only from the accountability contract.
+        // This is why the `nonReentrantView` modifier is not explicitly used.
+        require(
+            _reentrancyGuardEntered() == false ||
+            msg.sender == address(config.contracts.accountabilityContract),
+            "read only reentrancy detected"
+        );
+        return epochID;
     }
 
     /**
     * @notice Returns the last epoch's end block height.
     */
-    function getLastEpochBlock() external view virtual returns (uint256) {
+    function getLastEpochBlock() external view virtual nonReentrantView returns (uint256) {
         return epochInfos[epochID].epochBlock;
+    }
+
+    /**
+    * @notice Returns the last epoch's end block timestamp
+    */
+    function getLastEpochTime() external view virtual nonReentrantView returns (uint256) {
+        return lastEpochTime;
+    }
+
+    /**
+    * @notice Returns the current contract config
+    */
+    function getConfig() external view virtual nonReentrantView returns (Config memory) {
+        return config;
     }
 
     /**
     * @notice Returns the current contract version.
     */
-    function getVersion() external view virtual returns (uint256) {
+    function getVersion() external view virtual nonReentrantView returns (uint256) {
         return config.contractVersion;
+    }
+
+    /**
+    * @notice Returns the current inflation reserve
+    */
+    function getInflationReserve() external view virtual nonReentrantView returns (uint256) {
+        return inflationReserve;
+    }
+
+    /**
+    * @notice Returns the current epoch total bonded stake
+    */
+    function getEpochTotalBondedStake() external view virtual nonReentrantView returns (uint256) {
+        return epochTotalBondedStake;
     }
 
     /**
     * @notice Returns the current epoch info of the chain.
     */
-    function getEpochInfo() external view virtual returns (EpochInfo memory) {
+    function getEpochInfo() external view virtual nonReentrantView returns (EpochInfo memory) {
         return epochInfos[epochID];
     }
 
@@ -1122,14 +1156,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @notice Returns the block committee.
      * @return Current block committee if called before finalize(), next block committee if called after.
      */
-    function getCommittee() external view virtual returns (CommitteeMember[] memory) {
+    function getCommittee() external view virtual nonReentrantView returns (CommitteeMember[] memory) {
         return committee;
     }
 
     /**
      * @notice Returns the current list of validators.
      */
-    function getValidators() external view virtual returns (address[] memory) {
+    function getValidators() external view virtual nonReentrantView returns (address[] memory) {
         return validatorList;
     }
 
@@ -1137,41 +1171,49 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @notice Returns the current treasury account.
      */
     function getTreasuryAccount() external view virtual returns (address) {
+        // allow reentrancy only from the accountability contract and omission accountability contract
+        // This is why the `nonReentrantView` modifier is not explicitly used.
+        require(
+            _reentrancyGuardEntered() == false ||
+            msg.sender == address(config.contracts.accountabilityContract) ||
+            msg.sender == address(config.contracts.omissionAccountabilityContract),
+            "read only reentrancy detected"
+        );
         return config.policy.treasuryAccount;
     }
 
     /**
      * @notice Returns the current treasury fee.
      */
-    function getTreasuryFee() external view virtual returns (uint256) {
+    function getTreasuryFee() external view virtual nonReentrantView returns (uint256) {
         return config.policy.treasuryFee;
     }
 
     /**
      * @notice Returns the next epoch block.
      */
-    function getNextEpochBlock() external view virtual returns (uint256) {
+    function getNextEpochBlock() external view virtual nonReentrantView returns (uint256) {
         return epochInfos[epochID].nextEpochBlock;
     }
 
     /**
     * @notice Returns the amount of unbonded Newton token held by the account (ERC-20).
     */
-    function balanceOf(address _addr) external view virtual override returns (uint256) {
+    function balanceOf(address _addr) external view virtual override nonReentrantView returns (uint256) {
         return accounts[_addr];
     }
 
     /**
      * @notice Returns the total amount of stake token issued.
      */
-    function totalSupply() external view virtual override returns (uint256) {
+    function totalSupply() external view virtual override nonReentrantView returns (uint256) {
         return stakeSupply;
     }
 
     /**
      * @notice Returns the amount of tokens circulating in the network.
      */
-    function circulatingSupply() external view virtual returns (uint256) {
+    function circulatingSupply() external view virtual nonReentrantView returns (uint256) {
         return stakeCirculating;
     }
 
@@ -1179,6 +1221,13 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @return Returns the validator object associated with `_addr`.
     */
     function getValidator(address _addr) external view virtual returns (Validator memory) {
+        // allow reentrancy only from the accountability contract
+        // This is why the `nonReentrantView` modifier is not explicitly used.
+        require(
+            _reentrancyGuardEntered() == false ||
+            msg.sender == address(config.contracts.accountabilityContract),
+            "read only reentrancy detected"
+        );
         return _getValidator(_addr);
     }
 
@@ -1186,27 +1235,42 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @return Returns the state of the validator associated with `_addr`.
     */
     function getValidatorState(address _addr) external view virtual returns (ValidatorState) {
+        // allow reentrancy only from the accountability contract and omission accountability contract
+        // This is why the `nonReentrantView` modifier is not explicitly used.
+        require(
+            _reentrancyGuardEntered() == false ||
+            msg.sender == address(config.contracts.accountabilityContract) ||
+            msg.sender == address(config.contracts.omissionAccountabilityContract),
+            "read only reentrancy detected"
+        );
         return _getValidator(_addr).state;
+    }
+
+    /**
+    * @return Returns the current size of the consensus committee.
+    */
+    function getCurrentCommitteeSize() external view virtual nonReentrantView returns (uint256) {
+        return configuredCommitteeSize;
     }
 
     /**
     * @return Returns the maximum size of the consensus committee.
     */
-    function getMaxCommitteeSize() external view virtual returns (uint256) {
+    function getMaxCommitteeSize() external view virtual nonReentrantView returns (uint256) {
         return config.protocol.committeeSize;
     }
 
     /**
      * @notice Returns the max allowed duration of any schedule or contract.
      */
-    function getMaxScheduleDuration() external virtual view returns (uint256) {
+    function getMaxScheduleDuration() external virtual view nonReentrantView returns (uint256) {
         return config.protocol.maxScheduleDuration;
     }
 
     /**
      * @return Returns the consensus committee enodes.
      */
-    function getCommitteeEnodes() external view virtual returns (string[] memory) {
+    function getCommitteeEnodes() external view virtual nonReentrantView returns (string[] memory) {
         return committeeNodes;
     }
 
@@ -1214,7 +1278,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @return Returns the minimum gas price.
      * @dev Autonity transaction's gas price must be greater or equal to the minimum gas price.
      */
-    function getMinimumBaseFee() external view virtual returns (uint256) {
+    function getMinimumBaseFee() external view virtual nonReentrantView returns (uint256) {
         return config.policy.minBaseFee;
     }
 
@@ -1222,13 +1286,28 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @notice Returns the current operator account.
      */
     function getOperator() external view virtual returns (address) {
+        // allow reentrancy from all protocol contracts, as this is used for the `onlyOperator` modifier
+        // This is why the `nonReentrantView` modifier is not explicitly used.
+        require(
+            _reentrancyGuardEntered() == false ||
+            msg.sender == address(config.contracts.accountabilityContract) ||
+            msg.sender == address(config.contracts.oracleContract) ||
+            msg.sender == address(config.contracts.acuContract) ||
+            msg.sender == address(config.contracts.supplyControlContract) ||
+            msg.sender == address(config.contracts.stabilizationContract) ||
+            msg.sender == address(config.contracts.upgradeManagerContract) ||
+            msg.sender == address(config.contracts.inflationControllerContract) ||
+            msg.sender == address(config.contracts.omissionAccountabilityContract) ||
+            msg.sender == address(config.contracts.auctioneerContract),
+            "read only reentrancy detected"
+        );
         return config.protocol.operatorAccount;
     }
 
     /**
      * @notice Returns the current Oracle account.
      */
-    function getOracle() external view virtual returns (address) {
+    function getOracle() external view virtual nonReentrantView returns (address) {
         return address(config.contracts.oracleContract);
     }
 
@@ -1236,7 +1315,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Returns the epoch info of the height.
     */
     // todo: Jason, add some test for this function by using the new contract test framework.
-    function getEpochByHeight(uint256 _height) public view virtual returns (EpochInfo memory) {
+    function getEpochByHeight(uint256 _height) external view virtual nonReentrantView returns (EpochInfo memory) {
         require(_height <= lastFinalizedBlock + 1, "cannot get epoch for a future block");
 
         uint256 blockEpochID = epochID;
@@ -1252,7 +1331,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @notice Returns epoch associated to the block number.
      * @param _block the input block number.
      */
-    function getEpochFromBlock(uint256 _block) external view virtual returns (uint256) {
+    function getEpochFromBlock(uint256 _block) external view virtual nonReentrantView returns (uint256) {
         require(_block <= lastFinalizedBlock + 1, "cannot get epoch id for a future block");
 
         if (_block <= lastFinalizedBlock) {
@@ -1264,20 +1343,82 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     /**
      * @notice Returns `true` if unbonding is released and `false` otherwise.
      */
-    function isUnbondingReleased(uint256 _unbondingID) external virtual view returns (bool) {
+    function isUnbondingReleased(uint256 _unbondingID) external virtual view nonReentrantView returns (bool) {
         return unbondingMap[_unbondingID].released;
     }
 
-    function getUnbondingShare(uint256 _unbondingID) external virtual view returns (uint256) {
+    function getUnbondingShare(uint256 _unbondingID) external virtual view nonReentrantView returns (uint256) {
         require(unbondingMap[_unbondingID].unlocked, "unbonding not applied yet");
         return unbondingMap[_unbondingID].unbondingShare;
     }
 
     /*
     ============================================================
+        ScheduleController API
+    ============================================================
+    */
 
+
+    /**
+     * @notice Returns the schedule at index = `_id` in the `vaultSchedules[_vault]` array.
+     * @param _vault address of the vault for the schedule
+     * @param _id index of the schedule
+     */
+    function getSchedule(address _vault, uint256 _id) external view nonReentrantView returns (Schedule memory) {
+        return _getSchedule(_vault, _id);
+    }
+
+    /**
+     * Returns total number of schedules for the vault at address `_vault`.
+     * @param _vault address of the vault for the schedules
+     */
+    function getTotalSchedules(address _vault) external view nonReentrantView returns (uint256) {
+        return _getTotalSchedules(_vault);
+    }
+
+
+    /*
+    ============================================================
+        Upgradeable API
+    ============================================================
+    */
+
+    /**
+    * @notice Append to the contract storage buffer the new contract bytecode and abi.
+    * Should be called as many times as required.
+    */
+    function upgradeContract(bytes memory _bytecode, string memory _abi) external nonReentrant onlyOperator {
+        _upgradeContract(_bytecode, _abi);
+    }
+
+    /**
+    * @notice Finalize the contract upgrade.
+    * To be called once the storage buffer for the new contract are filled using {upgradeContract}
+    * The protocol will then update the bytecode of the autonity contract at block finalization phase.
+    */
+    function completeContractUpgrade() external nonReentrant onlyOperator {
+        _completeContractUpgrade();
+    }
+
+    /**
+    * @notice Reset internal storage contract-upgrade buffers in case of issue.
+    */
+    function resetContractUpgrade() external nonReentrant onlyOperator {
+        _resetContractUpgrade();
+    }
+
+    /**
+     * @notice Getter to retrieve a new Autonity contract bytecode and ABI when an upgrade is initiated.
+     * @return `bytecode` the new contract bytecode.
+     * @return `contractAbi` the new contract ABI.
+     */
+    function getNewContract() external view nonReentrantView returns (bytes memory, string memory) {
+        return (newContractBytecode, newContractABI);
+    }
+
+    /*
+    ============================================================
         Modifiers
-
     ============================================================
     */
 
@@ -1285,7 +1426,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @dev Modifier that checks if the caller is the governance operator account.
     * This should be abstracted by a separate smart-contract.
     */
-    modifier onlyOperator override {
+    modifier onlyOperator {
         require(config.protocol.operatorAccount == msg.sender, "caller is not the operator");
         _;
     }
@@ -1335,6 +1476,40 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     ============================================================
     */
 
+    /**
+    * @notice update the current committee by selecting top staking validators.
+    */
+    function _computeCommittee() internal virtual returns (address[] memory, address[] memory, address[] memory){
+        require(validatorList.length > 0, "There must be validators");
+        uint256[5] memory input;
+        input[4] = config.protocol.committeeSize;
+        assembly {
+            mstore(input, validatorList.slot)
+            mstore(add(input, 0x20), validators.slot)
+            mstore(add(input, 0x40), committee.slot)
+            mstore(add(input, 0x60), epochTotalBondedStake.slot)
+        }
+        Precompiled.computeCommitteePrecompiled(input);
+        // store committee size used to compute committee
+        configuredCommitteeSize = config.protocol.committeeSize;
+        // get oracle address of committee members
+        // calculate committeeNodes
+        delete committeeNodes;
+        uint256 committeeSize = committee.length;
+        require(committeeSize > 0, "committee is empty");
+        address[] memory _oracleVoters = new address[](committeeSize);
+        address[] memory _afdReporters = new address[](committeeSize);
+        address[] memory _treasuries = new address[](committeeSize);
+        for (uint i = 0; i < committeeSize; i++) {
+            Validator storage _member = validators[committee[i].addr];
+            committeeNodes.push(_member.enode);
+            _oracleVoters[i] = _member.oracleAddress;
+            _afdReporters[i] = _member.nodeAddress;
+            _treasuries[i] = _member.treasury;
+        }
+        return (_oracleVoters, _afdReporters, _treasuries);
+    }
+
     function _getValidator(address _addr) internal virtual view returns (Validator memory){
         require(_addr != address(0), "cannot request empty validator");
         require(validators[_addr].nodeAddress == _addr, "validator not registered");
@@ -1366,8 +1541,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         }
 
         // first we need to reduce total _atn and _ntn by the oracle and proposer rewards
-        uint256 _atnProposerRewards;
-        uint256 _ntnProposerRewards;
+        uint256 _atnProposerRewards = 0;
+        uint256 _ntnProposerRewards = 0;
         uint256 _atnOracleRewards = _atn * config.policy.oracleRewardRate / STANDARD_SCALE_FACTOR;
         uint256 _ntnOracleRewards = _ntn * config.policy.oracleRewardRate / STANDARD_SCALE_FACTOR;
 
@@ -1490,7 +1665,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             _transfer(address(this), config.policy.withheldRewardsPool, _ntnTotalWithheld);
         }
     }
-    //todo: discuss rewards later
 
     // @dev No side effects on this function, so safe to be called in the middle of something (but may revert).
     // We may want to switch to OZ's ERC20 at one point to deal with callbacks
@@ -1685,7 +1859,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
             );
             _validator.selfUnbondingStakeLocked += _amount;
         }
-        //Todo: add headUnBodingID
         emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount, headUnbondingID);
         unbondingMap[headUnbondingID] = UnbondingRequest(
             _recipient, _validatorAddress, _amount, 0, block.number, false, false, selfDelegation
@@ -1823,7 +1996,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         return false;
     }
 
-    function _addEpochInfo(uint256 _epochID, EpochInfo memory _epoch) internal {
+    function _addEpochInfo(uint256 _epochID, EpochInfo memory _epoch) internal virtual {
         EpochInfo storage epoch = epochInfos[_epochID];
         epoch.previousEpochBlock = _epoch.previousEpochBlock;
         epoch.epochBlock = _epoch.epochBlock;

@@ -307,7 +307,7 @@ contract('Autonity', function (accounts) {
         });
         it('test more than committeeSize bonded validators, the ones with less stake should remain outside of the committee', async function() {
             // re-deploy with 4 validators instead of 1
-            autonity = await utils.deployContracts(validators, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
+            autonity = await utils.deployAutonityTestContract(validators, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
 
             // set committeeSize to 0, minimum stake validator should be excluded
             await autonity.setCommitteeSize(3, {from: operator});

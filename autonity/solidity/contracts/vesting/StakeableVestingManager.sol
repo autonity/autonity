@@ -11,10 +11,10 @@ import "./stakeable/StakeableVestingState.sol";
  * @notice It only creates new stakeable vesting contract which deploys new smart contract for each new stakeable vesting contract.
  * It can also manage the beneficiary of an existing stakeable vesting contract.
  */
-contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager {
-    uint256 public contractVersion = 1;
+contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager, ReentrancyGuard {
+    uint256 internal contractVersion = 1;
 
-    address public stakeableVestingLogicContract;
+    address internal stakeableVestingLogicContract;
 
     IStakeableVesting[] private contracts;
 
@@ -24,7 +24,7 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
         stakeableVestingLogicContract = address(new StakeableVestingLogic(_autonity));
     }
 
-    function setStakeableVestingLogicContract(address _contract) virtual external onlyOperator {
+    function setStakeableVestingLogicContract(address _contract) virtual external onlyOperator nonReentrant {
         require(_contract != address(0), "invalid contract address");
         stakeableVestingLogicContract = _contract;
     }
@@ -44,7 +44,7 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
         uint256 _startTime,
         uint256 _cliffDuration,
         uint256 _totalDuration
-    ) virtual onlyOperator public {
+    ) virtual external onlyOperator nonReentrant {
         require(_startTime >= block.timestamp, "contract cannot start before creation");
         require(autonity.balanceOf(address(this)) >= _amount, "not enough stake reserved to create a new contract");
 
@@ -76,8 +76,8 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
      */
     function changeContractBeneficiary(
         address _beneficiary, uint256 _id, address _recipient
-    ) virtual external onlyOperator {
-        uint256 _contractID = getUniqueContractID(_beneficiary, _id);
+    ) virtual external onlyOperator nonReentrant {
+        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
         contracts[_contractID].changeContractBeneficiary(_recipient);
         _changeContractBeneficiary(_beneficiary, _contractID, _recipient);
     }
@@ -98,15 +98,15 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
      * @param _beneficiary address of the beneficiary of the contract
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding already canceled ones)
      */
-    function getContractAccount(address _beneficiary, uint256 _id) external virtual view returns (IStakeableVesting) {
-        return contracts[getUniqueContractID(_beneficiary, _id)];
+    function getContractAccount(address _beneficiary, uint256 _id) external virtual view nonReentrantView returns (IStakeableVesting) {
+        return contracts[_getUniqueContractID(_beneficiary, _id)];
     }
 
     /**
      * @notice Returns all the smart contract accounts that holds the corresponding stake-able vesting contract.
      * @param _beneficiary address of the beneficiary of the contract
      */
-    function getContractAccounts(address _beneficiary) external virtual view returns (IStakeableVesting[] memory) {
+    function getContractAccounts(address _beneficiary) external virtual view nonReentrantView returns (IStakeableVesting[] memory) {
         uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
         IStakeableVesting[] memory _contracts = new IStakeableVesting[] (_contractIDs.length);
         for (uint256 i = 0; i < _contractIDs.length; i++) {
@@ -119,13 +119,41 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
      * @notice Returns all the contracts entitled to `_beneficiary`.
      * @param _beneficiary address of the beneficiary of the contract
      */
-    function getContracts(address _beneficiary) external virtual view returns (ContractBase.Contract[] memory) {
+    function getContracts(address _beneficiary) external virtual view nonReentrantView returns (ContractBase.Contract[] memory) {
         uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
         ContractBase.Contract[] memory _res = new ContractBase.Contract[] (_contractIDs.length);
         for (uint256 i = 0; i < _contractIDs.length; i++) {
             _res[i] = contracts[_contractIDs[i]].getContract();
         }
         return _res;
+    }
+
+    /**
+     * @notice Returns the number of contracts entitled to some beneficiary.
+     * @param _beneficiary address of the beneficiary
+     */
+    function totalContracts(address _beneficiary) virtual external view nonReentrantView returns (uint256) {
+        return _totalContracts(_beneficiary);
+    }
+
+    /**
+     * @notice Returns a unique id for each contract.
+     * @param _beneficiary address of the contract holder
+     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
+     */
+    function getUniqueContractID(address _beneficiary, uint256 _id) external view nonReentrantView returns (uint256) {
+        return _getUniqueContractID(_beneficiary, _id);
+    }
+
+    /// @return the contract version
+    function getContractVersion() external view nonReentrantView returns (uint256) {
+        return contractVersion;
+    }
+
+    /// @return the address of the stakeable contract logic
+    /// reentrancy from the state contracts is expected and allowed
+    function getStakeableVestingLogicContract() external view returns (address) {
+        return stakeableVestingLogicContract;
     }
 
 }

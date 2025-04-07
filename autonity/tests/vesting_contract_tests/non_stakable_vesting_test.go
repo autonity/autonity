@@ -68,11 +68,11 @@ func TestReleaseFromNonStakeableContract(t *testing.T) {
 		currentTime := r.WaitForEpochsUntil(cliff + 1)
 		unlockAmount := big.NewInt(currentTime - start - 1)
 
-		epochID, _, err := r.Autonity.EpochID(nil)
+		epochID, _, err := r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		// mine some more blocks, shouldn't matter because unlocking is epoch based
 		r.WaitNBlocks(10)
-		newEpochID, _, err := r.Autonity.EpochID(nil)
+		newEpochID, _, err := r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, epochID, newEpochID, "cannot test if epoch progresses")
 

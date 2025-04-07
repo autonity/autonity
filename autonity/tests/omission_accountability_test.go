@@ -65,31 +65,31 @@ func setupProofAndAutonityFinalize(r *Runner, proposer common.Address, absentees
 }
 
 func faultyProposers(r *Runner) uint64 {
-	n, _, err := r.OmissionAccountability.FaultyProposersInWindow(nil)
+	n, _, err := r.OmissionAccountability.GetFaultyProposersInWindow(nil)
 	require.NoError(r.T, err)
 	return n.Uint64()
 }
 
 func inactivityCounter(r *Runner, validator common.Address) int {
-	counter, _, err := r.OmissionAccountability.InactivityCounter(nil, validator)
+	counter, _, err := r.OmissionAccountability.GetInactivityCounter(nil, validator)
 	require.NoError(r.T, err)
 	return int(counter.Uint64())
 }
 
 func probation(r *Runner, validator common.Address) int {
-	probation, _, err := r.OmissionAccountability.ProbationPeriods(nil, validator)
+	probation, _, err := r.OmissionAccountability.GetProbationPeriods(nil, validator)
 	require.NoError(r.T, err)
 	return int(probation.Uint64())
 }
 
 func offences(r *Runner, validator common.Address) int {
-	offences, _, err := r.OmissionAccountability.RepeatedOffences(nil, validator)
+	offences, _, err := r.OmissionAccountability.GetRepeatedOffences(nil, validator)
 	require.NoError(r.T, err)
 	return int(offences.Uint64())
 }
 
 func inactivityScore(r *Runner, validator common.Address) int {
-	score, _, err := r.OmissionAccountability.InactivityScores(nil, validator)
+	score, _, err := r.OmissionAccountability.GetInactivityScore(nil, validator)
 	require.NoError(r.T, err)
 	return int(score.Uint64())
 }
@@ -107,19 +107,19 @@ func slashingRateScaleFactor(r *Runner) *big.Int {
 }
 
 func proposerEffort(r *Runner, validator common.Address) *big.Int {
-	effort, _, err := r.OmissionAccountability.ProposerEffort(nil, validator)
+	effort, _, err := r.OmissionAccountability.GetProposerEffort(nil, validator)
 	require.NoError(r.T, err)
 	return effort
 }
 
 func totalProposerEffort(r *Runner) *big.Int {
-	effort, _, err := r.OmissionAccountability.TotalEffort(nil)
+	effort, _, err := r.OmissionAccountability.GetTotalEffort(nil)
 	require.NoError(r.T, err)
 	return effort
 }
 
 func faultyProposer(r *Runner, targetHeight int64) bool {
-	faulty, _, err := r.OmissionAccountability.FaultyProposers(nil, new(big.Int).SetInt64(targetHeight))
+	faulty, _, err := r.OmissionAccountability.GetFaultyProposers(nil, new(big.Int).SetInt64(targetHeight))
 	require.NoError(r.T, err)
 	return faulty
 }
@@ -132,13 +132,13 @@ func absenteesLastHeight(r *Runner) []common.Address {
 }
 
 func lastActive(r *Runner, addr common.Address) int64 {
-	lastActive, _, err := r.OmissionAccountability.LastActive(nil, addr)
+	lastActive, _, err := r.OmissionAccountability.GetLastActive(nil, addr)
 	require.NoError(r.T, err)
 	return lastActive.Int64()
 }
 
 func isValidatorInactive(r *Runner, targetHeight int64, validator common.Address) bool {
-	inactive, _, err := r.OmissionAccountability.InactiveValidators(nil, new(big.Int).SetInt64(targetHeight), validator)
+	inactive, _, err := r.OmissionAccountability.GetInactiveValidators(nil, new(big.Int).SetInt64(targetHeight), validator)
 	require.NoError(r.T, err)
 	return inactive
 }
@@ -614,7 +614,7 @@ func TestOmissionPunishments(t *testing.T) {
 
 	r.WaitNBlocks(int(delta.Int64()))
 
-	config, _, err := r.OmissionAccountability.Config(nil)
+	config, _, err := r.OmissionAccountability.GetConfig(nil)
 	require.NoError(r.T, err)
 	initialJailingPeriod := int(config.InitialJailingPeriod.Uint64())
 	initialProbationPeriod := int(config.InitialProbationPeriod.Uint64())
@@ -751,7 +751,7 @@ func TestProposerRewardDistribution(t *testing.T) {
 		maxCommitteeSize := newFloat(maxCommitteeSizeBig)
 		t.Logf("max committee size: %s", toString(maxCommitteeSize))
 
-		config, _, err := r.Autonity.Config(nil)
+		config, _, err := r.Autonity.GetConfig(nil)
 		require.NoError(r.T, err)
 		proposerRewardRateBig := config.Policy.ProposerRewardRate
 		proposerRewardRate := newFloat(proposerRewardRateBig)
@@ -908,7 +908,7 @@ func TestConfigSanity(t *testing.T) {
 
 	r.WaitNBlocks(int(delta.Int64()))
 
-	config, _, err := r.OmissionAccountability.Config(nil)
+	config, _, err := r.OmissionAccountability.GetConfig(nil)
 	require.NoError(r.T, err)
 	initialJailingPeriod := int(config.InitialJailingPeriod.Uint64())
 
@@ -981,7 +981,7 @@ func TestRewardWithholding(t *testing.T) {
 
 	r.WaitNBlocks(int(delta.Int64()))
 
-	config, _, err := r.Autonity.Config(nil)
+	config, _, err := r.Autonity.GetConfig(nil)
 	require.NoError(t, err)
 	withheldRewardPool := config.Policy.WithheldRewardsPool
 
@@ -1088,7 +1088,7 @@ func TestOmissionDisabling(t *testing.T) {
 		setupProofAndAutonityFinalize(r, r.Committee.Validators[0].NodeAddress, absentees)
 	}
 
-	epochID, _, err := r.Autonity.EpochID(nil)
+	epochID, _, err := r.Autonity.GetEpochID(nil)
 	require.NoError(t, err)
 	require.Equal(t, common.Big1.String(), epochID.String())
 
@@ -1207,7 +1207,7 @@ func TestProtocolParameterChange(t *testing.T) {
 	require.NoError(t, err)
 
 	// params should still be unchanged in current epoch
-	config, _, err := r.OmissionAccountability.Config(nil)
+	config, _, err := r.OmissionAccountability.GetConfig(nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(40), config.LookbackWindow.Uint64())
 	require.Equal(t, uint64(5), config.Delta.Uint64())
@@ -1230,7 +1230,7 @@ func TestProtocolParameterChange(t *testing.T) {
 	// both getters and config should return new values
 	r.WaitNextEpoch()
 
-	config, _, err = r.OmissionAccountability.Config(nil)
+	config, _, err = r.OmissionAccountability.GetConfig(nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(20), config.LookbackWindow.Uint64())
 	require.Equal(t, uint64(10), config.Delta.Uint64())
