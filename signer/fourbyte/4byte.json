@@ -206,5 +206,6 @@
   "4b8ef943": "setACU(address)",
   "00ede7e4": "setAuctioneer(address)",
   "52e5a050": "setSupplyControl(address)",
-  "15ef30f8": "setLiquidLogicContract(address)"
+  "15ef30f8": "setLiquidLogicContract(address)",
+  "d0b06f5d": "lastUpdated()"
 }

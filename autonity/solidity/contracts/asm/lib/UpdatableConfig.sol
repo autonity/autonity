@@ -52,4 +52,12 @@ library UpdatableConfig {
     function pending(UintConfig storage config) internal view returns (uint256, uint256) {
         return (config.nextValue, config.nextActiveFrom);
     }
+
+    // Returns the timestamp at which the current value became active
+    function activeFrom(UintConfig storage config) internal view returns (uint256) {
+        if (config.nextActiveFrom > 0 && config.nextActiveFrom <= block.timestamp) {
+            return config.nextActiveFrom;
+        }
+        return config.currentActiveFrom;
+    }
 }

@@ -785,6 +785,19 @@ contract Stabilization is IStabilization {
         return _liquidationRatio.pending();
     }
 
+    /**
+     * @notice Get the last updated timestamp of the updatable config parameters
+     * @return LastUpdated The last updated timestamps
+     */
+    function lastUpdated() external view returns (LastUpdated memory) {
+        return LastUpdated(
+            _borrowInterestRate.activeFrom(),
+            _announcementWindow.activeFrom(),
+            _liquidationRatio.activeFrom(),
+            _minCollateralizationRatio.activeFrom()
+        );
+    }
+
     /*
     ┌────────────────┐
     │ Pure Functions │

@@ -48,13 +48,40 @@ interface IStabilization {
         uint256 lastAggregatedInterestExponent;
     }
 
+    /// Represents the last updated timestamps for various config parameters
+    struct LastUpdated {
+        /// The timestamp of the last update of the borrow interest rate.
+        uint256 borrowInterestRateTimestamp;
+        /// The timestamp of the last update of the announcement window.
+        uint256 announcementWindowTimestamp;
+        /// The timestamp of the last update of the liquidation ratio.
+        uint256 liquidationRatioTimestamp;
+        /// The timestamp of the last update of the minimum collateralization ratio.
+        uint256 minCollateralizationRatioTimestamp;
+    }
+
     // Public state retrieval functions
     function config() external view returns (Config memory);
 
     function cdps(address owner) external view returns (CDP memory);
 
     // view functions
+
+    /// Debt amount accumulated for an account at a given timestamp.
+    /// @param account The address of the CDP owner.
+    /// @param timestamp The timestamp at which to calculate the debt amount.
+    /// @return The total debt amount at the given timestamp.
+    /// @dev The timestamp must be be after the last update of the CDP, or the last interest
+    /// rate update, whichever is more recent.
     function debtAmountAtTime(address account, uint timestamp) external view returns (uint256);
+
+
+    /// The last updated timestamps for each updatable config item
+    /// @return The last updated timestamps for each updatable config item.
+    /// @dev The timestamps are in seconds since the Unix epoch.
+    function lastUpdated() external view returns (LastUpdated memory);
+
+    // permissioned functions
 
     /// Liquidate an undercollateralized CDP.
     /// @param account The address of the CDP owner.

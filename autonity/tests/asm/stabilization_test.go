@@ -1565,6 +1565,51 @@ func TestInterestRate(t *testing.T) {
 	})
 }
 
+func TestUpdatableConfigParams(t *testing.T) {
+	setup := func() *tests.Runner {
+		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.RemoveCDPRestrictions(r.Operator))
+		return r
+	}
+	tests.RunWithSetup("lastUpdated should return the correct timestamps", setup, func(r *tests.Runner) {
+		// wait some time
+		progressTime(r, 1000)
+		window := getAnnouncementWindow(r)
+		expectedTime := r.Evm.Context.Time.Int64() + window.Int64()
+
+		r.NoError(
+			r.Stabilization.UpdateAnnouncementWindow(
+				r.Operator,
+				new(big.Int).Add(window, common.Big1),
+			),
+		)
+		r.NoError(
+			r.Stabilization.UpdateRatios(
+				r.Operator,
+				new(big.Int).Add(basicConfig.LiquidationRatio, common.Big1),
+				new(big.Int).Add(basicConfig.MinCollateralizationRatio, common.Big1),
+			),
+		)
+		r.NoError(
+			r.Stabilization.UpdateBorrowInterestRate(
+				r.Operator,
+				new(big.Int).Add(basicConfig.BorrowInterestRate, common.Big1),
+			),
+		)
+
+		progressTime(r, window.Int64()+100)
+		// check last updated
+
+		lastUpdated, _, err := r.Stabilization.LastUpdated(nil)
+		require.NoError(t, err)
+
+		require.Equal(t, expectedTime, lastUpdated.AnnouncementWindowTimestamp.Int64())
+		require.Equal(t, expectedTime, lastUpdated.LiquidationRatioTimestamp.Int64())
+		require.Equal(t, expectedTime, lastUpdated.MinCollateralizationRatioTimestamp.Int64())
+		require.Equal(t, expectedTime, lastUpdated.BorrowInterestRateTimestamp.Int64())
+	})
+}
+
 // test helpers functions
 
 func progressTime(r *tests.Runner, timeToAdd int64) {

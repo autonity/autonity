@@ -499,6 +499,47 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 		require.ErrorAs(t, err, &tests.AuctioneerInvalidRoundError{})
 	})
 
+	tests.RunWithSetup("Cannot use an oracle round before the last liquidation ratio update", setup, func(r *tests.Runner) {
+		user, or := setupCDP(r, toBase("100.00", 18), []*big.Int{newtonAutonPrice}, true)
+		makeLiquidatable(r, user)
+
+		liquidatable, _, err := r.Stabilization.IsLiquidatable(nil, user)
+		require.NoError(t, err)
+		require.True(t, liquidatable, "CDP should be liquidatable")
+
+		liquidatableRound, _, err := r.Oracle.GetRound(nil)
+		require.NoError(t, err)
+
+		or.increment(r)
+		or.increment(r)
+
+		cfg, _, err := r.Stabilization.Config(nil)
+		r.NoError(r.Stabilization.UpdateRatios(
+			r.Operator,
+			new(big.Int).Add(cfg.LiquidationRatio, common.Big1),
+			cfg.MinCollateralizationRatio,
+		))
+		progressTime(r, cfg.AnnouncementWindow.Int64()+1)
+
+		updated, _, err := r.Stabilization.LastUpdated(nil)
+		require.NoError(t, err)
+		roundData, _, err := r.Oracle.GetRoundData(nil, liquidatableRound, "NTN-ATN")
+		require.NoError(t, err)
+		require.True(t, updated.LiquidationRatioTimestamp.Cmp(roundData.Timestamp) > 0)
+
+		liquidator := testrand.Address()
+		debtAmount, _, err := r.Stabilization.DebtAmount(nil, user)
+		r.GiveMeSomeMoney(liquidator, new(big.Int).Mul(debtAmount, common.Big2))
+
+		_, err = r.Auctioneer.BidDebt(
+			tests.FromSender(liquidator, debtAmount),
+			user,
+			liquidatableRound,
+			big.NewInt(1000),
+		)
+		require.ErrorAs(t, err, &tests.AuctioneerInvalidRoundError{})
+	})
+
 	tests.RunWithSetup("Can bid with maximum current amount", setup, func(r *tests.Runner) {
 		user, or := setupCDP(
 			r,
