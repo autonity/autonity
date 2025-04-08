@@ -35,14 +35,14 @@ contract ACU is IACU, IConfigEvents {
 
     string[] private _symbols;
     uint256[] private _quantities;
-    int256 private _value;
+    uint256 private _value;
     address private _autonity;
     address private _operator;
     IOracle private _oracle;
     bytes32 private constant SYMBOL_USD = keccak256(abi.encodePacked("USD-USD"));
 
     /// The ACU value was updated.
-    event Updated(uint height, uint timestamp, uint256 round, int256 value);
+    event Updated(uint height, uint timestamp, uint256 round, uint256 value);
     /// The ACU symbols, quantites, or scale were modified.
     event BasketModified(string[] symbols, uint256[] quantities, uint256 scale);
     /// The ACU quantity multiplier has been updated
@@ -115,24 +115,24 @@ contract ACU is IACU, IConfigEvents {
     function update() external onlyAutonity returns (bool status) {
         uint256 latestRound = _oracle.getRound() - 1;
         if (round >= latestRound) return false;
-        int256 sumProduct = 0;
+        uint256 sumProduct = 0;
         uint256 oracleDecimals = uint256(_oracle.getDecimals());
         for (uint i = 0; i < _symbols.length; i++) {
-            int256 price;
+            uint256 price;
             if (keccak256(abi.encodePacked(_symbols[i])) == SYMBOL_USD) {
-                price = int256(10 ** oracleDecimals);
+                price = 10 ** oracleDecimals;
             } else {
                 IOracle.RoundData memory roundData = _oracle.getRoundData(
                     latestRound,
                     _symbols[i]
                 );
                 if (!roundData.success) return false;
-                price = int256(roundData.price);
+                price = roundData.price;
             }
-            sumProduct += (price * int256(_quantities[i]));
+            sumProduct += (price * _quantities[i]);
         }
 
-        _value = sumProduct / int256(10 ** oracleDecimals);
+        _value = sumProduct / 10 ** oracleDecimals;
         round = latestRound;
 
         // solhint-disable-next-line not-rely-on-time
@@ -202,9 +202,9 @@ contract ACU is IACU, IConfigEvents {
     /// The latest ACU value that was computed.
     /// @return ACU value in fixed-point integer representation rescaled by the
     /// quantity multiplier
-    function value() external view returns (int256) {
+    function value() external view returns (uint256) {
         if (round == 0) revert NoACUValue();
-        return int256(quantityMultiplier) * _value / int256(scaleFactor);
+        return quantityMultiplier * _value / scaleFactor;
     }
 
     /// The symbols that are used to compute the ACU.

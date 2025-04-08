@@ -43,7 +43,7 @@ interface IACU {
 
     /// Get the ACU value.
     /// @return The ACU value
-    function value() external view returns (int256);
+    function value() external view returns (uint256);
 
     /// Get the scale factor for ACU values.
     /// @return The scale factor

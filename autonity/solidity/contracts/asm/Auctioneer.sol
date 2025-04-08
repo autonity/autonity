@@ -115,7 +115,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
             revert InvalidRound(liquidatableRound);
         }
 
-        uint256 maxNtnAmount = maxLiquidationReturn(debtor, liquidatableRound);
+        uint256 maxNtnAmount = _maxLiquidationReturn(debtor, round.timestamp);
 
         if (ntnAmount > maxNtnAmount) {
             revert BidTooLow(maxNtnAmount, ntnAmount);
@@ -315,16 +315,9 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
     // @notice Get the maximum amount of NTN that can be returned to a liquidator for a given CDP
     // @param debtor The address of the CDP owner
     // @param liquidatableRound The earliest round in which the CDP was liquidatable
-    function maxLiquidationReturn(address debtor, uint256 liquidatableRound) public view returns (uint256) {
+    function maxLiquidationReturn(address debtor, uint256 liquidatableRound) external view returns (uint256) {
         IOracle.RoundData memory round = _oracle.getRoundData(liquidatableRound, StabilizationMath.NTN_SYMBOL);
-        IStabilization.CDP memory cdp = _stabilization.cdps(debtor);
-        return StabilizationMath.sqrtIncreaseAuctionAmount(
-            round.timestamp,
-            block.timestamp,
-            cdp.collateral,
-            _stabilization.config().liquidationRatio,
-            config.liquidationAuctionDuration
-        );
+        return _maxLiquidationReturn(debtor, round.timestamp);
     }
 
     // @notice Get the minimum amount of NTN that can be paid for an interest auction
@@ -338,7 +331,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
         return StabilizationMath.linearDecreaseAuctionAmount(
             interestAuction.startTimestamp,
             block.timestamp,
-            0, // TODO: what is a logical minimum ?
+            0,
             _calculateInitialCost(interestAuction.amount, round.price),
             config.interestAuctionDuration
         );
@@ -349,6 +342,18 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
     │ Internal Functions │
     └────────────────────┘
     */
+
+    function _maxLiquidationReturn(address debtor, uint256 roundTimestamp) internal view returns (uint256) {
+        IStabilization.CDP memory cdp = _stabilization.cdps(debtor);
+        return StabilizationMath.sqrtIncreaseAuctionAmount(
+            roundTimestamp,
+            block.timestamp,
+            cdp.collateral,
+            _stabilization.config().liquidationRatio,
+            config.liquidationAuctionDuration
+        );
+    }
+
     function _calculateInitialCost(uint256 interestAmount, uint256 collateralPrice) internal view returns (uint256) {
         uint256 oracleScaleFactor = 10 ** _oracle.getDecimals();
         uint256 priceDiscounted = collateralPrice - (collateralPrice * config.interestAuctionDiscount) / StabilizationMath.SCALE_FACTOR;

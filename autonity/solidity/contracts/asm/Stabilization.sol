@@ -695,9 +695,9 @@ contract Stabilization is IStabilization {
     /// @return price Price of ACU value
     /// @dev The function reverts in case the price is invalid or unavailable.
     function acuPrice() public view returns (uint256 price) {
-        try IACU(_acu).value() returns (int256 acuValue) {
+        try IACU(_acu).value() returns (uint256 acuValue) {
             return StabilizationMath.toScaleFactor(
-                uint256(acuValue),
+                acuValue,
                 IACU(_acu).scaleFactor()
             );
         } catch {
