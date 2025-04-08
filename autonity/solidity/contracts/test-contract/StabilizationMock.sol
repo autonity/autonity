@@ -53,4 +53,8 @@ contract StabilizationMock is IStabilization {
     function setSupplyControl(address supplyControl) external {
         // do nothing
     }
+
+    function lastUpdated() external view returns (LastUpdated memory) {
+        return LastUpdated(0, 0, 0, 0);
+    }
 }
