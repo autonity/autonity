@@ -411,8 +411,7 @@ contract Stabilization is IStabilization {
             collateralPrice(),
             debt,
             _liquidationRatio.value()
-        )
-        ) revert NotLiquidatable();
+        )) revert NotLiquidatable();
 
         if (msg.value < debt) revert InsufficientPayment();
         _supplyControl.burn{value: cdp.principal}();
@@ -670,7 +669,6 @@ contract Stabilization is IStabilization {
     /// @dev The function reverts in case the price is invalid or unavailable.
     function collateralPrice() public view returns (uint256 price) {
         IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_SYMBOL);
-        if (!data.success) revert PriceUnavailable(StabilizationMath.NTN_SYMBOL);
         if (data.price <= 0) revert InvalidPrice();
         price = data.price;
     }
@@ -682,7 +680,6 @@ contract Stabilization is IStabilization {
     /// @return price Price of Collateral Token in ACU
     function collateralPriceACU() public view returns (uint256) {
         IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_USD_SYMBOL);
-        if (!data.success) revert PriceUnavailable(StabilizationMath.NTN_USD_SYMBOL);
         if (data.price <= 0) revert InvalidPrice();
         uint256 acuUsd = acuPrice();
         return data.price * StabilizationMath.SCALE_FACTOR / acuUsd;

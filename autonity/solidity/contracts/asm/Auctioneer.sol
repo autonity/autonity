@@ -93,9 +93,8 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
     function bidDebt(address debtor, uint256 liquidatableRound, uint256 ntnAmount) external payable {
         IStabilization.CDP memory cdp = _stabilization.cdps(debtor);
         IOracle.RoundData memory round = _oracle.getRoundData(liquidatableRound, StabilizationMath.NTN_SYMBOL);
-        // Liquidation ratio is used to calculate whether a CDP was undercollateralized at liquidatableRound, and
-        // since we do not track previous ratios, we cannot accept rounds before the last timestamp update
-        if (round.timestamp < cdp.timestamp || round.timestamp < _stabilization.lastUpdated().liquidationRatioTimestamp) {
+
+        if (_invalidRound(round, cdp)) {
             revert InvalidRound(liquidatableRound);
         }
 
@@ -373,6 +372,12 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
         if (config_.interestAuctionThreshold == 0) {
             revert InvalidParameter("interestAuctionThreshold");
         }
+    }
+
+    function _invalidRound(IOracle.RoundData memory round, IStabilization.CDP memory cdp) internal view returns (bool) {
+        // Liquidation ratio is used to calculate whether a CDP was undercollateralized at liquidatableRound, and
+        // since we do not track previous ratios, we cannot accept rounds before the last timestamp update
+        return round.price == 0 || round.timestamp < cdp.timestamp || round.timestamp < _stabilization.lastUpdated().liquidationRatioTimestamp;
     }
 }
 
