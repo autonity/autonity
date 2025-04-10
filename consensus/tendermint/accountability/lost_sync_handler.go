@@ -49,6 +49,8 @@ func (r *AskSyncRateLimiter) resetRateLimiter() {
 	}
 }
 
+// handleLostSyncEvent handles the ask sync request from a lost sync validator or from a rebooting validator.
+// Any error return from this function will drop the remote peer.
 func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Address) error {
 
 	if fd.askSyncRateLimiter.overRated(sender) {
@@ -81,13 +83,13 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 	}
 
 	proposals := fd.missingProposals(&lostSync)
-	preCommits, err := fd.missingPrecommits(presentedRounds, &lostSync)
+	preCommits, err := fd.missingVotes(presentedRounds, message.PrecommitCode, &lostSync)
 	if err != nil {
 		fd.logger.Error("Going to suspend peer connection", "err", err, "peer", sender)
 		return err
 	}
 
-	preVotes, err := fd.missingPrevotes(presentedRounds, &lostSync)
+	preVotes, err := fd.missingVotes(presentedRounds, message.PrevoteCode, &lostSync)
 	if err != nil {
 		fd.logger.Error("Going to suspend per connection", "err", err, "peer", sender)
 		return err
@@ -130,11 +132,13 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 	return nil
 }
 
+// missingProposals collects all the missing proposals of a consensus instance base on the asker's view.
 func (fd *FaultDetector) missingProposals(lostSync *message.LostSyncMsg) []*message.Propose {
 	var missingProposals []*message.Propose
 
 	for _, roundView := range lostSync.RoundsViews {
-		// get missing proposals.
+		// from the asker's round view, if it missed a proposal of that round, then we need to send
+		// any proposal of that round, otherwise we don't send it as the asker already prevoted for a value.
 		if roundView.Proposal == nilValue {
 			proposals := fd.msgStore.GetProposals(lostSync.Height, func(m *message.Propose) bool {
 				return uint64(m.R()) == roundView.Round
@@ -148,26 +152,36 @@ func (fd *FaultDetector) missingProposals(lostSync *message.LostSyncMsg) []*mess
 	return missingProposals
 }
 
-func (fd *FaultDetector) missingPrevotes(presentedRounds map[uint64]struct{}, lostSync *message.LostSyncMsg) ([]*message.Prevote, error) {
-	var missingPrevotes []*message.Prevote
+// missingVotes collects those missing prevotes, or precommits of the asker. They include those votes of missing signers, values and rounds.
+func (fd *FaultDetector) missingVotes(presentedRounds map[uint64]struct{}, step uint8, lostSync *message.LostSyncMsg) ([]message.Vote, error) {
+	var missingVotes []message.Vote
 	for _, roundView := range lostSync.RoundsViews {
-		// get missing prevotes of the round, they could have different value and different signers.
-		presentedPrevoteVal := make(map[common.Hash]struct{})
-		for i, value := range roundView.Prevotes {
+		// get missing votes of the round, they could have different value and different signers.
+		presentedValue := make(map[common.Hash]struct{})
 
-			if _, ok := presentedPrevoteVal[value]; ok {
+		// query for prevotes by default,
+		knownVotes := roundView.Prevotes
+		knownVotesSigners := roundView.PrevotesSigners
+		if message.PrecommitCode == step {
+			knownVotes = roundView.Precommits
+			knownVotesSigners = roundView.PrecommitsSigners
+		}
+
+		for i, value := range knownVotes {
+
+			if _, ok := presentedValue[value]; ok {
 				return nil, errInvalidLostSyncMsg
 			} else {
-				presentedPrevoteVal[value] = struct{}{}
+				presentedValue[value] = struct{}{}
 			}
 
-			presentedSigners := roundView.PrevotesSigners[i]
+			presentedSigners := knownVotesSigners[i]
 			if presentedSigners == nil {
 				return nil, errInvalidLostSyncMsg
 			}
 
-			// select prevotes of the same round with same value but with different presentedSigners
-			prevotes := fd.msgStore.GetPrevotes(lostSync.Height, func(m *message.Prevote) bool {
+			// select votes of the same round with same value but with different presentedSigners
+			votes := fd.msgStore.GetVotes(lostSync.Height, step, func(m message.Vote) bool {
 				if uint64(m.R()) == roundView.Round && m.Value() == value {
 					// only with signers which is not in the presentedSigners
 					for _, idx := range m.Signers().FlattenUniq() {
@@ -179,100 +193,35 @@ func (fd *FaultDetector) missingPrevotes(presentedRounds map[uint64]struct{}, lo
 				return false
 			})
 
-			if len(prevotes) > 0 {
-				missingPrevotes = append(missingPrevotes, prevotes...)
+			if len(votes) > 0 {
+				missingVotes = append(missingVotes, votes...)
 			}
 		}
-		// get prevotes of not presented values.
-		prevotes := fd.msgStore.GetPrevotes(lostSync.Height, func(m *message.Prevote) bool {
+		// get votes of not presented values.
+		votes := fd.msgStore.GetVotes(lostSync.Height, step, func(m message.Vote) bool {
 			if uint64(m.R()) == roundView.Round {
-				if _, ok := presentedPrevoteVal[m.Value()]; !ok {
+				if _, ok := presentedValue[m.Value()]; !ok {
 					return true
 				}
 			}
 			return false
 		})
-		if len(prevotes) > 0 {
-			missingPrevotes = append(missingPrevotes, prevotes...)
+		if len(votes) > 0 {
+			missingVotes = append(missingVotes, votes...)
 		}
 	}
 
-	// select prevotes of not presented rounds.
-	prevotes := fd.msgStore.GetPrevotes(lostSync.Height, func(m *message.Prevote) bool {
+	// select votes of not presented rounds.
+	votes := fd.msgStore.GetVotes(lostSync.Height, step, func(m message.Vote) bool {
 		if _, ok := presentedRounds[uint64(m.R())]; !ok {
 			return true
 		}
 		return false
 	})
 
-	if len(prevotes) > 0 {
-		missingPrevotes = append(missingPrevotes, prevotes...)
+	if len(votes) > 0 {
+		missingVotes = append(missingVotes, votes...)
 	}
 
-	return missingPrevotes, nil
-}
-
-func (fd *FaultDetector) missingPrecommits(presentedRounds map[uint64]struct{}, lostSync *message.LostSyncMsg) ([]*message.Precommit, error) {
-	var missingPrecommits []*message.Precommit
-
-	for _, roundView := range lostSync.RoundsViews {
-		// get missing precommits.
-		presentedPrecommitVal := make(map[common.Hash]struct{})
-		for i, value := range roundView.Precommits {
-
-			if _, ok := presentedPrecommitVal[value]; ok {
-				return nil, errInvalidLostSyncMsg
-			} else {
-				presentedPrecommitVal[value] = struct{}{}
-			}
-
-			presentedSigners := roundView.PrecommitsSigners[i]
-			if presentedSigners == nil {
-				return nil, errInvalidLostSyncMsg
-			}
-
-			// select precommits of the same round with same value but with different presentedSigners
-			precommits := fd.msgStore.GetPrecommits(lostSync.Height, func(m *message.Precommit) bool {
-				if uint64(m.R()) == roundView.Round && m.Value() == value {
-					// only with signers which is not in the presentedSigners
-					for _, idx := range m.Signers().FlattenUniq() {
-						if presentedSigners.Bit(idx) == 0 {
-							return true
-						}
-					}
-				}
-				return false
-			})
-
-			if len(precommits) > 0 {
-				missingPrecommits = append(missingPrecommits, precommits...)
-			}
-		}
-		// get precommits of not presented values.
-		precommits := fd.msgStore.GetPrecommits(lostSync.Height, func(m *message.Precommit) bool {
-			if uint64(m.R()) == roundView.Round {
-				if _, ok := presentedPrecommitVal[m.Value()]; !ok {
-					return true
-				}
-			}
-			return false
-		})
-		if len(precommits) > 0 {
-			missingPrecommits = append(missingPrecommits, precommits...)
-		}
-	}
-
-	// select precommits of not presented rounds.
-	precommits := fd.msgStore.GetPrecommits(lostSync.Height, func(m *message.Precommit) bool {
-		if _, ok := presentedRounds[uint64(m.R())]; !ok {
-			return true
-		}
-		return false
-	})
-
-	if len(precommits) > 0 {
-		missingPrecommits = append(missingPrecommits, precommits...)
-	}
-
-	return missingPrecommits, nil
+	return missingVotes, nil
 }

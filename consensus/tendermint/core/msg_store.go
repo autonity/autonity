@@ -203,6 +203,36 @@ func (ms *MsgStore) GetProposals(height uint64, query func(*message.Propose) boo
 	return result
 }
 
+func (ms *MsgStore) GetVotes(height uint64, step uint8, query func(vote message.Vote) bool) []message.Vote {
+	ms.RLock()
+	defer ms.RUnlock()
+	var result []message.Vote
+	_, ok := ms.prevotes[height]
+	if !ok {
+		return result
+	}
+
+	if step == message.PrevoteCode {
+		for _, prevote := range ms.prevotes[height] {
+			if query(prevote) {
+				result = append(result, prevote)
+			}
+		}
+		return result
+	}
+
+	if step == message.PrecommitCode {
+		for _, precommit := range ms.precommits[height] {
+			if query(precommit) {
+				result = append(result, precommit)
+			}
+		}
+		return result
+	}
+
+	return result
+}
+
 func (ms *MsgStore) GetPrevotes(height uint64, query func(*message.Prevote) bool) []*message.Prevote {
 	ms.RLock()
 	defer ms.RUnlock()

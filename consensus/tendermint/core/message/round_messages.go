@@ -251,7 +251,7 @@ func (s *RoundMessages) Snapshot(round int64) *RoundMsgView {
 type RoundMsgView struct {
 	Round uint64
 
-	// received proposal, normally only one, could be multiple if proposer equivocated.
+	// the 1st received proposal that the client prevoted, normally only one, could be multiple if proposer equivocated.
 	// different proposals will be exchanged if one find there is an equivocated one.
 	Proposal common.Hash
 
