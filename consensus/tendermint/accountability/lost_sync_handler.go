@@ -62,6 +62,9 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 	}
 
 	// sanity checks: no duplicated rounds, and msg set bound checks.
+	if len(lostSync.RoundsViews) > constants.MaxRound {
+		return errInvalidLostSyncMsg
+	}
 	presentedRounds := make(map[uint64]struct{})
 	for _, v := range lostSync.RoundsViews {
 		if v.Round > constants.MaxRound {
