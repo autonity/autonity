@@ -77,26 +77,57 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 		}
 	}
 
-	// prioritized the missing precomits as it could trigger the remote peer step into next round or to commit a value.
-	err = fd.sendMissingPrecommits(presentedRounds, &lostSync, sender)
+	proposals := fd.missingProposals(&lostSync)
+	preCommits, err := fd.missingPrecommits(presentedRounds, &lostSync)
 	if err != nil {
 		fd.logger.Error("Going to suspend peer connection", "err", err, "peer", sender)
 		return err
 	}
 
-	// otherwise, we send missing prevotes to get remote peer change its voting step.
-	err = fd.sendMissingPrevotes(presentedRounds, &lostSync, sender)
+	preVotes, err := fd.missingPrevotes(presentedRounds, &lostSync)
 	if err != nil {
 		fd.logger.Error("Going to suspend per connection", "err", err, "peer", sender)
 		return err
 	}
 
-	// at the end, we send the most heavy msg, the missing proposals.
-	fd.sendMissingProposals(&lostSync, sender)
+	if fd.broadcaster == nil {
+		fd.logger.Warn("p2p protocol handler is not ready yet")
+		return nil
+	}
+
+	peer, ok := fd.broadcaster.FindPeer(sender)
+	if !ok {
+		fd.logger.Debug("no peer connection for sender", "peer", sender)
+		return nil
+	}
+
+	// prioritize the sending of missing proposals.
+	if len(proposals) > 0 {
+		for _, m := range proposals {
+			fd.logger.Info("sending missing proposal to lost sync peer", "value", m.Value(), "H", m.H(), "R", m.R(), "VR", m.ValidRound(), "from", fd.address, "to", sender)
+			go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
+		}
+	}
+
+	// then sends the missing precommits, as precommits could trigger round rotation or a commitment of a value.
+	if len(preCommits) > 0 {
+		for _, m := range preCommits {
+			fd.logger.Info("sending missing prevote to lost sync peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", fd.address, "to", sender)
+			go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
+		}
+	}
+
+	if len(preVotes) > 0 {
+		for _, m := range preVotes {
+			fd.logger.Info("sending missing prevote to lost sync peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", fd.address, "to", sender)
+			go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
+		}
+	}
+
 	return nil
 }
 
-func (fd *FaultDetector) sendMissingProposals(lostSync *message.LostSyncMsg, sender common.Address) {
+func (fd *FaultDetector) missingProposals(lostSync *message.LostSyncMsg) []*message.Propose {
 	var missingProposals []*message.Propose
 
 	for _, roundView := range lostSync.RoundsViews {
@@ -111,25 +142,10 @@ func (fd *FaultDetector) sendMissingProposals(lostSync *message.LostSyncMsg, sen
 		}
 	}
 
-	if fd.broadcaster == nil {
-		fd.logger.Warn("p2p protocol handler is not ready yet")
-		return
-	}
-
-	peer, ok := fd.broadcaster.FindPeer(sender)
-	if !ok {
-		fd.logger.Debug("no peer connection from sender", "peer", sender)
-		return
-	}
-
-	for _, m := range missingProposals {
-		fd.logger.Info("sending missing proposal to lost sync peer", "value", m.Value(), "H", m.H(), "R", m.R(), "VR", m.ValidRound(), "from", fd.address, "to", sender)
-		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
-	}
-	return
+	return missingProposals
 }
 
-func (fd *FaultDetector) sendMissingPrevotes(presentedRounds map[uint64]struct{}, lostSync *message.LostSyncMsg, sender common.Address) error {
+func (fd *FaultDetector) missingPrevotes(presentedRounds map[uint64]struct{}, lostSync *message.LostSyncMsg) ([]*message.Prevote, error) {
 	var missingPrevotes []*message.Prevote
 	for _, roundView := range lostSync.RoundsViews {
 		// get missing prevotes of the round, they could have different value and different signers.
@@ -137,14 +153,14 @@ func (fd *FaultDetector) sendMissingPrevotes(presentedRounds map[uint64]struct{}
 		for i, value := range roundView.Prevotes {
 
 			if _, ok := presentedPrevoteVal[value]; ok {
-				return errInvalidLostSyncMsg
+				return nil, errInvalidLostSyncMsg
 			} else {
 				presentedPrevoteVal[value] = struct{}{}
 			}
 
 			presentedSigners := roundView.PrevotesSigners[i]
 			if presentedSigners == nil {
-				return errInvalidLostSyncMsg
+				return nil, errInvalidLostSyncMsg
 			}
 
 			// select prevotes of the same round with same value but with different presentedSigners
@@ -190,25 +206,10 @@ func (fd *FaultDetector) sendMissingPrevotes(presentedRounds map[uint64]struct{}
 		missingPrevotes = append(missingPrevotes, prevotes...)
 	}
 
-	if fd.broadcaster == nil {
-		fd.logger.Warn("p2p protocol handler is not ready yet")
-		return nil
-	}
-
-	peer, ok := fd.broadcaster.FindPeer(sender)
-	if !ok {
-		fd.logger.Debug("no peer connection for sender", "peer", sender)
-		return nil
-	}
-
-	for _, m := range missingPrevotes {
-		fd.logger.Info("sending missing prevote to lost sync peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", fd.address, "to", sender)
-		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
-	}
-	return nil
+	return missingPrevotes, nil
 }
 
-func (fd *FaultDetector) sendMissingPrecommits(presentedRounds map[uint64]struct{}, lostSync *message.LostSyncMsg, sender common.Address) error {
+func (fd *FaultDetector) missingPrecommits(presentedRounds map[uint64]struct{}, lostSync *message.LostSyncMsg) ([]*message.Precommit, error) {
 	var missingPrecommits []*message.Precommit
 
 	for _, roundView := range lostSync.RoundsViews {
@@ -217,14 +218,14 @@ func (fd *FaultDetector) sendMissingPrecommits(presentedRounds map[uint64]struct
 		for i, value := range roundView.Precommits {
 
 			if _, ok := presentedPrecommitVal[value]; ok {
-				return errInvalidLostSyncMsg
+				return nil, errInvalidLostSyncMsg
 			} else {
 				presentedPrecommitVal[value] = struct{}{}
 			}
 
 			presentedSigners := roundView.PrecommitsSigners[i]
 			if presentedSigners == nil {
-				return errInvalidLostSyncMsg
+				return nil, errInvalidLostSyncMsg
 			}
 
 			// select precommits of the same round with same value but with different presentedSigners
@@ -270,21 +271,5 @@ func (fd *FaultDetector) sendMissingPrecommits(presentedRounds map[uint64]struct
 		missingPrecommits = append(missingPrecommits, precommits...)
 	}
 
-	if fd.broadcaster == nil {
-		fd.logger.Warn("p2p protocol handler is not ready yet")
-		return nil
-	}
-
-	peer, ok := fd.broadcaster.FindPeer(sender)
-	if !ok {
-		fd.logger.Debug("no peer connection for sender", "peer", sender)
-		return nil
-	}
-
-	for _, m := range missingPrecommits {
-		fd.logger.Info("sending missing precomit to lost sync peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", fd.address, "to", sender)
-		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
-	}
-
-	return nil
+	return missingPrecommits, nil
 }
