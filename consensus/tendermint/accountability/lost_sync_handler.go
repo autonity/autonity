@@ -82,7 +82,7 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 		}
 	}
 
-	proposals := fd.missingProposals(&lostSync)
+	proposals := fd.missingProposals(presentedRounds, &lostSync)
 	preCommits, err := fd.missingVotes(presentedRounds, message.PrecommitCode, &lostSync)
 	if err != nil {
 		fd.logger.Error("Going to suspend peer connection", "err", err, "peer", sender)
@@ -117,14 +117,14 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 	// then sends the missing precommits, as precommits could trigger round rotation or a commitment of a value.
 	if len(preCommits) > 0 {
 		for _, m := range preCommits {
-			fd.logger.Info("sending missing prevote to lost sync peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", fd.address, "to", sender)
+			fd.logger.Info("sending missing precommits to lost sync peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", fd.address, "to", sender)
 			go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 		}
 	}
 
 	if len(preVotes) > 0 {
 		for _, m := range preVotes {
-			fd.logger.Info("sending missing prevote to lost sync peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", fd.address, "to", sender)
+			fd.logger.Info("sending missing prevotes to lost sync peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", fd.address, "to", sender)
 			go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 		}
 	}
@@ -133,9 +133,10 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 }
 
 // missingProposals collects all the missing proposals of a consensus instance base on the asker's view.
-func (fd *FaultDetector) missingProposals(lostSync *message.LostSyncMsg) []*message.Propose {
+func (fd *FaultDetector) missingProposals(presentedRounds map[uint64]struct{}, lostSync *message.LostSyncMsg) []*message.Propose {
 	var missingProposals []*message.Propose
 
+	// collect missing proposals for presented rounds.
 	for _, roundView := range lostSync.RoundsViews {
 		// from the asker's round view, if it missed a proposal of that round, then we need to send
 		// any proposal of that round, otherwise we don't send it as the asker already prevoted for a value.
@@ -147,6 +148,18 @@ func (fd *FaultDetector) missingProposals(lostSync *message.LostSyncMsg) []*mess
 				missingProposals = append(missingProposals, proposals...)
 			}
 		}
+	}
+
+	// collected those proposals of the asker's not presented rounds
+	proposals := fd.msgStore.GetProposals(lostSync.Height, func(m *message.Propose) bool {
+		if _, ok := presentedRounds[uint64(m.R())]; !ok {
+			return true
+		}
+		return false
+	})
+
+	if len(proposals) > 0 {
+		missingProposals = append(missingProposals, proposals...)
 	}
 
 	return missingProposals
