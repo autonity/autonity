@@ -14,8 +14,6 @@ import (
 // more over that, future round messages can be synced now and the handling of AskSync msg does not block the consensus
 // engine anymore.
 
-var askSyncInterval = 5 // 5s
-
 var errAskSyncOverRated = errors.New("ask sync over rated")
 
 type AskSyncRateLimiter struct {
@@ -40,7 +38,7 @@ func (r *AskSyncRateLimiter) overRated(asker common.Address) bool {
 	r.lastRequestTSs[asker] = now
 	timeDiff := now - lastTS
 
-	return timeDiff < int64(askSyncInterval)
+	return timeDiff < int64(constants.AskSyncInterval)
 }
 
 func (r *AskSyncRateLimiter) resetRateLimiter() {
@@ -150,7 +148,7 @@ func (fd *FaultDetector) missingProposals(presentedRounds map[uint64]struct{}, l
 		}
 	}
 
-	// collected those proposals of the asker's not presented rounds
+	// collected those proposals of the asker's unknown rounds
 	proposals := fd.msgStore.GetProposals(lostSync.Height, func(m *message.Propose) bool {
 		if _, ok := presentedRounds[uint64(m.R())]; !ok {
 			return true
