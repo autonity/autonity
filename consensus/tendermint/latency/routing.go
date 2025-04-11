@@ -121,7 +121,7 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 	if committee.Len() <= ScaleThresholdForClustering {
 		return committee.Members, nil
 	}
-	
+
 	return r.PeerSelector().SelectPeers(committee, msg, from)
 }
 
@@ -193,7 +193,7 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 
 	// As from here, we already subscribe the optimization event, however if the optimization was already happened,
 	// we'd need to set optimized clusters for current epoch if it was happened.
-	optimizationHeight, err := r.contracts.GetMetricsStatus(nil, r.self)
+	optimizationHeight, err := r.contracts.GetMetricsStatus(nil)
 	if err != nil {
 		log.Error("failed to get optimized clusters height", "err", err)
 		return
@@ -314,6 +314,8 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 func (r *Router) startMeasurementTask(ctx context.Context) (cancel context.CancelFunc) {
 	ctx, cancel = context.WithCancel(ctx)
 	go func() {
+		// todo: the random delay is used to distribute the load of ping messages into a certain period.
+		//  2 seconds distribution period might be too short for a large scale network.
 		// this is probably not required, but we reduce the measurement window to 2 seconds
 		delay := time.Duration(rand.Intn(MeasurementWindow)) * time.Millisecond
 		select {
@@ -338,7 +340,7 @@ func (r *Router) measureToReport() error {
 		return err
 	}
 
-	err = r.reporter.ReportLatency(latencyVec)
+	err = r.reporter.ReportLatency(committee, latencyVec)
 	if err == nil {
 		var sb strings.Builder
 		sb.WriteString("\nRouter: latency reported!!\n")
@@ -399,8 +401,6 @@ func (r *Router) loop(ctx context.Context) {
 		}
 	}()
 	measured := false
-	//todo: remove
-	disableClustering := false
 
 	for {
 		select {
@@ -413,12 +413,13 @@ func (r *Router) loop(ctx context.Context) {
 				continue
 			}
 
-			// if current node already did the measurement, skip the task too.
-			if measured {
+			// skip measurement if we have a small scale network.
+			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
 				continue
 			}
 
-			if disableClustering {
+			// if current node already did the measurement, skip the task too.
+			if measured {
 				continue
 			}
 
@@ -440,7 +441,8 @@ func (r *Router) loop(ctx context.Context) {
 			}())
 
 			quorum := bft.Quorum(new(big.Int).SetInt64(int64(r.curEpochInfo.Committee.Len())))
-			if int64(len(connectedPeers)) >= quorum.Int64() {
+			// count local client itself with connected peers.
+			if int64(len(connectedPeers)+1) >= quorum.Int64() {
 				cancel = r.startMeasurementTask(ctx)
 				measured = true
 			}
@@ -483,24 +485,18 @@ func (r *Router) loop(ctx context.Context) {
 }
 
 func (r *Router) optimizeCluster(h uint64) error {
-	committee, err := r.contracts.Latency.GetCommittee(nil)
+
+	committee, latencyMat, err := r.contracts.Latency.Read(nil)
 	if err != nil {
-		log.Error("Router: optimizeCluster fetch committee", "err", err)
+		log.Error("Router: optimizeCluster failed to read latency", "err", err)
 		return err
 	}
 
-	latencyMat := make(map[common.Address][]uint8)
-	for _, validator := range committee {
-		latency, err := r.contracts.Latency.ReadReport(nil, validator)
-		if err != nil {
-			log.Error("Router: optimizeCluster failed to read latency", "err", err)
-			return err
-		}
-
-		latencyMat[validator] = latency
+	if len(committee) != len(latencyMat) {
+		panic("Router: committee and latency matrix do not match")
 	}
 
-	optimizedClusters, err := AssignClusters(h, r.curEpochInfo.NextEpochBlock.Uint64(), latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
+	optimizedClusters, err := AssignClusters(h, r.curEpochInfo.NextEpochBlock.Uint64(), committee, latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
 	if err != nil {
 		return err
 	}
