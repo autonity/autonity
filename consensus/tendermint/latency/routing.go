@@ -255,7 +255,7 @@ func (r *Router) resolveClusters(h uint64) (*Clusters, error) {
 
 	//todo: in a single epoch there could be multiple cluster views, we need to use the view according to the height.
 	if r.epochDefaultClusters != nil && h >= r.epochDefaultClusters.nextEpochHeight {
-		log.Error("returning future epoch message", "height", h, "nextEpochHeight", r.epochDefaultClusters.nextEpochHeight, "cluster", r.epochDefaultClusters)
+		log.Error("returning future epoch message", "height", h, "nextEpochHeight", r.epochDefaultClusters.nextEpochHeight)
 		return nil, consensus.ErrFutureEpochMessage
 	}
 
