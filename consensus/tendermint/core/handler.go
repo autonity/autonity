@@ -307,7 +307,7 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 eventLoop:
 	for {
 		select {
-		case <-time.After(time.Second * 5): //check for sync every 5 seconds
+		case <-time.After(time.Second * constants.AskSyncInterval): //check for sync every 5 seconds
 
 			if time.Since(c.syncState.GetLastValidMsgTime()) < c.syncState.GetSyncTimeOut() {
 				c.logger.Debug("Sync timeout not reached yet", "last valid message received", c.syncState.GetLastValidMsgTime(), "sync timeout", c.syncState.GetSyncTimeOut())
