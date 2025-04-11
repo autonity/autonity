@@ -64,10 +64,8 @@ type Router struct {
 	optimizationEventChan chan *autonity.LatencyKMOptimization
 	optimizationEventSub  event.Subscription
 
-	epochEventChan     chan core.EpochHeadEvent
-	epochEventSub      event.Subscription
-	chainHeadEventSub  event.Subscription
-	chainHeadEventChan chan core.ChainHeadEvent
+	epochEventChan chan core.EpochHeadEvent
+	epochEventSub  event.Subscription
 
 	curEpochInfo *types.EpochInfo
 
@@ -88,7 +86,6 @@ func NewRouter(
 		broadcaster:           broadcaster,
 		nodeKey:               nodeKey,
 		epochEventChan:        make(chan core.EpochHeadEvent, 2),
-		chainHeadEventChan:    make(chan core.ChainHeadEvent, 2),
 		optimizationEventChan: make(chan *autonity.LatencyKMOptimization, 2),
 		pinger:                ping.NewPinger(ping.TCP),
 		lastMeasuredEpoch:     new(big.Int).SetInt64(-1),
@@ -173,7 +170,6 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 
 	r.optimizationEventSub = optimizationEventSub
 	r.epochEventSub = chain.SubscribeEpochHeadEvent(r.epochEventChan)
-	r.chainHeadEventSub = chain.SubscribeChainHeadEvent(r.chainHeadEventChan)
 	r.contracts = chain.ProtocolContracts()
 	r.reporter, err = NewReporter(chain.Config().ChainID, r.nodeKey, r.contracts)
 	if err != nil {
@@ -458,9 +454,6 @@ func (r *Router) loop(ctx context.Context) {
 			if err != nil {
 				log.Error("Router: failed to optimize the clustering", "err", err)
 			}
-
-		case newHead := <-r.chainHeadEventChan:
-			log.Info("Router: new chain head", "height", newHead.Block.Number().Uint64())
 
 		case epochEv := <-r.epochEventChan:
 			log.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
