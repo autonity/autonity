@@ -224,7 +224,6 @@ eventLoop:
 							time.Sleep(5 * time.Millisecond) // minor sleep for old round messages
 							c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 						}()
-						// current round messages no qourum yet, gossip to everyone
 					}
 					recordMessageProcessingTime(msg.Code(), start)
 				}

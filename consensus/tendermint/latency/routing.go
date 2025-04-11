@@ -121,7 +121,7 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 	if committee.Len() <= ScaleThresholdForClustering {
 		return committee.Members, nil
 	}
-	
+
 	return r.PeerSelector().SelectPeers(committee, msg, from)
 }
 
@@ -400,7 +400,7 @@ func (r *Router) loop(ctx context.Context) {
 	}()
 	measured := false
 	//todo: remove
-	disableClustering := false
+	disableClustering := true
 
 	for {
 		select {
