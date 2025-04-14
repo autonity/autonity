@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.19;
 
+import {Precompiled} from "./lib/Precompiled.sol";
 import {AccessAutonity} from "./AccessAutonity.sol";
 import {ILatency} from "./interfaces/ILatency.sol";
 
@@ -69,7 +70,11 @@ contract Latency is ILatency, AccessAutonity {
 
     constructor(address payable _autonity, address[] memory initialCommittee) AccessAutonity(_autonity) {
         committee = initialCommittee;
-        initMatrix();
+        latencies = new uint8[][](committee.length);
+        for (uint256 i = 0; i < committee.length; i++) {
+            // Initialize each inner array with N elements and set all values to 0
+            latencies[i] = new uint8[](committee.length);
+        }
         epochPlusOne = 1;
     }
 
@@ -92,7 +97,11 @@ contract Latency is ILatency, AccessAutonity {
         require(index < committee.length, "Latency: invalid reporter index");
         require(committee[index] == msg.sender, "Latency: not a valid reporter");
 
-        latencies[index] = _latency;
+        uint256 _matrixSlot;
+        assembly {
+            _matrixSlot := latencies.slot
+        }
+        require(Precompiled.updateLatency(uint256(committee.length), _matrixSlot, index, _latency) == Precompiled.SUCCESS, "cannot insert latency report");
 
         lastReportedEpoch[msg.sender] = epochPlusOne;
         reports++;
@@ -120,29 +129,20 @@ contract Latency is ILatency, AccessAutonity {
     /// @param _committee The new committee
     /// @dev This function is intended to be called by the Autonity contract
     function setCommittee(address[] memory _committee) external onlyAutonity {
-        // todo: assess the gas cost for the protocol on epoch rotation.
-        // delete the latencies matrix.
-        for (uint256 i = 0; i < latencies.length; i++) {
-            delete latencies[i];
-        }
-        delete latencies;
+        // update new committee and reinit the latency matrix.
         committee = _committee;
-        initMatrix();
+
+        // reset legacy matrix.
+        uint256 _matrixSlot;
+        assembly {
+            _matrixSlot := latencies.slot
+        }
+        uint8[] memory empty = new uint8[](0);
+        require(Precompiled.updateLatency(uint256(committee.length), _matrixSlot, uint256(0), empty) == Precompiled.SUCCESS, "cannot reset latency matrix");
 
         epochPlusOne++;
         reports = 0;
         kmOptimizedHeight = 0;
-    }
-
-    function initMatrix() internal {
-        latencies = new uint8[][](committee.length);
-        for (uint256 i = 0; i < committee.length; i++) {
-            // Initialize each inner array with N elements and set all values to 0
-            latencies[i] = new uint8[](committee.length);
-            for (uint256 j = 0; j < committee.length; j++) {
-                latencies[i][j] = DEFAULT_LATENCY;
-            }
-        }
     }
 
     /*

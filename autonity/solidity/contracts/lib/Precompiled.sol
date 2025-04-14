@@ -5,6 +5,7 @@ pragma solidity ^0.8.3;
 // how to write and use precompiled contracts https://blog.qtum.org/precompiled-contracts-and-confidential-assets-55f2b47b231d
 library Precompiled {
     uint256 constant public SUCCESS = 1;
+    address constant public LATENCY_CONTRACT = address(0xf7);
     address constant public ACTIVITY_CONTRACT = address(0xf8);
     address constant public UPGRADER_CONTRACT = address(0xf9);
     address constant public COMPUTE_COMMITTEE_CONTRACT = address(0xfa);
@@ -14,6 +15,19 @@ library Precompiled {
     address constant public MISBEHAVIOUR_CONTRACT = address(0xfe);
     address constant public ENODE_VERIFIER_CONTRACT = address(0xff);
 
+    function updateLatency(uint256 _committeeSize, uint256 _matrixSlot, uint256 _index, uint8[] memory _latency) internal returns (uint256) {
+        uint256[1] memory retVal;
+        bytes memory input = abi.encodePacked(_committeeSize, _matrixSlot, _index, _latency);
+        address to = LATENCY_CONTRACT;
+        uint length = input.length + 32;
+        assembly {
+            //staticcall(gasLimit, to, inputOffset, inputSize, outputOffset, outputSize)
+            if iszero(staticcall(gas(), to, input, length, retVal, 32)) {
+                revert(0, 0)
+            }
+        }
+        return retVal[0];
+    }
 
     function computeAbsentees(bool _mustBeEmpty, uint256 _delta, uint256 _committeeSlot) internal returns (
         bool,               // isProposerOmissionFaulty

@@ -70,6 +70,7 @@ var PrecompiledContractsHomestead = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 
+	common.BytesToAddress([]byte{247}): &latencyManager{},
 	common.BytesToAddress([]byte{248}): &absenteesComputer{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
@@ -90,6 +91,7 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{7}): &bn256ScalarMulByzantium{},
 	common.BytesToAddress([]byte{8}): &bn256PairingByzantium{},
 
+	common.BytesToAddress([]byte{247}): &latencyManager{},
 	common.BytesToAddress([]byte{248}): &absenteesComputer{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
@@ -111,6 +113,7 @@ var PrecompiledContractsIstanbul = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
+	common.BytesToAddress([]byte{247}): &latencyManager{},
 	common.BytesToAddress([]byte{248}): &absenteesComputer{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
@@ -449,6 +452,113 @@ func (a *CommitteeSelector) getValidatorInfo(
 		}, nil
 	}
 	return types.CommitteeMember{}, errExcludedValidator
+}
+
+type latencyManager struct{}
+
+func (l *latencyManager) RequiredGas(input []byte) uint64 { return params.ProtocolOnlyBaseGas }
+
+func (l *latencyManager) Run(input []byte, _ uint64, evm *EVM, caller common.Address) ([]byte, error) {
+	// skip auth check if run in test mode
+	if !evm.chainConfig.TestMode && caller != params.AutonityContractAddress {
+		return nil, errUnauthorized
+	}
+	if len(input) < 4*DataLen {
+		return nil, errBadInput
+	}
+
+	// committee size.
+	offset := ArrayLenBytes
+	committeeSize := big.NewInt(0).SetBytes(input[offset : offset+DataLen])
+
+	// base slot of the 2D matrix, latencies.
+	offset += DataLen
+	latenciesSlot := input[offset : offset+DataLen]
+
+	// the row index that used to update the row data.
+	offset += DataLen
+	rowIndex := big.NewInt(0).SetBytes(input[offset : offset+DataLen])
+	if !rowIndex.IsUint64() {
+		return nil, errBadInput
+	}
+
+	// the row data to be updated which contains an array of uint8.
+	offset += DataLen
+	rowData := input[offset:]
+
+	// if row data is empty, reset all the legacy matrix and init matrix with new committee size.
+	if len(rowData) == 0 {
+		l.resetMatrix(caller, evm.StateDB, latenciesSlot, committeeSize)
+		return successResult, nil
+	}
+
+	// otherwise, just update a single row with the reporter index.
+	l.updateRow(caller, evm.StateDB, latenciesSlot, rowIndex, rowData)
+	return successResult, nil
+}
+
+// resetMatrix is only be called on epoch rotation by the protocol contract.
+func (l *latencyManager) resetMatrix(caller common.Address, state StateDB, latenciesSlot []byte, committeeSize *big.Int) {
+	// solidity storage layout: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#storage-inplace-encoding
+	// By according to the layout of the dynamic array in solidity, we use base slow and the offset of each sub array to update the latency matrix.
+	matrixOffset := crypto.Keccak256Hash(latenciesSlot).Big()
+	// todo: update the num of rows in the matrix.
+
+	rows := state.GetState(caller, common.BytesToHash(latenciesSlot)).Big().Int64()
+	cols := rows
+
+	for r := int64(0); r < rows; r++ {
+		rowOffset := crypto.Keccak256Hash(new(big.Int).Add(matrixOffset, big.NewInt(r)).Bytes()).Big()
+		// todo: update the num of cols in this row.
+
+		for i := int64(0); i < cols; i += 32 {
+			end := i + 32
+			if end > cols {
+				state.SetState(caller, common.BigToHash(rowOffset), common.Hash{})
+				return
+			}
+
+			state.SetState(caller, common.BigToHash(rowOffset), common.Hash{})
+			// goto next slot
+			rowOffset.Add(rowOffset, big.NewInt(1))
+		}
+	}
+}
+
+func (l *latencyManager) updateRow(caller common.Address, state StateDB, latenciesSlot []byte, rowIndex *big.Int, latency []byte) {
+	// solidity storage layout: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#storage-inplace-encoding
+	// By according to the layout of the dynamic array in solidity, we use base slow and the offset of each sub array to update the latency matrix.
+	matrixOffset := crypto.Keccak256Hash(latenciesSlot).Big()
+	rows := state.GetState(caller, common.BytesToHash(latenciesSlot)).Big().Int64()
+
+	rowOffset := crypto.Keccak256Hash(new(big.Int).Add(matrixOffset, rowIndex).Bytes()).Big()
+	cols := state.GetState(caller, common.BigToHash(rowOffset)).Big().Int64()
+
+	if rows != cols {
+		panic("latency matrix, rows not equal to cols")
+	}
+
+	if int64(len(latency)) != cols {
+		panic("latency matrix, latency length not equal to cols")
+	}
+
+	// replace the entire row data with the latency array, note, the row data could contain multiple slots, as
+	// it depends on the length of latency.
+	for i := 0; i < len(latency); i += 32 {
+		end := i + 32
+		if end > len(latency) {
+			end = len(latency)
+		}
+		every32byte := latency[i:end]
+
+		if len(every32byte) < 32 {
+			padding := make([]byte, 32-len(every32byte))
+			every32byte = append(padding, every32byte...)
+		}
+		state.SetState(caller, common.BigToHash(rowOffset), common.BytesToHash(every32byte))
+		// goto next slot
+		rowOffset.Add(rowOffset, big.NewInt(1))
+	}
 }
 
 // ECRECOVER implemented as a native contract.
