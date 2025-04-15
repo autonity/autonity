@@ -27,6 +27,11 @@ func TestLatency(t *testing.T) {
 		committee, _, err := r.Latency.GetCommittee(nil)
 		require.NoError(t, err)
 		require.Equal(t, expectedCommittee, committee)
+
+		committee, matrix, _, err := r.Latency.Read(nil)
+		require.NoError(t, err)
+		require.Equal(t, expectedCommittee, committee)
+		require.Equal(t, len(committee), len(matrix))
 	})
 
 	RunWithSetup("Test only autonity can call setCommittee", setup, func(r *Runner) {

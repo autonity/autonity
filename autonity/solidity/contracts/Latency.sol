@@ -79,12 +79,6 @@ contract Latency is ILatency, AccessAutonity {
         uint8[] memory empty = new uint8[](0);
         require(Precompiled.updateLatency(uint256(committee.length), _matrixSlot, uint256(0), empty) == Precompiled.SUCCESS, "cannot init latency matrix");
 
-        /*
-        latencies = new uint8[][](committee.length);
-        for (uint256 i = 0; i < committee.length; i++) {
-            // Initialize each inner array with N elements and set all values to 0
-            latencies[i] = new uint8[](committee.length);
-        }*/
         epochPlusOne = 1;
     }
 
