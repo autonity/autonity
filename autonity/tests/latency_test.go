@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"math/big"
 	"math/rand"
 	"testing"
 	"time"
@@ -52,23 +53,24 @@ func TestLatency(t *testing.T) {
 		committee := genCommittee(50)
 		_, err := r.Latency.SetCommittee(FromAutonity, committee)
 		require.NoError(t, err)
-
+		latency := make([]uint8, len(committee))
 		users := []common.Address{r.Operator.origin, params.AutonityContractAddress, testrand.Address()}
 		for _, user := range users {
-			_, err := r.Latency.Report(FromSender(user, common.Big0), nil)
+			_, err := r.Latency.Report(FromSender(user, common.Big0), common.Big0, latency)
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "not committee")
+			require.Contains(t, err.Error(), "not a valid reporter")
 		}
 
-		latency := generateLatency(len(committee))
+		latency = generateLatency(len(committee))
 		_, err = r.Latency.Report(
 			FromSender(committee[0], common.Big0),
+			common.Big0,
 			latency,
 		)
 		require.NoError(t, err)
 
 		// get the reported latency
-		reportedLatency, _, err := r.Latency.ReadReport(nil, committee[0])
+		_, reportedLatency, _, err := r.Latency.ReadReport(nil, common.Big0)
 		require.NoError(t, err)
 		require.Equal(t, latency, reportedLatency)
 	})
@@ -80,6 +82,7 @@ func TestLatency(t *testing.T) {
 
 		_, err = r.Latency.Report(
 			FromSender(committee[0], common.Big0),
+			common.Big0,
 			generateLatency(len(committee)+1),
 		)
 		require.Error(t, err)
@@ -98,12 +101,13 @@ func TestLatency(t *testing.T) {
 		for i, member := range committee {
 			_, err = r.Latency.Report(
 				FromSender(member, common.Big0),
+				new(big.Int).SetInt64(int64(i)),
 				latencyMat[i],
 			)
 			require.NoError(t, err)
 		}
 
-		readMat, _, err := r.Latency.Read(nil)
+		_, readMat, _, err := r.Latency.Read(nil)
 		require.NoError(t, err)
 		require.Equal(t, latencyMat, readMat)
 	})

@@ -70,11 +70,21 @@ contract Latency is ILatency, AccessAutonity {
 
     constructor(address payable _autonity, address[] memory initialCommittee) AccessAutonity(_autonity) {
         committee = initialCommittee;
+
+        // init latencies storage from precompiled contract.
+        uint256 _matrixSlot;
+        assembly {
+            _matrixSlot := latencies.slot
+        }
+        uint8[] memory empty = new uint8[](0);
+        require(Precompiled.updateLatency(uint256(committee.length), _matrixSlot, uint256(0), empty) == Precompiled.SUCCESS, "cannot init latency matrix");
+
+        /*
         latencies = new uint8[][](committee.length);
         for (uint256 i = 0; i < committee.length; i++) {
             // Initialize each inner array with N elements and set all values to 0
             latencies[i] = new uint8[](committee.length);
-        }
+        }*/
         epochPlusOne = 1;
     }
 
@@ -155,10 +165,19 @@ contract Latency is ILatency, AccessAutonity {
         return (committee.length * 2 + 2) / 3; // +2 for proper ceiling division
     }
 
-    /// @notice Read the latency matrix
-    /// @return The latency matrix for the current epoch.
+    /// @notice Read the entire latency matrix, it would be failed once the committee size scale to a large number.
+    //  It would be better to use readReport(_index) which returns a single reporters report, This is one of the bottleneck
+    //  of the on-chain latency data solution.
+    /// @return The committee and the latency matrix for the current epoch.
     function read() external view returns (address[] memory, uint8[][] memory) {
         return (committee, latencies);
+    }
+
+    /// @notice Read the report by reporter index.
+    /// @return The committee and the latency report of the reporter.
+    function readReport(uint256 _index) external view returns (address[] memory, uint8[] memory) {
+        require(_index < committee.length, "invalid index of reporter");
+        return (committee, latencies[_index]);
     }
 
     /// @notice Get the current committee

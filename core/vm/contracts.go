@@ -135,6 +135,7 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
+	common.BytesToAddress([]byte{247}): &latencyManager{},
 	common.BytesToAddress([]byte{248}): &absenteesComputer{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
@@ -156,6 +157,7 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{17}): &bls12381MapG1{},
 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 
+	common.BytesToAddress([]byte{247}): &latencyManager{},
 	common.BytesToAddress([]byte{248}): &absenteesComputer{},
 	common.BytesToAddress([]byte{249}): &Upgrader{},
 	common.BytesToAddress([]byte{250}): &CommitteeSelector{},
@@ -459,10 +461,7 @@ type latencyManager struct{}
 func (l *latencyManager) RequiredGas(input []byte) uint64 { return params.ProtocolOnlyBaseGas }
 
 func (l *latencyManager) Run(input []byte, _ uint64, evm *EVM, caller common.Address) ([]byte, error) {
-	// skip auth check if run in test mode
-	if !evm.chainConfig.TestMode && caller != params.AutonityContractAddress {
-		return nil, errUnauthorized
-	}
+
 	if len(input) < 4*DataLen {
 		return nil, errBadInput
 	}
@@ -498,24 +497,39 @@ func (l *latencyManager) Run(input []byte, _ uint64, evm *EVM, caller common.Add
 }
 
 // resetMatrix is only be called on epoch rotation by the protocol contract.
-func (l *latencyManager) resetMatrix(caller common.Address, state StateDB, latenciesSlot []byte, committeeSize *big.Int) {
+func (l *latencyManager) resetMatrix(caller common.Address, state StateDB, latenciesSlot []byte, newSize *big.Int) {
 	// solidity storage layout: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#storage-inplace-encoding
-	// By according to the layout of the dynamic array in solidity, we use base slow and the offset of each sub array to update the latency matrix.
+	// According to the layout of the dynamic array in solidity, we use base slot and the offset of each sub array to update the latency matrix.
+
 	matrixOffset := crypto.Keccak256Hash(latenciesSlot).Big()
-	// todo: update the num of rows in the matrix.
+	oldSize := state.GetState(caller, common.BytesToHash(latenciesSlot)).Big()
 
-	rows := state.GetState(caller, common.BytesToHash(latenciesSlot)).Big().Int64()
-	cols := rows
+	// save new size in latenciesSlot.
+	sizeBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(sizeBytes, newSize.Uint64())
+	state.SetState(caller, common.BytesToHash(latenciesSlot), common.BytesToHash(sizeBytes))
 
-	for r := int64(0); r < rows; r++ {
-		rowOffset := crypto.Keccak256Hash(new(big.Int).Add(matrixOffset, big.NewInt(r)).Bytes()).Big()
-		// todo: update the num of cols in this row.
+	// resolve the num of items to be initialized from the storage.
+	processedSize := Max(oldSize, newSize)
 
-		for i := int64(0); i < cols; i += 32 {
-			end := i + 32
-			if end > cols {
+	for row := int64(0); row < processedSize.Int64(); row++ {
+		rowOffset := crypto.Keccak256Hash(new(big.Int).Add(matrixOffset, big.NewInt(row)).Bytes()).Big()
+		// rows under new size, should store the length of the row.
+		if row < newSize.Int64() {
+			// save new size in each row slot.
+			state.SetState(caller, common.BytesToHash(rowOffset.Bytes()), common.BytesToHash(sizeBytes))
+		} else {
+			// delete the legacy row's size info from the storage slot.
+			state.SetState(caller, common.BytesToHash(rowOffset.Bytes()), common.Hash{})
+		}
+
+		// for every byte (uint8), reset them slot by slot, every slot takes 32 bytes.
+		for col := int64(0); col < processedSize.Int64(); col += 32 {
+			end := col + 32
+			// delete/reset data of last slot for current row, and break.
+			if end > processedSize.Int64() {
 				state.SetState(caller, common.BigToHash(rowOffset), common.Hash{})
-				return
+				break
 			}
 
 			state.SetState(caller, common.BigToHash(rowOffset), common.Hash{})
@@ -525,32 +539,28 @@ func (l *latencyManager) resetMatrix(caller common.Address, state StateDB, laten
 	}
 }
 
+func Max(x, y *big.Int) *big.Int {
+	if x.Cmp(y) >= 0 {
+		return x
+	}
+	return y
+}
+
 func (l *latencyManager) updateRow(caller common.Address, state StateDB, latenciesSlot []byte, rowIndex *big.Int, latency []byte) {
 	// solidity storage layout: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#storage-inplace-encoding
-	// By according to the layout of the dynamic array in solidity, we use base slow and the offset of each sub array to update the latency matrix.
+	// According to the layout of the dynamic array in solidity, we use base slot and the offset of each sub array to update the latency matrix.
 	matrixOffset := crypto.Keccak256Hash(latenciesSlot).Big()
-	rows := state.GetState(caller, common.BytesToHash(latenciesSlot)).Big().Int64()
-
 	rowOffset := crypto.Keccak256Hash(new(big.Int).Add(matrixOffset, rowIndex).Bytes()).Big()
-	cols := state.GetState(caller, common.BigToHash(rowOffset)).Big().Int64()
 
-	if rows != cols {
-		panic("latency matrix, rows not equal to cols")
-	}
-
-	if int64(len(latency)) != cols {
-		panic("latency matrix, latency length not equal to cols")
-	}
-
-	// replace the entire row data with the latency array, note, the row data could contain multiple slots, as
-	// it depends on the length of latency.
-	for i := 0; i < len(latency); i += 32 {
-		end := i + 32
+	// replace the entire row data with the latency array slot by slot, every slot contains 32 bytes.
+	for col := 0; col < len(latency); col += 32 {
+		end := col + 32
 		if end > len(latency) {
 			end = len(latency)
 		}
-		every32byte := latency[i:end]
+		every32byte := latency[col:end]
 
+		// todo: double check the padding in solidity, we might need to use a standard left / right padding helper function.
 		if len(every32byte) < 32 {
 			padding := make([]byte, 32-len(every32byte))
 			every32byte = append(padding, every32byte...)
