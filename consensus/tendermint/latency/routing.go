@@ -358,12 +358,15 @@ func (r *Router) measureToReport() error {
 }
 
 func (r *Router) measureToRecord() error {
+	log.Info("Router: measureToRecord", "default clusters", r.epochDefaultClusters)
 	committee, err := r.contracts.Latency.GetCommittee(nil)
 	if err != nil {
+		log.Error("Router: failed to fetch committee", "err", err)
 		return err
 	}
 	latencyVec, err := r.fetchLatency(committee)
 	if err != nil {
+		log.Error("Router: failed to fetch latency", "err", err)
 		return err
 	}
 	r.latencyMu.Lock()
@@ -637,7 +640,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 	var sb strings.Builder
 	totalDisconnected := 0
 	totalSelected := 0
-	var zeroDisconnectClusters []string
+	var fullyConnectedClusters []string
 	var totalConnected int
 	sender := "originator"
 	switch senderType {
@@ -664,6 +667,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 	}
 
 	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s SenderType=%s localCluster=%d\n", height, round, from.Hex(), msgType, sender, ownClusterID))
+	latencies := []string{}
 
 	for clusterID, cluster := range peerCluster {
 		var lostPeers []string
@@ -674,6 +678,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 			if ok {
 				connectedCount++
 				totalConnected++
+				latencies = append(latencies, fmt.Sprintf("%s-%d", peer.Hex(), s.latestLatencies[peer]))
 			} else {
 				lostPeers = append(lostPeers, peer.Hex())
 				totalDisconnected++
@@ -682,10 +687,10 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 		}
 
 		if len(lostPeers) == 0 {
-			zeroDisconnectClusters = append(zeroDisconnectClusters,
-				fmt.Sprintf("C%d:%d", clusterID, len(cluster)))
+			fullyConnectedClusters = append(fullyConnectedClusters,
+				fmt.Sprintf("C%d:%d\nL:%s", clusterID, len(cluster), latencies))
 		} else {
-			sb.WriteString(fmt.Sprintf("Cluster #%d: selected:%d connected:%d\n", clusterID, len(cluster), connectedCount))
+			sb.WriteString(fmt.Sprintf("Cluster #%d: selected:%d connected:%d\nL:%s\n", clusterID, len(cluster), connectedCount, latencies))
 			sb.WriteString("  X disconnected:")
 			for _, peerHex := range lostPeers {
 				sb.WriteString(" ")
@@ -695,9 +700,9 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 		}
 	}
 
-	if len(zeroDisconnectClusters) > 0 {
+	if len(fullyConnectedClusters) > 0 {
 		sb.WriteString("Fully connected: ")
-		for i, clusterInfo := range zeroDisconnectClusters {
+		for i, clusterInfo := range fullyConnectedClusters {
 			if i > 0 {
 				sb.WriteString(" ")
 			}
@@ -717,7 +722,8 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 		return nil, err
 	}
 
-	ownClusterID := clusters.clusterContaining(from)
+	senderClusterID := clusters.clusterContaining(from)
+	ownClusterID := clusters.clusterContaining(s.self)
 
 	result := make([][]common.Address, len(clusters.base))
 
@@ -733,6 +739,10 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 		localClusterNodes := clusters.base[ownClusterID]
 		var nodes []nodeLatency
 		for _, node := range localClusterNodes {
+			if node == s.self || node == from {
+				// own node
+				continue
+			}
 			lat, exists := s.Router.latestLatencies[node]
 			if !exists || lat == 0 {
 				lat = 128 // Default for unknown/new nodes
@@ -745,13 +755,12 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 			return nodes[i].lat < nodes[j].lat
 		})
 		for _, node := range nodes {
-			if node.addr == s.self || node.addr == from {
-				continue
-			}
 			member := committee.MemberByAddress(node.addr)
 			if member != nil {
-				localClusterRecipients = append(localClusterRecipients, *member)
-				result[ownClusterID] = append(result[ownClusterID], node.addr)
+				if _, ok := s.broadcaster.FindPeer(member.Address); ok {
+					localClusterRecipients = append(localClusterRecipients, *member)
+					result[ownClusterID] = append(result[ownClusterID], node.addr)
+				}
 			}
 		}
 		return localClusterRecipients
@@ -795,7 +804,7 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 	}
 
 	// local relayer or originator
-	if from == s.self || ownClusterID == clusters.clusterContaining(from) && ownClusterID >= 0 {
+	if from == s.self || ownClusterID == senderClusterID && ownClusterID >= 0 {
 		sType := originator
 		if from != s.self {
 			sType = localRelayer
@@ -803,7 +812,7 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 		recipients = append(selectLocalNodes(result, from), recipients...)
 		recipients = append(selectRemoteNodes(result), recipients...)
 		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, sType, ownClusterID)
-	} else if ownClusterID != clusters.clusterContaining(from) && ownClusterID >= 0 { // remote cluster
+	} else { // remote cluster
 		// if the sender is in the remote cluster select nodes from our own cluster only
 		recipients = append(selectLocalNodes(result, from), recipients...)
 		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, RemoteRelayer, ownClusterID)
