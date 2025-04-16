@@ -70,15 +70,6 @@ contract Latency is ILatency, AccessAutonity {
 
     constructor(address payable _autonity, address[] memory initialCommittee) AccessAutonity(_autonity) {
         committee = initialCommittee;
-
-        // init latencies storage from precompiled contract.
-        uint256 _matrixSlot;
-        assembly {
-            _matrixSlot := latencies.slot
-        }
-        uint8[] memory empty = new uint8[](0);
-        require(Precompiled.updateLatency(uint256(committee.length), _matrixSlot, uint256(0), empty) == Precompiled.SUCCESS, "cannot init latency matrix");
-
         epochPlusOne = 1;
     }
 
@@ -101,11 +92,13 @@ contract Latency is ILatency, AccessAutonity {
         require(index < committee.length, "Latency: invalid reporter index");
         require(committee[index] == msg.sender, "Latency: not a valid reporter");
 
+        uint256 _reportsSlot;
         uint256 _matrixSlot;
         assembly {
+            _reportsSlot := reports.slot
             _matrixSlot := latencies.slot
         }
-        require(Precompiled.updateLatency(uint256(committee.length), _matrixSlot, index, _latency) == Precompiled.SUCCESS, "cannot insert latency report");
+        require(Precompiled.updateLatency(_reportsSlot, _matrixSlot, index, _latency) == Precompiled.SUCCESS, "cannot insert latency report");
 
         lastReportedEpoch[msg.sender] = epochPlusOne;
         reports++;
@@ -135,15 +128,6 @@ contract Latency is ILatency, AccessAutonity {
     function setCommittee(address[] memory _committee) external onlyAutonity {
         // update new committee and reinit the latency matrix.
         committee = _committee;
-
-        // reset legacy matrix.
-        uint256 _matrixSlot;
-        assembly {
-            _matrixSlot := latencies.slot
-        }
-        uint8[] memory empty = new uint8[](0);
-        require(Precompiled.updateLatency(uint256(committee.length), _matrixSlot, uint256(0), empty) == Precompiled.SUCCESS, "cannot reset latency matrix");
-
         epochPlusOne++;
         reports = 0;
         kmOptimizedHeight = 0;

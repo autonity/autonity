@@ -114,16 +114,16 @@ func (n *node) Distance(p2 kmeans.Coordinates) float64 {
 	return r
 }
 
-func fromLatencyMat(committee []common.Address, latencyMat [][]uint8) []kmeans.Observation {
+func fromLatencyMat(latencyMat map[common.Address][]uint8) []kmeans.Observation {
 	nodes := make([]kmeans.Observation, len(latencyMat))
 	i := 0
-	for index, row := range latencyMat {
+	for address, row := range latencyMat {
 		floatRow := make([]float64, len(row))
 		for j, val := range row {
 			floatRow[j] = float64(val)
 		}
 		nodes[i] = &node{
-			address:     committee[index],
+			address:     address,
 			latencyView: floatRow,
 		}
 		i++
@@ -131,8 +131,8 @@ func fromLatencyMat(committee []common.Address, latencyMat [][]uint8) []kmeans.O
 	return nodes
 }
 
-func AssignClusters(h uint64, nextEpochHeight uint64, committee []common.Address, latencyMat [][]uint8, k int) (*Clusters, error) {
-	nodes := fromLatencyMat(committee, latencyMat)
+func AssignClusters(h uint64, nextEpochHeight uint64, latencyMat map[common.Address][]uint8, k int) (*Clusters, error) {
+	nodes := fromLatencyMat(latencyMat)
 	km := kmeans.New()
 	cstrs, err := km.Partition(nodes, k, KmeansClusterSeed)
 	if err != nil {

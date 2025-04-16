@@ -478,18 +478,28 @@ func (r *Router) loop(ctx context.Context) {
 }
 
 func (r *Router) optimizeCluster(h uint64) error {
-
-	committee, latencyMat, err := r.contracts.Latency.Read(nil)
+	committee, err := r.contracts.Latency.GetCommittee(nil)
 	if err != nil {
-		log.Error("Router: optimizeCluster failed to read latency", "err", err)
+		log.Error("Router: optimizeCluster fetch committee", "err", err)
 		return err
 	}
 
-	if len(committee) != len(latencyMat) {
-		panic("Router: committee and latency matrix do not match")
+	// todo: it would cause coherence issue on the clustering view if the reorg are too frequent. But eventually,
+	//  they should be consistent.
+	// as reading the entire matrix could be reverted due to too much gas consumption, we have to read row by row.
+	latencyMat := make(map[common.Address][]uint8)
+	index := new(big.Int).SetUint64(0)
+	for i, validator := range committee {
+		_, latency, err := r.contracts.Latency.ReadReport(nil, index.SetInt64(int64(i)))
+		if err != nil {
+			log.Error("Router: optimizeCluster failed to read latency", "err", err)
+			return err
+		}
+
+		latencyMat[validator] = latency
 	}
 
-	optimizedClusters, err := AssignClusters(h, r.curEpochInfo.NextEpochBlock.Uint64(), committee, latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
+	optimizedClusters, err := AssignClusters(h, r.curEpochInfo.NextEpochBlock.Uint64(), latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
 	if err != nil {
 		return err
 	}

@@ -15,9 +15,9 @@ library Precompiled {
     address constant public MISBEHAVIOUR_CONTRACT = address(0xfe);
     address constant public ENODE_VERIFIER_CONTRACT = address(0xff);
 
-    function updateLatency(uint256 _committeeSize, uint256 _matrixSlot, uint256 _index, uint8[] memory _latency) internal returns (uint256) {
+    function updateLatency(uint256 _reportsSlot, uint256 _matrixSlot, uint256 _index, uint8[] memory _latency) internal returns (uint256) {
         uint256[1] memory retVal;
-        bytes memory input = abi.encodePacked(_committeeSize, _matrixSlot, _index, _latency);
+        bytes memory input = abi.encodePacked(_reportsSlot, _matrixSlot, _index, _latency);
         address to = LATENCY_CONTRACT;
         uint length = input.length + 32;
         assembly {

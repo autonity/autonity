@@ -463,36 +463,39 @@ func (l *latencyManager) RequiredGas(input []byte) uint64 { return params.Protoc
 
 func (l *latencyManager) Run(input []byte, _ uint64, evm *EVM, caller common.Address) ([]byte, error) {
 
-	// todo: limit this call to committee member and to autonity contract only.
+	// only protocol latency contract can use this function, and skip auth check if run in test mode
+	// the latency contract should do the sanity check for the inputs and its callers.
+	if caller != params.LatencyContractAddress || evm.chainConfig.TestMode {
+		return nil, errUnauthorized
+	}
 
-	if len(input) < 4*DataLen {
+	// as the sanity and auth checks were done by Latency.sol side, here we just do base checks.
+	if len(input) < 5*DataLen {
 		return nil, errBadInput
 	}
 
-	// committee size.
+	// reports counter slot.
 	offset := ArrayLenBytes
-	committeeSize := big.NewInt(0).SetBytes(input[offset : offset+DataLen])
+	reportsSlot := input[offset : offset+DataLen]
 
-	// base slot of the 2D matrix, latencies.
+	// matrix slot.
 	offset += DataLen
 	latenciesSlot := input[offset : offset+DataLen]
 
-	// the row index that used to update the row data.
+	// the reporter index.
 	offset += DataLen
-	rowIndex := big.NewInt(0).SetBytes(input[offset : offset+DataLen])
-	if !rowIndex.IsUint64() {
+	reporterIndex := big.NewInt(0).SetBytes(input[offset : offset+DataLen])
+	if !reporterIndex.IsUint64() {
 		return nil, errBadInput
 	}
 
+	// the row data to be inserted.
 	offset += DataLen
 	rowData := input[offset:]
-
 	// the row data to be updated which contains an array of uint8.
-	// as solidity packs uint8 into 32 bytes, thus we unpack them from the 32 bytes into raw uint8[]
-	length := len(rowData) / SlotLength // each slot takes 32 bytes.
+	// as solidity packs uint8 into 32 bytes, thus we unpack them from the 32 bytes into raw uint8[].
+	length := len(rowData) / SlotLength
 	latencyArray := make([]byte, length)
-
-	// Take every 32 byte from the row data, and for each of them take the last byte of it and append it into latencyArray.
 	for i := 0; i < length; i++ {
 		start := i * SlotLength
 		end := start + SlotLength
@@ -500,19 +503,22 @@ func (l *latencyManager) Run(input []byte, _ uint64, evm *EVM, caller common.Add
 		latencyArray[i] = segment[len(segment)-1]
 	}
 
-	// if row data is empty, reset all the legacy matrix and init matrix with new committee size.
-	if length == 0 {
-		l.resetMatrix(caller, evm.StateDB, latenciesSlot, committeeSize)
-		return successResult, nil
+	// if the matrix haven't been initialized for current epoch, init it with the length of the latencyArray which
+	// was checked from the Latency.sol with require statements.
+	reports := evm.StateDB.GetState(caller, common.BytesToHash(reportsSlot)).Big()
+	if reports.Uint64() == 0 {
+		committeeSize := new(big.Int).SetInt64(int64(length))
+		l.initMatrix(caller, evm.StateDB, latenciesSlot, committeeSize)
 	}
 
-	// otherwise, just update a single row with the reporter index.
-	l.updateRow(caller, evm.StateDB, latenciesSlot, rowIndex, latencyArray)
+	// one can only insert the row of itself with the reporter index.
+	l.updateRow(caller, evm.StateDB, latenciesSlot, reporterIndex, latencyArray)
 	return successResult, nil
 }
 
-// resetMatrix is only be called on epoch rotation by the protocol contract.
-func (l *latencyManager) resetMatrix(caller common.Address, state StateDB, p []byte, newSize *big.Int) {
+// initMatrix is only be called once for every epoch to init the matrix with committee size, it also reset those legacy
+// data from state DB which is very important for solidity execution context.
+func (l *latencyManager) initMatrix(caller common.Address, state StateDB, p []byte, newSize *big.Int) {
 	// solidity storage layout: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#storage-inplace-encoding
 	// According to the layout of the dynamic array in solidity, we use base slot and the offset of each sub array to update the latency matrix.
 
@@ -525,9 +531,12 @@ func (l *latencyManager) resetMatrix(caller common.Address, state StateDB, p []b
 	state.SetState(caller, common.BytesToHash(p), common.BytesToHash(sizeBytes))
 
 	// resolve the num of items to be initialized from the storage.
-	processedSize := Max(oldSize, newSize)
+	resolvedSize := oldSize
+	if newSize.Cmp(oldSize) > 0 {
+		resolvedSize = newSize
+	}
 
-	for row := int64(0); row < processedSize.Int64(); row++ {
+	for row := int64(0); row < resolvedSize.Int64(); row++ {
 		//rowOffset := crypto.Keccak256Hash(new(big.Int).Add(matrixOffset, big.NewInt(row)).Bytes()).Big()
 		rowMetaOffset := new(big.Int).Add(matrixOffset, big.NewInt(row))
 		// rows under new size, should store the length of the row.
@@ -541,34 +550,27 @@ func (l *latencyManager) resetMatrix(caller common.Address, state StateDB, p []b
 
 		// for every byte (uint8), reset them slot by slot, every slot takes 32 bytes.
 		storageSlotOffset := crypto.Keccak256Hash(rowMetaOffset.Bytes()).Big()
-		for col := int64(0); col < processedSize.Int64(); col += 32 {
+		for col := int64(0); col < resolvedSize.Int64(); col += 32 {
 
 			end := col + 32
 			// delete/reset data of last slot for current row, and break.
-			if end > processedSize.Int64() {
+			if end > resolvedSize.Int64() {
 				state.SetState(caller, common.BigToHash(storageSlotOffset), common.Hash{})
 				break
 			}
 
 			state.SetState(caller, common.BigToHash(storageSlotOffset), common.Hash{})
 			// goto next slot
-			storageSlotOffset.Add(storageSlotOffset, big.NewInt(1))
+			storageSlotOffset.Add(storageSlotOffset, common.Big1)
 		}
 	}
 }
 
-func Max(x, y *big.Int) *big.Int {
-	if x.Cmp(y) >= 0 {
-		return x
-	}
-	return y
-}
-
-func (l *latencyManager) updateRow(caller common.Address, state StateDB, latenciesSlot []byte, rowIndex *big.Int, latency []byte) {
+func (l *latencyManager) updateRow(caller common.Address, state StateDB, latenciesSlot []byte, reporterIndex *big.Int, latency []byte) {
 	// solidity storage layout: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#storage-inplace-encoding
 	// According to the layout of the dynamic array in solidity, we use base slot and the offset of each sub array to update the latency matrix.
 	matrixOffset := crypto.Keccak256Hash(latenciesSlot).Big()
-	rowMetaOffset := new(big.Int).Add(matrixOffset, rowIndex)
+	rowMetaOffset := new(big.Int).Add(matrixOffset, reporterIndex)
 
 	// replace the entire row data with the latency array slot by slot, every slot contains 32 bytes.
 	storageSlotOffset := crypto.Keccak256Hash(rowMetaOffset.Bytes()).Big()
@@ -588,7 +590,7 @@ func (l *latencyManager) updateRow(caller common.Address, state StateDB, latenci
 
 		state.SetState(caller, common.BigToHash(storageSlotOffset), common.BytesToHash(slotContent))
 		// goto next slot
-		storageSlotOffset.Add(storageSlotOffset, big.NewInt(1))
+		storageSlotOffset.Add(storageSlotOffset, common.Big1)
 	}
 }
 
