@@ -13,7 +13,7 @@ o88o     o8888o 8""88888P'  o8o        o888o
        Auton Stabilization Mechanism
 */
 
-import {ISupplyControl} from "./ISupplyControl.sol";
+import {ISupplyControl} from "./interfaces/ISupplyControl.sol";
 import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
 
 /// @title ASM Supply Control Contract Implementation
@@ -45,11 +45,6 @@ contract SupplyControl is ISupplyControl, IConfigEvents {
 
     modifier onlyAutonity() {
         if (msg.sender != _autonity) revert Unauthorized();
-        _;
-    }
-
-    modifier onlyOperator() {
-        if (msg.sender != _operator) revert Unauthorized();
         _;
     }
 
@@ -105,8 +100,8 @@ contract SupplyControl is ISupplyControl, IConfigEvents {
 
     /// Update the stabilizer that is authorized to mint and burn.
     /// @param stabilizer_ The new stabilizer account
-    /// @dev Only the operator can update the stabilizer address.
-    function setStabilizer(address stabilizer_) external onlyOperator {
+    /// @dev Only the autonity contract can update the stabilizer address.
+    function setStabilizer(address stabilizer_) external onlyAutonity {
         emit IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, stabilizer_);
         stabilizer = stabilizer_;
     }

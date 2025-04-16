@@ -73,7 +73,7 @@ define gen-contract
 	@echo 'import "github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
 	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@cat  $(GENERATED_CONTRACT_DIR)/$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@cat $(GENERATED_CONTRACT_DIR)/$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@printf '")\n\n' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
 	@echo Generating Abi for $(2)
@@ -94,6 +94,7 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,asm/,ACU)
 	@$(call gen-contract,asm/,SupplyControl)
 	@$(call gen-contract,asm/,Stabilization)
+	@$(call gen-contract,asm/,Auctioneer)
 	@$(call gen-contract,test-contract/,AccountabilityTest)
 	@$(call gen-contract,test-contract/,AutonityTest)
 	@$(call gen-contract,test-contract/,AutonityUpgradeTest)

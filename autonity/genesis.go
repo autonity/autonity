@@ -53,6 +53,7 @@ var (
 		deployNonStakableVestingContract,
 		createDefaultNonStakableVestingContracts,
 		deployOmissionAccountabilityContract,
+		deployAuctioneerContract,
 	}
 	genesisSequence = append(
 		[]genesisStep{
@@ -162,6 +163,7 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
 			InflationControllerContract:    params.InflationControllerContractAddress,
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+			AuctioneerContract:             params.AuctioneerContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount:     config.AutonityContractConfig.Operator,
@@ -261,9 +263,6 @@ func finalizeAutonityInitialization(config *params.ChainConfig, _ GenesisBonds, 
 }
 
 func deployAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.AccountabilityConfig == nil {
-		config.AccountabilityConfig = params.DefaultAccountabilityConfig
-	}
 	accountabilityConfig := AccountabilityConfig{
 		InnocenceProofSubmissionWindow: new(big.Int).SetUint64(config.AccountabilityConfig.InnocenceProofSubmissionWindow),
 		BaseSlashingRates: AccountabilityBaseSlashingRates{
@@ -320,14 +319,6 @@ func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisB
 }
 
 func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.OracleContractConfig == nil {
-		log.Info("Using default genesis parameters for the Oracle Contract")
-		config.OracleContractConfig = params.DefaultGenesisOracleConfig
-	}
-	if err := config.OracleContractConfig.SetDefaults(); err != nil {
-		log.Crit("Error with Oracle Contract configuration", "err", err)
-	}
-
 	voters := make([]common.Address, len(config.AutonityContractConfig.Validators))
 	treasuries := make([]common.Address, len(config.AutonityContractConfig.Validators))
 	validators := make([]common.Address, len(config.AutonityContractConfig.Validators))
@@ -364,13 +355,6 @@ func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy gen
 }
 
 func deployACUContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.ASM.ACUContractConfig == nil {
-		log.Info("Config missing, using default parameters for the ACU contract")
-		config.ASM.ACUContractConfig = params.DefaultAcuContractGenesis
-	} else {
-		config.ASM.ACUContractConfig.SetDefaults()
-	}
-
 	bigQuantities := make([]*big.Int, len(config.ASM.ACUContractConfig.Quantities))
 	for i := range config.ASM.ACUContractConfig.Quantities {
 		bigQuantities[i] = new(big.Int).SetUint64(config.ASM.ACUContractConfig.Quantities[i])
@@ -395,13 +379,6 @@ func deployACUContract(config *params.ChainConfig, _ GenesisBonds, deploy generi
 }
 
 func deploySupplyControlContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.ASM.SupplyControlConfig == nil {
-		log.Info("Config missing, using default parameters for the Supply Control contract")
-		config.ASM.SupplyControlConfig = params.DefaultSupplyControlGenesis
-	} else {
-		config.ASM.SupplyControlConfig.SetDefaults()
-	}
-
 	value := (*big.Int)(config.ASM.SupplyControlConfig.InitialAllocation)
 	err := deploy(
 		params.SupplyControlContractAddress,
@@ -434,15 +411,9 @@ func deployUpgradeManagerContract(config *params.ChainConfig, _ GenesisBonds, de
 }
 
 func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.ASM.StabilizationContractConfig == nil {
-		log.Info("Config missing, using default parameters for the Stabilization contract")
-		config.ASM.StabilizationContractConfig = params.DefaultStabilizationGenesis
-	} else {
-		config.ASM.StabilizationContractConfig.SetDefaults()
-	}
-
-	stabilizationConfig := StabilizationConfig{
+	stabilizationConfig := IStabilizationConfig{
 		BorrowInterestRate:        (*big.Int)(config.ASM.StabilizationContractConfig.BorrowInterestRate),
+		AnnouncementWindow:        (*big.Int)(config.ASM.StabilizationContractConfig.AnnouncementWindow),
 		LiquidationRatio:          (*big.Int)(config.ASM.StabilizationContractConfig.LiquidationRatio),
 		MinCollateralizationRatio: (*big.Int)(config.ASM.StabilizationContractConfig.MinCollateralizationRatio),
 		MinDebtRequirement:        (*big.Int)(config.ASM.StabilizationContractConfig.MinDebtRequirement),
@@ -459,6 +430,8 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 		config.AutonityContractConfig.Operator,
 		params.OracleContractAddress,
 		params.SupplyControlContractAddress,
+		params.AuctioneerContractAddress,
+		params.ACUContractAddress,
 		params.AutonityContractAddress,
 	)
 	if err != nil {
@@ -468,12 +441,6 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 }
 
 func deployInflationControllerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.InflationContractConfig == nil {
-		log.Info("Config missing, using default parameters for the Inflation Controller contract")
-		config.InflationContractConfig = params.DefaultInflationControllerGenesis
-	} else {
-		config.InflationContractConfig.SetDefaults()
-	}
 	param := InflationControllerParams{
 		InflationRateInitial:      (*big.Int)(config.InflationContractConfig.InflationRateInitial),
 		InflationRateTransition:   (*big.Int)(config.InflationContractConfig.InflationRateTransition),
@@ -494,13 +461,7 @@ func deployInflationControllerContract(config *params.ChainConfig, _ GenesisBond
 	return nil
 }
 
-func deployStakableVestingManagerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	if config.StakeableVestingConfig == nil {
-		log.Info("Config missing, using default parameters for the Stakable Vesting contract")
-		config.StakeableVestingConfig = params.DefaultStakeableVestingGenesis
-	} else {
-		config.StakeableVestingConfig.SetDefaults()
-	}
+func deployStakableVestingManagerContract(_ *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
 	err := deploy(
 		params.StakeableVestingManagerContractAddress,
 		&generated.StakeableVestingManagerAbi,
@@ -588,6 +549,32 @@ func createDefaultNonStakableVestingContracts(config *params.ChainConfig, _ Gene
 	return nil
 }
 
+func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
+	auctioneerConfig := AuctioneerConfig{
+		LiquidationAuctionDuration: config.ASM.AuctioneerContractConfig.LiquidationAuctionDuration,
+		InterestAuctionDuration:    config.ASM.AuctioneerContractConfig.InterestAuctionDuration,
+		InterestAuctionDiscount:    config.ASM.AuctioneerContractConfig.InterestAuctionDiscount,
+		InterestAuctionThreshold:   config.ASM.AuctioneerContractConfig.InterestAuctionThreshold,
+	}
+	err := deploy(
+		params.AuctioneerContractAddress,
+		&generated.AuctioneerAbi,
+		generated.AuctioneerBytecode,
+		common.Big0,
+		auctioneerConfig,
+		params.StabilizationContractAddress,
+		params.OracleContractAddress,
+		params.AutonityContractAddress,
+		params.AutonityContractAddress,
+		config.AutonityContractConfig.Operator,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to deploy Auctioneer contract: %w", err)
+	}
+
+	return nil
+}
+
 // *
 // Test only functions
 // *
@@ -615,6 +602,7 @@ func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, depl
 			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
 			InflationControllerContract:    params.InflationControllerContractAddress,
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+			AuctioneerContract:             params.AuctioneerContractAddress,
 		},
 		Protocol: AutonityProtocol{
 			OperatorAccount:     config.AutonityContractConfig.Operator,

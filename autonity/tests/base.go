@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params/generated"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
@@ -118,6 +118,7 @@ type Runner struct {
 	Accountability          *Accountability
 	Oracle                  *Oracle
 	Acu                     *ACU
+	Auctioneer              *Auctioneer
 	SupplyControl           *SupplyControl
 	Stabilization           *Stabilization
 	UpgradeManager          *UpgradeManager
@@ -541,6 +542,8 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	}
 	genesisConfig.Config.AutonityContractConfig = autonityGenesis
 
+	genesisConfig.Config.SetDefaults()
+
 	// ToDo: we should probably override this in the specific tests where it is needed
 	if genesisConfig.Config.StakeableVestingConfig.TotalNominal.Cmp(common.Big0) == 0 {
 		genesisConfig.Config.StakeableVestingConfig.TotalNominal = new(big.Int).Mul(big.NewInt(1_000_000), params.NTNDecimalFactor) // 1M NTN
@@ -611,6 +614,12 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	r.OmissionAccountability = &OmissionAccountability{&contract{
 		params.OmissionAccountabilityContractAddress,
 		&generated.OmissionAccountabilityAbi,
+		r,
+	}}
+
+	r.Auctioneer = &Auctioneer{&contract{
+		params.AuctioneerContractAddress,
+		&generated.AuctioneerAbi,
 		r,
 	}}
 

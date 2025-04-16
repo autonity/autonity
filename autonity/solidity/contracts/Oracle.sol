@@ -4,7 +4,7 @@ pragma solidity >=0.8.2 < 0.9.0;
 import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
 import "./Autonity.sol";
-import {EnumerableSet} from "./utils/AddressSet.sol";
+import {EnumerableSet} from "./utils/Set.sol";
 import {ORACLE_SLASHING_RATE_CAP} from "./ProtocolConstants.sol";
 
 /**
@@ -49,6 +49,9 @@ contract Oracle is IOracle, IConfigEvents {
     mapping(string => mapping(address => Report)) public reports;
 
     // ==== Private state variables ====
+    // @dev Note that the oracle DECIMALS cannot be changed without having an effect on the
+    // Stabilization computations
+    uint8 private constant DECIMALS = 18;
     string[] private symbols;
     string[] private newSymbols;
 

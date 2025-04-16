@@ -97,6 +97,7 @@ const INFLATION_CONTROLLER_CONFIG = {
 
 const STABILIZATION_CONFIG = {
     "borrowInterestRate" : 0,
+    "announcementWindow" : 30,
     "liquidationRatio" : 1,
     "minCollateralizationRatio" : 2,
     "minDebtRequirement" : 0,
@@ -126,6 +127,7 @@ function autonityConfig(operator, treasuryAccount) {
             "upgradeManagerContract" :ZERO_ADDRESS,
             "inflationControllerContract" :ZERO_ADDRESS,
             "omissionAccountabilityContract": ZERO_ADDRESS,
+            "auctioneerContract": ZERO_ADDRESS,
         },
         "protocol": {
             "operatorAccount": operator,

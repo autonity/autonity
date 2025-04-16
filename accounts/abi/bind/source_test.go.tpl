@@ -227,7 +227,7 @@ var (
         {{range .Errors}}
         case "{{.Selector}}":
             var e {{$contract.Type}}{{.Normalized.Name}}Error
-            err := _{{$contract.Type}}.abi.UnpackIntoInterface(&e, "{{.Original.Name}}", data)
+            err := _{{$contract.Type}}.abi.UnpackIntoInterface(&e, "{{.Original.Name}}", data[4:])
             if err != nil {
                 return err
             }

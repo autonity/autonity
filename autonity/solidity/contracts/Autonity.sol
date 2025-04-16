@@ -2,22 +2,23 @@
 
 pragma solidity ^0.8.19;
 
-import "./liquid/LiquidState.sol";
-import "./Upgradeable.sol";
-import "./lib/Precompiled.sol";
 import "./Helpers.sol";
-import "./UpgradeManager.sol";
-import "./lib/BytesLib.sol";
-import "./asm/IACU.sol";
-import "./asm/ISupplyControl.sol";
-import "./asm/IStabilization.sol";
-import "./interfaces/IAccountability.sol";
-import "./interfaces/IOmissionAccountability.sol";
-import "./interfaces/IOracle.sol";
-import "./interfaces/IAutonity.sol";
-import "./interfaces/IInflationController.sol";
 import "./ReentrancyGuard.sol";
 import "./ScheduleController.sol";
+import "./UpgradeManager.sol";
+import "./Upgradeable.sol";
+import "./asm/interfaces/IACU.sol";
+import "./asm/interfaces/IAuctioneer.sol";
+import "./asm/interfaces/IStabilization.sol";
+import "./asm/interfaces/ISupplyControl.sol";
+import "./interfaces/IAccountability.sol";
+import "./interfaces/IAutonity.sol";
+import "./interfaces/IInflationController.sol";
+import "./interfaces/IOmissionAccountability.sol";
+import "./interfaces/IOracle.sol";
+import "./lib/BytesLib.sol";
+import "./lib/Precompiled.sol";
+import "./liquid/LiquidState.sol";
 import {ISlasher} from "./interfaces/ISlasher.sol";
 import {Slasher} from "./Slasher.sol";
 import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
@@ -119,6 +120,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         UpgradeManager upgradeManagerContract;
         IInflationController inflationControllerContract;
         IOmissionAccountability omissionAccountabilityContract;
+        IAuctioneer auctioneerContract;
     }
 
     struct Policy {
@@ -584,6 +586,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         config.contracts.stabilizationContract.setOperator(_account);
         config.contracts.upgradeManagerContract.setOperator(_account);
         config.contracts.omissionAccountabilityContract.setOperator(_account);
+        config.contracts.auctioneerContract.setOperator(_account);
     }
 
     /*
@@ -641,33 +644,54 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         config.contracts.oracleContract = IOracle(_address);
         config.contracts.acuContract.setOracle(_address);
         config.contracts.stabilizationContract.setOracle(_address);
+        config.contracts.auctioneerContract.setOracle(_address);
     }
 
     /*
     * @notice Set the ACU contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setAcuContract(IACU _address) public virtual onlyOperator {
+    function setAcuContract(address _address) public virtual onlyOperator {
         emit ConfigUpdateAddress("acuContract", address(config.contracts.acuContract), address(_address));
-        config.contracts.acuContract = _address;
+        config.contracts.acuContract = IACU(_address);
+        if (address(config.contracts.stabilizationContract) != address(0)) {
+            config.contracts.stabilizationContract.setACU(_address);
+        }
+    }
+
+    function setAuctioneerContract(address _address) public virtual onlyOperator {
+        emit ConfigUpdateAddress("auctioneerContract", address(config.contracts.auctioneerContract), address(_address));
+        config.contracts.auctioneerContract = IAuctioneer(_address);
+        if (address(config.contracts.stabilizationContract) != address(0)) {
+            config.contracts.stabilizationContract.setAuctioneer(_address);
+        }
     }
 
     /*
     * @notice Set the SupplyControl contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setSupplyControlContract(ISupplyControl _address) public virtual onlyOperator {
+    function setSupplyControlContract(address _address) public virtual onlyOperator {
         emit ConfigUpdateAddress("supplyControlContract", address(config.contracts.supplyControlContract), address(_address));
-        config.contracts.supplyControlContract = _address;
+        config.contracts.supplyControlContract = ISupplyControl(_address);
+        if (address(config.contracts.stabilizationContract) != address(0)) {
+            config.contracts.stabilizationContract.setSupplyControl(_address);
+        }
     }
 
     /*
     * @notice Set the Stabilization contract address. Restricted to the Operator account.
     * @param _address the contract address
     */
-    function setStabilizationContract(IStabilization _address) public virtual onlyOperator {
+    function setStabilizationContract(address _address) public virtual onlyOperator {
         emit ConfigUpdateAddress("stabilizationContract", address(config.contracts.stabilizationContract), address(_address));
-        config.contracts.stabilizationContract = _address;
+        config.contracts.stabilizationContract = IStabilization(_address);
+        if (address(config.contracts.auctioneerContract) != address(0)) {
+            config.contracts.auctioneerContract.setStabilization(_address);
+        }
+        if (address(config.contracts.supplyControlContract) != address(0)) {
+            config.contracts.supplyControlContract.setStabilizer(_address);
+        }
     }
 
     /*
@@ -694,7 +718,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * @notice Set address of the liquid logic contact.
      * @custom:restricted-to operator account
      */
-    function SetLiquidLogicContract(address _contract) public virtual onlyOperator {
+    function setLiquidLogicContract(address _contract) public virtual onlyOperator {
         require(_contract != address(0), "invalid contract address for liquid logic");
         emit ConfigUpdateAddress("liquidLogicContract", liquidLogicContract, _contract);
         liquidLogicContract = _contract;
@@ -879,7 +903,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         }
         Precompiled.computeCommitteePrecompiled(input);
         // store committee size used to compute committee
-        configuredCommitteeSize  = config.protocol.committeeSize;
+        configuredCommitteeSize = config.protocol.committeeSize;
         // get oracle address of committee members
         // calculate committeeNodes
         delete committeeNodes;
@@ -1491,7 +1515,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
      * Emits an {Approval} event.
      *
      */
-    function _approve(address owner, address spender, uint256 amount) internal virtual { require(owner != address(0), "ERC20: approve from the zero address");
+    function _approve(address owner, address spender, uint256 amount) internal virtual {
+        require(owner != address(0), "ERC20: approve from the zero address");
         require(spender != address(0), "ERC20: approve to the zero address");
 
         allowances[owner][spender] = amount;

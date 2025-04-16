@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: LGPL-3.0-only
+pragma solidity ^0.8.19;
+
+error AnnouncementWindowPending();
+error NotRestricted();
+error InsufficientAllowance();
+error InsufficientPayment();
+error InsufficientCollateral();
+error InvalidDebtPosition();
+error InvalidAmount();
+error InvalidParameter(string message);
+error InvalidPrice();
+error Liquidatable();
+error NotLiquidatable();
+error NoDebtPosition();
+error PriceUnavailable(string symbol);
+error TransferFailed();
+error Unauthorized();
+error ZeroValue();
+error InvalidRound(uint256 round);
+error BidTooLow(uint256 minimumBid, uint256 bid);
+error InvalidAuctionId();
+
+// ACU errors
+error InvalidBasket();
+error NoACUValue();

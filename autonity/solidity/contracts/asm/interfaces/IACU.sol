@@ -40,4 +40,12 @@ interface IACU {
     /// @dev Only the Autonity Contract is authorized to trigger the
     /// computation of the ACU.
     function update() external returns (bool status);
+
+    /// Get the ACU value.
+    /// @return The ACU value
+    function value() external view returns (uint256);
+
+    /// Get the scale factor for ACU values.
+    /// @return The scale factor
+    function scaleFactor() external view returns (uint256);
 }

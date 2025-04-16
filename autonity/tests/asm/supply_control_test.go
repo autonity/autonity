@@ -97,18 +97,18 @@ func TestSupplyControlAuthorization(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	tests.RunWithSetup("Test set stabilizer can be called by operator", setup, func(r *tests.Runner) {
+	tests.RunWithSetup("Test set stabilizer can be called by autonity", setup, func(r *tests.Runner) {
 		_, err := r.SupplyControl.SetStabilizer(
-			tests.FromSender(params.TestAutonityContractConfig.Operator, nil),
+			tests.FromAutonity,
 			testrand.Address(),
 		)
 		require.NoError(t, err)
 	})
 
-	tests.RunWithSetup("Test set stabilizer cannot be called by non-operator", setup, func(r *tests.Runner) {
+	tests.RunWithSetup("Test set stabilizer cannot be called by non-autonity", setup, func(r *tests.Runner) {
 		unauthorizedAccounts := []common.Address{
 			params.DeployerAddress,
-			r.Autonity.Address(),
+			params.TestAutonityContractConfig.Operator,
 			testrand.Address(),
 		}
 		for _, unauthorizedAccount := range unauthorizedAccounts {

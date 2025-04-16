@@ -194,5 +194,18 @@
   "0f65875c": "updateVotersAndSymbol()",
   "8ebb48b7": "getBondingRequestByID(uint256)",
   "4bfe23f1": "getUnbondingRequestByID(uint256)",
-  "b99a00e3": "configuredCommitteeSize()"
+  "b99a00e3": "configuredCommitteeSize()",
+  "5a061362": "setAuctioneerContract(address)",
+  "683dd191": "scaleFactor()",
+  "3fa4f245": "value()",
+  "96e4547c": "paidInterest()",
+  "4f505895": "setStabilization(address)",
+  "840c7e24": "cdps(address)",
+  "8ffba9dd": "debtAmountAtTime(address,uint256)",
+  "4914c008": "liquidate(address,uint256,address)",
+  "4b8ef943": "setACU(address)",
+  "00ede7e4": "setAuctioneer(address)",
+  "52e5a050": "setSupplyControl(address)",
+  "15ef30f8": "setLiquidLogicContract(address)",
+  "d0b06f5d": "lastUpdated()"
 }

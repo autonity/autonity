@@ -19,6 +19,9 @@ const BigFloatPrecision = 256 // will allow full representation of the solidity 
 func newFloat(value *big.Int) *big.Float {
 	return new(big.Float).SetPrec(BigFloatPrecision).SetInt(value)
 }
+func newFloat0() *big.Float {
+	return new(big.Float).SetPrec(BigFloatPrecision).SetInt(big.NewInt(0))
+}
 
 func TestACUConstructor(t *testing.T) {
 	setup := func() *tests.Runner {
@@ -257,6 +260,42 @@ func TestACUValue(t *testing.T) {
 
 		_, _, err = r.Acu.Value(nil)
 		require.ErrorAs(t, err, &tests.ACUNoACUValueError{})
+	})
+}
+
+func TestACURescale(t *testing.T) {
+	setup := func() *tests.Runner {
+		r := tests.Setup(t, nil)
+		primeACU(r)
+		return r
+	}
+
+	tests.RunWithSetup("Test rescale cannot be called by non-operator", setup, func(r *tests.Runner) {
+		unauthorized := []common.Address{params.DeployerAddress, params.AutonityContractAddress, testrand.Address()}
+		for _, user := range unauthorized {
+			_, err := r.Acu.Rescale(tests.FromSender(user, nil), big.NewInt(1))
+			require.ErrorAs(t, err, &tests.ACUUnauthorizedError{})
+		}
+		_, err := r.Acu.Rescale(r.Operator, big.NewInt(1))
+		require.NoError(t, err)
+	})
+
+	tests.RunWithSetup("Test rescale properly modifies the ACU value", setup, func(r *tests.Runner) {
+		valueBefore, _, err := r.Acu.Value(nil)
+		require.NoError(t, err)
+		require.True(t, valueBefore.Cmp(common.Big0) > 0)
+
+		multiplierBefore, _, err := r.Acu.Multiplier(nil)
+		require.NoError(t, err)
+
+		_, err = r.Acu.Rescale(r.Operator, new(big.Int).Mul(multiplierBefore, big.NewInt(2)))
+		require.NoError(t, err)
+
+		valueAfter, _, err := r.Acu.Value(nil)
+		require.NoError(t, err)
+		require.True(t, valueAfter.Cmp(common.Big0) > 0)
+
+		require.Equal(t, new(big.Int).Mul(valueBefore, big.NewInt(2)), valueAfter)
 	})
 }
 

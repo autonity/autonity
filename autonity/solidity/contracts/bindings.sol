@@ -8,17 +8,22 @@ pragma solidity ^0.8.3;
 // let you name a contract you want to generate, only a list of excluded types).
 // careful about the ordering. try to put the test-contract later than the original contract, otherwise might get error while generating bindings.
 
+// core protocol contracts
 import "./Autonity.sol";
 import "./OmissionAccountability.sol";
-import "./liquid/LiquidStateTest.sol";
 import "./Oracle.sol";
 import "./asm/ACU.sol";
 import "./asm/Stabilization.sol";
 import "./asm/SupplyControl.sol";
+import "./asm/Auctioneer.sol";
 import "./UpgradeManager.sol";
 import "./InflationController.sol";
 import "./vesting/NonStakeableVesting.sol";
 import "./vesting/StakeableVestingManager.sol";
+
+// test contracts
+import "./liquid/LiquidStateTest.sol";
+import "./test-contract/StabilizationMathTest.sol";
 import "./test-contract/AccountabilityTest.sol";
 import "./test-contract/AutonityUpgradeTest.sol";
 import "./test-contract/DummyContract.sol";
