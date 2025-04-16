@@ -225,8 +225,8 @@ eventLoop:
 							c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 						}()
 					}
-					recordMessageProcessingTime(msg.Code(), start)
 				}
+				recordMessageProcessingTime(msg.Code(), start)
 			case backlogMessageEvent:
 				// TODO: should we check for disconnection also here for future round msgs?
 				// need probably to store the errCh? verify if possible.
@@ -240,12 +240,13 @@ eventLoop:
 				}
 
 				c.logger.Debug("Handling consensus backlog event")
-				if err := c.handleMsg(ctx, msg); err != nil {
+				var err error
+				if err = c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
 					continue
 				}
 
-				if !c.noGossip && msg.Code() != message.ProposalCode {
+				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
 						// gossip the (complex) aggregate with quorum to everyone instead of the current message
@@ -258,9 +259,11 @@ eventLoop:
 					}
 
 					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-					recordMessageProcessingTime(msg.Code(), start)
+					//todo(fix): no gossip for future round messages, the current gossip relies on clustering, which relies on gossiper being the
+					// originator only
+					//go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 				}
+				recordMessageProcessingTime(msg.Code(), start)
 			case StateRequestEvent:
 				// Process Tendermint state dump request.
 				c.handleStateDump(e)

@@ -729,8 +729,7 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 	defer s.Router.latencyMu.RUnlock()
 	var recipients []types.CommitteeMember
 
-	selectLocalNodes := func(result [][]common.Address) []types.CommitteeMember {
-		// Handle local cluster separately (entire local cluster)
+	selectLocalNodes := func(result [][]common.Address, from common.Address) []types.CommitteeMember {
 		localClusterNodes := clusters.base[ownClusterID]
 		var nodes []nodeLatency
 		for _, node := range localClusterNodes {
@@ -746,7 +745,7 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 			return nodes[i].lat < nodes[j].lat
 		})
 		for _, node := range nodes {
-			if node.addr == s.self {
+			if node.addr == s.self || node.addr == from {
 				continue
 			}
 			member := committee.MemberByAddress(node.addr)
@@ -795,18 +794,18 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 		return remoteRecipients
 	}
 
-	if from == s.self {
+	// local relayer or originator
+	if from == s.self || ownClusterID == clusters.clusterContaining(from) && ownClusterID >= 0 {
+		sType := originator
+		if from != s.self {
+			sType = localRelayer
+		}
+		recipients = append(selectLocalNodes(result, from), recipients...)
 		recipients = append(selectRemoteNodes(result), recipients...)
-		recipients = append(selectLocalNodes(result), recipients...)
-		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, originator, ownClusterID)
-	} else if ownClusterID == clusters.clusterContaining(from) && ownClusterID >= 0 {
-		// if the sender is in the local cluster, select local cluster and few from remote cluster
-		recipients = append(selectLocalNodes(result), recipients...)
-		recipients = append(selectRemoteNodes(result), recipients...)
-		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, originator, ownClusterID)
+		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, sType, ownClusterID)
 	} else if ownClusterID != clusters.clusterContaining(from) && ownClusterID >= 0 { // remote cluster
 		// if the sender is in the remote cluster select nodes from our own cluster only
-		recipients = append(selectLocalNodes(result), recipients...)
+		recipients = append(selectLocalNodes(result, from), recipients...)
 		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, RemoteRelayer, ownClusterID)
 	}
 
