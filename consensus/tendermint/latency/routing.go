@@ -358,7 +358,7 @@ func (r *Router) measureToReport() error {
 }
 
 func (r *Router) measureToRecord() error {
-	log.Info("Router: measureToRecord", "default clusters", r.epochDefaultClusters)
+	log.Info("Router: measureToRecord")
 	committee, err := r.contracts.Latency.GetCommittee(nil)
 	if err != nil {
 		log.Error("Router: failed to fetch committee", "err", err)
@@ -667,11 +667,11 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 	}
 
 	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s SenderType=%s localCluster=%d\n", height, round, from.Hex(), msgType, sender, ownClusterID))
-	latencies := []string{}
 
 	for clusterID, cluster := range peerCluster {
 		var lostPeers []string
 		connectedCount := 0
+		latencies := []string{}
 
 		for _, peer := range cluster {
 			_, ok := s.broadcaster.FindPeer(peer)
@@ -688,7 +688,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 
 		if len(lostPeers) == 0 {
 			fullyConnectedClusters = append(fullyConnectedClusters,
-				fmt.Sprintf("C%d:%d\nL:%s", clusterID, len(cluster), latencies))
+				fmt.Sprintf("C%d:%d L:%s\n", clusterID, len(cluster), latencies))
 		} else {
 			sb.WriteString(fmt.Sprintf("Cluster #%d: selected:%d connected:%d\nL:%s\n", clusterID, len(cluster), connectedCount, latencies))
 			sb.WriteString("  X disconnected:")
