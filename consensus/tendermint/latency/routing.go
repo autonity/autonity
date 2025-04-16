@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"math/rand"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -44,6 +45,7 @@ var MeasurementWindow = 2000 // The time window in Millisecond to measure the la
 
 type PeerSelector interface {
 	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
+	SelectPeersByLatency(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
 }
 
 type Router struct {
@@ -76,6 +78,9 @@ type Router struct {
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+
+	latestLatencies map[common.Address]uint8
+	latencyMu       sync.RWMutex
 }
 
 func NewRouter(
@@ -122,7 +127,7 @@ func (r *Router) Route(committee *types.Committee, msg message.Msg, from common.
 		return committee.Members, nil
 	}
 
-	return r.PeerSelector().SelectPeers(committee, msg, from)
+	return r.PeerSelector().SelectPeersByLatency(committee, msg, from)
 }
 
 func (r *Router) Forward(committee *types.Committee, m message.Msg, sender common.Address) {
@@ -190,6 +195,7 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 		}
 		return result
 	}()))
+	go r.measureToRecord()
 
 	// As from here, we already subscribe the optimization event, however if the optimization was already happened,
 	// we'd need to set optimized clusters for current epoch if it was happened.
@@ -351,6 +357,21 @@ func (r *Router) measureToReport() error {
 	return err
 }
 
+func (r *Router) measureToRecord() error {
+	committee, err := r.contracts.Latency.GetCommittee(nil)
+	if err != nil {
+		return err
+	}
+	latencyVec, err := r.fetchLatency(committee)
+	if err != nil {
+		return err
+	}
+	r.latencyMu.Lock()
+	defer r.latencyMu.Unlock()
+	r.latestLatencies = latencyVec
+	return nil
+}
+
 func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]uint8, error) {
 	if r.broadcaster == nil {
 		return nil, errors.New("broadcaster not set, can't fetch latency")
@@ -475,9 +496,12 @@ func (r *Router) loop(ctx context.Context) {
 				}
 				return result
 			}()))
-			// we cannot trigger measurement at epoch rotation immediately since members need time
-			// to create connections with new members, and for new members they need more time to create full mesh
-			// connectivity with other members.
+			go func() {
+				err := r.measureToRecord()
+				if err != nil {
+					log.Error("Router: failed to measure and record latency", "err", err)
+				}
+			}()
 		}
 	}
 }
@@ -685,6 +709,108 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 	sb.WriteString(fmt.Sprintf("Total: selected:%d connected:%d disconnected:%d\n", totalSelected, totalConnected, totalDisconnected))
 
 	log.Info(sb.String())
+}
+
+func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
+	clusters, err := s.resolveClusters(msg.H())
+	if err != nil {
+		return nil, err
+	}
+
+	ownClusterID := clusters.clusterContaining(from)
+
+	result := make([][]common.Address, len(clusters.base))
+
+	type nodeLatency struct {
+		addr common.Address
+		lat  uint8
+	}
+	s.Router.latencyMu.RLock()
+	defer s.Router.latencyMu.RUnlock()
+	var recipients []types.CommitteeMember
+
+	selectLocalNodes := func(result [][]common.Address) []types.CommitteeMember {
+		// Handle local cluster separately (entire local cluster)
+		localClusterNodes := clusters.base[ownClusterID]
+		var nodes []nodeLatency
+		for _, node := range localClusterNodes {
+			lat, exists := s.Router.latestLatencies[node]
+			if !exists || lat == 0 {
+				lat = 128 // Default for unknown/new nodes
+			}
+			nodes = append(nodes, nodeLatency{addr: node, lat: lat})
+		}
+
+		var localClusterRecipients []types.CommitteeMember
+		sort.SliceStable(nodes, func(i, j int) bool {
+			return nodes[i].lat < nodes[j].lat
+		})
+		for _, node := range nodes {
+			if node.addr == s.self {
+				continue
+			}
+			member := committee.MemberByAddress(node.addr)
+			if member != nil {
+				localClusterRecipients = append(localClusterRecipients, *member)
+				result[ownClusterID] = append(result[ownClusterID], node.addr)
+			}
+		}
+		return localClusterRecipients
+	}
+
+	selectRemoteNodes := func(result [][]common.Address) []types.CommitteeMember {
+		var remoteRecipients []types.CommitteeMember
+		for clusterID, cluster := range clusters.base {
+			if clusterID == ownClusterID {
+				continue
+			}
+			result[clusterID] = []common.Address{}
+			var nodes []nodeLatency
+			for _, node := range cluster {
+				lat, exists := s.Router.latestLatencies[node]
+				if !exists || lat == 0 {
+					lat = 128 // Default for unknown/new nodes
+				}
+				nodes = append(nodes, nodeLatency{addr: node, lat: lat})
+			}
+
+			sort.SliceStable(nodes, func(i, j int) bool {
+				return nodes[i].lat < nodes[j].lat
+			})
+
+			// Select top VerticalRelayingRedundancy lowest-latency nodes
+			relayRedundancy := VerticalRelayingRedundancy
+			for i := 0; i < relayRedundancy && i < len(nodes); i++ {
+				member := committee.MemberByAddress(nodes[i].addr)
+				if member != nil && member.Address != s.self {
+					if _, ok := s.broadcaster.FindPeer(member.Address); ok {
+						remoteRecipients = append(remoteRecipients, *member)
+						result[clusterID] = append(result[clusterID], nodes[i].addr)
+					} else {
+						relayRedundancy++
+					}
+				}
+			}
+		}
+		return remoteRecipients
+	}
+
+	if from == s.self {
+		recipients = append(selectRemoteNodes(result), recipients...)
+		recipients = append(selectLocalNodes(result), recipients...)
+		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, originator, ownClusterID)
+	} else if ownClusterID == clusters.clusterContaining(from) && ownClusterID >= 0 {
+		// if the sender is in the local cluster, select local cluster and few from remote cluster
+		recipients = append(selectLocalNodes(result), recipients...)
+		recipients = append(selectRemoteNodes(result), recipients...)
+		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, originator, ownClusterID)
+	} else if ownClusterID != clusters.clusterContaining(from) && ownClusterID >= 0 { // remote cluster
+		// if the sender is in the remote cluster select nodes from our own cluster only
+		recipients = append(selectLocalNodes(result), recipients...)
+		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, RemoteRelayer, ownClusterID)
+	}
+
+	return recipients, nil
 }
 
 func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
