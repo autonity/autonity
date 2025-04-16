@@ -120,6 +120,11 @@ func fromLatencyMat(latencyMat map[common.Address][]uint8) []kmeans.Observation 
 	for address, row := range latencyMat {
 		floatRow := make([]float64, len(row))
 		for j, val := range row {
+			// a value zero means the corresponding measurer did not measure the latency
+			// to the target node, in this case we set it to the median of uint8.
+			if val == 0 {
+				val = math.MaxUint8 / 2
+			}
 			floatRow[j] = float64(val)
 		}
 		nodes[i] = &node{

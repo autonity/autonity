@@ -377,9 +377,10 @@ func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]u
 
 	latencyArray := r.pingPeers(pingTargets)
 	for i, addr := range validators {
-		// set self latency to 0
+		// set self latency to 1, as 0 is the default value from the storage DB.
+		// those node who did not measure the latencies, their data will be filled with 0 by default.
 		if addr == r.self {
-			latency[addr] = 0
+			latency[addr] = 1
 		}
 		latency[addr] = latencyArray[i]
 	}
@@ -548,7 +549,7 @@ func (r *Router) pingPeers(targets []ping.Target) []uint8 {
 }
 
 // mapDurationToUint8 maps a duration to an uint8 value
-// the duration is clamped to 0-400ms and mapped linearly onto 0-255
+// the duration is clamped to 0-400ms and mapped linearly onto 1-255
 // based on testing, we may need to adjust this mapping
 func mapDurationToUint8(duration time.Duration) uint8 {
 	durationMs := duration.Milliseconds()
@@ -557,7 +558,7 @@ func mapDurationToUint8(duration time.Duration) uint8 {
 	} else if durationMs > 400 {
 		durationMs = 400
 	}
-	return uint8((float64(durationMs) / 400.0) * 255.0)
+	return uint8((float64(durationMs)/400.0)*254.0) + 1
 }
 
 func findByAddress(committeeEnodes []*enode.Node, addr common.Address) (*enode.Node, bool) {
