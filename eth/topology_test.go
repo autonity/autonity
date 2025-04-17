@@ -2,6 +2,8 @@ package eth
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"testing"
 
@@ -76,7 +78,27 @@ func TestGraphDiamter(t *testing.T) {
 		graph.AddNewNode()
 		// tests if the graph diameter <= target diameter for the whole graph
 		// which ensures that the whole graph is connected
-		graph.TestGraphDiamter()
+		graph.TestGraphDiamter(false)
+
+		// diameter is increased for fault tolerant graph
+		graph.targetDiameter++
+		graph.TestGraphDiamter(true)
+		graph.targetDiameter--
+	}
+}
+
+func TestIsFaultTolerant(t *testing.T) {
+	nodeCount := int(max(1000, params.TestAutonityContractConfig.MaxCommitteeSize))
+	graph := NewBulkGraphTester(4, nodeCount, t)
+
+	for n := 1; n <= nodeCount; n++ {
+		graph.AddNewNode()
+		if n%100 == 0 {
+			graph.isFaultTolerant(n)
+		}
+	}
+	if nodeCount%100 != 0 {
+		graph.isFaultTolerant(nodeCount)
 	}
 }
 
@@ -106,6 +128,7 @@ type graphTester struct {
 	nodesIndex     map[*enode.Node]int
 	connections    [][]*enode.Node
 	distance       [][]int
+	visited        []bool
 	// if bulkTest = true, the graph is tested for each node added, and some optimimzation must be applied
 	// set bulkTest = false if a single graph is to be tested
 	bulkTest bool
@@ -202,7 +225,7 @@ func combinedIndex(i, j, b int) int {
 	return i*b + j
 }
 
-func (graph *graphTester) TestGraphDiamter() {
+func (graph *graphTester) TestGraphDiamter(checkFaultTolerance bool) {
 	totalNodes := len(graph.nodes)
 	for i := 0; i < totalNodes; i++ {
 		for j := 0; j < i; j++ {
@@ -218,7 +241,7 @@ func (graph *graphTester) TestGraphDiamter() {
 		// bfs is modified to determine shortest path distance from source only if graph diameter <= targetDiameter
 		// in case graph diameter > targetDiameter, bfs will not give shortest path distance and some pair (i,j) will have
 		// distance[i][j] = targetDiameter + 1 and the test will fail
-		graph.bfs(source, nodeCount, graph.distance[source])
+		graph.bfs(source, nodeCount, graph.distance[source], checkFaultTolerance)
 		distantNodes := make([][]int, graph.targetDiameter)
 		for i := 1; i < graph.targetDiameter; i++ {
 			distantNodes[i] = make([]int, 0, nodeCount)
@@ -258,7 +281,7 @@ func (graph *graphTester) TestGraphDiamter() {
 // If the shortest path between i and sourceIndex includes any node j where j >= nodeCount, then distance[i][sourceIndex] can be updated
 // via j, i.e. distance[i][sourceIndex] = distance[i][j] + distance[j][sourceIndex] which is already done before calling bfs.
 // So in bfs we don't need to include path which has some intermediate node, x such that x >= nodeCount
-func (graph *graphTester) bfs(sourceIndex, nodeCount int, dis []int) {
+func (graph *graphTester) bfs(sourceIndex, nodeCount int, dis []int, checkFaultTolerance bool) {
 	// enque source
 	queue := make([]int, 0, nodeCount)
 	queue = append(queue, sourceIndex)
@@ -268,6 +291,9 @@ func (graph *graphTester) bfs(sourceIndex, nodeCount int, dis []int) {
 		nodeIndex := queue[0]
 		queue = queue[1:]
 		for _, peer := range graph.connections[nodeIndex] {
+			if checkFaultTolerance && isConnectionFailed() {
+				continue
+			}
 			peerIndex := graph.nodesIndex[peer]
 			if peerIndex < nodeCount && dis[peerIndex] > dis[nodeIndex]+1 {
 				// enque adjacent nodes
@@ -276,4 +302,43 @@ func (graph *graphTester) bfs(sourceIndex, nodeCount int, dis []int) {
 			}
 		}
 	}
+}
+
+func (graph *graphTester) isFaultTolerant(nodeCount int) {
+	for n := 0; n < nodeCount; n++ {
+		graph.visited = make([]bool, nodeCount)
+		require.Equal(graph.t, nodeCount, graph.dfs(n, true))
+	}
+}
+
+func (graph *graphTester) dfs(node int, checkFaultTolerance bool) int {
+	if graph.visited[node] {
+		return 0
+	}
+	visited := 1
+	graph.visited[node] = true
+	for _, peer := range graph.connections[node] {
+		if checkFaultTolerance && isConnectionFailed() {
+			continue
+		}
+		peerIndex := graph.nodesIndex[peer]
+		visited += graph.dfs(peerIndex, checkFaultTolerance)
+	}
+	return visited
+}
+
+const FailPercentage = 2
+
+func isConnectionFailed() bool {
+	var bytes [4]byte
+	_, err := rand.Read(bytes[:])
+	if err != nil {
+		panic(err)
+	}
+	num := binary.BigEndian.Uint32(bytes[:])
+	threshold := (FailPercentage*(1<<32) + 99) / 100
+	if int(num) <= threshold {
+		return true
+	}
+	return false
 }
