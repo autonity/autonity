@@ -19,9 +19,10 @@ package message
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/metrics"
 	"math/big"
 	"sort"
+
+	"github.com/autonity/autonity/metrics"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
@@ -231,6 +232,10 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
+func (p *Propose) Originator() common.Address {
+	return p.signer
+}
+
 func (p *Propose) Signer() common.Address {
 	return p.signer
 }
@@ -397,6 +402,10 @@ func (p *LightProposal) Signer() common.Address {
 	return p.signer
 }
 
+func (p *LightProposal) Originator() common.Address {
+	return p.signer
+}
+
 func (p *LightProposal) SignerIndex() int {
 	return p.signerIndex
 }
@@ -423,22 +432,28 @@ type extVote struct {
 	// Code is redundant with the p2p.msg code however it is required
 	// because we don't want to re-serialize the message again in order
 	// to compute the hash value.
-	Code      uint8
-	Round     uint64
-	Height    uint64
-	Value     common.Hash
-	Signers   *types.Signers
-	Signature *blst.BlsSignature
+	Code       uint8
+	Round      uint64
+	Height     uint64
+	Value      common.Hash
+	Signers    *types.Signers
+	Signature  *blst.BlsSignature
+	Originator common.Address
 }
 
 // TODO: would be good to do the same thing for proposal and lightproposal (to avoid code repetition)
 type vote struct {
-	signers *types.Signers
+	signers    *types.Signers
+	originator common.Address
 	base
 }
 
 func (v *vote) Signers() *types.Signers {
 	return v.signers
+}
+
+func (v *vote) Originator() common.Address {
+	return v.originator
 }
 
 func (v *vote) Power() *big.Int {
@@ -544,12 +559,13 @@ func newVote[
 	signers.Increment(self)
 
 	payload, _ := rlp.EncodeToBytes(extVote{
-		Code:      code,
-		Round:     uint64(r),
-		Height:    h,
-		Value:     value,
-		Signers:   signers,
-		Signature: signature.(*blst.BlsSignature),
+		Code:       code,
+		Round:      uint64(r),
+		Height:     h,
+		Value:      value,
+		Signers:    signers,
+		Originator: self.Address,
+		Signature:  signature.(*blst.BlsSignature),
 	})
 	vote := E{
 		value: value,
@@ -826,6 +842,7 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	p.value = encoded.Value
 	p.signature = encoded.Signature
 	p.signers = encoded.Signers
+	p.originator = encoded.Originator
 	p.payload = payload
 	// precompute hash and signature hash
 	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrevoteCode, encoded.Value)
@@ -867,6 +884,7 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	p.value = encoded.Value
 	p.signature = encoded.Signature
 	p.signers = encoded.Signers
+	p.originator = encoded.Originator
 	p.payload = payload
 	// precompute hash and signature hash
 	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrecommitCode, encoded.Value)

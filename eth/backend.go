@@ -615,8 +615,9 @@ func (s *Ethereum) validatorController() {
 			return
 		}
 
-		index := s.topologySelector.MyIndex(committee.List, s.p2pServer.LocalNode())
-		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, index), committee.List)
+		//index := s.topologySelector.MyIndex(committee.List, s.p2pServer.LocalNode())
+		//s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, index), committee.List)
+		s.p2pServer.UpdateConsensusEnodes(committee.List, committee.List)
 	}
 	mu := sync.Mutex{}
 	wasValidating := false

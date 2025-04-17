@@ -614,7 +614,7 @@ type Selector struct {
 	HeightIndex   int
 }
 
-func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, round int64, code uint8, from common.Address, senderType SenderType, ownClusterID int) {
+func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, round int64, code uint8, from common.Address, senderType SenderType, ownClusterID int, originClusterID int) {
 	logKey := fmt.Sprintf("%d-%d-%d", height, round, code)
 
 	s.HeightLock.Lock()
@@ -666,7 +666,8 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 		msgType = "Unknown"
 	}
 
-	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s SenderType=%s localCluster=%d\n", height, round, from.Hex(), msgType, sender, ownClusterID))
+	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s SenderType=%s localCluster=%d originCluster=%\n",
+		height, round, from.Hex(), msgType, sender, ownClusterID, originClusterID))
 
 	for clusterID, cluster := range peerCluster {
 		var lostPeers []string
@@ -723,7 +724,13 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 	}
 
 	senderClusterID := clusters.clusterContaining(from)
+	originClusterID := clusters.clusterContaining(msg.Originator())
 	ownClusterID := clusters.clusterContaining(s.self)
+
+	if senderClusterID == -1 || originClusterID == -1 || ownClusterID == -1 {
+		log.Error("Router: unknown clusters", "sender", from.Hex(), "originator", msg.Originator().Hex(), "ownClusterID", ownClusterID, "senderClusterID", senderClusterID, "originClusterID", originClusterID)
+		return nil, errUnknownClusters
+	}
 
 	result := make([][]common.Address, len(clusters.base))
 
@@ -735,7 +742,7 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 	defer s.Router.latencyMu.RUnlock()
 	var recipients []types.CommitteeMember
 
-	selectLocalNodes := func(result [][]common.Address, from common.Address) []types.CommitteeMember {
+	selectLocalNodes := func(result [][]common.Address, from common.Address, maxNodes int) []types.CommitteeMember {
 		localClusterNodes := clusters.base[ownClusterID]
 		var nodes []nodeLatency
 		for _, node := range localClusterNodes {
@@ -762,11 +769,14 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 					result[ownClusterID] = append(result[ownClusterID], node.addr)
 				}
 			}
+			if localClusterRecipients != nil && len(localClusterRecipients) >= maxNodes {
+				break
+			}
 		}
 		return localClusterRecipients
 	}
 
-	selectRemoteNodes := func(result [][]common.Address) []types.CommitteeMember {
+	selectRemoteNodes := func(result [][]common.Address, maxNodes int) []types.CommitteeMember {
 		var remoteRecipients []types.CommitteeMember
 		for clusterID, cluster := range clusters.base {
 			if clusterID == ownClusterID {
@@ -798,24 +808,33 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 						relayRedundancy++
 					}
 				}
+				if remoteRecipients != nil && len(remoteRecipients) >= maxNodes {
+					break
+				}
 			}
 		}
 		return remoteRecipients
 	}
 
-	// local relayer or originator
-	if from == s.self || ownClusterID == senderClusterID && ownClusterID >= 0 {
-		sType := originator
-		if from != s.self {
-			sType = localRelayer
-		}
-		recipients = append(selectLocalNodes(result, from), recipients...)
-		recipients = append(selectRemoteNodes(result), recipients...)
-		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, sType, ownClusterID)
-	} else { // remote cluster
+	if from == s.self { // originator
+		recipients = append(selectRemoteNodes(result, math.MaxInt), recipients...)
+		maxNodes := int(math.Sqrt(float64(len(clusters.base[ownClusterID]))))
+		recipients = append(selectLocalNodes(result, from, maxNodes), recipients...)
+		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, originator, ownClusterID, originClusterID)
+	} else if originClusterID == ownClusterID { // local relayer
+		recipients = append(selectRemoteNodes(result, 1), recipients...)
+		maxNodes := int(math.Sqrt(float64(len(clusters.base[ownClusterID]))))
+		recipients = append(selectLocalNodes(result, from, maxNodes), recipients...)
+		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, localRelayer, ownClusterID, originClusterID)
+	} else if senderClusterID != ownClusterID && originClusterID != ownClusterID { // first relayer in remote cluster
+		maxNodes := len(clusters.base[ownClusterID])
+		recipients = append(selectLocalNodes(result, from, maxNodes), recipients...)
+		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, RemoteRelayer, ownClusterID, originClusterID)
+	} else if senderClusterID == ownClusterID && originClusterID != ownClusterID { // local relayer in remote cluster
 		// if the sender is in the remote cluster select nodes from our own cluster only
-		recipients = append(selectLocalNodes(result, from), recipients...)
-		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, RemoteRelayer, ownClusterID)
+		maxNodes := int(math.Sqrt(float64(len(clusters.base[ownClusterID]))))
+		recipients = append(selectLocalNodes(result, from, maxNodes), recipients...)
+		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, RemoteRelayer, ownClusterID, originClusterID)
 	}
 
 	return recipients, nil
@@ -830,6 +849,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		return nil, err
 	}
 
+	originClusterID := clusters.clusterContaining(msg.Originator())
 	seed := seed(msg)
 	// if node is the original msg sender, it selects K*VerticalRelayingRedundancy relayers from every cluster vertically.
 	var recipients []types.CommitteeMember
@@ -858,7 +878,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 				recipients = append(recipients, *member)
 			}
 		}
-		s.clusterStatus(results, msg.H(), msg.R(), msg.Code(), from, originator, ownCluster)
+		s.clusterStatus(results, msg.H(), msg.R(), msg.Code(), from, originator, ownCluster, originClusterID)
 
 		//log.Debug(
 		//	"Router: sending msg to other clusters and local cluster",
@@ -918,7 +938,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		}
 
 		results[ownCluster] = localAddress
-		s.clusterStatus(results, msg.H(), msg.R(), msg.Code(), from, localRelayer, ownCluster)
+		s.clusterStatus(results, msg.H(), msg.R(), msg.Code(), from, localRelayer, ownCluster, originClusterID)
 		//log.Debug(
 		//	"Router: sending message to local cluster",
 		//	"from",
@@ -963,7 +983,7 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		//}
 		results := make([][]common.Address, len(clusters.base))
 		results[ownCluster] = localAddress // add local nodes to the results
-		s.clusterStatus(results, msg.H(), msg.R(), msg.Code(), from, RemoteRelayer, ownCluster)
+		s.clusterStatus(results, msg.H(), msg.R(), msg.Code(), from, RemoteRelayer, ownCluster, originClusterID)
 		//log.Debug(
 		//	"Router: sending message to own cluster, and horizontally relaying to other clusters",
 		//	"from",
