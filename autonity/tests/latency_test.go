@@ -120,6 +120,55 @@ func TestLatency(t *testing.T) {
 		t.Log("read consumed", consumed)
 		require.Equal(t, latencyMat, readMat)
 	})
+
+	RunWithSetup("Test reinit matrix on epoch rotation", setup, func(r *Runner) {
+		committee := genCommittee(100)
+		_, err := r.Latency.SetCommittee(FromAutonity, committee)
+		require.NoError(t, err)
+
+		latencyMat := make([][]uint8, len(committee))
+		for i := 0; i < len(committee); i++ {
+			latencyMat[i] = generateLatency(len(committee))
+		}
+		for i, member := range committee {
+			consumed, err := r.Latency.Report(
+				FromSender(member, common.Big0),
+				new(big.Int).SetInt64(int64(i)),
+				latencyMat[i],
+			)
+			require.NoError(t, err)
+			t.Log("reporting with latencies", "samples", len(committee), "consumed", consumed, "reporter id", i)
+		}
+
+		_, readMat, consumed, err := r.Latency.Read(nil)
+		require.NoError(t, err)
+		t.Log("read consumed", consumed)
+		require.Equal(t, latencyMat, readMat)
+
+		// next epoch, we have different committee.
+		committee2 := genCommittee(20)
+		_, err = r.Latency.SetCommittee(FromAutonity, committee2)
+		require.NoError(t, err)
+
+		latencyMat2 := make([][]uint8, len(committee2))
+		for i := 0; i < len(committee2); i++ {
+			latencyMat2[i] = generateLatency(len(committee2))
+		}
+		for i, member := range committee2 {
+			consumed, err = r.Latency.Report(
+				FromSender(member, common.Big0),
+				new(big.Int).SetInt64(int64(i)),
+				latencyMat2[i],
+			)
+			require.NoError(t, err)
+			t.Log("reporting with latencies", "samples", len(committee2), "consumed", consumed, "reporter id", i)
+		}
+
+		_, readMat2, consumed, err := r.Latency.Read(nil)
+		require.NoError(t, err)
+		t.Log("read consumed", consumed)
+		require.Equal(t, latencyMat2, readMat2)
+	})
 }
 
 func genCommittee(size int) []common.Address {
