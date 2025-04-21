@@ -2,8 +2,6 @@ package kmeans
 
 import (
 	"fmt"
-	"math/rand"
-	"time"
 )
 
 // A Cluster which data points gravitate around
@@ -15,9 +13,9 @@ type Cluster struct {
 // Clusters is a slice of clusters
 type Clusters []Cluster
 
-// NewClusters sets up a new set of clusters and seeds their initial positions according
-// to seed. If seed is 0 the seed is taken by the current time
-func NewClusters(seed int64, k int, dataset Observations) (Clusters, error) {
+// NewClusters sets up a new set of clusters and seed the centers with the 1st k points.
+// todo: use the seed to select K points from the data set as the initial centers.
+func NewClusters(_ int64, k int, dataset Observations) (Clusters, error) {
 	var c Clusters
 	if len(dataset) == 0 || len(dataset[0].Coordinates()) == 0 {
 		return c, fmt.Errorf("there must be at least one dimension in the data set")
@@ -26,22 +24,20 @@ func NewClusters(seed int64, k int, dataset Observations) (Clusters, error) {
 		return c, fmt.Errorf("k must be greater than 0")
 	}
 
-	var r *rand.Rand
-	if seed != 0 {
-		r = rand.New(rand.NewSource(seed))
-	} else {
-		r = rand.New(rand.NewSource(time.Now().UnixNano()))
-	}
-
+	// to make the KM deterministic, we select the 1st k points as the initial centers, not those centers will change
+	// during the kmeans iteration.
 	for i := 0; i < k; i++ {
-		var p Coordinates
-		for j := 0; j < len(dataset[0].Coordinates()); j++ {
-			p = append(p, r.Float64())
+		if i < len(dataset) {
+			c = append(c, Cluster{
+				Center: dataset[i].Coordinates(),
+			})
+		} else {
+			// this block should not happen.
+			// if k is larger than the nodes, reuse the 1st point.
+			c = append(c, Cluster{
+				Center: dataset[0].Coordinates(),
+			})
 		}
-
-		c = append(c, Cluster{
-			Center: p,
-		})
 	}
 	return c, nil
 }
