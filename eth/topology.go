@@ -8,9 +8,9 @@ import (
 
 const (
 	// max degree allowed for network in the execution layer
-	MaxDegree = 50 // 25
+	MaxDegree = 25
 	// if the network size exceeds MaxGraphSize, we divide the network in smaller sub-network of size MaxGraphSize
-	MaxGraphSize = 512  // 64
+	MaxGraphSize = 64
 )
 
 type networkTopology struct {
@@ -33,7 +33,8 @@ func (g *networkTopology) computeSquareRoot(n int) int {
 
 // base = b such that b*b >= n
 func (g *networkTopology) ComputeBase(n int) int {
-	return g.computeSquareRoot(n)
+	b := g.computeSquareRoot(n)
+	return int(math.Ceil(float64(b) * 2))
 }
 
 // Construction mechanism: each node is represented as a number in b-base number system with 2 digits, i.e. each node = {i,j} where 0 <= i,j < b
