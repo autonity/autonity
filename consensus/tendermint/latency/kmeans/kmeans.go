@@ -109,8 +109,7 @@ func (m *Kmeans) Partition(dataset Observations, k int, seed int64) (Clusters, e
 		smallClusterThreshold = 3
 	}
 	largeClusterThreshold := optimalSize * 2
-
-	log.Info("kmeans: native clusters", cc, "optimalSize", optimalSize, "smallClusterThreshold", smallClusterThreshold, "largeClusterThreshold", largeClusterThreshold)
+	log.Info("k-means", "native clusters", cc, "optimalSize", optimalSize, "smallClusterThreshold", smallClusterThreshold, "largeClusterThreshold", largeClusterThreshold)
 
 	// merge small clusters into their nearest cluster, and try to split large clusters.
 	cc = balanceClusters(cc, seed, optimalSize, smallClusterThreshold, largeClusterThreshold)
