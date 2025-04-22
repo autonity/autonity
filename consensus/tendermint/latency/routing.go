@@ -666,7 +666,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 		msgType = "Unknown"
 	}
 
-	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s SenderType=%s localCluster=%d originCluster=%\n",
+	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s SenderType=%s localCluster=%d originCluster=%d\n",
 		height, round, from.Hex(), msgType, sender, ownClusterID, originClusterID))
 
 	for clusterID, cluster := range peerCluster {

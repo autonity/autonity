@@ -570,7 +570,8 @@ func newVote[
 	vote := E{
 		value: value,
 		vote: vote{
-			signers: signers,
+			signers:    signers,
+			originator: self.Address,
 			base: base{
 				round:          r,
 				height:         h,
@@ -656,18 +657,20 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 	signatureInput := representative.SignatureInput()
 
 	payload, _ := rlp.EncodeToBytes(extVote{
-		Code:      c,
-		Round:     uint64(r),
-		Height:    h,
-		Value:     value,
-		Signers:   signers,
-		Signature: aggregatedSignature.(*blst.BlsSignature),
+		Code:       c,
+		Round:      uint64(r),
+		Height:     h,
+		Value:      value,
+		Signers:    signers,
+		Originator: representative.Originator(), //todo: review
+		Signature:  aggregatedSignature.(*blst.BlsSignature),
 	})
 
 	aggregateVote := E{
 		value: value,
 		vote: vote{
-			signers: signers,
+			signers:    signers,
+			originator: representative.Originator(), // todo: review
 			base: base{
 				height:         h,
 				round:          r,
@@ -784,6 +787,7 @@ func AggregateVotesSimple[
 			Height:    h,
 			Value:     value,
 			Signers:   signersList[i],
+			Originator: representative.Originator(),
 			Signature: aggregatedSignature.(*blst.BlsSignature),
 		})
 
@@ -791,6 +795,7 @@ func AggregateVotesSimple[
 			value: value,
 			vote: vote{
 				signers: signersList[i],
+				originator: representative.Originator(),
 				base: base{
 					height:         h,
 					round:          r,
