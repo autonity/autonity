@@ -12,6 +12,7 @@ import (
 )
 
 var errInvalidReporter = errors.New("Not a valid reporter")
+var priorityTipCap = uint64(1000000) // 1 MWei Gas priority tip cap to use for latency report.
 
 type Reporter struct {
 	txOpts            *bind.TransactOpts
@@ -27,6 +28,8 @@ func NewReporter(
 	if err != nil {
 		return nil, err
 	}
+
+	txOpts.GasTipCap = new(big.Int).SetUint64(priorityTipCap)
 	return &Reporter{txOpts: txOpts, protocolContracts: contracts}, nil
 }
 
