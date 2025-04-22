@@ -32,7 +32,7 @@ var errTooOldMessage = errors.New("too old message")
 var errUnknownClusters = errors.New("unknown clustering")
 
 // ScaleThresholdForClustering is the minimum number of validators required to do network clustering
-var ScaleThresholdForClustering = 9 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
+var ScaleThresholdForClustering = 32 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
 
 // VerticalRelayingRedundancy is the number of relayers of each cluster to receive the original sender's message.
 var VerticalRelayingRedundancy = 2

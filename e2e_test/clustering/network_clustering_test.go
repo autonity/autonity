@@ -22,7 +22,7 @@ func TestClusteringHappyCase(t *testing.T) {
 	// mocked service with a local ping simulator which generates [0, 500) ms latency.
 	mockedService := &interfaces.Services{Pinger: NewSimulatedPinger()}
 
-	validators, err := e2e.Validators(t, 10, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, 16, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	for _, validator := range validators {

@@ -139,13 +139,14 @@ func fromLatencyMat(committee []common.Address, latencyMat [][]uint8) []kmeans.O
 func AssignClusters(h uint64, nextEpochHeight uint64, committee []common.Address, latencyMat [][]uint8, k int) (*Clusters, error) {
 	nodes := fromLatencyMat(committee, latencyMat)
 	km := kmeans.New()
-	cstrs, err := km.Partition(nodes, k, KmeansClusterSeed)
+	kmClusters, err := km.Partition(nodes, k, KmeansClusterSeed)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([][]common.Address, k)
-	for i, cluster := range cstrs {
+	optimalSize := k
+	var result [][]common.Address
+	for _, cluster := range kmClusters {
 		// Collect addresses from cluster observations
 		var addresses []common.Address
 		for _, obs := range cluster.Observations {
@@ -157,7 +158,20 @@ func AssignClusters(h uint64, nextEpochHeight uint64, committee []common.Address
 			return bytes.Compare(addresses[a][:], addresses[b][:]) < 0
 		})
 
-		result[i] = addresses
+		// split large clusters into multiple ones.
+		if len(addresses) > optimalSize*2 {
+			numSlices := len(addresses) / optimalSize
+			for i := 0; i < numSlices; i++ {
+				start := i * optimalSize
+				end := start + optimalSize
+				if i == numSlices-1 {
+					end = len(addresses)
+				}
+				result = append(result, addresses[start:end])
+			}
+		} else {
+			result = append(result, addresses)
+		}
 	}
 
 	return NewCluster(h, nextEpochHeight, result), nil

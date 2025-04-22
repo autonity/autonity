@@ -4,8 +4,6 @@ package kmeans
 
 import (
 	"fmt"
-	"github.com/autonity/autonity/log"
-	"math"
 )
 
 const (
@@ -46,7 +44,7 @@ func New() *Kmeans {
 }
 
 // Partition executes the k-means algorithm on the given dataset and
-// partitions it into k clusters
+// partitions it into k clusters, those small clusters will be merged into their nearest cluster.
 func (m *Kmeans) Partition(dataset Observations, k int, seed int64) (Clusters, error) {
 	if k > len(dataset) {
 		return Clusters{}, fmt.Errorf("the size of the data set must at least equal to k (%d)", k)
@@ -103,22 +101,20 @@ func (m *Kmeans) Partition(dataset Observations, k int, seed int64) (Clusters, e
 	}
 
 	// resolve params for re-clustering
-	optimalSize := int(math.Floor(math.Sqrt(float64(len(dataset)))))
+	optimalSize := k
 	smallClusterThreshold := optimalSize / 3
 	if smallClusterThreshold < 3 {
 		smallClusterThreshold = 3
 	}
-	largeClusterThreshold := optimalSize * 2
-	log.Info("k-means", "native clusters", cc, "optimalSize", optimalSize, "smallClusterThreshold", smallClusterThreshold, "largeClusterThreshold", largeClusterThreshold)
 
-	// merge small clusters into their nearest cluster, and try to split large clusters.
-	cc = balanceClusters(cc, seed, optimalSize, smallClusterThreshold, largeClusterThreshold)
+	// merge small clusters into their nearest cluster.
+	cc = mergeSmallClusters(cc, smallClusterThreshold)
 
 	return cc, nil
 }
 
-// balanceClusters merge small clusters into their nearest cluster, split those large cluster into multiple ones.
-func balanceClusters(cc Clusters, seed int64, optimalSize, smallClusterThreshold, largeClusterThreshold int) Clusters {
+// mergeSmallClusters merge small clusters into their nearest cluster.
+func mergeSmallClusters(cc Clusters, smallClusterThreshold int) Clusters {
 	// merge small ones into their nearest cluster.
 	for i := 0; i < len(cc); i++ {
 		if len(cc[i].Observations) < smallClusterThreshold {
@@ -135,22 +131,6 @@ func balanceClusters(cc Clusters, seed int64, optimalSize, smallClusterThreshold
 	for _, c := range cc {
 		if len(c.Observations) > 0 {
 			newCC = append(newCC, c)
-		}
-	}
-
-	// split large clusters.
-	for i := 0; i < len(newCC); i++ {
-		if len(newCC[i].Observations) > largeClusterThreshold {
-			subK := len(newCC[i].Observations) / optimalSize
-			if subK < 2 {
-				subK = 2
-			}
-			subKmeans := New()
-			subClusters, _ := subKmeans.Partition(newCC[i].Observations, subK, seed)
-			// remove the legacy large cluster.
-			newCC = append(newCC[:i], newCC[i+1:]...)
-			// add the newly splitting ones.
-			newCC = append(newCC, subClusters...)
 		}
 	}
 
