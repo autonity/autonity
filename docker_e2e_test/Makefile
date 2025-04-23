@@ -28,7 +28,7 @@ install-prerequisites-linux:
 	echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
 	echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
 	echo 'eval "$(pyenv init - bash)"' >> ~/.bashrc
-	source ~/.bashrc
+	. ~/.bashrc
 	pyenv install 3.8.2
 	pyenv global 3.8.2
 	sudo apt install golang-docker-credential-helpers
