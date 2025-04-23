@@ -49,9 +49,6 @@ type ChainHeaderReader interface {
 	// GetHeaderByHash retrieves a block header from the database by its hash.
 	GetHeaderByHash(hash common.Hash) *types.Header
 
-	// GetTd retrieves the total difficulty from the database by hash and number.
-	GetTd(hash common.Hash, number uint64) *big.Int
-
 	EpochByHeight(height uint64) (*types.EpochInfo, error)
 }
 
@@ -176,7 +173,7 @@ type Syncer interface {
 
 // Enqueuer defines the interface to enqueue blocks to fetcher
 type Enqueuer interface {
-	Enqueue(id string, block *types.Block)
+	Enqueue(id string, block *types.Block) error
 }
 
 // Broadcaster defines the interface to find peer

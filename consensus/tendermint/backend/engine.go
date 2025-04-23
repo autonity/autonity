@@ -426,7 +426,6 @@ func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, s
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize", "err", err)
 	}
-	state.Finalise(true)
 	return receipt, epochInfo, err
 }
 
@@ -480,7 +479,7 @@ func (sb *Backend) Seal(parent *types.Header, block *types.Block, _ chan<- *type
 
 	// post block into BFT engine
 	sb.Post(events.NewCandidateBlockEvent{
-		NewCandidateBlock: *block,
+		NewCandidateBlock: block,
 		CreatedAt:         time.Now(),
 	})
 

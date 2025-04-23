@@ -27,7 +27,6 @@ import (
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/eth/protocols/eth"
-	"github.com/autonity/autonity/log"
 )
 
 const (
@@ -120,7 +119,7 @@ func (cs *chainSyncer) loop() {
 			// it has not yet switched us over, keep warning the user that their infra is
 			// potentially flaky.
 			if errors.Is(err, downloader.ErrMergeTransition) && time.Since(cs.warned) > 10*time.Second {
-				log.Warn("Local chain is post-merge, waiting for beacon client sync switch-over...")
+				cs.handler.log.Warn("Local chain is post-merge, waiting for beacon client sync switch-over...")
 				cs.warned = time.Now()
 			}
 		case <-cs.force.C:
@@ -198,7 +197,7 @@ func (cs *chainSyncer) modeAndLocalHead() (ethconfig.SyncMode, *big.Int) {
 	// persistent state is corrupted, just mismatch with the head block.
 	if !cs.handler.chain.HasState(head.Root) {
 		block := cs.handler.chain.CurrentSnapBlock()
-		log.Info("Reenabled snap sync as chain is stateless")
+		cs.handler.log.Info("Reenabled snap sync as chain is stateless")
 		return downloader.SnapSync, block.Number
 	}
 	// Nope, we're really full syncing

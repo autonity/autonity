@@ -47,7 +47,7 @@ func nodeInfo(chain *core.BlockChain, network uint64) *NodeInfo {
 	head := chain.CurrentBlock()
 	return &NodeInfo{
 		Network:    network,
-		Difficulty: chain.GetTd(head.Hash(), head.Number.Uint64()),
+		Difficulty: head.Number,
 		Genesis:    chain.Genesis().Hash(),
 		Config:     chain.Config(),
 		Head:       head.Hash(),

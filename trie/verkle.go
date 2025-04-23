@@ -299,8 +299,9 @@ func (t *VerkleTrie) Prove(key []byte, proofDb ethdb.KeyValueWriter) error {
 // Copy returns a deep-copied verkle tree.
 func (t *VerkleTrie) Copy() *VerkleTrie {
 	return &VerkleTrie{
-		root:   t.root.Copy(),
-		cache:  t.cache,
+		root:  t.root.Copy(),
+		cache: t.cache,
+		//cache:  utils.NewPointCache(4096),
 		reader: t.reader,
 	}
 }
@@ -428,4 +429,55 @@ func (t *VerkleTrie) nodeResolver(path []byte) ([]byte, error) {
 // Witness returns a set containing all trie nodes that have been accessed.
 func (t *VerkleTrie) Witness() map[string]struct{} {
 	panic("not implemented")
+}
+
+func Cmp(a, b *VerkleTrie) bool {
+	return nodeCmp(a.root, b.root)
+}
+func nodeCmp(a, b verkle.VerkleNode) bool {
+	switch a2 := a.(type) {
+	case verkle.HashedNode:
+		if _, ok := b.(verkle.HashedNode); !ok {
+			return false
+		}
+		return true
+	case *verkle.InternalNode:
+		b2, ok := b.(*verkle.InternalNode)
+		if !ok {
+			return false
+		}
+		for i := range a2.Children() {
+			if nodeCmp(a2.Children()[i], b2.Children()[i]) == false {
+				return false
+			}
+		}
+		return true
+	case *verkle.LeafNode:
+		b2, ok := b.(*verkle.LeafNode)
+		if !ok {
+			return false
+		}
+		s2, _ := b2.Serialize()
+		s1, _ := a2.Serialize()
+		if bytes.Compare(s1, s2) != 0 {
+			if a2.Hash().Cmp(b2.Hash()) != 0 {
+				return false
+			}
+			for i := range a2.Values() {
+				if bytes.Compare(a2.Values()[i], b2.Values()[i]) != 0 {
+					return false
+				}
+			}
+
+			return true
+		}
+		return true
+	case verkle.Empty:
+		if _, ok := b.(verkle.Empty); !ok {
+			return false
+		}
+		return true
+	default:
+		return false
+	}
 }

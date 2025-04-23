@@ -19,8 +19,6 @@ package state
 import (
 	"fmt"
 
-	"github.com/autonity/autonity/trie/utils"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/lru"
 	"github.com/autonity/autonity/core/rawdb"
@@ -30,6 +28,7 @@ import (
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/trie"
 	"github.com/autonity/autonity/trie/trienode"
+	"github.com/autonity/autonity/trie/utils"
 	"github.com/autonity/autonity/triedb"
 )
 

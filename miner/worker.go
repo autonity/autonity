@@ -932,11 +932,10 @@ func (w *worker) prepareWork(genParams *generateParams, parent *types.Header) (*
 		timestamp = parent.Time + 1
 	}
 	// Construct the sealing block header, set the extra field if it's allowed
-	num := parent.Number
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Difficulty: common.Big0,
-		Number:     num.Add(num, common.Big1),
+		Number:     new(big.Int).Add(parent.Number, common.Big1),
 		GasLimit:   core.CalcGasLimit(parent.GasLimit, w.config.GasCeil),
 		Time:       timestamp,
 		Coinbase:   genParams.coinbase,
@@ -1157,13 +1156,6 @@ func (w *worker) getSealingBlock(parent common.Hash, timestamp uint64, coinbase 
 	case <-w.exitCh:
 		return nil, errors.New("miner closed")
 	}
-}
-
-// isTTDReached returns the indicator if the given block has reached the total
-// terminal difficulty for The Merge transition.
-func (w *worker) isTTDReached(header *types.Header) bool {
-	td, ttd := w.chain.GetTd(header.ParentHash, header.Number.Uint64()-1), w.chain.Config().TerminalTotalDifficulty
-	return td != nil && ttd != nil && td.Cmp(ttd) >= 0
 }
 
 // copyReceipts makes a deep copy of the given receipts.

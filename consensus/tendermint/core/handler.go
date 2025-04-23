@@ -157,7 +157,7 @@ eventLoop:
 				break eventLoop
 			}
 			newCandidateBlockEvent := ev
-			pb := &newCandidateBlockEvent.NewCandidateBlock
+			pb := newCandidateBlockEvent.NewCandidateBlock
 			c.proposer.HandleNewCandidateBlockMsg(ctx, pb)
 			if metrics.Enabled() && c.IsProposer() {
 				CandidateBlockDelayBg.Add(time.Since(newCandidateBlockEvent.CreatedAt).Nanoseconds())

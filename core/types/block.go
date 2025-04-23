@@ -760,6 +760,12 @@ func (b *Block) Size() uint64 {
 	return uint64(c)
 }
 
+// SanityCheck can be used to prevent that unbounded fields are
+// stuffed with junk data to add processing overhead
+func (b *Block) SanityCheck() error {
+	return b.header.sanityCheck()
+}
+
 func (b *Block) IsEpochHead() bool { return b.header.IsEpochHeader() }
 
 type writeCounter common.StorageSize

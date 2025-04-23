@@ -69,13 +69,14 @@ func AutonityContractCall(autonityAbi *abi.ABI, evm *vm.EVM, function string, re
 	if err != nil {
 		return 0, err
 	}
-	ret, usedGas, err := evm.Call(
+	ret, leftOver, err := evm.Call(
 		vm.AccountRef(params.DeployerAddress),
 		params.AutonityContractAddress,
 		packedArgs,
 		math.MaxUint64,
 		uint256.NewInt(0),
 	)
+	usedGas := math.MaxUint64 - leftOver
 	if err != nil {
 		return usedGas, newErrorWithRevertReason(err, ret)
 	}

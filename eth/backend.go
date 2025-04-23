@@ -243,7 +243,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 			return nil, fmt.Errorf("database version is v%d, Geth %s only supports v%d", *bcVersion, version.WithMeta, core.BlockChainVersion)
 		} else if bcVersion == nil || *bcVersion < core.BlockChainVersion {
 			if bcVersion != nil { // only print warning on upgrade, not on init
-				log.Warn("Upgrade blockchain database version", "from", dbVer, "to", core.BlockChainVersion)
+				eth.log.Warn("Upgrade blockchain database version", "from", dbVer, "to", core.BlockChainVersion)
 			}
 			rawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
 		}
@@ -302,7 +302,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	if !config.TxPool.NoLocals {
 		rejournal := config.TxPool.Rejournal
 		if rejournal < time.Second {
-			log.Warn("Sanitizing invalid txpool journal time", "provided", rejournal, "updated", time.Second)
+			eth.log.Warn("Sanitizing invalid txpool journal time", "provided", rejournal, "updated", time.Second)
 			rejournal = time.Second
 		}
 		eth.localTxTracker = locals.New(config.TxPool.Journal, rejournal, eth.blockchain.Config(), eth.txPool)
@@ -321,7 +321,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		BloomCache:     uint64(cacheLimit),
 		EventMux:       eth.eventMux,
 		RequiredBlocks: config.RequiredBlocks,
-	}); err != nil {
+	}, eth.log); err != nil {
 		return nil, err
 	}
 

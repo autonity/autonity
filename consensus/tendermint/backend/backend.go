@@ -303,7 +303,6 @@ func (sb *Backend) VerifyProposal(proposalBlock *types.Block) (time.Duration, er
 		if err = sb.blockchain.Validator().ValidateBody(proposalBlock); err != nil {
 			return 0, err
 		}
-
 		res, epochInfo, err := sb.blockchain.Processor().Process(proposalBlock, state, *sb.vmConfig)
 		if err != nil {
 			sb.logger.Error("state processing failed", "error", err, "height", proposalNumber)

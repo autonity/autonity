@@ -141,8 +141,6 @@ func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int
 	// copy the base eth config, so we can modify it without damaging the
 	// original.
 	ethConfig := &ethconfig.Config{}
-	ethconfig.Defaults.SyncMode = downloader.FullSync
-	ethconfig.Defaults.Miner.Recommit = time.Second
 	if err := copyConfig(&ethconfig.Defaults, ethConfig); err != nil {
 		return nil, err
 	}
@@ -153,6 +151,8 @@ func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int
 	ethConfig.Miner.Etherbase = crypto.PubkeyToAddress(validator.NodeKey.PublicKey)
 	ethConfig.Genesis = genesis
 	ethConfig.NetworkId = genesis.Config.ChainID.Uint64()
+	ethConfig.SyncMode = downloader.FullSync
+	ethConfig.Miner.Recommit = time.Second
 
 	// Give this logger context based on the node address so that we can easily
 	// trace single node execution in the logs. We set the logger only on the
@@ -160,19 +160,24 @@ func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int
 	// marshalable since the implementation contains unexported fields.
 	logger := log.NewGlogHandler(log.NewTerminalHandler(os.Stderr, true))
 
-	/*
-		log.FormatFunc(func(record *log.Record) []byte {
-				b := log.TerminalFormat(false).Format(record)
-				if id < len(terminalColors) {
-					prefix := []byte(terminalColors[id].background + terminalColors[id].foreground)
-					suffix := []byte("\x1b[0;K\033[0m\n")
-					return append(append(prefix, b[:len(b)-1]...), suffix...)
-				}
-				return b
-			})
+	/* Todo(youssef): create new terminal handler with support for background colors
+
+	log.FormatFunc(func(record *log.Record) []byte {
+			b := log.TerminalFormat(false).Format(record)
+			if id < len(terminalColors) {
+				prefix := []byte(terminalColors[id].background + terminalColors[id].foreground)
+				suffix := []byte("\x1b[0;K\033[0m\n")
+				return append(append(prefix, b[:len(b)-1]...), suffix...)
+			}
+			return b
+		})
 	*/
 	logger.Verbosity(verbosity)
-	nodeConfig.Logger = log.NewLogger(logger)
+	if id == 0 {
+		nodeConfig.Logger = log.NewLogger(logger)
+	} else {
+		nodeConfig.Logger = log.Root()
+	}
 
 	// set custom tendermint services
 	nodeConfig.SetTendermintServices(validator.TendermintServices)

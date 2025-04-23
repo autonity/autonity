@@ -34,6 +34,10 @@ const (
 	// before starting to randomly evict them.
 	maxKnownTxs = 32768
 
+	// maxKnownBlocks is the maximum block hashes to keep in the known list
+	// before starting to randomly evict them.
+	maxKnownBlocks = 1024
+
 	// maxQueuedTxs is the maximum number of transactions to queue up before dropping
 	// older broadcasts.
 	maxQueuedTxs = 4096
@@ -41,6 +45,16 @@ const (
 	// maxQueuedTxAnns is the maximum number of transaction announcements to queue up
 	// before dropping older announcements.
 	maxQueuedTxAnns = 4096
+
+	// maxQueuedBlocks is the maximum number of block propagations to queue up before
+	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
+	// that might cover uncles should be enough.
+	maxQueuedBlocks = 4
+
+	// maxQueuedBlockAnns is the maximum number of block announcements to queue up before
+	// dropping broadcasts. Similarly to block propagations, there's no point to queue
+	// above some healthy uncle limit, so use that.
+	maxQueuedBlockAnns = 4
 )
 
 // Peer is a collection of relevant information we have about a `eth` peer.
@@ -75,20 +89,24 @@ type Peer struct {
 // version.
 func NewPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWriter, txpool TxPool) *Peer {
 	peer := &Peer{
-		id:          p.ID().String(),
-		Peer:        p,
-		rw:          rw,
-		version:     version,
-		knownTxs:    newKnownCache(maxKnownTxs),
-		txBroadcast: make(chan []common.Hash),
-		txAnnounce:  make(chan []common.Hash),
-		reqDispatch: make(chan *request),
-		reqCancel:   make(chan *cancel),
-		resDispatch: make(chan *response),
-		txpool:      txpool,
-		term:        make(chan struct{}),
+		id:              p.ID().String(),
+		Peer:            p,
+		rw:              rw,
+		version:         version,
+		knownTxs:        newKnownCache(maxKnownTxs),
+		knownBlocks:     newKnownCache(maxKnownBlocks),
+		queuedBlocks:    make(chan *blockPropagation, maxQueuedBlocks),
+		queuedBlockAnns: make(chan *types.Block, maxQueuedBlockAnns),
+		txBroadcast:     make(chan []common.Hash),
+		txAnnounce:      make(chan []common.Hash),
+		reqDispatch:     make(chan *request),
+		reqCancel:       make(chan *cancel),
+		resDispatch:     make(chan *response),
+		txpool:          txpool,
+		term:            make(chan struct{}),
 	}
 	// Start up all the broadcasters
+	go peer.broadcastBlocks()
 	go peer.broadcastTransactions()
 	go peer.announceTransactions()
 	go peer.dispatcher()
@@ -163,6 +181,13 @@ func (p *Peer) SendTransactions(txs types.Transactions) error {
 // KnownBlock returns whether peer is known to already have a block.
 func (p *Peer) KnownBlock(hash common.Hash) bool {
 	return p.knownBlocks.Contains(hash)
+}
+
+// markBlock marks a block as known for the peer, ensuring that the block will
+// never be propagated to this particular peer.
+func (p *Peer) markBlock(hash common.Hash) {
+	// If we reached the memory allowance, drop a previously known block hash
+	p.knownBlocks.Add(hash)
 }
 
 // AsyncSendTransactions queues a list of transactions (by hash) to eventually

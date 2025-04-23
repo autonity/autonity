@@ -870,22 +870,33 @@ func (api *BlockChainAPI) EstimateGas(ctx context.Context, args TransactionArgs,
 // todo(youssef): add missing epoch & PoS fields
 func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 	result := map[string]interface{}{
-		"number":           (*hexutil.Big)(head.Number),
-		"hash":             head.Hash(),
-		"parentHash":       head.ParentHash,
-		"nonce":            head.Nonce,
-		"mixHash":          head.MixDigest,
-		"sha3Uncles":       head.UncleHash,
-		"logsBloom":        head.Bloom,
-		"stateRoot":        head.Root,
-		"miner":            head.Coinbase,
-		"difficulty":       (*hexutil.Big)(head.Difficulty),
-		"extraData":        hexutil.Bytes(head.Extra),
-		"gasLimit":         hexutil.Uint64(head.GasLimit),
-		"gasUsed":          hexutil.Uint64(head.GasUsed),
-		"timestamp":        hexutil.Uint64(head.Time),
-		"transactionsRoot": head.TxHash,
-		"receiptsRoot":     head.ReceiptHash,
+		"number":             (*hexutil.Big)(head.Number),
+		"hash":               head.Hash(),
+		"parentHash":         head.ParentHash,
+		"nonce":              head.Nonce,
+		"mixHash":            head.MixDigest,
+		"sha3Uncles":         head.UncleHash,
+		"logsBloom":          head.Bloom,
+		"stateRoot":          head.Root,
+		"miner":              head.Coinbase,
+		"difficulty":         (*hexutil.Big)(head.Difficulty),
+		"extraData":          hexutil.Bytes(head.Extra),
+		"gasLimit":           hexutil.Uint64(head.GasLimit),
+		"gasUsed":            hexutil.Uint64(head.GasUsed),
+		"timestamp":          hexutil.Uint64(head.Time),
+		"transactionsRoot":   head.TxHash,
+		"receiptsRoot":       head.ReceiptHash,
+		"proposerSeal":       hexutil.Bytes(head.ProposerSeal),
+		"round":              hexutil.Uint64(head.Round),
+		"quorumCertificate":  head.QuorumCertificate,
+		"activityProofRound": hexutil.Uint64(head.ActivityProofRound),
+	}
+	if head.Epoch != nil {
+		result["epoch"] = head.Epoch
+	}
+	// This should technically only happen at genesis.
+	if head.ActivityProof != nil {
+		result["activityProof"] = head.ActivityProof
 	}
 	if head.BaseFee != nil {
 		result["baseFeePerGas"] = (*hexutil.Big)(head.BaseFee)
