@@ -24,7 +24,10 @@ clean:
 
 # Installs the prerequisites for a Linux user
 install-prerequisites-linux:
-	sudo apt-get install python3 python3-venv python3-pip golang-docker-credential-helpers
+	curl -fsSL https://pyenv.run | bash
+	pyenv install 3.8.2
+	pyenv global 3.8.2
+	sudo apt install golang-docker-credential-helpers
 
 # Installs the prerequisites for a mac user
 install-prerequisites-mac:
