@@ -114,6 +114,7 @@ def create_test_bed(job_id):
                                               volumes={"/sys/fs/cgroup": {"bind": "/sys/fs/cgroup", "mode": "ro"}})
             print("create new container: ", container.id)
             container.logs()
+            print(utility.execute("sudo docker ps"))
             result = utility.execute("sudo docker inspect -f \'{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}\' " + node_name)
             print(result)
             if result[1] != "":
