@@ -16,6 +16,8 @@ docker-e2e-tests: ./venv/bin/activate
 # as autocomplete options.
 ./venv/bin/activate: requirements_docker_test.txt
 	test -d venv || python3 -m venv venv
+	python3 --version
+	pip3 --version
 	. venv/bin/activate && sudo pip3 install -r requirements_docker_test.txt
 	touch ./venv/bin/activate
 
@@ -30,7 +32,7 @@ install-prerequisites-linux:
 	gpgv --keyring ~/.gnupg/pubring.kbx Python-3.8.2.tgz.asc Python-3.8.2.tgz
 	tar -xf Python-3.8.2.tgz
 	cd Python-3.8.2 && ./configure --with-ensurepip=install && make && sudo make install
-	python --version
+	python3 --version
 	sudo apt install golang-docker-credential-helpers
 
 # Installs the prerequisites for a mac user
