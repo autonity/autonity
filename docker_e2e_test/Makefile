@@ -16,7 +16,7 @@ docker-e2e-tests: ./venv/bin/activate
 # as autocomplete options.
 ./venv/bin/activate: requirements_docker_test.txt
 	test -d venv || python3 -m venv venv
-	. venv/bin/activate && sudo pip3 install -r requirements_docker_test.txt
+	. venv/bin/activate && sudo pip3 install --ignore-installed -r requirements_docker_test.txt
 	touch ./venv/bin/activate
 
 clean:
