@@ -33,8 +33,7 @@ func (g *networkTopology) computeSquareRoot(n int) int {
 
 // base = b such that b*b >= n
 func (g *networkTopology) ComputeBase(n int) int {
-	b := g.computeSquareRoot(n)
-	return int(math.Ceil(float64(b) * 2))
+	return g.computeSquareRoot(n)
 }
 
 // Construction mechanism: each node is represented as a number in b-base number system with 2 digits, i.e. each node = {i,j} where 0 <= i,j < b
