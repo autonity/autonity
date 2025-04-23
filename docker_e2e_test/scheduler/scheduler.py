@@ -116,7 +116,7 @@ class Scheduler(object):
 
     def connect_peers(self, test, peers):
         for peer in peers:
-            if len(peer) != 2:
+            if len(peer) is not 2:
                 self.logger.warning('Wrong peer configuration, skip the connection control %s', peer)
                 continue
             if peer[0] not in self.clients and peer[1] not in self.clients:
@@ -130,7 +130,7 @@ class Scheduler(object):
 
     def dis_connect_peers(self, test, peers):
         for peer in peers:
-            if len(peer) != 2:
+            if len(peer) is not 2:
                 self.logger.warning('Wrong peer configuration, skip the connection control %s', peer)
                 continue
             if peer[0] not in self.clients and peer[1] not in self.clients:
