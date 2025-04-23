@@ -24,8 +24,13 @@ clean:
 
 # Installs the prerequisites for a Linux user
 install-prerequisites-linux:
-	curl -fsSL https://pyenv.run | bash
-	export PYENV_ROOT="${HOME}/.pyenv" && export PATH="${PYENV_ROOT}/bin:${PATH}" && eval "$(pyenv init - bash)" && pyenv install 3.8.2 && pyenv global 3.8.2
+	gpg --recv-keys "B26995E310250568"
+	wget https://www.python.org/ftp/python/3.8.2/Python-3.8.2.tgz
+	wget https://www.python.org/ftp/python/3.8.2/Python-3.8.2.tgz.asc
+	gpgv --keyring ~/.gnupg/pubring.kbx Python-3.8.2.tgz.asc Python-3.8.2.tgz
+	tar -xf Python-3.8.2.tgz
+	cd Python-3.8.2 && ./configure --with-ensurepip=install && make && make install
+	python --version
 	sudo apt install golang-docker-credential-helpers
 
 # Installs the prerequisites for a mac user
