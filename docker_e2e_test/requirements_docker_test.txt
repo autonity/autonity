@@ -1,6 +1,5 @@
 certifi==2020.4.5.1
 docker==4.2.0
 requests==2.32.0
-six==1.14.0
 testresources==2.0.1
 websocket-client==0.57.0
