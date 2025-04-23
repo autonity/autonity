@@ -62,7 +62,6 @@ toolz==1.0.0
 types-requests==2.32.0.20250328
 typing-inspection==0.4.0
 typing_extensions==4.13.2
-urllib3==2.4.0
 varint==1.0.2
 web3==7.10.0
 websockets==15.0.1
