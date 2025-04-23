@@ -25,9 +25,9 @@ clean:
 # Installs the prerequisites for a Linux user
 install-prerequisites-linux:
 	curl -fsSL https://pyenv.run | bash
-	echo "home: $HOME"
-	export PYENV_ROOT="$HOME/.pyenv"
-	export PATH="$PYENV_ROOT/bin:$PATH"
+	echo "home: ${HOME}"
+	export PYENV_ROOT="${HOME}/.pyenv"
+	export PATH="${PYENV_ROOT}/bin:${PATH}"
 	eval "$(pyenv init - bash)"
 	pyenv install 3.8.2
 	pyenv global 3.8.2
