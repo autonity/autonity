@@ -29,7 +29,7 @@ install-prerequisites-linux:
 	wget https://www.python.org/ftp/python/3.8.2/Python-3.8.2.tgz.asc
 	gpgv --keyring ~/.gnupg/pubring.kbx Python-3.8.2.tgz.asc Python-3.8.2.tgz
 	tar -xf Python-3.8.2.tgz
-	cd Python-3.8.2 && ./configure --with-ensurepip=install && make && make install
+	cd Python-3.8.2 && ./configure --with-ensurepip=install && make && sudo make install
 	python --version
 	sudo apt install golang-docker-credential-helpers
 
