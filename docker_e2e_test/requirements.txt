@@ -29,7 +29,6 @@ ethereum-rpc-client==0.4.4
 fabric==3.2.2
 frozenlist==1.6.0
 hexbytes==1.3.0
-idna==3.10
 importlib_metadata==8.6.1
 invoke==2.2.0
 ipfshttpclient==0.7.0
