@@ -24,10 +24,7 @@ clean:
 
 # Installs the prerequisites for a Linux user
 install-prerequisites-linux:
-	sudo add-apt-repository ppa:deadsnakes/ppa -y
-	sudo apt update
-	sudo apt install python3.8
-	sudo apt install python3-venv python3-pip golang-docker-credential-helpers
+	sudo apt-get install python3 python3-venv python3-pip golang-docker-credential-helpers
 
 # Installs the prerequisites for a mac user
 install-prerequisites-mac:
