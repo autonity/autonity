@@ -52,9 +52,19 @@ func (r *Reporter) ReportLatency(committee []common.Address, latency map[common.
 		return errInvalidReporter
 	}
 
-	tx, err := r.protocolContracts.Latency.Report(r.txOpts, index, latencyVec)
-	if err == nil {
-		log.Info("Latency reporting", "gas", tx.Gas())
+	reported, err := r.protocolContracts.Latency.ClientReported(nil, index)
+	if err != nil {
+		return err
+	}
+
+	if reported {
+		log.Info("Reported validator", "validator", r.txOpts.From, "index", index)
+		return nil
+	}
+
+	_, err = r.protocolContracts.Latency.Report(r.txOpts, index, latencyVec)
+	if err != nil {
+		return err
 	}
 
 	return err

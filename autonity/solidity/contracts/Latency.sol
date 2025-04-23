@@ -158,6 +158,17 @@ contract Latency is ILatency, AccessAutonity {
         return (committee, latencies[_index]);
     }
 
+
+    /// @notice Check if the caller already reported for current epoch.
+    /// @return True if the caller reported.
+    function clientReported(uint256 _index) external view returns (bool) {
+        require(_index < committee.length, "invalid index of reporter");
+        if (lastReportedEpoch[committee[_index]] == epochPlusOne) {
+            return true;
+        }
+        return false;
+    }
+
     /// @notice Get the current committee
     /// @return The current committee node addresses
     function getCommittee() external view returns (address[] memory) {

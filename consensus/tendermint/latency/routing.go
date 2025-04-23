@@ -390,14 +390,13 @@ func (r *Router) fetchLatency(validators []common.Address) (map[common.Address]u
 func (r *Router) loop(ctx context.Context) {
 	defer r.wg.Done()
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	var cancel context.CancelFunc
 	defer func() {
 		if cancel != nil {
 			cancel()
 		}
 	}()
-	measured := false
 
 	for {
 		select {
@@ -405,28 +404,22 @@ func (r *Router) loop(ctx context.Context) {
 			ticker.Stop()
 			return
 		case <-ticker.C:
+			// skip measurement if we have a small scale network or the broadcaster were not be created.
+			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering || r.broadcaster == nil {
+				continue
+			}
+
 			// skip measurement if node is not in the committee.
-			if r.curEpochInfo.Committee.MemberByAddress(r.self) == nil {
+			member := r.curEpochInfo.Committee.MemberByAddress(r.self)
+			if member == nil {
 				continue
 			}
 
-			// skip measurement if we have a small scale network.
-			if r.curEpochInfo.Committee.Len() <= ScaleThresholdForClustering {
+			// if node reported, skip.
+			reported, err := r.contracts.Latency.ClientReported(nil, new(big.Int).SetUint64(member.Index))
+			if err != nil || reported {
 				continue
 			}
-
-			// if current node already did the measurement, skip the task too.
-			if measured {
-				continue
-			}
-
-			// there is no broadcaster for unit test context.
-			if r.broadcaster == nil {
-				continue
-			}
-			// fetch states by node.
-			//todo: is this really required, we do have this information in the router.
-			// curEpoch returned by GetMetricStatus is wrong, we should use the one from the epoch event.
 
 			// otherwise, we trigger the measurement once we have quorum peers connected.
 			connectedPeers := r.broadcaster.FindPeers(func() []common.Address {
@@ -441,7 +434,6 @@ func (r *Router) loop(ctx context.Context) {
 			// count local client itself with connected peers.
 			if int64(len(connectedPeers)+1) >= quorum.Int64() {
 				cancel = r.startMeasurementTask(ctx)
-				measured = true
 			}
 
 		case optimizationEv := <-r.optimizationEventChan:
@@ -458,7 +450,6 @@ func (r *Router) loop(ctx context.Context) {
 
 		case epochEv := <-r.epochEventChan:
 			log.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
-			measured = false
 			r.curEpochInfo = &types.EpochInfo{
 				Epoch:      *epochEv.Header.Epoch.Copy(),
 				EpochBlock: epochEv.Header.Number,
