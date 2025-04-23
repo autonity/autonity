@@ -9,12 +9,12 @@ RUN apt-get update && \
 
 # Download Python 3.12.3 source code
 WORKDIR /tmp
-RUN wget https://www.python.org/ftp/python/3.12.3/Python-3.12.3.tgz && \
-    tar -xf Python-3.12.3.tgz && \
-    cd Python-3.12.3
+RUN wget https://www.python.org/ftp/python/3.6.9/Python-3.6.9.tgz && \
+    tar -xf Python-3.6.9.tgz && \
+    cd Python-3.6.9
 
 # Configure, build, and install Python 3.12.3 from source
-RUN cd Python-3.12.3 && \
+RUN cd Python-3.6.9 && \
     ./configure && \
     make && \
     make install
