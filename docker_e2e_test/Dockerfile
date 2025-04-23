@@ -9,7 +9,7 @@ RUN apt-get update && \
 
 # Download Python 3.12.3 source code
 WORKDIR /tmp
-RUN wget https://www.python.org/ftp/python/3.6.9/Python-3.12.3.tgz && \
+RUN wget https://www.python.org/ftp/python/3.12.3/Python-3.12.3.tgz && \
     tar -xf Python-3.12.3.tgz && \
     cd Python-3.12.3
 
