@@ -159,7 +159,7 @@ func AssignClusters(h uint64, nextEpochHeight uint64, committee []common.Address
 		})
 
 		// split large clusters into multiple ones.
-		if len(addresses) > optimalSize*2 {
+		if len(addresses) >= optimalSize*2 {
 			numSlices := len(addresses) / optimalSize
 			for i := 0; i < numSlices; i++ {
 				start := i * optimalSize
