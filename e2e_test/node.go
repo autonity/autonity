@@ -836,12 +836,14 @@ func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transacti
 func (nw Network) Shutdown(t *testing.T) {
 	defer checkGoRoutineLeak(t)
 	for _, node := range nw {
-		if node != nil && node.isRunning {
-			err := node.Close(true)
-			if err != nil {
-				fmt.Printf("error shutting down node %v: %v", node.Address.String(), err)
+		go func() {
+			if node != nil && node.isRunning {
+				err := node.Close(true)
+				if err != nil {
+					fmt.Printf("error shutting down node %v: %v", node.Address.String(), err)
+				}
 			}
-		}
+		}()
 	}
 }
 
