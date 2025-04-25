@@ -457,8 +457,7 @@ type chainMaker struct {
 }
 
 func (cm *chainMaker) MinBaseFee() *big.Int {
-	//TODO implement me
-	panic("implement me")
+	return big.NewInt(0)
 }
 
 func (cm *chainMaker) GetTd(hash common.Hash, number uint64) *big.Int {

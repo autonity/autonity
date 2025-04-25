@@ -333,22 +333,14 @@ func (rs Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, nu
 		if i == len(txs) {
 			// Autonity Contract receipt, TxHash needs to be regenerated.
 			rs[i].TxHash = common.ACHash(new(big.Int).SetUint64(number))
+			rs[i].EffectiveGasPrice = new(big.Int)
 			rs[i].Type = 0
 		} else {
 			// The transaction type and hash can be retrieved from the transaction itself
 			rs[i].Type = txs[i].Type()
 			rs[i].TxHash = txs[i].Hash()
+			rs[i].EffectiveGasPrice = txs[i].inner.effectiveGasPrice(new(big.Int), baseFee)
 		}
-
-		rs[i].EffectiveGasPrice = txs[i].inner.effectiveGasPrice(new(big.Int), baseFee)
-
-		/*
-			// EIP-4844 blob transaction fields
-			if txs[i].Type() == BlobTxType {
-				rs[i].BlobGasUsed = txs[i].BlobGas()
-				rs[i].BlobGasPrice = blobGasPrice
-			}
-		*/
 		// block location fields
 		rs[i].BlockHash = hash
 		rs[i].BlockNumber = new(big.Int).SetUint64(number)
