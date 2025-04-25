@@ -834,9 +834,11 @@ func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transacti
 // Shutdown closes all nodes in the network, any errors that are encounter are
 // printed to stdout.
 func (nw Network) Shutdown(t *testing.T) {
-	defer checkGoRoutineLeak(t)
+	var wg sync.WaitGroup
 	for _, node := range nw {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			if node != nil && node.isRunning {
 				err := node.Close(true)
 				if err != nil {
@@ -845,6 +847,8 @@ func (nw Network) Shutdown(t *testing.T) {
 			}
 		}()
 	}
+	wg.Wait()
+	checkGoRoutineLeak(t)
 }
 
 func checkGoRoutineLeak(t *testing.T) {

@@ -33,6 +33,16 @@ type Ethash struct {
 	fakeFull  bool           // Accepts everything as valid
 }
 
+func (ethash *Ethash) SetResultChan(results chan<- *types.Block) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (ethash *Ethash) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Header) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // NewFaker creates an ethash consensus engine with a fake PoW scheme that accepts
 // all blocks' seal as valid, though they still have to conform to the Ethereum
 // consensus rules.
@@ -73,13 +83,13 @@ func (ethash *Ethash) Close() error {
 
 // APIs implements consensus.Engine, returning no APIs as ethash is an empty
 // shell in the post-merge world.
-func (ethash *Ethash) APIs(chain consensus.ChainHeaderReader) []rpc.API {
+func (ethash *Ethash) APIs(chain consensus.ChainReader) []rpc.API {
 	return []rpc.API{}
 }
 
 // Seal generates a new sealing request for the given input block and pushes
 // the result into the given channel. For the ethash engine, this method will
 // just panic as sealing is not supported anymore.
-func (ethash *Ethash) Seal(chain consensus.ChainHeaderReader, block *types.Block, results chan<- *types.Block, stop <-chan struct{}) error {
+func (ethash *Ethash) Seal(*types.Header, *types.Block, chan<- *types.Block, <-chan struct{}) error {
 	panic("ethash (pow) sealing not supported any more")
 }

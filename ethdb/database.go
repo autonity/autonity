@@ -17,7 +17,10 @@
 // Package ethdb defines the interfaces for an Ethereum data store.
 package ethdb
 
-import "io"
+import (
+	"errors"
+	"io"
+)
 
 // KeyValueReader wraps the Has and Get method of a backing data store.
 type KeyValueReader interface {
@@ -43,6 +46,8 @@ type KeyValueRangeDeleter interface {
 	// (inclusive on start, exclusive on end).
 	DeleteRange(start, end []byte) error
 }
+
+var ErrTooManyKeys = errors.New("too many keys in deleted range")
 
 // KeyValueStater wraps the Stat method of a backing data store.
 type KeyValueStater interface {
