@@ -99,7 +99,7 @@ var (
 		TerminalTotalDifficulty: nil,
 		Ethash:                  nil,
 		AutonityContractConfig: &AutonityContractGenesis{
-			MinBaseFee:              500_000_000,
+			MinBaseFee:              200_000_000_000,
 			EpochPeriod:             30 * 60,
 			UnbondingPeriod:         6 * 60 * 60,
 			BlockPeriod:             1,
