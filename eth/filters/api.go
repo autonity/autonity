@@ -25,8 +25,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/autonity/autonity/core/history"
-
 	"github.com/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
@@ -361,7 +359,7 @@ func (api *FilterAPI) GetLogs(ctx context.Context, crit FilterCriteria) ([]*type
 			return nil, errInvalidBlockRange
 		}
 		if begin > 0 && begin < int64(api.events.backend.HistoryPruningCutoff()) {
-			return nil, &history.PrunedHistoryError{}
+			return nil, errors.New("history error")
 		}
 		// Construct the range filter
 		filter = api.sys.NewRangeFilter(begin, end, crit.Addresses, crit.Topics)

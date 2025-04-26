@@ -333,7 +333,7 @@ func (u *Upgrader) Run(input []byte, _ uint64, evm *EVM, caller common.Address) 
 	}
 	targetContract := common.Address(input[:common.AddressLength])
 	// input is TARGET_ADDRESS + DEPLOY_CALLDATA
-	_, _, _, err := evm.Replace(AccountRef(params.DeployerAddress), input[common.AddressLength:], targetContract)
+	_, _, _, err := evm.Replace(params.DeployerAddress, input[common.AddressLength:], targetContract)
 	return nil, err
 }
 

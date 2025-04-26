@@ -20,12 +20,11 @@ package filters
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/autonity/autonity/core/history"
 
 	"github.com/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -313,7 +312,8 @@ func (es *EventSystem) SubscribeLogs(crit ethereum.FilterQuery, logs chan []*typ
 	}
 	// Queries beyond the pruning cutoff are not supported.
 	if uint64(from) < es.backend.HistoryPruningCutoff() {
-		return nil, &history.PrunedHistoryError{}
+		return nil, errors.New("history error")
+
 	}
 
 	// only interested in new mined logs

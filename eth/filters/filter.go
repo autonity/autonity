@@ -24,8 +24,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/autonity/autonity/core/history"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/filtermaps"
 	"github.com/autonity/autonity/core/types"
@@ -89,7 +87,7 @@ func (f *Filter) Logs(ctx context.Context) ([]*types.Log, error) {
 			return nil, errors.New("unknown block")
 		}
 		if header.Number.Uint64() < f.sys.backend.HistoryPruningCutoff() {
-			return nil, &history.PrunedHistoryError{}
+			return nil, errors.New("history error")
 		}
 		return f.blockLogs(ctx, header)
 	}
@@ -464,7 +462,6 @@ func (f *Filter) checkMatches(ctx context.Context, header *types.Header) ([]*typ
 	if len(logs) > 0 && logs[0].TxHash != (common.Hash{}) {
 		return logs, nil
 	}
-
 	body, err := f.sys.cachedGetBody(ctx, cached, hash, header.Number.Uint64())
 	if err != nil {
 		return nil, err

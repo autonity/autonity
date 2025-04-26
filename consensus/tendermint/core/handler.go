@@ -50,7 +50,6 @@ func (c *Core) Stop() {
 	c.cancel()
 	c.proposer.StopFutureProposalTimer()
 	c.unsubscribeEvents()
-
 	// Ensure all event handling go routines exit
 	<-c.stopped
 	<-c.stopped

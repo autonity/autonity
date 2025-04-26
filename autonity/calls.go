@@ -26,7 +26,7 @@ type raw []byte
 
 func (c *evmContract) replaceAutonityBytecode(header *types.Header, statedb vm.StateDB, bytecode []byte) error {
 	evm := c.evmProvider(header, params.DeployerAddress, statedb)
-	_, _, _, vmerr := evm.Replace(vm.AccountRef(params.DeployerAddress), bytecode, params.AutonityContractAddress)
+	_, _, _, vmerr := evm.Replace(params.DeployerAddress, bytecode, params.AutonityContractAddress)
 	if vmerr != nil {
 		log.Error("replaceAutonityBytecode evm.Create", "err", vmerr)
 		return vmerr
@@ -70,7 +70,7 @@ func AutonityContractCall(autonityAbi *abi.ABI, evm *vm.EVM, function string, re
 		return 0, err
 	}
 	ret, leftOver, err := evm.Call(
-		vm.AccountRef(params.DeployerAddress),
+		params.DeployerAddress,
 		params.AutonityContractAddress,
 		packedArgs,
 		math.MaxUint64,

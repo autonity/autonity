@@ -95,6 +95,8 @@ type Backend interface {
 	SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription
 
 	MinBaseFee() *big.Int
+	CurrentView() *filtermaps.ChainView
+	HistoryPruningCutoff() uint64
 	NewMatcherBackend() filtermaps.MatcherBackend
 }
 

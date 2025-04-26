@@ -82,7 +82,7 @@ func (c *evmContract) ABI() *abi.ABI {
 func (c *evmContract) callContractFunc(statedb vm.StateDB, header *types.Header, contractAddress common.Address, packedArgs []byte) ([]byte, uint64, error) {
 	gas := uint64(math.MaxUint64)
 	evm := c.evmProvider(header, params.DeployerAddress, statedb)
-	packedResult, leftOverGas, err := evm.Call(vm.AccountRef(params.DeployerAddress), contractAddress, packedArgs, gas, uint256.NewInt(0))
+	packedResult, leftOverGas, err := evm.Call(params.DeployerAddress, contractAddress, packedArgs, gas, uint256.NewInt(0))
 	usedGas := gas - leftOverGas
 	return packedResult, usedGas, err
 }
@@ -90,7 +90,7 @@ func (c *evmContract) callContractFunc(statedb vm.StateDB, header *types.Header,
 func (c *evmContract) callContractFuncAs(statedb vm.StateDB, header *types.Header, contractAddress common.Address, origin common.Address, packedArgs []byte) ([]byte, error) {
 	gas := uint64(math.MaxUint64)
 	evm := c.evmProvider(header, origin, statedb)
-	packedResult, _, err := evm.Call(vm.AccountRef(origin), contractAddress, packedArgs, gas, uint256.NewInt(0))
+	packedResult, _, err := evm.Call(origin, contractAddress, packedArgs, gas, uint256.NewInt(0))
 	return packedResult, err
 }
 

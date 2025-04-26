@@ -703,7 +703,6 @@ func (s *Ethereum) Stop() error {
 
 	s.chainDb.Close()
 	s.eventMux.Stop()
-
 	return nil
 }
 

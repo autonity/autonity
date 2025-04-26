@@ -259,7 +259,13 @@ var (
 		BerlinBlock:         big.NewInt(12_244_000),
 		LondonBlock:         big.NewInt(12_965_000),
 		ArrowGlacierBlock:   big.NewInt(13_773_000),
-		Ethash:              new(EthashConfig),
+
+		MergeForkBlock: big.NewInt(99999999999),
+		CancunBlock:    big.NewInt(99999999999),
+		PragueBlock:    big.NewInt(99999999999),
+		VerkleBlock:    big.NewInt(99999999999),
+
+		Ethash: new(EthashConfig),
 	}
 
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.

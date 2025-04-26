@@ -173,7 +173,7 @@ func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int
 		})
 	*/
 	logger.Verbosity(verbosity)
-	if id == 0 {
+	if id < 2 {
 		nodeConfig.Logger = log.NewLogger(logger)
 	} else {
 		nodeConfig.Logger = log.Root()
@@ -574,6 +574,7 @@ func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int, verifyRate boo
 			}
 			// all the running nodes should reach the required chainHeight
 			if syncedNodes == totalRunning {
+				fmt.Fprintf(os.Stderr, "[ORC] All nodes synced \n")
 				return nil
 			}
 		case <-ctx.Done():
@@ -834,20 +835,25 @@ func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transacti
 // Shutdown closes all nodes in the network, any errors that are encounter are
 // printed to stdout.
 func (nw Network) Shutdown(t *testing.T) {
-	var wg sync.WaitGroup
-	for _, node := range nw {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if node != nil && node.isRunning {
-				err := node.Close(true)
-				if err != nil {
-					fmt.Printf("error shutting down node %v: %v", node.Address.String(), err)
-				}
+	//var wg sync.WaitGroup
+	fmt.Fprintf(os.Stderr, "[ORC] Shutting down network\n")
+	for i, node := range nw {
+		// wg.Add(1)
+		//go func() {
+		//		defer wg.Done()
+		if node != nil && node.isRunning {
+			fmt.Fprintf(os.Stderr, "[ORC] Closing Node %d \n", i)
+			err := node.Close(true)
+			if err != nil {
+				t.Errorf("error shutting down node %v: %v", node.Address.String(), err)
+			} else {
+				fmt.Fprintf(os.Stderr, "[ORC] Node %d OFF\n", i)
 			}
-		}()
+		}
+		//	}()
 	}
-	wg.Wait()
+	//wg.Wait()
+	fmt.Fprintf(os.Stderr, "[ORC] Network shut down\n")
 	checkGoRoutineLeak(t)
 }
 

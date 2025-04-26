@@ -124,7 +124,7 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 		}
 		data := append(bytecode, constructorParams...)
 		gas := uint64(math.MaxUint64)
-		_, addr, _, err := evm.Create(vm.AccountRef(params.DeployerAddress), data, gas, value)
+		_, addr, _, err := evm.Create(params.DeployerAddress, data, gas, value)
 		if err != nil {
 			return err
 		}
@@ -146,7 +146,7 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 			return nil, fmt.Errorf("failed to pack parameters for method: %s %w", method, err)
 		}
 		gas := uint64(math.MaxUint64)
-		packedResult, _, err := evm.Call(vm.AccountRef(origin), contractAddress, packedArgs, gas, uint256.NewInt(0))
+		packedResult, _, err := evm.Call(origin, contractAddress, packedArgs, gas, uint256.NewInt(0))
 		return packedResult, err
 	}
 
