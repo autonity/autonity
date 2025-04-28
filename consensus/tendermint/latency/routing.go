@@ -35,7 +35,7 @@ const (
 
 const (
 	// ScaleThresholdForClustering is the minimum number of validators required to do network clustering
-	ScaleThresholdForClustering = 16
+	ScaleThresholdForClustering = 10
 	DefaultLatency              = 128 // assumed default RTT in ms
 	farThreshold                = 100 // indicates cluster is far
 	nearThreshold               = 24  // indicates cluster is far
@@ -56,8 +56,8 @@ type Router struct {
 	self    common.Address
 	nodeKey *ecdsa.PrivateKey
 
-	mu       sync.RWMutex
-	clusters *Clusters
+	clusterLock sync.RWMutex
+	clusters    Clusters
 
 	broadcaster consensus.Broadcaster
 
@@ -171,8 +171,6 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 	r.committee = result
 	r.updateClusters(NewClusters(result, r.latestLatencies, r.broadcaster, r.self))
 
-	go r.measureLatency()
-
 	ctx, r.cancel = context.WithCancel(ctx)
 	r.wg.Add(1)
 	go r.loop(ctx)
@@ -188,9 +186,9 @@ func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	r.broadcaster = broadcaster
 }
 
-func (r *Router) buildClusters(committee []common.Address) *Clusters {
+func (r *Router) buildClusters(committee []common.Address) Clusters {
 	if len(committee) <= ScaleThresholdForClustering {
-		return nil
+		return Clusters{}
 	}
 	numClusters := int(math.Floor(math.Sqrt(float64(len(committee)))))
 	clusterViews := make([]ClusterView, numClusters)
@@ -206,9 +204,7 @@ func (r *Router) buildClusters(committee []common.Address) *Clusters {
 		addressToCluster[addr] = k
 	}
 
-	//todo: ideally we should prepare base here it self as part of this, build Cluser can be merged with prepareBase
-	// todo: the separation between cluster and router is not clear, this needs to be corrected
-	return &Clusters{
+	return Clusters{
 		base:             clusterViews,
 		addressToCluster: addressToCluster,
 	}
@@ -219,15 +215,11 @@ func (c *Clusters) ClusterContaining(addr common.Address) int {
 }
 
 func (r *Router) refreshClustersLatencies(latMap map[common.Address]uint) {
-	//todo: lock
-	if r.clusters == nil {
-		return
-	}
-	r.clusters = NewClusters(r.committee, latMap, r.broadcaster, r.self)
+	r.updateClusters(NewClusters(r.committee, latMap, r.broadcaster, r.self))
 }
 
 func (r *Router) measureLatency() error {
-	log.Info("Router: measureToRecord")
+	log.Info("Router: measure latency")
 	latencyMap, err := r.fetchLatency(r.committee)
 	if err != nil {
 		log.Error("Router: failed to fetch latency", "err", err)
@@ -288,6 +280,9 @@ func (r *Router) loop(ctx context.Context) {
 		}
 	}()
 
+	if err := r.measureLatency(); err != nil {
+		log.Warn("latency measurement failed", "err", err)
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -314,6 +309,9 @@ func (r *Router) loop(ctx context.Context) {
 			}
 			r.updateCommittee(epoch)
 			r.updateClusters(r.buildClusters(r.committee))
+			if err := r.measureLatency(); err != nil {
+				log.Warn("measureToReport failed", "err", err)
+			}
 		}
 	}
 }
@@ -326,11 +324,15 @@ func (r *Router) updateCommittee(epoch *types.Epoch) {
 	r.committee = result
 }
 
-func (r *Router) updateClusters(c *Clusters) {
+func (r *Router) updateClusters(c Clusters) {
+	r.clusterLock.Lock()
+	defer r.clusterLock.Unlock()
 	r.clusters = c
 }
 
-func (r *Router) Clusters() *Clusters {
+func (r *Router) Clusters() Clusters {
+	r.clusterLock.RLock()
+	defer r.clusterLock.Unlock()
 	return r.clusters
 }
 
@@ -431,6 +433,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s SenderType=%s localCluster=%d originCluster=%d\n",
 		height, round, from.Hex(), msgType, sender, ownClusterID, originClusterID))
 
+	s.latencyMu.RLock()
 	for clusterID, cluster := range peerCluster {
 		var lostPeers []string
 		connectedCount := 0
@@ -462,6 +465,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 			sb.WriteByte('\n')
 		}
 	}
+	s.latencyMu.RUnlock()
 
 	if len(fullyConnectedClusters) > 0 {
 		sb.WriteString("Fully connected: ")
@@ -481,7 +485,7 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 
 func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
 	clusters := s.Clusters()
-	if clusters == nil {
+	if len(clusters.base) == 0 {
 		return committee.Members, nil // Fallback for small networks
 	}
 

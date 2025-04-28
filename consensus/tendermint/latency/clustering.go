@@ -45,9 +45,9 @@ func NewClusters(
 	latencyMap map[common.Address]uint,
 	broadcaster consensus.Broadcaster,
 	self common.Address,
-) *Clusters {
+) Clusters {
 	if len(committee) <= ScaleThresholdForClustering {
-		return nil
+		return Clusters{}
 	}
 
 	numClusters := int(math.Floor(math.Sqrt(float64(len(committee)))))
@@ -101,7 +101,7 @@ func NewClusters(
 		}
 	}
 
-	return &Clusters{
+	return Clusters{
 		base:             clusterViews,
 		addressToCluster: addressToCluster,
 	}

@@ -419,7 +419,7 @@ func (srv *Server) UpdateConsensusEnodes(newCommitteeSubset []*enode.Node, newCo
 	srv.committeeSubset = newCommitteeSubset
 	srv.enodeMu.Unlock()
 	if srv.Net == Consensus {
-		srv.log.Error("new committee for listener", "local", srv.ListenAddr, "count", len(newCommitteeSubset))
+		srv.log.Info("new committee for listener", "local", srv.ListenAddr, "count", len(newCommitteeSubset))
 	}
 	// Check for peers that needs to be disconnected
 	for _, connectedPeer := range currentCommitteeSubset {
