@@ -140,7 +140,8 @@ func (c *Core) onTimeoutPropose(r int64, h *big.Int) {
 		Step:             Propose,
 	}
 	// It's unsafe to call logTimeoutEvent here !
-	c.logger.Debug("TimeoutEvent(Propose): Sent", "round", r, "height", h)
+	proposer := c.CommitteeSet().GetProposer(c.Round()).Address
+	c.logger.Debug("TimeoutEvent(Propose): Sent", "round", r, "height", h, "proposer", proposer)
 	if metrics.Enabled {
 		c.measureMetricsOnTimeOut(msg.Step, r)
 	}
