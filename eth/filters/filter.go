@@ -469,7 +469,11 @@ func (f *Filter) checkMatches(ctx context.Context, header *types.Header) ([]*typ
 	for i, log := range logs {
 		// Copy log not to modify cache elements
 		logcopy := *log
-		logcopy.TxHash = body.Transactions[logcopy.TxIndex].Hash()
+		if int(logcopy.TxIndex) == len(body.Transactions) {
+			logcopy.TxHash = common.ACHash(header.Number)
+		} else {
+			logcopy.TxHash = body.Transactions[logcopy.TxIndex].Hash()
+		}
 		logs[i] = &logcopy
 	}
 	return logs, nil

@@ -5,12 +5,12 @@ import (
 	"errors"
 	"math/big"
 	"sync"
-	"time"
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/filtermaps"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
@@ -41,6 +41,7 @@ type InternalBackend struct {
 	database     ethdb.Database
 	blockchain   *core.BlockChain
 	filterSystem *filters.FilterSystem
+	eventSystem  *filters.EventSystem
 	config       *params.ChainConfig
 	pendingBlock *types.Block
 	pendingState *state.StateDB
@@ -55,12 +56,14 @@ var (
 
 func NewInternalBackend(txSender TxSender, ethAPIBackend ethapi.Backend) func(*core.BlockChain, ethdb.Database) bind.ContractBackend {
 	return func(blockchain *core.BlockChain, db ethdb.Database) bind.ContractBackend {
-		filterSystem := filters.NewFilterSystem(ethAPIBackend, filters.Config{})
+		filterSystem := filters.NewFilterSystem(&filterBackend{db, blockchain}, filters.Config{})
+		eventSystem := filters.NewEventSystem(filterSystem)
 		backend := &InternalBackend{
 			database:     db,
 			apiBackend:   ethAPIBackend,
 			blockchain:   blockchain,
 			filterSystem: filterSystem,
+			eventSystem:  eventSystem,
 			config:       blockchain.Config(),
 			TxSender:     txSender,
 		}
@@ -263,36 +266,22 @@ func (b *InternalBackend) SendTransaction(ctx context.Context, tx *types.Transac
 // SubscribeFilterLogs creates a subscription that will write all logs matching the
 // given criteria to the given logs channel.
 func (b *InternalBackend) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-	from, to := int64(0), int64(rpc.LatestBlockNumber)
-	if query.FromBlock != nil {
-		from = query.FromBlock.Int64()
+	matchedLogs := make(chan []*types.Log)
+	logsSub, err := b.eventSystem.SubscribeLogs(query, matchedLogs)
+	if err != nil {
+		return nil, err
 	}
-	if query.ToBlock != nil {
-		to = query.ToBlock.Int64()
-	}
-	// Create a filter for the given criteria
-	filter := b.filterSystem.NewRangeFilter(from, to, query.Addresses, query.Topics)
 
-	// Create a subscription that forwards logs to the channel
 	subscription := event.NewSubscription(func(quit <-chan struct{}) error {
+		defer logsSub.Unsubscribe()
 		for {
 			select {
-			case <-quit:
-				return nil
-			default:
-				logs, err := filter.Logs(ctx)
-				if err != nil {
-					return err
-				}
+			case logs := <-matchedLogs:
 				for _, log := range logs {
-					select {
-					case ch <- *log:
-					case <-quit:
-						return nil
-					}
+					ch <- *log
 				}
-				// Sleep briefly before checking for new logs
-				time.Sleep(time.Second)
+			case <-quit: // client send an unsubscribe request
+				return nil
 			}
 		}
 	})
@@ -338,4 +327,100 @@ func (b *InternalBackend) ChainConfig() *params.ChainConfig {
 // CurrentBlock returns the current block.
 func (b *InternalBackend) CurrentBlock() *types.Header {
 	return b.blockchain.CurrentHeader()
+}
+
+// filterBackend implements filters.Backend to support filtering for logs without
+// taking bloom-bits acceleration structures into account.
+type filterBackend struct {
+	db ethdb.Database
+	bc *core.BlockChain
+}
+
+func (fb *filterBackend) GetBody(ctx context.Context, hash common.Hash, number rpc.BlockNumber) (*types.Body, error) {
+	panic("implement me")
+}
+
+func (fb *filterBackend) GetLogs(_ context.Context, blockHash common.Hash, number uint64) ([][]*types.Log, error) {
+	receipts := rawdb.ReadReceipts(fb.db, blockHash, number, fb.bc.Config())
+	if receipts == nil {
+		return nil, nil
+	}
+	logs := make([][]*types.Log, len(receipts))
+	for i, receipt := range receipts {
+		logs[i] = receipt.Logs
+	}
+	return logs, nil
+}
+
+func (fb *filterBackend) CurrentHeader() *types.Header {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fb *filterBackend) ChainConfig() *params.ChainConfig {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fb *filterBackend) HistoryPruningCutoff() uint64 {
+	return 0
+}
+
+func (fb *filterBackend) CurrentView() *filtermaps.ChainView {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fb *filterBackend) NewMatcherBackend() filtermaps.MatcherBackend {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fb *filterBackend) ChainDb() ethdb.Database  { return fb.db }
+func (fb *filterBackend) EventMux() *event.TypeMux { panic("not supported") }
+
+func (fb *filterBackend) HeaderByNumber(ctx context.Context, block rpc.BlockNumber) (*types.Header, error) {
+	if block == rpc.LatestBlockNumber {
+		return fb.bc.CurrentHeader(), nil
+	}
+	return fb.bc.GetHeaderByNumber(uint64(block.Int64())), nil
+}
+
+func (fb *filterBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	return fb.bc.GetHeaderByHash(hash), nil
+}
+
+func (fb *filterBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
+	number := rawdb.ReadHeaderNumber(fb.db, hash)
+	if number == nil {
+		return nil, nil
+	}
+	return rawdb.ReadReceipts(fb.db, hash, *number, fb.bc.Config()), nil
+}
+
+func (fb *filterBackend) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
+	return nullSubscription()
+}
+
+func (fb *filterBackend) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription {
+	return fb.bc.SubscribeChainEvent(ch)
+}
+
+func (fb *filterBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
+	return fb.bc.SubscribeRemovedLogsEvent(ch)
+}
+
+func (fb *filterBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
+	return fb.bc.SubscribeLogsEvent(ch)
+}
+
+func (fb *filterBackend) SubscribePendingLogsEvent(ch chan<- []*types.Log) event.Subscription {
+	return nullSubscription()
+}
+
+func nullSubscription() event.Subscription {
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		<-quit
+		return nil
+	})
 }

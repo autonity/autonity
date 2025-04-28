@@ -223,7 +223,8 @@ func (n *Node) Close() error {
 		if err := n.stopServices(n.lifecycles); err != nil {
 			errs = append(errs, err)
 		}
-		return n.doClose(errs)
+		return nil
+		//return n.doClose(errs)
 	case closedState:
 		return ErrNodeStopped
 	default:
@@ -264,6 +265,7 @@ func (n *Node) doClose(errs []error) error {
 	default:
 		return fmt.Errorf("%v", errs)
 	}
+
 }
 
 // openEndpoints starts all network and RPC endpoints.
@@ -316,6 +318,7 @@ func (n *Node) stopServices(running []Lifecycle) error {
 	if len(failure.Services) > 0 {
 		return failure
 	}
+
 	return nil
 }
 

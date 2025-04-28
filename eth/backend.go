@@ -682,12 +682,14 @@ func (s *Ethereum) validatorController() {
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Ethereum protocol.
 func (s *Ethereum) Stop() error {
+
 	// Stop AFD first,
 	s.faultDetector.Stop()
 	s.engine.Close()
 	// Stop all the peer-related stuff then.
 	s.discmix.Close()
 	s.handler.Stop()
+
 	// Then stop everything else.
 	ch := make(chan struct{})
 	s.closeFilterMaps <- ch
@@ -701,8 +703,9 @@ func (s *Ethereum) Stop() error {
 	// Clean shutdown marker as the last thing before closing db
 	s.shutdownTracker.Stop()
 
-	s.chainDb.Close()
+	s.chainDb.Close() // leak, something is accessing the db after this point.
 	s.eventMux.Stop()
+
 	return nil
 }
 

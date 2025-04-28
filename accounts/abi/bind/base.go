@@ -472,7 +472,8 @@ func (c *BoundContract) WatchLogs(opts *WatchOpts, name string, query ...[]inter
 	if opts.Start != nil {
 		config.FromBlock = new(big.Int).SetUint64(*opts.Start)
 	}
-	sub, err := c.filterer.SubscribeFilterLogs(ensureContext(opts.Context), config, logs)
+	ctx := context.WithValue(ensureContext(opts.Context), "name", name)
+	sub, err := c.filterer.SubscribeFilterLogs(ctx, config, logs)
 	if err != nil {
 		return nil, nil, err
 	}

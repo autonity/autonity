@@ -50,6 +50,18 @@ func TestSendingValue(t *testing.T) {
 	_ = network.WaitToMineNBlocks(50, 60, false)
 }
 
+// Used to find goroutines leaks
+func TestStartStopNode(t *testing.T) {
+	network, err := NewNetwork(t, 1, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	time.Sleep(2 * time.Second)
+	network[0].Close(false)
+	buf := make([]byte, 1<<20)    // 1MB buffer for stack traces
+	n := runtime.Stack(buf, true) // true = dump all goroutines
+	t.Logf("Goroutine stack traces:\n%s", string(buf[:n]))
+	time.Sleep(7 * time.Second)
+}
+
 func TestProtocolContractsDeployment(t *testing.T) {
 	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
