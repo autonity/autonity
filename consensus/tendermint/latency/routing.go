@@ -38,7 +38,7 @@ const (
 	ScaleThresholdForClustering = 10
 	DefaultLatency              = 128 // assumed default RTT in ms
 	farThreshold                = 100 // indicates cluster is far
-	nearThreshold               = 24  // indicates cluster is far
+	nearThreshold               = 32  // indicates cluster is far
 	diversityThreshold          = 50  // ~50ms in uint8 scale, indicates significant distance from lowest latency node
 
 	maxSelectedNodes = 50 // Total cap on selected nodes
@@ -353,7 +353,7 @@ func (r *Router) pingPeers(targets []ping.Target) []uint {
 	}
 	results := make([]uint, len(targets))
 	for i, resultCh := range channelArray {
-		results[i] = uint(<-resultCh)
+		results[i] = uint((<-resultCh).Milliseconds())
 	}
 	return results
 }
@@ -542,22 +542,28 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 		selected = append(selected, validMembers[0])
 		result[clusterID] = append(result[clusterID], validMembers[0].node.Addr)
 
-		// select all close nodes
+		// select all close nodes, even beyond max nodes
 		for _, vm := range validMembers {
-			if len(selected) >= maxNodes {
-				return selected
-			}
 			if vm.node.Lat < uint(nearThreshold) {
 				selected = append(selected, vm)
 				result[clusterID] = append(result[clusterID], vm.node.Addr)
 			}
 		}
 
-		// select one diverse node, far from closest node
+		// select more nodes, if max nodes are not yet full
+		for _, vm := range validMembers {
+			if len(selected) >= maxNodes {
+				return selected
+			}
+			selected = append(selected, vm)
+			result[clusterID] = append(result[clusterID], vm.node.Addr)
+		}
+
+		// select one more diverse node, beyond max node
 		// Check if additional diverse node is needed
 		if validMembers[0].node.Lat < farThreshold && len(validMembers) > 1 {
-			// Find diverse node: highest latency node with Lat >= lowest + diversityThreshold
-			for i := len(validMembers) - 1; i >= 1; i-- {
+			// Find diverse node: latency node with Lat >= lowest + diversityThreshold
+			for i := 1; i < len(validMembers); i++ {
 				if validMembers[i].node.Lat >= validMembers[0].node.Lat+diversityThreshold {
 					selected = append(selected, validMembers[i])
 					result[clusterID] = append(result[clusterID], validMembers[i].node.Addr)
@@ -571,7 +577,7 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 	// Select peers based on sender type
 	switch {
 	case from == s.self: // Originator
-		maxRemoteNodes := 3 //early burst selecting more nodes from originator
+		maxRemoteNodes := 2 //early burst selecting more nodes from originator
 		for clusterID, cluster := range clusters.base {
 			if clusterID == ownClusterID {
 				continue
@@ -584,7 +590,7 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 		s.clusterStatus(result, msg.H(), msg.R(), msg.Code(), from, originator, ownClusterID, originClusterID)
 
 	case originClusterID == ownClusterID && from != s.self: // Local relayer in originator's cluster
-		maxRemoteNodes := 2 // relayer in
+		maxRemoteNodes := 1 // relayer in
 		for clusterID, cluster := range clusters.base {
 			if clusterID == ownClusterID {
 				continue
