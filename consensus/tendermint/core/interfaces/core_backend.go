@@ -120,7 +120,7 @@ type Core interface {
 }
 
 type Router interface {
-	Start(ctx context.Context, chain *ethcore.BlockChain)
+	Start(ctx context.Context, chain *ethcore.BlockChain, address common.Address)
 	Stop()
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 	Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)

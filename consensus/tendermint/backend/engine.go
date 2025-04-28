@@ -586,7 +586,7 @@ func (sb *Backend) Start(ctx context.Context) error {
 	sb.wg.Add(1)
 	go sb.faultyValidatorsWatcher(ctx)
 	if sb.router != nil {
-		sb.router.Start(ctx, sb.blockchain)
+		sb.router.Start(ctx, sb.BlockChain(), sb.address)
 	} else {
 		sb.logger.Warn("Latency router is not set, cannot start")
 	}

@@ -59,6 +59,6 @@ func TestRouter(t *testing.T) {
 			},
 			EpochBlock: big.NewInt(0),
 		}
-		router.buildDefaultClusters(committee)
+		router.buildClusters(committee)
 	})
 }
