@@ -332,7 +332,7 @@ func (r *Router) updateClusters(c Clusters) {
 
 func (r *Router) Clusters() Clusters {
 	r.clusterLock.RLock()
-	defer r.clusterLock.Unlock()
+	defer r.clusterLock.RUnlock()
 	return r.clusters
 }
 
