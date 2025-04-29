@@ -537,57 +537,46 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 		members := cluster.Members // Already sorted by latency
 
 		// Filter out excluded addresses and disconnected peers
-		var validMembers []memberWithLatency
+		var candidates []memberWithLatency
 		for _, node := range members {
 			if containsAddress(exclude, node.Addr) {
 				continue
 			}
 			if _, ok := s.broadcaster.FindPeer(node.Addr); ok {
 				if member := committee.MemberByAddress(node.Addr); member != nil {
-					validMembers = append(validMembers, memberWithLatency{node, *member})
+					candidates = append(candidates, memberWithLatency{node, *member})
 				}
 			}
 		}
 
-		if len(validMembers) == 0 {
+		if len(candidates) == 0 {
 			return nil
 		}
 
 		// select first node always - lowest latency
-		selected = append(selected, validMembers[0])
-		result[clusterID] = append(result[clusterID], validMembers[0].node.Addr)
+		selected = append(selected, candidates[0])
+		result[clusterID] = append(result[clusterID], candidates[0].node.Addr)
 
-		// remaining members
-		validMembers = validMembers[1:]
-
-		// select all close nodes, even beyond max nodes
-		for _, vm := range validMembers {
-			if vm.node.Lat >= uint(nearThreshold) {
-				break
-			}
-			selected = append(selected, vm)
-			result[clusterID] = append(result[clusterID], vm.node.Addr)
+		// pick “close” nodes
+		i := 1
+		for ; i < len(candidates) && candidates[i].node.Lat < uint(nearThreshold); i++ {
+			selected = append(selected, candidates[i])
+			result[clusterID] = append(result[clusterID], candidates[i].node.Addr)
 		}
 
-		// select more nodes, upto maxNodes
-		for _, vm := range validMembers[len(selected):] { // Start after selected nodes
-			if len(selected) >= maxNodes {
-				break
-			}
-			selected = append(selected, vm)
-			result[clusterID] = append(result[clusterID], vm.node.Addr)
+		// pick more up to maxNodes
+		for ; i < len(candidates) && len(selected) < maxNodes; i++ {
+			selected = append(selected, candidates[i])
+			result[clusterID] = append(result[clusterID], candidates[i].node.Addr)
 		}
 
-		nearest := selected[0].node.Lat
-		farthest := selected[len(selected)-1].node.Lat
-
+		farthestLat := selected[len(selected)-1].node.Lat
 		// select one diverse node, beyond max node
-		// Check if additional diverse node is needed
-		if len(validMembers) > 0 && nearest < farThreshold {
-			for _, vm := range validMembers {
-				if vm.node.Lat >= farthest+diversityThreshold {
-					selected = append(selected, vm)
-					result[clusterID] = append(result[clusterID], vm.node.Addr)
+		if farthestLat < uint(farThreshold) {
+			for ; i < len(candidates); i++ {
+				if candidates[i].node.Lat >= farthestLat+diversityThreshold {
+					selected = append(selected, candidates[i])
+					result[clusterID] = append(result[clusterID], candidates[i].node.Addr)
 					break
 				}
 			}
