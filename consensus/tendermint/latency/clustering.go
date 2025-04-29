@@ -66,21 +66,16 @@ func NewClusters(
 	}
 
 	// Step 2: Prepare each cluster (filter, sort, compute stats)
-	for clusterID := range clusterViews {
+	for clusterID, cluster := range clusterViews {
 		var peers []nodeLatency
 		var latencies []uint
 		sum := 0
-
-		for _, node := range clusterViews[clusterID].Members {
+		for _, node := range cluster.Members {
 			if node.Addr == self {
 				continue
 			}
-			if _, ok := broadcaster.FindPeer(node.Addr); ok {
-				lat := latencyMap[node.Addr]
-				peers = append(peers, nodeLatency{node.Addr, lat})
-				latencies = append(latencies, lat)
-				sum += int(lat)
-			}
+			latencies = append(latencies, node.Lat)
+			sum += int(node.Lat)
 		}
 
 		if len(peers) == 0 {

@@ -542,18 +542,22 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 		selected = append(selected, validMembers[0])
 		result[clusterID] = append(result[clusterID], validMembers[0].node.Addr)
 
+		// remaining members
+		validMembers = validMembers[1:]
+
 		// select all close nodes, even beyond max nodes
 		for _, vm := range validMembers {
-			if vm.node.Lat < uint(nearThreshold) {
-				selected = append(selected, vm)
-				result[clusterID] = append(result[clusterID], vm.node.Addr)
+			if vm.node.Lat >= uint(nearThreshold) {
+				break
 			}
+			selected = append(selected, vm)
+			result[clusterID] = append(result[clusterID], vm.node.Addr)
 		}
 
 		// select more nodes, if max nodes are not yet full
-		for _, vm := range validMembers {
+		for _, vm := range validMembers[len(selected)-1:] { // Start after selected nodes
 			if len(selected) >= maxNodes {
-				return selected
+				break
 			}
 			selected = append(selected, vm)
 			result[clusterID] = append(result[clusterID], vm.node.Addr)
@@ -561,12 +565,11 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 
 		// select one more diverse node, beyond max node
 		// Check if additional diverse node is needed
-		if validMembers[0].node.Lat < farThreshold && len(validMembers) > 1 {
-			// Find diverse node: latency node with Lat >= lowest + diversityThreshold
-			for i := 1; i < len(validMembers); i++ {
-				if validMembers[i].node.Lat >= validMembers[0].node.Lat+diversityThreshold {
-					selected = append(selected, validMembers[i])
-					result[clusterID] = append(result[clusterID], validMembers[i].node.Addr)
+		if len(validMembers) > 0 && selected[0].node.Lat < farThreshold {
+			for _, vm := range validMembers {
+				if vm.node.Lat >= selected[0].node.Lat+diversityThreshold {
+					selected = append(selected, vm)
+					result[clusterID] = append(result[clusterID], vm.node.Addr)
 					break
 				}
 			}
@@ -574,7 +577,6 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 		return selected
 	}
 
-	// Select peers based on sender type
 	switch {
 	case from == s.self: // Originator
 		maxRemoteNodes := 2 //early burst selecting more nodes from originator
