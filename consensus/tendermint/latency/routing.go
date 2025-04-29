@@ -327,6 +327,24 @@ func (r *Router) updateCommittee(epoch *types.Epoch) {
 func (r *Router) updateClusters(c Clusters) {
 	r.clusterLock.Lock()
 	defer r.clusterLock.Unlock()
+	var sb strings.Builder
+	sb.WriteString("updating cluster, new cluster view: [")
+	for i, cv := range c.base {
+		if i > 0 {
+			sb.WriteString("; ")
+		}
+		sb.WriteString(fmt.Sprintf("C%d:[", i))
+		for j, m := range cv.Members {
+			if j > 0 {
+				sb.WriteString(",")
+			}
+			addr := m.Addr.Hex()
+			sb.WriteString(fmt.Sprintf("%s:%d", addr, m.Lat))
+		}
+		sb.WriteString("]")
+	}
+	sb.WriteString("]")
+	log.Info(sb.String())
 	r.clusters = c
 }
 

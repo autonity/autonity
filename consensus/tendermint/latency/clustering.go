@@ -70,10 +70,12 @@ func NewClusters(
 		var peers []nodeLatency
 		var latencies []uint
 		sum := 0
+
 		for _, node := range cluster.Members {
 			if node.Addr == self {
 				continue
 			}
+			peers = append(peers, node)
 			latencies = append(latencies, node.Lat)
 			sum += int(node.Lat)
 		}
