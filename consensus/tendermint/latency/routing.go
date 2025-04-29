@@ -61,10 +61,8 @@ type Router struct {
 
 	broadcaster consensus.Broadcaster
 
-	epochEventChan     chan core.EpochHeadEvent
-	epochEventSub      event.Subscription
-	chainHeadEventSub  event.Subscription
-	chainHeadEventChan chan core.ChainHeadEvent
+	epochEventChan chan core.EpochHeadEvent
+	epochEventSub  event.Subscription
 
 	committee   []common.Address
 	inCommittee bool
@@ -86,11 +84,10 @@ func NewRouter(
 	selector PeerSelector,
 ) *Router {
 	r := &Router{
-		broadcaster:        broadcaster,
-		nodeKey:            nodeKey,
-		epochEventChan:     make(chan core.EpochHeadEvent, 2),
-		chainHeadEventChan: make(chan core.ChainHeadEvent, 2),
-		pinger:             ping.NewPinger(ping.TCP),
+		broadcaster:    broadcaster,
+		nodeKey:        nodeKey,
+		epochEventChan: make(chan core.EpochHeadEvent, 2),
+		pinger:         ping.NewPinger(ping.TCP),
 	}
 	r.SetDefaultHandlers()
 
@@ -161,7 +158,6 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 	}
 
 	r.epochEventSub = chain.SubscribeEpochHeadEvent(r.epochEventChan)
-	r.chainHeadEventSub = chain.SubscribeChainHeadEvent(r.chainHeadEventChan)
 	r.self = address
 
 	result := make([]common.Address, curEpoch.Committee.Len())
@@ -187,9 +183,6 @@ func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 }
 
 func (r *Router) buildClusters(committee []common.Address) Clusters {
-	if len(committee) <= ScaleThresholdForClustering {
-		return Clusters{}
-	}
 	numClusters := int(math.Floor(math.Sqrt(float64(len(committee)))))
 	clusterViews := make([]ClusterView, numClusters)
 	addressToCluster := make(map[common.Address]int)
@@ -280,8 +273,10 @@ func (r *Router) loop(ctx context.Context) {
 		}
 	}()
 
-	if err := r.measureLatency(); err != nil {
-		log.Warn("latency measurement failed", "err", err)
+	if len(r.committee) >= ScaleThresholdForClustering {
+		if err := r.measureLatency(); err != nil {
+			log.Warn("latency measurement failed", "err", err)
+		}
 	}
 	for {
 		select {
@@ -291,7 +286,7 @@ func (r *Router) loop(ctx context.Context) {
 		case <-ticker.C:
 			// skip measurement if node is not in the committee.
 			// there is no broadcaster for unit test context.
-			if !r.inCommittee || r.broadcaster == nil {
+			if !r.inCommittee || r.broadcaster == nil || len(r.committee) < ScaleThresholdForClustering {
 				continue
 			}
 			delay := time.Duration(rand.Intn(MeasurementWindow)) * time.Millisecond
@@ -303,8 +298,8 @@ func (r *Router) loop(ctx context.Context) {
 			log.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
 			epoch := epochEv.Header.Epoch
 			r.inCommittee = epoch.Committee.MemberByAddress(r.self) != nil
-			if !r.inCommittee {
-				log.Info("Router: not in committee, skipping measurement")
+			if !r.inCommittee || len(r.committee) < ScaleThresholdForClustering {
+				log.Info("Router: clustering not needed, skipping measurement")
 				continue
 			}
 			r.updateCommittee(epoch)
@@ -502,8 +497,10 @@ func (s *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 }
 
 func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
+	log.Info("selecting peers by latency")
 	clusters := s.Clusters()
 	if len(clusters.base) == 0 {
+		log.Info("Router: no clusters, falling back to all committee members")
 		return committee.Members, nil // Fallback for small networks
 	}
 

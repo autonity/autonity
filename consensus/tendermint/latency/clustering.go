@@ -46,10 +46,6 @@ func NewClusters(
 	broadcaster consensus.Broadcaster,
 	self common.Address,
 ) Clusters {
-	if len(committee) <= ScaleThresholdForClustering {
-		return Clusters{}
-	}
-
 	numClusters := int(math.Floor(math.Sqrt(float64(len(committee)))))
 	clusterViews := make([]ClusterView, numClusters)
 	addressToCluster := make(map[common.Address]int)
