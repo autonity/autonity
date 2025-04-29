@@ -333,7 +333,7 @@ func (r *Router) updateClusters(c Clusters) {
 		if i > 0 {
 			sb.WriteString("; ")
 		}
-		sb.WriteString(fmt.Sprintf("C%d:[", i))
+		sb.WriteString(fmt.Sprintf("\nC%d:[", i))
 		for j, m := range cv.Members {
 			if j > 0 {
 				sb.WriteString(",")
@@ -341,7 +341,7 @@ func (r *Router) updateClusters(c Clusters) {
 			addr := m.Addr.Hex()
 			sb.WriteString(fmt.Sprintf("%s:%d", addr, m.Lat))
 		}
-		sb.WriteString("]")
+		sb.WriteString("]\n")
 	}
 	sb.WriteString("]")
 	log.Info(sb.String())
@@ -572,8 +572,8 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 			result[clusterID] = append(result[clusterID], vm.node.Addr)
 		}
 
-		// select more nodes, if max nodes are not yet full
-		for _, vm := range validMembers[len(selected)-1:] { // Start after selected nodes
+		// select more nodes, upto maxNodes
+		for _, vm := range validMembers[len(selected):] { // Start after selected nodes
 			if len(selected) >= maxNodes {
 				break
 			}
@@ -581,11 +581,14 @@ func (s *Selector) SelectPeersByLatency(committee *types.Committee, msg message.
 			result[clusterID] = append(result[clusterID], vm.node.Addr)
 		}
 
-		// select one more diverse node, beyond max node
+		nearest := selected[0].node.Lat
+		farthest := selected[len(selected)-1].node.Lat
+
+		// select one diverse node, beyond max node
 		// Check if additional diverse node is needed
-		if len(validMembers) > 0 && selected[0].node.Lat < farThreshold {
+		if len(validMembers) > 0 && nearest < farThreshold {
 			for _, vm := range validMembers {
-				if vm.node.Lat >= selected[0].node.Lat+diversityThreshold {
+				if vm.node.Lat >= farthest+diversityThreshold {
 					selected = append(selected, vm)
 					result[clusterID] = append(result[clusterID], vm.node.Addr)
 					break
