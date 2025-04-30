@@ -135,6 +135,13 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	b.addTx(bc, vm.Config{}, tx)
 }
 
+// AddTxWithVMConfig adds a transaction to the generated block. If no coinbase has
+// been set, the block's coinbase is set to the zero address.
+// The evm interpreter can be customized with the provided vm config.
+func (b *BlockGen) AddTxWithVMConfig(tx *types.Transaction, config vm.Config) {
+	b.addTx(nil, config, tx)
+}
+
 // GetBalance returns the balance of the given address at the generated block.
 func (b *BlockGen) GetBalance(addr common.Address) *uint256.Int {
 	return b.statedb.GetBalance(addr)
@@ -154,9 +161,24 @@ func (b *BlockGen) Number() *big.Int {
 	return new(big.Int).Set(b.header.Number)
 }
 
+// Timestamp returns the timestamp of the block being generated.
+func (b *BlockGen) Timestamp() uint64 {
+	return b.header.Time
+}
+
 // BaseFee returns the EIP-1559 base fee of the block being generated.
 func (b *BlockGen) BaseFee() *big.Int {
 	return new(big.Int).Set(b.header.BaseFee)
+}
+
+// Gas returns the amount of gas left in the current block.
+func (b *BlockGen) Gas() uint64 {
+	return b.header.GasLimit - b.header.GasUsed
+}
+
+// Signer returns a valid signer instance for the current block.
+func (b *BlockGen) Signer() types.Signer {
+	return types.MakeSigner(b.cm.config, b.header.Number)
 }
 
 // AddUncheckedReceipt forcefully adds a receipts to the block without a

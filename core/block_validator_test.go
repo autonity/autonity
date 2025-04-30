@@ -63,7 +63,7 @@ func TestHeaderVerification(t *testing.T) {
 		headers[i] = block.Header()
 	}
 	// Run the header checker for blocks one-by-one, checking for both valid and invalid nonces
-	chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(t), log.Root())
+	chain, _ := NewBlockChain(testdb, nil, gspec, ethash.NewFaker(), vm.Config{}, nil, nil, FakeContractBackendProvider(t), log.Root())
 	defer chain.Stop()
 
 	for i := 0; i < len(blocks); i++ {

@@ -14,23 +14,12 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package runtime
+package difficulty
 
-import (
-	"github.com/autonity/autonity/core/vm/runtime"
-)
+import "testing"
 
-// Fuzz is the basic entry point for the go-fuzz tool
-//
-// This returns 1 for valid parsable/runable code, 0
-// for invalid opcode.
-func Fuzz(input []byte) int {
-	_, _, err := runtime.Execute(input, input, &runtime.Config{
-		GasLimit: 12000000,
+func Fuzz(f *testing.F) {
+	f.Fuzz(func(t *testing.T, data []byte) {
+		fuzz(data)
 	})
-	// invalid opcode
-	if err != nil && len(err.Error()) > 6 && err.Error()[:7] == "invalid" {
-		return 0
-	}
-	return 1
 }

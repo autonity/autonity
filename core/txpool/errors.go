@@ -34,6 +34,10 @@ var (
 	// with a different one without the required price bump.
 	ErrReplaceUnderpriced = errors.New("replacement transaction underpriced")
 
+	// ErrTxGasPriceTooLow is returned if a transaction's gas price is below the
+	// minimum configured for the transaction pool.
+	ErrTxGasPriceTooLow = errors.New("transaction gas price below minimum")
+
 	// ErrAccountLimitExceeded is returned if a transaction would exceed the number
 	// allowed by a pool for a single account.
 	ErrAccountLimitExceeded = errors.New("account limit exceeded")
