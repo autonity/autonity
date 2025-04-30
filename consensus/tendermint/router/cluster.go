@@ -1,6 +1,7 @@
 package router
 
 import (
+	"errors"
 	"math"
 	"sort"
 
@@ -80,4 +81,13 @@ func (c *Clusters) clusterContaining(address common.Address) int {
 		return idx
 	}
 	return -1
+}
+
+func (c *Clusters) addressToMember(id int, address common.Address) (NodeLatency, error) {
+	for _, m := range c.base[id].Members {
+		if m.Addr == address {
+			return m, nil
+		}
+	}
+	return  NodeLatency{}, errors.New("address not found in any cluster")
 }

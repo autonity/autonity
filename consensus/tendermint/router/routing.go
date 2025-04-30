@@ -19,14 +19,6 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
-type SenderType int
-
-const (
-	originator SenderType = iota + 1
-	localRelayerOriginCluster
-	firstRelayerRemoteCluster
-	localRelayerRemoteCluster
-)
 
 const (
 	ScaleThresholdForClustering = 10
