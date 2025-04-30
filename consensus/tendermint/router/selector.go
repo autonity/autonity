@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
@@ -22,38 +21,23 @@ type PeerSelector interface {
 }
 
 type Selector struct {
-	self          common.Address
-	broadcaster   consensus.Broadcaster
-	cache         *PeerSelectionCache
-	clusters      func() Clusters
-	latencies     func() map[common.Address]uint
+	*Router
 	heightLock    sync.Mutex
 	loggedHR      map[string]uint64
 	recentHeights [50]uint64
 	heightIndex   int
 }
 
-func NewSelector(
-	self common.Address,
-	broadcaster consensus.Broadcaster,
-	cache *PeerSelectionCache,
-	clusters func() Clusters,
-	latencies func() map[common.Address]uint,
-) *Selector {
-	return &Selector{
-		self:          self,
-		broadcaster:   broadcaster,
-		cache:         cache,
-		clusters:      clusters,
-		latencies:     latencies,
-		loggedHR:      make(map[string]uint64),
-		recentHeights: [50]uint64{},
-		heightIndex:   0,
-	}
+func NewSelector(router *Router) *Selector {
+	s := &Selector{Router: router}
+	s. loggedHR =       make(map[string]uint64)
+	s.recentHeights = [50]uint64{}
+	s.heightIndex  =  0
+	return  s
 }
 
 func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
-	clusters := r.clusters()
+	clusters := r.Clusters()
 	if len(clusters.base) == 0 {
 		log.Info("Selector: no clusters, falling back to all committee members")
 		return committee.Members, nil
@@ -269,7 +253,7 @@ func (r *Selector) clusterStatus(peerCluster [][]common.Address, height uint64, 
 	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s SenderType=%s localCluster=%d originCluster=%d\n",
 		height, round, from.Hex(), msgType, sender, ownClusterID, originClusterID))
 
-	latencies := r.latencies()
+	latencies := r.Latencies()
 	for clusterID, cluster := range peerCluster {
 		var lostPeers []string
 		connectedCount := 0

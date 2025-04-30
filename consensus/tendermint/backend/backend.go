@@ -97,7 +97,7 @@ func New(
 	if services != nil && services.Selector != nil {
 		selector = services.Selector
 	}
-	backend.router = router.New(backend.Broadcaster, nodeKey, pinger, selector)
+	backend.router = router.New(backend.Broadcaster, nodeKey, pinger, selector, backend.address)
 
 	backend.gossiper = NewGossiper(
 		backend.knownMessages,

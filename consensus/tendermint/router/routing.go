@@ -63,6 +63,7 @@ func New(
 	nodeKey *ecdsa.PrivateKey,
 	pinger ping.Pinger,
 	selector PeerSelector,
+	self common.Address,
 ) *Router {
 	cache := NewPeerSelectionCache()
 	router := &Router{
@@ -73,15 +74,10 @@ func New(
 		cache:           cache,
 		latestLatencies: make(map[common.Address]uint),
 		nodesToRetry:    make(map[common.Address]struct{}),
+		self:            self,
 	}
 	if selector == nil {
-		router.peerSelector = NewSelector(
-			router.self,
-			broadcaster,
-			cache,
-			router.Clusters,
-			router.Latencies,
-		)
+		router.peerSelector = NewSelector(router)
 	} else {
 		router.peerSelector = selector
 	}
@@ -131,8 +127,6 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 	}
 
 	m.epochEventSub = chain.SubscribeEpochHeadEvent(m.epochEventChan)
-	m.self = address
-
 	result := make([]common.Address, curEpoch.Committee.Len())
 	for i, member := range curEpoch.Committee.Members {
 		result[i] = member.Address
