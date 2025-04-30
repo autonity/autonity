@@ -65,7 +65,7 @@ func New(
 	selector PeerSelector,
 ) *Router {
 	cache := NewPeerSelectionCache()
-	manager := &Router{
+	router := &Router{
 		broadcaster:     broadcaster,
 		nodeKey:         nodeKey,
 		epochEventChan:  make(chan core.EpochHeadEvent, 2),
@@ -75,17 +75,17 @@ func New(
 		nodesToRetry:    make(map[common.Address]struct{}),
 	}
 	if selector == nil {
-		manager.peerSelector = NewSelector(
-			manager.self,
+		router.peerSelector = NewSelector(
+			router.self,
 			broadcaster,
 			cache,
-			manager.Clusters,
-			manager.Latencies,
+			router.Clusters,
+			router.Latencies,
 		)
 	} else {
-		manager.peerSelector = selector
+		router.peerSelector = selector
 	}
-	return manager
+	return router
 }
 
 func (m *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {

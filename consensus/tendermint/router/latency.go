@@ -18,6 +18,9 @@ type LatencyFetcher struct {
 }
 
 func NewLatencyFetcher(pinger ping.Pinger, broadcaster consensus.Broadcaster) *LatencyFetcher {
+	if pinger == nil {
+		pinger = ping.NewPinger(ping.TCP)
+	}
 	return &LatencyFetcher{
 		pinger:      pinger,
 		broadcaster: broadcaster,
