@@ -30,10 +30,10 @@ type Selector struct {
 
 func NewSelector(router *Router) *Selector {
 	s := &Selector{Router: router}
-	s. loggedHR =       make(map[string]uint64)
+	s.loggedHR = make(map[string]uint64)
 	s.recentHeights = [50]uint64{}
-	s.heightIndex  =  0
-	return  s
+	s.heightIndex = 0
+	return s
 }
 
 func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
@@ -117,6 +117,7 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		selected = append(selected, candidates[0])
 		result[clusterID] = append(result[clusterID], candidates[0].node.Addr)
 		i := 1
+		//todo(piyush): do we need a cap for close nodes as well?
 		for ; i < len(candidates) && candidates[i].node.Lat < uint(nearThreshold); i++ {
 			selected = append(selected, candidates[i])
 			result[clusterID] = append(result[clusterID], candidates[i].node.Addr)
@@ -128,7 +129,7 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		farthestLat := selected[len(selected)-1].node.Lat
 		if farthestLat < uint(farThreshold) {
 			for ; i < len(candidates); i++ {
-				if candidates[i].node.Lat >= farthestLat+diversityThreshold {
+				if candidates[i].node.Lat != DefaultLatency && candidates[i].node.Lat >= farthestLat+diversityThreshold {
 					selected = append(selected, candidates[i])
 					result[clusterID] = append(result[clusterID], candidates[i].node.Addr)
 					break
