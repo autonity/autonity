@@ -1,4 +1,4 @@
-// Copyright 2015 The go-ethereum Authors
+// Copyright 2020 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -22,7 +22,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/rand"
 	"encoding/binary"
@@ -612,6 +611,11 @@ func (h *handshakeState) readMsg(msg interface{}, prv *ecdsa.PrivateKey, r io.Re
 	}
 	size := binary.BigEndian.Uint16(prefix)
 
+	// baseProtocolMaxMsgSize = 2 * 1024
+	if size > 2048 {
+		return nil, errors.New("message too big")
+	}
+
 	// Read the handshake packet.
 	packet, err := h.rbuf.read(r, int(size))
 	if err != nil {
@@ -671,7 +675,10 @@ func exportPubkey(pub *ecies.PublicKey) []byte {
 	if pub == nil {
 		panic("nil pubkey")
 	}
-	return elliptic.Marshal(pub.Curve, pub.X, pub.Y)[1:]
+	if curve, ok := pub.Curve.(crypto.EllipticCurve); ok {
+		return curve.Marshal(pub.X, pub.Y)[1:]
+	}
+	return []byte{}
 }
 
 func xor(one, other []byte) (xor []byte) {

@@ -22,10 +22,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/rlp"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // EIP-8 test vectors.

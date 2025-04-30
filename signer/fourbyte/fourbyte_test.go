@@ -17,9 +17,8 @@
 package fourbyte
 
 import (
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"strings"
 	"testing"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -28,30 +27,19 @@ import (
 
 // Tests that all the selectors contained in the 4byte database are valid.
 func TestEmbeddedDatabase(t *testing.T) {
+	t.Parallel()
 	db, err := New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	var abistruct abi.ABI
 	for id, selector := range db.embedded {
-		// todo: the parseSelector under the 4byte utility cannot parse this function which have a tuple array
-		//  as its input correctly, with a wrong abistring returned, the sig computed is not match with solc.
-		//  To fix this, the parseSelector should parse tuple correctly. For example, when the input
-		//  selector is: "handleAccountabilityEvents((uint8,uint8,address,bytes32,bytes)[])", a wrong abi spec is
-		//  returned by parseSelector, then the hash computing from "handleAccountabilityEvents((uint8,uint8,address,bytes32,bytes)"
-		//  is not match with solc which computes it from "handleAccountabilityEvents((uint8,uint8,address,bytes32,bytes)[])".
-		//  https://github.com/autonity/autonity/pull/24407 this PR from upstream may fix it, Lorenzo will cherry pick it.
-
-		if selector == "handleAccountabilityEvents((uint8,uint8,uint8,uint8,address,address,bytes32,bytes)[])" ||
-			id == "2a0d8226" || id == "01d4dc03" {
-			continue
-		}
 		abistring, err := parseSelector(selector)
 		if err != nil {
 			t.Errorf("Failed to convert selector to ABI: %v", err)
 			continue
 		}
-		abistruct, err := abi.JSON(strings.NewReader(string(abistring)))
-		if err != nil {
+		if err := json.Unmarshal(abistring, &abistruct); err != nil {
 			t.Errorf("Failed to parse ABI: %v", err)
 			continue
 		}
@@ -68,11 +56,9 @@ func TestEmbeddedDatabase(t *testing.T) {
 
 // Tests that custom 4byte datasets can be handled too.
 func TestCustomDatabase(t *testing.T) {
+	t.Parallel()
 	// Create a new custom 4byte database with no embedded component
-	tmpdir, err := ioutil.TempDir("", "signer-4byte-test")
-	if err != nil {
-		t.Fatal(err)
-	}
+	tmpdir := t.TempDir()
 	filename := fmt.Sprintf("%s/4byte_custom.json", tmpdir)
 
 	db, err := NewWithFile(filename)

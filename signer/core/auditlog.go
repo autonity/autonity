@@ -19,6 +19,8 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
+	"os"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
@@ -110,16 +112,16 @@ func (l *AuditLogger) Version(ctx context.Context) (string, error) {
 	data, err := l.api.Version(ctx)
 	l.log.Info("Version", "type", "response", "data", data, "error", err)
 	return data, err
-
 }
 
 func NewAuditLogger(path string, api ExternalAPI) (*AuditLogger, error) {
-	l := log.New("api", "signer")
-	handler, err := log.FileHandler(path, log.LogfmtFormat())
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return nil, err
 	}
-	l.SetHandler(handler)
+
+	handler := slog.NewTextHandler(f, nil)
+	l := log.NewLogger(handler).With("api", "signer")
 	l.Info("Configured", "audit log", path)
 	return &AuditLogger{l, api}, nil
 }

@@ -18,7 +18,7 @@ package enode
 
 import (
 	"crypto/ecdsa"
-	"fmt"
+	"errors"
 	"io"
 
 	"github.com/autonity/autonity/common/math"
@@ -28,17 +28,18 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// List of known secure identity schemes.
+// ValidSchemes is a List of known secure identity schemes.
 var ValidSchemes = enr.SchemeMap{
 	"v4": V4ID{},
 }
 
+// ValidSchemesForTesting is a List of identity schemes for testing.
 var ValidSchemesForTesting = enr.SchemeMap{
 	"v4":   V4ID{},
 	"null": NullID{},
 }
 
-// v4ID is the "v4" identity scheme.
+// V4ID is the "v4" identity scheme.
 type V4ID struct{}
 
 // SignV4 signs a record using the v4 scheme.
@@ -66,7 +67,7 @@ func (V4ID) Verify(r *enr.Record, sig []byte) error {
 	if err := r.Load(&entry); err != nil {
 		return err
 	} else if len(entry) != 33 {
-		return fmt.Errorf("invalid public key")
+		return errors.New("invalid public key")
 	}
 
 	h := sha3.NewLegacyKeccak256()
@@ -140,7 +141,7 @@ func signV4Compat(r *enr.Record, pubkey *ecdsa.PublicKey) {
 // ID in the record without any signature.
 type NullID struct{}
 
-func (NullID) Verify(_ *enr.Record, _ []byte) error {
+func (NullID) Verify(r *enr.Record, sig []byte) error {
 	return nil
 }
 
@@ -156,5 +157,5 @@ func SignNull(r *enr.Record, id ID) *Node {
 	if err := r.SetSig(NullID{}, []byte{}); err != nil {
 		panic(err)
 	}
-	return &Node{r: *r, id: id}
+	return newNodeWithID(r, id)
 }

@@ -25,11 +25,10 @@ import (
 	"fmt"
 	"hash"
 
-	"golang.org/x/crypto/hkdf"
-
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p/enode"
+	"golang.org/x/crypto/hkdf"
 )
 
 const (

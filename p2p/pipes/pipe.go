@@ -14,32 +14,34 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package pipes
 
-import "testing"
+import "net"
 
-func TestPasswordValidation(t *testing.T) {
-	t.Parallel()
-	testcases := []struct {
-		pw         string
-		shouldFail bool
-	}{
-		{"test", true},
-		{"testtest\xbd\xb2\x3d\xbc\x20\xe2\x8c\x98", true},
-		{"placeOfInterest⌘", true},
-		{"password\nwith\nlinebreak", true},
-		{"password\twith\vtabs", true},
-		// Ok passwords
-		{"password WhichIsOk", false},
-		{"passwordOk!@#$%^&*()", false},
-		{"12301203123012301230123012", false},
+// TCPPipe creates an in process full duplex pipe based on a localhost TCP socket.
+func TCPPipe() (net.Conn, net.Conn, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, nil, err
 	}
-	for _, test := range testcases {
-		err := ValidatePasswordFormat(test.pw)
-		if err == nil && test.shouldFail {
-			t.Errorf("password '%v' should fail validation", test.pw)
-		} else if err != nil && !test.shouldFail {
-			t.Errorf("password '%v' shound not fail validation, but did: %v", test.pw, err)
-		}
+	defer l.Close()
+
+	var aconn net.Conn
+	aerr := make(chan error, 1)
+	go func() {
+		var err error
+		aconn, err = l.Accept()
+		aerr <- err
+	}()
+
+	dconn, err := net.Dial("tcp", l.Addr().String())
+	if err != nil {
+		<-aerr
+		return nil, nil, err
 	}
+	if err := <-aerr; err != nil {
+		dconn.Close()
+		return nil, nil, err
+	}
+	return aconn, dconn, nil
 }

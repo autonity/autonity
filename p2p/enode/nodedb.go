@@ -26,15 +26,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/autonity/autonity/p2p/enr"
+	"github.com/autonity/autonity/rlp"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
-
-	"github.com/autonity/autonity/p2p/enr"
-	"github.com/autonity/autonity/rlp"
 )
 
 // Keys in the node database.
