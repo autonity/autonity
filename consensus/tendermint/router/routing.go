@@ -195,7 +195,7 @@ func (m *Router) retryLatency() error {
 
 	log.Debug("Router: retrying latency for nodes", "count", len(nodes))
 	latencyMap, failedNodes, err := m.fetcher.FetchLatency(nodes, m.self)
-	if err != nil {
+	if err != nil || len(latencyMap) == 0 {
 		log.Error("Router: failed to retry latency", "err", err)
 		return err
 	}
@@ -236,7 +236,7 @@ func (m *Router) loop(ctx context.Context) {
 	defer m.wg.Done()
 
 	ticker := time.NewTicker(5 * time.Minute)
-	retryTicker := time.NewTicker(30 * time.Second)
+	retryTicker := time.NewTicker(90 * time.Second)
 	cleanupTicker := time.NewTicker(10 * time.Minute)
 	defer func() {
 		ticker.Stop()

@@ -10,6 +10,10 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
+const (
+	cacheEntryTTL = 30 * time.Minute
+)
+
 type CacheEntry struct {
 	Recipients []types.CommitteeMember
 	Version    int64
@@ -71,7 +75,7 @@ func (c *PeerSelectionCache) Cleanup() {
 	now := time.Now()
 	removed := 0
 	for key, entry := range c.cache {
-		if now.Sub(entry.LastUsed) > 30*time.Minute {
+		if now.Sub(entry.LastUsed) > cacheEntryTTL {
 			delete(c.cache, key)
 			removed++
 		}
