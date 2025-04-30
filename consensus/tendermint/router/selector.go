@@ -270,7 +270,7 @@ func (r *Selector) clusterStatus(peerCluster [][]NodeLatency, msg message.Msg, f
 		msgType = "Unknown"
 	}
 
-	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s MessageHash=%S SenderType=%s localCluster=%d originCluster=%d\n",
+	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s MessageHash=%s SenderType=%s localCluster=%d originCluster=%d\n",
 		msg.H(), msg.R(), from.Hex(), msgType, msg.Hash().Hex(), sender, ownClusterID, originClusterID))
 
 	for clusterID, cluster := range peerCluster {
