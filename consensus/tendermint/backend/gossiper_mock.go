@@ -14,7 +14,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// Mockrouter is a mock of router interface.
+// Mockrouter is a mock of msgRouter interface.
 type Mockrouter struct {
 	ctrl     *gomock.Controller
 	recorder *MockrouterMockRecorder

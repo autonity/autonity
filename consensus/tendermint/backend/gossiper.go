@@ -15,7 +15,7 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
-type router interface {
+type msgRouter interface {
 	Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 }
@@ -26,7 +26,7 @@ type Gossiper struct {
 	broadcaster   consensus.Broadcaster
 	logger        log.Logger
 	stopped       chan struct{}
-	router        router
+	router        msgRouter
 }
 
 func NewGossiper(
@@ -34,7 +34,7 @@ func NewGossiper(
 	address common.Address,
 	logger log.Logger,
 	stopped chan struct{},
-	router router,
+	router msgRouter,
 ) *Gossiper {
 	return &Gossiper{
 		knownMessages: knownMessages,
@@ -120,7 +120,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	recipients, err := g.router.Route(committee, msg, g.address)
 	if err != nil {
 		//if !errors.Is(err, consensus.ErrFutureEpochMessage) {
-		log.Debug("Gossiper: No recipients for message from router, broadcast", "error", err, "height", msg.H(), "message type", msg.Code())
+		log.Debug("Gossiper: No recipients for message from msgRouter, broadcast", "error", err, "height", msg.H(), "message type", msg.Code())
 		//	return
 		//}
 		// forward future epoch proposal to all the committee members, as most of them are still in the committee.

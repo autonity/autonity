@@ -1,7 +1,7 @@
 package clustering
 
 import (
-	"github.com/autonity/autonity/consensus/tendermint/latency/ping"
+	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	"math/rand"
 	"time"
 )

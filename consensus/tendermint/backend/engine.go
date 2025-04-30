@@ -588,7 +588,7 @@ func (sb *Backend) Start(ctx context.Context) error {
 	if sb.router != nil {
 		sb.router.Start(ctx, sb.BlockChain(), sb.address)
 	} else {
-		sb.logger.Warn("Latency router is not set, cannot start")
+		sb.logger.Warn("Latency msgRouter is not set, cannot start")
 	}
 
 	// Start Tendermint
