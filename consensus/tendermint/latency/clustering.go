@@ -15,16 +15,47 @@ import (
 var KmeansClusterSeed = int64(12345)
 
 type Clusters struct {
-	activatedHeight  uint64
+	curEpochHeight   uint64
 	nextEpochHeight  uint64
 	base             [][]common.Address
 	addressToCluster map[common.Address]int
 }
 
-func NewCluster(activationHeight uint64, nextEpochHeight uint64, base [][]common.Address) *Clusters {
+// DoTransition remove those nodes which are removed from cluster, add those new ones into an individual cluster, and rebuild the index.
+func (c *Clusters) DoTransition(removed map[common.Address]struct{}, added []common.Address) {
+
+	for i := 0; i < len(c.base); i++ {
+		var newCluster []common.Address
+		for _, addr := range c.base[i] {
+			if _, ok := removed[addr]; !ok {
+				newCluster = append(newCluster, addr)
+			}
+		}
+		c.base[i] = newCluster
+	}
+
+	// check to remove empty clusters after the removal.
+	var newBase [][]common.Address
+	for _, cluster := range c.base {
+		if len(cluster) > 0 {
+			newBase = append(newBase, cluster)
+		}
+	}
+	c.base = newBase
+
+	// append the newly added ones into a individual cluster.
+	if len(added) > 0 {
+		c.base = append(c.base, added)
+	}
+
+	// rebuild the cluster.
+	c.buildAddressIndex()
+}
+
+func NewCluster(curEpochHeight uint64, nextEpochHeight uint64, base [][]common.Address) *Clusters {
 	clusters := &Clusters{
 		base:            base,
-		activatedHeight: activationHeight,
+		curEpochHeight:  curEpochHeight,
 		nextEpochHeight: nextEpochHeight,
 	}
 
@@ -136,7 +167,7 @@ func fromLatencyMat(committee []common.Address, latencyMat [][]uint8) []kmeans.O
 	return nodes
 }
 
-func AssignClusters(h uint64, nextEpochHeight uint64, committee []common.Address, latencyMat [][]uint8, k int) (*Clusters, error) {
+func AssignClusters(curEpochBlock uint64, nextEpochHeight uint64, committee []common.Address, latencyMat [][]uint8, k int) (*Clusters, error) {
 	nodes := fromLatencyMat(committee, latencyMat)
 	km := kmeans.New()
 	kmClusters, err := km.Partition(nodes, k, KmeansClusterSeed)
@@ -174,5 +205,5 @@ func AssignClusters(h uint64, nextEpochHeight uint64, committee []common.Address
 		}
 	}
 
-	return NewCluster(h, nextEpochHeight, result), nil
+	return NewCluster(curEpochBlock, nextEpochHeight, result), nil
 }

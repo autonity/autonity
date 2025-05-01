@@ -474,8 +474,12 @@ func (l *latencyManager) Run(input []byte, _ uint64, evm *EVM, caller common.Add
 		return nil, errBadInput
 	}
 
-	// reports counter slot.
+	// last matrix slot.
 	offset := ArrayLenBytes
+	lastLatenciesSlot := input[offset : offset+DataLen]
+
+	// reports counter slot.
+	offset += DataLen
 	reportsSlot := input[offset : offset+DataLen]
 
 	// matrix slot.
@@ -503,10 +507,18 @@ func (l *latencyManager) Run(input []byte, _ uint64, evm *EVM, caller common.Add
 		latencyArray[i] = segment[len(segment)-1]
 	}
 
+	// the call is just for coping of matrix from current matrix to the last matrix.
+	if new(big.Int).SetBytes(lastLatenciesSlot).Cmp(common.Big0) != 0 {
+		// copy the current matrix to the last epoch matrix.
+		l.copyMatrix(caller, evm.StateDB, latenciesSlot, lastLatenciesSlot)
+		return successResult, nil
+	}
+
 	// if the matrix haven't been initialized for current epoch, init it with the length of the latencyArray which
 	// was checked from the Latency.sol with require statements.
 	reports := evm.StateDB.GetState(caller, common.BytesToHash(reportsSlot)).Big()
 	if reports.Uint64() == 0 {
+		// init the next epoch's matrix.
 		committeeSize := new(big.Int).SetInt64(int64(length))
 		l.initMatrix(caller, evm.StateDB, latenciesSlot, committeeSize)
 	}
@@ -514,6 +526,46 @@ func (l *latencyManager) Run(input []byte, _ uint64, evm *EVM, caller common.Add
 	// one can only insert the row of itself with the reporter index.
 	l.updateRow(caller, evm.StateDB, latenciesSlot, reporterIndex, latencyArray)
 	return successResult, nil
+}
+
+// copyMatrix save the latencies to the last epoch's latencies matrix.
+func (l *latencyManager) copyMatrix(caller common.Address, state StateDB, matrixSlot []byte, previousMatrixSlot []byte) {
+	matrixOffset := crypto.Keccak256Hash(matrixSlot).Big()
+	newSize := state.GetState(caller, common.BytesToHash(matrixSlot)).Big()
+
+	previousMatrixOffset := crypto.Keccak256Hash(previousMatrixSlot).Big()
+
+	// reset last epoch matrix with new size.
+	l.initMatrix(caller, state, previousMatrixSlot, newSize)
+
+	// copy latencies row by row.
+	for row := int64(0); row < newSize.Int64(); row++ {
+
+		rowFromOffset := new(big.Int).Add(matrixOffset, big.NewInt(row))
+		slotFromOffset := crypto.Keccak256Hash(rowFromOffset.Bytes()).Big()
+
+		rowToOffset := new(big.Int).Add(previousMatrixOffset, big.NewInt(row))
+		slotToOffset := crypto.Keccak256Hash(rowToOffset.Bytes()).Big()
+
+		// copy every slot (32-byte) one by one for current row.
+		for col := int64(0); col < newSize.Int64(); col += 32 {
+			end := col + 32
+			// copy the last slot of current row, and break.
+			if end > newSize.Int64() {
+				slotData := state.GetState(caller, common.BytesToHash(slotFromOffset.Bytes()))
+				state.SetState(caller, common.BigToHash(slotToOffset), slotData)
+				break
+			}
+
+			slotData := state.GetState(caller, common.BytesToHash(slotFromOffset.Bytes()))
+			state.SetState(caller, common.BigToHash(slotToOffset), slotData)
+			// goto next slot
+			slotFromOffset.Add(slotFromOffset, common.Big1)
+			slotToOffset.Add(slotToOffset, common.Big1)
+		}
+	}
+
+	return
 }
 
 // initMatrix is only be called once for every epoch to init the matrix with committee size, it also reset those legacy
@@ -537,7 +589,6 @@ func (l *latencyManager) initMatrix(caller common.Address, state StateDB, p []by
 	}
 
 	for row := int64(0); row < resolvedSize.Int64(); row++ {
-		//rowOffset := crypto.Keccak256Hash(new(big.Int).Add(matrixOffset, big.NewInt(row)).Bytes()).Big()
 		rowMetaOffset := new(big.Int).Add(matrixOffset, big.NewInt(row))
 		// rows under new size, should store the length of the row.
 		if row < newSize.Int64() {

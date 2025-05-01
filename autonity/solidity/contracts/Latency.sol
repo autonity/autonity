@@ -7,16 +7,6 @@ import {AccessAutonity} from "./AccessAutonity.sol";
 import {ILatency} from "./interfaces/ILatency.sol";
 
 contract Latency is ILatency, AccessAutonity {
-    // Frequent cluster reorganizations can lead to proposal relaying failures and reduce the robustness of the
-    // semi synchronous messaging channel, which underpins our message relaying rules. This improvement aims to simplify
-    // the current clustering view synchronization mechanism. Instead of triggering a cluster reorganization with
-    // every measurement, we will establish a default clustering view at the start of each epoch. Following quorum
-    // reports on latency measurements, an optimized clustering view will be generated using latency matrices.
-    // Given that we operate in a semi-synchronized system, we assume that the emission of the KMOptimization
-    // event can reach most nodes within 10 blocks. Consequently, the new clustering view will be utilized for messaging
-    // at height: block.number + KM_OPTIMIZATION_DELTA.
-    uint256 public constant KM_OPTIMIZATION_DELTA = 10;
-
     // The default latency is the median of [0, 255) which is the value space of uint8.
     // As we simplified the view synchronization with one-time reorg base on quorum reports,
     // thus for those validators who missed the report, we applied the default latency for view building.
@@ -50,9 +40,13 @@ contract Latency is ILatency, AccessAutonity {
     // latency tracks the latency report of each validator of an epoch.
     // It is a N * N matrix pre-allocated by the protocol on epoch rotation, N is the length of committee.
     uint8[][] private latencies;
-
     // committee is the current committee of validators
     address[] public committee;
+
+    // last latencies save last epoch's latencies, it is used for those who recovered from a disaster to build the KM
+    // clusters before a new KM clusters is constructed for current epoch. It is operated by precompile contract.
+    uint8[][] private lastLatencies;
+    address[] public lastCommittee;
 
     // lastReportedEpoch tracks the epoch in which each validator last reported its latency
     mapping(address => uint256) public lastReportedEpoch;
@@ -98,7 +92,7 @@ contract Latency is ILatency, AccessAutonity {
             _reportsSlot := reports.slot
             _matrixSlot := latencies.slot
         }
-        require(Precompiled.updateLatency(_reportsSlot, _matrixSlot, index, _latency) == Precompiled.SUCCESS, "cannot insert latency report");
+        require(Precompiled.updateLatency(0, _reportsSlot, _matrixSlot, index, _latency) == Precompiled.SUCCESS, "cannot insert latency report");
 
         lastReportedEpoch[msg.sender] = epochPlusOne;
         reports++;
@@ -111,7 +105,7 @@ contract Latency is ILatency, AccessAutonity {
         bool periodicKMEvent = (twoThirds && ((reports - thresholdReports()) % 5 == 0) || reports == committee.length);
 
         if (initialKMEvent || periodicKMEvent) {
-            kmOptimizedHeight = block.number+ KM_OPTIMIZATION_DELTA;
+            kmOptimizedHeight = block.number;
             emit KMOptimization(kmOptimizedHeight);
         }
     }
@@ -126,7 +120,20 @@ contract Latency is ILatency, AccessAutonity {
     /// @param _committee The new committee
     /// @dev This function is intended to be called by the Autonity contract
     function setCommittee(address[] memory _committee) external onlyAutonity {
-        // update new committee and reinit the latency matrix.
+
+        // save last matrix
+        uint256 _matrixSlot;
+        uint256 _lastMatrixSlot;
+        uint8[] memory row;
+        assembly {
+            _matrixSlot := latencies.slot
+            _lastMatrixSlot := lastLatencies.slot
+        }
+        require(Precompiled.updateLatency(_lastMatrixSlot, 0, _matrixSlot, 0, row) == Precompiled.SUCCESS, "cannot store last epoch latencies");
+        // save last committee
+        lastCommittee = committee;
+
+        // update new committee.
         committee = _committee;
         epochPlusOne++;
         reports = 0;
@@ -141,6 +148,17 @@ contract Latency is ILatency, AccessAutonity {
 
     function thresholdReports() internal view returns (uint256) {
         return (committee.length * 2 + 2) / 3; // +2 for proper ceiling division
+    }
+
+    function readLastEpochReport(uint256 _index) external view returns (address[] memory, uint8[] memory) {
+        require(_index < lastCommittee.length, "invalid index of reporter");
+        require(epochPlusOne > 1, "1st epoch is not over yet");
+        return (lastCommittee, lastLatencies[_index]);
+    }
+
+    function readLast() external view returns (address[] memory, uint8[][] memory) {
+        require(epochPlusOne > 1, "1st epoch is not over yet");
+        return (lastCommittee, lastLatencies);
     }
 
     /// @notice Read the entire latency matrix, it would be failed once the committee size scale to a large number.

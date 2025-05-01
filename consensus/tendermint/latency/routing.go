@@ -28,8 +28,11 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 )
 
-var errTooOldMessage = errors.New("too old message")
-var errUnknownClusters = errors.New("unknown clustering")
+var errKMClusterNotReady = errors.New("km clusters are not ready")
+var errNotCurrentEpochMsg = errors.New("msg is out of current epoch scope")
+var errFirstEpoch = errors.New("1st epoch does not have last committee")
+var errNoLatenciesData = errors.New("no latencies data yet")
+var errNoDataIntegrity = errors.New("no latencies data integrity")
 
 // ScaleThresholdForClustering is the minimum number of validators required to do network clustering
 var ScaleThresholdForClustering = 10 // by according to the simulation and testing, there was minimal difference in performance when the number of validators was < 32.
@@ -50,10 +53,9 @@ type Router struct {
 	self    common.Address
 	nodeKey *ecdsa.PrivateKey
 
-	mu                     sync.RWMutex
-	epochDefaultClusters   *Clusters
-	epochOptimizedClusters *Clusters
-	lastEpochClusters      *Clusters
+	mu               sync.RWMutex
+	curEpochClusters *Clusters
+	//lastEpochClusters *Clusters
 
 	broadcaster consensus.Broadcaster
 	contracts   *autonity.ProtocolContracts
@@ -153,6 +155,35 @@ func (r *Router) Forward(committee *types.Committee, m message.Msg, sender commo
 	}
 }
 
+func (r *Router) initClusters() {
+	// try to build KM clusters if KM optimization happened for current epoch.
+	kmClusters, err := r.buildKMClusters()
+	if err == nil {
+		log.Info("build clusters with KM clusters")
+		r.setEpochClusters(kmClusters)
+		return
+	}
+
+	// try to build transitional clusters from the last epoch's matrix.
+	transitionalCluster, err := r.buildTransitionalClusters()
+	if err == nil {
+		log.Info("build clusters with transitive clusters")
+		r.setEpochClusters(transitionalCluster)
+		return
+	}
+
+	// fall back to build a default cluster if there were no optimal one.
+	defaultClusters := r.buildDefaultClusters(func() []common.Address {
+		result := make([]common.Address, r.curEpochInfo.Committee.Len())
+		for i, member := range r.curEpochInfo.Committee.Members {
+			result[i] = member.Address
+		}
+		return result
+	}())
+	log.Info("build clusters with default clusters")
+	r.setEpochClusters(defaultClusters)
+}
+
 func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 	log.Info("Router: starting latency router")
 	optimizationEventSub, err := chain.ProtocolContracts().Latency.WatchKMOptimization(nil, r.optimizationEventChan)
@@ -178,30 +209,8 @@ func (r *Router) Start(ctx context.Context, chain *core.BlockChain) {
 	}
 	r.curEpochInfo = curEpoch
 
-	// set default clusters for current epoch.
-	r.setDefaultCluster(r.buildDefaultClusters(func() []common.Address {
-		result := make([]common.Address, r.curEpochInfo.Committee.Len())
-		for i, member := range r.curEpochInfo.Committee.Members {
-			result[i] = member.Address
-		}
-		return result
-	}()))
-
-	// As from here, we already subscribe the optimization event, however if the optimization was already happened,
-	// we'd need to set optimized clusters for current epoch if it was happened.
-	optimizationHeight, err := r.contracts.GetMetricsStatus(nil)
-	if err != nil {
-		log.Error("failed to get optimized clusters height", "err", err)
-		return
-	}
-
-	if optimizationHeight.Cmp(common.Big0) > 0 && optimizationHeight.Cmp(r.curEpochInfo.NextEpochBlock) < 0 {
-		err = r.optimizeCluster(optimizationHeight.Uint64())
-		if err != nil {
-			log.Error("Router: failed to optimize the clustering", "err", err)
-			return
-		}
-	}
+	// build clusters on the start of router.
+	r.initClusters()
 
 	ctx, r.cancel = context.WithCancel(ctx)
 	r.wg.Add(1)
@@ -219,63 +228,108 @@ func (r *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	r.broadcaster = broadcaster
 }
 
-// Internal package functions
-func (r *Router) setDefaultCluster(c *Clusters) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.epochDefaultClusters = c
-}
-
-func (r *Router) setOptimizedCluster(c *Clusters) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.epochOptimizedClusters = c
-}
-
-func (r *Router) viewRotation(newDefaultCluster *Clusters) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.epochOptimizedClusters != nil {
-		r.lastEpochClusters = r.epochOptimizedClusters
-	} else {
-		r.lastEpochClusters = r.epochDefaultClusters
+func (r *Router) buildKMClusters() (*Clusters, error) {
+	optimizationHeight, err := r.contracts.GetMetricsStatus(nil)
+	if err != nil {
+		log.Error("failed to get optimized clusters height", "err", err)
+		return nil, err
 	}
 
-	r.epochDefaultClusters = newDefaultCluster
-	r.epochOptimizedClusters = nil
+	if optimizationHeight.Cmp(common.Big0) > 0 && optimizationHeight.Cmp(r.curEpochInfo.NextEpochBlock) < 0 {
+		return r.optimizedCluster(optimizationHeight.Uint64())
+	}
+	return nil, errKMClusterNotReady
+}
+
+func (r *Router) buildTransitionalClusters() (*Clusters, error) {
+
+	lastCommittee, row, err := r.contracts.Latency.ReadLastEpochReport(nil, common.Big0)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(lastCommittee) == 0 {
+		return nil, errFirstEpoch
+	}
+
+	if len(lastCommittee) != len(row) {
+		return nil, errNoLatenciesData
+	}
+
+	// read last epoch's matrix to build transitional KM clusters.
+	latencyMat := make([][]uint8, len(lastCommittee))
+	index := new(big.Int).SetUint64(0)
+	for i, _ := range lastCommittee {
+		_, latency, err := r.contracts.Latency.ReadLastEpochReport(nil, index.SetInt64(int64(i)))
+		if err != nil {
+			log.Error("Router: build transitional cluster, failed to read latency", "err", err)
+			return nil, err
+		}
+
+		if len(lastCommittee) != len(latency) {
+			return nil, errNoDataIntegrity
+		}
+
+		latencyMat[i] = latency
+	}
+
+	// build transitional KM clusters.
+	transitionalClusters, err := AssignClusters(r.curEpochInfo.EpochBlock.Uint64(), r.curEpochInfo.NextEpochBlock.Uint64(), lastCommittee, latencyMat, int(math.Floor(math.Sqrt(float64(len(lastCommittee))))))
+	if err != nil {
+		return nil, err
+	}
+
+	committee, err := r.contracts.Latency.GetCommittee(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	removed, added := diffCommittee(lastCommittee, committee)
+	transitionalClusters.DoTransition(removed, added)
+
+	return transitionalClusters, nil
+}
+
+func diffCommittee(oldCommittee []common.Address, newCommittee []common.Address) (map[common.Address]struct{}, []common.Address) {
+	removed := make(map[common.Address]struct{})
+	var added []common.Address
+
+	oldSet := make(map[common.Address]struct{})
+	for _, addr := range oldCommittee {
+		oldSet[addr] = struct{}{}
+	}
+
+	for _, addr := range newCommittee {
+		if _, exists := oldSet[addr]; !exists {
+			added = append(added, addr)
+		} else {
+			delete(oldSet, addr)
+		}
+	}
+
+	for addr := range oldSet {
+		removed[addr] = struct{}{}
+	}
+
+	return removed, added
+}
+
+func (r *Router) setEpochClusters(clusters *Clusters) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.curEpochClusters = clusters
 }
 
 func (r *Router) resolveClusters(h uint64) (*Clusters, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	//todo: in a single epoch there could be multiple cluster views, we need to use the view according to the height.
-	if r.epochDefaultClusters != nil && h > r.epochDefaultClusters.nextEpochHeight {
-		log.Warn("returning future epoch message", "height", h, "nextEpochHeight", r.epochDefaultClusters.nextEpochHeight, "cluster", r.epochDefaultClusters)
-		return nil, consensus.ErrFutureEpochMessage
+	if r.curEpochClusters != nil && h > r.curEpochClusters.curEpochHeight && h <= r.curEpochClusters.nextEpochHeight {
+		return r.curEpochClusters, nil
 	}
 
-	// always try to pick the optimized one 1st
-	if r.epochOptimizedClusters != nil && h >= r.epochOptimizedClusters.activatedHeight &&
-		r.epochDefaultClusters != nil && h <= r.epochDefaultClusters.nextEpochHeight {
-		return r.epochOptimizedClusters, nil
-	}
-
-	// otherwise, try to pick the default clusters.
-	if r.epochDefaultClusters != nil && h >= r.epochDefaultClusters.activatedHeight && h <= r.epochDefaultClusters.nextEpochHeight {
-		return r.epochDefaultClusters, nil
-	}
-
-	// edge case, around epoch rotation, some message might be from past epoch.
-	if r.lastEpochClusters != nil && h >= r.lastEpochClusters.activatedHeight && h <= r.lastEpochClusters.nextEpochHeight {
-		return r.lastEpochClusters, nil
-	}
-
-	if r.lastEpochClusters != nil && h < r.lastEpochClusters.activatedHeight {
-		return nil, errTooOldMessage
-	}
-
-	return nil, errUnknownClusters
+	// old epoch msg and future epoch msg will be relayed to all committee member.
+	return nil, errNotCurrentEpochMsg
 }
 
 // buildDefaultClusters partitions the committee into default clusters
@@ -294,7 +348,6 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 
 	defaultClusters := NewCluster(r.curEpochInfo.EpochBlock.Uint64()+1, r.curEpochInfo.NextEpochBlock.Uint64(), clusters)
 
-	//todo: use the latest(last epoch) optimized to cluster to build the default cluster, starting from epoch 1
 	log.Debug("Router: set default clusters", "clusters", func() [][]int {
 		clusterInts := make([][]int, len(clusters))
 		for i, cluster := range clusters {
@@ -310,9 +363,7 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 func (r *Router) startMeasurementTask(ctx context.Context) (cancel context.CancelFunc) {
 	ctx, cancel = context.WithCancel(ctx)
 	go func() {
-		// todo: the random delay is used to distribute the load of ping messages into a certain period.
-		//  2 seconds distribution period might be too short for a large scale network.
-		// this is probably not required, but we reduce the measurement window to 2 seconds
+		// the random delay is used to distribute the load of ping messages into a certain period.
 		delay := time.Duration(rand.Intn(MeasurementWindow)) * time.Millisecond
 		select {
 		case <-time.After(delay):
@@ -437,16 +488,18 @@ func (r *Router) loop(ctx context.Context) {
 			}
 
 		case optimizationEv := <-r.optimizationEventChan:
-			log.Info("Router: ready to optimize the clustering", "new view will be applied at height", optimizationEv.Height)
+			log.Info("Router: ready to optimize the clustering", "height", optimizationEv.Height)
 			if optimizationEv.Height.Cmp(r.curEpochInfo.NextEpochBlock) >= 0 {
-				log.Info("Router: skip to optimize the clustering", "activation height over epoch", optimizationEv.Height.Uint64())
+				log.Info("Router: skip to optimize the clustering", "activation height cross epoch", optimizationEv.Height.Uint64())
 				continue
 			}
 
-			err := r.optimizeCluster(optimizationEv.Height.Uint64())
-			if err != nil {
-				log.Error("Router: failed to optimize the clustering", "err", err)
+			kmClusters, err := r.optimizedCluster(optimizationEv.Height.Uint64())
+			if err == nil {
+				r.setEpochClusters(kmClusters)
+				continue
 			}
+			log.Error("Router: failed to optimize the clustering", "err", err)
 
 		case epochEv := <-r.epochEventChan:
 			log.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
@@ -455,13 +508,22 @@ func (r *Router) loop(ctx context.Context) {
 				EpochBlock: epochEv.Header.Number,
 			}
 
-			r.viewRotation(r.buildDefaultClusters(func() []common.Address {
+			transitionalClusters, err := r.buildTransitionalClusters()
+			if err == nil {
+				r.setEpochClusters(transitionalClusters)
+				continue
+			}
+			log.Error("Router: failed to create transitive clusters", "err", err)
+			// fall back to default cluster.
+			defaultClusters := r.buildDefaultClusters(func() []common.Address {
 				result := make([]common.Address, r.curEpochInfo.Committee.Len())
 				for i, member := range r.curEpochInfo.Committee.Members {
 					result[i] = member.Address
 				}
 				return result
-			}()))
+			}())
+			log.Info("build clusters with default clusters")
+			r.setEpochClusters(defaultClusters)
 			// we cannot trigger measurement at epoch rotation immediately since members need time
 			// to create connections with new members, and for new members they need more time to create full mesh
 			// connectivity with other members.
@@ -469,15 +531,13 @@ func (r *Router) loop(ctx context.Context) {
 	}
 }
 
-func (r *Router) optimizeCluster(h uint64) error {
+func (r *Router) optimizedCluster(activatedHeight uint64) (*Clusters, error) {
 	committee, err := r.contracts.Latency.GetCommittee(nil)
 	if err != nil {
 		log.Error("Router: optimizeCluster fetch committee", "err", err)
-		return err
+		return nil, err
 	}
 
-	// todo: it would cause coherence issue on the clustering view if the reorg are too frequent. But eventually,
-	//  they should be consistent.
 	// as reading the entire matrix could be reverted due to too much gas consumption, we have to read row by row.
 	latencyMat := make([][]uint8, len(committee))
 	index := new(big.Int).SetUint64(0)
@@ -485,18 +545,16 @@ func (r *Router) optimizeCluster(h uint64) error {
 		_, latency, err := r.contracts.Latency.ReadReport(nil, index.SetInt64(int64(i)))
 		if err != nil {
 			log.Error("Router: optimizeCluster failed to read latency", "err", err)
-			return err
+			return nil, err
 		}
 
 		latencyMat[i] = latency
 	}
 
-	optimizedClusters, err := AssignClusters(h, r.curEpochInfo.NextEpochBlock.Uint64(), committee, latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
+	optimizedClusters, err := AssignClusters(r.curEpochInfo.EpochBlock.Uint64(), r.curEpochInfo.NextEpochBlock.Uint64(), committee, latencyMat, int(math.Floor(math.Sqrt(float64(len(committee))))))
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	r.setOptimizedCluster(optimizedClusters)
 
 	log.Debug(
 		"Router: optimizeClusters",
@@ -512,9 +570,9 @@ func (r *Router) optimizeCluster(h uint64) error {
 			return clusterInts
 		}(),
 		"height",
-		h,
+		activatedHeight,
 	)
-	return nil
+	return optimizedClusters, nil
 }
 
 func (r *Router) pingPeers(targets []ping.Target) []uint8 {
