@@ -89,6 +89,7 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		}
 		if allConnected {
 			r.cache.UpdateLastUsed(cacheKey)
+			log.Info("selected cached peers for", "msg", msg.Hash().Hex(), "peer length", len(cached.Recipients))
 			r.clusterStatus(r.buildResultFromCache(cached.Recipients, clusters), msg, from, senderType, ownClusterID, originClusterID)
 			return cached.Recipients, nil
 		}
@@ -152,8 +153,7 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 
 	switch senderType {
 	case originator:
-		//todo: 1 or 2 ?
-		maxRemoteNodes := 1
+		maxRemoteNodes := 2
 		for clusterID, cluster := range clusters.base {
 			if clusterID == ownClusterID {
 				continue
@@ -192,6 +192,7 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	for i, r := range recipients {
 		selected[i] = r.Addr
 	}
+	log.Info("selected peers for", "msg", msg.Hash().Hex(), "peer length", len(selected))
 
 	r.cache.Set(cacheKey, selected)
 	r.clusterStatus(result, msg, from, senderType, ownClusterID, originClusterID)
@@ -203,7 +204,7 @@ func (r *Selector) buildResultFromCache(recipients []common.Address, clusters Cl
 	for _, recipient := range recipients {
 		id := clusters.clusterContaining(recipient)
 		member, err := clusters.addressToMember(id, recipient)
-		if err != nil {
+		if err == nil {
 			result[id] = append(result[id], member)
 		}
 	}
