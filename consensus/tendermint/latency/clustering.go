@@ -43,7 +43,7 @@ func (c *Clusters) DoTransition(removed map[common.Address]struct{}, added []com
 	}
 	c.base = newBase
 
-	// append the newly added ones into a individual cluster.
+	// append the newly added ones into an individual cluster.
 	if len(added) > 0 {
 		c.base = append(c.base, added)
 	}

@@ -346,7 +346,7 @@ func (r *Router) buildDefaultClusters(committee []common.Address) *Clusters {
 		clusters[k] = append(clusters[k], addr)
 	}
 
-	defaultClusters := NewCluster(r.curEpochInfo.EpochBlock.Uint64()+1, r.curEpochInfo.NextEpochBlock.Uint64(), clusters)
+	defaultClusters := NewCluster(r.curEpochInfo.EpochBlock.Uint64(), r.curEpochInfo.NextEpochBlock.Uint64(), clusters)
 
 	log.Debug("Router: set default clusters", "clusters", func() [][]int {
 		clusterInts := make([][]int, len(clusters))
