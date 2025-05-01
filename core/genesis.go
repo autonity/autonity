@@ -512,18 +512,22 @@ func (g *Genesis) Commit(db ethdb.Database, triedb *triedb.Database) (*types.Blo
 	if err != nil {
 		return nil, err
 	}
+	// Marshal the genesis state specification and persist.
+	blob, err := json.Marshal(g.Alloc)
 	if block.Number().Sign() != 0 {
 		return nil, errors.New("can't commit genesis block with number > 0")
 	}
-	rawdb.WriteBlock(db, block)
-	rawdb.WriteReceipts(db, block.Hash(), block.NumberU64(), nil)
-	rawdb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
-	rawdb.WriteHeadBlockHash(db, block.Hash())
-	rawdb.WriteHeadFastBlockHash(db, block.Hash())
-	rawdb.WriteHeadHeaderHash(db, block.Hash())
-	rawdb.WriteEpochHeaderHash(db, block.Hash())
-	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
-	return block, nil
+	batch := db.NewBatch()
+	rawdb.WriteGenesisStateSpec(batch, block.Hash(), blob)
+	rawdb.WriteBlock(batch, block)
+	rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), nil)
+	rawdb.WriteCanonicalHash(batch, block.Hash(), block.NumberU64())
+	rawdb.WriteHeadBlockHash(batch, block.Hash())
+	rawdb.WriteHeadFastBlockHash(batch, block.Hash())
+	rawdb.WriteHeadHeaderHash(batch, block.Hash())
+	rawdb.WriteEpochHeaderHash(batch, block.Hash())
+	rawdb.WriteChainConfig(batch, block.Hash(), g.Config)
+	return block, batch.Write()
 }
 
 func (g *Genesis) setDefaultHardforks() {

@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"math/big"
 	"sync"
 
@@ -32,7 +33,6 @@ import (
 	"github.com/autonity/autonity/crypto/kzg4844"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blake2b"
@@ -697,11 +697,16 @@ func (c *bigModExp) RequiredGas(input []byte) uint64 {
 	adjExpLen := new(big.Int)
 	if expLen.Cmp(big32) > 0 {
 		adjExpLen.Sub(expLen, big32)
-		adjExpLen.Mul(big8, adjExpLen)
+		adjExpLen.Lsh(adjExpLen, 3)
 	}
 	adjExpLen.Add(adjExpLen, big.NewInt(int64(msb)))
 	// Calculate the gas cost of the operation
-	gas := new(big.Int).Set(math.BigMax(modLen, baseLen))
+	gas := new(big.Int)
+	if modLen.Cmp(baseLen) < 0 {
+		gas.Set(baseLen)
+	} else {
+		gas.Set(modLen)
+	}
 	if c.eip2565 {
 		// EIP-2565 has three changes
 		// 1. Different multComplexity (inlined here)
@@ -711,11 +716,13 @@ func (c *bigModExp) RequiredGas(input []byte) uint64 {
 		//    ceiling(x/8)^2
 		//
 		//where is x is max(length_of_MODULUS, length_of_BASE)
-		gas = gas.Add(gas, big7)
-		gas = gas.Div(gas, big8)
+		gas.Add(gas, big7)
+		gas.Rsh(gas, 3)
 		gas.Mul(gas, gas)
 
-		gas.Mul(gas, math.BigMax(adjExpLen, big1))
+		if adjExpLen.Cmp(big1) > 0 {
+			gas.Mul(gas, adjExpLen)
+		}
 		// 2. Different divisor (`GQUADDIVISOR`) (3)
 		gas.Div(gas, big3)
 		if gas.BitLen() > 64 {
@@ -728,7 +735,9 @@ func (c *bigModExp) RequiredGas(input []byte) uint64 {
 		return gas.Uint64()
 	}
 	gas = modexpMultComplexity(gas)
-	gas.Mul(gas, math.BigMax(adjExpLen, big1))
+	if adjExpLen.Cmp(big1) > 0 {
+		gas.Mul(gas, adjExpLen)
+	}
 	gas.Div(gas, big20)
 
 	if gas.BitLen() > 64 {

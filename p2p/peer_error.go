@@ -79,6 +79,8 @@ const (
 	DiscPeerOutsideTopology
 	DiscSyncFailed
 	DiscSubprotocolError = 0x10
+
+	DiscInvalid = 0xff
 )
 
 var discReasonToString = [...]string{
@@ -99,10 +101,11 @@ var discReasonToString = [...]string{
 	DiscPeerOutsideTopology: "peer outside topology",
 	DiscSyncFailed:          "failed to sync with remote peer",
 	DiscSubprotocolError:    "subprotocol error",
+	DiscInvalid:             "invalid disconnect reason",
 }
 
 func (d DiscReason) String() string {
-	if len(discReasonToString) <= int(d) {
+	if len(discReasonToString) <= int(d) || discReasonToString[d] == "" {
 		return fmt.Sprintf("unknown disconnect reason %d", d)
 	}
 	return discReasonToString[d]
@@ -119,7 +122,7 @@ func discReasonForError(err error) DiscReason {
 	if reason, ok := err.(DiscReason); ok {
 		return reason
 	}
-	if err == errProtocolReturned {
+	if errors.Is(err, errProtocolReturned) {
 		return DiscQuitting
 	}
 

@@ -2,7 +2,7 @@ package e2e
 
 /*
 func TestAPI_AcnPeers(t *testing.T) {
-	network, err := NewNetwork(t, 7, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := NewNetwork(t, 7, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	err = network.WaitToMineNBlocks(5, 30, false)

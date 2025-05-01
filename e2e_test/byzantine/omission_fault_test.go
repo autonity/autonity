@@ -33,7 +33,7 @@ const jailedForInactivity = uint8(4)
 const jailboundForInactivity = uint8(5)
 
 func createNetwork(t *testing.T, nodes int, start bool, options ...gengen.GenesisOption) e2e.Network {
-	validators, err := e2e.Validators(t, nodes, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, nodes, "10e18,v,10000,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	network, err := e2e.NewNetworkFromValidators(t, validators, start, options...)
@@ -585,7 +585,7 @@ func (c *noActivityProposalSender) SendProposal(ctx context.Context, p *types.Bl
 // a node is always online but never provides valid activity proofs
 // he should still get a relatively high (depending on how often he is proposer) inactivity score
 func TestOmissionProposerFaulty(t *testing.T) {
-	validators, err := e2e.Validators(t, 4, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, 4, "10e18,v,10000,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	faultyHeights := &lockedSlice{slice: make([]uint64, 0)}
@@ -682,7 +682,7 @@ func runRewardTest(t *testing.T, numNodes int, numOffline int) {
 		return i < (numNodes - numOffline)
 	}
 
-	validators, err := e2e.Validators(t, numNodes, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, numNodes, "10e18,v,10000,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	customEpochPeriod := uint64(70)

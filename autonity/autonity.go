@@ -3,6 +3,7 @@ package autonity
 import (
 	"bytes"
 	"errors"
+	"math"
 	"math/big"
 	"strings"
 	"sync"
@@ -13,7 +14,6 @@ import (
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"

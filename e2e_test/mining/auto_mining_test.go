@@ -16,7 +16,7 @@ import (
 func TestMiningStartAfterGenesisTime(t *testing.T) {
 	delay := 2 * 60
 	genesisStart := uint64(time.Now().Unix()) + uint64(delay)
-	validators, _ := e2e.Validators(t, 4, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	validators, _ := e2e.Validators(t, 4, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	network, err := e2e.NewNetworkFromValidators(t, validators, true, func(genesis *core.Genesis) {
 		genesis.Timestamp = genesisStart
 	})
@@ -40,7 +40,7 @@ func TestMiningStartAfterGenesisTime(t *testing.T) {
 // non validator nodes.
 func TestMiningManagementOfValidators(t *testing.T) {
 	numOfNodes := 4
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.

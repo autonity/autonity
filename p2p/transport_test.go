@@ -1,4 +1,4 @@
-// Copyright 2015 The go-ethereum Authors
+// Copyright 2020 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/p2p/simulations/pipes"
+	"github.com/autonity/autonity/p2p/pipes"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -97,7 +97,7 @@ func TestProtocolHandshake(t *testing.T) {
 			return
 		}
 
-		if err := ExpectMsg(rlpx, discMsg, []DiscReason{DiscQuitting}); err != nil {
+		if err := ExpectMsg(rlpx, discMsg, []any{DiscQuitting}); err != nil {
 			t.Errorf("error receiving disconnect: %v", err)
 		}
 	}()
@@ -112,7 +112,13 @@ func TestProtocolHandshakeErrors(t *testing.T) {
 	}{
 		{
 			code: discMsg,
-			msg:  []DiscReason{DiscQuitting},
+			msg:  []any{DiscQuitting},
+			err:  DiscQuitting,
+		},
+		{
+			// legacy disconnect encoding as byte array
+			code: discMsg,
+			msg:  []byte{byte(DiscQuitting)},
 			err:  DiscQuitting,
 		},
 		{

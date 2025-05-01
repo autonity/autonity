@@ -3,6 +3,7 @@ package autonity
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"reflect"
 	"runtime"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/tracing"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"

@@ -351,6 +351,12 @@ func (bc *BlockChain) TxIndexProgress() (TxIndexProgress, error) {
 	return bc.txIndexer.txIndexProgress()
 }
 
+// HistoryPruningCutoff returns the configured history pruning point.
+// Blocks before this might not be available in the database.
+func (bc *BlockChain) HistoryPruningCutoff() (uint64, common.Hash) {
+	return 0, bc.genesisBlock.Hash()
+}
+
 // TrieDB retrieves the low level trie database used for data storage.
 func (bc *BlockChain) TrieDB() *triedb.Database {
 	return bc.triedb

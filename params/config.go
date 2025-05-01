@@ -555,7 +555,7 @@ func init() {
 		validator.NodeAddress = &address
 		validator.Treasury = address
 		validator.OracleAddress = address
-		validator.Enode = enode.NewV4(&nodeKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0).URLv4()
+		validator.Enode = enode.NewV4(&nodeKey.PublicKey, net.ParseIP("127.0.0.1"), 0, 0).URLv4()
 		consensusKey, _ := blst.SecretKeyFromHex(TestConsensusKeys[i])
 		validator.ConsensusKey = consensusKey.PublicKey().Marshal()
 		TestAutonityContractConfig.Validators = append(TestAutonityContractConfig.Validators, &validator)

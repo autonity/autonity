@@ -3,17 +3,18 @@ package contracts
 import (
 	"crypto/ecdsa"
 	"encoding/json"
+	"math/big"
+	"testing"
+	"time"
+
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/params/generated"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"testing"
-	"time"
 )
 
 func TestOperatorOpts(t *testing.T) {
-	network, err := e2e.NewNetwork(t, 4, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, 4, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 
@@ -83,7 +84,7 @@ func TestOperatorOpts(t *testing.T) {
 }
 
 func TestUpgradeAC(t *testing.T) {
-	network, err := e2e.NewNetwork(t, 4, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, 4, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 

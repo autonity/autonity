@@ -22,12 +22,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/holiman/uint256"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/params"
+	"github.com/holiman/uint256"
 )
 
 type dummyStatedb struct {

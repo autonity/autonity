@@ -17,14 +17,11 @@
 package apitypes
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"testing"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto/kzg4844"
-	"github.com/holiman/uint256"
 )
 
 func TestIsPrimitive(t *testing.T) {
@@ -56,11 +53,6 @@ func TestTxArgs(t *testing.T) {
 		want     common.Hash
 		wantType uint8
 	}{
-		{
-			data:     []byte(`{"from":"0x1b442286e32ddcaa6e2570ce9ed85f4b4fc87425","accessList":[],"blobVersionedHashes":["0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"],"chainId":"0x7","gas":"0x124f8","gasPrice":"0x693d4ca8","input":"0x","maxFeePerBlobGas":"0x3b9aca00","maxFeePerGas":"0x6fc23ac00","maxPriorityFeePerGas":"0x3b9aca00","nonce":"0x0","r":"0x2a922afc784d07e98012da29f2f37cae1f73eda78aa8805d3df6ee5dbb41ec1","s":"0x4f1f75ae6bcdf4970b4f305da1a15d8c5ddb21f555444beab77c9af2baab14","to":"0x1b442286e32ddcaa6e2570ce9ed85f4b4fc87425","type":"0x1","v":"0x0","value":"0x0","yParity":"0x0"}`),
-			want:     common.HexToHash("0x7d53234acc11ac5b5948632c901a944694e228795782f511887d36fd76ff15c4"),
-			wantType: types.BlobTxType,
-		},
 		{
 			// on input, we don't read the type, but infer the type from the arguments present
 			data:     []byte(`{"from":"0x1b442286e32ddcaa6e2570ce9ed85f4b4fc87425","accessList":[],"chainId":"0x7","gas":"0x124f8","gasPrice":"0x693d4ca8","input":"0x","maxFeePerBlobGas":"0x3b9aca00","maxFeePerGas":"0x6fc23ac00","maxPriorityFeePerGas":"0x3b9aca00","nonce":"0x0","r":"0x2a922afc784d07e98012da29f2f37cae1f73eda78aa8805d3df6ee5dbb41ec1","s":"0x4f1f75ae6bcdf4970b4f305da1a15d8c5ddb21f555444beab77c9af2baab14","to":"0x1b442286e32ddcaa6e2570ce9ed85f4b4fc87425","type":"0x12","v":"0x0","value":"0x0","yParity":"0x0"}`),
@@ -106,41 +98,6 @@ func TestTxArgs(t *testing.T) {
 				> tx={"from":"0x1b442286e32ddcaa6e2570ce9ed85f4b4fc87425","to":"0x1b442286e32ddcaa6e2570ce9ed85f4b4fc87425","gas":"0x124f8","maxFeePerGas":"0x6fc23ac00","maxPriorityFeePerGas":"0x3b9aca00","value":"0x0","nonce":"0x0","input":"0x","accessList":[],"maxFeePerBlobGas":"0x3b9aca00","blobVersionedHashes":["0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"]}
 				> eth.signTransaction(tx)
 	*/
-}
-
-func TestBlobTxs(t *testing.T) {
-	blob := kzg4844.Blob{0x1}
-	commitment, err := kzg4844.BlobToCommitment(&blob)
-	if err != nil {
-		t.Fatal(err)
-	}
-	proof, err := kzg4844.ComputeBlobProof(&blob, commitment)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	hash := kzg4844.CalcBlobHashV1(sha256.New(), &commitment)
-	b := &types.BlobTx{
-		ChainID:    uint256.NewInt(6),
-		Nonce:      8,
-		GasTipCap:  uint256.NewInt(500),
-		GasFeeCap:  uint256.NewInt(600),
-		Gas:        21000,
-		BlobFeeCap: uint256.NewInt(700),
-		BlobHashes: []common.Hash{hash},
-		Value:      uint256.NewInt(100),
-		Sidecar: &types.BlobTxSidecar{
-			Blobs:       []kzg4844.Blob{blob},
-			Commitments: []kzg4844.Commitment{commitment},
-			Proofs:      []kzg4844.Proof{proof},
-		},
-	}
-	tx := types.NewTx(b)
-	data, err := json.Marshal(tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("tx %v", string(data))
 }
 
 func TestType_IsArray(t *testing.T) {

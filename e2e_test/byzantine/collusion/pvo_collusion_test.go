@@ -2,6 +2,8 @@ package collusion
 
 import (
 	"context"
+	"testing"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/consensus/tendermint/core"
@@ -10,7 +12,6 @@ import (
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 /*
@@ -22,7 +23,7 @@ import (
 */
 func TestCollusionPVO(t *testing.T) {
 	numOfNodes := 8
-	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	initCollusion(users, autonity.PVO, newCollusionPVOPlaner())

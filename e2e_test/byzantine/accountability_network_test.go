@@ -329,7 +329,7 @@ func TestOffChainAccusation(t *testing.T) {
 }
 
 func runDropPeerConnectionTest(t *testing.T, handler *interfaces.Services, testPeriod uint64, numSec int) { // nolint
-	validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, 4, "10e36,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// set malicious
@@ -358,7 +358,7 @@ func runOffChainAccountabilityEventTest(t *testing.T, handler *interfaces.Servic
 
 	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
-	users, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, 4, "10e36,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// set malicious challenger

@@ -2,13 +2,13 @@ package autonity
 
 import (
 	"errors"
+	"math"
 	"math/big"
 	"reflect"
 
 	"github.com/holiman/uint256"
 
 	"github.com/autonity/autonity/accounts/abi"
-	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/log"

@@ -546,6 +546,11 @@ type dummyChain struct {
 	config *params.ChainConfig
 }
 
+func (d *dummyChain) GetHeaderByNumber(u uint64) *types.Header {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (d *dummyChain) Engine() consensus.Engine                        { return nil }
 func (d *dummyChain) GetHeader(h common.Hash, n uint64) *types.Header { return nil }
 func (d *dummyChain) Config() *params.ChainConfig                     { return d.config }

@@ -971,7 +971,7 @@ func ValueTransferTransaction(client *ethclient.Client,
 // The format string should follow the format defined for users in the gengen
 // package see the variable 'userDescription' in the gengen package for a
 // detailed description of the meaning of the format string.
-// E.G. for a validator '10e18,v,1,0.0.0.0:%s,%s,%s,%s'.
+// E.G. for a validator '10e18,v,1,127.0.0.1:%s,%s,%s,%s'.
 func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validator, error) {
 	var validators []*gengen.Validator
 	for i := 0; i < count; i++ {

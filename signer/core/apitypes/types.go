@@ -37,7 +37,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/kzg4844"
-	"github.com/holiman/uint256"
 )
 
 var typedDataReferenceTypeRegexp = regexp.MustCompile(`^[A-Za-z](\w*)(\[\d*\])*$`)
@@ -145,31 +144,6 @@ func (args *SendTxArgs) ToTransaction() (*types.Transaction, error) {
 	}
 	var data types.TxData
 	switch {
-	case args.BlobHashes != nil:
-		al := types.AccessList{}
-		if args.AccessList != nil {
-			al = *args.AccessList
-		}
-		data = &types.BlobTx{
-			To:         *to,
-			ChainID:    uint256.MustFromBig((*big.Int)(args.ChainID)),
-			Nonce:      uint64(args.Nonce),
-			Gas:        uint64(args.Gas),
-			GasFeeCap:  uint256.MustFromBig((*big.Int)(args.MaxFeePerGas)),
-			GasTipCap:  uint256.MustFromBig((*big.Int)(args.MaxPriorityFeePerGas)),
-			Value:      uint256.MustFromBig((*big.Int)(&args.Value)),
-			Data:       args.data(),
-			AccessList: al,
-			BlobHashes: args.BlobHashes,
-			BlobFeeCap: uint256.MustFromBig((*big.Int)(args.BlobFeeCap)),
-		}
-		if args.Blobs != nil {
-			data.(*types.BlobTx).Sidecar = &types.BlobTxSidecar{
-				Blobs:       args.Blobs,
-				Commitments: args.Commitments,
-				Proofs:      args.Proofs,
-			}
-		}
 
 	case args.MaxFeePerGas != nil:
 		al := types.AccessList{}
