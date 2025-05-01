@@ -89,7 +89,6 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		}
 		if allConnected {
 			r.cache.UpdateLastUsed(cacheKey)
-			log.Info("selected cached peers for", "msg", msg.Hash().Hex(), "peer length", len(cached.Recipients))
 			r.clusterStatus(r.buildResultFromCache(cached.Recipients, clusters), msg, from, senderType, ownClusterID, originClusterID)
 			return cached.Recipients, nil
 		}
@@ -192,7 +191,6 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	for i, r := range recipients {
 		selected[i] = r.Addr
 	}
-	log.Info("selected peers for", "msg", msg.Hash().Hex(), "peer length", len(selected))
 
 	r.cache.Set(cacheKey, selected)
 	r.clusterStatus(result, msg, from, senderType, ownClusterID, originClusterID)
