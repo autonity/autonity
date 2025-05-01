@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 )
 
@@ -15,7 +14,7 @@ const (
 )
 
 type CacheEntry struct {
-	Recipients []types.CommitteeMember
+	Recipients []common.Address
 	Version    int64
 	LastUsed   time.Time
 }
@@ -44,7 +43,7 @@ func (c *PeerSelectionCache) Get(key string) (CacheEntry, bool) {
 	}
 }
 
-func (c *PeerSelectionCache) Set(key string, recipients []types.CommitteeMember) {
+func (c *PeerSelectionCache) Set(key string, recipients []common.Address) {
 	c.cacheMu.Lock()
 	defer c.cacheMu.Unlock()
 	c.cache[key] = CacheEntry{

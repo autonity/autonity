@@ -16,7 +16,7 @@ import (
 )
 
 type msgRouter interface {
-	Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
+	Route(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 }
 
@@ -119,14 +119,44 @@ func (g *Gossiper) gossip(msg message.Msg, recipients []types.CommitteeMember) {
 func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	recipients, err := g.router.Route(committee, msg, g.address)
 	if err != nil {
-		//if !errors.Is(err, consensus.ErrFutureEpochMessage) {
 		log.Debug("Gossiper: No recipients for message from msgRouter, broadcast", "error", err, "height", msg.H(), "message type", msg.Code())
-		//	return
-		//}
 		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
-		recipients = committee.Members
+		recipients := make([]common.Address, 0, committee.Len())
+		for _, val := range committee.Members {
+			if val.Address != g.address {
+				recipients = append(recipients, val.Address)
+			}
+		}
 	}
-	g.gossip(msg, recipients)
+	hash := msg.Hash()
+	if !g.knownMessages.Contains(hash) {
+		g.knownMessages.Add(hash, true)
+	}
+	if g.broadcaster == nil {
+		return
+	}
+	code := message.NetworkCodes[msg.Code()]
+	payload := msg.Payload()
+	lostPeers := make([]common.Address, 0)
+	for _, addr := range recipients {
+		if addr == g.address {
+			continue
+		}
+		if p, ok := g.broadcaster.FindPeer(addr); ok {
+			if p.Cache().Contains(hash) {
+				// This peer had this event, skip it
+				continue
+			}
+			p.Cache().Add(hash, true)
+			go p.SendRaw(code, payload) //nolint
+		} else {
+			// todo: Jason, shall we select other backups for liveness?
+			lostPeers = append(lostPeers, addr)
+		}
+	}
+	if len(lostPeers) > 0 {
+		g.logger.Debug("Gossiper: peers not found", "len", len(lostPeers), "peers", lostPeers)
+	}
 }
 
 func (g *Gossiper) AskSync(committee *types.Committee) {

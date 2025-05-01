@@ -19,9 +19,8 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
-
 const (
-	ScaleThresholdForClustering = 10
+	ScaleThresholdForClustering = 6
 	DefaultLatency              = 128
 	farThreshold                = 130
 	nearThreshold               = 32
@@ -76,9 +75,17 @@ func New(
 	return router
 }
 
-func (m *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
+func (m *Router) committeeAddresses(committee *types.Committee) []common.Address {
+	result := make([]common.Address, committee.Len())
+	for i, member := range committee.Members {
+		result[i] = member.Address
+	}
+	return result
+}
+
+func (m *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
 	if committee.Len() <= ScaleThresholdForClustering {
-		return committee.Members, nil
+		return m.committeeAddresses(committee), nil
 	}
 	return m.peerSelector.SelectPeers(committee, msg, from)
 }
@@ -87,21 +94,21 @@ func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender com
 	recipients, err := m.Route(committee, msg, sender)
 	if err != nil {
 		log.Debug("Forward: No recipients for message, broadcast", "error", err, "height", msg.H(), "message type", msg.Code())
-		recipients = committee.Members
+		recipients = m.committeeAddresses(committee)
 	}
 	lostPeers := make([]common.Address, 0)
 	for _, recipient := range recipients {
-		if recipient.Address == sender {
+		if recipient == sender {
 			continue
 		}
-		if p, ok := m.broadcaster.FindPeer(recipient.Address); ok {
+		if p, ok := m.broadcaster.FindPeer(recipient); ok {
 			if p.Cache().Contains(msg.Hash()) {
 				continue
 			}
 			p.Cache().Add(msg.Hash(), true)
 			go p.SendRaw(message.NetworkCodes[msg.Code()], msg.Payload())
 		} else {
-			lostPeers = append(lostPeers, recipient.Address)
+			lostPeers = append(lostPeers, recipient)
 		}
 	}
 	if len(lostPeers) > 0 {

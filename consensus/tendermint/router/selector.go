@@ -27,7 +27,7 @@ const (
 )
 
 type PeerSelector interface {
-	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error)
+	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
 }
 
 type Selector struct {
@@ -46,11 +46,11 @@ func NewSelector(router *Router) *Selector {
 	return s
 }
 
-func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]types.CommitteeMember, error) {
+func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
 	clusters := r.Clusters()
 	if len(clusters.base) == 0 {
 		log.Info("Selector: no clusters, falling back to all committee members")
-		return committee.Members, nil
+		return r.committeeAddresses(committee), nil
 	}
 
 	senderClusterID := clusters.clusterContaining(from)
@@ -82,7 +82,7 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	if exists {
 		allConnected := true
 		for _, recipient := range cached.Recipients {
-			if _, ok := r.broadcaster.FindPeer(recipient.Address); !ok {
+			if _, ok := r.broadcaster.FindPeer(recipient); !ok {
 				allConnected = false
 				break
 			}
@@ -94,10 +94,6 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		}
 	}
 
-	type memberWithLatency struct {
-		node   NodeLatency
-		member types.CommitteeMember
-	}
 	result := make([][]NodeLatency, len(clusters.base))
 	containsAddress := func(addrs []common.Address, addr common.Address) bool {
 		for _, a := range addrs {
@@ -108,10 +104,10 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		return false
 	}
 
-	var recipients []memberWithLatency
+	var recipients []NodeLatency
 
-	selectNodes := func(cluster ClusterView, clusterID int, maxNodes int, exclude []common.Address) []memberWithLatency {
-		var selected, candidates []memberWithLatency
+	selectNodes := func(cluster ClusterView, clusterID int, maxNodes int, exclude []common.Address) []NodeLatency {
+		var selected, candidates []NodeLatency
 		if maxNodes < 1 {
 			return selected
 		}
@@ -122,7 +118,7 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 			}
 			if _, ok := r.broadcaster.FindPeer(node.Addr); ok {
 				if member := committee.MemberByAddress(node.Addr); member != nil {
-					candidates = append(candidates, memberWithLatency{node, *member})
+					candidates = append(candidates, node)
 				}
 			}
 		}
@@ -131,22 +127,22 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		}
 		maxLowLatNodes := 3
 		selected = append(selected, candidates[0])
-		result[clusterID] = append(result[clusterID], candidates[0].node)
+		result[clusterID] = append(result[clusterID], candidates[0])
 		i := 1
-		for ; i < len(candidates) && candidates[i].node.Lat < uint(nearThreshold) && len(selected) < maxLowLatNodes; i++ {
+		for ; i < len(candidates) && candidates[i].Lat < uint(nearThreshold) && len(selected) < maxLowLatNodes; i++ {
 			selected = append(selected, candidates[i])
-			result[clusterID] = append(result[clusterID], candidates[i].node)
+			result[clusterID] = append(result[clusterID], candidates[i])
 		}
 		for ; i < len(candidates) && len(selected) < maxNodes-1; i++ { // leave room for one far node
 			selected = append(selected, candidates[i])
-			result[clusterID] = append(result[clusterID], candidates[i].node)
+			result[clusterID] = append(result[clusterID], candidates[i])
 		}
-		farthestLat := selected[len(selected)-1].node.Lat
+		farthestLat := selected[len(selected)-1].Lat
 		if farthestLat < uint(farThreshold) && len(selected) < maxNodes {
 			for ; i < len(candidates); i++ {
-				if candidates[i].node.Lat != DefaultLatency && candidates[i].node.Lat >= farthestLat+diversityThreshold {
+				if candidates[i].Lat != DefaultLatency && candidates[i].Lat >= farthestLat+diversityThreshold {
 					selected = append(selected, candidates[i])
-					result[clusterID] = append(result[clusterID], candidates[i].node)
+					result[clusterID] = append(result[clusterID], candidates[i])
 					break
 				}
 			}
@@ -186,15 +182,15 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		recipients = append(recipients, selectNodes(clusters.base[ownClusterID], ownClusterID, len(clusters.base[ownClusterID].Members), []common.Address{r.self, from})...)
 
 	case localRelayerRemoteCluster:
-		// this is probably node needed but to complete dissemination we keep it
+		// this is probably not needed but to complete dissemination we keep it
 		maxLocalNodes := int(math.Min(2, math.Sqrt(float64(len(clusters.base[ownClusterID].Members)))))
 		recipients = append(recipients, selectNodes(clusters.base[ownClusterID], ownClusterID, maxLocalNodes, []common.Address{r.self, from})...)
 	}
 
-	sort.Slice(recipients, func(i, j int) bool { return recipients[i].node.Lat < recipients[j].node.Lat })
-	selected := make([]types.CommitteeMember, len(recipients))
+	sort.Slice(recipients, func(i, j int) bool { return recipients[i].Lat < recipients[j].Lat })
+	selected := make([]common.Address, len(recipients))
 	for i, r := range recipients {
-		selected[i] = r.member
+		selected[i] = r.Addr
 	}
 
 	r.cache.Set(cacheKey, selected)
@@ -202,11 +198,11 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	return selected, nil
 }
 
-func (r *Selector) buildResultFromCache(recipients []types.CommitteeMember, clusters Clusters) [][]NodeLatency {
+func (r *Selector) buildResultFromCache(recipients []common.Address, clusters Clusters) [][]NodeLatency {
 	result := make([][]NodeLatency, len(clusters.base))
 	for _, recipient := range recipients {
-		id := clusters.clusterContaining(recipient.Address)
-		member, err := clusters.addressToMember(id, recipient.Address)
+		id := clusters.clusterContaining(recipient)
+		member, err := clusters.addressToMember(id, recipient)
 		if err != nil {
 			result[id] = append(result[id], member)
 		}
