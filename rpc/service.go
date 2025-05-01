@@ -18,7 +18,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -58,18 +57,6 @@ type callback struct {
 	isSubscribe bool           // true if this is a subscription callback
 }
 
-// Methods exposes a map of method name to reflect.Value each having 'Kind() ==
-// func'. The values represent methods each taking the Methods instance as the
-// method receiver. Types implementing Methods can be registered as services on
-// an rpc.Server and instead of using the methods defined on the type for the
-// rpc calls, the methods returned from AllMethods will be used instead. This
-// allows for dynamic construction and registration of functions from contract
-// ABIs.
-type Methods interface {
-	// AllMethods returns a map of function values of 'Kind() == func'
-	AllMethods() map[string]reflect.Value
-}
-
 func (r *serviceRegistry) registerName(name string, rcvr interface{}) error {
 	rcvrVal := reflect.ValueOf(rcvr)
 	if name == "" {
@@ -106,13 +93,13 @@ func (r *serviceRegistry) registerName(name string, rcvr interface{}) error {
 
 // callback returns the callback corresponding to the given RPC method name.
 func (r *serviceRegistry) callback(method string) *callback {
-	elem := strings.SplitN(method, serviceMethodSeparator, 2)
-	if len(elem) != 2 {
+	before, after, found := strings.Cut(method, serviceMethodSeparator)
+	if !found {
 		return nil
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.services[elem[0]].callbacks[elem[1]]
+	return r.services[before].callbacks[after]
 }
 
 // subscription returns a subscription callback in the given service.
@@ -122,42 +109,23 @@ func (r *serviceRegistry) subscription(service, name string) *callback {
 	return r.services[service].subscriptions[name]
 }
 
-// suitableCallbacks extracts methods from the given receiver and returns them
-// as callbacks. It either iterates over the methods of the given type or if
-// the type implements Methods it uses the methods returned by
-// Methods.AllMethods. If a type implements Methods it is expected that all the
-// methods returned from Methods.AllMethods will be suitable as a callback.
-// Otherwise only the methods of the receiver that satisfy the criteria for an
-// RPC callback or a subscription callback are added to the collection of
-// callbacks. See server documentation for a summary of these criteria.
+// suitableCallbacks iterates over the methods of the given type. It determines if a method
+// satisfies the criteria for an RPC callback or a subscription callback and adds it to the
+// collection of callbacks. See server documentation for a summary of these criteria.
 func suitableCallbacks(receiver reflect.Value) map[string]*callback {
 	typ := receiver.Type()
 	callbacks := make(map[string]*callback)
-
-	// Check to see if the receiver implements Methods and if so use the returned
-	// methods istead of introspecting all the other methods on the receiver.
-	if methods, ok := receiver.Interface().(Methods); ok {
-		for name, fn := range methods.AllMethods() {
-			cb := newCallback(receiver, fn)
-			if cb == nil {
-				panic("failed to register callback")
-			}
-			fname := formatName(name)
-			callbacks[fname] = cb
+	for m := 0; m < typ.NumMethod(); m++ {
+		method := typ.Method(m)
+		if method.PkgPath != "" {
+			continue // method not exported
 		}
-	} else {
-		for m := 0; m < typ.NumMethod(); m++ {
-			method := typ.Method(m)
-			if method.PkgPath != "" {
-				continue // method not exported
-			}
-			cb := newCallback(receiver, method.Func)
-			if cb == nil {
-				continue // function invalid
-			}
-			name := formatName(method.Name)
-			callbacks[name] = cb
+		cb := newCallback(receiver, method.Func)
+		if cb == nil {
+			continue // function invalid
 		}
+		name := formatName(method.Name)
+		callbacks[name] = cb
 	}
 	return callbacks
 }
@@ -230,7 +198,7 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
 			log.Error("RPC method " + method + " crashed: " + fmt.Sprintf("%v\n%s", err, buf))
-			errRes = errors.New("method handler crashed")
+			errRes = &internalServerError{errcodePanic, "method handler crashed"}
 		}
 	}()
 	// Run the callback.
@@ -246,19 +214,8 @@ func (c *callback) call(ctx context.Context, method string, args []reflect.Value
 	return results[0].Interface(), nil
 }
 
-// Is t context.Context or *context.Context?
-func isContextType(t reflect.Type) bool {
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	return t == contextType
-}
-
 // Does t satisfy the error interface?
 func isErrorType(t reflect.Type) bool {
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
 	return t.Implements(errorType)
 }
 
@@ -270,14 +227,14 @@ func isSubscriptionType(t reflect.Type) bool {
 	return t == subscriptionType
 }
 
-// isPubSub tests whether the given method has as as first argument a context.Context and
+// isPubSub tests whether the given method's first argument is a context.Context and
 // returns the pair (Subscription, error).
 func isPubSub(methodType reflect.Type) bool {
 	// numIn(0) is the receiver type
 	if methodType.NumIn() < 2 || methodType.NumOut() != 2 {
 		return false
 	}
-	return isContextType(methodType.In(1)) &&
+	return methodType.In(1) == contextType &&
 		isSubscriptionType(methodType.Out(0)) &&
 		isErrorType(methodType.Out(1))
 }

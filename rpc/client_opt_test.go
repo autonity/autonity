@@ -1,4 +1,4 @@
-// Copyright 2020 The go-ethereum Authors
+// Copyright 2022 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -14,35 +14,28 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package console
+package rpc_test
 
 import (
-	"testing"
+	"context"
+	"net/http"
+	"time"
 
-	"github.com/autonity/autonity/internal/jsre"
-	"github.com/dop251/goja"
+	"github.com/autonity/autonity/rpc"
 )
 
-// TestUndefinedAsParam ensures that personal functions can receive
-// `undefined` as a parameter.
-func TestUndefinedAsParam(t *testing.T) {
-	b := bridge{}
-	call := jsre.Call{}
-	call.Arguments = []goja.Value{goja.Undefined()}
+// This example configures a HTTP-based RPC client with two options - one setting the
+// overall request timeout, the other adding a custom HTTP header to all requests.
+func ExampleDialOptions() {
+	tokenHeader := rpc.WithHeader("x-token", "foo")
+	httpClient := rpc.WithHTTPClient(&http.Client{
+		Timeout: 10 * time.Second,
+	})
 
-	b.UnlockAccount(call)
-	b.Sign(call)
-	b.Sleep(call)
-}
-
-// TestNullAsParam ensures that personal functions can receive
-// `null` as a parameter.
-func TestNullAsParam(t *testing.T) {
-	b := bridge{}
-	call := jsre.Call{}
-	call.Arguments = []goja.Value{goja.Null()}
-
-	b.UnlockAccount(call)
-	b.Sign(call)
-	b.Sleep(call)
+	ctx := context.Background()
+	c, err := rpc.DialOptions(ctx, "http://rpc.example.com", httpClient, tokenHeader)
+	if err != nil {
+		panic(err)
+	}
+	c.Close()
 }

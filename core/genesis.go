@@ -26,9 +26,9 @@ import (
 	"net"
 	"time"
 
+	"github.com/autonity/autonity/crypto"
 	"github.com/holiman/uint256"
 
-	"github.com/autonity/autonity/accounts/keystore"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
@@ -730,8 +730,13 @@ func DefaultBakerlooGenesisBlock() *Genesis {
 }
 
 // DeveloperGenesisBlock returns the 'autonity --dev' genesis block.
-func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
-	validatorEnode := enode.NewV4(&faucet.PrivateKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
+func DeveloperGenesisBlock(gasLimit uint64, faucet *common.Address) *Genesis {
+	sk, _ := crypto.HexToECDSA(params.TestNodeKeys[0])
+	if faucet == nil {
+		addr := crypto.PubkeyToAddress(sk.PublicKey)
+		faucet = &addr
+	}
+	validatorEnode := enode.NewV4(&sk.PublicKey, net.ParseIP("0.0.0.0"), 0, 0)
 	testAutonityContractConfig := params.AutonityContractGenesis{
 		MaxCommitteeSize:        1,
 		BlockPeriod:             1,
@@ -743,14 +748,14 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		OracleRewardRate:        1000,             // 10%
 		TreasuryFee:             1500000000000000, // 0.15%,
 		MinBaseFee:              10000000000,
-		Operator:                faucet.Address,
-		Treasury:                faucet.Address,
-		WithheldRewardsPool:     faucet.Address,
+		Operator:                *faucet,
+		Treasury:                *faucet,
+		WithheldRewardsPool:     *faucet,
 		InitialInflationReserve: params.TestAutonityContractConfig.InitialInflationReserve,
 		Validators: []*params.Validator{
 			{
-				Treasury:      faucet.Address,
-				OracleAddress: faucet.Address,
+				Treasury:      *faucet,
+				OracleAddress: *faucet,
 				Enode:         validatorEnode.String(),
 				BondedStake:   new(big.Int).SetUint64(1000),
 				ConsensusKey:  params.TestValidatorConsensusKey.PublicKey().Marshal(),
@@ -771,6 +776,10 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		BerlinBlock:                  big.NewInt(0),
 		LondonBlock:                  big.NewInt(0),
 		ArrowGlacierBlock:            big.NewInt(0),
+		CancunBlock:                  big.NewInt(0),
+		PragueBlock:                  big.NewInt(0),
+		VerkleBlock:                  big.NewInt(0),
+		EnableVerkleAtGenesis:        true,
 		AutonityContractConfig:       &testAutonityContractConfig,
 		AccountabilityConfig:         params.DefaultAccountabilityConfig,
 		OracleContractConfig:         params.DefaultGenesisOracleConfig,
@@ -788,7 +797,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		BaseFee:    big.NewInt(15000000000),
 		Difficulty: big.NewInt(0),
 		Alloc: map[common.Address]types.Account{
-			faucet.Address: {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))},
+			*faucet: {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(9))},
 		},
 		Config: testChainConfig,
 	}

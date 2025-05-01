@@ -27,10 +27,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/autonity/autonity/log"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/gorilla/websocket"
-
-	"github.com/autonity/autonity/log"
 )
 
 const (

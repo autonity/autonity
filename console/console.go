@@ -19,9 +19,7 @@ package console
 import (
 	"errors"
 	"fmt"
-
 	"io"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -35,6 +33,7 @@ import (
 	"github.com/autonity/autonity/internal/jsre"
 	"github.com/autonity/autonity/internal/jsre/deps"
 	"github.com/autonity/autonity/internal/web3ext"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rpc"
 	"github.com/dop251/goja"
 	"github.com/mattn/go-colorable"
@@ -143,7 +142,6 @@ func (c *Console) init(preload []string) error {
 	// Add bridge overrides for web3.js functionality.
 	c.jsre.Do(func(vm *goja.Runtime) {
 		c.initAdmin(vm, bridge)
-		c.initPersonal(vm, bridge)
 	})
 
 	// Preload JavaScript files.
@@ -159,7 +157,7 @@ func (c *Console) init(preload []string) error {
 
 	// Configure the input prompter for history and tab completion.
 	if c.prompter != nil {
-		if content, err := ioutil.ReadFile(c.histPath); err != nil {
+		if content, err := os.ReadFile(c.histPath); err != nil {
 			c.prompter.SetHistory(nil)
 		} else {
 			c.history = strings.Split(string(content), "\n")
@@ -167,22 +165,7 @@ func (c *Console) init(preload []string) error {
 		}
 		c.prompter.SetWordCompleter(c.AutoCompleteInput)
 	}
-	// Bind autontiy contract with JS object.
-	c.contractBinding()
 	return nil
-}
-
-// contractBinding binds JS object with the client's autonity contract in the console context.
-func (c *Console) contractBinding() {
-	if _, err := c.jsre.Run(`
-		if (typeof(tendermint) != 'undefined') {
-			var autonity_contract_abi = tendermint.getContractABI();
-			var autonity_contract_addr = tendermint.getContractAddress();
-			var autonity = eth.contract(autonity_contract_abi).at(autonity_contract_addr);
-		}
-	`); err != nil {
-		fmt.Fprintln(c.printer, "contract binding failed: ", err)
-	}
 }
 
 func (c *Console) initConsoleObject() {
@@ -195,12 +178,10 @@ func (c *Console) initConsoleObject() {
 }
 
 func (c *Console) initWeb3(bridge *bridge) error {
-	bnJS := string(deps.MustAsset("bignumber.js"))
-	web3JS := string(deps.MustAsset("web3.js"))
-	if err := c.jsre.Compile("bignumber.js", bnJS); err != nil {
+	if err := c.jsre.Compile("bignumber.js", deps.BigNumberJS); err != nil {
 		return fmt.Errorf("bignumber.js: %v", err)
 	}
-	if err := c.jsre.Compile("web3.js", web3JS); err != nil {
+	if err := c.jsre.Compile("web3.js", deps.Web3JS); err != nil {
 		return fmt.Errorf("web3.js: %v", err)
 	}
 	if _, err := c.jsre.Run("var Web3 = require('web3');"); err != nil {
@@ -217,14 +198,23 @@ func (c *Console) initWeb3(bridge *bridge) error {
 	return err
 }
 
+var defaultAPIs = map[string]string{"eth": "1.0", "net": "1.0", "debug": "1.0"}
+
 // initExtensions loads and registers web3.js extensions.
 func (c *Console) initExtensions() error {
-	// Compute aliases from server-provided modules.
+	const methodNotFound = -32601
 	apis, err := c.client.SupportedModules()
 	if err != nil {
-		return fmt.Errorf("api modules: %v", err)
+		if rpcErr, ok := err.(rpc.Error); ok && rpcErr.ErrorCode() == methodNotFound {
+			log.Warn("Server does not support method rpc_modules, using default API list.")
+			apis = defaultAPIs
+		} else {
+			return err
+		}
 	}
-	aliases := map[string]struct{}{"eth": {}, "personal": {}}
+
+	// Compute aliases from server-provided modules.
+	aliases := map[string]struct{}{"eth": {}}
 	for api := range apis {
 		if api == "web3" {
 			continue
@@ -258,29 +248,6 @@ func (c *Console) initAdmin(vm *goja.Runtime, bridge *bridge) {
 	}
 }
 
-// initPersonal redirects account-related API methods through the bridge.
-//
-// If the console is in interactive mode and the 'personal' API is available, override
-// the openWallet, unlockAccount, newAccount and sign methods since these require user
-// interaction. The original web3 callbacks are stored in 'jeth'. These will be called
-// by the bridge after the prompt and send the original web3 request to the backend.
-func (c *Console) initPersonal(vm *goja.Runtime, bridge *bridge) {
-	personal := getObject(vm, "personal")
-	if personal == nil || c.prompter == nil {
-		return
-	}
-	jeth := vm.NewObject()
-	vm.Set("jeth", jeth)
-	jeth.Set("openWallet", personal.Get("openWallet"))
-	jeth.Set("unlockAccount", personal.Get("unlockAccount"))
-	jeth.Set("newAccount", personal.Get("newAccount"))
-	jeth.Set("sign", personal.Get("sign"))
-	personal.Set("openWallet", jsre.MakeCallback(vm, bridge.OpenWallet))
-	personal.Set("unlockAccount", jsre.MakeCallback(vm, bridge.UnlockAccount))
-	personal.Set("newAccount", jsre.MakeCallback(vm, bridge.NewAccount))
-	personal.Set("sign", jsre.MakeCallback(vm, bridge.Sign))
-}
-
 func (c *Console) clearHistory() {
 	c.history = nil
 	c.prompter.ClearHistory()
@@ -309,17 +276,13 @@ func (c *Console) AutoCompleteInput(line string, pos int) (string, []string, str
 	if len(line) == 0 || pos == 0 {
 		return "", nil, ""
 	}
-	// Chunck data to relevant part for autocompletion
+	// Chunk data to relevant part for autocompletion
 	// E.g. in case of nested lines eth.getBalance(eth.coinb<tab><tab>
 	start := pos - 1
 	for ; start > 0; start-- {
 		// Skip all methods and namespaces (i.e. including the dot)
-		if line[start] == '.' || (line[start] >= 'a' && line[start] <= 'z') || (line[start] >= 'A' && line[start] <= 'Z') {
-			continue
-		}
-		// Handle web3 in a special way (i.e. other numbers aren't auto completed)
-		if start >= 3 && line[start-3:start] == "web3" {
-			start -= 3
+		c := line[start]
+		if c == '.' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '1' && c <= '9') {
 			continue
 		}
 		// We've hit an unexpected character, autocomplete form here
@@ -329,18 +292,14 @@ func (c *Console) AutoCompleteInput(line string, pos int) (string, []string, str
 	return line[:start], c.jsre.CompleteKeywords(line[start:pos]), line[pos:]
 }
 
-// Welcome show summary of current Autonity instance and some metadata about the
+// Welcome show summary of current Geth instance and some metadata about the
 // console's available modules.
 func (c *Console) Welcome() {
-	message := "The embedded Autonity Console is no longer supported, use it at your own risk.\n" +
-		"Consider the Autonity Node.js Console as replacement.\n\n"
+	message := "Welcome to the Geth JavaScript console!\n\n"
 
 	// Print some generic Geth metadata
 	if res, err := c.jsre.Run(`
 		var message = "instance: " + web3.version.node + "\n";
-		try {
-			message += "coinbase: " + eth.coinbase + "\n";
-		} catch (err) {}
 		message += "at block: " + eth.blockNumber + " (" + new Date(1000 * eth.getBlock(eth.blockNumber).timestamp) + ")\n";
 		try {
 			message += " datadir: " + admin.datadir + "\n";
@@ -427,7 +386,7 @@ func (c *Console) StopInteractive() {
 	}
 }
 
-// Interactive starts an interactive user session, where in.put is propted from
+// Interactive starts an interactive user session, where input is prompted from
 // the configured user prompter.
 func (c *Console) Interactive() {
 	var (
@@ -517,7 +476,7 @@ func (c *Console) readLines(input chan<- string, errc chan<- error, prompt <-cha
 	}
 }
 
-// countIndents returns the number of identations for the given input.
+// countIndents returns the number of indentations for the given input.
 // In case of invalid input such as var a = } the result can be negative.
 func countIndents(input string) int {
 	var (
@@ -560,11 +519,6 @@ func countIndents(input string) int {
 	return indents
 }
 
-// Execute runs the JavaScript file specified as the argument.
-func (c *Console) Execute(path string) error {
-	return c.jsre.Exec(path)
-}
-
 // Stop cleans up the console and terminates the runtime environment.
 func (c *Console) Stop(graceful bool) error {
 	c.stopOnce.Do(func() {
@@ -578,7 +532,7 @@ func (c *Console) Stop(graceful bool) error {
 }
 
 func (c *Console) writeHistory() error {
-	if err := ioutil.WriteFile(c.histPath, []byte(strings.Join(c.history, "\n")), 0600); err != nil {
+	if err := os.WriteFile(c.histPath, []byte(strings.Join(c.history, "\n")), 0600); err != nil {
 		return err
 	}
 	return os.Chmod(c.histPath, 0600) // Force 0600, even if it was different previously
