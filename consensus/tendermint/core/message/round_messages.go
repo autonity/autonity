@@ -37,8 +37,8 @@ func (s *Map) GetOrCreate(round int64) *RoundMessages {
 }
 
 func (s *Map) Snapshot() []*RoundMsgView {
-	s.RLock()
-	defer s.RUnlock()
+	s.RLock()         // nolint
+	defer s.RUnlock() // nolint
 	var views []*RoundMsgView
 	for r, v := range s.internal {
 		views = append(views, v.Snapshot(r))
@@ -225,8 +225,8 @@ func (s *RoundMessages) AllMessages() []Msg {
 }
 
 func (s *RoundMessages) Snapshot(round int64) *RoundMsgView {
-	s.RLock()
-	defer s.RUnlock()
+	s.RLock()         // nolint
+	defer s.RUnlock() // nolint
 	view := &RoundMsgView{}
 	view.Round = uint64(round)
 

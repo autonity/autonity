@@ -112,8 +112,8 @@ func (s *Set) VotesFor(blockHash common.Hash) []Vote {
 }
 
 func (s *Set) Snapshot() ([]common.Hash, []*big.Int) {
-	s.RLock()
-	defer s.RUnlock()
+	s.RLock()         //nolint
+	defer s.RUnlock() //nolint
 
 	var values []common.Hash
 	var signers []*big.Int

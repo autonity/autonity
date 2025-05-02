@@ -204,8 +204,8 @@ func (ms *MsgStore) GetProposals(height uint64, query func(*message.Propose) boo
 }
 
 func (ms *MsgStore) GetVotes(height uint64, step uint8, query func(vote message.Vote) bool) []message.Vote {
-	ms.RLock()
-	defer ms.RUnlock()
+	ms.RLock()         // nolint
+	defer ms.RUnlock() // nolint
 	var result []message.Vote
 	_, ok := ms.prevotes[height]
 	if !ok {
