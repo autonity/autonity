@@ -388,24 +388,6 @@ func (sb *Backend) CommitteeEnodes() []string {
 	return enodes.StrList
 }
 
-// SyncPeer Synchronize new connected peer with current height messages
-func (sb *Backend) SyncPeer(address common.Address, msgs []message.Msg) {
-	if sb.Broadcaster == nil {
-		return
-	}
-	sb.logger.Debug("Syncing", "peer", address)
-	peer, ok := sb.Broadcaster.FindPeer(address)
-	if !ok {
-		return
-	}
-
-	sb.logger.Debug("sent current height messages", "peer", address, "n", len(msgs))
-	for _, msg := range msgs {
-		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go peer.SendRaw(message.NetworkCodes[msg.Code()], msg.Payload()) //nolint
-	}
-}
-
 // called by tendermint core to dump core state
 func (sb *Backend) FutureMsgs() []message.Msg {
 	sb.future.RLock()

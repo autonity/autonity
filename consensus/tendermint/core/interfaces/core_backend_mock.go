@@ -403,18 +403,6 @@ func (mr *MockBackendMockRecorder) Subscribe(types ...any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockBackend)(nil).Subscribe), types...)
 }
 
-// SyncPeer mocks base method.
-func (m *MockBackend) SyncPeer(address common.Address, msgs []message.Msg) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SyncPeer", address, msgs)
-}
-
-// SyncPeer indicates an expected call of SyncPeer.
-func (mr *MockBackendMockRecorder) SyncPeer(address, msgs any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncPeer", reflect.TypeOf((*MockBackend)(nil).SyncPeer), address, msgs)
-}
-
 // VerifyProposal mocks base method.
 func (m *MockBackend) VerifyProposal(arg0 *types.Block) (time.Duration, error) {
 	m.ctrl.T.Helper()
