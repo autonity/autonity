@@ -217,6 +217,8 @@ func (m *Router) measureLatency() error {
 
 	m.refreshClustersLatencies(m.latestLatencies)
 	log.Debug("Router: latency measurement completed", "failed_nodes", len(failedNodes))
+
+	log.Info("Router: checking latency report status")
 	member := m.epoch.Committee.MemberByAddress(m.self)
 	if member == nil {
 		log.Error("Router: self not in committee")
@@ -226,10 +228,15 @@ func (m *Router) measureLatency() error {
 		log.Error("Router: failed to check if client reported", "err", err)
 		return err
 	} else if !reported {
+		log.Info("Router: client not reported yet, reporting now")
 		if err = m.reporter.ReportLatency(toUint8(m.latestLatencies)); err != nil {
 			log.Error("Router: failed to report latency", "err", err)
 			return err
+		} else {
+			log.Info("Router: reported latency successfully")
 		}
+	} else {
+		log.Info("Router: client already reported")
 	}
 	return nil
 }

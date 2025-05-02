@@ -271,7 +271,7 @@ func (r *Selector) clusterStatus(peerCluster [][]NodeLatency, msg message.Msg, f
 	for clusterID, cluster := range peerCluster {
 		var lostPeers []string
 		connectedCount := 0
-		latencyList := []string{}
+		var latencyList []string
 
 		for _, peer := range cluster {
 			_, ok := r.broadcaster.FindPeer(peer.Addr)
@@ -287,8 +287,9 @@ func (r *Selector) clusterStatus(peerCluster [][]NodeLatency, msg message.Msg, f
 		}
 
 		if len(lostPeers) == 0 {
-			fullyConnectedClusters = append(fullyConnectedClusters,
-				fmt.Sprintf("C%d:%d L:%s\n", clusterID, len(cluster), latencyList))
+			if len(cluster) > 0 {
+				fullyConnectedClusters = append(fullyConnectedClusters, fmt.Sprintf("C%d:%d L:%s\n", clusterID, len(cluster), latencyList))
+			}
 		} else {
 			sb.WriteString(fmt.Sprintf("Cluster #%d: selected:%d connected:%d\nL:%s\n", clusterID, len(cluster), connectedCount, latencyList))
 			sb.WriteString("  X disconnected:")
