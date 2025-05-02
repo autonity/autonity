@@ -1,15 +1,18 @@
 package tests
 
 import (
+	"math/big"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/internal/testrand"
-	"github.com/autonity/autonity/params"
 )
 
 func TestLatency(t *testing.T) {
@@ -24,6 +27,9 @@ func TestLatency(t *testing.T) {
 			expectedCommittee[i] = v.NodeAddress
 		}
 		committee, _, err := r.Latency.GetCommittee(nil)
+		require.NoError(t, err)
+		require.Equal(t, expectedCommittee, committee)
+
 		require.NoError(t, err)
 		require.Equal(t, expectedCommittee, committee)
 	})
@@ -49,26 +55,30 @@ func TestLatency(t *testing.T) {
 	})
 
 	RunWithSetup("Test only committee member can call report latency", setup, func(r *Runner) {
-		committee := genCommittee(50)
+		committee := genCommittee(2)
 		_, err := r.Latency.SetCommittee(FromAutonity, committee)
 		require.NoError(t, err)
-
+		latency := make([]uint8, len(committee))
 		users := []common.Address{r.Operator.origin, params.AutonityContractAddress, testrand.Address()}
 		for _, user := range users {
-			_, err := r.Latency.Report(FromSender(user, common.Big0), nil)
+			_, err := r.Latency.Report(FromSender(user, common.Big0), common.Big0, latency)
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "not committee")
+			require.Contains(t, err.Error(), "not a valid reporter")
 		}
 
-		latency := generateLatency(len(committee))
+		latencyAddress := params.LatencyContractAddress
+		log.Info("LatencyContract", "address", latencyAddress)
+
+		latency = generateLatency(len(committee))
 		_, err = r.Latency.Report(
 			FromSender(committee[0], common.Big0),
+			common.Big0,
 			latency,
 		)
 		require.NoError(t, err)
 
 		// get the reported latency
-		reportedLatency, _, err := r.Latency.ReadReport(nil, committee[0])
+		_, reportedLatency, _, err := r.Latency.ReadReport(nil, common.Big0)
 		require.NoError(t, err)
 		require.Equal(t, latency, reportedLatency)
 	})
@@ -80,6 +90,7 @@ func TestLatency(t *testing.T) {
 
 		_, err = r.Latency.Report(
 			FromSender(committee[0], common.Big0),
+			common.Big0,
 			generateLatency(len(committee)+1),
 		)
 		require.Error(t, err)
@@ -87,7 +98,69 @@ func TestLatency(t *testing.T) {
 	})
 
 	RunWithSetup("Test all committee can report and read", setup, func(r *Runner) {
-		committee := genCommittee(50)
+		committee1 := genCommittee(500)
+		consumed, err := r.Latency.SetCommittee(FromAutonity, committee1)
+		t.Log("set committee at start", "consumed", consumed)
+		require.NoError(t, err)
+
+		latencyMat := make([][]uint8, len(committee1))
+		for i := 0; i < len(committee1); i++ {
+			latencyMat[i] = generateLatency(len(committee1))
+		}
+		for i, member := range committee1 {
+			consumed, err := r.Latency.Report(
+				FromSender(member, common.Big0),
+				new(big.Int).SetInt64(int64(i)),
+				latencyMat[i],
+			)
+			require.NoError(t, err)
+			t.Log("reporting with latencies", "samples", len(committee1), "consumed", consumed, "reporter id", i)
+		}
+
+		committee2 := genCommittee(600)
+		// check the gas consumption of committee rotation
+		consumed, err = r.Latency.SetCommittee(FromAutonity, committee2)
+		t.Log("set committee at epoch rotation", "consumed", consumed)
+		require.NoError(t, err)
+
+		_, readMat, consumed, err := r.Latency.Read(nil)
+		require.NoError(t, err)
+		t.Log("read consumed", consumed)
+		require.Equal(t, latencyMat, readMat)
+
+		lastCommittee, lastMat, consumed, err := r.Latency.ReadLast(nil)
+		require.NoError(t, err)
+		t.Log("last read", consumed)
+		require.Equal(t, latencyMat, lastMat)
+		require.Equal(t, committee1, lastCommittee)
+
+		latencyMat2 := make([][]uint8, len(committee2))
+		for i := 0; i < len(committee2); i++ {
+			latencyMat2[i] = generateLatency(len(committee2))
+		}
+		for i, member := range committee2 {
+			consumed, err := r.Latency.Report(
+				FromSender(member, common.Big0),
+				new(big.Int).SetInt64(int64(i)),
+				latencyMat2[i],
+			)
+			require.NoError(t, err)
+			t.Log("reporting with latencies", "samples", len(committee2), "consumed", consumed, "reporter id", i)
+		}
+
+		consumed, err = r.Latency.SetCommittee(FromAutonity, committee1)
+		t.Log("set committee at start", "consumed", consumed)
+		require.NoError(t, err)
+		lastCommittee, lastMat, consumed, err = r.Latency.ReadLast(nil)
+		t.Log("read last", "consumed", consumed)
+		require.NoError(t, err)
+		require.Equal(t, committee2, lastCommittee)
+		require.Equal(t, latencyMat2, lastMat)
+
+	})
+
+	RunWithSetup("Test reinit matrix on epoch rotation", setup, func(r *Runner) {
+		committee := genCommittee(100)
 		_, err := r.Latency.SetCommittee(FromAutonity, committee)
 		require.NoError(t, err)
 
@@ -96,16 +169,43 @@ func TestLatency(t *testing.T) {
 			latencyMat[i] = generateLatency(len(committee))
 		}
 		for i, member := range committee {
-			_, err = r.Latency.Report(
+			consumed, err := r.Latency.Report(
 				FromSender(member, common.Big0),
+				new(big.Int).SetInt64(int64(i)),
 				latencyMat[i],
 			)
 			require.NoError(t, err)
+			t.Log("reporting with latencies", "samples", len(committee), "consumed", consumed, "reporter id", i)
 		}
 
-		readMat, _, err := r.Latency.Read(nil)
+		_, readMat, consumed, err := r.Latency.Read(nil)
 		require.NoError(t, err)
+		t.Log("read consumed", consumed)
 		require.Equal(t, latencyMat, readMat)
+
+		// next epoch, we have different committee.
+		committee2 := genCommittee(20)
+		_, err = r.Latency.SetCommittee(FromAutonity, committee2)
+		require.NoError(t, err)
+
+		latencyMat2 := make([][]uint8, len(committee2))
+		for i := 0; i < len(committee2); i++ {
+			latencyMat2[i] = generateLatency(len(committee2))
+		}
+		for i, member := range committee2 {
+			consumed, err = r.Latency.Report(
+				FromSender(member, common.Big0),
+				new(big.Int).SetInt64(int64(i)),
+				latencyMat2[i],
+			)
+			require.NoError(t, err)
+			t.Log("reporting with latencies", "samples", len(committee2), "consumed", consumed, "reporter id", i)
+		}
+
+		_, readMat2, consumed, err := r.Latency.Read(nil)
+		require.NoError(t, err)
+		t.Log("read consumed", consumed)
+		require.Equal(t, latencyMat2, readMat2)
 	})
 }
 

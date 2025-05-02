@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"math/big"
 	"math/rand"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -29,24 +31,37 @@ const (
 )
 
 type Router struct {
-	self            common.Address
-	nodeKey         *ecdsa.PrivateKey
-	clusterMu       sync.RWMutex
-	clusters        Clusters
-	broadcaster     consensus.Broadcaster
-	epochEventChan  chan core.EpochHeadEvent
-	epochEventSub   event.Subscription
-	committee       []common.Address
-	inCommittee     bool
-	fetcher         *LatencyFetcher
-	peerSelector    PeerSelector
-	cache           *PeerSelectionCache
-	cancel          context.CancelFunc
-	wg              sync.WaitGroup
+	self        common.Address
+	nodeKey     *ecdsa.PrivateKey
+	clusterMu   sync.RWMutex
+	clusters    Clusters
+	broadcaster consensus.Broadcaster
+
+	committee    []common.Address
+	inCommittee  bool
+	fetcher      *LatencyFetcher
+	peerSelector PeerSelector
+	cache        *PeerSelectionCache
+	cancel       context.CancelFunc
+	wg           sync.WaitGroup
+
 	latestLatencies map[common.Address]uint
 	latencyMu       sync.RWMutex
 	nodesToRetry    map[common.Address]struct{}
 	retryMu         sync.RWMutex
+	latencyMap      map[uint64]map[common.Address]uint
+	latencyMat      [][]uint8
+	epoch           *types.Epoch
+
+	optimizationEventChan chan *autonity.LatencyKMOptimization
+	optimizationEventSub  event.Subscription
+
+	epochEventChan chan core.EpochHeadEvent
+	epochEventSub  event.Subscription
+
+	lastMeasuredEpoch *big.Int
+	contracts         *autonity.ProtocolContracts
+	reporter          *Reporter
 }
 
 func New(
@@ -58,14 +73,15 @@ func New(
 ) *Router {
 	cache := NewPeerSelectionCache()
 	router := &Router{
-		broadcaster:     broadcaster,
-		nodeKey:         nodeKey,
-		epochEventChan:  make(chan core.EpochHeadEvent, 2),
-		fetcher:         NewLatencyFetcher(pinger, broadcaster),
-		cache:           cache,
-		latestLatencies: make(map[common.Address]uint),
-		nodesToRetry:    make(map[common.Address]struct{}),
-		self:            self,
+		broadcaster:           broadcaster,
+		nodeKey:               nodeKey,
+		epochEventChan:        make(chan core.EpochHeadEvent, 2),
+		optimizationEventChan: make(chan *autonity.LatencyKMOptimization, 2),
+		fetcher:               NewLatencyFetcher(pinger, broadcaster),
+		cache:                 cache,
+		latestLatencies:       make(map[common.Address]uint),
+		nodesToRetry:          make(map[common.Address]struct{}),
+		self:                  self,
 	}
 	if selector == nil {
 		router.peerSelector = NewSelector(router)
@@ -124,6 +140,14 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 		log.Error("Error fetching latest epoch", "err", err)
 		return
 	}
+	optimizationEventSub, err := chain.ProtocolContracts().Latency.WatchKMOptimization(nil, m.optimizationEventChan)
+	if err != nil {
+		log.Error("Error starting latency router for clustering view optimization", err)
+		return
+	}
+	m.optimizationEventSub = optimizationEventSub
+	m.epochEventSub = chain.SubscribeEpochHeadEvent(m.epochEventChan)
+	m.contracts = chain.ProtocolContracts()
 
 	m.epochEventSub = chain.SubscribeEpochHeadEvent(m.epochEventChan)
 	result := make([]common.Address, curEpoch.Committee.Len())
@@ -131,7 +155,23 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 		result[i] = member.Address
 	}
 	m.committee = result
-	m.updateClusters(NewClusters(result, m.latestLatencies, m.self))
+	m.epoch = &curEpoch.Epoch
+	m.reporter, err = NewReporter(
+		chain.Config().ChainID,
+		m.nodeKey,
+		m.contracts,
+	)
+	if err != nil {
+		log.Error("Router: failed to create reporter", "err", err)
+		return
+	}
+
+	clusters, err := NewClusters(result, m.latestLatencies, nil, m.self)
+	if err != nil {
+		log.Error("Router: failed to create startup clusters", "err", err)
+		return
+	}
+	m.updateClusters(clusters)
 
 	ctx, m.cancel = context.WithCancel(ctx)
 	m.wg.Add(1)
@@ -141,6 +181,7 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 func (m *Router) Stop() {
 	m.cancel()
 	m.epochEventSub.Unsubscribe()
+	m.optimizationEventSub.Unsubscribe()
 	m.wg.Wait()
 }
 
@@ -150,7 +191,7 @@ func (m *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 }
 
 func (m *Router) refreshClustersLatencies(latMap map[common.Address]uint) {
-	m.updateClusters(NewClusters(m.committee, latMap, m.self))
+	m.updateClusters(UpdateClusterLatencies(m.clusters, latMap, m.self))
 }
 
 func (m *Router) measureLatency() error {
@@ -176,6 +217,20 @@ func (m *Router) measureLatency() error {
 
 	m.refreshClustersLatencies(m.latestLatencies)
 	log.Debug("Router: latency measurement completed", "failed_nodes", len(failedNodes))
+	member := m.epoch.Committee.MemberByAddress(m.self)
+	if member == nil {
+		log.Error("Router: self not in committee")
+		return nil
+	}
+	if reported, err := m.contracts.Latency.ClientReported(nil, new(big.Int).SetUint64(member.Index)); err != nil {
+		log.Error("Router: failed to check if client reported", "err", err)
+		return err
+	} else if !reported {
+		if err = m.reporter.ReportLatency(toUint8(m.latestLatencies)); err != nil {
+			log.Error("Router: failed to report latency", "err", err)
+			return err
+		}
+	}
 	return nil
 }
 
@@ -280,16 +335,55 @@ func (m *Router) loop(ctx context.Context) {
 				log.Info("Router: clustering not needed, skipping measurement")
 				continue
 			}
+			prevCommittee := m.committee
 			m.updateCommittee(epoch)
-			m.updateClusters(NewClusters(m.committee, m.latestLatencies, m.self))
+			clusters, err := NewClusters(
+				m.committee,
+				m.latestLatencies,
+				getForCommittee(latencyReports{m.latencyMat, prevCommittee}, m.committee),
+				m.self,
+			)
+			if err != nil {
+				log.Error("Router: failed to create new clusters", "err", err)
+				if defaultClusters, err := NewClusters(m.committee, m.latestLatencies, nil, m.self); err != nil {
+					// this should never happen
+					panic("Router: failed to create default clusters")
+				} else {
+					log.Info("Router: fallback to default clusters")
+					m.updateClusters(defaultClusters)
+				}
+			} else {
+				m.updateClusters(clusters)
+			}
+
 			if err := m.measureLatency(); err != nil {
 				log.Warn("measureToReport failed", "err", err)
 			}
+
+		case optimizationEv := <-m.optimizationEventChan:
+			log.Info("Router: ready to optimize the clustering", "height", optimizationEv.Height)
+			if optimizationEv.Height.Cmp(m.epoch.NextEpochBlock) >= 0 {
+				log.Info("Router: skip to optimize the clustering", "activation height cross epoch", optimizationEv.Height.Uint64())
+				continue
+			}
+			latMat, committee, err := m.readLatencyMatrix()
+			if err != nil {
+				log.Error("Router: failed to read latency matrix", "err", err)
+				continue
+			}
+			m.latencyMat = latMat
+			clusters, err := NewClusters(committee, m.latestLatencies, latMat, m.self)
+			if err != nil {
+				log.Error("Router: failed to create new clusters", "err", err)
+				continue
+			}
+			m.updateClusters(clusters)
 		}
 	}
 }
 
 func (m *Router) updateCommittee(epoch *types.Epoch) {
+	m.epoch = epoch
 	result := make([]common.Address, epoch.Committee.Len())
 	for i, member := range epoch.Committee.Members {
 		result[i] = member.Address
@@ -304,6 +398,27 @@ func (m *Router) updateCommittee(epoch *types.Epoch) {
 		}
 	}
 	m.retryMu.Unlock()
+}
+
+func (m *Router) readLatencyMatrix() ([][]uint8, []common.Address, error) {
+	committee, err := m.contracts.Latency.GetCommittee(nil)
+	if err != nil {
+		log.Error("Router: optimizeCluster fetch committee", "err", err)
+		return nil, nil, err
+	}
+
+	// as reading the entire matrix could be reverted due to too much gas consumption, we have to read row by row.
+	latencyMat := make([][]uint8, len(committee))
+	index := new(big.Int).SetUint64(0)
+	for i, _ := range committee {
+		_, latency, err := m.contracts.Latency.ReadReport(nil, index.SetInt64(int64(i)))
+		if err != nil {
+			log.Error("Router: optimizeCluster failed to read latency", "err", err)
+			return nil, nil, err
+		}
+		latencyMat[i] = latency
+	}
+	return latencyMat, committee, nil
 }
 
 func (m *Router) updateClusters(c Clusters) {
@@ -341,4 +456,21 @@ func (m *Router) Latencies() map[common.Address]uint {
 	m.latencyMu.RLock()
 	defer m.latencyMu.RUnlock()
 	return m.latestLatencies
+}
+
+func toUint8(latencies map[common.Address]uint) map[common.Address]uint8 {
+	result := make(map[common.Address]uint8, len(latencies))
+	for addr, lat := range latencies {
+		result[addr] = mapDurationToUint8(lat)
+	}
+	return result
+}
+
+func mapDurationToUint8(durationMs uint) uint8 {
+	if durationMs == DefaultLatency {
+		return uint8(DefaultLatency)
+	} else if durationMs > 400 {
+		durationMs = 400
+	}
+	return uint8((float64(durationMs)/400.0)*254.0) + 1
 }

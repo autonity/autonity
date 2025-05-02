@@ -2,6 +2,7 @@ package router
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
@@ -36,10 +37,15 @@ func (r *Reporter) ReportLatency(latency map[common.Address]uint8) error {
 		if val, ok := latency[validator]; ok {
 			latencyVec[i] = val
 		} else {
-			latencyVec[i] = ^uint8(0)
+			latencyVec[i] = DefaultLatency
 		}
 	}
 
-	_, err = r.protocolContracts.Latency.Report(r.txOpts, latencyVec)
+	index := indexOf(committee, r.txOpts.From)
+	if index == -1 {
+		return fmt.Errorf("validator %s not found in committee", r.txOpts.From.Hex())
+	}
+
+	_, err = r.protocolContracts.Latency.Report(r.txOpts, big.NewInt(int64(index)), latencyVec)
 	return err
 }
