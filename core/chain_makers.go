@@ -246,7 +246,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time <= b.cm.bottom.Header().Time {
 		panic("block time out of range")
 	}
-	b.header.Difficulty = b.engine.CalcDifficulty(b.cm, b.header.Time, b.parent.Header())
+	//b.header.Difficulty = b.engine.CalcDifficulty(b.cm, b.header.Time, b.parent.Header())
 }
 
 // GenerateChain creates a chain of n blocks. The first block's
@@ -266,24 +266,6 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		config = params.TestChainConfig
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	var committee *types.Committee
-	if config.AutonityContractConfig != nil {
-		validators := config.AutonityContractConfig.Validators
-		committee = &types.Committee{
-			Members: make([]types.CommitteeMember, len(validators)),
-		}
-		for i, val := range validators {
-			committee.Members[i] = types.CommitteeMember{
-				Address:           *val.NodeAddress,
-				VotingPower:       val.BondedStake,
-				ConsensusKeyBytes: val.ConsensusKey,
-			}
-		}
-		types.SortCommitteeMembers(committee.Members)
-		if err := committee.Enrich(); err != nil {
-			panic(fmt.Sprintf("GenerateChain failed to setup committee error: %v", err))
-		}
-	}
 
 	cm := newChainMaker(parent, config, engine)
 
@@ -346,11 +328,12 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		if err = triedb.Commit(root, false); err != nil {
 			panic(fmt.Sprintf("trie write error: %v", err))
 		}
+		cm.add(block, b.receipts)
 		return block, b.receipts
 	}
 
 	// Forcibly use hash-based state scheme for retaining all nodes in disk.
-	triedb := triedb.NewDatabase(db, triedb.HashDefaults)
+	triedb := triedb.NewDatabase(db, triedb.VerkleDefaults)
 	defer triedb.Close()
 
 	for i := 0; i < n; i++ {
@@ -371,13 +354,12 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 // then generate chain on top.
 func GenerateChainWithGenesis(genesis *Genesis, engine consensus.Engine, n int, gen func(int, *BlockGen)) (ethdb.Database, []*types.Block, []types.Receipts) {
 	db := rawdb.NewMemoryDatabase()
-	triedb := triedb.NewDatabase(db, triedb.HashDefaults)
+	triedb := triedb.NewDatabase(db, triedb.VerkleDefaults)
 	defer triedb.Close()
-	_, err := genesis.Commit(db, triedb)
+	g, err := genesis.Commit(db, triedb)
 	if err != nil {
 		panic(err)
 	}
-	g, _ := genesis.ToBlock(triedb)
 	blocks, receipts := GenerateChain(genesis.Config, g, engine, db, n, gen)
 	return db, blocks, receipts
 }
@@ -527,8 +509,9 @@ func (cm *chainMaker) makeHeader(parent *types.Block, state *state.StateDB, engi
 	header := &types.Header{
 		Root:       state.IntermediateRoot(cm.config.IsEIP158(parent.Number())),
 		ParentHash: parent.Hash(),
+		MixDigest:  types.BFTDigest,
 		Coinbase:   parent.Coinbase(),
-		Difficulty: engine.CalcDifficulty(cm, time, parentHeader),
+		Difficulty: common.Big0,
 		GasLimit:   parent.GasLimit(),
 		Number:     new(big.Int).Add(parent.Number(), common.Big1),
 		Time:       time,

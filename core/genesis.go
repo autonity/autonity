@@ -408,7 +408,9 @@ func (g *Genesis) ToBlock(db *triedb.Database) (*types.Block, error) {
 		panic(err)
 	}
 	for addr, account := range g.Alloc {
-		statedb.AddBalance(addr, uint256.MustFromBig(account.Balance), tracing.BalanceIncreaseGenesisBalance)
+		if account.Balance != nil {
+			statedb.AddBalance(addr, uint256.MustFromBig(account.Balance), tracing.BalanceIncreaseGenesisBalance)
+		}
 		statedb.SetCode(addr, account.Code)
 		statedb.SetNonce(addr, account.Nonce, tracing.NonceChangeGenesis)
 		for key, value := range account.Storage {
@@ -471,6 +473,7 @@ func (g *Genesis) ToBlock(db *triedb.Database) (*types.Block, error) {
 	if err = statedb.Database().TrieDB().Commit(root2, true); err != nil {
 		return nil, err
 	}
+	log.Debug("Committed genesis state", "root", root, "head", head.Hash())
 	return types.NewBlock(head, nil, nil, trie.NewStackTrie(nil)), nil
 }
 

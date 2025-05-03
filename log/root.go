@@ -63,7 +63,7 @@ const (
 )
 
 func init() {
-	root.Store(&logger{slog.New(DiscardHandler())})
+	root.Store(&logger{slog.New(NewTerminalHandler(os.Stderr, false))})
 }
 
 // SetDefault sets the default global logger

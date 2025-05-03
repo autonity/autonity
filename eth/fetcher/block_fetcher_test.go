@@ -391,6 +391,7 @@ func testSequentialAnnouncements(t *testing.T, light bool) {
 		}
 	}
 	for i := len(hashes) - 2; i >= 0; i-- {
+		//	fmt.Fprintf(os.Stderr, "announce %d\n", i)
 		tester.fetcher.Notify("valid", hashes[i], uint64(len(hashes)-i-1), time.Now().Add(-arriveTimeout), headerFetcher, bodyFetcher)
 		verifyImportEvent(t, imported, true)
 	}

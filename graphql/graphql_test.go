@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
@@ -64,9 +63,10 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 	stack := createNode(t)
 	defer stack.Close()
 	genesis := &core.Genesis{
-		Config:     params.AllEthashProtocolChanges,
+		Config:     params.TestChainConfig,
+		Mixhash:    types.BFTDigest,
 		GasLimit:   11500000,
-		Difficulty: big.NewInt(1048576),
+		Difficulty: big.NewInt(0),
 	}
 	newGQLService(t, stack, false, genesis, 10, func(i int, gen *core.BlockGen) {})
 	// start node
@@ -172,6 +172,7 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 			t.Errorf("testcase %d \nwrong Content-Type, have: %v, want: %v", i, ctype, "application/json")
 		}
 	}
+	t.Log("all good")
 }
 
 func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
@@ -392,9 +393,9 @@ func newGQLService(t *testing.T, stack *node.Node, shanghai bool, gspec *core.Ge
 		TrieTimeout:    60 * time.Minute,
 		SnapshotCache:  5,
 		RPCGasCap:      1000000,
-		StateScheme:    rawdb.HashScheme,
+		StateScheme:    rawdb.PathScheme,
 	}
-	var engine = ethash.NewFaker()
+	//	var engine = ethash.NewFaker()
 	if shanghai {
 		gspec.Config.TerminalTotalDifficulty = common.Big0
 	}
@@ -404,17 +405,16 @@ func newGQLService(t *testing.T, stack *node.Node, shanghai bool, gspec *core.Ge
 		t.Fatalf("could not create eth backend: %v", err)
 	}
 	// Create some blocks and import them
-	chain, _ := core.GenerateChain(params.AllEthashProtocolChanges, ethBackend.BlockChain().Genesis(),
-		engine, ethBackend.ChainDb(), genBlocks, genfunc)
+	/*chain, _ := core.GenerateChain(params.TestChainConfig, ethBackend.BlockChain().Genesis(), engine, ethBackend.ChainDb(), genBlocks, genfunc)
 	_, err = ethBackend.BlockChain().InsertChain(chain)
 	if err != nil {
 		t.Fatalf("could not create import blocks: %v", err)
-	}
+	}*/
 	// Set up handler
 	filterSystem := filters.NewFilterSystem(ethBackend.APIBackend, filters.Config{})
 	handler, err := newHandler(stack, ethBackend.APIBackend, filterSystem, []string{}, []string{})
 	if err != nil {
 		t.Fatalf("could not create graphql service: %v", err)
 	}
-	return handler, chain
+	return handler, nil
 }

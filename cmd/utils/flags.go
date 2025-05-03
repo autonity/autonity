@@ -1684,7 +1684,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		log.Info("Using developer account", "address", developer.Address)
 		cfg.Miner.Etherbase = developer.Address
 		_, devAccKey, _ := ks.GetDecryptedKey(developer, passphrase)
-		cfg.Genesis = core.DeveloperGenesisBlock(ctx.Uint64(DeveloperGasLimitFlag.Name), devAccKey)
+		cfg.Genesis = core.DeveloperGenesisBlock(ctx.Uint64(DeveloperGasLimitFlag.Name), &devAccKey.Address)
 		stack.Config().ExecutionP2P.PrivateKey = devAccKey.PrivateKey
 		stack.Config().ConsensusKey = params.TestValidatorConsensusKey
 	}
