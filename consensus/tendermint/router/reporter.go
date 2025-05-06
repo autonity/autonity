@@ -48,7 +48,7 @@ func (r *Reporter) ReportLatency(latency map[common.Address]uint8) error {
 	}
 
 	tx, err := r.protocolContracts.Latency.Report(r.txOpts, big.NewInt(int64(index)), latencyVec)
-	if err != nil {
+	if err == nil {
 		log.Info("Reporter: reported latency at tx", "tx", tx.Hash().Hex())
 	} else {
 		log.Info("Reporter: failed to report latency", "err", err)
