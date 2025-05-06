@@ -47,7 +47,7 @@ func NewSelector(router *Router) *Selector {
 }
 
 func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
-	clusters := r.Clusters()
+	clusters := r.Clusters(msg.H())
 	if len(clusters.base) == 0 {
 		log.Info("Selector: no clusters, falling back to all committee members")
 		return r.committeeAddresses(committee), nil

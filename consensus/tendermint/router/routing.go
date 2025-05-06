@@ -35,7 +35,7 @@ type Router struct {
 	self        common.Address
 	nodeKey     *ecdsa.PrivateKey
 	clusterMu   sync.RWMutex
-	clusters    Clusters
+	clusters    *ClusterMap
 	broadcaster consensus.Broadcaster
 
 	committee    []common.Address
@@ -167,12 +167,8 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 		return
 	}
 
-	clusters, err := NewClusters(result, m.latestLatencies, nil, m.self)
-	if err != nil {
-		log.Error("Router: failed to create startup clusters", "err", err)
-		return
-	}
-	m.updateClusters(clusters)
+	m.clusters = NewClusterMap(result, m.latestLatencies, m.self)
+	m.updateClusters(m.epoch.PreviousEpochBlock.Uint64(), m.clusters.LatestCluster())
 
 	ctx, m.cancel = context.WithCancel(ctx)
 	m.wg.Add(1)
@@ -192,7 +188,10 @@ func (m *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 }
 
 func (m *Router) refreshClustersLatencies(latMap map[common.Address]uint) {
-	m.updateClusters(UpdateClusterLatencies(m.clusters, latMap, m.self))
+	m.updateClusters(
+		m.clusters.LatestHeight(),
+		UpdateClusterLatencies(m.clusters.LatestCluster(), latMap, m.self),
+	)
 }
 
 func (m *Router) measureLatency() error {
@@ -344,6 +343,10 @@ func (m *Router) loop(ctx context.Context) {
 				continue
 			}
 			prevCommittee := m.committee
+
+			// clean up the previous epoch clusters
+			m.clusters.PruneTo(m.epoch.PreviousEpochBlock.Uint64())
+
 			m.updateCommittee(epoch)
 			var clusters Clusters
 			var err error
@@ -366,11 +369,10 @@ func (m *Router) loop(ctx context.Context) {
 					panic("Router: failed to create default clusters")
 				} else {
 					log.Info("Router: fallback to default clusters")
-					m.updateClusters(defaultClusters)
+					clusters = defaultClusters
 				}
-			} else {
-				m.updateClusters(clusters)
 			}
+			m.updateClusters(epoch.PreviousEpochBlock.Uint64(), clusters)
 
 			if err := m.measureLatency(); err != nil {
 				log.Warn("measureToReport failed", "err", err)
@@ -397,7 +399,7 @@ func (m *Router) loop(ctx context.Context) {
 				log.Error("Router: failed to create new clusters", "err", err)
 				continue
 			}
-			m.updateClusters(clusters)
+			m.updateClusters(optimizationEv.Height.Uint64(), clusters)
 		}
 	}
 }
@@ -441,7 +443,7 @@ func (m *Router) readLatencyMatrix() ([][]uint8, []common.Address, error) {
 	return latencyMat, committee, nil
 }
 
-func (m *Router) updateClusters(c Clusters) {
+func (m *Router) updateClusters(height uint64, c Clusters) {
 	m.clusterMu.Lock()
 	defer m.clusterMu.Unlock()
 	var sb strings.Builder
@@ -462,14 +464,14 @@ func (m *Router) updateClusters(c Clusters) {
 	}
 	sb.WriteString("]")
 	log.Info(sb.String())
-	m.clusters = c
+	m.clusters.AddCluster(height, c)
 	m.cache.Invalidate()
 }
 
-func (m *Router) Clusters() Clusters {
+func (m *Router) Clusters(height uint64) Clusters {
 	m.clusterMu.RLock()
 	defer m.clusterMu.RUnlock()
-	return m.clusters
+	return m.clusters.GetCluster(height)
 }
 
 func (m *Router) Latencies() map[common.Address]uint {

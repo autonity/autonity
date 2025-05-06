@@ -222,3 +222,78 @@ func UpdateClusterLatencies(c Clusters, latencyMap map[common.Address]uint, self
 	}
 	return c
 }
+
+type ClusterMap struct {
+	heights  []uint64
+	clusters map[uint64]Clusters
+}
+
+func NewClusterMap(
+	committee []common.Address,
+	latencyMap map[common.Address]uint,
+	self common.Address,
+) *ClusterMap {
+	cm := &ClusterMap{
+		heights:  []uint64{0},
+		clusters: make(map[uint64]Clusters),
+	}
+
+	var err error
+	cm.clusters[0], err = NewClusters(committee, latencyMap, nil, self)
+	if err != nil {
+		// this should never happen for default clusters
+		panic(err)
+	}
+	return cm
+}
+
+func (cm *ClusterMap) AddCluster(height uint64, cluster Clusters) {
+	if height > cm.heights[len(cm.heights)-1] {
+		cm.heights = append(cm.heights, height)
+	} else if height < cm.heights[len(cm.heights)-1] {
+		// find the right position to insert
+		for i, h := range cm.heights {
+			if height < h {
+				cm.heights = append(cm.heights[:i], append([]uint64{height}, cm.heights[i:]...)...)
+				break
+			}
+		}
+	}
+	cm.clusters[height] = cluster
+}
+
+func (cm *ClusterMap) GetCluster(height uint64) Clusters {
+	for _, h := range cm.heights {
+		if height < h {
+			return cm.clusters[h]
+		}
+	}
+	return cm.clusters[0]
+}
+
+func (cm *ClusterMap) LatestHeight() uint64 {
+	return cm.heights[len(cm.heights)-1]
+}
+
+func (cm *ClusterMap) LatestCluster() Clusters {
+	return cm.clusters[cm.heights[len(cm.heights)-1]]
+}
+
+func (cm *ClusterMap) PruneTo(height uint64) {
+	// Find the index of the first height >= the given height
+	var idx int
+	for i, h := range cm.heights {
+		if h >= height {
+			idx = i
+			break
+		}
+	}
+
+	// Remove all heights and clusters with h < height
+	cm.heights = cm.heights[idx:]
+	for h := range cm.clusters {
+		if h < height {
+			delete(cm.clusters, h)
+		}
+	}
+}
