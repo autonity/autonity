@@ -35,7 +35,6 @@ import (
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/miner"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
@@ -91,7 +90,7 @@ func main() {
 	// Iterate over all the nodes and start mining
 	time.Sleep(3 * time.Second)
 	for _, node := range nodes {
-		if err := node.StartMining(1); err != nil {
+		if err := node.Start(); err != nil {
 			panic(err)
 		}
 	}
@@ -127,7 +126,7 @@ func main() {
 		// and 1559 transactions can all be created by random even if the
 		// fork is not happened.
 		tx := makeTransaction(nonces[index], faucets[index], signer, baseFee)
-		if err := backend.TxPool().Add([]*types.Transaction{tx}); err != nil {
+		if err := backend.TxPool().Add([]*types.Transaction{tx}, false); err != nil {
 			continue
 		}
 		nonces[index]++
@@ -191,11 +190,10 @@ func makeTransaction(nonce uint64, privKey *ecdsa.PrivateKey, signer types.Signe
 // makeGenesis creates a custom Ethash genesis block based on some pre-defined
 // faucet accounts.
 func makeGenesis(faucets []*ecdsa.PrivateKey) *core.Genesis {
-	genesis := core.DefaultRopstenGenesisBlock()
+	genesis := core.DefaultGenesisBlock()
 
-	genesis.Config = params.AllEthashProtocolChanges
-	genesis.Config.LondonBlock = londonBlock
-	genesis.Difficulty = params.MinimumDifficulty
+	genesis.Config = params.TestChainConfig
+	genesis.Difficulty = new(big.Int)
 
 	// Small gaslimit for easier basefee moving testing.
 	genesis.GasLimit = 8_000_000
@@ -203,10 +201,10 @@ func makeGenesis(faucets []*ecdsa.PrivateKey) *core.Genesis {
 	genesis.Config.ChainID = big.NewInt(18)
 	genesis.Config.EIP150Hash = common.Hash{}
 
-	genesis.Alloc = core.GenesisAlloc{}
+	genesis.Alloc = types.GenesisAlloc{}
 	for _, faucet := range faucets {
-		genesis.Alloc[crypto.PubkeyToAddress(faucet.PublicKey)] = core.GenesisAccount{
-			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
+		genesis.Alloc[crypto.PubkeyToAddress(faucet.PublicKey)] = types.Account{
+			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(127), nil),
 		}
 	}
 	if londonBlock.Sign() == 0 {
@@ -239,14 +237,13 @@ func makeMiner(genesis *core.Genesis) (*node.Node, *eth.Ethereum, error) {
 	}
 	ethBackend, err := eth.New(stack, &ethconfig.Config{
 		Genesis:         genesis,
-		NetworkID:       genesis.Config.ChainID.Uint64(),
+		NetworkId:       genesis.Config.ChainID.Uint64(),
 		SyncMode:        downloader.FullSync,
 		DatabaseCache:   256,
 		DatabaseHandles: 256,
-		TxPool:          core.DefaultTxPoolConfig,
+		TxPool:          ethconfig.Defaults.TxPool,
 		GPO:             ethconfig.Defaults.GPO,
-		Ethash:          ethconfig.Defaults.Ethash,
-		Miner: miner.MinerConfig{
+		Miner: ethconfig.MinerConfig{
 			Etherbase: common.Address{1},
 			GasCeil:   genesis.GasLimit * 11 / 10,
 			GasPrice:  big.NewInt(1),

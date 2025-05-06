@@ -73,7 +73,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/tyler-smith/go-bip39 v1.0.1-0.20181017060643-dbb3b84ba2ef
 	github.com/zfjagann/golang-ring v0.0.0-20210116075443-7c86fdb43134
-	go.uber.org/goleak v1.1.12
+	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.3.0
 	golang.org/x/crypto v0.32.0
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df

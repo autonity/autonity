@@ -31,6 +31,7 @@ import (
 // Tests that the simulator starts with the initial gas limit in the genesis block,
 // and that it keeps the same target value.
 func TestWithBlockGasLimitOption(t *testing.T) {
+	t.Skip("Simulated backend is not supported on Autonity currently")
 	// Construct a simulator, targeting a different gas limit
 	sim := NewBackend(types.GenesisAlloc{}, WithBlockGasLimit(12_345_678))
 	defer sim.Close()
@@ -56,6 +57,7 @@ func TestWithBlockGasLimitOption(t *testing.T) {
 
 // Tests that the simulator honors the RPC call caps set by the options.
 func TestWithCallGasLimitOption(t *testing.T) {
+	t.Skip("Simulated backend is not supported on Autonity currently")
 	// Construct a simulator, targeting a different gas limit
 	sim := NewBackend(types.GenesisAlloc{
 		testAddr: {Balance: big.NewInt(10000000000000000)},

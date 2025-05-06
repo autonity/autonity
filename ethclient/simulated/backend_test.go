@@ -19,22 +19,17 @@ package simulated
 import (
 	"context"
 	"crypto/ecdsa"
-	"crypto/sha256"
 	"math/big"
 	"math/rand"
 	"testing"
 	"time"
-
-	"go.uber.org/goleak"
-
-	"github.com/autonity/autonity/crypto/kzg4844"
-	"github.com/holiman/uint256"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/params"
+	"go.uber.org/goleak"
 )
 
 var _ bind.ContractBackend = (Client)(nil)
@@ -52,46 +47,6 @@ func simTestBackend(testAddr common.Address) *Backend {
 			testAddr: {Balance: big.NewInt(10000000000000000)},
 		},
 	)
-}
-
-func newBlobTx(sim *Backend, key *ecdsa.PrivateKey) (*types.Transaction, error) {
-	client := sim.Client()
-
-	testBlob := &kzg4844.Blob{0x00}
-	testBlobCommit, _ := kzg4844.BlobToCommitment(testBlob)
-	testBlobProof, _ := kzg4844.ComputeBlobProof(testBlob, testBlobCommit)
-	testBlobVHash := kzg4844.CalcBlobHashV1(sha256.New(), &testBlobCommit)
-
-	head, _ := client.HeaderByNumber(context.Background(), nil) // Should be child's, good enough
-	gasPrice := new(big.Int).Add(head.BaseFee, big.NewInt(params.GWei))
-	gasPriceU256, _ := uint256.FromBig(gasPrice)
-	gasTipCapU256, _ := uint256.FromBig(big.NewInt(params.GWei))
-
-	addr := crypto.PubkeyToAddress(key.PublicKey)
-	chainid, _ := client.ChainID(context.Background())
-	nonce, err := client.PendingNonceAt(context.Background(), addr)
-	if err != nil {
-		return nil, err
-	}
-
-	chainidU256, _ := uint256.FromBig(chainid)
-	tx := types.NewTx(&types.BlobTx{
-		ChainID:    chainidU256,
-		GasTipCap:  gasTipCapU256,
-		GasFeeCap:  gasPriceU256,
-		BlobFeeCap: uint256.NewInt(1),
-		Gas:        21000,
-		Nonce:      nonce,
-		To:         addr,
-		AccessList: nil,
-		BlobHashes: []common.Hash{testBlobVHash},
-		Sidecar: &types.BlobTxSidecar{
-			Blobs:       []kzg4844.Blob{*testBlob},
-			Commitments: []kzg4844.Commitment{testBlobCommit},
-			Proofs:      []kzg4844.Proof{testBlobProof},
-		},
-	})
-	return types.SignTx(tx, types.LatestSignerForChainID(chainid), key)
 }
 
 func newTx(sim *Backend, key *ecdsa.PrivateKey) (*types.Transaction, error) {
@@ -119,6 +74,7 @@ func newTx(sim *Backend, key *ecdsa.PrivateKey) (*types.Transaction, error) {
 }
 
 func TestNewBackend(t *testing.T) {
+	t.Skip("Simulated backend is not supported on Autonity currently")
 	sim := NewBackend(types.GenesisAlloc{})
 	defer sim.Close()
 
@@ -142,6 +98,7 @@ func TestNewBackend(t *testing.T) {
 }
 
 func TestAdjustTime(t *testing.T) {
+	t.Skip("Simulated backend is not supported on Autonity currently")
 	sim := NewBackend(types.GenesisAlloc{})
 	defer sim.Close()
 
@@ -161,6 +118,7 @@ func TestAdjustTime(t *testing.T) {
 }
 
 func TestSendTransaction(t *testing.T) {
+	t.Skip("Simulated backend is not supported on Autonity currently")
 	sim := simTestBackend(testAddr)
 	defer sim.Close()
 
@@ -198,6 +156,7 @@ func TestSendTransaction(t *testing.T) {
 //     Since Commit() was called 2n+1 times in total,
 //     having a chain length of just n+1 means that a reorg occurred.
 func TestFork(t *testing.T) {
+	t.Skip("Simulated backend is not supported on Autonity currently")
 	t.Parallel()
 	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
 	sim := simTestBackend(testAddr)
@@ -246,6 +205,7 @@ func TestFork(t *testing.T) {
 //  5. Mine a block. We expect the out-forked tx to have trickled to the pool, and into the new block.
 //  6. Check that the TX is now included in (the new) block 1.
 func TestForkResendTx(t *testing.T) {
+	t.Skip("Simulated backend is not supported on Autonity currently")
 	t.Parallel()
 	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
 	sim := simTestBackend(testAddr)
@@ -287,6 +247,7 @@ func TestForkResendTx(t *testing.T) {
 }
 
 func TestCommitReturnValue(t *testing.T) {
+	t.Skip("Simulated backend is not supported on Autonity currently")
 	t.Parallel()
 	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
 	sim := simTestBackend(testAddr)
@@ -331,6 +292,7 @@ func TestCommitReturnValue(t *testing.T) {
 // TestAdjustTimeAfterFork ensures that after a fork, AdjustTime uses the pending fork
 // block's parent rather than the canonical head's parent.
 func TestAdjustTimeAfterFork(t *testing.T) {
+	t.Skip("Simulated backend is not supported on Autonity currently")
 	t.Parallel()
 	testAddr := crypto.PubkeyToAddress(testKey.PublicKey)
 	sim := simTestBackend(testAddr)
@@ -362,6 +324,7 @@ func createAndCloseSimBackend() {
 // TestCheckSimBackendGoroutineLeak checks whether creation of a simulated backend leaks go-routines.  Any long-lived go-routines
 // spawned by global variables are not considered leaked.
 func TestCheckSimBackendGoroutineLeak(t *testing.T) {
+	t.Skip("Simulated backend is not supported on Autonity currently")
 	createAndCloseSimBackend()
 	ignoreCur := goleak.IgnoreCurrent()
 	// ignore this leveldb function:  this go-routine is guaranteed to be terminated 1 second after closing db handle

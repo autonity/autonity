@@ -25,7 +25,6 @@ import (
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/eth"
-	"github.com/autonity/autonity/eth/catalyst"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/eth/filters"
 	"github.com/autonity/autonity/ethclient"
@@ -63,7 +62,6 @@ type simClient struct {
 // other code that interacts with the Ethereum chain.
 type Backend struct {
 	node   *node.Node
-	beacon *catalyst.SimulatedBeacon
 	client simClient
 }
 
@@ -80,7 +78,8 @@ func NewBackend(alloc types.GenesisAlloc, options ...func(nodeConf *node.Config,
 
 	ethConf := ethconfig.Defaults
 	ethConf.Genesis = &core.Genesis{
-		Config:   params.AllDevChainProtocolChanges,
+		Config:   params.TestChainConfig,
+		Mixhash:  types.BFTDigest,
 		GasLimit: ethconfig.Defaults.Miner.GasCeil,
 		Alloc:    alloc,
 	}
@@ -119,19 +118,10 @@ func newWithNode(stack *node.Node, conf *eth.Config, blockPeriod uint64) (*Backe
 	if err := stack.Start(); err != nil {
 		return nil, err
 	}
-	// Set up the simulated beacon
-	beacon, err := catalyst.NewSimulatedBeacon(blockPeriod, backend)
-	if err != nil {
-		return nil, err
-	}
-	// Reorg our chain back to genesis
-	if err := beacon.Fork(backend.BlockChain().GetCanonicalHash(0)); err != nil {
-		return nil, err
-	}
+	n, _ := stack.Attach()
 	return &Backend{
 		node:   stack,
-		beacon: beacon,
-		client: simClient{ethclient.NewClient(stack.Attach())},
+		client: simClient{ethclient.NewClient(n)},
 	}, nil
 }
 
@@ -143,10 +133,6 @@ func (n *Backend) Close() error {
 		n.client = simClient{}
 	}
 	var err error
-	if n.beacon != nil {
-		err = n.beacon.Stop()
-		n.beacon = nil
-	}
 	if n.node != nil {
 		err = errors.Join(err, n.node.Close())
 		n.node = nil
@@ -156,12 +142,13 @@ func (n *Backend) Close() error {
 
 // Commit seals a block and moves the chain forward to a new empty block.
 func (n *Backend) Commit() common.Hash {
-	return n.beacon.Commit()
+
+	panic("not implemented")
 }
 
 // Rollback removes all pending transactions, reverting to the last committed state.
 func (n *Backend) Rollback() {
-	n.beacon.Rollback()
+	panic("not implemented")
 }
 
 // Fork creates a side-chain that can be used to simulate reorgs.
@@ -177,13 +164,13 @@ func (n *Backend) Rollback() {
 // There is a % chance that the side chain becomes canonical at the same length
 // to simulate live network behavior.
 func (n *Backend) Fork(parentHash common.Hash) error {
-	return n.beacon.Fork(parentHash)
+	panic("not implemented")
 }
 
 // AdjustTime changes the block timestamp and creates a new block.
 // It can only be called on empty blocks.
 func (n *Backend) AdjustTime(adjustment time.Duration) error {
-	return n.beacon.AdjustTime(adjustment)
+	panic("not implemented")
 }
 
 // Client returns a client that accesses the simulated chain.

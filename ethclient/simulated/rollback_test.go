@@ -29,6 +29,7 @@ import (
 // TestTransactionRollbackBehavior tests that calling Rollback on the simulated backend doesn't prevent subsequent
 // addition of new transactions
 func TestTransactionRollbackBehavior(t *testing.T) {
+	t.Skip("Simulated backend is not supported on Autonity currently")
 	sim := NewBackend(
 		types.GenesisAlloc{
 			testAddr:  {Balance: big.NewInt(10000000000000000)},
@@ -62,6 +63,7 @@ func TestTransactionRollbackBehavior(t *testing.T) {
 // testSendSignedTx sends a signed transaction to the simulated backend.
 // It does not commit the block.
 func testSendSignedTx(t *testing.T, key *ecdsa.PrivateKey, sim *Backend, isBlobTx bool) *types.Transaction {
+	t.Skip("Simulated backend is not supported on Autonity currently")
 	t.Helper()
 	client := sim.Client()
 	ctx := context.Background()
@@ -71,7 +73,7 @@ func testSendSignedTx(t *testing.T, key *ecdsa.PrivateKey, sim *Backend, isBlobT
 		signedTx *types.Transaction
 	)
 	if isBlobTx {
-		signedTx, err = newBlobTx(sim, key)
+		panic("not implemented")
 	} else {
 		signedTx, err = newTx(sim, key)
 	}
@@ -88,6 +90,7 @@ func testSendSignedTx(t *testing.T, key *ecdsa.PrivateKey, sim *Backend, isBlobT
 
 // pendingStateHasTx returns true if a given transaction was successfully included as of the latest pending state.
 func pendingStateHasTx(client Client, tx *types.Transaction) bool {
+
 	ctx := context.Background()
 
 	var (

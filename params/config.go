@@ -40,6 +40,8 @@ import (
 	"github.com/autonity/autonity/crypto"
 )
 
+func newUint64(val uint64) *uint64 { return &val }
+
 // Genesis hashes to enforce below configs on.
 var (
 	MainnetGenesisHash = common.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
