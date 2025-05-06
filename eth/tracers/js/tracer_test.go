@@ -79,6 +79,10 @@ func TestTracer(t *testing.T) {
 	execTracer := func(code string, contract []byte) ([]byte, string) {
 		t.Helper()
 		chainConfig := params.TestChainConfig
+		chainConfig.VerkleBlock = nil
+		chainConfig.PragueBlock = nil
+		chainConfig.CancunBlock = nil
+		chainConfig.EnableVerkleAtGenesis = false
 		tracer, err := newJsTracer(code, nil, nil, chainConfig)
 		if err != nil {
 			t.Fatal(err)

@@ -28,7 +28,6 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fdlimit"
-	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -48,7 +47,7 @@ var (
 )
 
 func main() {
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+
 	fdlimit.Raise(2048)
 
 	// Generate a batch of accounts to seal and fund with
@@ -56,8 +55,6 @@ func main() {
 	for i := 0; i < len(faucets); i++ {
 		faucets[i], _ = crypto.GenerateKey()
 	}
-	// Pre-generate the ethash mining DAG so we don't race
-	ethash.MakeDataset(1, ethconfig.Defaults.Ethash.DatasetDir)
 
 	// Create an Ethash network based off of the Ropsten config
 	genesis := makeGenesis(faucets)
@@ -130,7 +127,7 @@ func main() {
 		// and 1559 transactions can all be created by random even if the
 		// fork is not happened.
 		tx := makeTransaction(nonces[index], faucets[index], signer, baseFee)
-		if err := backend.TxPool().AddLocal(tx); err != nil {
+		if err := backend.TxPool().Add([]*types.Transaction{tx}); err != nil {
 			continue
 		}
 		nonces[index]++
