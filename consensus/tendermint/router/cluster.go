@@ -117,6 +117,10 @@ func NewClusters(
 	// Step 1: Distribute committee members into clusters
 	if latencyMat != nil {
 		clusteredAddresses, err := assignClusters(committee, latencyMat, numClusters)
+		// number of clusters can change due to merging/splitting
+		if len(clusteredAddresses) != numClusters {
+			clusterViews = make([]ClusterView, len(clusteredAddresses))
+		}
 		if err != nil {
 			return Clusters{}, err
 		}

@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -140,9 +141,9 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 		log.Error("Error fetching latest epoch", "err", err)
 		return
 	}
-	optimizationEventSub, err := chain.ProtocolContracts().Latency.WatchKMOptimization(nil, m.optimizationEventChan)
+	optimizationEventSub, err := chain.ProtocolContracts().WatchKMOptimization(nil, m.optimizationEventChan)
 	if err != nil {
-		log.Error("Error starting latency router for clustering view optimization", err)
+		log.Error("Router: error subscribing to km optimization eventsq", err)
 		return
 	}
 	m.optimizationEventSub = optimizationEventSub
@@ -344,12 +345,20 @@ func (m *Router) loop(ctx context.Context) {
 			}
 			prevCommittee := m.committee
 			m.updateCommittee(epoch)
-			clusters, err := NewClusters(
-				m.committee,
-				m.latestLatencies,
-				getForCommittee(latencyReports{m.latencyMat, prevCommittee}, m.committee),
-				m.self,
-			)
+			var clusters Clusters
+			var err error
+			if m.latencyMat != nil {
+				clusters, err = NewClusters(
+					m.committee,
+					m.latestLatencies,
+					getForCommittee(latencyReports{m.latencyMat, prevCommittee}, m.committee),
+					m.self,
+				)
+			} else {
+				log.Error("Router: Latency matrix nil!")
+				err = errors.New("router: Latency matrix nil")
+			}
+
 			if err != nil {
 				log.Error("Router: failed to create new clusters", "err", err)
 				if defaultClusters, err := NewClusters(m.committee, m.latestLatencies, nil, m.self); err != nil {
@@ -372,11 +381,15 @@ func (m *Router) loop(ctx context.Context) {
 			if optimizationEv.Height.Cmp(m.epoch.NextEpochBlock) >= 0 {
 				log.Info("Router: skip to optimize the clustering", "activation height cross epoch", optimizationEv.Height.Uint64())
 				continue
+			} else {
+				log.Info("Router: optimizing clustering", "activation height", optimizationEv.Height.Uint64())
 			}
 			latMat, committee, err := m.readLatencyMatrix()
 			if err != nil {
 				log.Error("Router: failed to read latency matrix", "err", err)
 				continue
+			} else {
+				log.Info("Router: read latency matrix successfully", "len(latMat)", len(latMat))
 			}
 			m.latencyMat = latMat
 			clusters, err := NewClusters(committee, m.latestLatencies, latMat, m.self)

@@ -8,6 +8,7 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/log"
 )
 
 type Reporter struct {
@@ -46,6 +47,11 @@ func (r *Reporter) ReportLatency(latency map[common.Address]uint8) error {
 		return fmt.Errorf("validator %s not found in committee", r.txOpts.From.Hex())
 	}
 
-	_, err = r.protocolContracts.Latency.Report(r.txOpts, big.NewInt(int64(index)), latencyVec)
+	tx, err := r.protocolContracts.Latency.Report(r.txOpts, big.NewInt(int64(index)), latencyVec)
+	if err != nil {
+		log.Info("Reporter: reported latency at tx", "tx", tx.Hash().Hex())
+	} else {
+		log.Info("Reporter: failed to report latency", "err", err)
+	}
 	return err
 }
