@@ -46,6 +46,13 @@ func (r *Reporter) ReportLatency(latency map[common.Address]uint8) error {
 	if index == -1 {
 		return fmt.Errorf("validator %s not found in committee", r.txOpts.From.Hex())
 	}
+	if reported, err := r.protocolContracts.ClientReported(nil, big.NewInt(int64(index))); err != nil {
+		log.Error("Reporter: failed to check if client reported", "err", err)
+		return err
+	} else if reported {
+		log.Info("Reporter: client already reported latency")
+		return nil
+	}
 
 	tx, err := r.protocolContracts.Latency.Report(r.txOpts, big.NewInt(int64(index)), latencyVec)
 	if err == nil {
