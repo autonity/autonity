@@ -1,5 +1,5 @@
-# Use the official Ubuntu 20.04 image as the base image
-FROM ubuntu:20.04
+# Use the official Ubuntu 24.04 image as the base image for docker test engine.
+FROM ubuntu:24.04
 
 # Update package list and install necessary dependencies
 RUN apt-get update && \
