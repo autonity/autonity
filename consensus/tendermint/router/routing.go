@@ -471,7 +471,28 @@ func (m *Router) updateClusters(height uint64, c Clusters) {
 func (m *Router) Clusters(height uint64) Clusters {
 	m.clusterMu.RLock()
 	defer m.clusterMu.RUnlock()
-	return m.clusters.GetCluster(height)
+	if clusters := m.clusters.GetCluster(height); len(clusters.base) > 0 {
+		return clusters
+	}
+	log.Info("Router: no clusters found for height, trying default clusters", "height", height)
+	if height > m.epoch.PreviousEpochBlock.Uint64() && height <= m.epoch.NextEpochBlock.Uint64() {
+		cluster, err := NewClusters(m.committeeAddresses(m.epoch.Committee), m.latestLatencies, nil, m.self)
+		if err != nil {
+			// should never happen
+			panic("Router: failed to create default clusters")
+		}
+		return cluster
+	}
+	log.Error(
+		"Router: height not in current epoch",
+		"height",
+		height,
+		"lastEpochBlock",
+		m.epoch.NextEpochBlock.Uint64(),
+		"nextEpochBlock",
+		m.epoch.NextEpochBlock.Uint64(),
+	)
+	return Clusters{}
 }
 
 func (m *Router) Latencies() map[common.Address]uint {

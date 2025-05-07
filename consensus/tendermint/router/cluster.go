@@ -8,6 +8,7 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/router/kmeans"
+	"github.com/autonity/autonity/log"
 )
 
 type NodeLatency struct {
@@ -263,12 +264,17 @@ func (cm *ClusterMap) AddCluster(height uint64, cluster Clusters) {
 }
 
 func (cm *ClusterMap) GetCluster(height uint64) Clusters {
-	for _, h := range cm.heights {
-		if height < h {
-			return cm.clusters[h]
+	if len(cm.heights) == 0 {
+		log.Error("ClusterMap: no clusters available")
+		return Clusters{}
+	}
+	for i := len(cm.heights) - 1; i >= 0; i-- {
+		if cm.heights[i] <= height {
+			return cm.clusters[cm.heights[i]]
 		}
 	}
-	return cm.clusters[0]
+	log.Error("ClusterMap: no cluster found for height", "height", height)
+	return Clusters{}
 }
 
 func (cm *ClusterMap) LatestHeight() uint64 {
