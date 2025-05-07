@@ -286,6 +286,7 @@ func (cm *ClusterMap) LatestCluster() Clusters {
 }
 
 func (cm *ClusterMap) PruneTo(height uint64) {
+	log.Info("ClusterMap: pruning clusters to height", "height", height, "current_heights", cm.heights)
 	// Find the index of the first height >= the given height
 	var idx int
 	for i, h := range cm.heights {
@@ -302,4 +303,5 @@ func (cm *ClusterMap) PruneTo(height uint64) {
 			delete(cm.clusters, h)
 		}
 	}
+	log.Info("ClusterMap: pruning done", "remaining_heights", cm.heights)
 }

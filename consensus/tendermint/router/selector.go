@@ -58,7 +58,23 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	ownClusterID := clusters.clusterContaining(r.self)
 
 	if senderClusterID == -1 || originClusterID == -1 || ownClusterID == -1 {
-		log.Error("Selector: unknown clusters", "sender", from.Hex(), "originator", msg.Originator().Hex(), "msg hash", msg.Hash().Hex(), "self", r.self.Hex())
+		log.Error(
+			"Selector: unknown clusters",
+			"sender",
+			from.Hex(),
+			"originator",
+			msg.Originator().Hex(),
+			"msg hash",
+			msg.Hash().Hex(),
+			"self",
+			r.self.Hex(),
+			"sender cluster",
+			senderClusterID,
+			"origin cluster",
+			originClusterID,
+			"own cluster",
+			ownClusterID,
+		)
 		return nil, errUnknownClusters
 	}
 

@@ -343,9 +343,7 @@ func (m *Router) loop(ctx context.Context) {
 				continue
 			}
 			prevCommittee := m.committee
-
-			// clean up the previous epoch clusters
-			m.clusters.PruneTo(m.epoch.PreviousEpochBlock.Uint64())
+			prevEpoch := m.epoch
 
 			m.updateCommittee(epoch)
 			var clusters Clusters
@@ -372,8 +370,9 @@ func (m *Router) loop(ctx context.Context) {
 					clusters = defaultClusters
 				}
 			}
-			m.updateClusters(epoch.PreviousEpochBlock.Uint64(), clusters)
-
+			m.updateClusters(epochEv.Header.Number.Uint64(), clusters)
+			// clean up the previous epoch clusters
+			m.clusters.PruneTo(prevEpoch.PreviousEpochBlock.Uint64())
 			if err := m.measureLatency(); err != nil {
 				log.Warn("measureToReport failed", "err", err)
 			}
