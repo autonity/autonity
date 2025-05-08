@@ -172,6 +172,8 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 	ctx, m.cancel = context.WithCancel(ctx)
 	m.wg.Add(1)
 	go m.loop(ctx)
+	m.wg.Add(1)
+	go m.watchReported(ctx)
 }
 
 func (m *Router) Stop() {
@@ -574,6 +576,35 @@ func (m *Router) initializeClusters(epoch *types.EpochInfo) {
 			latestEpochClusters:     currentClusters,
 		}
 	}
+}
+
+func (m *Router) watchReported(ctx context.Context) {
+	reported := make(chan *autonity.LatencyReported)
+	sub, err := m.contracts.Latency.WatchReported(nil, reported, nil)
+	if err != nil {
+		log.Error("Router: failed to subscribe to reported event", "err", err)
+		return
+	}
+	defer sub.Unsubscribe()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ev := <-reported:
+			log.Info(
+				"Router: reported event received",
+				"totalReported",
+				ev.TotalReported,
+				"nextEpoch",
+				m.epoch.NextEpochBlock.Uint64(),
+				"previousEpoch",
+				m.epoch.PreviousEpochBlock.Uint64(),
+				"block",
+				ev.Raw.BlockNumber,
+			)
+		}
+	}
+
 }
 
 func (m *Router) Clusters(height uint64) Clusters {

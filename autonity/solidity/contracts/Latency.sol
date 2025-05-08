@@ -24,7 +24,7 @@ contract Latency is ILatency, AccessAutonity {
      * @param reporter The address of the validator who reported the latency
      * @param length The length of the reported latency array
      */
-    event Reported(address indexed reporter, uint256 length);
+    event Reported(address indexed reporter, uint256 length, uint totalReported);
 
     /**
      * @dev Emitted when there are quorum measurements metrics is ready for K Means optimization.
@@ -111,7 +111,7 @@ contract Latency is ILatency, AccessAutonity {
         lastReportedEpoch[msg.sender] = epochPlusOne;
         reports++;
 
-        emit Reported(msg.sender, _latency.length);
+        emit Reported(msg.sender, _latency.length, reports);
         bool twoThirds = reports * 3 >= committee.length * 2;
         bool thresholdMet = reports * LOCK_IN_THRESHOLD_DENOMINATOR >= committee.length * lockInThreshold;
 
