@@ -340,11 +340,15 @@ func (m *Router) loop(ctx context.Context) {
 			epoch := epochEv.Header.Epoch
 			m.inCommittee = epoch.Committee.MemberByAddress(m.self) != nil
 			if !m.inCommittee || len(m.committee) < ScaleThresholdForClustering {
-				log.Info("Router: clustering not needed, skipping measurement")
+				log.Info("Router: not in committee clustering not needed, skipping measurement")
 				continue
 			}
 			prevCommittee := m.committee
 			m.updateCommittee(epoch)
+			if epochEv.Header.Number.Uint64() == m.clusters.latestEpochBlock {
+				log.Info("Router: clusters for this epoch already established, skipping clustering")
+				continue
+			}
 			var clusters Clusters
 			var err error
 			log.Info("Router: new epoch, attempting to construct transitional clusters")
