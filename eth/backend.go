@@ -201,7 +201,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	evMux := new(event.TypeMux)
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
-	consensusEngine := ethconfig.CreateConsensusEngine(chainDb, stack, &vmConfig, evMux, msgStore)
+	consensusEngine := ethconfig.CreateConsensusEngine(chainDb, stack, &vmConfig, evMux, msgStore, config.Genesis.Config.TestMode)
 
 	stack.Logger().Info("Initialised chain configuration", "config", chainConfig)
 
@@ -352,10 +352,11 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	// filtermap is ready - we can start watching the logs to retrieve cache.
 	eth.blockchain.StartWatchingCache()
 
-	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine)
-	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
-	eth.miner.SetPrioAddresses(config.TxPool.Locals)
-
+	if !config.Genesis.Config.TestMode {
+		eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine)
+		eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
+		eth.miner.SetPrioAddresses(config.TxPool.Locals)
+	}
 	return eth, nil
 }
 
@@ -697,13 +698,15 @@ func (s *Ethereum) Stop() error {
 	s.filterMaps.Stop()
 
 	s.txPool.Close()
-	s.miner.Close()
+	if s.miner != nil {
+		s.miner.Stop()
+	}
 	s.blockchain.Stop()
 
 	// Clean shutdown marker as the last thing before closing db
 	s.shutdownTracker.Stop()
 
-	s.chainDb.Close() // leak, something is accessing the db after this point.
+	s.chainDb.Close()
 	s.eventMux.Stop()
 
 	return nil

@@ -24,6 +24,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
 	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
@@ -170,7 +171,10 @@ type MinerConfig struct {
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
-func CreateConsensusEngine(db ethdb.Database, ctx *node.Node, vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore) consensus.Engine {
+func CreateConsensusEngine(db ethdb.Database, ctx *node.Node, vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore, testMode bool) consensus.Engine {
+	if testMode {
+		return ethash.NewFullFaker()
+	}
 	nodeKey, consensusKey := ctx.Config().AutonityKeys()
 	noGossip := ctx.Config().NoGossip
 	return tendermintBackend.New(db, nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, ctx.Logger(), noGossip, accountability.IsHeightExpired)

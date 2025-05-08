@@ -81,7 +81,8 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 // Used by the Autonity Contract
 func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
 	return func(header *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
-		evmContext := vm.BlockContext{
+		zeroHash := common.Hash{}
+		blockCtx := vm.BlockContext{
 			CanTransfer: CanTransfer,
 			Transfer:    Transfer,
 			GetHash:     GetHashFn(header, chain),
@@ -91,6 +92,7 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 			GasLimit:    header.GasLimit,
 			Difficulty:  header.Difficulty,
 			BaseFee:     header.BaseFee,
+			Random:      &zeroHash,
 
 			ActivityProof:      header.ActivityProof,
 			ActivityProofRound: header.ActivityProofRound,
@@ -99,7 +101,7 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 			Origin:   origin,
 			GasPrice: new(big.Int).SetUint64(0x0),
 		}
-		evm := vm.NewEVM(evmContext, statedb, chain.chainConfig,
+		evm := vm.NewEVM(blockCtx, statedb, chain.chainConfig,
 			vm.Config{
 				//// Uncomment this to get EVM debugging logs
 				//Debug: true,

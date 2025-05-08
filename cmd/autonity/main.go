@@ -331,10 +331,7 @@ func startNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
 	stack.AccountManager().Subscribe(events)
 
 	// Create a client to interact with local geth node.
-	rpcClient, err := stack.Attach()
-	if err != nil {
-		log.Crit("Error attaching node", "err", err)
-	}
+	rpcClient := stack.Attach()
 	ethClient := ethclient.NewClient(rpcClient)
 
 	go func() {

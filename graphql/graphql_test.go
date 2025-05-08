@@ -62,9 +62,9 @@ func TestBuildSchema(t *testing.T) {
 func TestGraphQLBlockSerialization(t *testing.T) {
 	stack := createNode(t)
 	defer stack.Close()
+
 	genesis := &core.Genesis{
-		Config:     params.TestChainConfig,
-		Mixhash:    types.BFTDigest,
+		Config:     params.AllEthashProtocolChanges,
 		GasLimit:   11500000,
 		Difficulty: big.NewInt(0),
 	}
@@ -172,7 +172,6 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 			t.Errorf("testcase %d \nwrong Content-Type, have: %v, want: %v", i, ctype, "application/json")
 		}
 	}
-	t.Log("all good")
 }
 
 func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
@@ -188,7 +187,7 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 	genesis := &core.Genesis{
 		Config:     params.AllEthashProtocolChanges,
 		GasLimit:   11500000,
-		Difficulty: big.NewInt(1048576),
+		Difficulty: big.NewInt(0),
 		Alloc: types.GenesisAlloc{
 			address: {Balance: funds},
 			// The address 0xdad sloads 0x00 and 0x01
@@ -285,7 +284,7 @@ func TestGraphQLConcurrentResolvers(t *testing.T) {
 		genesis = &core.Genesis{
 			Config:     params.AllEthashProtocolChanges,
 			GasLimit:   11500000,
-			Difficulty: big.NewInt(1048576),
+			Difficulty: big.NewInt(0),
 			Alloc: types.GenesisAlloc{
 				addr: {Balance: big.NewInt(params.Ether)},
 				dad: {
@@ -393,7 +392,7 @@ func newGQLService(t *testing.T, stack *node.Node, shanghai bool, gspec *core.Ge
 		TrieTimeout:    60 * time.Minute,
 		SnapshotCache:  5,
 		RPCGasCap:      1000000,
-		StateScheme:    rawdb.PathScheme,
+		StateScheme:    rawdb.HashScheme,
 	}
 	//	var engine = ethash.NewFaker()
 	if shanghai {
@@ -405,16 +404,16 @@ func newGQLService(t *testing.T, stack *node.Node, shanghai bool, gspec *core.Ge
 		t.Fatalf("could not create eth backend: %v", err)
 	}
 	// Create some blocks and import them
-	/*chain, _ := core.GenerateChain(params.TestChainConfig, ethBackend.BlockChain().Genesis(), engine, ethBackend.ChainDb(), genBlocks, genfunc)
+	chain, _ := core.GenerateChain(gspec.Config, ethBackend.BlockChain().Genesis(), ethBackend.Engine(), ethBackend.ChainDb(), genBlocks, genfunc)
 	_, err = ethBackend.BlockChain().InsertChain(chain)
 	if err != nil {
 		t.Fatalf("could not create import blocks: %v", err)
-	}*/
+	}
 	// Set up handler
 	filterSystem := filters.NewFilterSystem(ethBackend.APIBackend, filters.Config{})
 	handler, err := newHandler(stack, ethBackend.APIBackend, filterSystem, []string{}, []string{})
 	if err != nil {
 		t.Fatalf("could not create graphql service: %v", err)
 	}
-	return handler, nil
+	return handler, chain
 }

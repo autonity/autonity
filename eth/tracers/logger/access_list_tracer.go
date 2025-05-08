@@ -17,7 +17,9 @@
 package logger
 
 import (
+	"fmt"
 	"maps"
+	"os"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/tracing"
@@ -127,6 +129,7 @@ func (a *AccessListTracer) Hooks() *tracing.Hooks {
 
 // OnOpcode captures all opcodes that touch storage or addresses and adds them to the accesslist.
 func (a *AccessListTracer) OnOpcode(pc uint64, opcode byte, gas, cost uint64, scope tracing.OpContext, rData []byte, depth int, err error) {
+	fmt.Fprintf(os.Stderr, "[OnOpcode] pc=%d, opcode=%d, gas=%d, cost=%d, depth=%d, err=%v\n", pc, opcode, gas, cost, depth, err)
 	stackData := scope.StackData()
 	stackLen := len(stackData)
 	op := vm.OpCode(opcode)

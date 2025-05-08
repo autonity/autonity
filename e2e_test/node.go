@@ -55,26 +55,6 @@ var (
 		HTTPHost: localhost,
 		WSHost:   localhost,
 	}
-
-	terminalColors = []struct {
-		foreground string
-		background string
-	}{{
-		foreground: log.White,
-		background: log.BackgroundBlack,
-	}, {
-		foreground: log.Black,
-		background: log.BackgroundLightCyan,
-	}, {
-		foreground: log.Black,
-		background: log.BackgroundLightYellow,
-	}, {
-		foreground: log.Black,
-		background: log.BackgroundLightMagenta,
-	}, {
-		foreground: log.Black,
-		background: log.BackgroundLightGreen,
-	}}
 )
 
 // Node provides an enhanced interface to node.Node with useful additions, the

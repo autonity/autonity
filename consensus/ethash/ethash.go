@@ -34,13 +34,9 @@ type Ethash struct {
 }
 
 func (ethash *Ethash) SetResultChan(results chan<- *types.Block) {
-	//TODO implement me
-	panic("implement me")
 }
 
 func (ethash *Ethash) SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Header) {
-	//TODO implement me
-	panic("implement me")
 }
 
 // NewFaker creates an ethash consensus engine with a fake PoW scheme that accepts

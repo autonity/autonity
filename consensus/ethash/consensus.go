@@ -482,7 +482,7 @@ func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, _, header *type
 func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, body *types.Body, _ []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
 	// Accumulate any block and uncle rewards
 	accumulateRewards(chain.Config(), state, header, body.Uncles)
-	return nil, nil, nil
+	return &types.Receipt{Type: types.LegacyTxType}, nil, nil
 }
 
 // FinalizeAndAssemble implements consensus.Engine, accumulating the block and
@@ -490,8 +490,9 @@ func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header
 func (ethash *Ethash) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, body *types.Body, receipts *[]*types.Receipt) (*types.Block, error) {
 
 	// Finalize block
-	ethash.Finalize(chain, header, state, body, nil)
+	r, _, _ := ethash.Finalize(chain, header, state, body, nil)
 
+	*receipts = append(*receipts, r)
 	// Assign the final state root to header.
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 

@@ -118,7 +118,7 @@ func newWithNode(stack *node.Node, conf *eth.Config, blockPeriod uint64) (*Backe
 	if err := stack.Start(); err != nil {
 		return nil, err
 	}
-	n, _ := stack.Attach()
+	n := stack.Attach()
 	return &Backend{
 		node:   stack,
 		client: simClient{ethclient.NewClient(n)},

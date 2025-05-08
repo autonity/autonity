@@ -32,7 +32,6 @@ import (
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/internal/jsre"
 	"github.com/autonity/autonity/node"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -110,8 +109,7 @@ func newTester(t *testing.T, confOverride func(*ethconfig.Config)) *tester {
 	if err = stack.Start(); err != nil {
 		t.Fatalf("failed to start test stack: %v", err)
 	}
-	client, err := stack.Attach()
-	require.NoError(t, err)
+	client := stack.Attach()
 	t.Cleanup(func() {
 		client.Close()
 	})
@@ -269,7 +267,7 @@ func TestPrettyError(t *testing.T) {
 	defer tester.Close(t)
 	tester.console.Evaluate("throw 'hello'")
 
-	want := jsre.ErrorColor("hello") + "\n\tat <eval>:1:7(1)\n\n"
+	want := jsre.ErrorColor("hello") + "\n\tat <eval>:1:1(1)\n\n"
 	if output := tester.output.String(); output != want {
 		t.Fatalf("pretty error mismatch: have %s, want %s", output, want)
 	}

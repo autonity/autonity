@@ -146,7 +146,7 @@ func TestEthClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	client, _ := backend.Attach()
+	client := backend.Attach()
 	defer backend.Close()
 	defer client.Close()
 

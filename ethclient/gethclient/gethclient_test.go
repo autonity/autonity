@@ -19,18 +19,20 @@ package gethclient
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"math/big"
+	"strings"
 	"testing"
 
-	ethereum "github.com/autonity/autonity"
+	"github.com/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core"
-	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth"
 	"github.com/autonity/autonity/eth/ethconfig"
+	"github.com/autonity/autonity/eth/filters"
 	"github.com/autonity/autonity/ethclient"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/params"
@@ -38,9 +40,13 @@ import (
 )
 
 var (
-	testKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testAddr    = crypto.PubkeyToAddress(testKey.PublicKey)
-	testBalance = big.NewInt(2e15)
+	testKey, _   = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+	testAddr     = crypto.PubkeyToAddress(testKey.PublicKey)
+	testContract = common.HexToAddress("0xbeef")
+	testEmpty    = common.HexToAddress("0xeeee")
+	testSlot     = common.HexToHash("0xdeadbeef")
+	testValue    = crypto.Keccak256Hash(testSlot[:])
+	testBalance  = big.NewInt(2e15)
 )
 
 func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
@@ -52,12 +58,17 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 		t.Fatalf("can't create new node: %v", err)
 	}
 	// Create Ethereum Service
-	config := &ethconfig.Config{Genesis: genesis}
-	config.Ethash.PowMode = ethash.ModeFake
+	config := &ethconfig.Config{Genesis: genesis, RPCGasCap: 1000000}
 	ethservice, err := eth.New(n, config)
 	if err != nil {
 		t.Fatalf("can't create new ethereum service: %v", err)
 	}
+	filterSystem := filters.NewFilterSystem(ethservice.APIBackend, filters.Config{})
+	n.RegisterAPIs([]rpc.API{{
+		Namespace: "eth",
+		Service:   filters.NewFilterAPI(filterSystem),
+	}})
+
 	// Import the test chain.
 	if err := n.Start(); err != nil {
 		t.Fatalf("can't start test node: %v", err)
@@ -69,11 +80,13 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 }
 
 func generateTestChain() (*core.Genesis, []*types.Block) {
-	db := rawdb.NewMemoryDatabase()
-	config := params.TestChainConfig
 	genesis := &core.Genesis{
-		Config:    config,
-		Alloc:     core.GenesisAlloc{testAddr: {Balance: testBalance}},
+		Config: params.AllEthashProtocolChanges,
+		Alloc: types.GenesisAlloc{
+			testAddr:     {Balance: testBalance, Storage: map[common.Hash]common.Hash{testSlot: testValue}},
+			testContract: {Nonce: 1, Code: []byte{0x13, 0x37}},
+			testEmpty:    {Balance: big.NewInt(1)},
+		},
 		ExtraData: []byte("test genesis"),
 		Timestamp: 9000,
 	}
@@ -81,22 +94,15 @@ func generateTestChain() (*core.Genesis, []*types.Block) {
 		g.OffsetTime(5)
 		g.SetExtra([]byte("test"))
 	}
-	gblock, err := genesis.ToBlock(db)
-	if err != nil {
-		panic("could not generate block")
-	}
-	engine := ethash.NewFaker()
-	blocks, _ := core.GenerateChain(config, gblock, engine, db, 1, generate)
-	blocks = append([]*types.Block{gblock}, blocks...)
+	_, blocks, _ := core.GenerateChainWithGenesis(genesis, ethash.NewFaker(), 1, generate)
+	g, _ := genesis.ToBlock(nil)
+	blocks = append([]*types.Block{g}, blocks...)
 	return genesis, blocks
 }
 
 func TestGethClient(t *testing.T) {
 	backend, _ := newTestBackend(t)
-	client, err := backend.Attach()
-	if err != nil {
-		t.Fatal(err)
-	}
+	client := backend.Attach()
 	defer backend.Close()
 	defer client.Close()
 
@@ -105,12 +111,20 @@ func TestGethClient(t *testing.T) {
 		test func(t *testing.T)
 	}{
 		{
-			"TestAccessList",
-			func(t *testing.T) { testAccessList(t, client) },
-		},
-		{
-			"TestGetProof",
-			func(t *testing.T) { testGetProof(t, client) },
+			"TestGetProof1",
+			func(t *testing.T) { testGetProof(t, client, testAddr) },
+		}, {
+			"TestGetProof2",
+			func(t *testing.T) { testGetProof(t, client, testContract) },
+		}, {
+			"TestGetProofEmpty",
+			func(t *testing.T) { testGetProof(t, client, testEmpty) },
+		}, {
+			"TestGetProofNonExistent",
+			func(t *testing.T) { testGetProofNonExistent(t, client) },
+		}, {
+			"TestGetProofCanonicalizeKeys",
+			func(t *testing.T) { testGetProofCanonicalizeKeys(t, client) },
 		}, {
 			"TestGCStats",
 			func(t *testing.T) { testGCStats(t, client) },
@@ -121,17 +135,30 @@ func TestGethClient(t *testing.T) {
 			"TestGetNodeInfo",
 			func(t *testing.T) { testGetNodeInfo(t, client) },
 		}, {
-			"TestSetHead",
-			func(t *testing.T) { testSetHead(t, client) },
+			"TestSubscribePendingTxHashes",
+			func(t *testing.T) { testSubscribePendingTransactions(t, client) },
 		}, {
 			"TestSubscribePendingTxs",
-			func(t *testing.T) { testSubscribePendingTransactions(t, client) },
+			func(t *testing.T) { testSubscribeFullPendingTransactions(t, client) },
 		}, {
 			"TestCallContract",
 			func(t *testing.T) { testCallContract(t, client) },
+		}, {
+			"TestCallContractWithBlockOverrides",
+			func(t *testing.T) { testCallContractWithBlockOverrides(t, client) },
+		},
+		// The testaccesslist is a bit time-sensitive: the newTestBackend imports
+		// one block. The `testAccessList` fails if the miner has not yet created a
+		// new pending-block after the import event.
+		// Hence: this test should be last, execute the tests serially.
+		{
+			"TestAccessList",
+			func(t *testing.T) { testAccessList(t, client) },
+		}, {
+			"TestSetHead",
+			func(t *testing.T) { testSetHead(t, client) },
 		},
 	}
-	t.Parallel()
 	for _, tt := range tests {
 		t.Run(tt.name, tt.test)
 	}
@@ -139,77 +166,185 @@ func TestGethClient(t *testing.T) {
 
 func testAccessList(t *testing.T, client *rpc.Client) {
 	ec := New(client)
-	// Test transfer
-	msg := ethereum.CallMsg{
-		From:     testAddr,
-		To:       &common.Address{},
-		Gas:      21000,
-		GasPrice: big.NewInt(765625000),
-		Value:    big.NewInt(1),
-	}
-	al, gas, vmErr, err := ec.CreateAccessList(context.Background(), msg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if vmErr != "" {
-		t.Fatalf("unexpected vm error: %v", vmErr)
-	}
-	if gas != 21000 {
-		t.Fatalf("unexpected gas used: %v", gas)
-	}
-	if len(*al) != 0 {
-		t.Fatalf("unexpected length of accesslist: %v", len(*al))
-	}
-	// Test reverting transaction
-	msg = ethereum.CallMsg{
-		From:     testAddr,
-		To:       nil,
-		Gas:      100000,
-		GasPrice: big.NewInt(1000000000),
-		Value:    big.NewInt(1),
-		Data:     common.FromHex("0x608060806080608155fd"),
-	}
-	al, gas, vmErr, err = ec.CreateAccessList(context.Background(), msg)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if vmErr == "" {
-		t.Fatalf("wanted vmErr, got none")
-	}
-	if gas == 21000 {
-		t.Fatalf("unexpected gas used: %v", gas)
-	}
-	if len(*al) != 1 || al.StorageKeys() != 1 {
-		t.Fatalf("unexpected length of accesslist: %v", len(*al))
-	}
-	// address changes between calls, so we can't test for it.
-	if (*al)[0].Address == common.HexToAddress("0x0") {
-		t.Fatalf("unexpected address: %v", (*al)[0].Address)
-	}
-	if (*al)[0].StorageKeys[0] != common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000081") {
-		t.Fatalf("unexpected storage key: %v", (*al)[0].StorageKeys[0])
+
+	for i, tc := range []struct {
+		msg       ethereum.CallMsg
+		wantGas   uint64
+		wantErr   string
+		wantVMErr string
+		wantAL    string
+	}{
+		{ // Test transfer
+			msg: ethereum.CallMsg{
+				From:     testAddr,
+				To:       &common.Address{},
+				Gas:      21000,
+				GasPrice: big.NewInt(875000000),
+				Value:    big.NewInt(1),
+			},
+			wantGas: 21000,
+			wantAL:  `[]`,
+		},
+		{ // Test reverting transaction
+			msg: ethereum.CallMsg{
+				From:     testAddr,
+				To:       nil,
+				Gas:      100000,
+				GasPrice: big.NewInt(1000000000),
+				Value:    big.NewInt(1),
+				Data:     common.FromHex("0x608060806080608155fd"),
+			},
+			wantGas:   77498,
+			wantVMErr: "execution reverted",
+			wantAL: `[
+  {
+    "address": "0x3a220f351252089d385b29beca14e27f204c296a",
+    "storageKeys": [
+      "0x0000000000000000000000000000000000000000000000000000000000000081"
+    ]
+  }
+]`,
+		},
+		{ // error when gasPrice is less than baseFee
+			msg: ethereum.CallMsg{
+				From:     testAddr,
+				To:       &common.Address{},
+				Gas:      21000,
+				GasPrice: big.NewInt(1), // less than baseFee
+				Value:    big.NewInt(1),
+			},
+			wantErr: "max fee per gas less than block base fee",
+		},
+		{ // when gasPrice is not specified
+			msg: ethereum.CallMsg{
+				From:  testAddr,
+				To:    &common.Address{},
+				Gas:   21000,
+				Value: big.NewInt(1),
+			},
+			wantGas: 21000,
+			wantAL:  `[]`,
+		},
+	} {
+		al, gas, vmErr, err := ec.CreateAccessList(context.Background(), tc.msg)
+		if tc.wantErr != "" {
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("test %d: wrong error: %v", i, err)
+			}
+			continue
+		} else if err != nil {
+			t.Fatalf("test %d: wrong error: %v", i, err)
+		}
+		if have, want := vmErr, tc.wantVMErr; have != want {
+			t.Fatalf("test %d: vmErr wrong, have %v want %v", i, have, want)
+		}
+		if have, want := gas, tc.wantGas; have != want {
+			t.Fatalf("test %d: gas wrong, have %v want %v", i, have, want)
+		}
+		haveList, _ := json.MarshalIndent(al, "", "  ")
+		if have, want := string(haveList), tc.wantAL; have != want {
+			t.Fatalf("test %d: access list wrong, have:\n%v\nwant:\n%v", i, have, want)
+		}
 	}
 }
 
-func testGetProof(t *testing.T, client *rpc.Client) {
+func testGetProof(t *testing.T, client *rpc.Client, addr common.Address) {
 	ec := New(client)
 	ethcl := ethclient.NewClient(client)
-	result, err := ec.GetProof(context.Background(), testAddr, []string{}, nil)
+	result, err := ec.GetProof(context.Background(), addr, []string{testSlot.String()}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(result.Address[:], testAddr[:]) {
-		t.Fatalf("unexpected address, want: %v got: %v", testAddr, result.Address)
+	if result.Address != addr {
+		t.Fatalf("unexpected address, have: %v want: %v", result.Address, addr)
 	}
 	// test nonce
-	nonce, _ := ethcl.NonceAt(context.Background(), result.Address, nil)
-	if result.Nonce != nonce {
+	if nonce, _ := ethcl.NonceAt(context.Background(), addr, nil); result.Nonce != nonce {
 		t.Fatalf("invalid nonce, want: %v got: %v", nonce, result.Nonce)
 	}
 	// test balance
-	balance, _ := ethcl.BalanceAt(context.Background(), result.Address, nil)
-	if result.Balance.Cmp(balance) != 0 {
+	if balance, _ := ethcl.BalanceAt(context.Background(), addr, nil); result.Balance.Cmp(balance) != 0 {
 		t.Fatalf("invalid balance, want: %v got: %v", balance, result.Balance)
+	}
+	// test storage
+	if len(result.StorageProof) != 1 {
+		t.Fatalf("invalid storage proof, want 1 proof, got %v proof(s)", len(result.StorageProof))
+	}
+	for _, proof := range result.StorageProof {
+		if proof.Key != testSlot.String() {
+			t.Fatalf("invalid storage proof key, want: %q, got: %q", testSlot.String(), proof.Key)
+		}
+		slotValue, _ := ethcl.StorageAt(context.Background(), addr, common.HexToHash(proof.Key), nil)
+		if have, want := common.BigToHash(proof.Value), common.BytesToHash(slotValue); have != want {
+			t.Fatalf("addr %x, invalid storage proof value: have: %v, want: %v", addr, have, want)
+		}
+	}
+	// test code
+	code, _ := ethcl.CodeAt(context.Background(), addr, nil)
+	if have, want := result.CodeHash, crypto.Keccak256Hash(code); have != want {
+		t.Fatalf("codehash wrong, have %v want %v ", have, want)
+	}
+}
+
+func testGetProofCanonicalizeKeys(t *testing.T, client *rpc.Client) {
+	ec := New(client)
+
+	// Tests with non-canon input for storage keys.
+	// Here we check that the storage key is canonicalized.
+	result, err := ec.GetProof(context.Background(), testAddr, []string{"0x0dEadbeef"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.StorageProof[0].Key != "0xdeadbeef" {
+		t.Fatalf("wrong storage key encoding in proof: %q", result.StorageProof[0].Key)
+	}
+	if result, err = ec.GetProof(context.Background(), testAddr, []string{"0x000deadbeef"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if result.StorageProof[0].Key != "0xdeadbeef" {
+		t.Fatalf("wrong storage key encoding in proof: %q", result.StorageProof[0].Key)
+	}
+
+	// If the requested storage key is 32 bytes long, it will be returned as is.
+	hashSizedKey := "0x00000000000000000000000000000000000000000000000000000000deadbeef"
+	result, err = ec.GetProof(context.Background(), testAddr, []string{hashSizedKey}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.StorageProof[0].Key != hashSizedKey {
+		t.Fatalf("wrong storage key encoding in proof: %q", result.StorageProof[0].Key)
+	}
+}
+
+func testGetProofNonExistent(t *testing.T, client *rpc.Client) {
+	addr := common.HexToAddress("0x0001")
+	ec := New(client)
+	result, err := ec.GetProof(context.Background(), addr, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Address != addr {
+		t.Fatalf("unexpected address, have: %v want: %v", result.Address, addr)
+	}
+	// test nonce
+	if result.Nonce != 0 {
+		t.Fatalf("invalid nonce, want: %v got: %v", 0, result.Nonce)
+	}
+	// test balance
+	if result.Balance.Sign() != 0 {
+		t.Fatalf("invalid balance, want: %v got: %v", 0, result.Balance)
+	}
+	// test storage
+	if have := len(result.StorageProof); have != 0 {
+		t.Fatalf("invalid storage proof, want 0 proof, got %v proof(s)", have)
+	}
+	// test codeHash
+	if have, want := result.CodeHash, (common.Hash{}); have != want {
+		t.Fatalf("codehash wrong, have %v want %v ", have, want)
+	}
+	// test codeHash
+	if have, want := result.StorageHash, (common.Hash{}); have != want {
+		t.Fatalf("storagehash wrong, have %v want %v ", have, want)
 	}
 }
 
@@ -279,10 +414,44 @@ func testSubscribePendingTransactions(t *testing.T, client *rpc.Client) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Check that the transaction was send over the channel
+	// Check that the transaction was sent over the channel
 	hash := <-ch
 	if hash != signedTx.Hash() {
 		t.Fatalf("Invalid tx hash received, got %v, want %v", hash, signedTx.Hash())
+	}
+}
+
+func testSubscribeFullPendingTransactions(t *testing.T, client *rpc.Client) {
+	ec := New(client)
+	ethcl := ethclient.NewClient(client)
+	// Subscribe to Transactions
+	ch := make(chan *types.Transaction)
+	ec.SubscribeFullPendingTransactions(context.Background(), ch)
+	// Send a transaction
+	chainID, err := ethcl.ChainID(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Create transaction
+	tx := types.NewTransaction(1, common.Address{1}, big.NewInt(1), 22000, big.NewInt(1), nil)
+	signer := types.LatestSignerForChainID(chainID)
+	signature, err := crypto.Sign(signer.Hash(tx).Bytes(), testKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signedTx, err := tx.WithSignature(signer, signature)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Send transaction
+	err = ethcl.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Check that the transaction was sent over the channel
+	tx = <-ch
+	if tx.Hash() != signedTx.Hash() {
+		t.Fatalf("Invalid tx hash received, got %v, want %v", tx.Hash(), signedTx.Hash())
 	}
 }
 
@@ -307,5 +476,127 @@ func testCallContract(t *testing.T, client *rpc.Client) {
 	mapAcc[testAddr] = override
 	if _, err := ec.CallContract(context.Background(), msg, big.NewInt(0), &mapAcc); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestOverrideAccountMarshal(t *testing.T) {
+	om := map[common.Address]OverrideAccount{
+		{0x11}: {
+			// Zero-valued nonce is not overridden, but simply dropped by the encoder.
+			Nonce: 0,
+		},
+		{0xaa}: {
+			Nonce: 5,
+		},
+		{0xbb}: {
+			Code: []byte{1},
+		},
+		{0xcc}: {
+			// 'code', 'balance', 'state' should be set when input is
+			// a non-nil but empty value.
+			Code:    []byte{},
+			Balance: big.NewInt(0),
+			State:   map[common.Hash]common.Hash{},
+			// For 'stateDiff' the behavior is different, empty map
+			// is ignored because it makes no difference.
+			StateDiff: map[common.Hash]common.Hash{},
+		},
+	}
+
+	marshalled, err := json.MarshalIndent(&om, "", "  ")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := `{
+  "0x1100000000000000000000000000000000000000": {},
+  "0xaa00000000000000000000000000000000000000": {
+    "nonce": "0x5"
+  },
+  "0xbb00000000000000000000000000000000000000": {
+    "code": "0x01"
+  },
+  "0xcc00000000000000000000000000000000000000": {
+    "code": "0x",
+    "balance": "0x0",
+    "state": {}
+  }
+}`
+
+	if string(marshalled) != expected {
+		t.Error("wrong output:", string(marshalled))
+		t.Error("want:", expected)
+	}
+}
+
+func TestBlockOverridesMarshal(t *testing.T) {
+	for i, tt := range []struct {
+		bo   BlockOverrides
+		want string
+	}{
+		{
+			bo:   BlockOverrides{},
+			want: `{}`,
+		},
+		{
+			bo: BlockOverrides{
+				Coinbase: common.HexToAddress("0x1111111111111111111111111111111111111111"),
+			},
+			want: `{"feeRecipient":"0x1111111111111111111111111111111111111111"}`,
+		},
+		{
+			bo: BlockOverrides{
+				Number:     big.NewInt(1),
+				Difficulty: big.NewInt(2),
+				Time:       3,
+				GasLimit:   4,
+				BaseFee:    big.NewInt(5),
+			},
+			want: `{"number":"0x1","difficulty":"0x2","time":"0x3","gasLimit":"0x4","baseFeePerGas":"0x5"}`,
+		},
+	} {
+		marshalled, err := json.Marshal(&tt.bo)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if string(marshalled) != tt.want {
+			t.Errorf("Testcase #%d failed. expected\n%s\ngot\n%s", i, tt.want, string(marshalled))
+		}
+	}
+}
+
+func testCallContractWithBlockOverrides(t *testing.T, client *rpc.Client) {
+	ec := New(client)
+	msg := ethereum.CallMsg{
+		From:     testAddr,
+		To:       &common.Address{},
+		Gas:      50000,
+		GasPrice: big.NewInt(1000000000),
+		Value:    big.NewInt(1),
+	}
+	override := OverrideAccount{
+		// Returns coinbase address.
+		Code: common.FromHex("0x41806000526014600cf3"),
+	}
+	mapAcc := make(map[common.Address]OverrideAccount)
+	mapAcc[common.Address{}] = override
+	res, err := ec.CallContract(context.Background(), msg, big.NewInt(0), &mapAcc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !bytes.Equal(res, common.FromHex("0x0000000000000000000000000000000000000000")) {
+		t.Fatalf("unexpected result: %x", res)
+	}
+
+	// Now test with block overrides
+	bo := BlockOverrides{
+		Coinbase: common.HexToAddress("0x1111111111111111111111111111111111111111"),
+	}
+	res, err = ec.CallContractWithBlockOverrides(context.Background(), msg, big.NewInt(0), &mapAcc, bo)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !bytes.Equal(res, common.FromHex("0x1111111111111111111111111111111111111111")) {
+		t.Fatalf("unexpected result: %x", res)
 	}
 }

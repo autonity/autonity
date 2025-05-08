@@ -508,17 +508,14 @@ func (n *Node) RegisterHandler(name, path string, handler http.Handler) {
 }
 
 // Attach creates an RPC client attached to an in-process API handler.
-func (n *Node) Attach() (*rpc.Client, error) {
+func (n *Node) Attach() *rpc.Client {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
-	if n.executionServer == nil {
-		return nil, ErrNodeStopped
-	}
 	if n.config.ExecutionP2P.IsRated {
-		return rpc.DialInProcWithRate(n.inprocHandler, n.config.ExecutionP2P.InRate, n.config.ExecutionP2P.OutRate), nil
+		return rpc.DialInProcWithRate(n.inprocHandler, n.config.ExecutionP2P.InRate, n.config.ExecutionP2P.OutRate)
 	}
-	return rpc.DialInProc(n.inprocHandler), nil
+	return rpc.DialInProc(n.inprocHandler)
 }
 
 // RPCHandler returns the in-process RPC request handler.

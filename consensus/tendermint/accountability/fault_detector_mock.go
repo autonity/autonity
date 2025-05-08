@@ -77,10 +77,10 @@ func (mr *MockChainContextMockRecorder) Config() *gomock.Call {
 }
 
 // CurrentBlock mocks base method.
-func (m *MockChainContext) CurrentBlock() *types.Block {
+func (m *MockChainContext) CurrentBlock() *types.Header {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CurrentBlock")
-	ret0, _ := ret[0].(*types.Block)
+	ret0, _ := ret[0].(*types.Header)
 	return ret0
 }
 

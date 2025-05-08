@@ -17,11 +17,14 @@
 package types
 
 import (
+	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
 
@@ -40,7 +43,7 @@ func TestEIP155Signing(t *testing.T) {
 		t.Fatal(err)
 	}
 	if from != addr {
-		t.Errorf("exected from and address to be equal. Got %x want %x", from, addr)
+		t.Errorf("expected from and address to be equal. Got %x want %x", from, addr)
 	}
 }
 
@@ -111,7 +114,6 @@ func TestEIP155SigningVitalik(t *testing.T) {
 		if from != addr {
 			t.Errorf("%d: expected %x got %x", i, addr, from)
 		}
-
 	}
 }
 
@@ -127,12 +129,54 @@ func TestChainId(t *testing.T) {
 	}
 
 	_, err = Sender(NewEIP155Signer(big.NewInt(2)), tx)
-	if err != ErrInvalidChainId {
-		t.Error("expected error:", ErrInvalidChainId)
+	if !errors.Is(err, ErrInvalidChainId) {
+		t.Error("expected error:", ErrInvalidChainId, err)
 	}
 
 	_, err = Sender(NewEIP155Signer(big.NewInt(1)), tx)
 	if err != nil {
 		t.Error("expected no error")
+	}
+}
+
+type nilSigner struct {
+	v, r, s *big.Int
+	Signer
+}
+
+func (ns *nilSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error) {
+	return ns.v, ns.r, ns.s, nil
+}
+
+// TestNilSigner ensures a faulty Signer implementation does not result in nil signature values or panics.
+func TestNilSigner(t *testing.T) {
+	key, _ := crypto.GenerateKey()
+	innerSigner := LatestSignerForChainID(big.NewInt(1))
+	for i, signer := range []Signer{
+		&nilSigner{v: nil, r: nil, s: nil, Signer: innerSigner},
+		&nilSigner{v: big.NewInt(1), r: big.NewInt(1), s: nil, Signer: innerSigner},
+		&nilSigner{v: big.NewInt(1), r: nil, s: big.NewInt(1), Signer: innerSigner},
+		&nilSigner{v: nil, r: big.NewInt(1), s: big.NewInt(1), Signer: innerSigner},
+	} {
+		t.Run(fmt.Sprintf("signer_%d", i), func(t *testing.T) {
+			t.Run("legacy", func(t *testing.T) {
+				legacyTx := createTestLegacyTxInner()
+				_, err := SignNewTx(key, signer, legacyTx)
+				if !errors.Is(err, ErrInvalidSig) {
+					t.Fatal("expected signature values error, no nil result or panic")
+				}
+			})
+		})
+	}
+}
+
+func createTestLegacyTxInner() *LegacyTx {
+	return &LegacyTx{
+		Nonce:    uint64(0),
+		To:       nil,
+		Value:    big.NewInt(0),
+		Gas:      params.TxGas,
+		GasPrice: big.NewInt(params.GWei),
+		Data:     nil,
 	}
 }

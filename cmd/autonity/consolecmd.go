@@ -76,10 +76,7 @@ func localConsole(ctx *cli.Context) error {
 	defer stack.Close()
 
 	// Attach to the newly started node and create the JavaScript console.
-	client, err := stack.Attach()
-	if err != nil {
-		return fmt.Errorf("failed to start the JavaScript console: %v", err)
-	}
+	client := stack.Attach()
 	config := console.Config{
 		DataDir: utils.MakeDataDir(ctx),
 		DocRoot: ctx.String(utils.JSpathFlag.Name),

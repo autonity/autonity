@@ -647,7 +647,7 @@ func (b *Block) resolveHeader(ctx context.Context) (*types.Header, error) {
 	}
 	var err error
 	b.header, err = b.r.backend.HeaderByNumberOrHash(ctx, *b.numberOrHash)
-	if err != nil {
+	if err != nil || b.header == nil {
 		return nil, err
 	}
 	if b.hash == (common.Hash{}) {
