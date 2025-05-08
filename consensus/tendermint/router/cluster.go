@@ -9,6 +9,7 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/router/kmeans"
+	"github.com/autonity/autonity/log"
 )
 
 type NodeLatency struct {
@@ -250,6 +251,13 @@ func (cr *ClusterRotation) EpochStart(epochBlock uint64, transitionalClusters Cl
 
 	cr.lastMatrixLockInBlock = cr.latestMatrixLockInBlock
 	cr.latestMatrixLockInBlock = 0
+	log.Info(
+		"ClusterRotation: new epoch started",
+		"previousEpochBlock", cr.previousEpochBlock,
+		"latestEpochBlock", cr.latestEpochBlock,
+		"lastMatrixLockInBlock", cr.lastMatrixLockInBlock,
+		"latestMatrixLockInBlock", cr.latestMatrixLockInBlock,
+	)
 }
 
 func (cr *ClusterRotation) LockIn(lockInBlock uint64, cluster Clusters) {
@@ -272,7 +280,7 @@ func (cr *ClusterRotation) GetClusters(height uint64) Clusters {
 		}
 	}
 
-	if height < cr.latestMatrixLockInBlock {
+	if height < cr.latestMatrixLockInBlock || cr.latestMatrixLockInBlock == 0 {
 		return cr.transitionalClusters
 	}
 	return cr.latestEpochClusters
