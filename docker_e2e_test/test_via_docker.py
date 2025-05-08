@@ -110,7 +110,7 @@ def create_test_bed(job_id):
         for i in range(0, NUM_OF_CLIENT):
             node_name = NODE_NAME.format(job_id, i)
             container = client.containers.run(CLIENT_IMAGE_NAME, name=node_name,
-                                              detach=True, privileged=True,
+                                              detach=True, cap_add=["SYS_ADMIN", "NET_ADMIN"],
                                               volumes={"/sys/fs/cgroup": {"bind": "/sys/fs/cgroup", "mode": "ro"}})
             print("create new container: ", container.id)
             container.logs()
