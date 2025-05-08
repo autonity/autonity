@@ -11,6 +11,7 @@ contract Latency is ILatency, AccessAutonity {
     // As we simplified the view synchronization with one-time reorg base on quorum reports,
     // thus for those validators who missed the report, we applied the default latency for view building.
     uint8 public constant DEFAULT_LATENCY = 128;
+    uint256 public constant LOCK_IN_THRESHOLD_DENOMINATOR = 1000;
 
     /*
     ┌────────┐
@@ -59,12 +60,19 @@ contract Latency is ILatency, AccessAutonity {
     // the counter counts the reported measurements of an epoch.
     uint256 public reports;
 
-    // the block number that the optimized clusters will be activated for current epoch.
-    uint256 public kmOptimizedHeight;
+    // the last matrix finalization block
+    uint256 public matrixLockInBlock;
+    uint256 public lastMatrixLockInBlock;
+
+    // The threshold of reports to trigger the K Means optimization (base 1000).
+    uint256 public lockInThreshold;
+    uint256 public lockInDelay;
 
     constructor(address payable _autonity, address[] memory initialCommittee) AccessAutonity(_autonity) {
         committee = initialCommittee;
         epochPlusOne = 1;
+        lockInThreshold = 700; // 70%
+        lockInDelay = 5; // 5 blocks
     }
 
     modifier onlyOncePerEpoch() {
@@ -86,6 +94,12 @@ contract Latency is ILatency, AccessAutonity {
         require(index < committee.length, "Latency: invalid reporter index");
         require(committee[index] == msg.sender, "Latency: not a valid reporter");
 
+        if (matrixLockInBlock != 0 && block.number > matrixLockInBlock) {
+            lastReportedEpoch[msg.sender] = epochPlusOne;
+            reports++;
+            return;
+        }
+
         uint256 _reportsSlot;
         uint256 _matrixSlot;
         assembly {
@@ -99,14 +113,12 @@ contract Latency is ILatency, AccessAutonity {
 
         emit Reported(msg.sender, _latency.length);
         bool twoThirds = reports * 3 >= committee.length * 2;
-        // Initial trigger at exactly the 2/3 crossing
-        bool initialKMEvent = (reports * 3 >= committee.length * 2) && ((reports - 1) * 3 < committee.length * 2);
-        // Subsequent triggers every 5 reports after crossing the 2/3 threshold OR at reaching committee length
-        bool periodicKMEvent = (twoThirds && ((reports - thresholdReports()) % 5 == 0) || reports == committee.length);
+        bool thresholdMet = reports * LOCK_IN_THRESHOLD_DENOMINATOR >= committee.length * lockInThreshold;
 
-        if (initialKMEvent || periodicKMEvent) {
-            kmOptimizedHeight = block.number;
-            emit KMOptimization(kmOptimizedHeight);
+        if (thresholdMet && matrixLockInBlock == 0) {
+            // other validators can report until the end of the block, but a new event should not be triggered
+            matrixLockInBlock = block.number;
+            emit KMOptimization(block.number + lockInDelay);
         }
     }
 
@@ -137,7 +149,8 @@ contract Latency is ILatency, AccessAutonity {
         committee = _committee;
         epochPlusOne++;
         reports = 0;
-        kmOptimizedHeight = 0;
+        lastMatrixLockInBlock = matrixLockInBlock;
+        matrixLockInBlock = 0;
     }
 
     /*
@@ -150,10 +163,10 @@ contract Latency is ILatency, AccessAutonity {
         return (committee.length * 2 + 2) / 3; // +2 for proper ceiling division
     }
 
-    function readLastEpochReport(uint256 _index) external view returns (address[] memory, uint8[] memory) {
+    function readLastEpochReport(uint256 _index) external view returns (uint8[] memory) {
         require(_index < lastCommittee.length, "invalid index of reporter");
         require(epochPlusOne > 1, "1st epoch is not over yet");
-        return (lastCommittee, lastLatencies[_index]);
+        return lastLatencies[_index];
     }
 
     function readLast() external view returns (address[] memory, uint8[][] memory) {
@@ -171,9 +184,9 @@ contract Latency is ILatency, AccessAutonity {
 
     /// @notice Read the report by reporter index.
     /// @return The committee and the latency report of the reporter.
-    function readReport(uint256 _index) external view returns (address[] memory, uint8[] memory) {
+    function readReport(uint256 _index) external view returns (uint8[] memory) {
         require(_index < committee.length, "invalid index of reporter");
-        return (committee, latencies[_index]);
+        return latencies[_index];
     }
 
 
@@ -193,9 +206,15 @@ contract Latency is ILatency, AccessAutonity {
         return committee;
     }
 
+    /// @notice Get the last committee
+    /// @return The last committee node addresses
+    function getLastCommittee() external view returns (address[] memory) {
+        return lastCommittee;
+    }
+
     /// @notice Get latency metrics status for current epoch.
     /// @return A tuple which contains the caller's  current epoch, and the KM optimization height of current epoch.
     function getMetricsStatus() external view returns (uint256) {
-        return kmOptimizedHeight ;
+        return matrixLockInBlock;
     }
 }

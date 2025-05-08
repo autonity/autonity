@@ -5,10 +5,10 @@ import (
 	"errors"
 	"math"
 	"sort"
+	"sync"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/router/kmeans"
-	"github.com/autonity/autonity/log"
 )
 
 type NodeLatency struct {
@@ -224,84 +224,68 @@ func UpdateClusterLatencies(c Clusters, latencyMap map[common.Address]uint, self
 	return c
 }
 
-type ClusterMap struct {
-	heights  []uint64
-	clusters map[uint64]Clusters
+type ClusterRotation struct {
+	mu                 sync.RWMutex
+	previousEpochBlock uint64
+	latestEpochBlock   uint64
+
+	lastMatrixLockInBlock   uint64
+	latestMatrixLockInBlock uint64
+
+	previousEpochClusters Clusters
+	transitionalClusters  Clusters
+	latestEpochClusters   Clusters
 }
 
-func NewClusterMap(
-	committee []common.Address,
-	latencyMap map[common.Address]uint,
-	self common.Address,
-) *ClusterMap {
-	cm := &ClusterMap{
-		heights:  []uint64{0},
-		clusters: make(map[uint64]Clusters),
-	}
+func (cr *ClusterRotation) EpochStart(epochBlock uint64, transitionalClusters Clusters) {
+	cr.mu.Lock()
+	defer cr.mu.Unlock()
+	// new epoch has started, need to create transitional clusters
+	cr.previousEpochBlock = cr.latestEpochBlock
+	cr.latestEpochBlock = epochBlock
 
-	var err error
-	cm.clusters[0], err = NewClusters(committee, latencyMap, nil, self)
-	if err != nil {
-		// this should never happen for default clusters
-		panic(err)
-	}
-	return cm
+	cr.previousEpochClusters = cr.latestEpochClusters
+	cr.transitionalClusters = transitionalClusters
+	cr.latestEpochClusters = Clusters{}
+
+	cr.lastMatrixLockInBlock = cr.latestMatrixLockInBlock
+	cr.latestMatrixLockInBlock = 0
 }
 
-func (cm *ClusterMap) AddCluster(height uint64, cluster Clusters) {
-	if height > cm.heights[len(cm.heights)-1] {
-		cm.heights = append(cm.heights, height)
-	} else if height < cm.heights[len(cm.heights)-1] {
-		// find the right position to insert
-		for i, h := range cm.heights {
-			if height < h {
-				cm.heights = append(cm.heights[:i], append([]uint64{height}, cm.heights[i:]...)...)
-				break
-			}
-		}
-	}
-	cm.clusters[height] = cluster
+func (cr *ClusterRotation) LockIn(lockInBlock uint64, cluster Clusters) {
+	cr.mu.Lock()
+	defer cr.mu.Unlock()
+	cr.latestEpochClusters = cluster
+	cr.latestMatrixLockInBlock = lockInBlock
 }
 
-func (cm *ClusterMap) GetCluster(height uint64) Clusters {
-	if len(cm.heights) == 0 {
-		log.Error("ClusterMap: no clusters available")
-		return Clusters{}
-	}
-	for i := len(cm.heights) - 1; i >= 0; i-- {
-		if cm.heights[i] <= height {
-			return cm.clusters[cm.heights[i]]
-		}
-	}
-	log.Error("ClusterMap: no cluster found for height", "height", height)
-	return Clusters{}
-}
+func (cr *ClusterRotation) GetClusters(height uint64) Clusters {
+	cr.mu.RLock()
+	defer cr.mu.RUnlock()
 
-func (cm *ClusterMap) LatestHeight() uint64 {
-	return cm.heights[len(cm.heights)-1]
-}
-
-func (cm *ClusterMap) LatestCluster() Clusters {
-	return cm.clusters[cm.heights[len(cm.heights)-1]]
-}
-
-func (cm *ClusterMap) PruneTo(height uint64) {
-	log.Info("ClusterMap: pruning clusters to height", "height", height, "current_heights", cm.heights)
-	// Find the index of the first height >= the given height
-	var idx int
-	for i, h := range cm.heights {
-		if h >= height {
-			idx = i
-			break
+	if height < cr.previousEpochBlock {
+		if height > cr.lastMatrixLockInBlock {
+			return cr.previousEpochClusters
+		} else {
+			// no clusters available for before previous epoch lock in block
+			return Clusters{}
 		}
 	}
 
-	// Remove all heights and clusters with h < height
-	cm.heights = cm.heights[idx:]
-	for h := range cm.clusters {
-		if h < height {
-			delete(cm.clusters, h)
-		}
+	if height < cr.latestMatrixLockInBlock {
+		return cr.transitionalClusters
 	}
-	log.Info("ClusterMap: pruning done", "remaining_heights", cm.heights)
+	return cr.latestEpochClusters
+}
+
+func (cr *ClusterRotation) UpdateLatencies(latencies map[common.Address]uint, self common.Address) {
+	cr.mu.Lock()
+	defer cr.mu.Unlock()
+	// update latencies based on whether we are in the transitional clusters or
+	// the latest epoch clusters phase
+	if len(cr.latestEpochClusters.base) != 0 {
+		cr.latestEpochClusters = UpdateClusterLatencies(cr.latestEpochClusters, latencies, self)
+	} else if len(cr.transitionalClusters.base) != 0 {
+		cr.transitionalClusters = UpdateClusterLatencies(cr.transitionalClusters, latencies, self)
+	}
 }
