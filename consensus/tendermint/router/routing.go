@@ -74,16 +74,15 @@ func New(
 ) *Router {
 	cache := NewPeerSelectionCache()
 	router := &Router{
-		broadcaster:           broadcaster,
-		nodeKey:               nodeKey,
-		epochEventChan:        make(chan core.EpochHeadEvent, 2),
-		optimizationEventChan: make(chan *autonity.LatencyKMOptimization, 2),
-		fetcher:               NewLatencyFetcher(pinger, broadcaster),
-		cache:                 cache,
-		latestLatencies:       make(map[common.Address]uint),
-		nodesToRetry:          make(map[common.Address]struct{}),
-		self:                  self,
-		reportedThisEpoch:     false,
+		broadcaster:       broadcaster,
+		nodeKey:           nodeKey,
+		epochEventChan:    make(chan core.EpochHeadEvent, 2),
+		fetcher:           NewLatencyFetcher(pinger, broadcaster),
+		cache:             cache,
+		latestLatencies:   make(map[common.Address]uint),
+		nodesToRetry:      make(map[common.Address]struct{}),
+		self:              self,
+		reportedThisEpoch: false,
 	}
 	if selector == nil {
 		router.peerSelector = NewSelector(router)
@@ -142,21 +141,12 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 		log.Error("Error fetching latest epoch", "err", err)
 		return
 	}
-	optimizationEventSub, err := chain.ProtocolContracts().WatchKMOptimization(nil, m.optimizationEventChan)
-	if err != nil {
-		log.Error("Router: error subscribing to km optimization event", err)
-		return
-	}
-	m.optimizationEventSub = optimizationEventSub
+
 	m.epochEventSub = chain.SubscribeEpochHeadEvent(m.epochEventChan)
 	m.contracts = chain.ProtocolContracts()
 
 	m.epochEventSub = chain.SubscribeEpochHeadEvent(m.epochEventChan)
-	result := make([]common.Address, curEpoch.Committee.Len())
-	for i, member := range curEpoch.Committee.Members {
-		result[i] = member.Address
-	}
-	m.committee = result
+	m.committee = m.committeeAddresses(curEpoch.Committee)
 	m.epoch = &curEpoch.Epoch
 	m.reporter, err = NewReporter(
 		chain.Config().ChainID,
@@ -170,17 +160,14 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 	m.initializeClusters(curEpoch)
 
 	ctx, m.cancel = context.WithCancel(ctx)
-	m.wg.Add(1)
+	m.wg.Add(2)
 	go m.watchReported(ctx)
-
-	m.wg.Add(1)
 	go m.loop(ctx)
 }
 
 func (m *Router) Stop() {
 	m.cancel()
 	m.epochEventSub.Unsubscribe()
-	m.optimizationEventSub.Unsubscribe()
 	m.wg.Wait()
 }
 
@@ -384,24 +371,6 @@ func (m *Router) loop(ctx context.Context) {
 			if err := m.measureLatency(); err != nil {
 				log.Warn("measureToReport failed", "err", err)
 			}
-
-		case optimizationEv := <-m.optimizationEventChan:
-			log.Info("Router: ready to optimize the clustering", "effectiveHeight", optimizationEv.Height)
-			latMat, committee, err := m.readLatencyMatrix(false)
-			if err != nil {
-				log.Error("Router: failed to read latency matrix", "err", err)
-				continue
-			} else {
-				log.Info("Router: read latency matrix successfully", "len(latMat)", len(latMat))
-			}
-			m.latencyMat = latMat
-			clusters, err := NewClusters(committee, m.latestLatencies, latMat, m.self)
-			if err != nil {
-				log.Error("Router: failed to create new clusters", "err", err)
-				continue
-			}
-			m.clusters.LockIn(optimizationEv.Height.Uint64(), clusters)
-			m.logUpdateClusters(optimizationEv.Height.Uint64(), clusters)
 		}
 	}
 }
@@ -582,13 +551,13 @@ func (m *Router) initializeClusters(epoch *types.EpochInfo) {
 func (m *Router) watchReported(ctx context.Context) {
 	defer m.wg.Done()
 
-	reported := make(chan *autonity.LatencyReported)
+	reported := make(chan *autonity.LatencyReported, 2)
 	reportedSub, err := m.contracts.Latency.WatchReported(nil, reported, nil)
 	if err != nil {
 		log.Error("Router: failed to subscribe to reported event", "err", err)
 		return
 	}
-	optimization := make(chan *autonity.LatencyKMOptimization)
+	optimization := make(chan *autonity.LatencyKMOptimization, 2)
 	kmOptimizationSub, err := m.contracts.Latency.WatchKMOptimization(nil, m.optimizationEventChan)
 	if err != nil {
 		log.Error("Router: failed to subscribe to km optimization event", "err", err)
@@ -612,18 +581,39 @@ func (m *Router) watchReported(ctx context.Context) {
 				"block",
 				ev.Raw.BlockNumber,
 			)
-		case ev := <-optimization:
+		case optimizationEv := <-optimization:
 			log.Info(
 				"Router: km optimization event received",
 				"effectiveHeight",
-				ev.Height.Uint64(),
+				optimizationEv.Height.Uint64(),
 				"nextEpoch",
 				m.epoch.NextEpochBlock.Uint64(),
 				"previousEpoch",
 				m.epoch.PreviousEpochBlock.Uint64(),
 				"block",
-				ev.Raw.BlockNumber,
+				optimizationEv.Raw.BlockNumber,
 			)
+
+			log.Info("Router: ready to optimize the clustering", "effectiveHeight", optimizationEv.Height)
+			if m.clusters.latestMatrixLockInBlock == optimizationEv.Height.Uint64() {
+				log.Info("Router: clusters already optimized for this lock in block, skipping")
+				continue
+			}
+			latMat, committee, err := m.readLatencyMatrix(false)
+			if err != nil {
+				log.Error("Router: failed to read latency matrix", "err", err)
+				continue
+			} else {
+				log.Info("Router: read latency matrix successfully", "len(latMat)", len(latMat))
+			}
+			m.latencyMat = latMat
+			clusters, err := NewClusters(committee, m.latestLatencies, latMat, m.self)
+			if err != nil {
+				log.Error("Router: failed to create new clusters", "err", err)
+				continue
+			}
+			m.clusters.LockIn(optimizationEv.Height.Uint64(), clusters)
+			m.logUpdateClusters(optimizationEv.Height.Uint64(), clusters)
 		}
 	}
 }
