@@ -127,6 +127,15 @@ func (m *Router) initThreshold() error {
 		log.Error("Router: failed to get lock in delay")
 		return err
 	}
+	log.Info(
+		"Router: report threshold updated",
+		"numerator",
+		numerator.Uint64(),
+		"denominator",
+		denominator.Uint64(),
+		"delay",
+		delay.Uint64(),
+	)
 	m.threshold = &threshold{
 		numerator:   numerator.Uint64(),
 		denominator: denominator.Uint64(),
@@ -176,11 +185,9 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 		log.Error("Error fetching latest epoch", "err", err)
 		return
 	}
-
-	m.epochEventSub = chain.SubscribeEpochHeadEvent(m.epochEventChan)
 	m.contracts = chain.ProtocolContracts()
-
 	m.epochEventSub = chain.SubscribeEpochHeadEvent(m.epochEventChan)
+
 	m.committee = m.committeeAddresses(curEpoch.Committee)
 	m.epoch = &curEpoch.Epoch
 	if err := m.initThreshold(); err != nil {
@@ -242,7 +249,10 @@ func (m *Router) measureLatency() error {
 
 	m.refreshClustersLatencies(m.latestLatencies)
 	log.Debug("Router: latency measurement completed", "failed_nodes", len(failedNodes))
+	return nil
+}
 
+func (m *Router) report() error {
 	log.Info("Router: checking latency report status")
 	if m.reportedThisEpoch {
 		log.Info("Router: already reported this epoch, skipping")
@@ -339,6 +349,15 @@ func (m *Router) loop(ctx context.Context) {
 		if err := m.measureLatency(); err != nil {
 			log.Warn("Latency measurement failed", "err", err)
 		}
+		m.wg.Add(1)
+		go func() {
+			defer m.wg.Done()
+			delay := time.Duration(rand.Intn(MeasurementWindow)) * time.Millisecond
+			time.Sleep(delay)
+			if err := m.report(); err != nil {
+				log.Warn("Router: initial latency report failed", "err", err)
+			}
+		}()
 	}
 
 	for {
@@ -407,9 +426,16 @@ func (m *Router) loop(ctx context.Context) {
 			m.logUpdateClusters(epochEv.Header.Number.Uint64(), clusters)
 			// new epoch, reset the reported status
 			m.reportedThisEpoch = false
+			m.wg.Add(1)
 			if err := m.measureLatency(); err != nil {
 				log.Warn("measureToReport failed", "err", err)
 			}
+			go func() {
+				defer m.wg.Done()
+				if err := m.report(); err != nil {
+					log.Warn("Router: initial latency report failed", "err", err)
+				}
+			}()
 		}
 	}
 }
@@ -597,7 +623,7 @@ func (m *Router) watchReported(ctx context.Context) {
 		return
 	}
 	optimization := make(chan *autonity.LatencyKMOptimization, 2)
-	kmOptimizationSub, err := m.contracts.Latency.WatchKMOptimization(nil, m.optimizationEventChan)
+	kmOptimizationSub, err := m.contracts.Latency.WatchKMOptimization(nil, optimization)
 	if err != nil {
 		log.Error("Router: failed to subscribe to km optimization event", "err", err)
 		return

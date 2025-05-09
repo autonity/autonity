@@ -54,35 +54,8 @@ func (r *Reporter) ReportLatency(latency map[common.Address]uint8) error {
 		return nil
 	}
 
-	testTx, err := r.protocolContracts.Latency.Report(&bind.TransactOpts{
-		From:      common.Address{},
-		Nonce:     r.txOpts.Nonce,
-		Signer:    r.txOpts.Signer,
-		Value:     r.txOpts.Value,
-		GasPrice:  r.txOpts.GasPrice,
-		GasFeeCap: r.txOpts.GasFeeCap,
-		GasTipCap: r.txOpts.GasTipCap,
-		GasLimit:  r.txOpts.GasLimit,
-		Context:   r.txOpts.Context,
-		NoSend:    true,
-	}, big.NewInt(int64(index)), latencyVec)
-	if err != nil {
-		log.Error("Reporter: failed to create test transaction", "err", err)
-		return err
-	}
 	tx, err := r.protocolContracts.Latency.Report(
-		&bind.TransactOpts{
-			From:      r.txOpts.From,
-			Nonce:     r.txOpts.Nonce,
-			Signer:    r.txOpts.Signer,
-			Value:     r.txOpts.Value,
-			GasPrice:  r.txOpts.GasPrice,
-			GasFeeCap: new(big.Int).Mul(testTx.GasFeeCap(), big.NewInt(10)),
-			GasTipCap: new(big.Int).Mul(testTx.GasTipCap(), big.NewInt(10)),
-			GasLimit:  r.txOpts.GasLimit,
-			Context:   r.txOpts.Context,
-			NoSend:    false,
-		},
+		r.txOpts,
 		big.NewInt(int64(index)),
 		latencyVec,
 	)
