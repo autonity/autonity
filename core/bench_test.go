@@ -303,7 +303,7 @@ func makeChainForBench(db ethdb.Database, genesis *Genesis, full bool, count uin
 }
 
 func benchWriteChain(b *testing.B, full bool, count uint64) {
-	genesis := &Genesis{Config: params.AllEthashProtocolChanges}
+	genesis := &Genesis{Config: params.TestConfigNoVerkle}
 	for i := 0; i < b.N; i++ {
 		pdb, err := pebble.New(b.TempDir(), 1024, 128, "", false, true)
 		if err != nil {
@@ -324,7 +324,7 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 	}
 	db := rawdb.NewDatabase(pdb)
 
-	genesis := &Genesis{Config: params.AllEthashProtocolChanges}
+	genesis := &Genesis{Config: params.TestConfigNoVerkle}
 	makeChainForBench(db, genesis, full, count)
 	db.Close()
 	cacheConfig := *defaultCacheConfig

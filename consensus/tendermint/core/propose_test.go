@@ -67,7 +67,7 @@ func TestSendPropose(t *testing.T) {
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(makeSigner(proposerConsensusKey))
 		backendMock.EXPECT().Broadcast(gomock.Any(), proposal)
-		backendMock.EXPECT().HeadBlock().Return(preBlock)
+		backendMock.EXPECT().HeadBlock().Return(preBlock.Header())
 
 		c := &Core{
 			address:          proposer,
@@ -542,7 +542,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Broadcast(gomock.Any(), proposal)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(proposerKey))
-		backendMock.EXPECT().HeadBlock().Return(preBlock)
+		backendMock.EXPECT().HeadBlock().Return(preBlock.Header())
 
 		c := &Core{
 			pendingCandidateBlocks: make(map[uint64]*types.Block),

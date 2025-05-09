@@ -260,7 +260,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		eth.engine,
 		vmConfig,
 		&config.TransactionHistory,
-		backends.NewInternalBackend(txSender, eth.APIBackend),
+		backends.NewInternalBackend(txSender),
 		eth.log)
 
 	if err != nil {

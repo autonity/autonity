@@ -64,7 +64,7 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 	defer stack.Close()
 
 	genesis := &core.Genesis{
-		Config:     params.AllEthashProtocolChanges,
+		Config:     params.TestConfigNoVerkle,
 		GasLimit:   11500000,
 		Difficulty: big.NewInt(0),
 	}
@@ -185,7 +185,7 @@ func TestGraphQLBlockSerializationEIP2718(t *testing.T) {
 	stack := createNode(t)
 	defer stack.Close()
 	genesis := &core.Genesis{
-		Config:     params.AllEthashProtocolChanges,
+		Config:     params.TestConfigNoVerkle,
 		GasLimit:   11500000,
 		Difficulty: big.NewInt(0),
 		Alloc: types.GenesisAlloc{
@@ -282,7 +282,7 @@ func TestGraphQLConcurrentResolvers(t *testing.T) {
 		dadStr  = "0x0000000000000000000000000000000000000dad"
 		dad     = common.HexToAddress(dadStr)
 		genesis = &core.Genesis{
-			Config:     params.AllEthashProtocolChanges,
+			Config:     params.TestConfigNoVerkle,
 			GasLimit:   11500000,
 			Difficulty: big.NewInt(0),
 			Alloc: types.GenesisAlloc{

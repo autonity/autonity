@@ -117,7 +117,7 @@ func generateBlockProposal(r int64, h *big.Int, vr int64, invalid bool, signer m
 	if invalid {
 		header := &types.Header{Number: h, ParentHash: parentHeader.Hash()}
 		header.Difficulty = nil
-		block = types.NewBlock(header, nil, nil, nil, new(trie.Trie))
+		block = types.NewBlock(header, &types.Body{nil, nil}, nil, trie.NewStackTrie(nil))
 	} else {
 		block = generateBlock(h, parentHeader)
 	}

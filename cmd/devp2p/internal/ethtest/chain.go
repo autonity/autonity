@@ -253,6 +253,8 @@ func loadGenesis(genesisFile string) (core.Genesis, error) {
 	if err := json.Unmarshal(chainConfig, &gen); err != nil {
 		return core.Genesis{}, err
 	}
+	gen.Config.AutonityContractConfig = params.TestAutonityContractConfig
+	gen.Config.OracleContractConfig = params.TestOracleConfig
 	return gen, nil
 }
 

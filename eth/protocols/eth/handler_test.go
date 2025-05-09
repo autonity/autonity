@@ -24,8 +24,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/consensus/beacon"
-
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core"
@@ -36,6 +35,7 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
@@ -72,9 +72,10 @@ func newTestBackendWithGenerator(blocks int, shanghai bool, generator func(int, 
 	var (
 		// Create a database pre-initialize with a genesis block
 		db     = rawdb.NewMemoryDatabase()
-		config = params.TestChainConfig
-		engine = beacon.New(ethash.NewFaker())
+		config = params.TestConfigNoVerkle
+		engine = ethash.NewFullFaker()
 	)
+
 	if shanghai {
 		config = &params.ChainConfig{
 			ChainID:                 big.NewInt(1),
@@ -92,19 +93,21 @@ func newTestBackendWithGenerator(blocks int, shanghai bool, generator func(int, 
 			BerlinBlock:             big.NewInt(0),
 			LondonBlock:             big.NewInt(0),
 			ArrowGlacierBlock:       big.NewInt(0),
-			GrayGlacierBlock:        big.NewInt(0),
-			MergeNetsplitBlock:      big.NewInt(0),
-			ShanghaiTime:            u64(0),
+			MergeForkBlock:          big.NewInt(0),
+			PragueBlock:             big.NewInt(0),
 			TerminalTotalDifficulty: big.NewInt(0),
 			Ethash:                  new(params.EthashConfig),
+			AutonityContractConfig:  params.TestAutonityContractConfig,
+			OracleContractConfig:    params.TestOracleConfig,
 		}
 	}
 
 	gspec := &core.Genesis{
 		Config: config,
-		Alloc:  types.GenesisAlloc{testAddr: {Balance: big.NewInt(100_000_000_000_000_000)}},
+
+		Alloc: types.GenesisAlloc{testAddr: {Balance: big.NewInt(100_000_000_000_000_000)}},
 	}
-	chain, _ := core.NewBlockChain(db, nil, gspec, nil, engine, vm.Config{}, nil)
+	chain, _ := core.NewBlockChain(db, nil, gspec, engine, vm.Config{}, nil, backends.NewInternalBackend(nil), log.Root())
 
 	_, bs, _ := core.GenerateChainWithGenesis(gspec, engine, blocks, generator)
 	if _, err := chain.InsertChain(bs); err != nil {
@@ -343,13 +346,6 @@ func testGetBlockBodies(t *testing.T, protocol uint) {
 	t.Parallel()
 
 	gen := func(n int, g *core.BlockGen) {
-		if n%2 == 0 {
-			w := &types.Withdrawal{
-				Address: common.Address{0xaa},
-				Amount:  42,
-			}
-			g.AddWithdrawal(w)
-		}
 	}
 
 	backend := newTestBackendWithGenerator(maxBodiesServe+15, true, gen)
@@ -402,7 +398,7 @@ func testGetBlockBodies(t *testing.T, protocol uint) {
 					block := backend.chain.GetBlockByNumber(uint64(num))
 					hashes = append(hashes, block.Hash())
 					if len(bodies) < tt.expected {
-						bodies = append(bodies, &BlockBody{Transactions: block.Transactions(), Uncles: block.Uncles(), Withdrawals: block.Withdrawals()})
+						bodies = append(bodies, &BlockBody{Transactions: block.Transactions(), Uncles: block.Uncles()})
 					}
 					break
 				}
@@ -412,7 +408,7 @@ func testGetBlockBodies(t *testing.T, protocol uint) {
 			hashes = append(hashes, hash)
 			if tt.available[j] && len(bodies) < tt.expected {
 				block := backend.chain.GetBlockByHash(hash)
-				bodies = append(bodies, &BlockBody{Transactions: block.Transactions(), Uncles: block.Uncles(), Withdrawals: block.Withdrawals()})
+				bodies = append(bodies, &BlockBody{Transactions: block.Transactions(), Uncles: block.Uncles()})
 			}
 		}
 
@@ -524,13 +520,7 @@ func setup() (*testBackend, *testPeer) {
 	acc2Addr := crypto.PubkeyToAddress(acc2Key.PublicKey)
 	signer := types.HomesteadSigner{}
 	gen := func(n int, block *core.BlockGen) {
-		if n%2 == 0 {
-			w := &types.Withdrawal{
-				Address: common.Address{0xaa},
-				Amount:  42,
-			}
-			block.AddWithdrawal(w)
-		}
+
 		switch n {
 		case 0:
 			// In block 1, the test bank sends account #1 some ether.

@@ -33,9 +33,9 @@ func TestCheckCompatible(t *testing.T) {
 		wantErr       *ConfigCompatError
 	}
 	tests := []test{
-		{stored: AllEthashProtocolChanges, new: AllEthashProtocolChanges, headBlock: 0, headTimestamp: 0, wantErr: nil},
-		{stored: AllEthashProtocolChanges, new: AllEthashProtocolChanges, headBlock: 0, headTimestamp: uint64(time.Now().Unix()), wantErr: nil},
-		{stored: AllEthashProtocolChanges, new: AllEthashProtocolChanges, headBlock: 100, wantErr: nil},
+		{stored: TestConfigNoVerkle, new: TestConfigNoVerkle, headBlock: 0, headTimestamp: 0, wantErr: nil},
+		{stored: TestConfigNoVerkle, new: TestConfigNoVerkle, headBlock: 0, headTimestamp: uint64(time.Now().Unix()), wantErr: nil},
+		{stored: TestConfigNoVerkle, new: TestConfigNoVerkle, headBlock: 100, wantErr: nil},
 		{
 			stored:    &ChainConfig{EIP150Block: big.NewInt(10)},
 			new:       &ChainConfig{EIP150Block: big.NewInt(20)},
@@ -43,7 +43,7 @@ func TestCheckCompatible(t *testing.T) {
 			wantErr:   nil,
 		},
 		{
-			stored:    AllEthashProtocolChanges,
+			stored:    TestConfigNoVerkle,
 			new:       &ChainConfig{HomesteadBlock: nil},
 			headBlock: 3,
 			wantErr: &ConfigCompatError{
@@ -54,7 +54,7 @@ func TestCheckCompatible(t *testing.T) {
 			},
 		},
 		{
-			stored:    AllEthashProtocolChanges,
+			stored:    TestConfigNoVerkle,
 			new:       &ChainConfig{HomesteadBlock: big.NewInt(1)},
 			headBlock: 3,
 			wantErr: &ConfigCompatError{

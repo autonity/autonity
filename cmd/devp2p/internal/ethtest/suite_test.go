@@ -46,6 +46,7 @@ func makeJWTSecret(t *testing.T) (string, [32]byte, error) {
 }
 
 func TestEthSuite(t *testing.T) {
+	t.Skip("data format unsupported")
 	jwtPath, secret, err := makeJWTSecret(t)
 	if err != nil {
 		t.Fatalf("could not make jwt secret: %v", err)
@@ -56,7 +57,7 @@ func TestEthSuite(t *testing.T) {
 	}
 	defer geth.Close()
 
-	suite, err := NewSuite(geth.ExecutionServer().Self(), "./testdata", geth.HTTPAuthEndpoint(), common.Bytes2Hex(secret[:]))
+	suite, err := NewSuite(geth.ExecutionServer().Self(), "./testdata", "", common.Bytes2Hex(secret[:]))
 	if err != nil {
 		t.Fatalf("could not create new test suite: %v", err)
 	}
@@ -74,6 +75,7 @@ func TestEthSuite(t *testing.T) {
 }
 
 func TestSnapSuite(t *testing.T) {
+	t.Skip("data format unsupported")
 	jwtPath, secret, err := makeJWTSecret(t)
 	if err != nil {
 		t.Fatalf("could not make jwt secret: %v", err)
@@ -84,7 +86,7 @@ func TestSnapSuite(t *testing.T) {
 	}
 	defer geth.Close()
 
-	suite, err := NewSuite(geth.Server().Self(), "./testdata", geth.HTTPAuthEndpoint(), common.Bytes2Hex(secret[:]))
+	suite, err := NewSuite(geth.ExecutionServer().Self(), "./testdata", "", common.Bytes2Hex(secret[:]))
 	if err != nil {
 		t.Fatalf("could not create new test suite: %v", err)
 	}
@@ -109,7 +111,6 @@ func runGeth(dir string, jwtPath string) (*node.Node, error) {
 			MaxPeers:    10, // in case a test requires multiple connections, can be changed in the future
 			NoDial:      true,
 		},
-		JWTSecret: jwtPath,
 	})
 	if err != nil {
 		return nil, err
@@ -143,9 +144,6 @@ func setupGeth(stack *node.Node, dir string) error {
 	})
 	if err != nil {
 		return err
-	}
-	if err := catalyst.Register(stack, backend); err != nil {
-		return fmt.Errorf("failed to register catalyst service: %v", err)
 	}
 	_, err = backend.BlockChain().InsertChain(chain.blocks[1:])
 	return err

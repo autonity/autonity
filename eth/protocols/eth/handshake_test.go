@@ -18,7 +18,9 @@ package eth
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/autonity/autonity/common"
@@ -69,6 +71,7 @@ func testHandshake(t *testing.T, protocol uint) {
 		},
 	}
 	for i, test := range tests {
+		fmt.Fprintf(os.Stderr, "test i=%d: ", i)
 		// Create the two peers to shake with each other
 		app, net := p2p.MsgPipe()
 		defer app.Close()
@@ -80,7 +83,7 @@ func testHandshake(t *testing.T, protocol uint) {
 		// Send the junk test with one peer, check the handshake failure
 		go p2p.Send(app, test.code, test.data)
 
-		err := peer.Handshake(1, head.Hash(), genesis.Hash(), forkID, forkid.NewFilter(backend.chain))
+		err := peer.Handshake(1, head.Number, head.Hash(), genesis.Hash(), forkID, forkid.NewFilter(backend.chain))
 		if err == nil {
 			t.Errorf("test %d: protocol returned nil error, want %q", i, test.want)
 		} else if !errors.Is(err, test.want) {

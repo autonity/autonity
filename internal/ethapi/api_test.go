@@ -101,7 +101,7 @@ func TestTransaction_RoundTripRpcJSON(t *testing.T) {
 	t.Parallel()
 
 	var (
-		config = params.AllEthashProtocolChanges
+		config = params.TestConfigNoVerkle
 		tests  = allTransactionTypes(common.Address{0xde, 0xad}, config)
 	)
 	testTransactionMarshal(t, tests, config)

@@ -37,7 +37,6 @@ var _ bind.ContractBackend = (*InternalBackend)(nil)
 // protocol contracts. This is used internally by the accountability module and by the autonity cache.
 type InternalBackend struct {
 	mu           sync.Mutex
-	apiBackend   ethapi.Backend
 	database     ethdb.Database
 	blockchain   *core.BlockChain
 	filterSystem *filters.FilterSystem
@@ -54,13 +53,12 @@ var (
 	errTransactionDoesNotExist = errors.New("transaction does not exist")
 )
 
-func NewInternalBackend(txSender TxSender, ethAPIBackend ethapi.Backend) func(*core.BlockChain, ethdb.Database) bind.ContractBackend {
+func NewInternalBackend(txSender TxSender) func(*core.BlockChain, ethdb.Database) bind.ContractBackend {
 	return func(blockchain *core.BlockChain, db ethdb.Database) bind.ContractBackend {
 		filterSystem := filters.NewFilterSystem(&filterBackend{db, blockchain}, filters.Config{})
 		eventSystem := filters.NewEventSystem(filterSystem)
 		backend := &InternalBackend{
 			database:     db,
-			apiBackend:   ethAPIBackend,
 			blockchain:   blockchain,
 			filterSystem: filterSystem,
 			eventSystem:  eventSystem,
@@ -244,8 +242,8 @@ func (b *InternalBackend) CallContract(ctx context.Context, call ethereum.CallMs
 	if err != nil {
 		return nil, err
 	}
-	blockCtx := core.NewEVMBlockContext(header, ethapi.NewChainContext(ctx, b.apiBackend), nil)
-	evm := b.apiBackend.GetEVM(ctx, statedb, header, b.blockchain.GetVMConfig(), &blockCtx)
+	blockCtx := core.NewEVMBlockContext(header, b.blockchain, nil)
+	evm := vm.NewEVM(blockCtx, statedb, b.ChainConfig(), *b.blockchain.GetVMConfig())
 	gp := core.GasPool(call.Gas)
 	res, err := core.ApplyMessage(evm, nil, &gp)
 	if err != nil {
