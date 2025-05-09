@@ -111,6 +111,30 @@ func (m *Router) committeeAddresses(committee *types.Committee) []common.Address
 	return result
 }
 
+func (m *Router) initThreshold() error {
+	numerator, err := m.contracts.Latency.LockInThreshold(nil)
+	if err != nil {
+		log.Error("Router: failed to get lock in threshold")
+		return err
+	}
+	denominator, err := m.contracts.Latency.LOCKINTHRESHOLDDENOMINATOR(nil)
+	if err != nil {
+		log.Error("Router: failed to get lock in threshold denominator")
+		return err
+	}
+	delay, err := m.contracts.Latency.LockInDelay(nil)
+	if err != nil {
+		log.Error("Router: failed to get lock in delay")
+		return err
+	}
+	m.threshold = &threshold{
+		numerator:   numerator.Uint64(),
+		denominator: denominator.Uint64(),
+		delay:       delay.Uint64(),
+	}
+	return nil
+}
+
 func (m *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
 	if committee.Len() <= ScaleThresholdForClustering {
 		return m.committeeAddresses(committee), nil
@@ -159,25 +183,9 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 	m.epochEventSub = chain.SubscribeEpochHeadEvent(m.epochEventChan)
 	m.committee = m.committeeAddresses(curEpoch.Committee)
 	m.epoch = &curEpoch.Epoch
-	numerator, err := m.contracts.Latency.LockInThreshold(nil)
-	if err != nil {
-		log.Error("Router: failed to get lock in threshold")
+	if err := m.initThreshold(); err != nil {
+		log.Error("Router: failed to init threshold", "err", err)
 		return
-	}
-	denominator, err := m.contracts.Latency.LOCKINTHRESHOLDDENOMINATOR(nil)
-	if err != nil {
-		log.Error("Router: failed to get lock in threshold denominator")
-		return
-	}
-	delay, err := m.contracts.Latency.LockInDelay(nil)
-	if err != nil {
-		log.Error("Router: failed to get lock in delay")
-		return
-	}
-	m.threshold = &threshold{
-		numerator:   numerator.Uint64(),
-		denominator: denominator.Uint64(),
-		delay:       delay.Uint64(),
 	}
 	m.reporter, err = NewReporter(
 		chain.Config().ChainID,
