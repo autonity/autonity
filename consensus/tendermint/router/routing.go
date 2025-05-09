@@ -31,6 +31,16 @@ const (
 	MeasurementWindow           = 2000
 )
 
+type threshold struct {
+	numerator   uint64
+	denominator uint64
+	delay       uint64
+}
+
+func (t *threshold) Exceeded(committeeSize int, numReports uint64) bool {
+	return t.denominator*numReports >= uint64(committeeSize)*t.numerator
+}
+
 type Router struct {
 	self        common.Address
 	nodeKey     *ecdsa.PrivateKey
@@ -52,6 +62,7 @@ type Router struct {
 	latencyMap      map[uint64]map[common.Address]uint
 	latencyMat      [][]uint8
 	epoch           *types.Epoch
+	threshold       *threshold
 
 	optimizationEventChan chan *autonity.LatencyKMOptimization
 	optimizationEventSub  event.Subscription
@@ -148,6 +159,26 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 	m.epochEventSub = chain.SubscribeEpochHeadEvent(m.epochEventChan)
 	m.committee = m.committeeAddresses(curEpoch.Committee)
 	m.epoch = &curEpoch.Epoch
+	numerator, err := m.contracts.Latency.LockInThreshold(nil)
+	if err != nil {
+		log.Error("Router: failed to get lock in threshold")
+		return
+	}
+	denominator, err := m.contracts.Latency.LOCKINTHRESHOLDDENOMINATOR(nil)
+	if err != nil {
+		log.Error("Router: failed to get lock in threshold denominator")
+		return
+	}
+	delay, err := m.contracts.Latency.LockInDelay(nil)
+	if err != nil {
+		log.Error("Router: failed to get lock in delay")
+		return
+	}
+	m.threshold = &threshold{
+		numerator:   numerator.Uint64(),
+		denominator: denominator.Uint64(),
+		delay:       delay.Uint64(),
+	}
 	m.reporter, err = NewReporter(
 		chain.Config().ChainID,
 		m.nodeKey,
@@ -581,6 +612,14 @@ func (m *Router) watchReported(ctx context.Context) {
 				"block",
 				ev.Raw.BlockNumber,
 			)
+			if m.threshold.Exceeded(len(m.committee), ev.TotalReported.Uint64()) {
+				log.Info("Router:report threshold exceeded, optimizing clusters", "height", ev.Raw.BlockNumber)
+				if err := m.OptimizeClusters(ev.Raw.BlockNumber + m.threshold.delay); err != nil {
+					log.Error("Router: failed to optimize clusters", "err", err)
+				} else {
+					log.Info("Router: clusters optimized successfully")
+				}
+			}
 		case optimizationEv := <-optimization:
 			log.Info(
 				"Router: km optimization event received",
@@ -593,29 +632,35 @@ func (m *Router) watchReported(ctx context.Context) {
 				"block",
 				optimizationEv.Raw.BlockNumber,
 			)
-
-			log.Info("Router: ready to optimize the clustering", "effectiveHeight", optimizationEv.Height)
-			if m.clusters.latestMatrixLockInBlock == optimizationEv.Height.Uint64() {
-				log.Info("Router: clusters already optimized for this lock in block, skipping")
-				continue
+			if err := m.OptimizeClusters(optimizationEv.Height.Uint64()); err != nil {
+				log.Error("Could not optimize clusters", "err", err)
 			}
-			latMat, committee, err := m.readLatencyMatrix(false)
-			if err != nil {
-				log.Error("Router: failed to read latency matrix", "err", err)
-				continue
-			} else {
-				log.Info("Router: read latency matrix successfully", "len(latMat)", len(latMat))
-			}
-			m.latencyMat = latMat
-			clusters, err := NewClusters(committee, m.latestLatencies, latMat, m.self)
-			if err != nil {
-				log.Error("Router: failed to create new clusters", "err", err)
-				continue
-			}
-			m.clusters.LockIn(optimizationEv.Height.Uint64(), clusters)
-			m.logUpdateClusters(optimizationEv.Height.Uint64(), clusters)
 		}
 	}
+}
+
+func (m *Router) OptimizeClusters(lockInBlock uint64) error {
+	log.Info("Router: ready to optimize the clustering", "effectiveHeight", lockInBlock)
+	if m.clusters.latestMatrixLockInBlock == lockInBlock {
+		log.Info("Router: clusters already optimized for this lock in block, skipping")
+		return nil
+	}
+	latMat, committee, err := m.readLatencyMatrix(false)
+	if err != nil {
+		log.Error("Router: failed to read latency matrix", "err", err)
+		return err
+	} else {
+		log.Info("Router: read latency matrix successfully", "len(latMat)", len(latMat))
+	}
+	m.latencyMat = latMat
+	clusters, err := NewClusters(committee, m.latestLatencies, latMat, m.self)
+	if err != nil {
+		log.Error("Router: failed to create new clusters", "err", err)
+		return err
+	}
+	m.clusters.LockIn(lockInBlock, clusters)
+	m.logUpdateClusters(lockInBlock, clusters)
+	return nil
 }
 
 func (m *Router) Clusters(height uint64) Clusters {

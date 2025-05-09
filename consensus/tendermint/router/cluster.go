@@ -295,7 +295,7 @@ func (cr *ClusterRotation) GetClusters(height uint64) Clusters {
 
 	if height < cr.previousEpochBlock {
 		if height > cr.lastMatrixLockInBlock {
-			log.Info(
+			/*log.Info(
 				"ClusterRotation: returning previous epoch clusters",
 				"len(previousEpochClusters)", len(cr.previousEpochClusters.base),
 				"requestedHeight", height,
@@ -303,7 +303,7 @@ func (cr *ClusterRotation) GetClusters(height uint64) Clusters {
 				"latestMatrixLockInBlock", cr.latestMatrixLockInBlock,
 				"previousEpochBlock", cr.previousEpochBlock,
 				"latestEpochBlock", cr.latestEpochBlock,
-			)
+			)*/
 			return cr.previousEpochClusters
 		} else {
 			log.Info(
@@ -320,18 +320,18 @@ func (cr *ClusterRotation) GetClusters(height uint64) Clusters {
 	}
 
 	if height < cr.latestMatrixLockInBlock || cr.latestMatrixLockInBlock == 0 {
-		log.Info(
-			"ClusterRotation: returning transitional clusters",
-			"requestedHeight", height,
-			"lastMatrixLockInBlock", cr.lastMatrixLockInBlock,
-			"latestMatrixLockInBlock", cr.latestMatrixLockInBlock,
-			"previousEpochBlock", cr.previousEpochBlock,
-			"latestEpochBlock", cr.latestEpochBlock,
-			"len(transitionalClusters)", len(cr.transitionalClusters.base),
-		)
+		/*		log.Info(
+				"ClusterRotation: returning transitional clusters",
+				"requestedHeight", height,
+				"lastMatrixLockInBlock", cr.lastMatrixLockInBlock,
+				"latestMatrixLockInBlock", cr.latestMatrixLockInBlock,
+				"previousEpochBlock", cr.previousEpochBlock,
+				"latestEpochBlock", cr.latestEpochBlock,
+				"len(transitionalClusters)", len(cr.transitionalClusters.base),
+			)*/
 		return cr.transitionalClusters
 	}
-	log.Info(
+	/*	log.Info(
 		"ClusterRotation: returning latest epoch clusters",
 		"requestedHeight", height,
 		"lastMatrixLockInBlock", cr.lastMatrixLockInBlock,
@@ -339,7 +339,7 @@ func (cr *ClusterRotation) GetClusters(height uint64) Clusters {
 		"previousEpochBlock", cr.previousEpochBlock,
 		"latestEpochBlock", cr.latestEpochBlock,
 		"len(latestEpochClusters)", len(cr.latestEpochClusters.base),
-	)
+	)*/
 	return cr.latestEpochClusters
 }
 

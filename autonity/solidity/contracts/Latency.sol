@@ -113,7 +113,7 @@ contract Latency is ILatency, AccessAutonity {
 
         emit Reported(msg.sender, _latency.length, reports);
         bool thresholdMet = reports * LOCK_IN_THRESHOLD_DENOMINATOR >= committee.length * lockInThreshold;
-        if (thresholdMet && matrixLockInBlock == 0) {
+        if (thresholdMet) {
             // other validators can report until the end of the block, but a new event should not be triggered
             matrixLockInBlock = block.number;
             emit KMOptimization(block.number + lockInDelay);
