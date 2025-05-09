@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"gopkg.in/urfave/cli.v1"
+	"github.com/urfave/cli/v2"
 
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/cmd/utils"
@@ -20,7 +20,7 @@ type outputVerifyPOP struct {
 	ConsensusKeyPOP bool
 }
 
-var commandVerifyPOP = cli.Command{
+var commandVerifyPOP = &cli.Command{
 	Name:      "verifypop",
 	Usage:     "verify proof of possessions",
 	ArgsUsage: "<treasury> <enode> <oracle> <consensusKey> <proof>",

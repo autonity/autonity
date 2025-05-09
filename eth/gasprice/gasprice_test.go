@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/common"
@@ -47,6 +48,9 @@ type testBackend struct {
 func (b *testBackend) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
 	if number > testHead {
 		return nil, nil
+	}
+	if number == rpc.EarliestBlockNumber {
+		number = 0
 	}
 	if number == rpc.LatestBlockNumber {
 		number = testHead
@@ -82,12 +86,13 @@ func (b *testBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.
 	return b.chain.GetReceiptsByHash(hash), nil
 }
 
-func (b *testBackend) PendingBlockAndReceipts() (*types.Block, types.Receipts) {
+func (b *testBackend) Pending() (*types.Block, types.Receipts, *state.StateDB) {
 	if b.pending {
 		block := b.chain.GetBlockByNumber(testHead + 1)
-		return block, b.chain.GetReceiptsByHash(block.Hash())
+		state, _ := b.chain.StateAt(block.Root())
+		return block, b.chain.GetReceiptsByHash(block.Hash()), state
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 func (b *testBackend) ChainConfig() *params.ChainConfig {
@@ -102,6 +107,10 @@ func (b *testBackend) MinBaseFee() *big.Int {
 	return new(big.Int)
 }
 
+func (b *testBackend) teardown() {
+	b.chain.Stop()
+}
+
 func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBackend {
 	var (
 		key, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
@@ -109,7 +118,7 @@ func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBacke
 		config = *params.TestChainConfig // needs copy because it is modified below
 		gspec  = &core.Genesis{
 			Config: &config,
-			Alloc:  core.GenesisAlloc{addr: {Balance: big.NewInt(math.MaxInt64)}},
+			Alloc:  types.GenesisAlloc{addr: {Balance: big.NewInt(math.MaxInt64)}},
 		}
 		signer = types.LatestSigner(gspec.Config)
 	)
@@ -149,8 +158,7 @@ func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBacke
 		b.AddTx(types.MustSignNewTx(key, signer, txdata))
 	})
 	// Construct testing chain
-	diskdb := rawdb.NewMemoryDatabase()
-	gspec.Commit(diskdb)
+
 	chain, err := core.NewBlockChain(diskdb, &core.CacheConfig{TrieCleanNoPrefetch: true}, gspec.Config, engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil, backends.NewInternalBackend(nil), log.Root())
 	if err != nil {
 		t.Fatalf("Failed to create local chain, %v", err)
@@ -171,7 +179,6 @@ func TestSuggestTipCap(t *testing.T) {
 	config := Config{
 		Blocks:     3,
 		Percentile: 60,
-		Default:    big.NewInt(params.GWei),
 	}
 	var cases = []struct {
 		fork   *big.Int // London fork number
@@ -184,11 +191,12 @@ func TestSuggestTipCap(t *testing.T) {
 		{big.NewInt(33), big.NewInt(params.GWei * int64(30))}, // Fork point in the future
 	}
 	for _, c := range cases {
-		backend := newTestBackend(t, c.fork, false)
-		oracle := NewOracle(backend, config)
+		backend := newTestBackend(t, c.fork, nil, false)
+		oracle := NewOracle(backend, config, big.NewInt(params.GWei))
 
 		// The gas price sampled is: 32G, 31G, 30G, 29G, 28G, 27G
 		got, err := oracle.SuggestTipCap(context.Background())
+		backend.teardown()
 		if err != nil {
 			t.Fatalf("Failed to retrieve recommended gas price: %v", err)
 		}
