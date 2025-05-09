@@ -171,9 +171,10 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 
 	ctx, m.cancel = context.WithCancel(ctx)
 	m.wg.Add(1)
-	go m.loop(ctx)
-	m.wg.Add(1)
 	go m.watchReported(ctx)
+
+	m.wg.Add(1)
+	go m.loop(ctx)
 }
 
 func (m *Router) Stop() {
@@ -579,13 +580,22 @@ func (m *Router) initializeClusters(epoch *types.EpochInfo) {
 }
 
 func (m *Router) watchReported(ctx context.Context) {
+	defer m.wg.Done()
+
 	reported := make(chan *autonity.LatencyReported)
-	sub, err := m.contracts.Latency.WatchReported(nil, reported, nil)
+	reportedSub, err := m.contracts.Latency.WatchReported(nil, reported, nil)
 	if err != nil {
 		log.Error("Router: failed to subscribe to reported event", "err", err)
 		return
 	}
-	defer sub.Unsubscribe()
+	optimization := make(chan *autonity.LatencyKMOptimization)
+	kmOptimizationSub, err := m.contracts.Latency.WatchKMOptimization(nil, m.optimizationEventChan)
+	if err != nil {
+		log.Error("Router: failed to subscribe to km optimization event", "err", err)
+		return
+	}
+	defer reportedSub.Unsubscribe()
+	defer kmOptimizationSub.Unsubscribe()
 	for {
 		select {
 		case <-ctx.Done():
@@ -602,9 +612,20 @@ func (m *Router) watchReported(ctx context.Context) {
 				"block",
 				ev.Raw.BlockNumber,
 			)
+		case ev := <-optimization:
+			log.Info(
+				"Router: km optimization event received",
+				"effectiveHeight",
+				ev.Height.Uint64(),
+				"nextEpoch",
+				m.epoch.NextEpochBlock.Uint64(),
+				"previousEpoch",
+				m.epoch.PreviousEpochBlock.Uint64(),
+				"block",
+				ev.Raw.BlockNumber,
+			)
 		}
 	}
-
 }
 
 func (m *Router) Clusters(height uint64) Clusters {

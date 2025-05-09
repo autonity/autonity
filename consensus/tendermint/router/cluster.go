@@ -245,14 +245,25 @@ func (cr *ClusterRotation) EpochStart(epochBlock uint64, transitionalClusters Cl
 	cr.previousEpochBlock = cr.latestEpochBlock
 	cr.latestEpochBlock = epochBlock
 
-	cr.previousEpochClusters = cr.latestEpochClusters
+	if len(cr.previousEpochClusters.base) == 0 {
+		// we never managed to cluster last epoch, set last epoch clusters to
+		// transitional
+		cr.previousEpochClusters = cr.transitionalClusters
+	} else {
+		cr.previousEpochClusters = cr.latestEpochClusters
+	}
+
 	cr.transitionalClusters = transitionalClusters
 	cr.latestEpochClusters = Clusters{}
 
+	// reset last matrix
 	cr.lastMatrixLockInBlock = cr.latestMatrixLockInBlock
 	cr.latestMatrixLockInBlock = 0
 	log.Info(
 		"ClusterRotation: new epoch started",
+		"len(previousEpochClusters", len(cr.previousEpochClusters.base),
+		"len(transitionalClusters)", len(cr.transitionalClusters.base),
+		"len(latestEpochClusters)", len(cr.latestEpochClusters.base),
 		"previousEpochBlock", cr.previousEpochBlock,
 		"latestEpochBlock", cr.latestEpochBlock,
 		"lastMatrixLockInBlock", cr.lastMatrixLockInBlock,
@@ -265,6 +276,16 @@ func (cr *ClusterRotation) LockIn(lockInBlock uint64, cluster Clusters) {
 	defer cr.mu.Unlock()
 	cr.latestEpochClusters = cluster
 	cr.latestMatrixLockInBlock = lockInBlock
+
+	log.Info(
+		"len(previousEpochClusters", len(cr.previousEpochClusters.base),
+		"len(transitionalClusters)", len(cr.transitionalClusters.base),
+		"len(latestEpochClusters)", len(cr.latestEpochClusters.base),
+		"previousEpochBlock", cr.previousEpochBlock,
+		"latestEpochBlock", cr.latestEpochBlock,
+		"lastMatrixLockInBlock", cr.lastMatrixLockInBlock,
+		"latestMatrixLockInBlock", cr.latestMatrixLockInBlock,
+	)
 }
 
 func (cr *ClusterRotation) GetClusters(height uint64) Clusters {
