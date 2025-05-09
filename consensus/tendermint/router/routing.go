@@ -426,10 +426,10 @@ func (m *Router) loop(ctx context.Context) {
 			m.logUpdateClusters(epochEv.Header.Number.Uint64(), clusters)
 			// new epoch, reset the reported status
 			m.reportedThisEpoch = false
-			m.wg.Add(1)
 			if err := m.measureLatency(); err != nil {
 				log.Warn("measureToReport failed", "err", err)
 			}
+			m.wg.Add(1)
 			go func() {
 				defer m.wg.Done()
 				if err := m.report(); err != nil {
@@ -646,14 +646,6 @@ func (m *Router) watchReported(ctx context.Context) {
 				"block",
 				ev.Raw.BlockNumber,
 			)
-			if m.threshold.Exceeded(len(m.committee), ev.TotalReported.Uint64()) {
-				log.Info("Router:report threshold exceeded, optimizing clusters", "height", ev.Raw.BlockNumber)
-				if err := m.OptimizeClusters(ev.Raw.BlockNumber + m.threshold.delay); err != nil {
-					log.Error("Router: failed to optimize clusters", "err", err)
-				} else {
-					log.Info("Router: clusters optimized successfully")
-				}
-			}
 		case optimizationEv := <-optimization:
 			log.Info(
 				"Router: km optimization event received",
