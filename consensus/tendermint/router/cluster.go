@@ -245,7 +245,7 @@ func (cr *ClusterRotation) EpochStart(epochBlock uint64, transitionalClusters Cl
 	cr.previousEpochBlock = cr.latestEpochBlock
 	cr.latestEpochBlock = epochBlock
 
-	if len(cr.previousEpochClusters.base) == 0 {
+	if cr.latestMatrixLockInBlock == 0 {
 		// we never managed to cluster last epoch, set last epoch clusters to
 		// transitional
 		cr.previousEpochClusters = cr.transitionalClusters
@@ -293,8 +293,8 @@ func (cr *ClusterRotation) GetClusters(height uint64) Clusters {
 	cr.mu.RLock()
 	defer cr.mu.RUnlock()
 
-	if height < cr.previousEpochBlock {
-		if height > cr.lastMatrixLockInBlock {
+	if height <= cr.previousEpochBlock {
+		if height >= cr.lastMatrixLockInBlock {
 			/*log.Info(
 				"ClusterRotation: returning previous epoch clusters",
 				"len(previousEpochClusters)", len(cr.previousEpochClusters.base),

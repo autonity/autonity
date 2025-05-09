@@ -433,6 +433,8 @@ func (m *Router) loop(ctx context.Context) {
 			}
 			m.wg.Add(1)
 			go func() {
+				delay := time.Duration(rand.Intn(MeasurementWindow)) * time.Millisecond
+				time.Sleep(delay)
 				defer m.wg.Done()
 				if err := m.report(); err != nil {
 					log.Warn("Router: initial latency report failed", "err", err)
