@@ -426,6 +426,8 @@ func (m *Router) loop(ctx context.Context) {
 			m.logUpdateClusters(epochEv.Header.Number.Uint64(), clusters)
 			// new epoch, reset the reported status
 			m.reportedThisEpoch = false
+			// reset lat mat
+			m.latencyMat = nil
 			if err := m.measureLatency(); err != nil {
 				log.Warn("measureToReport failed", "err", err)
 			}

@@ -261,7 +261,7 @@ func (cr *ClusterRotation) EpochStart(epochBlock uint64, transitionalClusters Cl
 	cr.latestMatrixLockInBlock = 0
 	log.Info(
 		"ClusterRotation: new epoch started",
-		"len(previousEpochClusters", len(cr.previousEpochClusters.base),
+		"len(previousEpochClusters)", len(cr.previousEpochClusters.base),
 		"len(transitionalClusters)", len(cr.transitionalClusters.base),
 		"len(latestEpochClusters)", len(cr.latestEpochClusters.base),
 		"previousEpochBlock", cr.previousEpochBlock,
