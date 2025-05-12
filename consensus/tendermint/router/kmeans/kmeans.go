@@ -120,7 +120,6 @@ func equalize(cc Clusters, dataset Observations) Clusters {
 	results := make(Clusters, len(cc))
 	for i := 0; i < len(cc); i++ {
 		results[i].Center = cc[i].Center
-		results[i].Observations = make([]Observation, len(cc[i].Observations))
 	}
 
 	type distance struct {
