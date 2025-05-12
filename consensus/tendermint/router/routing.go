@@ -3,7 +3,6 @@ package router
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -343,7 +342,6 @@ func (m *Router) loop(ctx context.Context) {
 				log.Info("Router: not in committee clustering not needed, skipping measurement")
 				continue
 			}
-			prevCommittee := m.committee
 			m.updateCommittee(epoch)
 			if epochEv.Header.Number.Uint64() == m.clusters.latestEpochBlock {
 				log.Info("Router: clusters for this epoch already established, skipping clustering")
