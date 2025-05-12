@@ -31,16 +31,6 @@ const (
 	MeasurementWindow           = 2000
 )
 
-type threshold struct {
-	numerator   uint64
-	denominator uint64
-	delay       uint64
-}
-
-func (t *threshold) Exceeded(committeeSize int, numReports uint64) bool {
-	return t.denominator*numReports >= uint64(committeeSize)*t.numerator
-}
-
 type Router struct {
 	self        common.Address
 	nodeKey     *ecdsa.PrivateKey
@@ -62,7 +52,6 @@ type Router struct {
 	latencyMap      map[uint64]map[common.Address]uint
 	latencyMat      [][]uint8
 	epoch           *types.Epoch
-	threshold       *threshold
 
 	optimizationEventChan chan *autonity.LatencyKMOptimization
 	optimizationEventSub  event.Subscription
@@ -111,39 +100,6 @@ func (m *Router) committeeAddresses(committee *types.Committee) []common.Address
 	return result
 }
 
-func (m *Router) initThreshold() error {
-	numerator, err := m.contracts.Latency.LockInThreshold(nil)
-	if err != nil {
-		log.Error("Router: failed to get lock in threshold")
-		return err
-	}
-	denominator, err := m.contracts.Latency.LOCKINTHRESHOLDDENOMINATOR(nil)
-	if err != nil {
-		log.Error("Router: failed to get lock in threshold denominator")
-		return err
-	}
-	delay, err := m.contracts.Latency.LockInDelay(nil)
-	if err != nil {
-		log.Error("Router: failed to get lock in delay")
-		return err
-	}
-	log.Info(
-		"Router: report threshold updated",
-		"numerator",
-		numerator.Uint64(),
-		"denominator",
-		denominator.Uint64(),
-		"delay",
-		delay.Uint64(),
-	)
-	m.threshold = &threshold{
-		numerator:   numerator.Uint64(),
-		denominator: denominator.Uint64(),
-		delay:       delay.Uint64(),
-	}
-	return nil
-}
-
 func (m *Router) Route(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
 	if committee.Len() <= ScaleThresholdForClustering {
 		return m.committeeAddresses(committee), nil
@@ -190,10 +146,6 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 
 	m.committee = m.committeeAddresses(curEpoch.Committee)
 	m.epoch = &curEpoch.Epoch
-	if err := m.initThreshold(); err != nil {
-		log.Error("Router: failed to init threshold", "err", err)
-		return
-	}
 	m.reporter, err = NewReporter(
 		chain.Config().ChainID,
 		m.nodeKey,
@@ -397,31 +349,16 @@ func (m *Router) loop(ctx context.Context) {
 				log.Info("Router: clusters for this epoch already established, skipping clustering")
 				continue
 			}
-			var clusters Clusters
-			var err error
-			log.Info("Router: new epoch, attempting to construct transitional clusters")
-			if m.latencyMat != nil {
-				clusters, err = NewClusters(
-					m.committee,
-					m.latestLatencies,
-					getForCommittee(latencyReports{m.latencyMat, prevCommittee}, m.committee),
-					m.self,
-				)
+
+			log.Info("Router: new epoch, constructing default clusters")
+			clusters, err := NewClusters(m.committee, m.latestLatencies, nil, m.self)
+			if err != nil {
+				// this should never happen
+				panic("Router: failed to create default clusters")
 			} else {
-				log.Error("Router: Latency matrix nil!")
-				err = errors.New("router: Latency matrix nil")
+				log.Info("Router: created default clusters")
 			}
 
-			if err != nil {
-				log.Error("Router: failed to create new clusters", "err", err)
-				if defaultClusters, err := NewClusters(m.committee, m.latestLatencies, nil, m.self); err != nil {
-					// this should never happen
-					panic("Router: failed to create default clusters")
-				} else {
-					log.Info("Router: fallback to default clusters")
-					clusters = defaultClusters
-				}
-			}
 			m.clusters.EpochStart(epochEv.Header.Number.Uint64(), clusters)
 			m.logUpdateClusters(epochEv.Header.Number.Uint64(), clusters)
 			// new epoch, reset the reported status
