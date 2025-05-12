@@ -18,6 +18,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/autonity/autonity/core"
 	"github.com/naoina/toml"
 	"github.com/urfave/cli/v2"
 
@@ -172,8 +174,31 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 		cfg.Ethstats.URL = ctx.String(utils.EthStatsURLFlag.Name)
 	}
 	applyMetricConfig(ctx, &cfg)
-
+	genesisPath := ctx.String(utils.InitGenesisFlag.Name)
+	if genesisPath != "" {
+		log.Info("Custom genesis configuration", "filepath", genesisPath)
+		genesis, err := loadGenesisFile(genesisPath)
+		if err != nil {
+			utils.Fatalf("Failed to load genesis file: %v", err)
+		}
+		cfg.Eth.Genesis = genesis
+	}
 	return stack, cfg
+}
+
+// loadGenesisFile will load and validate the given JSON format genesis file.
+func loadGenesisFile(genesisPath string) (*core.Genesis, error) {
+	file, err := os.Open(genesisPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	genesis := new(core.Genesis)
+	if err := json.NewDecoder(file).Decode(genesis); err != nil {
+		return nil, err
+	}
+	return genesis, nil
 }
 
 // makeFullNode loads geth configuration and creates the Ethereum backend.

@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core"
@@ -29,6 +30,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/triedb"
 )
@@ -40,7 +42,7 @@ var (
 	testDB      = rawdb.NewMemoryDatabase()
 
 	testGspec = &core.Genesis{
-		Config:  params.TestChainConfig,
+		Config:  params.TestConfigNoVerkle,
 		Alloc:   types.GenesisAlloc{testAddress: {Balance: big.NewInt(1000000000000000)}},
 		BaseFee: big.NewInt(params.InitialBaseFee),
 	}
@@ -168,7 +170,7 @@ func (tc *testChain) generate(n int, seed byte, parent *types.Block, heavy bool)
 		}
 		// Include transactions to the miner to make blocks more interesting.
 		if parent == tc.blocks[0] && i%22 == 0 {
-			signer := types.MakeSigner(params.TestChainConfig, block.Number(), block.Timestamp())
+			signer := types.MakeSigner(params.TestChainConfig, block.Number())
 			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, block.BaseFee(), nil), signer, testKey)
 			if err != nil {
 				panic(err)
@@ -217,7 +219,7 @@ func newTestBlockchain(blocks []*types.Block) *core.BlockChain {
 		if pregenerated {
 			panic("Requested chain generation outside of init")
 		}
-		chain, err := core.NewBlockChain(rawdb.NewMemoryDatabase(), nil, testGspec, nil, ethash.NewFaker(), vm.Config{}, nil)
+		chain, err := core.NewBlockChain(rawdb.NewMemoryDatabase(), nil, testGspec, ethash.NewFullFaker(), vm.Config{}, nil, backends.NewInternalBackend(nil), log.Root())
 		if err != nil {
 			panic(err)
 		}

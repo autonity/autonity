@@ -66,6 +66,7 @@ import (
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/rpc"
+	autversion "github.com/autonity/autonity/version"
 )
 
 const (
@@ -201,7 +202,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	evMux := new(event.TypeMux)
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
-	consensusEngine := ethconfig.CreateConsensusEngine(chainDb, stack, &vmConfig, evMux, msgStore, config.Genesis.Config.TestMode)
+	consensusEngine := ethconfig.CreateConsensusEngine(chainDb, stack, &vmConfig, evMux, msgStore, chainConfig.TestMode)
 
 	stack.Logger().Info("Initialised chain configuration", "config", chainConfig)
 
@@ -352,7 +353,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	// filtermap is ready - we can start watching the logs to retrieve cache.
 	eth.blockchain.StartWatchingCache()
 
-	if !config.Genesis.Config.TestMode {
+	if !chainConfig.TestMode {
 		eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine)
 		eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 		eth.miner.SetPrioAddresses(config.TxPool.Locals)
@@ -371,7 +372,7 @@ func makeExtraData(extra []byte) []byte {
 	if len(extra) == 0 {
 		// create default extradata
 		extra, _ = rlp.EncodeToBytes([]interface{}{
-			uint(params.VersionMajor<<16 | params.VersionMinor<<8 | params.VersionPatch),
+			uint(autversion.Major<<16 | autversion.Minor<<8 | autversion.Patch),
 			"autonity",
 			runtime.Version(),
 			runtime.GOOS,
@@ -702,13 +703,10 @@ func (s *Ethereum) Stop() error {
 		s.miner.Stop()
 	}
 	s.blockchain.Stop()
-
 	// Clean shutdown marker as the last thing before closing db
 	s.shutdownTracker.Stop()
-
 	s.chainDb.Close()
 	s.eventMux.Stop()
-
 	return nil
 }
 

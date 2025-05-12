@@ -642,7 +642,7 @@ func (s *skeleton) processNewHead(head *types.Header, final *types.Header) error
 		// If the chain is down to a single beacon header, and it is re-announced
 		// once more, ignore it instead of tearing down sync for a noop.
 		if lastchain.Head == lastchain.Tail {
-			if current := rawdb.ReadSkeletonHeader(s.db, number); current.Hash() == head.Hash() {
+			if current := rawdb.ReadSkeletonHeader(s.db, number); current != nil && current.Hash() == head.Hash() {
 				return nil
 			}
 		}

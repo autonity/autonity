@@ -72,7 +72,7 @@ func setDefaults(cfg *Config) {
 			MuirGlacierBlock:        new(big.Int),
 			BerlinBlock:             new(big.Int),
 			LondonBlock:             new(big.Int),
-			ArrowGlacierBlock:       nil,
+			CancunBlock:             new(big.Int),
 			TerminalTotalDifficulty: big.NewInt(0),
 		}
 	}

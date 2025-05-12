@@ -296,6 +296,10 @@ type dummyChain struct {
 	counter int
 }
 
+func (d *dummyChain) GetHeaderByNumber(u uint64) *types.Header {
+	return d.GetHeader(common.Hash{}, u)
+}
+
 // Engine retrieves the chain's consensus engine.
 func (d *dummyChain) Engine() consensus.Engine {
 	return nil
@@ -602,6 +606,8 @@ func TestEip2929Cases(t *testing.T) {
 // TestColdAccountAccessCost test that the cold account access cost is reported
 // correctly
 // see: https://github.com/autonity/autonity/issues/22649
+// [Autonity] Gas cost slightly different due to 0xFF being originally used for target contract address
+// which already exists as a precompile in Autonity. Diff has been checked correct with upstream implementation.
 func TestColdAccountAccessCost(t *testing.T) {
 	for i, tc := range []struct {
 		code []byte
@@ -609,12 +615,12 @@ func TestColdAccountAccessCost(t *testing.T) {
 		want uint64
 	}{
 		{ // EXTCODEHASH(0xff)
-			code: []byte{byte(vm.PUSH1), 0xFF, byte(vm.EXTCODEHASH), byte(vm.POP)},
+			code: []byte{byte(vm.PUSH1), 0xDD, byte(vm.EXTCODEHASH), byte(vm.POP)},
 			step: 1,
 			want: 2600,
 		},
 		{ // BALANCE(0xff)
-			code: []byte{byte(vm.PUSH1), 0xFF, byte(vm.BALANCE), byte(vm.POP)},
+			code: []byte{byte(vm.PUSH1), 0xDD, byte(vm.BALANCE), byte(vm.POP)},
 			step: 1,
 			want: 2600,
 		},
@@ -622,41 +628,41 @@ func TestColdAccountAccessCost(t *testing.T) {
 			code: []byte{
 				byte(vm.PUSH1), 0x0,
 				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.CALL), byte(vm.POP),
+				byte(vm.PUSH1), 0xEF, byte(vm.DUP1), byte(vm.CALL), byte(vm.POP),
 			},
 			step: 7,
-			want: 2855,
+			want: 2839,
 		},
 		{ // CALLCODE(0xff)
 			code: []byte{
 				byte(vm.PUSH1), 0x0,
 				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.CALLCODE), byte(vm.POP),
+				byte(vm.PUSH1), 0xef, byte(vm.DUP1), byte(vm.CALLCODE), byte(vm.POP),
 			},
 			step: 7,
-			want: 2855,
+			want: 2839,
 		},
 		{ // DELEGATECALL(0xff)
 			code: []byte{
 				byte(vm.PUSH1), 0x0,
 				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.DELEGATECALL), byte(vm.POP),
+				byte(vm.PUSH1), 0xDD, byte(vm.DUP1), byte(vm.DELEGATECALL), byte(vm.POP),
 			},
 			step: 6,
-			want: 2855,
+			want: 2821,
 		},
 		{ // STATICCALL(0xff)
 			code: []byte{
 				byte(vm.PUSH1), 0x0,
 				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.STATICCALL), byte(vm.POP),
+				byte(vm.PUSH1), 0xDD, byte(vm.DUP1), byte(vm.STATICCALL), byte(vm.POP),
 			},
 			step: 6,
-			want: 2855,
+			want: 2821,
 		},
 		{ // SELFDESTRUCT(0xff)
 			code: []byte{
-				byte(vm.PUSH1), 0xff, byte(vm.SELFDESTRUCT),
+				byte(vm.PUSH1), 0xDD, byte(vm.SELFDESTRUCT),
 			},
 			step: 1,
 			want: 7600,
@@ -755,7 +761,7 @@ func TestRuntimeJSTracer(t *testing.T) {
 			results: []string{`"1,1,981799,6,12"`, `"1,1,981799,6,0"`},
 		},
 		{ // CALL self-destructing contract
-			code:    program.New().Call(nil, 0xff, 0, 0, 0, 0, 0).Op(vm.POP).Bytes(),
+			code:    program.New().Call(nil, 0xef, 0, 0, 0, 0, 0).Op(vm.POP).Bytes(),
 			results: []string{`"2,2,0,5003,12"`, `"2,2,0,5003,0"`},
 		},
 	}
@@ -777,9 +783,9 @@ func TestRuntimeJSTracer(t *testing.T) {
 			statedb.SetCode(common.HexToAddress("0xcc"), calleeCode)
 			statedb.SetCode(common.HexToAddress("0xdd"), calleeCode)
 			statedb.SetCode(common.HexToAddress("0xee"), calleeCode)
-			statedb.SetCode(common.HexToAddress("0xff"), suicideCode)
+			statedb.SetCode(common.HexToAddress("0xef"), suicideCode)
 
-			tracer, err := tracers.DefaultDirectory.New(jsTracer, new(tracers.Context), nil, params.MergedTestChainConfig)
+			tracer, err := tracers.DefaultDirectory.New(jsTracer, new(tracers.Context), nil, params.TestConfigNoVerkle)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -814,7 +820,7 @@ func TestJSTracerCreateTx(t *testing.T) {
 	code := []byte{byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.RETURN)}
 
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
-	tracer, err := tracers.DefaultDirectory.New(jsTracer, new(tracers.Context), nil, params.MergedTestChainConfig)
+	tracer, err := tracers.DefaultDirectory.New(jsTracer, new(tracers.Context), nil, params.TestChainConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -862,7 +868,7 @@ func BenchmarkTracerStepVsCallFrame(b *testing.B) {
 // delegation designator incurs the correct amount of gas based on the tracer.
 func TestDelegatedAccountAccessCost(t *testing.T) {
 	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
-	statedb.SetCode(common.HexToAddress("0xff"), types.AddressToDelegation(common.HexToAddress("0xaa")))
+	statedb.SetCode(common.HexToAddress("0xdd"), types.AddressToDelegation(common.HexToAddress("0xaa")))
 	statedb.SetCode(common.HexToAddress("0xaa"), program.New().Return(0, 0).Bytes())
 
 	for i, tc := range []struct {
@@ -874,41 +880,41 @@ func TestDelegatedAccountAccessCost(t *testing.T) {
 			code: []byte{
 				byte(vm.PUSH1), 0x0,
 				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.CALL), byte(vm.POP),
+				byte(vm.PUSH1), 0xdd, byte(vm.DUP1), byte(vm.CALL), byte(vm.POP),
 			},
 			step: 7,
-			want: 5455,
+			want: 5421,
 		},
 		{ // CALLCODE(0xff)
 			code: []byte{
 				byte(vm.PUSH1), 0x0,
 				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.CALLCODE), byte(vm.POP),
+				byte(vm.PUSH1), 0xdd, byte(vm.DUP1), byte(vm.CALLCODE), byte(vm.POP),
 			},
 			step: 7,
-			want: 5455,
+			want: 5421,
 		},
 		{ // DELEGATECALL(0xff)
 			code: []byte{
 				byte(vm.PUSH1), 0x0,
 				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.DELEGATECALL), byte(vm.POP),
+				byte(vm.PUSH1), 0xdd, byte(vm.DUP1), byte(vm.DELEGATECALL), byte(vm.POP),
 			},
 			step: 6,
-			want: 5455,
+			want: 5421,
 		},
 		{ // STATICCALL(0xff)
 			code: []byte{
 				byte(vm.PUSH1), 0x0,
 				byte(vm.DUP1), byte(vm.DUP1), byte(vm.DUP1),
-				byte(vm.PUSH1), 0xff, byte(vm.DUP1), byte(vm.STATICCALL), byte(vm.POP),
+				byte(vm.PUSH1), 0xdd, byte(vm.DUP1), byte(vm.STATICCALL), byte(vm.POP),
 			},
 			step: 6,
-			want: 5455,
+			want: 5421,
 		},
 		{ // SELFDESTRUCT(0xff): should not be affected by resolution
 			code: []byte{
-				byte(vm.PUSH1), 0xff, byte(vm.SELFDESTRUCT),
+				byte(vm.PUSH1), 0xdd, byte(vm.SELFDESTRUCT),
 			},
 			step: 1,
 			want: 7600,
@@ -917,7 +923,7 @@ func TestDelegatedAccountAccessCost(t *testing.T) {
 		var step = 0
 		var have = uint64(0)
 		Execute(tc.code, nil, &Config{
-			ChainConfig: params.MergedTestChainConfig,
+			ChainConfig: params.TestConfigNoVerkle,
 			State:       statedb,
 			EVMConfig: vm.Config{
 				Tracer: &tracing.Hooks{
@@ -933,7 +939,7 @@ func TestDelegatedAccountAccessCost(t *testing.T) {
 			},
 		})
 		if want := tc.want; have != want {
-			t.Fatalf("testcase %d, gas report wrong, step %d, have %d want %d", i, tc.step, have, want)
+			t.Errorf("testcase %d, gas report wrong, step %d, have %d want %d", i, tc.step, have, want)
 		}
 	}
 }

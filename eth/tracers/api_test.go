@@ -32,7 +32,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/beacon"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/internal/version"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"go.uber.org/goleak"
 
@@ -34,7 +35,6 @@ import (
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
-	"github.com/autonity/autonity/params"
 )
 
 const (
@@ -45,7 +45,7 @@ const (
 var (
 	baseNodeConfig = &node.Config{
 		Name:    "autonity",
-		Version: params.Version,
+		Version: version.WithMeta,
 		ExecutionP2P: p2p.Config{
 			MaxPeers: 50,
 		},

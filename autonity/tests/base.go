@@ -5,31 +5,31 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"testing"
 	"time"
-
-	"github.com/autonity/autonity/common/math"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core"
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto/blst"
-	"github.com/autonity/autonity/params/generated"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/tracing"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth/tracers"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/params/generated"
 	"github.com/autonity/autonity/rlp"
+	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 
 	_ "github.com/autonity/autonity/eth/tracers/native" //nolint
 )
@@ -41,7 +41,7 @@ var (
 
 type runOptions struct {
 	origin common.Address
-	value  *big.Int
+	value  *uint256.Int
 }
 
 type contract struct {
@@ -55,10 +55,10 @@ func (c *contract) Address() common.Address {
 }
 
 func (c *contract) call(opts *runOptions, method string, params ...any) ([]byte, uint64, error) {
-	var tracer tracers.Tracer
+	var tracer *tracers.Tracer
 	if c.r.Tracing {
-		tracer, _ = tracers.New("callTracer", new(tracers.Context))
-		c.r.Evm.Config = vm.Config{Debug: true, Tracer: tracer}
+		tracer, _ = tracers.DefaultDirectory.New("call_tracer", new(tracers.Context), nil, nil)
+		c.r.Evm.Config = vm.Config{Tracer: tracer.Hooks}
 	}
 	input, err := c.abi.Pack(method, params...)
 	require.NoError(c.r.T, err)
@@ -77,11 +77,12 @@ func (c *contract) call(opts *runOptions, method string, params ...any) ([]byte,
 
 // call a method that does not belong to the contract, `c`.
 // instead the method can be found in the contract, `methodHouse`.
+// todo(youssef): this doesn't make too much sense to me?
 func (c *contract) CallMethod(methodHouse *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
-	var tracer tracers.Tracer
+	var tracer *tracers.Tracer
 	if c.r.Tracing {
-		tracer, _ = tracers.New("callTracer", new(tracers.Context))
-		c.r.Evm.Config = vm.Config{Debug: true, Tracer: tracer}
+		tracer, _ = tracers.DefaultDirectory.New("call_tracer", new(tracers.Context), nil, nil)
+		c.r.Evm.Config = vm.Config{Tracer: tracer.Hooks}
 	}
 	input, err := methodHouse.abi.Pack(method, params...)
 	require.NoError(c.r.T, err)
@@ -151,7 +152,7 @@ func (r *Runner) slasherContract() *Slasher {
 
 func (r *Runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
 	r.Evm.Origin = r.Origin
-	value := common.Big0
+	value := uint256.NewInt(0)
 	if opts != nil {
 		r.Evm.Origin = opts.origin
 		if opts.value != nil {
@@ -159,7 +160,7 @@ func (r *Runner) call(opts *runOptions, addr common.Address, input []byte) ([]by
 		}
 	}
 	gas := uint64(math.MaxUint64)
-	ret, leftOver, err := r.Evm.Call(vm.AccountRef(r.Evm.Origin), addr, input, gas, value)
+	ret, leftOver, err := r.Evm.Call(r.Evm.Origin, addr, input, gas, value)
 	return ret, gas - leftOver, err
 }
 
@@ -205,15 +206,15 @@ func RunWithSetup(name string, setup func() *Runner, run func(r *Runner)) {
 		run(r)
 	})
 }
-func (r *Runner) GiveMeSomeMoney(account common.Address, amount *big.Int) {
-	r.Evm.StateDB.AddBalance(account, amount)
+func (r *Runner) GiveMeSomeMoney(account common.Address, amount *uint256.Int) {
+	r.Evm.StateDB.AddBalance(account, amount, tracing.BalanceChangeUnspecified)
 }
 
-func (r *Runner) GetBalanceOf(account common.Address) *big.Int {
+func (r *Runner) GetBalanceOf(account common.Address) *uint256.Int {
 	return r.Evm.StateDB.GetBalance(account)
 }
 
-func (r *Runner) GetNewtonBalanceOf(account common.Address) *big.Int {
+func (r *Runner) GetNewtonBalanceOf(account common.Address) *uint256.Int {
 	balance, _, err := r.Autonity.BalanceOf(nil, account)
 	require.NoError(r.T, err)
 	return balance
@@ -230,14 +231,14 @@ func (r *Runner) deployContract(
 	data := append(bytecode, args...)
 	gas := uint64(math.MaxUint64)
 	r.Evm.Origin = r.Origin
-	value := common.Big0
+	value := uint256.NewInt(0)
 	if opts != nil {
 		r.Evm.Origin = opts.origin
 		if opts.value != nil {
 			value = opts.value
 		}
 	}
-	out, contractAddress, leftOverGas, err := r.Evm.Create(vm.AccountRef(r.Evm.Origin), data, gas, value)
+	out, contractAddress, leftOverGas, err := r.Evm.Create(r.Evm.Origin, data, gas, value)
 	return contractAddress, gas - leftOverGas, &contract{contractAddress, contractAbi, r}, out, err
 }
 
@@ -337,7 +338,7 @@ func (r *Runner) FinalizeBlock() {
 	// consider monitoring gas cost here and fail if it's too much
 	require.NoError(r.T, err, "finalize function error in block", r.Evm.Context.BlockNumber)
 	r.Evm.Context.BlockNumber = new(big.Int).Add(r.Evm.Context.BlockNumber, common.Big1)
-	r.Evm.Context.Time = new(big.Int).Add(r.Evm.Context.Time, common.Big1)
+	r.Evm.Context.Time = r.Evm.Context.Time + 1
 	// clean up activity proof related data
 	r.Evm.Context.ActivityProof = nil
 	r.Evm.Context.ActivityProofRound = 0

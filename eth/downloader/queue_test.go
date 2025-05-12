@@ -40,11 +40,11 @@ import (
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
 func makeChain(n int, seed byte, parent *types.Block, empty bool) ([]*types.Block, []types.Receipts) {
-	blocks, receipts := core.GenerateChain(params.TestChainConfig, parent, ethash.NewFaker(), testDB, n, func(i int, block *core.BlockGen) {
+	blocks, receipts := core.GenerateChain(params.TestConfigNoVerkle, parent, ethash.NewFaker(), testDB, n, func(i int, block *core.BlockGen) {
 		block.SetCoinbase(common.Address{seed})
 		// Add one tx to every secondblock
 		if !empty && i%2 == 0 {
-			signer := types.MakeSigner(params.TestChainConfig, block.Number(), block.Timestamp())
+			signer := types.MakeSigner(params.TestConfigNoVerkle, block.Number())
 			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, block.BaseFee(), nil), signer, testKey)
 			if err != nil {
 				panic(err)
@@ -95,7 +95,7 @@ func dummyPeer(id string) *peerConnection {
 
 func TestBasics(t *testing.T) {
 	numOfBlocks := len(emptyChain.blocks)
-	numOfReceipts := len(emptyChain.blocks) / 2
+	numOfReceipts := len(emptyChain.blocks)
 
 	q := newQueue(10, 10)
 	if !q.Idle() {
@@ -120,7 +120,7 @@ func TestBasics(t *testing.T) {
 		t.Errorf("wrong pending block count, got %d, exp %d", got, exp)
 	}
 	// Only non-empty receipts get added to task-queue
-	if got, exp := q.PendingReceipts(), 64; got != exp {
+	if got, exp := q.PendingReceipts(), 128; got != exp {
 		t.Errorf("wrong pending receipt count, got %d, exp %d", got, exp)
 	}
 	// Items are now queued for downloading, next step is that we tell the
@@ -175,7 +175,7 @@ func TestBasics(t *testing.T) {
 			t.Fatal("should throttle")
 		}
 		// But we should still get the first things to fetch
-		if got, exp := len(fetchReq.Headers), 5; got != exp {
+		if got, exp := len(fetchReq.Headers), 10; got != exp {
 			t.Fatalf("expected %d requests, got %d", exp, got)
 		}
 		if got, exp := fetchReq.Headers[0].Number.Uint64(), uint64(1); got != exp {
@@ -185,7 +185,7 @@ func TestBasics(t *testing.T) {
 	if exp, got := q.blockTaskQueue.Size(), numOfBlocks-10; exp != got {
 		t.Errorf("expected block task queue to be %d, got %d", exp, got)
 	}
-	if exp, got := q.receiptTaskQueue.Size(), numOfReceipts-5; exp != got {
+	if exp, got := q.receiptTaskQueue.Size(), numOfReceipts-10; exp != got {
 		t.Errorf("expected receipt task queue to be %d, got %d", exp, got)
 	}
 	if got, exp := q.resultCache.countCompleted(), 0; got != exp {
@@ -213,7 +213,7 @@ func TestEmptyBlocks(t *testing.T) {
 	if got, exp := q.PendingBodies(), len(emptyChain.blocks); got != exp {
 		t.Errorf("wrong pending block count, got %d, exp %d", got, exp)
 	}
-	if got, exp := q.PendingReceipts(), 0; got != exp {
+	if got, exp := q.PendingReceipts(), 128; got != exp {
 		t.Errorf("wrong pending receipt count, got %d, exp %d", got, exp)
 	}
 	// They won't be processable, because the fetchresults haven't been
@@ -238,25 +238,24 @@ func TestEmptyBlocks(t *testing.T) {
 	if q.blockTaskQueue.Size() != numOfBlocks-10 {
 		t.Errorf("expected block task queue to be %d, got %d", numOfBlocks-10, q.blockTaskQueue.Size())
 	}
-	if q.receiptTaskQueue.Size() != 0 {
-		t.Errorf("expected receipt task queue to be %d, got %d", 0, q.receiptTaskQueue.Size())
+	if q.receiptTaskQueue.Size() != 128 {
+		t.Errorf("expected receipt task queue to be %d, got %d", 128, q.receiptTaskQueue.Size())
 	}
 	{
 		peer := dummyPeer("peer-3")
 		fetchReq, _, _ := q.ReserveReceipts(peer, 50)
 
-		// there should be nothing to fetch, blocks are empty
-		if fetchReq != nil {
-			t.Fatal("there should be no receipt fetch tasks remaining")
+		if len(fetchReq.Headers) != 10 {
+			t.Fatal("there should be receipts queued")
 		}
 	}
 	if q.blockTaskQueue.Size() != numOfBlocks-10 {
 		t.Errorf("expected block task queue to be %d, got %d", numOfBlocks-10, q.blockTaskQueue.Size())
 	}
-	if q.receiptTaskQueue.Size() != 0 {
+	if q.receiptTaskQueue.Size() != 118 {
 		t.Errorf("expected receipt task queue to be %d, got %d", 0, q.receiptTaskQueue.Size())
 	}
-	if got, exp := q.resultCache.countCompleted(), 10; got != exp {
+	if got, exp := q.resultCache.countCompleted(), 0; got != exp {
 		t.Errorf("wrong processable count, got %d, exp %d", got, exp)
 	}
 }
@@ -341,7 +340,7 @@ func XTestDelivery(t *testing.T) {
 					uncleHashes[i] = types.CalcUncleHash(uncles)
 				}
 				time.Sleep(100 * time.Millisecond)
-				_, err := q.DeliverBodies(peer.id, txset, txsHashes, uncleset, uncleHashes, nil, nil)
+				_, err := q.DeliverBodies(peer.id, txset, txsHashes, uncleset, uncleHashes)
 				if err != nil {
 					fmt.Printf("delivered %d bodies %v\n", len(txset), err)
 				}

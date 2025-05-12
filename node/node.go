@@ -223,8 +223,7 @@ func (n *Node) Close() error {
 		if err := n.stopServices(n.lifecycles); err != nil {
 			errs = append(errs, err)
 		}
-		return nil
-		//return n.doClose(errs)
+		return n.doClose(errs)
 	case closedState:
 		return ErrNodeStopped
 	default:

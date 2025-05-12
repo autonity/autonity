@@ -311,12 +311,13 @@ func accountImport(ctx *cli.Context) error {
 	if ctx.Args().Len() != 1 {
 		utils.Fatalf("keyfile must be given as the only argument")
 	}
+	am := makeAccountManager(ctx)
 	keyfile := ctx.Args().First()
 	key, err := crypto.LoadECDSA(keyfile)
 	if err != nil {
 		utils.Fatalf("Failed to load the private key: %v", err)
 	}
-	am := makeAccountManager(ctx)
+
 	backends := am.Backends(keystore.KeyStoreType)
 	if len(backends) == 0 {
 		utils.Fatalf("Keystore is not available")

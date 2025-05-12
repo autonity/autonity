@@ -20,11 +20,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"time"
 
+	"github.com/autonity/autonity/internal/version"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/autonity/autonity/accounts"
 	"github.com/autonity/autonity/cmd/utils"
@@ -37,7 +40,6 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/node"
-	"github.com/autonity/autonity/params"
 
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/autonity/autonity/eth/tracers/js"
@@ -56,13 +58,11 @@ var (
 	// The app that holds all commands and flags.
 	app = flags.NewApp("the autonity command line interface")
 	// flags that configure the node
-	nodeFlags = []cli.Flag{
+	nodeFlags = slices.Concat([]cli.Flag{
 		utils.IdentityFlag,
 		utils.PasswordFileFlag,
 		utils.BootnodesFlag,
-		utils.DataDirFlag,
 		utils.InitGenesisFlag,
-		utils.AncientFlag,
 		utils.MinFreeDiskSpaceFlag,
 		utils.KeyStoreDirFlag,
 		utils.ExternalSignerFlag,
@@ -125,13 +125,11 @@ var (
 		utils.GpoMaxGasPriceFlag,
 		utils.GpoIgnoreGasPriceFlag,
 		utils.MinerNotifyFullFlag,
-		utils.PiccadillyFlag,
-		utils.BakerlooFlag,
 		utils.ConsensusListenPortFlag,
 		utils.ConsensusNATFlag,
 		utils.NoGossip,
 		configFileFlag,
-	}
+	}, utils.NetworkFlags, utils.DatabaseFlags)
 
 	rpcFlags = []cli.Flag{
 		utils.HTTPEnabledFlag,
@@ -208,14 +206,23 @@ func init() {
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
-	app.Flags = append(app.Flags, nodeFlags...)
-	app.Flags = append(app.Flags, rpcFlags...)
-	app.Flags = append(app.Flags, consoleFlags...)
-	app.Flags = append(app.Flags, debug.Flags...)
-	app.Flags = append(app.Flags, metricsFlags...)
+	app.Flags = slices.Concat(
+		nodeFlags,
+		rpcFlags,
+		consoleFlags,
+		debug.Flags,
+		metricsFlags,
+	)
+	flags.AutoEnvVars(app.Flags, "AUT")
 
 	app.Before = func(ctx *cli.Context) error {
-		return debug.Setup(ctx)
+		maxprocs.Set() // Automatically set GOMAXPROCS to match Linux container CPU quota.
+		flags.MigrateGlobalFlags(ctx)
+		if err := debug.Setup(ctx); err != nil {
+			return err
+		}
+		flags.CheckEnvVars(ctx, app.Flags, "AUT")
+		return nil
 	}
 	app.After = func(ctx *cli.Context) error {
 		debug.Exit()
@@ -288,7 +295,7 @@ X:        https://twitter.com/autonity_
 	--keystore <account's keystore directory path>
 `)
 	default:
-		log.Info("Starting the Autonity node client", "version", params.Version, "networkid", ctx.Int(utils.NetworkIdFlag.Name))
+		log.Info("Starting the Autonity node client", "version", version.Semantic, "networkid", ctx.Int(utils.NetworkIdFlag.Name))
 	}
 	// If we're a full node on mainnet without --cache specified, bump default cache allowance
 	if ctx.String(utils.SyncModeFlag.Name) != syncModeLight && !ctx.IsSet(utils.CacheFlag.Name) &&
