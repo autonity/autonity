@@ -11,15 +11,16 @@ from invoke import Responder
 
 AUTONITY_PATH = "/home/{}/network-data/autonity"
 GENESIS_PATH = "/home/{}/network-data/genesis.json"
+LOG_PATH = "/home/{}/autonity.log"
 CHAIN_DATA_DIR = "/home/{}/network-data/{}/data/"
 BOOT_KEY_FILE = "/home/{}/network-data/{}/boot.key"
 KEY_PASSPHRASE_FILE = "/home/{}/network-data/{}/pass.txt"
 PACKAGE_NAME = "./network-data/{}.tgz"
 REMOTE_NAME = "/home/{}/{}.tgz"
-SYSTEM_SERVICE_DIR = "/etc/systemd/system/"
+SYSTEM_SERVICE_DIR = "/etc/init.d/"
 DEPLOYMENT_DIR = '/home/{}/network-data'
-SYSTEMD_START_CLIENT = 'sudo systemctl start autonity.service'
-SYSTEMD_STOP_CLIENT = 'sudo systemctl stop autonity.service'
+SYSTEMD_START_CLIENT = 'sudo service autonity start'
+SYSTEMD_STOP_CLIENT = 'sudo service autonity stop'
 
 # use ip tables module of linux kernel which is common for all linux distributions to control peer connection.
 CONNECT_PEER = "sudo iptables -j DROP -D INPUT -s {}"
@@ -135,29 +136,79 @@ class Client(object):
         return self.e_node
 
     def generate_system_service_file(self):
-        template_remote = "[Unit]\n" \
-                   "Description=Clearmatics Autonity Client server\n" \
-                   "After=syslog.target network.target\n" \
-                   "[Service]\n" \
-                   "Type=simple\n" \
-                   "ExecStart={} --genesis {} --datadir {} --autonitykeys {} --syncmode 'full' --port {} --consensus.port {} " \
-                   "--http.port {} --http --http.addr '0.0.0.0' --ws --ws.port {} --http.corsdomain '*' "\
-                   "--http.api 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
-                   "--allow-insecure-unlock --graphql " \
-                   "--unlock 0x{} --password {} " \
-                   "--mine --miner.threads '1' --verbosity 4 --miner.gaslimit 10000000000 \n" \
-                   "KillMode=process\n" \
-                   "KillSignal=SIGINT\n" \
-                   "TimeoutStopSec=1\n" \
-                   "Restart=on-failure\n" \
-                   "RestartSec=1s\n" \
-                   "[Install]\n" \
-                   "Alias=autonity.service\n"\
-                   "WantedBy=multi-user.target"
+        template_remote = "#!/bin/sh\n\n" \
+                          "DAEMON={}\n" \
+                          "PIDFILE=/var/run/autonity.pid\n" \
+                          "LOGFILE={}\n\n" \
+                          "DAEMON_OPTS=\"--genesis {} --datadir {} --autonitykeys {} --syncmode 'full' --port {} --consensus.port {} " \
+                          "--http.port {} --http --http.addr '0.0.0.0' --ws --ws.port {} --http.corsdomain '*' " \
+                          "--http.api 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
+                          "--allow-insecure-unlock --graphql " \
+                          "--unlock 0x{} --password {} " \
+                          "--mine --miner.threads '1' --verbosity 4 --miner.gaslimit 10000000000\"\n\n" \
+                          "case \"$1\" in\n" \
+                          "    start)\n" \
+                          "        mkdir -p $(dirname $LOGFILE) || true\n" \
+                          "        start-stop-daemon --start --background \\\n" \
+                          "            --pidfile $PIDFILE --make-pidfile \\\n" \
+                          "            --chuid {} \\\n" \
+                          "            --exec /bin/sh -- -c \"$DAEMON $DAEMON_OPTS >> $LOGFILE 2>&1 & echo $! > $PIDFILE\"\n" \
+                          "        echo \"Started autonity daemon\"\n" \
+                          "        ;;\n" \
+                          "    stop)\n" \
+                          "        if [ -f $PIDFILE ]; then\n" \
+                          "            PID=$(cat $PIDFILE)\n" \
+                          "            if ps -p $PID > /dev/null; then\n" \
+                          "                kill -15 $PID\n" \
+                          "                echo \"Stopping autonity daemon\"\n" \
+                          "                for i in $(seq 1 10); do\n" \
+                          "                    if ! ps -p $PID > /dev/null; then\n" \
+                          "                        rm -f $PIDFILE\n" \
+                          "                        echo \"Stopped autonity daemon\"\n" \
+                          "                        exit 0\n" \
+                          "                    fi\n" \
+                          "                    sleep 1\n" \
+                          "                done\n" \
+                          "                echo \"Failed to stop daemon, killing forcefully\"\n" \
+                          "                kill -9 $PID\n" \
+                          "            else\n" \
+                          "                echo \"autonity daemon not running\"\n" \
+                          "            fi\n" \
+                          "            rm -f $PIDFILE\n" \
+                          "        else\n" \
+                          "            echo \"autonity daemon not running\"\n" \
+                          "        fi\n" \
+                          "        ;;\n" \
+                          "    status)\n" \
+                          "        if [ -f $PIDFILE ]; then\n" \
+                          "            PID=$(cat $PIDFILE)\n" \
+                          "            if ps -p $PID > /dev/null; then\n" \
+                          "                echo \"autonity daemon (PID $PID) is running...\"\n" \
+                          "                exit 0\n" \
+                          "            else\n" \
+                          "                echo \"autonity daemon is not running, but PID file exists\"\n" \
+                          "                exit 1\n" \
+                          "            fi\n" \
+                          "        else\n" \
+                          "            echo \"autonity daemon is not running\"\n" \
+                          "            exit 3\n" \
+                          "        fi\n" \
+                          "        ;;\n" \
+                          "    restart)\n" \
+                          "        $0 stop\n" \
+                          "        sleep 1\n" \
+                          "        $0 start\n" \
+                          "        ;;\n" \
+                          "    *)\n" \
+                          "        echo \"Usage: $0 {start|stop|status|restart}\"\n" \
+                          "        exit 2\n" \
+                          "        ;;\n" \
+                          "esac\n\n" \
+                          "exit 0"
 
         folder = self.host
+        print("prepare autonity init script for node: %s", self.host)
 
-        print("prepare autonity systemd service file for node: %s", self.host)
         bin_path = AUTONITY_PATH.format(self.ssh_user)
         genesis_path = GENESIS_PATH.format(self.ssh_user)
         data_dir = CHAIN_DATA_DIR.format(self.ssh_user, folder)
@@ -168,10 +219,16 @@ class Client(object):
         ws_port = self.ws_port
         coin_base = self.coin_base
         password_file = KEY_PASSPHRASE_FILE.format(self.ssh_user, folder)
+        log_file = LOG_PATH.format(self.ssh_user)
 
-        content = template_remote.format(bin_path, genesis_path, data_dir, boot_key_file, p2p_port, acn_port, rpc_port, ws_port,
-                                         coin_base, password_file)
-        with open("./network-data/{}/autonity.service".format(folder), 'w') as out:
+        run_user = self.ssh_user
+
+        content = template_remote.format(
+            bin_path, log_file, genesis_path, data_dir, boot_key_file,
+            p2p_port, acn_port, rpc_port, ws_port,
+            coin_base, password_file, run_user
+        )
+        with open("./network-data/{}/autonity".format(folder), 'w') as out:
             out.write(content)
 
     def generate_package(self):
@@ -212,8 +269,12 @@ class Client(object):
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                src = '/home/{}/network-data/{}/autonity.service'.format(self.ssh_user, self.host)
+                src = '/home/{}/network-data/{}/autonity'.format(self.ssh_user, self.host)
                 result = c.run('sudo cp {} {}'.format(src, SYSTEM_SERVICE_DIR), pty=True, watchers=[sudopass],
+                               warn=True, hide=True)
+                result = c.run('sudo chmod chmod +x /etc/init.d/autonity', pty=True, watchers=[sudopass],
+                               warn=True, hide=True)
+                result = c.run('sudo update-rc.d autonity defaults', pty=True, watchers=[sudopass],
                                warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('system service loaded. %s', self.host)
@@ -321,27 +382,20 @@ class Client(object):
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                # dump log at remote node.
-                file_name = "./{}.log".format(self.host)
-                cmd = 'sudo journalctl -u autonity.service -b > {}'.format(file_name)
+
+                # tar logs for remote node.
+                tar_file = "./{}.log.tgz".format(self.host)
+                cmd = "sudo tar -zcvf {} {}".format(tar_file, LOG_PATH.format(self.ssh_user))
                 result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
-                    self.logger.info('log was dump on host: %s', self.host)
-                    # tar logs for remote node.
-                    tar_file = "./{}.log.tgz".format(self.host)
-                    cmd = "sudo tar -zcvf {} {}".format(tar_file, file_name)
-                    result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=True)
-                    if result and result.exited == 0 and result.ok:
-                        self.logger.info('log was zip on host: %s', self.host)
-                        # download logs.
-                        local_dir = log_folder
-                        local_file = "{}/{}.tgz".format(local_dir, self.host)
-                        c.get(tar_file, local=local_file)
-                        self.logger.info('log files was saved to %s.', local_dir)
-                    else:
-                        self.logger.error('cannot zip log file at host: %s', self.host)
+                    self.logger.info('log was zip on host: %s', self.host)
+                    # download logs.
+                    local_dir = log_folder
+                    local_file = "{}/{}.tgz".format(local_dir, self.host)
+                    c.get(tar_file, local=local_file)
+                    self.logger.info('log files was saved to %s.', local_dir)
                 else:
-                    self.logger.error('Cannot dump logs from autonity.service. %s', self.host)
+                    self.logger.error('cannot zip log file at host: %s', self.host)
 
         except (KeyError, TypeError) as e:
             self.logger.error('wrong configuration file. %s', e)
