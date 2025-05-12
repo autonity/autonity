@@ -1,13 +1,29 @@
-# Use the official Ubuntu 24.04 image as the base image for docker test engine.
-FROM ubuntu:24.04
+FROM python:3.6-slim
 
-# Update package list and install necessary dependencies
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && \
     apt-get dist-upgrade --yes && \
-    apt-get install -y build-essential wget zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev python3-pip openssh-client
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        wget \
+        zlib1g-dev \
+        libncurses5-dev \
+        libgdbm-dev \
+        libnss3-dev \
+        libssl-dev \
+        libreadline-dev \
+        libffi-dev \
+        libsqlite3-dev \
+        openssh-client && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Verify the installation
-RUN python3 --version
+WORKDIR /app
+
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
 COPY . .
-RUN python3 -m pip install -r ./requirements.txt
+RUN pip install --no-cache-dir -r ./requirements.txt
 EXPOSE 22 6000 7000
