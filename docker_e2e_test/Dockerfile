@@ -8,5 +8,6 @@ RUN apt-get update && \
 
 # Verify the installation
 RUN python3 --version
+COPY . .
 RUN python3 -m pip install -r ./requirements.txt
 EXPOSE 22 6000 7000
