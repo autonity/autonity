@@ -4,6 +4,7 @@ package kmeans
 
 import (
 	"fmt"
+	"sort"
 )
 
 const (
@@ -101,16 +102,63 @@ func (m *Kmeans) Partition(dataset Observations, k int) (Clusters, error) {
 	}
 
 	// resolve params for re-clustering
-	optimalSize := k
+	/*optimalSize := k
 	smallClusterThreshold := optimalSize / 3
 	if smallClusterThreshold < 3 {
 		smallClusterThreshold = 3
-	}
+	}*/
 
 	// merge small clusters into their nearest cluster.
-	cc = mergeSmallClusters(cc, smallClusterThreshold)
+	// cc = mergeSmallClusters(cc, smallClusterThreshold)
 
-	return cc, nil
+	return equalize(cc, dataset), nil
+}
+
+// equalize the clusters to have the same size
+func equalize(cc Clusters, dataset Observations) Clusters {
+	clusterSize := len(dataset) / len(cc)
+	results := make(Clusters, len(cc))
+	for i := 0; i < len(cc); i++ {
+		results[i].Center = cc[i].Center
+		results[i].Observations = make([]Observation, len(cc[i].Observations))
+	}
+
+	type distance struct {
+		cluster  int
+		distance float64
+	}
+	distances := func(point Observation) []distance {
+		d := make([]distance, len(results))
+		for i, cluster := range results {
+			d[i] = distance{
+				cluster:  i,
+				distance: point.Distance(cluster.Center),
+			}
+		}
+		sort.Slice(d, func(i, j int) bool {
+			return d[i].distance < d[j].distance
+		})
+		return d
+	}
+	full := make(map[int]bool)
+
+	for _, point := range dataset {
+		target := 0
+		dists := distances(point)
+		for i := 0; i < len(dists); i++ {
+			if !full[dists[i].cluster] {
+				target = dists[i].cluster
+				break
+			}
+			target = dists[0].cluster
+		}
+		results[target].Observations = append(results[target].Observations, point)
+		if len(results[target].Observations) >= clusterSize {
+			full[target] = true
+		}
+	}
+
+	return results
 }
 
 // mergeSmallClusters merge small clusters into their nearest cluster.

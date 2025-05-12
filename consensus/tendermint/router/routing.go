@@ -288,7 +288,7 @@ func (m *Router) loop(ctx context.Context) {
 	defer m.wg.Done()
 
 	ticker := time.NewTicker(5 * time.Minute)
-	retryTicker := time.NewTicker(90 * time.Second)
+	retryTicker := time.NewTicker(30 * time.Second)
 	cleanupTicker := time.NewTicker(10 * time.Minute)
 	defer func() {
 		ticker.Stop()

@@ -52,9 +52,9 @@ func TestAverageDistance(t *testing.T) {
 
 	// Calculate expected distances manually
 	expectedDistances := []float64{
-		cPoint.Distance(observations[0].Coordinates()), // Distance to (1.0, 2.0)
-		cPoint.Distance(observations[1].Coordinates()), // Distance to (3.0, 4.0)
-		cPoint.Distance(observations[2].Coordinates()), // Distance to (5.0, 6.0)
+		cPoint.Distance(observations[0].Coordinates()), // distance to (1.0, 2.0)
+		cPoint.Distance(observations[1].Coordinates()), // distance to (3.0, 4.0)
+		cPoint.Distance(observations[2].Coordinates()), // distance to (5.0, 6.0)
 	}
 
 	// Calculate the expected average distance

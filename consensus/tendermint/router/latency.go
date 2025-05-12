@@ -69,13 +69,17 @@ func (f *LatencyFetcher) FetchLatency(validators []common.Address, self common.A
 		if addr == self || pingTargets[i].IP == "" {
 			continue
 		}
-		latency[addr] = latencyArray[i]
+		if latencyArray[i].Nanoseconds() == 0 {
+			failedNodes = append(failedNodes, addr)
+			continue
+		}
+		latency[addr] = uint(latencyArray[i].Milliseconds())
 	}
 
 	return latency, failedNodes, nil
 }
 
-func (f *LatencyFetcher) pingPeers(targets []ping.Target) []uint {
+func (f *LatencyFetcher) pingPeers(targets []ping.Target) []time.Duration {
 	channelArray := make([]chan time.Duration, len(targets))
 	for i, t := range targets {
 		resultCh := make(chan time.Duration, 1)
@@ -87,9 +91,9 @@ func (f *LatencyFetcher) pingPeers(targets []ping.Target) []uint {
 		f.pinger.Ping(t, resultCh)
 		channelArray[i] = resultCh
 	}
-	results := make([]uint, len(targets))
+	results := make([]time.Duration, len(targets))
 	for i, resultCh := range channelArray {
-		results[i] = uint((<-resultCh).Milliseconds())
+		results[i] = <-resultCh
 	}
 	return results
 }

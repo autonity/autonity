@@ -47,9 +47,8 @@ func TestPartition(t *testing.T) {
 		TestObservation{8.0, 8.0},
 	}
 	k := 2
-	seed := int64(42)
 
-	clusters, err := km.Partition(dataset, k, seed)
+	clusters, err := km.Partition(dataset, k)
 	if err != nil {
 		t.Fatalf("Partition failed: %v", err)
 	}
@@ -70,9 +69,8 @@ func TestPartitionInvalidK(t *testing.T) {
 	}
 
 	k := 3 // Invalid k
-	seed := int64(42)
 
-	_, err := km.Partition(dataset, k, seed)
+	_, err := km.Partition(dataset, k)
 	if err == nil {
 		t.Fatal("Expected error for invalid k, got nil")
 	}
