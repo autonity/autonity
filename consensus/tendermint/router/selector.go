@@ -64,16 +64,20 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 			from.Hex(),
 			"originator",
 			msg.Originator().Hex(),
-			"msg hash",
+			"msgHash",
 			msg.Hash().Hex(),
 			"self",
 			r.self.Hex(),
-			"sender cluster",
+			"senderCluster",
 			senderClusterID,
-			"origin cluster",
+			"originCluster",
 			originClusterID,
-			"own cluster",
+			"ownCluster",
 			ownClusterID,
+			"height",
+			msg.H(),
+			"clusterId",
+			clusters.id,
 		)
 		return nil, errUnknownClusters
 	}
@@ -92,7 +96,7 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		senderType = localRelayerRemoteCluster
 	}
 
-	cacheKey := GenerateCacheKey(from, senderType, msg.Code())
+	cacheKey := GenerateCacheKey(from, senderType, msg.Code(), clusters.id)
 	cached, exists := r.cache.Get(cacheKey)
 
 	if exists {
@@ -105,7 +109,7 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 		}
 		if allConnected {
 			r.cache.UpdateLastUsed(cacheKey)
-			r.clusterStatus(r.buildResultFromCache(cached.Recipients, clusters), msg, from, senderType, ownClusterID, originClusterID)
+			r.clusterStatus(r.buildResultFromCache(cached.Recipients, clusters), msg, from, senderType, ownClusterID, originClusterID, clusters.id)
 			return cached.Recipients, nil
 		}
 	}
@@ -209,7 +213,7 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	}
 
 	r.cache.Set(cacheKey, selected)
-	r.clusterStatus(result, msg, from, senderType, ownClusterID, originClusterID)
+	r.clusterStatus(result, msg, from, senderType, ownClusterID, originClusterID, clusters.id)
 	return selected, nil
 }
 
@@ -225,7 +229,15 @@ func (r *Selector) buildResultFromCache(recipients []common.Address, clusters Cl
 	return result
 }
 
-func (r *Selector) clusterStatus(peerCluster [][]NodeLatency, msg message.Msg, from common.Address, senderType SenderType, ownClusterID int, originClusterID int) {
+func (r *Selector) clusterStatus(
+	peerCluster [][]NodeLatency,
+	msg message.Msg,
+	from common.Address,
+	senderType SenderType,
+	ownClusterID int,
+	originClusterID int,
+	clustersId string,
+) {
 	logKey := fmt.Sprintf("%d-%d-%d", msg.H(), msg.R(), msg.Code())
 
 	r.heightLock.Lock()
@@ -328,7 +340,7 @@ func (r *Selector) clusterStatus(peerCluster [][]NodeLatency, msg message.Msg, f
 		sb.WriteByte('\n')
 	}
 
-	sb.WriteString(fmt.Sprintf("Total: selected:%d connected:%d disconnected:%d\n", totalSelected, totalConnected, totalDisconnected))
+	sb.WriteString(fmt.Sprintf("Total: selected:%d connected:%d disconnected:%d clusterId: %s\n", totalSelected, totalConnected, totalDisconnected, clustersId))
 
 	log.Info(sb.String())
 }

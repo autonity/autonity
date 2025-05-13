@@ -84,6 +84,6 @@ func (c *PeerSelectionCache) Cleanup() {
 	}
 }
 
-func GenerateCacheKey(from common.Address, senderType SenderType, msgCode uint8) string {
-	return fmt.Sprintf("%s-%d-%d", from.Hex(), senderType, msgCode)
+func GenerateCacheKey(from common.Address, senderType SenderType, msgCode uint8, clusterId string) string {
+	return fmt.Sprintf("%s-%s-%d-%d", clusterId, from.Hex(), senderType, msgCode)
 }

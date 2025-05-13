@@ -461,6 +461,7 @@ func (m *Router) initializeClusters(epoch *types.EpochInfo) {
 			// should never error on default clusters
 			panic(err)
 		}
+		clusters.id = fmt.Sprintf("transitional-%d", epoch.EpochBlock.Uint64())
 		m.clusters = &ClusterRotation{
 			previousEpochClusters: Clusters{},
 			transitionalClusters:  clusters,
@@ -513,6 +514,11 @@ func (m *Router) initializeClusters(epoch *types.EpochInfo) {
 			nil,
 			m.self,
 		)
+		if err != nil {
+			log.Error("Router: init - failed to create previous transitionalClusters", "err", err)
+			return
+		}
+		prevClusters.id = fmt.Sprintf("transitional-%d", epoch.PreviousEpochBlock.Uint64())
 	} else {
 		prevClusters, err = NewClusters(
 			prevCommittee,
@@ -520,10 +526,11 @@ func (m *Router) initializeClusters(epoch *types.EpochInfo) {
 			prevLatMat,
 			m.self,
 		)
-	}
-	if err != nil {
-		log.Error("Router: init - failed to create previous transitionalClusters", "err", err)
-		return
+		if err != nil {
+			log.Error("Router: init - failed to create previous transitionalClusters", "err", err)
+			return
+		}
+		prevClusters.id = fmt.Sprintf("lockedIn-%d", epoch.PreviousEpochBlock.Uint64())
 	}
 
 	if lockInBlock.Cmp(common.Big0) == 0 {
@@ -558,6 +565,7 @@ func (m *Router) initializeClusters(epoch *types.EpochInfo) {
 			log.Error("Router: failed to create current clusters", "err", err)
 			return
 		}
+		currentClusters.id = fmt.Sprintf("lockedIn-%d", epoch.EpochBlock.Uint64())
 		m.clusters = &ClusterRotation{
 			previousEpochBlock:      epoch.PreviousEpochBlock.Uint64(),
 			latestEpochBlock:        epoch.EpochBlock.Uint64(),

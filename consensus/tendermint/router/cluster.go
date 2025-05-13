@@ -3,6 +3,7 @@ package router
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math"
 	"sort"
 	"sync"
@@ -22,6 +23,7 @@ type ClusterView struct {
 }
 
 type Clusters struct {
+	id               string
 	base             []ClusterView
 	addressToCluster map[common.Address]int
 }
@@ -238,6 +240,9 @@ type ClusterRotation struct {
 func (cr *ClusterRotation) EpochStart(epochBlock uint64, transitionalClusters Clusters) {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
+
+	transitionalClusters.id = fmt.Sprintf("transitional-%d", epochBlock)
+
 	// new epoch has started, need to create transitional clusters
 	cr.previousEpochBlock = cr.latestEpochBlock
 	cr.latestEpochBlock = epochBlock
@@ -271,6 +276,8 @@ func (cr *ClusterRotation) EpochStart(epochBlock uint64, transitionalClusters Cl
 func (cr *ClusterRotation) LockIn(lockInBlock uint64, cluster Clusters) {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
+	cluster.id = fmt.Sprintf("lockedIn-%d", lockInBlock)
+
 	cr.latestEpochClusters = cluster
 	cr.latestMatrixLockInBlock = lockInBlock
 
