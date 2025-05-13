@@ -261,6 +261,93 @@ func TestClusterRotation(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("Test cluster rotation with missed lock in", func(t *testing.T) {
+		firstEpoch := 0
+		secondEpoch := 180
+		thirdEpoch := 360
+		fourthEpoch := 540
+
+		firstEpochLockIn := firstEpoch + 15
+		secondEpochLockIn := secondEpoch + 12
+		thirdEpochLockIn := thirdEpoch + 10
+
+		firstEpochCommittee := generateCommittee(committeeLen)
+		secondEpochCommittee := rotateCommittee(firstEpochCommittee, 10)
+		thirdEpochCommittee := rotateCommittee(secondEpochCommittee, 20)
+
+		self := firstEpochCommittee[0]
+		firstEpochLatMap := generateLatMap(firstEpochCommittee)
+		secondEpochLatMap := generateLatMap(secondEpochCommittee)
+		thirdEpochLatMap := generateLatMap(thirdEpochCommittee)
+
+		firstEpochLatMat := generateLatMat(firstEpochCommittee, firstEpochLatMap, self)
+		// no secondEpoch latmat
+		thirdEpochLatMat := generateLatMat(thirdEpochCommittee, thirdEpochLatMap, self)
+
+		firstEpochTransitional, err := NewClusters(firstEpochCommittee, firstEpochLatMap, nil, self)
+		require.NoError(t, err)
+
+		firstEpochLocked, err := NewClusters(firstEpochCommittee, firstEpochLatMap, firstEpochLatMat, self)
+		require.NoError(t, err)
+
+		secondEpochTransitional, err := NewClusters(secondEpochCommittee, secondEpochLatMap, nil, self)
+		require.NoError(t, err)
+		// not locking in the second epoch
+
+		thirdEpochTransitional, err := NewClusters(thirdEpochCommittee, thirdEpochLatMap, nil, self)
+		require.NoError(t, err)
+		thirdEpochLocked, err := NewClusters(thirdEpochCommittee, thirdEpochLatMap, thirdEpochLatMat, self)
+		require.NoError(t, err)
+
+		clusterRotation := &ClusterRotation{
+			previousEpochClusters: Clusters{},
+			transitionalClusters:  firstEpochTransitional,
+			latestEpochClusters:   Clusters{},
+		}
+
+		for i := 0; i < firstEpochLockIn; i++ {
+			requireSameCluster(t, firstEpochTransitional, clusterRotation.GetClusters(uint64(i)))
+		}
+		clusterRotation.LockIn(uint64(firstEpochLockIn), firstEpochLocked)
+		for i := 0; i <= secondEpoch; i++ {
+			if i < firstEpochLockIn {
+				requireSameCluster(t, firstEpochTransitional, clusterRotation.GetClusters(uint64(i)))
+			} else {
+				requireSameCluster(t, firstEpochLocked, clusterRotation.GetClusters(uint64(i)))
+			}
+		}
+
+		clusterRotation.EpochStart(uint64(secondEpoch), secondEpochTransitional)
+		for i := firstEpochLockIn; i < secondEpochLockIn; i++ {
+			if i <= secondEpoch {
+				requireSameCluster(t, firstEpochLocked, clusterRotation.GetClusters(uint64(i)))
+			} else {
+				requireSameCluster(t, secondEpochTransitional, clusterRotation.GetClusters(uint64(i)))
+			}
+		}
+
+		for i := secondEpoch + 1; i <= thirdEpoch; i++ {
+			requireSameCluster(t, secondEpochTransitional, clusterRotation.GetClusters(uint64(i)))
+		}
+
+		clusterRotation.EpochStart(uint64(thirdEpoch), thirdEpochTransitional)
+		for i := secondEpochLockIn; i < thirdEpochLockIn; i++ {
+			if i <= thirdEpoch {
+				requireSameCluster(t, secondEpochTransitional, clusterRotation.GetClusters(uint64(i)))
+			} else {
+				requireSameCluster(t, thirdEpochTransitional, clusterRotation.GetClusters(uint64(i)))
+			}
+		}
+		clusterRotation.LockIn(uint64(thirdEpochLockIn), thirdEpochLocked)
+		for i := thirdEpoch + 1; i <= fourthEpoch; i++ {
+			if i < thirdEpochLockIn {
+				requireSameCluster(t, thirdEpochTransitional, clusterRotation.GetClusters(uint64(i)))
+			} else {
+				requireSameCluster(t, thirdEpochLocked, clusterRotation.GetClusters(uint64(i)))
+			}
+		}
+	})
 }
 
 func requireSameCluster(t *testing.T, clusterA, clusterB Clusters) {

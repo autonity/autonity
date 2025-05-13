@@ -475,36 +475,56 @@ func (m *Router) initializeClusters(epoch *types.EpochInfo) {
 	if err != nil {
 		log.Error("Router: failed to get lock in block", "err", err)
 		return
+	} else {
+		log.Info("Router: cluster init lock in block this epoch", "lockInBlock", lockInBlock.Uint64())
 	}
+
+	prevLockInBlock, err := m.contracts.Latency.LastMatrixLockInBlock(nil)
+	if err != nil {
+		log.Error("Router: failed to get last matrix lock in block", "err", err)
+		return
+	} else {
+		log.Info("Router: cluster init lock in block previous epoch", "lockInBlock", prevLockInBlock.Uint64())
+	}
+
 	prevLatMat, prevCommittee, err := m.readLatencyMatrix(true)
 	if err != nil {
 		log.Error("Router: init - failed to read latency matrix", "err", err)
 		return
+	} else {
+		log.Info("Router: init - read prev latency matrix successfully", "len(prevLatMat)", len(prevLatMat))
 	}
 	currentCommittee := m.committeeAddresses(epoch.Committee)
 	transitionalClusters, err := NewClusters(
 		currentCommittee,
 		m.latestLatencies,
-		getForCommittee(latencyReports{prevLatMat, prevCommittee}, currentCommittee),
+		nil,
 		m.self,
 	)
 	if err != nil {
 		log.Error("Router: init - failed to create transitional transitionalClusters", "err", err)
 		return
 	}
-	prevClusters, err := NewClusters(
-		prevCommittee,
-		m.latestLatencies,
-		prevLatMat,
-		m.self,
-	)
+	var prevClusters Clusters
+	if prevLockInBlock.Cmp(common.Big0) == 0 {
+		// previous cluster lock in
+		log.Info("Router: init - previous cluster lock in block is 0, using transitional clusters for last epoch")
+		prevClusters, err = NewClusters(
+			prevCommittee,
+			m.latestLatencies,
+			nil,
+			m.self,
+		)
+	} else {
+		prevClusters, err = NewClusters(
+			prevCommittee,
+			m.latestLatencies,
+			prevLatMat,
+			m.self,
+		)
+	}
 	if err != nil {
 		log.Error("Router: init - failed to create previous transitionalClusters", "err", err)
-		return
-	}
-	prevEpochLockIn, err := m.contracts.Latency.LastMatrixLockInBlock(nil)
-	if err != nil {
-		log.Error("Router: init -failed to get last matrix lock in block", "err", err)
 		return
 	}
 
@@ -515,7 +535,7 @@ func (m *Router) initializeClusters(epoch *types.EpochInfo) {
 		m.clusters = &ClusterRotation{
 			previousEpochBlock:      epoch.PreviousEpochBlock.Uint64(),
 			latestEpochBlock:        epoch.EpochBlock.Uint64(),
-			lastMatrixLockInBlock:   prevEpochLockIn.Uint64(),
+			lastMatrixLockInBlock:   prevLockInBlock.Uint64(),
 			latestMatrixLockInBlock: lockInBlock.Uint64(),
 
 			previousEpochClusters: prevClusters,
@@ -543,7 +563,7 @@ func (m *Router) initializeClusters(epoch *types.EpochInfo) {
 		m.clusters = &ClusterRotation{
 			previousEpochBlock:      epoch.PreviousEpochBlock.Uint64(),
 			latestEpochBlock:        epoch.EpochBlock.Uint64(),
-			lastMatrixLockInBlock:   prevEpochLockIn.Uint64(),
+			lastMatrixLockInBlock:   prevLockInBlock.Uint64(),
 			latestMatrixLockInBlock: lockInBlock.Uint64(),
 			previousEpochClusters:   prevClusters,
 			transitionalClusters:    transitionalClusters,
