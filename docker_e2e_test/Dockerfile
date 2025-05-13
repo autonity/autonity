@@ -17,7 +17,6 @@ RUN apt-get update && \
         libreadline-dev \
         libffi-dev \
         libsqlite3-dev \
-        python3-setuptools \
         openssh-client && \
     add-apt-repository ppa:deadsnakes/ppa -y && \
     apt-get install -y --no-install-recommends \
@@ -28,8 +27,13 @@ RUN apt-get update && \
     rm -f /usr/bin/python3 && \
     ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
     ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
+
 RUN python3 -m venv ${VENV}
 ENV PATH="${VENV}/bin:$PATH"
+
+RUN pip install --no-cache-dir --upgrade pip setuptools
+
+RUN python -c "import pkg_resources; print('setuptools version:', pkg_resources.get_distribution('setuptools').version)"
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
