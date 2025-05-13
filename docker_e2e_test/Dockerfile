@@ -1,6 +1,6 @@
 FROM ubuntu:24.04
 
-ENV PYTHON_VERSION=3.12 \
+ENV PYTHON_VERSION=3.8 \
     DEBIAN_FRONTEND=noninteractive \
     VENV=/opt/venv
 
