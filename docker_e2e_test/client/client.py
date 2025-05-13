@@ -5,7 +5,7 @@ import log
 import utility
 from web3.auto import w3
 from fabric import Connection
-from eth_rpc_client import Client as RpcClient
+from web3 import Web3
 from invoke import Responder
 
 
@@ -405,22 +405,37 @@ class Client(object):
     def send_transaction(self, to=None, gas=None, gas_price=None, value=0, data=None):
         try:
             if self.rpc_client is None:
-                self.rpc_client = RpcClient(host=self.host, port=self.rpc_port)
-                self.rpc_client.session.headers.update({"Content-type": "application/json"})
-            # send transaction
-            tx_hash = self.rpc_client.send_transaction(_from="0x{}".format(self.coin_base), to=to,
-                                                       gas=gas, value=value, data=data)
-            return tx_hash
+                self.rpc_client = Web3(Web3.HTTPProvider(f"http://{self.host}:{self.rpc_port}"))
+                if not self.rpc_client.isConnected():
+                    raise Exception("cannot connect to L1 node")
+
+            transaction = {
+                'from': self.rpc_client.toChecksumAddress(self.coin_base),
+                'to': to,
+                'value': self.rpc_client.toWei(value, 'ether'),
+            }
+
+            if gas:
+                transaction['gas'] = gas
+            if gas_price:
+                transaction['gasPrice'] = self.rpc_client.toWei(gas_price, 'gwei')
+            if data:
+                transaction['data'] = data
+
+            tx_hash = self.rpc_client.eth.sendTransaction(transaction)
+            return tx_hash.hex()
+
         except Exception as e:
-            self.logger.warn("send tx failed due to exception: %s", e)
+            self.logger.warn("send TXN failed: %s", e)
             return None
 
     def get_balance(self):
         try:
             if self.rpc_client is None:
-                self.rpc_client = RpcClient(host=self.host, port=self.rpc_port)
-                self.rpc_client.session.headers.update({"Content-type": "application/json"})
-            balance = self.rpc_client.get_balance("0x{}".format(self.coin_base))
+                self.rpc_client = Web3(Web3.HTTPProvider(f"http://{self.host}:{self.rpc_port}"))
+                if not self.rpc_client.isConnected():
+                    raise Exception("cannot connect to L1 node")
+            balance = self.rpc_client.eth.getBalance(self.rpc_client.toChecksumAddress(self.coin_base))
             return balance
         except Exception as e:
             self.logger.error("Cannot get balance due to exception. %s", e)
@@ -429,13 +444,17 @@ class Client(object):
     def get_block_hash_by_height(self, height):
         try:
             if self.rpc_client is None:
-                self.rpc_client = RpcClient(host=self.host, port=self.rpc_port)
-                self.rpc_client.session.headers.update({"Content-type": "application/json"})
-            block = self.rpc_client.get_block_by_number(height)
+                self.rpc_client = Web3(Web3.HTTPProvider(f"http://{self.host}:{self.rpc_port}"))
+                if not self.rpc_client.isConnected():
+                    raise Exception("Cannot connect to L1 node")
+
+            block = self.rpc_client.eth.getBlock(height)
             if block is None:
                 self.logger.error("Cannot find block with height: %d at host: %s", height, self.host)
                 return None
+
             return block["hash"]
+
         except IOError as e:
             self.logger.error("Cannot access RPC API from remote. %s", e)
             return None
@@ -443,23 +462,25 @@ class Client(object):
             self.logger.error("Exception happens: %s", e)
             return None
 
-    def get_transaction_by_hash(self, hash):
+    def get_transaction_by_hash(self, tx_hash):
         try:
             if self.rpc_client is None:
-                self.rpc_client = RpcClient(host=self.host, port=self.rpc_port)
-                self.rpc_client.session.headers.update({"Content-type": "application/json"})
-            result = self.rpc_client.get_transaction_by_hash(hash)
+                self.rpc_client = Web3(Web3.HTTPProvider(f"http://{self.host}:{self.rpc_port}"))
+                if not self.rpc_client.isConnected():
+                    raise Exception("Cannot connect to L1 node")
+            result = self.rpc_client.eth.getTransaction(tx_hash)
             return result
         except Exception as e:
-            self.logger.error("Cannot get balance due to exception. %s", e)
+            self.logger.error("Cannot get TXN due to exception. %s", e)
             return None
 
     def get_chain_height(self):
         try:
             if self.rpc_client is None:
-                self.rpc_client = RpcClient(host=self.host, port=self.rpc_port)
-                self.rpc_client.session.headers.update({"Content-type": "application/json"})
-            height = self.rpc_client.get_block_number()
+                self.rpc_client = Web3(Web3.HTTPProvider(f"http://{self.host}:{self.rpc_port}"))
+                if not self.rpc_client.isConnected():
+                    raise Exception("Cannot connect to L1 node")
+            height = self.rpc_client.eth.blockNumber
             self.logger.debug("get height: %d, %s.", height, self.host)
             return height
         except Exception as e:

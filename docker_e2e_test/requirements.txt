@@ -15,8 +15,6 @@ eth-keys==0.2.4
 eth-rlp==0.1.2
 eth-typing==2.2.1
 eth-utils==1.8.4
-ethereum-client-utils==0.3.2
-ethereum-rpc-client==0.4.4
 fabric==2.5.0
 hexbytes==0.2.0
 idna==2.9
@@ -38,7 +36,7 @@ python-iptables==0.14.0
 PyYAML==5.1
 requests==2.23.0
 rlp==1.2.0
-six>=1.4.1
+six
 toolz==0.10.0
 typing-extensions==3.7.4.1
 urllib3==1.25.11
