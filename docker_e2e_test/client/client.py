@@ -148,41 +148,62 @@ class Client(object):
                           "--mine --miner.threads '1' --verbosity 4 --miner.gaslimit 10000000000\"\n\n" \
                           "case \"$1\" in\n" \
                           "    start)\n" \
-                          "        mkdir -p $(dirname $LOGFILE) || true\n" \
+                          "        if [ ! -d \"$(dirname \"$LOGFILE\")\" ]; then\n" \
+                          "            mkdir -p \"$(dirname \"$LOGFILE\")\" || {{ echo \"Failed to create log directory\"; exit 1; }}\n" \
+                          "        fi\n" \
+                          "        \n" \
                           "        start-stop-daemon --start --background \\\n" \
-                          "            --pidfile $PIDFILE --make-pidfile \\\n" \
+                          "            --pidfile \"$PIDFILE\" --make-pidfile \\\n" \
                           "            --chuid {11} \\\n" \
-                          "            --exec /bin/sh -- -c \"$DAEMON $DAEMON_OPTS >> $LOGFILE 2>&1 & echo $! > $PIDFILE\"\n" \
-                          "        echo \"Started autonity daemon\"\n" \
+                          "            --exec \"$DAEMON\" -- $DAEMON_OPTS >> \"$LOGFILE\" 2>&1\n" \
+                          "        \n" \
+                          "        if [ $? -eq 0 ]; then\n" \
+                          "            echo \"Started autonity daemon\"\n" \
+                          "        else\n" \
+                          "            echo \"Failed to start autonity daemon\"\n" \
+                          "            exit 1\n" \
+                          "        fi\n" \
                           "        ;;\n" \
                           "    stop)\n" \
-                          "        if [ -f $PIDFILE ]; then\n" \
-                          "            PID=$(cat $PIDFILE)\n" \
-                          "            if ps -p $PID > /dev/null; then\n" \
-                          "                kill -15 $PID\n" \
+                          "        if [ -f \"$PIDFILE\" ]; then\n" \
+                          "            PID=$(cat \"$PIDFILE\")\n" \
+                          "            if ps -p \"$PID\" > /dev/null; then\n" \
                           "                echo \"Stopping autonity daemon\"\n" \
+                          "                kill -15 \"$PID\"\n" \
+                          "                \n" \
                           "                for i in $(seq 1 10); do\n" \
-                          "                    if ! ps -p $PID > /dev/null; then\n" \
-                          "                        rm -f $PIDFILE\n" \
+                          "                    if ! ps -p \"$PID\" > /dev/null; then\n" \
+                          "                        rm -f \"$PIDFILE\"\n" \
                           "                        echo \"Stopped autonity daemon\"\n" \
                           "                        exit 0\n" \
                           "                    fi\n" \
                           "                    sleep 1\n" \
                           "                done\n" \
+                          "                \n" \
                           "                echo \"Failed to stop daemon, killing forcefully\"\n" \
-                          "                kill -9 $PID\n" \
+                          "                kill -9 \"$PID\"\n" \
+                          "                \n" \
+                          "                sleep 2\n" \
+                          "                if ! ps -p \"$PID\" > /dev/null; then\n" \
+                          "                    rm -f \"$PIDFILE\"\n" \
+                          "                    echo \"Force stopped autonity daemon\"\n" \
+                          "                    exit 0\n" \
+                          "                else\n" \
+                          "                    echo \"Failed to force stop daemon\"\n" \
+                          "                    exit 1\n" \
+                          "                fi\n" \
                           "            else\n" \
-                          "                echo \"autonity daemon not running\"\n" \
+                          "                echo \"autonity daemon not running, removing stale PID file\"\n" \
+                          "                rm -f \"$PIDFILE\"\n" \
                           "            fi\n" \
-                          "            rm -f $PIDFILE\n" \
                           "        else\n" \
                           "            echo \"autonity daemon not running\"\n" \
                           "        fi\n" \
                           "        ;;\n" \
                           "    status)\n" \
-                          "        if [ -f $PIDFILE ]; then\n" \
-                          "            PID=$(cat $PIDFILE)\n" \
-                          "            if ps -p $PID > /dev/null; then\n" \
+                          "        if [ -f \"$PIDFILE\" ]; then\n" \
+                          "            PID=$(cat \"$PIDFILE\")\n" \
+                          "            if ps -p \"$PID\" > /dev/null; then\n" \
                           "                echo \"autonity daemon (PID $PID) is running...\"\n" \
                           "                exit 0\n" \
                           "            else\n" \
