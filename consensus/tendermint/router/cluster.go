@@ -150,16 +150,12 @@ func NewClusters(
 	// Step 2: Prepare each cluster (filter, sort, compute stats)
 	for clusterID, cluster := range clusterViews {
 		var peers []NodeLatency
-		var latencies []uint
-		sum := 0
 
 		for _, node := range cluster.Members {
 			if node.Addr == self {
 				continue
 			}
 			peers = append(peers, node)
-			latencies = append(latencies, node.Lat)
-			sum += int(node.Lat)
 		}
 
 		if len(peers) == 0 {
@@ -199,7 +195,6 @@ func (c *Clusters) addressToMember(id int, address common.Address) (NodeLatency,
 func UpdateClusterLatencies(c Clusters, latencyMap map[common.Address]uint, self common.Address) Clusters {
 	for clusterID, cluster := range c.base {
 		var peers []NodeLatency
-		var latencies []uint
 
 		for _, member := range cluster.Members {
 			if member.Addr == self {
@@ -212,7 +207,6 @@ func UpdateClusterLatencies(c Clusters, latencyMap map[common.Address]uint, self
 				member.Lat = latencyMap[member.Addr]
 			}
 			peers = append(peers, member)
-			latencies = append(latencies, member.Lat)
 		}
 
 		if len(peers) == 0 {

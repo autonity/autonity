@@ -155,7 +155,11 @@ func TestClusterRotation(t *testing.T) {
 
 		newLatMap := make(map[common.Address]uint)
 		for _, addr := range committee {
+			oldLatency := latMap[addr]
 			newLatMap[addr] = uint(rand.Intn(256))
+			for newLatMap[addr] == oldLatency {
+				newLatMap[addr] = uint(rand.Intn(256))
+			}
 		}
 		clusters = UpdateClusterLatencies(clusters, newLatMap, self)
 		for clusterId, cluster := range clusters.base {
@@ -168,6 +172,12 @@ func TestClusterRotation(t *testing.T) {
 				require.Equal(t, newLatency, member.Lat, "latency mismatch after update")
 				require.Equal(t, clusterId, clusterMap[member.Addr], "cluster ID mismatch after update")
 			}
+		}
+		// all members should still be in a cluster
+		for _, addr := range committee {
+			cid := clusters.clusterContaining(addr)
+			require.NotEqual(t, cid, -1, "cluster ID should not be -1")
+			require.Equal(t, clusterMap[addr], cid, "cluster ID mismatch after update")
 		}
 	})
 
