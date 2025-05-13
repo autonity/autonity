@@ -137,21 +137,21 @@ class Client(object):
 
     def generate_system_service_file(self):
         template_remote = "#!/bin/sh\n\n" \
-                          "DAEMON={}\n" \
+                          "DAEMON={0}\n" \
                           "PIDFILE=/var/run/autonity.pid\n" \
-                          "LOGFILE={}\n\n" \
-                          "DAEMON_OPTS=\"--genesis {} --datadir {} --autonitykeys {} --syncmode 'full' --port {} --consensus.port {} " \
-                          "--http.port {} --http --http.addr '0.0.0.0' --ws --ws.port {} --http.corsdomain '*' " \
+                          "LOGFILE={1}\n\n" \
+                          "DAEMON_OPTS=\"--genesis {2} --datadir {3} --autonitykeys {4} --syncmode 'full' --port {5} --consensus.port {6} " \
+                          "--http.port {7} --http --http.addr '0.0.0.0' --ws --ws.port {8} --http.corsdomain '*' " \
                           "--http.api 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
                           "--allow-insecure-unlock --graphql " \
-                          "--unlock 0x{} --password {} " \
+                          "--unlock 0x{9} --password {10} " \
                           "--mine --miner.threads '1' --verbosity 4 --miner.gaslimit 10000000000\"\n\n" \
                           "case \"$1\" in\n" \
                           "    start)\n" \
                           "        mkdir -p $(dirname $LOGFILE) || true\n" \
                           "        start-stop-daemon --start --background \\\n" \
                           "            --pidfile $PIDFILE --make-pidfile \\\n" \
-                          "            --chuid {} \\\n" \
+                          "            --chuid {11} \\\n" \
                           "            --exec /bin/sh -- -c \"$DAEMON $DAEMON_OPTS >> $LOGFILE 2>&1 & echo $! > $PIDFILE\"\n" \
                           "        echo \"Started autonity daemon\"\n" \
                           "        ;;\n" \
@@ -200,7 +200,7 @@ class Client(object):
                           "        $0 start\n" \
                           "        ;;\n" \
                           "    *)\n" \
-                          "        echo \"Usage: $0 {start|stop|status|restart}\"\n" \
+                          "        echo \"Usage: $0 {{start|stop|status|restart}}\"\n" \
                           "        exit 2\n" \
                           "        ;;\n" \
                           "esac\n\n" \
