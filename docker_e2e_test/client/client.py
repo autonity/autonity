@@ -228,6 +228,7 @@ class Client(object):
             p2p_port, acn_port, rpc_port, ws_port,
             coin_base, password_file, run_user
         )
+        self.logger.info("gen service file: %s", content)
         with open("./network-data/{}/autonity".format(folder), 'w') as out:
             out.write(content)
 
@@ -286,26 +287,33 @@ class Client(object):
     def start_client(self):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
+                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass
             }) as c:
                 sudopass = Responder(
-                    pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
+                    pattern=r'$$sudo$$ password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                #cmd = self.generate_start_cmd()
+                # cmd = self.generate_start_cmd()
                 cmd = SYSTEMD_START_CLIENT
+                self.logger.debug("Executing command: %s", cmd)  # Added command printing
+
                 result = c.run(cmd, pty=True, watchers=[sudopass],
-                               warn=True, hide=True)
+                               warn=True, hide=False)  # Changed hide=False to show output
+
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('system service started. %s', self.host)
+                    self.logger.debug('Command output: %s', result.stdout)  # Added output logging
                     self.client_stopped = False
                     return True
                 else:
+                    self.logger.error('fail to start service: %s', result.stdout)
                     self.logger.error('systemd service starting failed. %s', self.host)
+                    return False
+
         except Exception as e:
             self.logger.error("cannot start service. %s, %s.", self.host, e)
-        return False
+            return False
 
     def deploy_client(self):
         self.deliver_package()
