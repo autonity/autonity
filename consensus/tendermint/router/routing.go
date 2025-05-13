@@ -31,9 +31,6 @@ const (
 )
 
 type Router struct {
-	clusterMu      sync.RWMutex
-	latestClusters Clusters
-
 	self        common.Address
 	nodeKey     *ecdsa.PrivateKey
 	clusters    *ClusterRotation
@@ -159,8 +156,6 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 	}
 	m.initializeClusters(curEpoch)
 
-	m.latestClusters, _ = NewClusters(m.committee, m.latestLatencies, nil, m.self)
-
 	ctx, m.cancel = context.WithCancel(ctx)
 	m.wg.Add(2)
 	go m.watchReported(ctx)
@@ -179,10 +174,8 @@ func (m *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 }
 
 func (m *Router) refreshClustersLatencies(latMap map[common.Address]uint) {
-	m.clusterMu.Lock()
-	defer m.clusterMu.Unlock()
-	m.latestClusters, _ = NewClusters(m.committee, latMap, nil, m.self)
-	//m.clusters.UpdateLatencies(latMap, m.self)
+	m.clusters.UpdateLatencies(latMap, m.self)
+	m.cache.Invalidate()
 }
 
 func (m *Router) measureLatency() error {
@@ -351,10 +344,6 @@ func (m *Router) loop(ctx context.Context) {
 				continue
 			}
 			m.updateCommittee(epoch)
-			if epochEv.Header.Number.Uint64() == m.clusters.latestEpochBlock {
-				log.Info("Router: clusters for this epoch already established, skipping clustering")
-				continue
-			}
 
 			log.Info("Router: new epoch, constructing default clusters")
 			clusters, err := NewClusters(m.committee, m.latestLatencies, nil, m.self)
@@ -365,11 +354,8 @@ func (m *Router) loop(ctx context.Context) {
 				log.Info("Router: created default clusters")
 			}
 
-			m.clusterMu.Lock()
-			m.latestClusters = clusters
-			m.clusterMu.Unlock()
-
 			m.clusters.EpochStart(epochEv.Header.Number.Uint64(), clusters)
+			m.cache.Invalidate()
 			m.logUpdateClusters(epochEv.Header.Number.Uint64(), clusters)
 			// new epoch, reset the reported status
 			m.reportedThisEpoch = false
@@ -426,7 +412,7 @@ func (m *Router) readLatencyMatrix(previousEpoch bool) ([][]uint8, []common.Addr
 	// as reading the entire matrix could be reverted due to too much gas consumption, we have to read row by row.
 	latencyMat := make([][]uint8, len(committee))
 	index := new(big.Int).SetUint64(0)
-	for i, _ := range committee {
+	for i := range committee {
 		var latency []uint8
 		var err error
 		if previousEpoch {
@@ -629,14 +615,14 @@ func (m *Router) watchReported(ctx context.Context) {
 				"block",
 				optimizationEv.Raw.BlockNumber,
 			)
-			if err := m.OptimizeClusters(optimizationEv.Height.Uint64()); err != nil {
+			if err := m.optimizeClusters(optimizationEv.Height.Uint64()); err != nil {
 				log.Error("Could not optimize clusters", "err", err)
 			}
 		}
 	}
 }
 
-func (m *Router) OptimizeClusters(lockInBlock uint64) error {
+func (m *Router) optimizeClusters(lockInBlock uint64) error {
 	log.Info("Router: ready to optimize the clustering", "effectiveHeight", lockInBlock)
 	if m.clusters.latestMatrixLockInBlock == lockInBlock {
 		log.Info("Router: clusters already optimized for this lock in block, skipping")
@@ -657,26 +643,24 @@ func (m *Router) OptimizeClusters(lockInBlock uint64) error {
 	}
 	m.clusters.LockIn(lockInBlock, clusters)
 	m.logUpdateClusters(lockInBlock, clusters)
+	m.cache.Invalidate()
 	return nil
 }
 
 func (m *Router) Clusters(height uint64) Clusters {
-	m.clusterMu.RLock()
-	defer m.clusterMu.RUnlock()
-	return m.latestClusters
-	/*	if clusters := m.clusters.GetClusters(height); len(clusters.base) > 0 {
-			return clusters
-		}
-		log.Error(
-			"Router: no clusters found",
-			"height",
-			height,
-			"previousEpochBlock",
-			m.epoch.PreviousEpochBlock.Uint64(),
-			"nextEpochBlock",
-			m.epoch.NextEpochBlock.Uint64(),
-		)
-		return Clusters{}*/
+	if clusters := m.clusters.GetClusters(height); len(clusters.base) > 0 {
+		return clusters
+	}
+	log.Error(
+		"Router: no clusters found",
+		"height",
+		height,
+		"previousEpochBlock",
+		m.epoch.PreviousEpochBlock.Uint64(),
+		"nextEpochBlock",
+		m.epoch.NextEpochBlock.Uint64(),
+	)
+	return Clusters{}
 }
 
 func (m *Router) Latencies() map[common.Address]uint {
