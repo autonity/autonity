@@ -1,6 +1,6 @@
 FROM ubuntu:24.04
 
-ENV PYTHON_VERSION=3.7 \
+ENV PYTHON_VERSION=3.12 \
     DEBIAN_FRONTEND=noninteractive \
     VENV=/opt/venv
 
@@ -17,6 +17,7 @@ RUN apt-get update && \
         libreadline-dev \
         libffi-dev \
         libsqlite3-dev \
+        python3-setuptools \
         openssh-client && \
     add-apt-repository ppa:deadsnakes/ppa -y && \
     apt-get install -y --no-install-recommends \
