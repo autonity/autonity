@@ -294,14 +294,26 @@ class Client(object):
                 src = '/home/{}/network-data/{}/autonity'.format(self.ssh_user, self.host)
                 result = c.run('sudo cp {} {}'.format(src, SYSTEM_SERVICE_DIR), pty=True, watchers=[sudopass],
                                warn=True, hide=True)
-                result = c.run('sudo chmod chmod +x /etc/init.d/autonity', pty=True, watchers=[sudopass],
+                if result and result.exited == 0 and result.ok:
+                    self.logger.info('system service file copied. %s', self.host)
+                else:
+                    self.logger.error('failed to copy service file. %s', self.host)
+                    return
+
+                result = c.run('sudo chmod +x /etc/init.d/autonity', pty=True, watchers=[sudopass],
                                warn=True, hide=True)
+                if result and result.exited == 0 and result.ok:
+                    self.logger.info('success to chmod service file. %s', self.host)
+                else:
+                    self.logger.error('failed to chmod service file. %s', self.host)
+                    return
+
                 result = c.run('sudo update-rc.d autonity defaults', pty=True, watchers=[sudopass],
                                warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
-                    self.logger.info('system service loaded. %s', self.host)
+                    self.logger.info('registered service. %s', self.host)
                 else:
-                    self.logger.error('systemd file loading failed. %s', self.host)
+                    self.logger.error('failed to register service. %s', self.host)
         except Exception as e:
             self.logger.error("cannot load systemd file. %s, %s", self.host, e)
 
@@ -315,21 +327,17 @@ class Client(object):
                     pattern=r'$$sudo$$ password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                # cmd = self.generate_start_cmd()
                 cmd = SYSTEMD_START_CLIENT
-                self.logger.debug("Executing command: %s", cmd)  # Added command printing
-
+                self.logger.debug("Executing command: %s", cmd)
                 result = c.run(cmd, pty=True, watchers=[sudopass],
-                               warn=True, hide=False)  # Changed hide=False to show output
+                               warn=True, hide=True)
 
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('system service started. %s', self.host)
-                    self.logger.debug('Command output: %s', result.stdout)  # Added output logging
                     self.client_stopped = False
                     return True
                 else:
-                    self.logger.error('fail to start service: %s', result.stdout)
-                    self.logger.error('systemd service starting failed. %s', self.host)
+                    self.logger.error('fail to start service: %s', result)
                     return False
 
         except Exception as e:
