@@ -200,16 +200,19 @@ func UpdateClusterLatencies(c Clusters, latencyMap map[common.Address]uint, self
 	for clusterID, cluster := range c.base {
 		var peers []NodeLatency
 		var latencies []uint
-		sum := 0
 
 		for _, member := range cluster.Members {
 			if member.Addr == self {
 				continue
 			}
-			member.Lat = latencyMap[member.Addr]
+			if _, ok := latencyMap[member.Addr]; !ok {
+				log.Info("ClusterRotation: missing latency for address", "address", member.Addr.Hex())
+				member.Lat = DefaultLatency
+			} else {
+				member.Lat = latencyMap[member.Addr]
+			}
 			peers = append(peers, member)
 			latencies = append(latencies, member.Lat)
-			sum += int(member.Lat)
 		}
 
 		if len(peers) == 0 {
@@ -279,7 +282,7 @@ func (cr *ClusterRotation) LockIn(lockInBlock uint64, cluster Clusters) {
 
 	log.Info(
 		"ClusterRotation: new lock in",
-		"len(previousEpochClusters", len(cr.previousEpochClusters.base),
+		"len(previousEpochClusters)", len(cr.previousEpochClusters.base),
 		"len(transitionalClusters)", len(cr.transitionalClusters.base),
 		"len(latestEpochClusters)", len(cr.latestEpochClusters.base),
 		"previousEpochBlock", cr.previousEpochBlock,
@@ -353,8 +356,10 @@ func (cr *ClusterRotation) UpdateLatencies(latencies map[common.Address]uint, se
 	// update latencies based on whether we are in the transitional clusters or
 	// the latest epoch clusters phase
 	if len(cr.latestEpochClusters.base) != 0 {
+		log.Info("ClusterRotation: updating latencies in latest epoch clusters")
 		cr.latestEpochClusters = UpdateClusterLatencies(cr.latestEpochClusters, latencies, self)
 	} else if len(cr.transitionalClusters.base) != 0 {
+		log.Info("ClusterRotation: updating latencies in transitional clusters")
 		cr.transitionalClusters = UpdateClusterLatencies(cr.transitionalClusters, latencies, self)
 	}
 }

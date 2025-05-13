@@ -31,6 +31,9 @@ const (
 )
 
 type Router struct {
+	clusterMu      sync.RWMutex
+	latestClusters Clusters
+
 	self        common.Address
 	nodeKey     *ecdsa.PrivateKey
 	clusters    *ClusterRotation
@@ -156,6 +159,8 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain, address comm
 	}
 	m.initializeClusters(curEpoch)
 
+	m.latestClusters, _ = NewClusters(m.committee, m.latestLatencies, nil, m.self)
+
 	ctx, m.cancel = context.WithCancel(ctx)
 	m.wg.Add(2)
 	go m.watchReported(ctx)
@@ -174,7 +179,10 @@ func (m *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 }
 
 func (m *Router) refreshClustersLatencies(latMap map[common.Address]uint) {
-	m.clusters.UpdateLatencies(latMap, m.self)
+	m.clusterMu.Lock()
+	defer m.clusterMu.Unlock()
+	m.latestClusters, _ = NewClusters(m.committee, latMap, nil, m.self)
+	//m.clusters.UpdateLatencies(latMap, m.self)
 }
 
 func (m *Router) measureLatency() error {
@@ -356,6 +364,10 @@ func (m *Router) loop(ctx context.Context) {
 			} else {
 				log.Info("Router: created default clusters")
 			}
+
+			m.clusterMu.Lock()
+			m.latestClusters = clusters
+			m.clusterMu.Unlock()
 
 			m.clusters.EpochStart(epochEv.Header.Number.Uint64(), clusters)
 			m.logUpdateClusters(epochEv.Header.Number.Uint64(), clusters)
@@ -649,19 +661,22 @@ func (m *Router) OptimizeClusters(lockInBlock uint64) error {
 }
 
 func (m *Router) Clusters(height uint64) Clusters {
-	if clusters := m.clusters.GetClusters(height); len(clusters.base) > 0 {
-		return clusters
-	}
-	log.Error(
-		"Router: no clusters found",
-		"height",
-		height,
-		"previousEpochBlock",
-		m.epoch.PreviousEpochBlock.Uint64(),
-		"nextEpochBlock",
-		m.epoch.NextEpochBlock.Uint64(),
-	)
-	return Clusters{}
+	m.clusterMu.RLock()
+	defer m.clusterMu.RUnlock()
+	return m.latestClusters
+	/*	if clusters := m.clusters.GetClusters(height); len(clusters.base) > 0 {
+			return clusters
+		}
+		log.Error(
+			"Router: no clusters found",
+			"height",
+			height,
+			"previousEpochBlock",
+			m.epoch.PreviousEpochBlock.Uint64(),
+			"nextEpochBlock",
+			m.epoch.NextEpochBlock.Uint64(),
+		)
+		return Clusters{}*/
 }
 
 func (m *Router) Latencies() map[common.Address]uint {
