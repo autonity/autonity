@@ -67,6 +67,10 @@ func (r *Reporter) ReportLatency(latency map[common.Address]uint8) error {
 	r.txOpts.GasTipCap = new(big.Int).Mul(testTx.GasTipCap(), common.Big2)
 	r.txOpts.GasFeeCap = new(big.Int).Mul(testTx.GasFeeCap(), common.Big2)
 
+	if r.txOpts.GasFeeCap.Cmp(r.protocolContracts.Cache.MinimumBaseFee()) < 0 {
+		r.txOpts.GasFeeCap.Set(new(big.Int).Mul(r.protocolContracts.Cache.MinimumBaseFee(), common.Big2))
+	}
+
 	tx, err := r.protocolContracts.Latency.Report(
 		r.txOpts,
 		big.NewInt(int64(index)),

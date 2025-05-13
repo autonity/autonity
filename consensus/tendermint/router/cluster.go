@@ -202,14 +202,14 @@ func UpdateClusterLatencies(c Clusters, latencyMap map[common.Address]uint, self
 		var latencies []uint
 		sum := 0
 
-		for _, node := range cluster.Members {
-			if node.Addr == self {
+		for _, member := range cluster.Members {
+			if member.Addr == self {
 				continue
 			}
-			node.Lat = latencyMap[node.Addr]
-			peers = append(peers, node)
-			latencies = append(latencies, node.Lat)
-			sum += int(node.Lat)
+			member.Lat = latencyMap[member.Addr]
+			peers = append(peers, member)
+			latencies = append(latencies, member.Lat)
+			sum += int(member.Lat)
 		}
 
 		if len(peers) == 0 {
@@ -293,7 +293,11 @@ func (cr *ClusterRotation) GetClusters(height uint64) Clusters {
 	cr.mu.RLock()
 	defer cr.mu.RUnlock()
 
-	if height <= cr.previousEpochBlock {
+	// for the first block, we have only initialized the first epoch transitional clusters
+	if height == 0 {
+		return cr.transitionalClusters
+	}
+	if height <= cr.latestEpochBlock {
 		if height >= cr.lastMatrixLockInBlock {
 			/*log.Info(
 				"ClusterRotation: returning previous epoch clusters",
