@@ -23,8 +23,10 @@ contract Latency is ILatency, AccessAutonity {
      * @dev Emitted when a validator reports its latency
      * @param reporter The address of the validator who reported the latency
      * @param length The length of the reported latency array
+        * @param totalReported The total number of reports received so far in the current epoch
+        * @param stored Whether the report was stored in the contract
      */
-    event Reported(address indexed reporter, uint256 length, uint totalReported);
+    event Reported(address indexed reporter, uint256 length, uint totalReported, bool stored);
 
     /**
      * @dev Emitted when there are quorum measurements metrics is ready for K Means optimization.
@@ -95,7 +97,7 @@ contract Latency is ILatency, AccessAutonity {
         require(committee[index] == msg.sender, "Latency: not a valid reporter");
 
         if (matrixLockInBlock != 0 && block.number > matrixLockInBlock) {
-            emit Reported(msg.sender, _latency.length, reports);
+            emit Reported(msg.sender, _latency.length, reports, false);
             lastReportedEpoch[msg.sender] = epochPlusOne;
             reports++;
             return;
@@ -112,7 +114,7 @@ contract Latency is ILatency, AccessAutonity {
         lastReportedEpoch[msg.sender] = epochPlusOne;
         reports++;
 
-        emit Reported(msg.sender, _latency.length, reports);
+        emit Reported(msg.sender, _latency.length, reports, true);
         bool thresholdMet = reports * LOCK_IN_THRESHOLD_DENOMINATOR >= committee.length * lockInThreshold;
         if (thresholdMet) {
             // other validators can report until the end of the block, but a new event should not be triggered

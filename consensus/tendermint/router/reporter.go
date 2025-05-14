@@ -53,7 +53,11 @@ func (r *Reporter) ReportLatency(latency map[common.Address]uint8) error {
 		log.Info("Reporter: client already reported latency")
 		return nil
 	}
+	// reset values to estimate with test tx
 	r.txOpts.NoSend = true
+	r.txOpts.GasTipCap = nil
+	r.txOpts.GasFeeCap = nil
+	r.txOpts.GasLimit = 0
 	testTx, err := r.protocolContracts.Latency.Report(
 		r.txOpts,
 		big.NewInt(int64(index)),
@@ -66,6 +70,7 @@ func (r *Reporter) ReportLatency(latency map[common.Address]uint8) error {
 	r.txOpts.NoSend = false
 	r.txOpts.GasTipCap = new(big.Int).Mul(testTx.GasTipCap(), common.Big2)
 	r.txOpts.GasFeeCap = new(big.Int).Mul(testTx.GasFeeCap(), common.Big2)
+	r.txOpts.GasLimit = testTx.Gas() * 2
 
 	if r.txOpts.GasFeeCap.Cmp(r.protocolContracts.Cache.MinimumBaseFee()) < 0 {
 		r.txOpts.GasFeeCap.Set(new(big.Int).Mul(r.protocolContracts.Cache.MinimumBaseFee(), common.Big2))
@@ -78,7 +83,14 @@ func (r *Reporter) ReportLatency(latency map[common.Address]uint8) error {
 	)
 
 	if err == nil {
-		log.Info("Reporter: reported latency at tx", "tx", tx.Hash().Hex())
+		log.Info(
+			"Reporter: reported latency at tx",
+			"tx", tx.Hash().Hex(),
+			"from", r.txOpts.From.Hex(),
+			"gasTipCap", r.txOpts.GasTipCap.String(),
+			"gasFeeCap", r.txOpts.GasFeeCap.String(),
+			"gasLimit", r.txOpts.GasLimit,
+		)
 	} else {
 		log.Info("Reporter: failed to report latency", "err", err)
 	}

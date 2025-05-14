@@ -645,6 +645,8 @@ func (m *Router) watchReported(ctx context.Context) {
 				m.epoch.PreviousEpochBlock.Uint64(),
 				"block",
 				ev.Raw.BlockNumber,
+				"stored",
+				ev.Stored,
 			)
 		case optimizationEv := <-optimization:
 			log.Info(
