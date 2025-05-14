@@ -344,11 +344,12 @@ class Client(object):
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                cmd = SYSTEMD_START_CLIENT
+                #cmd = SYSTEMD_START_CLIENT
+                cmd = self.cli_cmd()
                 self.logger.info("*******Executing command: %s", cmd)
                 result = c.run("touch {}".format(LOG_PATH.format(self.ssh_user)), pty=True, watchers=[sudopass],
                                warn=True, hide=True)
-                result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=True)
+                result = c.run(cmd, pty=False, asynchronous=True, watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('system service started. %s', self.host)
                     self.client_stopped = False
