@@ -73,7 +73,7 @@ contract Latency is ILatency, AccessAutonity {
     constructor(address payable _autonity, address[] memory initialCommittee) AccessAutonity(_autonity) {
         committee = initialCommittee;
         epochPlusOne = 1;
-        lockInThreshold = 600; // 60%
+        lockInThreshold = 700; // 70%
         lockInDelay = 5; // 5 blocks
     }
 

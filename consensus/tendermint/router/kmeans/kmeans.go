@@ -102,16 +102,17 @@ func (m *Kmeans) Partition(dataset Observations, k int) (Clusters, error) {
 	}
 
 	// resolve params for re-clustering
-	/*optimalSize := k
+	optimalSize := k
 	smallClusterThreshold := optimalSize / 3
 	if smallClusterThreshold < 3 {
 		smallClusterThreshold = 3
-	}*/
+	}
 
 	// merge small clusters into their nearest cluster.
-	// cc = mergeSmallClusters(cc, smallClusterThreshold)
+	cc = mergeSmallClusters(cc, smallClusterThreshold)
 
-	return equalize(cc, dataset), nil
+	return cc, nil
+	//return equalize(cc, dataset), nil
 }
 
 // equalize the clusters to have the same size
