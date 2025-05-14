@@ -71,7 +71,7 @@ contract Latency is ILatency, AccessAutonity {
     constructor(address payable _autonity, address[] memory initialCommittee) AccessAutonity(_autonity) {
         committee = initialCommittee;
         epochPlusOne = 1;
-        lockInThreshold = 800; // 80%
+        lockInThreshold = 600; // 60%
         lockInDelay = 5; // 5 blocks
     }
 
@@ -95,6 +95,7 @@ contract Latency is ILatency, AccessAutonity {
         require(committee[index] == msg.sender, "Latency: not a valid reporter");
 
         if (matrixLockInBlock != 0 && block.number > matrixLockInBlock) {
+            emit Reported(msg.sender, _latency.length, reports);
             lastReportedEpoch[msg.sender] = epochPlusOne;
             reports++;
             return;
