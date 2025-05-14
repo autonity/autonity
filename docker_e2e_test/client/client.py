@@ -19,7 +19,7 @@ PACKAGE_NAME = "./network-data/{}.tgz"
 REMOTE_NAME = "/home/{}/{}.tgz"
 SYSTEM_SERVICE_DIR = "/etc/init.d/"
 DEPLOYMENT_DIR = '/home/{}/network-data'
-SYSTEMD_START_CLIENT = 'sudo service autonity start &'
+SYSTEMD_START_CLIENT = 'sudo service autonity start'
 SYSTEMD_STOP_CLIENT = 'sudo service autonity stop'
 
 # use ip tables module of linux kernel which is common for all linux distributions to control peer connection.
@@ -155,9 +155,10 @@ class Client(object):
                           "        start-stop-daemon --start --background \\\n" \
                           "            --pidfile \"$PIDFILE\" --make-pidfile \\\n" \
                           "            --chuid {11} \\\n" \
-                          "            --exec \"$DAEMON\" -- $DAEMON_OPTS >> \"$LOGFILE\" 2>&1\n" \
+                          "            --exec \"$DAEMON\" -- $DAEMON_OPTS < /dev/null >> \"$LOGFILE\" 2>&1 &\n" \
                           "        \n" \
-                          "        if [ $? -eq 0 ]; then\n" \
+                          "        sleep 1\n" \
+                          "        if [ -f \"$PIDFILE\" ] && ps -p \"$(cat \"$PIDFILE\")\" > /dev/null; then\n" \
                           "            echo \"Started autonity daemon\"\n" \
                           "        else\n" \
                           "            echo \"Failed to start autonity daemon\"\n" \
