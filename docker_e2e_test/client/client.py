@@ -19,7 +19,7 @@ PACKAGE_NAME = "./network-data/{}.tgz"
 REMOTE_NAME = "/home/{}/{}.tgz"
 SYSTEM_SERVICE_DIR = "/etc/init.d/"
 DEPLOYMENT_DIR = '/home/{}/network-data'
-SYSTEMD_START_CLIENT = 'sudo service autonity1 start'
+SYSTEMD_START_CLIENT = 'sudo service autonity start &'
 SYSTEMD_STOP_CLIENT = 'sudo service autonity stop'
 
 # use ip tables module of linux kernel which is common for all linux distributions to control peer connection.
