@@ -149,7 +149,7 @@ class Client(object):
                           "case \"$1\" in\n" \
                           "    start)\n" \
                           "        if [ ! -d \"$(dirname \"$LOGFILE\")\" ]; then\n" \
-                          "            mkdir -p \"$(dirname \"$LOGFILE\")\" || {{ echo \"Failed to create log directory\"; exit 1; }}\n" \
+                          "            mkdir -p \"$(dirname \"$LOGFILE\")\" || {{ echo \"Failed to create log directory\"; exit 8; }}\n" \
                           "        fi\n" \
                           "        \n" \
                           "        start-stop-daemon --start --background \\\n" \
@@ -160,9 +160,10 @@ class Client(object):
                           "        sleep 1\n" \
                           "        if [ -f \"$PIDFILE\" ] && ps -p \"$(cat \"$PIDFILE\")\" > /dev/null; then\n" \
                           "            echo \"Started autonity daemon\"\n" \
+                          "            exit 0\n" \
                           "        else\n" \
                           "            echo \"Failed to start autonity daemon\"\n" \
-                          "            exit 1\n" \
+                          "            exit 9\n" \
                           "        fi\n" \
                           "        ;;\n" \
                           "    stop)\n" \
@@ -320,7 +321,6 @@ class Client(object):
                 self.logger.info("*******Executing command: %s", cmd)
                 result = c.run(cmd, pty=True, watchers=[sudopass],
                                warn=True, hide=True)
-
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('system service started. %s', self.host)
                     self.client_stopped = False
