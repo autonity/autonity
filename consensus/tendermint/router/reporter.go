@@ -90,6 +90,8 @@ func (r *Reporter) ReportLatency(latency map[common.Address]uint8) error {
 			"gasTipCap", r.txOpts.GasTipCap.String(),
 			"gasFeeCap", r.txOpts.GasFeeCap.String(),
 			"gasLimit", r.txOpts.GasLimit,
+			"latencyLength", len(latencyVec),
+			"latency", fmt.Sprintf("%v", latencyVec),
 		)
 	} else {
 		log.Info("Reporter: failed to report latency", "err", err)

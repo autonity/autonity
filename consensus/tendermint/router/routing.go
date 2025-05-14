@@ -472,7 +472,7 @@ func (m *Router) logUpdateClusters(height uint64, c Clusters) {
 }
 
 func (m *Router) initializeClusters(epoch *types.EpochInfo) {
-	log.Info("Router: initializing clusters", "epoch", epoch.EpochBlock.Uint64())
+	log.Info("Router: initializing clusters", "epoch", epoch.EpochBlock.Uint64(), "committeeLen", epoch.Committee.Len())
 	if epoch.EpochBlock.Cmp(common.Big0) == 0 {
 		// initialize with default clusters
 		log.Info("Router: initializing with default clusters")

@@ -13,8 +13,8 @@ func constructTransitional(oldLatMat [][]uint8, oldCommittee, newCommittee []com
 	oldMapping := make(map[common.Address]map[common.Address]uint8)
 	for i, addr := range oldCommittee {
 		oldMapping[addr] = make(map[common.Address]uint8)
-		for j, latency := range oldLatMat[i] {
-			oldMapping[addr][oldCommittee[j]] = latency
+		for j, addr2 := range oldCommittee {
+			oldMapping[addr][addr2] = oldLatMat[i][j]
 		}
 	}
 	result := make([][]uint8, len(newCommittee))
