@@ -9,30 +9,31 @@ type latencyReports struct {
 	committee []common.Address
 }
 
-func getForCommittee(lr latencyReports, committee []common.Address) [][]uint8 {
-	latestReport := lr
-	latestLatMat := fillMissingLatencies(latestReport)
-
-	// Prepare the result map
-	result := make([][]uint8, len(committee))
-
-	for i, addr := range committee {
-		result[i] = make([]uint8, len(committee))
-		if idx := indexOf(latestReport.committee, addr); idx != -1 {
-			for j, addr2 := range committee {
-				if idx2 := indexOf(latestReport.committee, addr2); idx2 != -1 {
-					result[i][j] = latestLatMat[idx][idx2]
-				} else {
-					result[i][j] = DefaultLatency
-				}
+func constructTransitional(oldLatMat [][]uint8, oldCommittee, newCommittee []common.Address) [][]uint8 {
+	oldMapping := make(map[common.Address]map[common.Address]uint8)
+	for i, addr := range oldCommittee {
+		oldMapping[addr] = make(map[common.Address]uint8)
+		for j, latency := range oldLatMat[i] {
+			oldMapping[addr][oldCommittee[j]] = latency
+		}
+	}
+	result := make([][]uint8, len(newCommittee))
+	for i, addr := range newCommittee {
+		result[i] = make([]uint8, len(newCommittee))
+		for j, newAddr := range newCommittee {
+			if i == j {
+				result[i][j] = 0 // Self otherLatency is 0
+				continue
 			}
-		} else {
-			for j := range committee {
-				result[i][j] = DefaultLatency
+			if latency, ok := oldMapping[addr][newAddr]; ok {
+				result[i][j] = latency
+			} else if otherLatency, otherOk := oldMapping[newAddr][addr]; otherOk {
+				result[i][j] = otherLatency // Default value if not found
+			} else {
+				result[i][j] = DefaultLatency // Default value if not found
 			}
 		}
 	}
-
 	return result
 }
 

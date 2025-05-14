@@ -343,17 +343,37 @@ func (m *Router) loop(ctx context.Context) {
 				log.Info("Router: not in committee clustering not needed, skipping measurement")
 				continue
 			}
-			m.updateCommittee(epoch)
-
+			newCommittee := m.committeeAddresses(epochEv.Header.Epoch.Committee)
+			clusters := Clusters{}
+			var err error
 			log.Info("Router: new epoch, constructing default clusters")
-			clusters, err := NewClusters(m.committee, m.latestLatencies, nil, m.self)
-			if err != nil {
-				// this should never happen
-				panic("Router: failed to create default clusters")
-			} else {
-				log.Info("Router: created default clusters")
+			if m.latencyMat != nil {
+				// if we have a latency matrix, use it to create clusters
+				log.Info("Router: new epoch, using previous latency matrix")
+				clusters, err = NewClusters(
+					newCommittee,
+					m.latestLatencies,
+					constructTransitional(m.latencyMat, m.committee, newCommittee),
+					m.self,
+				)
+				if err != nil {
+					log.Error("Router: failed to create clusters", "err", err)
+					return
+				} else {
+					log.Info("Router: created clusters using transitional latency matrix")
+				}
 			}
-
+			if err != nil || len(clusters.base) == 0 {
+				log.Info("Router: new epoch, using default clusters")
+				clusters, err = NewClusters(newCommittee, m.latestLatencies, nil, m.self)
+				if err != nil {
+					// this should never happen
+					panic("Router: failed to create default clusters")
+				} else {
+					log.Info("Router: created default clusters")
+				}
+			}
+			m.updateCommittee(epoch)
 			m.clusters.EpochStart(epochEv.Header.Number.Uint64(), clusters)
 			m.cache.Invalidate()
 			m.logUpdateClusters(epochEv.Header.Number.Uint64(), clusters)
@@ -494,16 +514,31 @@ func (m *Router) initializeClusters(epoch *types.EpochInfo) {
 		log.Info("Router: init - read prev latency matrix successfully", "len(prevLatMat)", len(prevLatMat))
 	}
 	currentCommittee := m.committeeAddresses(epoch.Committee)
-	transitionalClusters, err := NewClusters(
-		currentCommittee,
-		m.latestLatencies,
-		nil,
-		m.self,
-	)
+
+	var transitionalClusters Clusters
+	if prevLockInBlock.Cmp(common.Big0) == 0 {
+		// previous cluster didn't lock in, so we need to use the transitional clusters
+		transitionalClusters, err = NewClusters(
+			currentCommittee,
+			m.latestLatencies,
+			nil,
+			m.self,
+		)
+	} else {
+		// previous cluster locked in, so we need to use the transitional clusters
+		transitionalClusters, err = NewClusters(
+			currentCommittee,
+			m.latestLatencies,
+			constructTransitional(prevLatMat, prevCommittee, currentCommittee),
+			m.self,
+		)
+	}
 	if err != nil {
 		log.Error("Router: init - failed to create transitional transitionalClusters", "err", err)
 		return
 	}
+	transitionalClusters.id = fmt.Sprintf("transitional-%d", epoch.EpochBlock.Uint64())
+
 	var prevClusters Clusters
 	if prevLockInBlock.Cmp(common.Big0) == 0 {
 		// previous cluster lock in
