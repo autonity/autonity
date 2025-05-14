@@ -156,9 +156,9 @@ class Client(object):
                           "        start-stop-daemon --start --background \\\n" \
                           "            --pidfile \"$PIDFILE\" --make-pidfile \\\n" \
                           "            --chuid {11} \\\n" \
-                          "            --exec \"$DAEMON\" -- $DAEMON_OPTS < /dev/null >> \"$LOGFILE\" 2>&1 &\n" \
+                          "            --exec \"$DAEMON\" -- $DAEMON_OPTS >> \"$LOGFILE\" 2>&1 &\n" \
                           "        \n" \
-                          "        sleep 1\n" \
+                          "        sleep 4\n" \
                           "        if [ -f \"$PIDFILE\" ] && ps -p \"$(cat \"$PIDFILE\")\" > /dev/null; then\n" \
                           "            echo \"Started autonity daemon\"\n" \
                           "            exit 0\n" \
@@ -344,8 +344,7 @@ class Client(object):
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                # cmd = SYSTEMD_START_CLIENT
-                cmd = self.cli_cmd()
+                cmd = SYSTEMD_START_CLIENT
                 self.logger.info("*******Executing command: %s", cmd)
                 result = c.run("touch {}".format(LOG_PATH.format(self.ssh_user)), pty=True, watchers=[sudopass],
                                warn=True, hide=True)
