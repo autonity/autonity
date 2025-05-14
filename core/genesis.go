@@ -379,10 +379,7 @@ func (g *Genesis) ToBlock(db *triedb.Database) (*types.Block, error) {
 		return nil, err
 	}
 	if g.Difficulty == nil {
-		g.Difficulty = params.GenesisDifficulty
-	}
-	if g.Difficulty.Cmp(big.NewInt(0)) != 0 {
-		return nil, fmt.Errorf("autonity requires genesis to have a difficulty of 0, instead got %v", g.Difficulty)
+		g.Difficulty = params.MinimumDifficulty
 	}
 	// If a genesis-time verkle trie is requested, create a trie config
 	// with the verkle trie enabled so that the tree can be initialized

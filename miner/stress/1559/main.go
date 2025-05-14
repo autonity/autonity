@@ -34,6 +34,7 @@ import (
 	"github.com/autonity/autonity/eth"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
+	"github.com/autonity/autonity/internal/version"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
@@ -221,7 +222,7 @@ func makeMiner(genesis *core.Genesis) (*node.Node, *eth.Ethereum, error) {
 
 	config := &node.Config{
 		Name:    "geth",
-		Version: params.Version,
+		Version: version.WithMeta,
 		DataDir: datadir,
 		ExecutionP2P: p2p.Config{
 			ListenAddr:  "0.0.0.0:0",

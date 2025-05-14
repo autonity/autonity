@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/prometheus/common/version"
+	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
@@ -186,7 +187,7 @@ var defaultCacheConfig = &CacheConfig{
 	TrieTimeLimit:  5 * time.Minute,
 	SnapshotLimit:  256,
 	SnapshotWait:   true,
-	StateScheme:    rawdb.PathScheme,
+	StateScheme:    rawdb.HashScheme,
 }
 
 // DefaultCacheConfigWithScheme returns a deep copied default cache config with
@@ -315,6 +316,15 @@ func NewBlockChain(
 	if err != nil {
 		return nil, err
 	}
+	/* Testing stuff
+	g, _ := genesis.ToBlock(nil)
+	statedb, err := state.New(g.Root(), state.NewDatabase(triedb.NewDatabase(db, triedb.HashDefaults), nil))
+	if err != nil {
+		panic(err)
+	}
+	statedb.Snapshot()
+
+	*/
 	triedb := triedb.NewDatabase(db, cacheConfig.triedbConfig(enableVerkle))
 
 	// Write the supplied genesis to the database if it has not been initialized
@@ -2647,4 +2657,17 @@ func (bc *BlockChain) StartWatchingCache() {
 		bc.log.Crit("error starting cache", "err", err)
 	}
 	bc.protocolContracts.StartCache(bc.currentBlock.Load(), state)
+}
+
+func FakeContractBackendProvider(t gomock.TestReporter) func(_ *BlockChain, _ ethdb.Database) bind.ContractBackend {
+	return func(_ *BlockChain, _ ethdb.Database) bind.ContractBackend {
+		ctrl := gomock.NewController(t)
+		contractBackend := bind.NewMockContractBackend(ctrl)
+		sub := event.NewSubscription(func(quit <-chan struct{}) error {
+			<-quit
+			return nil
+		})
+		contractBackend.EXPECT().SubscribeFilterLogs(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(sub, nil)
+		return contractBackend
+	}
 }

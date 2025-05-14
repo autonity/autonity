@@ -184,7 +184,7 @@ func benchInsertChain(b *testing.B, disk bool, gen func(int, *BlockGen)) {
 	if !disk {
 		db = rawdb.NewMemoryDatabase()
 	} else {
-		pdb, err := pebble.New(b.TempDir(), 128, 128, "", false, true)
+		pdb, err := pebble.New(b.TempDir(), 128, 128, "", false)
 		if err != nil {
 			b.Fatalf("cannot create temporary database: %v", err)
 		}
@@ -201,7 +201,7 @@ func benchInsertChain(b *testing.B, disk bool, gen func(int, *BlockGen)) {
 
 	// Time the insertion of the new chain.
 	// State and blocks are stored in the same DB.
-	chainman, _ := NewBlockChain(db, nil, gspec, ethash.NewFaker(), vm.Config{}, nil, nil, log.Root())
+	chainman, _ := NewBlockChain(db, nil, gspec, ethash.NewFaker(), vm.Config{}, nil, FakeContractBackendProvider(b), log.Root())
 	defer chainman.Stop()
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -280,8 +280,7 @@ func makeChainForBench(db ethdb.Database, genesis *Genesis, full bool, count uin
 			ReceiptHash: types.EmptyReceiptsHash,
 		}
 		if n == 0 {
-			block, _ := genesis.ToBlock(nil)
-			header = block.Header()
+			header = genesis.MustCommit(nil).Header()
 		}
 		hash = header.Hash()
 
@@ -303,9 +302,9 @@ func makeChainForBench(db ethdb.Database, genesis *Genesis, full bool, count uin
 }
 
 func benchWriteChain(b *testing.B, full bool, count uint64) {
-	genesis := &Genesis{Config: params.TestConfigNoVerkle}
+	genesis := &Genesis{Config: params.AllEthashProtocolChanges}
 	for i := 0; i < b.N; i++ {
-		pdb, err := pebble.New(b.TempDir(), 1024, 128, "", false, true)
+		pdb, err := pebble.New(b.TempDir(), 1024, 128, "", false)
 		if err != nil {
 			b.Fatalf("error opening database: %v", err)
 		}
@@ -318,13 +317,13 @@ func benchWriteChain(b *testing.B, full bool, count uint64) {
 func benchReadChain(b *testing.B, full bool, count uint64) {
 	dir := b.TempDir()
 
-	pdb, err := pebble.New(dir, 1024, 128, "", false, true)
+	pdb, err := pebble.New(dir, 1024, 128, "", false)
 	if err != nil {
 		b.Fatalf("error opening database: %v", err)
 	}
 	db := rawdb.NewDatabase(pdb)
 
-	genesis := &Genesis{Config: params.TestConfigNoVerkle}
+	genesis := &Genesis{Config: params.TestChainConfig}
 	makeChainForBench(db, genesis, full, count)
 	db.Close()
 	cacheConfig := *defaultCacheConfig
@@ -334,13 +333,13 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		pdb, err = pebble.New(dir, 1024, 128, "", false, true)
+		pdb, err = pebble.New(dir, 1024, 128, "", false)
 		if err != nil {
 			b.Fatalf("error opening database: %v", err)
 		}
 		db = rawdb.NewDatabase(pdb)
 
-		chain, err := NewBlockChain(db, &cacheConfig, genesis, ethash.NewFaker(), vm.Config{}, nil, nil, log.Root())
+		chain, err := NewBlockChain(db, &cacheConfig, genesis, nil, ethash.NewFaker(), vm.Config{}, nil)
 		if err != nil {
 			b.Fatalf("error creating chain: %v", err)
 		}

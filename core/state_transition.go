@@ -544,8 +544,8 @@ func (st *stateTransition) execute() (*ExecutionResult, error) {
 		if rules.IsLondon && !reimbursable {
 			gasUsed := new(uint256.Int).SetUint64(st.gasUsed())
 			baseFee := uint256.MustFromBig(st.evm.Context.BaseFee)
-			st.state.AddBalance(st.evm.Context.Coinbase, new(uint256.Int).Mul(gasUsed, effectiveTipU256), tracing.BalanceChangeUnspecified)
-			st.state.AddBalance(params.AutonityContractAddress, new(uint256.Int).Mul(gasUsed, baseFee), tracing.BalanceChangeUnspecified)
+			st.state.AddBalance(st.evm.Context.Coinbase, new(uint256.Int).Mul(gasUsed, effectiveTipU256), tracing.BalanceIncreaseRewardMineBlock)
+			st.state.AddBalance(params.AutonityContractAddress, new(uint256.Int).Mul(gasUsed, baseFee), tracing.BalanceIncreaseRewardMineBlock)
 		}
 	}
 	return &ExecutionResult{

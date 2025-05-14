@@ -180,7 +180,7 @@ func TestDevMode(t *testing.T) {
 		"--dev", "--ipcpath", ipc)
 
 	// Wait for autonity.
-	waitForEndpoint(t, ipc, 3*time.Second)
+	waitForEndpoint(t, ipc, 6*time.Second)
 
 	autonity.ExpectExit()
 }

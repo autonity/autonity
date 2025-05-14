@@ -25,6 +25,7 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/triedb"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
@@ -115,18 +116,20 @@ func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBacke
 	var (
 		key, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr   = crypto.PubkeyToAddress(key.PublicKey)
-		config = *params.TestChainConfig // needs copy because it is modified below
+		config = *params.TestConfigNoVerkle // needs copy because it is modified below
 		gspec  = &core.Genesis{
-			Config: &config,
-			Alloc:  types.GenesisAlloc{addr: {Balance: big.NewInt(math.MaxInt64)}},
+			Config:     &config,
+			Difficulty: params.MinimumDifficulty,
+			Alloc:      types.GenesisAlloc{addr: {Balance: big.NewInt(math.MaxInt64)}},
 		}
 		signer = types.LatestSigner(gspec.Config)
 	)
 	config.LondonBlock = londonBlock
+	config.MergeForkBlock = nil
 	config.ArrowGlacierBlock = londonBlock
 	engine := ethash.NewFaker()
 	db := rawdb.NewMemoryDatabase()
-	genesis, err := gspec.Commit(db)
+	genesis, err := gspec.Commit(db, triedb.NewDatabase(db, triedb.HashDefaults))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +162,7 @@ func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBacke
 	})
 	// Construct testing chain
 
-	chain, err := core.NewBlockChain(diskdb, &core.CacheConfig{TrieCleanNoPrefetch: true}, gspec.Config, engine, vm.Config{}, nil, &core.TxSenderCacher{}, nil, backends.NewInternalBackend(nil), log.Root())
+	chain, err := core.NewBlockChain(db, &core.CacheConfig{TrieCleanNoPrefetch: true}, gspec, engine, vm.Config{}, nil, backends.NewInternalBackend(nil), log.Root())
 	if err != nil {
 		t.Fatalf("Failed to create local chain, %v", err)
 	}
@@ -191,7 +194,7 @@ func TestSuggestTipCap(t *testing.T) {
 		{big.NewInt(33), big.NewInt(params.GWei * int64(30))}, // Fork point in the future
 	}
 	for _, c := range cases {
-		backend := newTestBackend(t, c.fork, nil, false)
+		backend := newTestBackend(t, c.fork, false)
 		oracle := NewOracle(backend, config, big.NewInt(params.GWei))
 
 		// The gas price sampled is: 32G, 31G, 30G, 29G, 28G, 27G

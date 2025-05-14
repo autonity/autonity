@@ -511,7 +511,7 @@ func (cm *chainMaker) makeHeader(parent *types.Block, state *state.StateDB, engi
 		ParentHash: parent.Hash(),
 		//MixDigest:  types.BFTDigest,
 		Coinbase:   parent.Coinbase(),
-		Difficulty: common.Big0,
+		Difficulty: parent.Difficulty(),
 		GasLimit:   parent.GasLimit(),
 		Number:     new(big.Int).Add(parent.Number(), common.Big1),
 		Time:       time,

@@ -22,12 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/mock/gomock"
-
-	"github.com/autonity/autonity/accounts/abi/bind"
-	"github.com/autonity/autonity/ethdb"
-	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/triedb"
 
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core/rawdb"
@@ -36,34 +32,22 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
-func FakeContractBackendProvider(t gomock.TestReporter) func(_ *BlockChain, _ ethdb.Database) bind.ContractBackend {
-	return func(_ *BlockChain, _ ethdb.Database) bind.ContractBackend {
-		ctrl := gomock.NewController(t)
-		contractBackend := bind.NewMockContractBackend(ctrl)
-		sub := event.NewSubscription(func(quit <-chan struct{}) error {
-			<-quit
-			return nil
-		})
-		contractBackend.EXPECT().SubscribeFilterLogs(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(sub, nil)
-		return contractBackend
-	}
-}
-
 // Tests that simple header verification works, for both good and bad blocks.
 func TestHeaderVerification(t *testing.T) {
 	// Create a simple chain to verify
 	var (
 		testdb    = rawdb.NewMemoryDatabase()
-		gspec     = &Genesis{Config: params.TestChainConfig, Difficulty: big.NewInt(0)}
-		genesis   = gspec.MustCommit(testdb)
-		blocks, _ = GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), testdb, 8, nil)
+		trie      = triedb.NewDatabase(testdb, triedb.HashDefaults)
+		gspec     = &Genesis{Config: params.TestConfigNoVerkle, Difficulty: big.NewInt(0)}
+		genesis   = gspec.MustCommit(testdb, trie)
+		blocks, _ = GenerateChain(params.TestConfigNoVerkle, genesis, ethash.NewFaker(), testdb, 8, nil)
 	)
 	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
 	}
 	// Run the header checker for blocks one-by-one, checking for both valid and invalid nonces
-	chain, _ := NewBlockChain(testdb, nil, gspec, ethash.NewFaker(), vm.Config{}, nil, nil, FakeContractBackendProvider(t), log.Root())
+	chain, _ := NewBlockChain(testdb, nil, gspec, ethash.NewFaker(), vm.Config{}, nil, FakeContractBackendProvider(t), log.Root())
 	defer chain.Stop()
 
 	for i := 0; i < len(blocks); i++ {
@@ -72,10 +56,10 @@ func TestHeaderVerification(t *testing.T) {
 
 			if valid {
 				engine := ethash.NewFaker()
-				_, results = engine.VerifyHeaders(chain, []*types.Header{headers[i]}, []bool{true})
+				_, results = engine.VerifyHeaders(chain, []*types.Header{headers[i]})
 			} else {
 				engine := ethash.NewFakeFailer(headers[i].Number.Uint64())
-				_, results = engine.VerifyHeaders(chain, []*types.Header{headers[i]}, []bool{true})
+				_, results = engine.VerifyHeaders(chain, []*types.Header{headers[i]})
 			}
 			// Wait for the verification result
 			select {
@@ -106,9 +90,10 @@ func testHeaderConcurrentVerification(t *testing.T, threads int) {
 	// Create a simple chain to verify
 	var (
 		testdb    = rawdb.NewMemoryDatabase()
-		gspec     = &Genesis{Config: params.TestChainConfig}
-		genesis   = gspec.MustCommit(testdb)
-		blocks, _ = GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), testdb, 8, nil)
+		trie      = triedb.NewDatabase(testdb, triedb.HashDefaults)
+		gspec     = &Genesis{Config: params.TestConfigNoVerkle}
+		genesis   = gspec.MustCommit(testdb, trie)
+		blocks, _ = GenerateChain(params.TestConfigNoVerkle, genesis, ethash.NewFaker(), testdb, 8, nil)
 	)
 	headers := make([]*types.Header, len(blocks))
 	seals := make([]bool, len(blocks))
@@ -127,12 +112,12 @@ func testHeaderConcurrentVerification(t *testing.T, threads int) {
 		var results <-chan error
 
 		if valid {
-			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(t), log.Root())
-			_, results = chain.engine.VerifyHeaders(chain, headers, seals)
+			chain, _ := NewBlockChain(testdb, nil, gspec, ethash.NewFaker(), vm.Config{}, nil, FakeContractBackendProvider(t), log.Root())
+			_, results = chain.engine.VerifyHeaders(chain, headers)
 			chain.Stop()
 		} else {
-			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFakeFailer(uint64(len(headers)-1)), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(t), log.Root())
-			_, results = chain.engine.VerifyHeaders(chain, headers, seals)
+			chain, _ := NewBlockChain(testdb, nil, gspec, ethash.NewFakeFailer(uint64(len(headers)-1)), vm.Config{}, nil, FakeContractBackendProvider(t), log.Root())
+			_, results = chain.engine.VerifyHeaders(chain, headers)
 			chain.Stop()
 		}
 		// Wait for all the verification results
@@ -178,9 +163,10 @@ func testHeaderConcurrentAbortion(t *testing.T, threads int) {
 	// Create a simple chain to verify
 	var (
 		testdb    = rawdb.NewMemoryDatabase()
-		gspec     = &Genesis{Config: params.TestChainConfig, Difficulty: big.NewInt(0)}
-		genesis   = gspec.MustCommit(testdb)
-		blocks, _ = GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), testdb, 1024, nil)
+		tdb       = triedb.NewDatabase(testdb, triedb.HashDefaults)
+		gspec     = &Genesis{Config: params.TestConfigNoVerkle, Difficulty: big.NewInt(0)}
+		genesis   = gspec.MustCommit(testdb, tdb)
+		blocks, _ = GenerateChain(params.TestConfigNoVerkle, genesis, ethash.NewFaker(), testdb, 1024, nil)
 	)
 	headers := make([]*types.Header, len(blocks))
 	seals := make([]bool, len(blocks))
@@ -194,10 +180,10 @@ func testHeaderConcurrentAbortion(t *testing.T, threads int) {
 	defer runtime.GOMAXPROCS(old)
 
 	// Start the verifications and immediately abort
-	chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFakeDelayer(time.Millisecond), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(t), log.Root())
+	chain, _ := NewBlockChain(testdb, nil, gspec, ethash.NewFakeDelayer(time.Millisecond), vm.Config{}, nil, FakeContractBackendProvider(t), log.Root())
 	defer chain.Stop()
 
-	abort, results := chain.engine.VerifyHeaders(chain, headers, seals)
+	abort, results := chain.engine.VerifyHeaders(chain, headers)
 	close(abort)
 
 	// Deplete the results channel

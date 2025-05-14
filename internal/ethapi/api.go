@@ -604,7 +604,7 @@ func (api *BlockChainAPI) GetBlockReceipts(ctx context.Context, blockNrOrHash rp
 		return nil, err
 	}
 	txs := block.Transactions()
-	if len(txs) != len(receipts) {
+	if len(txs)+1 != len(receipts) && block.Number().Uint64() != 0 {
 		return nil, fmt.Errorf("receipts length mismatch: %d vs %d", len(txs), len(receipts))
 	}
 
@@ -613,7 +613,11 @@ func (api *BlockChainAPI) GetBlockReceipts(ctx context.Context, blockNrOrHash rp
 
 	result := make([]map[string]interface{}, len(receipts))
 	for i, receipt := range receipts {
-		result[i] = marshalReceipt(receipt, block.Hash(), block.NumberU64(), signer, txs[i], i)
+		if isAC, _ := common.IsACHash(receipt.TxHash); !isAC {
+			result[i] = marshalReceipt(receipt, block.Hash(), block.NumberU64(), signer, txs[i], i)
+		} else {
+			// TODO(youssef): add support for the autonity contract receipt
+		}
 	}
 
 	return result, nil

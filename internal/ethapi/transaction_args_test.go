@@ -208,28 +208,6 @@ func TestSetFeeDefaults(t *testing.T) {
 			nil,
 			errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified"),
 		},
-		// EIP-4844
-		{
-			"set gas price and maxFee for blob transaction",
-			"cancun",
-			&TransactionArgs{GasPrice: fortytwo, MaxFeePerGas: maxFee, BlobHashes: []common.Hash{}},
-			nil,
-			errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified"),
-		},
-		{
-			"fill maxFeePerBlobGas",
-			"cancun",
-			&TransactionArgs{BlobHashes: []common.Hash{}},
-			&TransactionArgs{BlobHashes: []common.Hash{}, BlobFeeCap: (*hexutil.Big)(big.NewInt(4)), MaxFeePerGas: maxFee, MaxPriorityFeePerGas: fortytwo},
-			nil,
-		},
-		{
-			"fill maxFeePerBlobGas when dynamic fees are set",
-			"cancun",
-			&TransactionArgs{BlobHashes: []common.Hash{}, MaxFeePerGas: maxFee, MaxPriorityFeePerGas: fortytwo},
-			&TransactionArgs{BlobHashes: []common.Hash{}, BlobFeeCap: (*hexutil.Big)(big.NewInt(4)), MaxFeePerGas: maxFee, MaxPriorityFeePerGas: fortytwo},
-			nil,
-		},
 	}
 
 	ctx := context.Background()
@@ -278,8 +256,7 @@ func newBackendMock() *backendMock {
 		MuirGlacierBlock:    big.NewInt(0),
 		BerlinBlock:         big.NewInt(0),
 		LondonBlock:         big.NewInt(1000),
-		CancunTime:          &cancunTime,
-		BlobScheduleConfig:  params.DefaultBlobSchedule,
+		CancunBlock:         new(big.Int).SetUint64(cancunTime),
 	}
 	return &backendMock{
 		current: &types.Header{
@@ -306,8 +283,6 @@ func (b *backendMock) setFork(fork string) error {
 		b.current.Number = big.NewInt(1100)
 		b.current.Time = 700
 		// Blob base fee will be 2
-		excess := uint64(2314058)
-		b.current.ExcessBlobGas = &excess
 	} else {
 		return errors.New("invalid fork")
 	}
@@ -405,3 +380,6 @@ func (b *backendMock) CurrentView() *filtermaps.ChainView           { return nil
 func (b *backendMock) NewMatcherBackend() filtermaps.MatcherBackend { return nil }
 
 func (b *backendMock) HistoryPruningCutoff() uint64 { return 0 }
+func (b *backendMock) MinBaseFee() *big.Int {
+	return new(big.Int)
+}

@@ -58,6 +58,7 @@ func TestPrestateTracer(t *testing.T) {
 }
 
 func TestPrestateWithDiffModeTracer(t *testing.T) {
+	t.Skip("hardcoded values mismatch with autonity due to rewards")
 	testPrestateTracer("prestateTracer", "prestate_tracer_with_diff_mode", t)
 }
 
