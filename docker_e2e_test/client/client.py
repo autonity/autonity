@@ -8,7 +8,6 @@ from fabric import Connection
 from web3 import Web3
 from invoke import Responder
 
-
 AUTONITY_PATH = "/home/{}/network-data/autonity"
 GENESIS_PATH = "/home/{}/network-data/genesis.json"
 LOG_PATH = "/home/{}/autonity.log"
@@ -124,11 +123,13 @@ class Client(object):
             utility.execute("{} -writeaddress -nodekey ./network-data/{}/boot.key".
                             format(self.bootnode_path, folder))[0].rstrip()
         # new patern: "enode://pubKey:host:port?discPort=30303&acnep=host:port"
-        self.e_node = "enode://{}@{}:{}?discPort={}&acnep={}:{}".format(pub_key, self.host, self.p2p_port, self.p2p_port, self.host, self.acn_port)
+        self.e_node = "enode://{}@{}:{}?discPort={}&acnep={}:{}".format(pub_key, self.host, self.p2p_port,
+                                                                        self.p2p_port, self.host, self.acn_port)
 
         # gen an autonity consensus key and append it in boot.key file for client.
         tmp_key_file = "./network-data/{}/tmp.key".format(folder)
-        _, _, consensus_pub_key, consensus_pri_key, _ = utility.gen_autonity_keys(self.autonity_path, self.key_inspector_path, tmp_key_file)
+        _, _, consensus_pub_key, consensus_pri_key, _ = utility.gen_autonity_keys(self.autonity_path,
+                                                                                  self.key_inspector_path, tmp_key_file)
         self.consensus_pub_key = consensus_pub_key
         # append a tmp consensus key at boot.key
         with open("./network-data/{}/boot.key".format(folder), "a") as bootkey:
@@ -142,7 +143,7 @@ class Client(object):
                           "LOGFILE={1}\n\n" \
                           "DAEMON_OPTS=\"--genesis {2} --datadir {3} --autonitykeys {4} --syncmode 'full' --port {5} --consensus.port {6} " \
                           "--http.port {7} --http --http.addr '0.0.0.0' --ws --ws.port {8} --http.corsdomain '*' " \
-                          "--http.api 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
+                          "--http.api 'personal,debug,eth,net,web3,txpool,miner,tendermint' --networkid 1991  " \
                           "--allow-insecure-unlock --graphql " \
                           "--unlock 0x{9} --password {10} " \
                           "--mine --miner.threads '1' --verbosity 4 --miner.gaslimit 10000000000\"\n\n" \
@@ -255,15 +256,35 @@ class Client(object):
         with open("./network-data/{}/autonity".format(folder), 'w') as out:
             out.write(content)
 
+    def cli_cmd(self):
+        cmd = "sudo {0} --genesis {1} --datadir {2} --autonitykeys {3} --syncmode 'full' --port {4} --consensus.port {5} " \
+              "--http.port {6} --http --http.addr '0.0.0.0' --ws --ws.port {7} --http.corsdomain '*' " \
+              "--http.api 'personal,debug,eth,net,web3,txpool,miner,tendermint' --networkid 1991 --allow-insecure-unlock " \
+              "--graphql --unlock 0x{8} --password {9} --mine --miner.threads '1' " \
+              "--verbosity 4 --miner.gaslimit 10000000000 &".format(AUTONITY_PATH.format(self.ssh_user),
+                                                                    GENESIS_PATH.format(self.ssh_user),
+                                                                    CHAIN_DATA_DIR.format(self.ssh_user, self.host),
+                                                                    BOOT_KEY_FILE.format(self.ssh_user, self.host),
+                                                                    self.p2p_port,
+                                                                    self.acn_port,
+                                                                    self.rpc_port,
+                                                                    self.ws_port,
+                                                                    self.coin_base,
+                                                                    KEY_PASSPHRASE_FILE.format(self.ssh_user, self.host)
+                                                                    )
+        return cmd
+
     def generate_package(self):
         folder = self.host
         utility.execute('cp {} ./network-data/'.format(self.autonity_path))
-        utility.execute('tar -zcvf ./network-data/{}.tgz ./network-data/{}/ ./network-data/genesis.json ./network-data/autonity'.format(folder, folder))
+        utility.execute(
+            'tar -zcvf ./network-data/{}.tgz ./network-data/{}/ ./network-data/genesis.json ./network-data/autonity'.format(
+                folder, folder))
 
     def deliver_package(self):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
+                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass
             }) as c:
                 sudopass = Responder(
@@ -272,8 +293,10 @@ class Client(object):
                 )
                 c.put(PACKAGE_NAME.format(self.host), REMOTE_NAME.format(self.ssh_user, self.host))
                 self.logger.info('Chain package was uploaded to %s.', self.host)
-                result = c.run('sudo tar -C /home/{} -zxvf {}'.format(self.ssh_user, REMOTE_NAME.format(self.ssh_user, self.host)), pty=True,
-                               watchers=[sudopass], warn=True, hide=True)
+                result = c.run(
+                    'sudo tar -C /home/{} -zxvf {}'.format(self.ssh_user, REMOTE_NAME.format(self.ssh_user, self.host)),
+                    pty=True,
+                    watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('Chain package was unpacked to %s.', self.host)
                     return True
@@ -286,7 +309,7 @@ class Client(object):
     def load_systemd_file(self):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
+                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass
             }) as c:
                 sudopass = Responder(
@@ -317,7 +340,8 @@ class Client(object):
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                cmd = SYSTEMD_START_CLIENT
+                #cmd = SYSTEMD_START_CLIENT
+                cmd = self.cli_cmd()
                 self.logger.info("*******Executing command: %s", cmd)
                 result = c.run(cmd, pty=True, watchers=[sudopass],
                                warn=True, hide=True)
@@ -340,14 +364,14 @@ class Client(object):
     def stop_client(self):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
+                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass
             }) as c:
                 sudopass = Responder(
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                #cmd = self.generate_stop_cmd()
+                # cmd = self.generate_stop_cmd()
                 cmd = SYSTEMD_STOP_CLIENT
                 result = c.run(cmd, pty=True, watchers=[sudopass],
                                warn=True, hide=True)
@@ -364,14 +388,15 @@ class Client(object):
     def clean_chain_data(self):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
+                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass
             }) as c:
                 sudopass = Responder(
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                result = c.run('sudo rm -rf {}'.format(DEPLOYMENT_DIR.format(self.ssh_user)), pty=True, watchers=[sudopass],
+                result = c.run('sudo rm -rf {}'.format(DEPLOYMENT_DIR.format(self.ssh_user)), pty=True,
+                               watchers=[sudopass],
                                warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('chain data cleaned. %s', self.host)
@@ -401,7 +426,7 @@ class Client(object):
     def collect_system_log(self, log_folder):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
+                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass,
             }) as c:
                 sudopass = Responder(
@@ -517,7 +542,7 @@ class Client(object):
         self.logger.debug("ssh cmd: %s ", cmd)
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
+                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass,
             }) as c:
                 sudopass = Responder(
@@ -582,13 +607,13 @@ class Client(object):
                 DEFAULT_PACKAGE_LOSS_RATE if up_link_delay_meta['lossRate'] is None else up_link_delay_meta['lossRate']
             duplicate_rate = \
                 DEFAULT_PACKAGE_DUPLICATE_RATE \
-                if up_link_delay_meta['duplicateRate'] is None else up_link_delay_meta['duplicateRate']
+                    if up_link_delay_meta['duplicateRate'] is None else up_link_delay_meta['duplicateRate']
             reorder_rate = \
                 DEFAULT_PACKAGE_REORDER_RATE \
-                if up_link_delay_meta['reorderRate'] is None else up_link_delay_meta['reorderRate']
+                    if up_link_delay_meta['reorderRate'] is None else up_link_delay_meta['reorderRate']
             corrupt_rate = \
                 DEFAULT_PACKAGE_CORRUPT_RATE \
-                if up_link_delay_meta['corruptRate'] is None else up_link_delay_meta['corruptRate']
+                    if up_link_delay_meta['corruptRate'] is None else up_link_delay_meta['corruptRate']
 
             # to do checking parameters before formatting command.
             delay = delay if isinstance(delay, (int, float)) and not isinstance(delay, bool) else DEFAULT_DELAY
@@ -596,12 +621,13 @@ class Client(object):
                 if isinstance(loss_rate, (int, float)) and not isinstance(loss_rate, bool) \
                 else DEFAULT_PACKAGE_LOSS_RATE
             duplicate_rate = duplicate_rate if isinstance(duplicate_rate, (int, float)) \
-                and not isinstance(duplicate_rate, bool) else DEFAULT_PACKAGE_DUPLICATE_RATE
+                                               and not isinstance(duplicate_rate,
+                                                                  bool) else DEFAULT_PACKAGE_DUPLICATE_RATE
             reorder_rate = reorder_rate \
-                if isinstance(reorder_rate, (int, float)) and not isinstance(reorder_rate, bool)\
+                if isinstance(reorder_rate, (int, float)) and not isinstance(reorder_rate, bool) \
                 else DEFAULT_PACKAGE_REORDER_RATE
             corrupt_rate = corrupt_rate \
-                if isinstance(corrupt_rate, (int, float)) and not isinstance(corrupt_rate, bool)\
+                if isinstance(corrupt_rate, (int, float)) and not isinstance(corrupt_rate, bool) \
                 else DEFAULT_PACKAGE_CORRUPT_RATE
 
             ether_id = self.net_interface
@@ -609,7 +635,8 @@ class Client(object):
                 self.logger.error('Cannot find host ethernet interface id.')
                 return None
             # to do formatting shell command.
-            command = SSH_DELAY_TX_COMMAND.format(ether_id, delay, loss_rate, duplicate_rate, reorder_rate, corrupt_rate)
+            command = SSH_DELAY_TX_COMMAND.format(ether_id, delay, loss_rate, duplicate_rate, reorder_rate,
+                                                  corrupt_rate)
             result = self.execute_ssh_cmd(command)
             if result is True:
                 self.up_link_delayed = True
@@ -660,16 +687,16 @@ class Client(object):
                 DEFAULT_DELAY if down_link_delay_meta['delay'] is None else down_link_delay_meta['delay']
             loss_rate = \
                 DEFAULT_PACKAGE_LOSS_RATE if down_link_delay_meta['lossRate'] \
-                is None else down_link_delay_meta['lossRate']
+                                             is None else down_link_delay_meta['lossRate']
             duplicate_rate = \
                 DEFAULT_PACKAGE_DUPLICATE_RATE \
-                if down_link_delay_meta['duplicateRate'] is None else down_link_delay_meta['duplicateRate']
+                    if down_link_delay_meta['duplicateRate'] is None else down_link_delay_meta['duplicateRate']
             reorder_rate = \
                 DEFAULT_PACKAGE_REORDER_RATE \
-                if down_link_delay_meta['reorderRate'] is None else down_link_delay_meta['reorderRate']
+                    if down_link_delay_meta['reorderRate'] is None else down_link_delay_meta['reorderRate']
             corrupt_rate = \
                 DEFAULT_PACKAGE_CORRUPT_RATE \
-                if down_link_delay_meta['corruptRate'] is None else down_link_delay_meta['corruptRate']
+                    if down_link_delay_meta['corruptRate'] is None else down_link_delay_meta['corruptRate']
 
             # to do checking parameters before formatting command.
             delay = delay if isinstance(delay, (int, float)) and not isinstance(delay, bool) else DEFAULT_DELAY
@@ -677,12 +704,13 @@ class Client(object):
                 if isinstance(loss_rate, (int, float)) and not isinstance(loss_rate, bool) \
                 else DEFAULT_PACKAGE_LOSS_RATE
             duplicate_rate = duplicate_rate if isinstance(duplicate_rate, (int, float)) \
-                and not isinstance(duplicate_rate, bool) else DEFAULT_PACKAGE_DUPLICATE_RATE
+                                               and not isinstance(duplicate_rate,
+                                                                  bool) else DEFAULT_PACKAGE_DUPLICATE_RATE
             reorder_rate = reorder_rate \
-                if isinstance(reorder_rate, (int, float)) and not isinstance(reorder_rate, bool)\
+                if isinstance(reorder_rate, (int, float)) and not isinstance(reorder_rate, bool) \
                 else DEFAULT_PACKAGE_REORDER_RATE
             corrupt_rate = corrupt_rate \
-                if isinstance(corrupt_rate, (int, float)) and not isinstance(corrupt_rate, bool)\
+                if isinstance(corrupt_rate, (int, float)) and not isinstance(corrupt_rate, bool) \
                 else DEFAULT_PACKAGE_CORRUPT_RATE
 
             # get ip from host name.
