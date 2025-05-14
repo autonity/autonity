@@ -19,7 +19,7 @@ PACKAGE_NAME = "./network-data/{}.tgz"
 REMOTE_NAME = "/home/{}/{}.tgz"
 SYSTEM_SERVICE_DIR = "/etc/init.d/"
 DEPLOYMENT_DIR = '/home/{}/network-data'
-SYSTEMD_START_CLIENT = 'sudo service autonity start'
+SYSTEMD_START_CLIENT = 'sudo service autonity1 start'
 SYSTEMD_STOP_CLIENT = 'sudo service autonity stop'
 
 # use ip tables module of linux kernel which is common for all linux distributions to control peer connection.
@@ -294,20 +294,8 @@ class Client(object):
                 src = '/home/{}/network-data/{}/autonity'.format(self.ssh_user, self.host)
                 result = c.run('sudo cp {} {}'.format(src, SYSTEM_SERVICE_DIR), pty=True, watchers=[sudopass],
                                warn=True, hide=True)
-                if result and result.exited == 0 and result.ok:
-                    self.logger.info('system service file copied. %s', self.host)
-                else:
-                    self.logger.error('failed to copy service file. %s', self.host)
-                    return
-
                 result = c.run('sudo chmod +x /etc/init.d/autonity', pty=True, watchers=[sudopass],
                                warn=True, hide=True)
-                if result and result.exited == 0 and result.ok:
-                    self.logger.info('success to chmod service file. %s', self.host)
-                else:
-                    self.logger.error('failed to chmod service file. %s', self.host)
-                    return
-
                 result = c.run('sudo update-rc.d autonity defaults', pty=True, watchers=[sudopass],
                                warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
@@ -324,11 +312,11 @@ class Client(object):
                 "password": self.ssh_pass
             }) as c:
                 sudopass = Responder(
-                    pattern=r'$$sudo$$ password for ' + self.ssh_user + ':',
+                    pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
                 cmd = SYSTEMD_START_CLIENT
-                self.logger.debug("Executing command: %s", cmd)
+                self.logger.info("*******Executing command: %s", cmd)
                 result = c.run(cmd, pty=True, watchers=[sudopass],
                                warn=True, hide=True)
 
