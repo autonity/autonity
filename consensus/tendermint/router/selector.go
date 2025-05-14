@@ -202,8 +202,9 @@ func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 
 	case localRelayerRemoteCluster:
 		// this is probably not needed but to complete dissemination we keep it
-		maxLocalNodes := int(math.Min(2, math.Sqrt(float64(len(clusters.base[ownClusterID].Members)))))
-		recipients = append(recipients, selectNodes(clusters.base[ownClusterID], ownClusterID, maxLocalNodes, []common.Address{r.self, from})...)
+		// maxLocalNodes := int(math.Min(2, math.Sqrt(float64(len(clusters.base[ownClusterID].Members)))))
+		// recipients = append(recipients, selectNodes(clusters.base[ownClusterID], ownClusterID, maxLocalNodes, []common.Address{r.self, from})...)
+		recipients = append(recipients, selectNodes(clusters.base[ownClusterID], ownClusterID, len(clusters.base[ownClusterID].Members), []common.Address{r.self, from})...)
 	}
 
 	sort.Slice(recipients, func(i, j int) bool { return recipients[i].Lat < recipients[j].Lat })
