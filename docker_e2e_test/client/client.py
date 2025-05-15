@@ -19,7 +19,7 @@ PACKAGE_NAME = "./network-data/{}.tgz"
 REMOTE_NAME = "/home/{}/{}.tgz"
 SYSTEM_SERVICE_DIR = "/etc/init.d/"
 DEPLOYMENT_DIR = '/home/{}/network-data'
-SYSTEMD_STOP_CLIENT = 'kill -9 `pidof autonity`'
+STOP_AUTONITY_CLIENT = 'kill -9 `pidof autonity`'
 
 # use ip tables module of linux kernel which is common for all linux distributions to control peer connection.
 CONNECT_PEER = "sudo iptables -j DROP -D INPUT -s {}"
@@ -198,10 +198,10 @@ class Client(object):
                 "password": self.ssh_pass
             }) as c:
                 cmd = self.cli_cmd()
-                self.logger.info("*** running client cmd: %s", cmd)
+                self.logger.info("*** starting autonity client cmd: %s", cmd)
                 # this run is a blocking call, it returns until the remote autonity service terminated.
                 c.run(cmd, pty=False, warn=True, hide=True)
-                self.logger.info("*** autonity client: %s stopped", self.host)
+                self.logger.info("*** autonity client lifecycle stopped: %s ", self.host)
         except Exception as e:
             self.logger.error("cannot stop client, %s, %s", self.host, e)
         return False
@@ -210,7 +210,7 @@ class Client(object):
         self.life = threading.Thread(target=self.client_life)
         self.life.start()
         self.client_stopped = False
-        self.logger.info("autonity client life started, node %s", self.host)
+        self.logger.info("autonity client lifecycle started: %s", self.host)
         return True
 
     def deploy_client(self):
@@ -226,16 +226,15 @@ class Client(object):
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                # cmd = self.generate_stop_cmd()
-                cmd = SYSTEMD_STOP_CLIENT
+                cmd = STOP_AUTONITY_CLIENT
                 result = c.run(cmd, pty=True, watchers=[sudopass],
                                warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
-                    self.logger.info('system service stopped. %s', self.host)
+                    self.logger.info('autonity client stopped at. %s', self.host)
                     self.client_stopped = True
                     return True
                 else:
-                    self.logger.error('system service stopping failed. %s', self.host)
+                    self.logger.error('autonity client stopping failed. %s', self.host)
         except Exception as e:
             self.logger.error("cannot stop client, %s, %s", self.host, e)
         return False
