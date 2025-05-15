@@ -359,6 +359,7 @@ class Client(object):
         self.life.start()
         self.client_stopped = False
         self.logger.info("autonity client life started")
+        return True
 
     def deploy_client(self):
         self.deliver_package()
