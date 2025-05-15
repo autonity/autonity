@@ -348,7 +348,7 @@ class Client(object):
                 self.logger.info("*******Executing command: %s", cmd)
                 # result = c.run("touch {}".format(LOG_PATH.format(self.ssh_user)), pty=False, asynchronous=True,
                 #               watchers=[sudopass], warn=True, hide=True)
-                result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=False)
+                result = c.run(cmd, pty=False, watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('system service started. %s', self.host)
                     self.client_stopped = False
