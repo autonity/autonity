@@ -258,7 +258,7 @@ class Client(object):
             out.write(content)
 
     def cli_cmd(self):
-        cmd = "echo {0} | sudo -S {1} --genesis {2} --datadir {3} --autonitykeys {4} --syncmode 'full' --port {5} --consensus.port {6} " \
+        cmd = "echo \"{0}\" | sudo -S {1} --genesis {2} --datadir {3} --autonitykeys {4} --syncmode 'full' --port {5} --consensus.port {6} " \
               "--http.port {7} --http --http.addr '0.0.0.0' --ws --ws.port {8} --http.corsdomain '*' " \
               "--http.api 'personal,debug,eth,net,web3,txpool,miner,tendermint' --networkid 1991 --allow-insecure-unlock " \
               "--graphql --unlock 0x{9} --password {10} --mine --miner.threads '1' " \
