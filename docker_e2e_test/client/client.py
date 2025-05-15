@@ -338,13 +338,27 @@ class Client(object):
             self.logger.error("cannot load systemd file. %s, %s", self.host, e)
 
     def client_life(self):
-        c = Connection(self.host, user=self.ssh_user, connect_kwargs={"password": self.ssh_pass})
-        c.run(self.cli_cmd(), pty=False, warn=True, hide=True)
+        try:
+            with Connection(self.host, user=self.ssh_user, connect_kwargs={
+                "password": self.ssh_pass
+            }) as c:
+                cmd = self.cli_cmd()
+                self.logger.info("*** running client cmd: %s", cmd)
+                result = c.run(cmd, pty=False, warn=True, hide=False)
+                if result and result.exited == 0 and result.ok:
+                    self.logger.info('registered service. %s', self.host)
+                else:
+                    self.logger.error('failed to register service. %s', self.host)
+
+        except Exception as e:
+            self.logger.error("cannot stop client, %s, %s", self.host, e)
+        return False
 
     def start_client(self):
         self.life = threading.Thread(target=self.client_life)
         self.life.start()
         self.client_stopped = False
+        self.logger.info("autonity client life started")
 
     def deploy_client(self):
         self.deliver_package()
