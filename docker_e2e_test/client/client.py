@@ -344,7 +344,7 @@ class Client(object):
             }) as c:
                 cmd = self.cli_cmd()
                 self.logger.info("*** running client cmd: %s", cmd)
-                result = c.run(cmd, pty=False, warn=True, hide=False)
+                result = c.run(cmd, pty=False, warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('registered service. %s', self.host)
                 else:
