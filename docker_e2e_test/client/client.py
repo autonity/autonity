@@ -261,21 +261,21 @@ class Client(object):
               "--http.port {6} --http --http.addr '0.0.0.0' --ws --ws.port {7} --http.corsdomain '*' " \
               "--http.api 'personal,debug,eth,net,web3,txpool,miner,tendermint' --networkid 1991 --allow-insecure-unlock " \
               "--graphql --unlock 0x{8} --password {9} --mine --miner.threads '1' " \
-              "--verbosity 4 --miner.gaslimit 10000000000 > {10} ".format(AUTONITY_PATH.format(self.ssh_user),
-                                                                          GENESIS_PATH.format(self.ssh_user),
-                                                                          CHAIN_DATA_DIR.format(self.ssh_user,
-                                                                                                self.host),
-                                                                          BOOT_KEY_FILE.format(self.ssh_user,
-                                                                                               self.host),
-                                                                          self.p2p_port,
-                                                                          self.acn_port,
-                                                                          self.rpc_port,
-                                                                          self.ws_port,
-                                                                          self.coin_base,
-                                                                          KEY_PASSPHRASE_FILE.format(
-                                                                              self.ssh_user, self.host),
-                                                                          LOG_PATH.format(self.ssh_user)
-                                                                          )
+              "--verbosity 4 --miner.gaslimit 10000000000 ".format(AUTONITY_PATH.format(self.ssh_user),
+                                                                   GENESIS_PATH.format(self.ssh_user),
+                                                                   CHAIN_DATA_DIR.format(self.ssh_user,
+                                                                                         self.host),
+                                                                   BOOT_KEY_FILE.format(self.ssh_user,
+                                                                                        self.host),
+                                                                   self.p2p_port,
+                                                                   self.acn_port,
+                                                                   self.rpc_port,
+                                                                   self.ws_port,
+                                                                   self.coin_base,
+                                                                   KEY_PASSPHRASE_FILE.format(
+                                                                       self.ssh_user, self.host)
+                                                                   # LOG_PATH.format(self.ssh_user)
+                                                                   )
         return cmd
 
     def generate_package(self):
@@ -337,7 +337,6 @@ class Client(object):
     def start_client(self):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass
             }) as c:
                 sudopass = Responder(
@@ -347,16 +346,17 @@ class Client(object):
                 # cmd = SYSTEMD_START_CLIENT
                 cmd = self.cli_cmd()
                 self.logger.info("*******Executing command: %s", cmd)
-                result = c.run("touch {}".format(LOG_PATH.format(self.ssh_user)), pty=True, watchers=[sudopass],
-                               warn=True, hide=True)
+                result = c.run("touch {}".format(LOG_PATH.format(self.ssh_user)), pty=False, asynchronous=True,
+                               watchers=[sudopass], warn=True, hide=True)
                 result = c.run(cmd, pty=False, asynchronous=True, watchers=[sudopass], warn=True, hide=True)
-                if result and result.exited == 0 and result.ok:
-                    self.logger.info('system service started. %s', self.host)
-                    self.client_stopped = False
-                    return True
-                else:
-                    self.logger.error('fail to start service full result: %s', result)
-                    return False
+                self.logger.info("cmd exe result: %s", result)
+                # if result and result.exited == 0 and result.ok:
+                #    self.logger.info('system service started. %s', self.host)
+                #    self.client_stopped = False
+                #    return True
+                # else:
+                #    self.logger.error('fail to start service full result: %s', result)
+                #    return False
 
         except Exception as e:
             self.logger.error("cannot start service. %s, %s.", self.host, e)
