@@ -191,11 +191,6 @@ class NetworkPlanner(object):
         with open("./network-data/genesis.json", 'w') as out:
             out.write(json.dumps(genesis, indent=4) + '\n')
 
-    def generate_systemd_service_file(self):
-        self.logger.info("===== SYSTEMD SERVICE FILE GENERATION =====")
-        for client in self.clients:
-            client.generate_system_service_file()
-
     def generate_package(self):
         self.logger.info("===== PACKAGE GENERATION =====")
         for client in self.clients:
@@ -209,7 +204,6 @@ class NetworkPlanner(object):
         self.generate_testbed_conf()
         self.generate_enodes()
         self.generate_genesis()
-        self.generate_systemd_service_file()
         self.generate_package()
         self.logger.info("===== SETUP FINISHED =====")
 

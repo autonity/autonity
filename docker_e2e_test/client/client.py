@@ -19,8 +19,7 @@ PACKAGE_NAME = "./network-data/{}.tgz"
 REMOTE_NAME = "/home/{}/{}.tgz"
 SYSTEM_SERVICE_DIR = "/etc/init.d/"
 DEPLOYMENT_DIR = '/home/{}/network-data'
-SYSTEMD_START_CLIENT = 'service autonity start'
-SYSTEMD_STOP_CLIENT = 'service autonity stop'
+SYSTEMD_STOP_CLIENT = 'kill -9 `pidof autonity`'
 
 # use ip tables module of linux kernel which is common for all linux distributions to control peer connection.
 CONNECT_PEER = "sudo iptables -j DROP -D INPUT -s {}"
@@ -138,126 +137,6 @@ class Client(object):
             bootkey.write(consensus_pri_key)
         return self.e_node
 
-    def generate_system_service_file(self):
-        template_remote = "#!/bin/sh\n\n" \
-                          "DAEMON={0}\n" \
-                          "PIDFILE=/var/run/autonity.pid\n" \
-                          "LOGFILE={1}\n\n" \
-                          "DAEMON_OPTS=\"--genesis {2} --datadir {3} --autonitykeys {4} --syncmode 'full' --port {5} --consensus.port {6} " \
-                          "--http.port {7} --http --http.addr '0.0.0.0' --ws --ws.port {8} --http.corsdomain '*' " \
-                          "--http.api 'personal,debug,eth,net,web3,txpool,miner,tendermint' --networkid 1991  " \
-                          "--allow-insecure-unlock --graphql " \
-                          "--unlock 0x{9} --password {10} " \
-                          "--mine --miner.threads '1' --verbosity 4 --miner.gaslimit 10000000000\"\n\n" \
-                          "case \"$1\" in\n" \
-                          "    start)\n" \
-                          "        if [ ! -d \"$(dirname \"$LOGFILE\")\" ]; then\n" \
-                          "            mkdir -p \"$(dirname \"$LOGFILE\")\" || {{ echo \"Failed to create log directory\"; exit 8; }}\n" \
-                          "        fi\n" \
-                          "        \n" \
-                          "        start-stop-daemon --start --background \\\n" \
-                          "            --pidfile \"$PIDFILE\" --make-pidfile \\\n" \
-                          "            --chuid {11} \\\n" \
-                          "            --exec \"$DAEMON\" -- $DAEMON_OPTS \n" \
-                          "        \n" \
-                          "        sleep 4\n" \
-                          "        if [ -f \"$PIDFILE\" ] && ps -p \"$(cat \"$PIDFILE\")\" > /dev/null; then\n" \
-                          "            echo \"Started autonity daemon\"\n" \
-                          "            exit 0\n" \
-                          "        else\n" \
-                          "            echo \"Failed to start autonity daemon\"\n" \
-                          "            exit 9\n" \
-                          "        fi\n" \
-                          "        ;;\n" \
-                          "    stop)\n" \
-                          "        if [ -f \"$PIDFILE\" ]; then\n" \
-                          "            PID=$(cat \"$PIDFILE\")\n" \
-                          "            if ps -p \"$PID\" > /dev/null; then\n" \
-                          "                echo \"Stopping autonity daemon\"\n" \
-                          "                kill -15 \"$PID\"\n" \
-                          "                \n" \
-                          "                for i in $(seq 1 10); do\n" \
-                          "                    if ! ps -p \"$PID\" > /dev/null; then\n" \
-                          "                        rm -f \"$PIDFILE\"\n" \
-                          "                        echo \"Stopped autonity daemon\"\n" \
-                          "                        exit 0\n" \
-                          "                    fi\n" \
-                          "                    sleep 1\n" \
-                          "                done\n" \
-                          "                \n" \
-                          "                echo \"Failed to stop daemon, killing forcefully\"\n" \
-                          "                kill -9 \"$PID\"\n" \
-                          "                \n" \
-                          "                sleep 2\n" \
-                          "                if ! ps -p \"$PID\" > /dev/null; then\n" \
-                          "                    rm -f \"$PIDFILE\"\n" \
-                          "                    echo \"Force stopped autonity daemon\"\n" \
-                          "                    exit 0\n" \
-                          "                else\n" \
-                          "                    echo \"Failed to force stop daemon\"\n" \
-                          "                    exit 1\n" \
-                          "                fi\n" \
-                          "            else\n" \
-                          "                echo \"autonity daemon not running, removing stale PID file\"\n" \
-                          "                rm -f \"$PIDFILE\"\n" \
-                          "            fi\n" \
-                          "        else\n" \
-                          "            echo \"autonity daemon not running\"\n" \
-                          "        fi\n" \
-                          "        ;;\n" \
-                          "    status)\n" \
-                          "        if [ -f \"$PIDFILE\" ]; then\n" \
-                          "            PID=$(cat \"$PIDFILE\")\n" \
-                          "            if ps -p \"$PID\" > /dev/null; then\n" \
-                          "                echo \"autonity daemon (PID $PID) is running...\"\n" \
-                          "                exit 0\n" \
-                          "            else\n" \
-                          "                echo \"autonity daemon is not running, but PID file exists\"\n" \
-                          "                exit 1\n" \
-                          "            fi\n" \
-                          "        else\n" \
-                          "            echo \"autonity daemon is not running\"\n" \
-                          "            exit 3\n" \
-                          "        fi\n" \
-                          "        ;;\n" \
-                          "    restart)\n" \
-                          "        $0 stop\n" \
-                          "        sleep 1\n" \
-                          "        $0 start\n" \
-                          "        ;;\n" \
-                          "    *)\n" \
-                          "        echo \"Usage: $0 {{start|stop|status|restart}}\"\n" \
-                          "        exit 2\n" \
-                          "        ;;\n" \
-                          "esac\n\n" \
-                          "exit 0"
-
-        folder = self.host
-        print("prepare autonity init script for node: %s", self.host)
-
-        bin_path = AUTONITY_PATH.format(self.ssh_user)
-        genesis_path = GENESIS_PATH.format(self.ssh_user)
-        data_dir = CHAIN_DATA_DIR.format(self.ssh_user, folder)
-        boot_key_file = BOOT_KEY_FILE.format(self.ssh_user, folder)
-        p2p_port = self.p2p_port
-        acn_port = self.acn_port
-        rpc_port = self.rpc_port
-        ws_port = self.ws_port
-        coin_base = self.coin_base
-        password_file = KEY_PASSPHRASE_FILE.format(self.ssh_user, folder)
-        log_file = LOG_PATH.format(self.ssh_user)
-
-        run_user = self.ssh_user
-
-        content = template_remote.format(
-            bin_path, log_file, genesis_path, data_dir, boot_key_file,
-            p2p_port, acn_port, rpc_port, ws_port,
-            coin_base, password_file, run_user
-        )
-        self.logger.info("gen service file: %s", content)
-        with open("./network-data/{}/autonity".format(folder), 'w') as out:
-            out.write(content)
-
     def cli_cmd(self):
         cmd = "{0} --genesis {1} --datadir {2} --autonitykeys {3} --syncmode 'full' --port {4} --consensus.port {5} " \
               "--http.port {6} --http --http.addr '0.0.0.0' --ws --ws.port {7} --http.corsdomain '*' " \
@@ -313,30 +192,6 @@ class Client(object):
             self.logger.error("cannot deliver package to host. %s, %s", self.host, e)
         return False
 
-    def load_systemd_file(self):
-        try:
-            with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                # "key_filename": self.ssh_key,
-                "password": self.ssh_pass
-            }) as c:
-                sudopass = Responder(
-                    pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
-                    response=self.sudo_pass + '\n'
-                )
-                src = '/home/{}/network-data/{}/autonity'.format(self.ssh_user, self.host)
-                result = c.run('sudo cp {} {}'.format(src, SYSTEM_SERVICE_DIR), pty=True, watchers=[sudopass],
-                               warn=True, hide=True)
-                result = c.run('sudo chmod +x /etc/init.d/autonity', pty=True, watchers=[sudopass],
-                               warn=True, hide=True)
-                result = c.run('sudo update-rc.d autonity defaults', pty=True, watchers=[sudopass],
-                               warn=True, hide=True)
-                if result and result.exited == 0 and result.ok:
-                    self.logger.info('registered service. %s', self.host)
-                else:
-                    self.logger.error('failed to register service. %s', self.host)
-        except Exception as e:
-            self.logger.error("cannot load systemd file. %s, %s", self.host, e)
-
     def client_life(self):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
@@ -344,12 +199,9 @@ class Client(object):
             }) as c:
                 cmd = self.cli_cmd()
                 self.logger.info("*** running client cmd: %s", cmd)
-                result = c.run(cmd, pty=False, warn=True, hide=True)
-                if result and result.exited == 0 and result.ok:
-                    self.logger.info('registered service. %s', self.host)
-                else:
-                    self.logger.error('failed to register service. %s', self.host)
-
+                # this run is a blocking call, it returns until the remote autonity service terminated.
+                c.run(cmd, pty=False, warn=True, hide=True)
+                self.logger.info("*** autonity client: %s stopped", self.host)
         except Exception as e:
             self.logger.error("cannot stop client, %s, %s", self.host, e)
         return False
@@ -358,12 +210,11 @@ class Client(object):
         self.life = threading.Thread(target=self.client_life)
         self.life.start()
         self.client_stopped = False
-        self.logger.info("autonity client life started")
+        self.logger.info("autonity client life started, node %s", self.host)
         return True
 
     def deploy_client(self):
         self.deliver_package()
-        self.load_systemd_file()
 
     def stop_client(self):
         try:
