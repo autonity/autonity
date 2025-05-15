@@ -258,11 +258,11 @@ class Client(object):
             out.write(content)
 
     def cli_cmd(self):
-        cmd = "echo \"{0}\" | sudo -S {1} --genesis {2} --datadir {3} --autonitykeys {4} --syncmode 'full' --port {5} --consensus.port {6} " \
-              "--http.port {7} --http --http.addr '0.0.0.0' --ws --ws.port {8} --http.corsdomain '*' " \
+        cmd = "{0} --genesis {1} --datadir {2} --autonitykeys {3} --syncmode 'full' --port {4} --consensus.port {5} " \
+              "--http.port {6} --http --http.addr '0.0.0.0' --ws --ws.port {7} --http.corsdomain '*' " \
               "--http.api 'personal,debug,eth,net,web3,txpool,miner,tendermint' --networkid 1991 --allow-insecure-unlock " \
-              "--graphql --unlock 0x{9} --password {10} --mine --miner.threads '1' " \
-              "--verbosity 4 --miner.gaslimit 10000000000 ".format(self.sudo_pass,
+              "--graphql --unlock 0x{8} --password {9} --mine --miner.threads '1' " \
+              "--verbosity 4 --miner.gaslimit 10000000000 ".format(
                                                                    AUTONITY_PATH.format(self.ssh_user),
                                                                    GENESIS_PATH.format(self.ssh_user),
                                                                    CHAIN_DATA_DIR.format(self.ssh_user,
@@ -277,7 +277,7 @@ class Client(object):
                                                                    KEY_PASSPHRASE_FILE.format(
                                                                        self.ssh_user, self.host)
                                                                    # LOG_PATH.format(self.ssh_user)
-                                                                   )
+                                                                  )
         return cmd
 
     def generate_package(self):
@@ -300,7 +300,7 @@ class Client(object):
                 c.put(PACKAGE_NAME.format(self.host), REMOTE_NAME.format(self.ssh_user, self.host))
                 self.logger.info('Chain package was uploaded to %s.', self.host)
                 result = c.run(
-                    'sudo tar -C /home/{} -zxvf {}'.format(self.ssh_user, REMOTE_NAME.format(self.ssh_user, self.host)),
+                    'tar -C /home/{} -zxvf {}'.format(self.ssh_user, REMOTE_NAME.format(self.ssh_user, self.host)),
                     pty=True,
                     watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
@@ -399,7 +399,7 @@ class Client(object):
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                result = c.run('sudo rm -rf {}'.format(DEPLOYMENT_DIR.format(self.ssh_user)), pty=True,
+                result = c.run('rm -rf {}'.format(DEPLOYMENT_DIR.format(self.ssh_user)), pty=True,
                                watchers=[sudopass],
                                warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
@@ -440,7 +440,7 @@ class Client(object):
 
                 # tar logs for remote node.
                 tar_file = "./{}.log.tgz".format(self.host)
-                cmd = "sudo tar -zcvf {} {}".format(tar_file, LOG_PATH.format(self.ssh_user))
+                cmd = "tar -zcvf {} {}".format(tar_file, LOG_PATH.format(self.ssh_user))
                 result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('log was zip on host: %s', self.host)
