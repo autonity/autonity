@@ -20,6 +20,7 @@ contract Oracle is IOracle, IConfigEvents {
         uint256 round; // The last round the voter participated in
         uint256 commit; // The commit hash of the voter's last report
         uint256 performance; // The performance score of the voter
+        uint256 missedReveal; // counter of missed reveals (i.e. commit submitted but no reveal for it)
         bool isVoter; // Indicates if the address is a registered voter
         bool reportAvailable; // Indicates if the last report is available for the voter
     }
@@ -39,6 +40,8 @@ contract Oracle is IOracle, IConfigEvents {
         int256 outlierDetectionThreshold; // Threshold for outlier detection
         int256 outlierSlashingThreshold; // Threshold for slashing outliers
         uint256 baseSlashingRate; // Base rate for slashing
+        uint256 missedRevealPeriod; // Measured in oracle rounds, period determining when the missed reveals check is done
+        uint256 missedRevealThreshold; // Threshold for missed reveals during a `missedRevealPeriod`
     }
 
     // ==== Public state variables ====
@@ -103,7 +106,9 @@ contract Oracle is IOracle, IConfigEvents {
         round = 1;
         // create the space for first index in prices array
         prices.push();
+        // sanitize config
         _checkVotePeriod(_config.votePeriod);
+        require(_config.missedRevealPeriod > 0, "missed reveal check period cannot be 0");
     }
 
     /**
@@ -147,18 +152,19 @@ contract Oracle is IOracle, IConfigEvents {
         uint8 _extra
     ) onlyVoters external {
         // revert if already voted for this round
-        // voters should not be allowed to vote multiple `times in a round
+        // voters should not be allowed to vote multiple times in a round
         // because we are refunding the tx fee and this opens up the possibility
         // to spam the node
-        require(voterInfo[msg.sender].round != round, "already voted");
+        VoterInfo storage _voterInfo = voterInfo[msg.sender];
+        require(_voterInfo.round != round, "already voted");
 
-        uint256 _pastCommit = voterInfo[msg.sender].commit;
+        uint256 _pastCommit = _voterInfo.commit;
         // Store the new commit before checking against reveal to ensure an updated commit is
         // available for the next round in case of failures.
-        voterInfo[msg.sender].commit = _commit;
-        uint256 _lastVotedRound = voterInfo[msg.sender].round;
+        _voterInfo.commit = _commit;
+        uint256 _lastVotedRound = _voterInfo.round;
         // considered to be voted whether vote is valid or not
-        voterInfo[msg.sender].round = round;
+        _voterInfo.round = round;
         // new voter/first round
         if (_lastVotedRound == 0) {
             emit NewVoter(msg.sender);
@@ -168,17 +174,20 @@ contract Oracle is IOracle, IConfigEvents {
         // if data is not supplied and voter is not a new voter
         // report must contain the correct price
         if (_reports.length != symbols.length) {
+            _voterInfo.missedReveal++;
             emit InvalidVote("ReportLengthMismatch", msg.sender, _reports.length, symbols.length);
             return;
         }
 
         if (_lastVotedRound != round - 1) {
+            _voterInfo.missedReveal++;
             emit InvalidVote("LastVotedRoundMismatch", msg.sender, round-1,  _lastVotedRound);
             return;
         }
 
         _commit = uint256(keccak256(abi.encode(_reports, _salt, msg.sender)));
         if (_pastCommit != _commit) {
+            _voterInfo.missedReveal++;
             emit InvalidVote("CommitMismatch", msg.sender, _pastCommit, _commit);
             // we return the tx fee in all cases, because in both cases voter is slashed during aggregation
             // phase, because the reports contain invalid prices
@@ -194,7 +203,7 @@ contract Oracle is IOracle, IConfigEvents {
             );
             reports[symbols[i]][msg.sender] = _reports[i];
         }
-        voterInfo[msg.sender].reportAvailable = true;
+        _voterInfo.reportAvailable = true;
         emit SuccessfulVote(msg.sender);
     }
     /**
@@ -214,10 +223,27 @@ contract Oracle is IOracle, IConfigEvents {
 
         _finalizeRewards();
 
+        if(round % config.missedRevealPeriod == 0) {
+            _punishMissedReveal();
+        }
+
         lastRoundBlock = block.number;
         round += 1;
         emit NewRound(round,  block.timestamp, config.votePeriod);
         return true;
+    }
+
+    function _punishMissedReveal() internal {
+        // TODO: voters vs newVoters ??
+        for (uint256 i = 0; i < voters.length; i++) {
+            address _voter = voters[i];
+            if (voterInfo[_voter].missedReveal > config.missedRevealThreshold) {
+                config.autonity.slash(voterValidators[_voter], ORACLE_SLASHING_RATE_CAP);
+                // TODO: emit event
+            }
+            voterInfo[_voter].missedReveal = 0;
+        }
+
     }
 
     function _finalizeRewards() internal {
@@ -491,6 +517,18 @@ contract Oracle is IOracle, IConfigEvents {
         _checkVotePeriod(_votePeriod);
         emit ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod);
         config.votePeriod = _votePeriod;
+    }
+
+    /**
+    * @notice Setter for the missed reveal punishment logic
+    */
+    function setMissedRevealParams(uint256 _period, uint256 _threshold) external onlyOperator {
+        require(_period > 0, "missed reveal check period cannot be 0");
+        emit ConfigUpdateUint("missedRevealPeriod", config.missedRevealPeriod, _period);
+        config.missedRevealPeriod = _period;
+        emit ConfigUpdateUint("missedRevealThreshold", config.missedRevealThreshold, _threshold);
+        config.missedRevealThreshold = _threshold;
+
     }
 
     /**

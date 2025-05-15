@@ -34,6 +34,8 @@ var (
 		OutlierDetectionThreshold: 10,  // 10%
 		OutlierSlashingThreshold:  225, // 15%
 		BaseSlashingRate:          10,
+		MissedRevealPeriod:        60, // 60 voting period, each one lasting 30 blocks --> 1800 blocks --> 1 epoch
+		MissedRevealThreshold:     2,
 	}
 
 	// DefaultAcuContractGenesis contains the default values for the ASM ACU contract
@@ -396,6 +398,8 @@ type OracleContractGenesis struct {
 	OutlierDetectionThreshold uint64        `json:"outlierDetectionThreshold"`
 	OutlierSlashingThreshold  uint64        `json:"outlierSlashingThreshold"`
 	BaseSlashingRate          uint64        `json:"baseSlashingRate"`
+	MissedRevealPeriod        uint64        `json:"missedRevealPeriod"`
+	MissedRevealThreshold     uint64        `json:"missedRevealThreshold"`
 }
 
 // SetDefaults prepares the AutonityContractGenesis by filling in missing fields.
@@ -422,6 +426,12 @@ func (g *OracleContractGenesis) SetDefaults() error {
 	}
 	if g.OutlierDetectionThreshold == 0 {
 		g.OutlierDetectionThreshold = DefaultGenesisOracleConfig.OutlierDetectionThreshold
+	}
+	if g.MissedRevealPeriod == 0 {
+		g.MissedRevealThreshold = DefaultGenesisOracleConfig.MissedRevealThreshold
+	}
+	if g.MissedRevealThreshold == 0 {
+		g.MissedRevealThreshold = DefaultGenesisOracleConfig.MissedRevealThreshold
 	}
 	return nil
 }
