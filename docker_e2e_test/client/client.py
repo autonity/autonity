@@ -346,17 +346,16 @@ class Client(object):
                 # cmd = SYSTEMD_START_CLIENT
                 cmd = self.cli_cmd()
                 self.logger.info("*******Executing command: %s", cmd)
-                result = c.run("touch {}".format(LOG_PATH.format(self.ssh_user)), pty=False, asynchronous=True,
-                               watchers=[sudopass], warn=True, hide=True)
-                result = c.run(cmd, pty=False, asynchronous=True, watchers=[sudopass], warn=True, hide=True)
-                self.logger.info("cmd exe result: %s", result)
-                # if result and result.exited == 0 and result.ok:
-                #    self.logger.info('system service started. %s', self.host)
-                #    self.client_stopped = False
-                #    return True
-                # else:
-                #    self.logger.error('fail to start service full result: %s', result)
-                #    return False
+                # result = c.run("touch {}".format(LOG_PATH.format(self.ssh_user)), pty=False, asynchronous=True,
+                #               watchers=[sudopass], warn=True, hide=True)
+                result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=False)
+                if result and result.exited == 0 and result.ok:
+                    self.logger.info('system service started. %s', self.host)
+                    self.client_stopped = False
+                    return True
+                else:
+                    self.logger.error('fail to start service full result: %s', result)
+                    return False
 
         except Exception as e:
             self.logger.error("cannot start service. %s, %s.", self.host, e)
