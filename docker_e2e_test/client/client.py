@@ -19,8 +19,8 @@ PACKAGE_NAME = "./network-data/{}.tgz"
 REMOTE_NAME = "/home/{}/{}.tgz"
 SYSTEM_SERVICE_DIR = "/etc/init.d/"
 DEPLOYMENT_DIR = '/home/{}/network-data'
-SYSTEMD_START_CLIENT = 'sudo service autonity start'
-SYSTEMD_STOP_CLIENT = 'sudo service autonity stop'
+SYSTEMD_START_CLIENT = 'service autonity start'
+SYSTEMD_STOP_CLIENT = 'service autonity stop'
 
 # use ip tables module of linux kernel which is common for all linux distributions to control peer connection.
 CONNECT_PEER = "sudo iptables -j DROP -D INPUT -s {}"
@@ -157,7 +157,7 @@ class Client(object):
                           "        start-stop-daemon --start --background \\\n" \
                           "            --pidfile \"$PIDFILE\" --make-pidfile \\\n" \
                           "            --chuid {11} \\\n" \
-                          "            --exec \"$DAEMON\" -- $DAEMON_OPTS >> \"$LOGFILE\" 2>&1 &\n" \
+                          "            --exec \"$DAEMON\" -- $DAEMON_OPTS \n" \
                           "        \n" \
                           "        sleep 4\n" \
                           "        if [ -f \"$PIDFILE\" ] && ps -p \"$(cat \"$PIDFILE\")\" > /dev/null; then\n" \
@@ -338,8 +338,7 @@ class Client(object):
 
     def start_client(self):
         try:
-            config = Config(overrides={'sudo': {'password': self.sudo_pass}})
-            with Connection(self.host, config=config, user=self.ssh_user, connect_kwargs={
+            with Connection(self.host, user=self.ssh_user, connect_kwargs={
                 "password": self.ssh_pass
             }) as c:
                 # cmd = SYSTEMD_START_CLIENT
@@ -347,7 +346,7 @@ class Client(object):
                 self.logger.info("*******Executing command: %s", cmd)
                 # result = c.run("touch {}".format(LOG_PATH.format(self.ssh_user)), pty=False, asynchronous=True,
                 #               watchers=[sudopass], warn=True, hide=True)
-                result = c.run(cmd, pty=False, warn=True, hide=True)
+                result = c.run(cmd, pty=False, warn=True, hide=False)
                 # result = c.run(cmd, pty=False, watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('system service started. %s', self.host)
