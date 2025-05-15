@@ -258,11 +258,12 @@ class Client(object):
             out.write(content)
 
     def cli_cmd(self):
-        cmd = "{0} --genesis {1} --datadir {2} --autonitykeys {3} --syncmode 'full' --port {4} --consensus.port {5} " \
-              "--http.port {6} --http --http.addr '0.0.0.0' --ws --ws.port {7} --http.corsdomain '*' " \
+        cmd = "echo {0} | sudo -S {1} --genesis {2} --datadir {3} --autonitykeys {4} --syncmode 'full' --port {5} --consensus.port {6} " \
+              "--http.port {7} --http --http.addr '0.0.0.0' --ws --ws.port {8} --http.corsdomain '*' " \
               "--http.api 'personal,debug,eth,net,web3,txpool,miner,tendermint' --networkid 1991 --allow-insecure-unlock " \
-              "--graphql --unlock 0x{8} --password {9} --mine --miner.threads '1' " \
-              "--verbosity 4 --miner.gaslimit 10000000000 ".format(AUTONITY_PATH.format(self.ssh_user),
+              "--graphql --unlock 0x{9} --password {10} --mine --miner.threads '1' " \
+              "--verbosity 4 --miner.gaslimit 10000000000 ".format(self.sudo_pass,
+                                                                   AUTONITY_PATH.format(self.ssh_user),
                                                                    GENESIS_PATH.format(self.ssh_user),
                                                                    CHAIN_DATA_DIR.format(self.ssh_user,
                                                                                          self.host),
@@ -346,7 +347,7 @@ class Client(object):
                 self.logger.info("*******Executing command: %s", cmd)
                 # result = c.run("touch {}".format(LOG_PATH.format(self.ssh_user)), pty=False, asynchronous=True,
                 #               watchers=[sudopass], warn=True, hide=True)
-                result = c.sudo(cmd, pty=False, warn=True, hide=True)
+                result = c.run(cmd, pty=False, warn=True, hide=True)
                 # result = c.run(cmd, pty=False, watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('system service started. %s', self.host)
