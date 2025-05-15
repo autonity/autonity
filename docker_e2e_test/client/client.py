@@ -5,6 +5,7 @@ import log
 import utility
 from web3.auto import w3
 from fabric import Connection
+from fabric import Config
 from web3 import Web3
 from invoke import Responder
 
@@ -336,19 +337,17 @@ class Client(object):
 
     def start_client(self):
         try:
-            with Connection(self.host, user=self.ssh_user, connect_kwargs={
+            config = Config(overrides={'sudo': {'password': self.sudo_pass}})
+            with Connection(self.host, config=config, user=self.ssh_user, connect_kwargs={
                 "password": self.ssh_pass
             }) as c:
-                sudopass = Responder(
-                    pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
-                    response=self.sudo_pass + '\n'
-                )
                 # cmd = SYSTEMD_START_CLIENT
                 cmd = self.cli_cmd()
                 self.logger.info("*******Executing command: %s", cmd)
                 # result = c.run("touch {}".format(LOG_PATH.format(self.ssh_user)), pty=False, asynchronous=True,
                 #               watchers=[sudopass], warn=True, hide=True)
-                result = c.run(cmd, pty=False, watchers=[sudopass], warn=True, hide=True)
+                result = c.sudo(cmd, pty=False, warn=True, hide=True)
+                # result = c.run(cmd, pty=False, watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('system service started. %s', self.host)
                     self.client_stopped = False
