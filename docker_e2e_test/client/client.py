@@ -3,9 +3,9 @@ import re
 import copy
 import log
 import utility
+import threading
 from web3.auto import w3
 from fabric import Connection
-from fabric import Config
 from web3 import Web3
 from invoke import Responder
 
@@ -88,6 +88,7 @@ class Client(object):
         self.up_link_delayed = False
         self.down_link_delayed = False
         self.is_local_address = False
+        self.life = None
 
     def create_work_dir(self, data_dir):
         work_dir = "{}/{}".format(data_dir, self.host)
@@ -258,11 +259,11 @@ class Client(object):
             out.write(content)
 
     def cli_cmd(self):
-        cmd = "nohup {0} --genesis {1} --datadir {2} --autonitykeys {3} --syncmode 'full' --port {4} --consensus.port {5} " \
+        cmd = "{0} --genesis {1} --datadir {2} --autonitykeys {3} --syncmode 'full' --port {4} --consensus.port {5} " \
               "--http.port {6} --http --http.addr '0.0.0.0' --ws --ws.port {7} --http.corsdomain '*' " \
               "--http.api 'personal,debug,eth,net,web3,txpool,miner,tendermint' --networkid 1991 --allow-insecure-unlock " \
               "--graphql --unlock 0x{8} --password {9} --mine --miner.threads '1' " \
-              "--verbosity 4 --miner.gaslimit 10000000000 >& /dev/null < /dev/null &".format(
+              "--verbosity 4 --miner.gaslimit 10000000000 ".format(
                                                                    AUTONITY_PATH.format(self.ssh_user),
                                                                    GENESIS_PATH.format(self.ssh_user),
                                                                    CHAIN_DATA_DIR.format(self.ssh_user,
@@ -336,29 +337,14 @@ class Client(object):
         except Exception as e:
             self.logger.error("cannot load systemd file. %s, %s", self.host, e)
 
-    def start_client(self):
-        try:
-            with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                "password": self.ssh_pass
-            }) as c:
-                # cmd = SYSTEMD_START_CLIENT
-                cmd = self.cli_cmd()
-                self.logger.info("*******Executing command: %s", cmd)
-                # result = c.run("touch {}".format(LOG_PATH.format(self.ssh_user)), pty=False, asynchronous=True,
-                #               watchers=[sudopass], warn=True, hide=True)
-                result = c.run(cmd, pty=False, warn=True, hide=False)
-                # result = c.run(cmd, pty=False, watchers=[sudopass], warn=True, hide=True)
-                if result and result.exited == 0 and result.ok:
-                    self.logger.info('system service started. %s', self.host)
-                    self.client_stopped = False
-                    return True
-                else:
-                    self.logger.error('fail to start service full result: %s', result)
-                    return False
+    def client_life(self):
+        c = Connection(self.host, user=self.ssh_user, connect_kwargs={"password": self.ssh_pass})
+        c.run(self.cli_cmd(), pty=False, warn=True, hide=True)
 
-        except Exception as e:
-            self.logger.error("cannot start service. %s, %s.", self.host, e)
-            return False
+    def start_client(self):
+        self.life = threading.Thread(target=self.client_life)
+        self.life.start()
+        self.client_stopped = False
 
     def deploy_client(self):
         self.deliver_package()
