@@ -1,4 +1,3 @@
-import string
 import docker
 import utility
 import ipaddress
@@ -288,7 +287,7 @@ if __name__ == "__main__":
     COMMIT_HASH = hash
     print("start docker test for commit hash: %s", hash)
 
-    job_id = "hash_{}_CASE{}_{}".format(str(time.time()), id, COMMIT_HASH)
+    job_id = "hash_{}_case_{}".format(COMMIT_HASH, id)
     JOB_ID = job_id
 
     # cleanup in case of test is killed by ci.

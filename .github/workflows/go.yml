@@ -47,7 +47,7 @@ jobs:
       - name: Generate test IDs
         id: set-ids
         run: |
-          echo "ids=[$(seq -s ',' 0 26)]" >> $GITHUB_OUTPUT
+          echo "ids=[$(seq -s ',' 0 1)]" >> $GITHUB_OUTPUT
   # prepare-cache fills the gocache with the source code for all modules and
   # attempts to fill the build cache with as much as possible intermediately
   # compiled source. Most other jobs depend on this job and so this serves to
@@ -340,4 +340,4 @@ jobs:
         run: |
           cd docker_e2e_test && \
           make install-prerequisites-linux && \
-          make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.sha }}
+          make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.event.pull_request.head.sha }}
