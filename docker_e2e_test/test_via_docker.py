@@ -1,5 +1,4 @@
-import random
-
+import string
 import docker
 import utility
 import ipaddress
@@ -11,8 +10,7 @@ import os
 
 TEST_ENGINE_IMAGE_NAME = "enginehost{}/ubuntu"
 TEST_ENGINE_DOCKER_FILE = "./Dockerfile"
-CLIENT_IMAGE_LATEST = "clienthost/ubuntu:latest"
-CLIENT_IMAGE_NAME = "clienthost/ubuntu"
+CLIENT_IMAGE_NAME = "clienthost/ubuntu:2404"
 CLIENT_DOCKER_FILE = "./clientDockerFile"
 BUILDER_IMAGE_NAME = "go-builder/ubuntu"
 BUILDER_DOCKER_FILE = "./builderDockerfile"
@@ -24,6 +22,7 @@ COMMAND_START_TEST = "python3 e2etestengine.py ./test_bin/autonity -id {}"
 FAILED_TEST_LOGS = "./JOB_{}.tar"
 SYSTEM_LOG_PATH = "/system_log"
 JOB_ID = ""
+COMMIT_HASH = ""
 
 
 def check_environment():
@@ -83,7 +82,7 @@ def check_to_build_client_images():
         client = docker.from_env()
         image_list = client.images.list()
         for image in image_list:
-            if CLIENT_IMAGE_LATEST in image.tags:
+            if CLIENT_IMAGE_NAME in image.tags:
                 print("image name ", image.tags)
                 client_image_found = True
     except Exception as e:
@@ -105,7 +104,7 @@ def create_image(tag, docker_file):
     print("image is been built: ", tag)
 
 
-def create_test_bed(job_id):
+def start_client_containers(job_id):
     ip_set = set()
     try:
         client = docker.from_env()
@@ -167,10 +166,10 @@ def prune_unused_network():
         print("prune unused network: ", e)
 
 
-def remove_test_engine_image(job_id):
+def remove_test_engine_image(commit_hash):
     try:
         client = docker.from_env()
-        result = client.api.remove_image(TEST_ENGINE_IMAGE_NAME.format(job_id), force=True, noprune=True)
+        result = client.api.remove_image(TEST_ENGINE_IMAGE_NAME.format(commit_hash), force=True, noprune=True)
         print("docker remove image: ", result)
     except Exception as e:
         print("docker remove image: ", e)
@@ -200,9 +199,21 @@ def clean_test_bed_containers(job_id):
         print("stop and remove test engine container: ", err)
 
 
-def create_test_engine_image_per_run(job_id):
-    print("start to build test engine image")
-    create_image(TEST_ENGINE_IMAGE_NAME.format(job_id), TEST_ENGINE_DOCKER_FILE)
+def check_to_build_engine_image(commit_hash):
+    print("try to build test engine image")
+    image_found = False
+    try:
+        client = docker.from_env()
+        image_list = client.images.list()
+        for image in image_list:
+            if TEST_ENGINE_IMAGE_NAME.format(commit_hash) in image.tags:
+                print("image name ", image.tags)
+                image_found = True
+    except Exception as e:
+        print("check", e)
+    if not image_found:
+        print("engine image is not founded, going to build it.")
+        create_image(TEST_ENGINE_IMAGE_NAME.format(commit_hash), TEST_ENGINE_DOCKER_FILE)
 
 
 def dump_ips_to_engine_conf(ips):
@@ -215,13 +226,13 @@ def dump_ips_to_engine_conf(ips):
         print("failed to dump ip into test engine validator.ip file. ", e)
 
 
-def start_test_engine_container(job_id, id):
+def start_test_engine_container(commit_hash, job_id, id):
     print("start test engine container, the testcase will be run in it.")
     try:
         print("test engine is going to start:")
         client = docker.from_env()
         cmd = COMMAND_START_TEST.format(id)
-        container = client.containers.run(TEST_ENGINE_IMAGE_NAME.format(job_id), command=cmd,
+        container = client.containers.run(TEST_ENGINE_IMAGE_NAME.format(commit_hash), command=cmd,
                                           name=ENGINE_NAME.format(job_id), detach=True, privileged=True)
         print("test engine is started.")
         return container
@@ -229,12 +240,12 @@ def start_test_engine_container(job_id, id):
         print("create test engine container failed: ", e)
 
 
-def clean_up(job_id):
+def clean_up(job_id, commit_hash):
     clean_test_bed_containers(job_id)
+    remove_test_engine_image(commit_hash)
     prune_unused_images()
     prune_unused_volumes()
     prune_unused_network()
-    remove_test_engine_image(job_id)
 
 
 def thread_func_copy_system_logs(job_id, path):
@@ -253,7 +264,7 @@ def thread_func_copy_system_logs(job_id, path):
 
 def receive_signal(signal_number, frame):
     print('Signal Received: ', signal_number)
-    clean_up(JOB_ID)
+    clean_up(JOB_ID, COMMIT_HASH)
     raise SystemExit('Exiting')
     return
 
@@ -264,6 +275,7 @@ if __name__ == "__main__":
     parser.add_argument("autonity", help="Autonity WorkDir Path")
     # Adding test case ID for the target test case to be run.
     parser.add_argument("-id", help='Start testcase id', type=int, required=True, default=0)
+    parser.add_argument("-hash", help='Commit hash', type=str, required=True, default="0xaabcdef")
 
     args = parser.parse_args()
     autonity_path = os.path.abspath(args.autonity)
@@ -272,7 +284,11 @@ if __name__ == "__main__":
     key_inspector_bin= os.path.join(autonity_path,"build/bin/ethkey")
 
     id = args.id
-    job_id = "TS{}_CASE{}".format(str(time.time()), id)
+    hash = args.hash
+    COMMIT_HASH = hash
+    print("start docker test for commit hash: %s", hash)
+
+    job_id = "hash_{}_CASE{}_{}".format(str(time.time()), id, COMMIT_HASH)
     JOB_ID = job_id
 
     # cleanup in case of test is killed by ci.
@@ -304,14 +320,14 @@ if __name__ == "__main__":
         check_to_build_client_images()
 
         # create test bed for the latter deployment.
-        ips = create_test_bed(job_id)
+        ips = start_client_containers(job_id)
 
         # prepare test engine image.
         dump_ips_to_engine_conf(ips)
-        create_test_engine_image_per_run(job_id)
+        check_to_build_engine_image(COMMIT_HASH)
 
         # start the e2e testing.
-        container = start_test_engine_container(job_id, id)
+        container = start_test_engine_container(COMMIT_HASH, job_id, id)
 
         if container is not None:
             thd = None
