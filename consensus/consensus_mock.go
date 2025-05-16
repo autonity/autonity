@@ -1133,9 +1133,10 @@ func (m *MockEnqueuer) EXPECT() *MockEnqueuerMockRecorder {
 }
 
 // Enqueue mocks base method.
-func (m *MockEnqueuer) Enqueue(id string, block *types.Block) {
+func (m *MockEnqueuer) Enqueue(id string, block *types.Block) error {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Enqueue", id, block)
+	return nil
 }
 
 // Enqueue indicates an expected call of Enqueue.

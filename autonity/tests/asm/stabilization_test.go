@@ -365,7 +365,7 @@ func TestStabilizationBorrow(t *testing.T) {
 		borrowAmount := new(big.Int).Div(borrowLimit, big.NewInt(2))
 		cdpsBefore, _, err := r.Stabilization.Cdps(nil, userAccount)
 		require.NoError(t, err)
-		pendingTimestamp := new(big.Int).Set(r.Evm.Context.Time)
+		pendingTimestamp := new(big.Int).SetUint64(r.Evm.Context.Time)
 		debt, _, err := r.Stabilization.DebtAmount(nil, userAccount, pendingTimestamp)
 		require.NoError(t, err)
 		interest := new(big.Int).Sub(debt, borrowAmount)
@@ -495,7 +495,7 @@ func TestStabilizationRepay(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test repay invalid position", setup, func(r *tests.Runner) {
-		timestamp := new(big.Int).Set(r.Evm.Context.Time)
+		timestamp := new(big.Int).SetUint64(r.Evm.Context.Time)
 		cfg, _, err := r.Stabilization.Config(nil)
 		require.NoError(t, err)
 		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount, timestamp)
@@ -506,7 +506,7 @@ func TestStabilizationRepay(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test repay to minimum debt", setup, func(r *tests.Runner) {
-		timestamp := new(big.Int).Set(r.Evm.Context.Time)
+		timestamp := new(big.Int).SetUint64(r.Evm.Context.Time)
 		cfg, _, err := r.Stabilization.Config(nil)
 		require.NoError(t, err)
 		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount, timestamp)
@@ -526,7 +526,7 @@ func TestStabilizationRepay(t *testing.T) {
 
 	tests.RunWithSetup("Test repay interest", setup, func(r *tests.Runner) {
 		borrowAmount := new(big.Int).Div(calcBorrowLimit(r, userAccount), big.NewInt(2))
-		timestamp := new(big.Int).Set(r.Evm.Context.Time)
+		timestamp := new(big.Int).SetUint64(r.Evm.Context.Time)
 		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount, timestamp)
 		require.NoError(t, err)
 		interest := new(big.Int).Sub(debtAmount, borrowAmount)
@@ -542,7 +542,7 @@ func TestStabilizationRepay(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test repay full debt", setup, func(r *tests.Runner) {
-		timestamp := new(big.Int).Set(r.Evm.Context.Time)
+		timestamp := new(big.Int).SetUint64(r.Evm.Context.Time)
 		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount, timestamp)
 		require.NoError(t, err)
 
@@ -557,7 +557,7 @@ func TestStabilizationRepay(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test repay surplus is returned", setup, func(r *tests.Runner) {
-		timestamp := new(big.Int).Set(r.Evm.Context.Time)
+		timestamp := new(big.Int).SetUint64(r.Evm.Context.Time)
 		debtAmount, _, err := r.Stabilization.DebtAmount(nil, userAccount, timestamp)
 		require.NoError(t, err)
 		surplus := new(big.Int).Set(common.Big256)

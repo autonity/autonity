@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"math"
+	gomath "math"
 	"math/big"
 	"testing"
 	"time"
@@ -14,10 +14,10 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core"
-	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/tracing"
 	"github.com/autonity/autonity/core/types"
@@ -25,13 +25,12 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/eth/tracers"
+	_ "github.com/autonity/autonity/eth/tracers/native" //nolint
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
 	"github.com/autonity/autonity/rlp"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
-
-	_ "github.com/autonity/autonity/eth/tracers/native" //nolint
 )
 
 var (
@@ -159,7 +158,7 @@ func (r *Runner) call(opts *runOptions, addr common.Address, input []byte) ([]by
 			value = opts.value
 		}
 	}
-	gas := uint64(math.MaxUint64)
+	gas := uint64(gomath.MaxUint64)
 	ret, leftOver, err := r.Evm.Call(r.Evm.Origin, addr, input, gas, value)
 	return ret, gas - leftOver, err
 }
@@ -206,15 +205,15 @@ func RunWithSetup(name string, setup func() *Runner, run func(r *Runner)) {
 		run(r)
 	})
 }
-func (r *Runner) GiveMeSomeMoney(account common.Address, amount *uint256.Int) {
-	r.Evm.StateDB.AddBalance(account, amount, tracing.BalanceChangeUnspecified)
+func (r *Runner) GiveMeSomeMoney(account common.Address, amount *big.Int) {
+	r.Evm.StateDB.AddBalance(account, uint256.MustFromBig(amount), tracing.BalanceChangeUnspecified)
 }
 
-func (r *Runner) GetBalanceOf(account common.Address) *uint256.Int {
-	return r.Evm.StateDB.GetBalance(account)
+func (r *Runner) GetBalanceOf(account common.Address) *big.Int {
+	return r.Evm.StateDB.GetBalance(account).ToBig()
 }
 
-func (r *Runner) GetNewtonBalanceOf(account common.Address) *uint256.Int {
+func (r *Runner) GetNewtonBalanceOf(account common.Address) *big.Int {
 	balance, _, err := r.Autonity.BalanceOf(nil, account)
 	require.NoError(r.T, err)
 	return balance
@@ -229,7 +228,7 @@ func (r *Runner) deployContract(
 	args, err := contractAbi.Pack("", params...)
 	require.NoError(r.T, err)
 	data := append(bytecode, args...)
-	gas := uint64(math.MaxUint64)
+	gas := uint64(gomath.MaxUint64)
 	r.Evm.Origin = r.Origin
 	value := uint256.NewInt(0)
 	if opts != nil {
@@ -393,25 +392,25 @@ func (r *Runner) generateNewCommittee() {
 	}
 }
 
-func (r *Runner) WaitForBlocksUntil(endTime int64) int64 {
+func (r *Runner) WaitForBlocksUntil(endTime int64) {
 	// bcause we have 1 block/s
-	r.WaitNBlocks(int(endTime) - int(r.Evm.Context.Time.Int64()))
-	return r.Evm.Context.Time.Int64()
+	r.WaitNBlocks(int(endTime) - int(r.Evm.Context.Time))
+	return
 }
 
 func (r *Runner) WaitForEpochsUntil(endTime int64) int64 {
-	currentTime := r.Evm.Context.Time.Int64()
+	currentTime := int64(r.Evm.Context.Time)
 	for currentTime < endTime {
 		r.WaitNextEpoch()
-		currentTime = r.Evm.Context.Time.Int64()
+		currentTime = int64(r.Evm.Context.Time)
 	}
 	return currentTime
 }
 
-func (r *Runner) SendAUT(sender, recipient common.Address, value *big.Int) {
-	require.True(r.T, r.Evm.StateDB.GetBalance(sender).Cmp(value) >= 0, "not enough balance to transfer")
-	r.Evm.StateDB.SubBalance(sender, value)
-	r.Evm.StateDB.AddBalance(recipient, value)
+func (r *Runner) SendAUT(sender, recipient common.Address, value *uint256.Int) {
+	require.True(r.T, r.Evm.StateDB.GetBalance(sender).Cmp(value) >= 0, "not enough funds to transfer")
+	r.Evm.StateDB.SubBalance(sender, value, tracing.BalanceChangeTransfer)
+	r.Evm.StateDB.AddBalance(recipient, value, tracing.BalanceChangeTransfer)
 }
 
 type EpochReward struct {
@@ -480,22 +479,17 @@ func sealFaker(targetHeight uint64, round uint64) common.Hash {
 }
 
 func initializeEVM() (*vm.EVM, error) {
-	ethDb := rawdb.NewMemoryDatabase()
-	db := state.NewDatabase(ethDb)
-	stateDB, err := state.New(common.Hash{}, db, nil)
-	if err != nil {
-		return nil, err
-	}
+	state, _ := state.New(common.Hash{}, state.NewDatabaseForTesting())
 	vmBlockContext := vm.BlockContext{
-		Transfer: func(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
-			db.SubBalance(sender, amount)
-			db.AddBalance(recipient, amount)
+		Transfer: func(db vm.StateDB, sender, recipient common.Address, amount *uint256.Int) {
+			db.SubBalance(sender, amount, tracing.BalanceChangeTransfer)
+			db.AddBalance(recipient, amount, tracing.BalanceChangeTransfer)
 		},
-		CanTransfer: func(db vm.StateDB, addr common.Address, amount *big.Int) bool {
+		CanTransfer: func(db vm.StateDB, addr common.Address, amount *uint256.Int) bool {
 			return db.GetBalance(addr).Cmp(amount) >= 0
 		},
 		BlockNumber: common.Big0,
-		Time:        big.NewInt(time.Now().Unix()),
+		Time:        uint64(time.Now().Unix()),
 		// used by the AbsenteeComputer precompile to verify activity proofs
 		GetHash: hashFaker,
 	}
@@ -503,7 +497,8 @@ func initializeEVM() (*vm.EVM, error) {
 		Origin:   common.Address{},
 		GasPrice: common.Big0,
 	}
-	evm := vm.NewEVM(vmBlockContext, txContext, stateDB, params.TestChainConfig, vm.Config{})
+	evm := vm.NewEVM(vmBlockContext, state, params.TestChainConfig, vm.Config{})
+	evm.SetTxContext(txContext)
 	return evm, nil
 }
 
@@ -551,7 +546,7 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	// Step 1: Execute test genesis sequence
 	//
 
-	err = autonity.ExecuteTestGenesisSequence(genesisConfig.Config, genesisConfig.Alloc.ToGenesisBonds(), evm)
+	err = autonity.ExecuteTestGenesisSequence(genesisConfig.Config, genesisConfig.Alloc, evm)
 	require.NoError(t, err)
 
 	//
@@ -634,7 +629,7 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	}
 
 	r.Evm.Context.BlockNumber = common.Big1
-	r.Evm.Context.Time = new(big.Int).Add(r.Evm.Context.Time, common.Big1)
+	r.Evm.Context.Time = r.Evm.Context.Time + 1
 	return r
 }
 
@@ -664,7 +659,7 @@ func genesisToAutonityVal(v *params.Validator) AutonityValidator {
 }
 
 func FromSender(sender common.Address, value *big.Int) *runOptions {
-	return &runOptions{origin: sender, value: value}
+	return &runOptions{origin: sender, value: uint256.MustFromBig(value)}
 }
 
 func NewAccusationEvent(height uint64, value common.Hash, reporter common.Address) AccountabilityEvent {

@@ -232,7 +232,7 @@ func TestReleaseFromStakeableContract(t *testing.T) {
 		require.NoError(r.T, err)
 		require.True(r.T, data.IsInt64(), "invalid data")
 		require.Equal(r.T, epochID, data.Int64(), "epoch progressed, more funds will release")
-		require.True(r.T, r.Evm.Context.Time.Cmp(big.NewInt(currentTime)) > 0, "time did not progress")
+		require.True(r.T, int64(r.Evm.Context.Time)-currentTime > 0, "time did not progress")
 		checkReleaseAllNTN(r, user, contractID, new(big.Int).Sub(totalUnlocked, unlockFraction))
 	})
 
@@ -244,7 +244,7 @@ func TestReleaseFromStakeableContract(t *testing.T) {
 		currentTime := r.Evm.Context.Time
 		checkReleaseAllNTN(r, user, contractID, big.NewInt(contractTotalAmount))
 		r.WaitNextEpoch()
-		require.True(r.T, r.Evm.Context.Time.Cmp(currentTime) > 0, "time did not progress")
+		require.True(r.T, r.Evm.Context.Time > currentTime, "time did not progress")
 		// cannot release more
 		checkReleaseAllNTN(r, user, contractID, common.Big0)
 	})
@@ -280,7 +280,7 @@ func TestBonding(t *testing.T) {
 
 	tests.RunWithSetup("can bond all funds even before start", setup, func(r *tests.Runner) {
 		_, _, _, beneficiary, validator, _ := initiate(r)
-		require.True(r.T, r.Evm.Context.Time.Cmp(big.NewInt(start+1)) < 0, "contract started already")
+		require.True(r.T, r.Evm.Context.Time < uint64(start)+1, "contract started already")
 		bondingAmount := big.NewInt(contractTotalAmount / 2)
 		bondAndFinalize(r, []StakingRequest{{beneficiary, validator, contractID, bondingAmount, "", true}})
 	})
@@ -1271,7 +1271,7 @@ func TestSlashingAffect(t *testing.T) {
 		require.True(r.T, newtonBalance.Cmp(common.Big0) == 0, "unbonding released already")
 
 		// unlocked funds and total value are fine before slashing
-		currentTime := r.Evm.Context.Time.Int64()
+		currentTime := int64(r.Evm.Context.Time)
 		unlockedCalculated := currentTime - start - 1
 		unlockedFunds, _, err := stakeableContract.VestedFunds(nil)
 		require.NoError(r.T, err)
@@ -1396,7 +1396,7 @@ func TestUnlockingIsIndependentOfStaking(t *testing.T) {
 		balance := r.GetNewtonBalanceOf(user)
 		require.True(r.T, balance.Cmp(common.Big0) == 0, "unbonding released")
 
-		currentTime = r.Evm.Context.Time.Int64()
+		currentTime = int64(r.Evm.Context.Time)
 		require.True(r.T, currentTime <= end+1, "cannot test")
 		unlockedCalculated = big.NewInt(currentTime - start - 1)
 		unlockedFunds, _, err = stakeableContract.VestedFunds(nil)
@@ -1417,7 +1417,7 @@ func TestAccessRestriction(t *testing.T) {
 
 	tests.RunWithSetup("only operator can create contract", setup, func(r *tests.Runner) {
 		amount := big.NewInt(1000)
-		start := new(big.Int).Add(big.NewInt(100), r.Evm.Context.Time)
+		start := new(big.Int).Add(big.NewInt(100), new(big.Int).SetUint64(r.Evm.Context.Time))
 		cliff := new(big.Int).Add(start, big.NewInt(100))
 		end := new(big.Int).Add(start, amount)
 		_, err := r.StakeableVestingManager.NewContract(

@@ -214,7 +214,7 @@ func TestTreasuryFunds(t *testing.T) {
 	tests.RunWithSetup("expired funds can be withdrawn by treasury any time after they are expired", newSetup, func(r *tests.Runner) {
 		expiredFromContract, _, err := r.NonStakeableVesting.GetExpiredFunds(nil, user, common.Big0)
 		require.NoError(r.T, err)
-		require.True(r.T, end+1 > r.Evm.Context.Time.Int64(), "cannot test, contract ended already")
+		require.True(r.T, end+1 > int64(r.Evm.Context.Time), "cannot test, contract ended already")
 
 		treasury, _, err := r.Autonity.GetTreasuryAccount(nil)
 		require.NoError(r.T, err)
@@ -249,7 +249,7 @@ func TestNonStakeableAccessRestriction(t *testing.T) {
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
 		r.NoError(
-			r.Autonity.CreateSchedule(r.Operator, r.NonStakeableVesting.Address(), common.Big1, r.Evm.Context.Time, common.Big1),
+			r.Autonity.CreateSchedule(r.Operator, r.NonStakeableVesting.Address(), common.Big1, new(big.Int).SetUint64(r.Evm.Context.Time), common.Big1),
 		)
 		return r
 	}

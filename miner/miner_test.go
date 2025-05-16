@@ -22,6 +22,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/core/txpool"
+	"github.com/autonity/autonity/core/txpool/legacypool"
+	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
@@ -308,29 +311,27 @@ func waitForMiningState(t *testing.T, m *Miner, mining bool) {
 
 func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 	// Create Ethash config
-	config := MinerConfig{
+	config := ethconfig.MinerConfig{
 		Etherbase: common.HexToAddress("123456789"),
 	}
 	// Create chainConfig
 	memdb := memorydb.New()
 	chainDB := rawdb.NewDatabase(memdb)
 	genesis := core.DefaultGenesisBlock()
-	chainConfig, _, err := core.SetupGenesisBlock(chainDB, genesis)
+	chainConfig, _, _, err := core.SetupGenesisBlock(chainDB, genesis)
 	if err != nil {
 		t.Fatalf("can't create new chain config: %v", err)
 	}
 	// Create event Mux
 	mux := new(event.TypeMux)
 	// Create consensus engine
-	engine := ethash.New(ethash.Config{}, []string{}, false)
-	engine.SetThreads(-1)
+	engine := ethash.NewFaker()
 	// Create isLocalBlock
 	isLocalBlock := func(block *types.Header) bool {
 		return true
 	}
 	// Create Ethereum backend
 	limit := uint64(1000)
-	senderCacher := new(core.TxSenderCacher)
 	bc, err := core.NewBlockChain(chainDB, new(core.CacheConfig), chainConfig, engine, vm.Config{}, isLocalBlock, senderCacher, &limit, backends.NewInternalBackend(nil), log.Root())
 	if err != nil {
 		t.Fatalf("can't create new chain %v", err)
@@ -338,7 +339,8 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 	blockchain := &testBlockChain{statedb, 10000000, new(event.Feed)}
 
-	pool := core.NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, senderCacher)
+	legacyPool := legacypool.New(config.TxPool, blockchain)
+	pool, err = txpool.New(config.TxPool.PriceLimit, blockchain, []txpool.SubPool{legacyPool})
 	backend := NewMockBackend(bc, pool)
 	// Create Miner
 	return New(backend, &config, chainConfig, mux, engine, isLocalBlock), mux

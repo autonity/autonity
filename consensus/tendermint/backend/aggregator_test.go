@@ -1384,11 +1384,14 @@ func TestAggregatorCoreEvents(t *testing.T) {
 
 func newTestBlockchain() *core.BlockChain {
 	db := rawdb.NewMemoryDatabase()
-	core.GenesisBlockForTesting(db, common.Address{}, common.Big0)
-	chain, err := core.NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, &core.TxSenderCacher{}, nil, backends.NewInternalBackend(nil), log.Root())
+	genesis := &core.Genesis{
+		Config:  params.TestChainConfig,
+		BaseFee: big.NewInt(params.InitialBaseFee),
+		Mixhash: types.BFTDigest,
+	}
+	chain, err := core.NewBlockChain(db, nil, genesis, ethash.NewFaker(), vm.Config{}, nil, backends.NewInternalBackend(nil), log.Root())
 	if err != nil {
 		panic(err)
 	}
-
 	return chain
 }

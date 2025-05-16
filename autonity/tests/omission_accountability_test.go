@@ -52,7 +52,7 @@ func autonityFinalize(r *Runner) { //nolint
 	r.T.Logf("Autonity, finalized block: %d", r.Evm.Context.BlockNumber)
 	// advance the block context as if we mined a block
 	r.Evm.Context.BlockNumber = new(big.Int).Add(r.Evm.Context.BlockNumber, common.Big1)
-	r.Evm.Context.Time = new(big.Int).Add(r.Evm.Context.Time, common.Big1)
+	r.Evm.Context.Time = r.Evm.Context.Time + 1
 	// clean up activity proof data
 	r.Evm.Context.Coinbase = common.Address{}
 	r.Evm.Context.ActivityProof = nil
@@ -783,7 +783,7 @@ func TestProposerRewardDistribution(t *testing.T) {
 		require.NoError(t, err)
 
 		r.Evm.Context.BlockNumber = new(big.Int).SetInt64(int64(omissionEpochPeriod))
-		r.Evm.Context.Time.Add(r.Evm.Context.Time, new(big.Int).SetInt64(int64(omissionEpochPeriod-1)))
+		r.Evm.Context.Time += uint64(omissionEpochPeriod - 1)
 		setupProofAndAutonityFinalize(r, proposer, nil)
 
 		committeeSize := newFloat(new(big.Int).SetUint64(uint64(len(r.Committee.Validators))))

@@ -162,7 +162,7 @@ func TestInflationContract(t *testing.T) {
 		InflationReserveDecayRate: (*big.Int)(params.DefaultInflationControllerGenesis.InflationReserveDecayRate),
 	}
 	inflationReserve := (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve)
-	genesisTime := r.Evm.Context.Time
+	genesisTime := new(big.Int).SetUint64(r.Evm.Context.Time)
 	goP := newGoParams(p, genesisTime)
 	_, _, inflationControllerContract, err := r.DeployInflationController(nil, *p)
 	require.NoError(r.T, err)

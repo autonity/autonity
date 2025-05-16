@@ -585,17 +585,6 @@ func (g *Genesis) IsVerkle() bool {
 	return g.Config.IsVerkleGenesis()
 }
 
-// GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
-func GenesisBlockForTesting(db ethdb.Database, triedb *triedb.Database, addr common.Address, balance *big.Int) *types.Block {
-	g := Genesis{
-		Alloc:   types.GenesisAlloc{addr: {Balance: balance}},
-		Config:  params.TestChainConfig,
-		BaseFee: big.NewInt(params.InitialBaseFee),
-		Mixhash: types.BFTDigest,
-	}
-	return g.MustCommit(db, triedb)
-}
-
 // EnableVerkleAtGenesis indicates whether the verkle fork should be activated
 // at genesis. This is a temporary solution only for verkle devnet testing, where
 // verkle fork is activated at genesis, and the configured activation date has
