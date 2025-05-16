@@ -19,7 +19,7 @@ PACKAGE_NAME = "./network-data/{}.tgz"
 REMOTE_NAME = "/home/{}/{}.tgz"
 SYSTEM_SERVICE_DIR = "/etc/init.d/"
 DEPLOYMENT_DIR = '/home/{}/network-data'
-STOP_AUTONITY_CLIENT = 'kill -9 `pidof autonity`'
+STOP_AUTONITY_CLIENT = 'kill -15 `pidof autonity`'
 
 # use ip tables module of linux kernel which is common for all linux distributions to control peer connection.
 CONNECT_PEER = "sudo iptables -j DROP -D INPUT -s {}"
@@ -142,7 +142,7 @@ class Client(object):
               "--http.port {6} --http --http.addr '0.0.0.0' --ws --ws.port {7} --http.corsdomain '*' " \
               "--http.api 'personal,debug,eth,net,web3,txpool,miner,tendermint' --networkid 1991 --allow-insecure-unlock " \
               "--graphql --unlock 0x{8} --password {9} --mine --miner.threads '1' " \
-              "--verbosity 3 --miner.gaslimit 10000000000 ".format(
+              "--verbosity 3 --miner.gaslimit 10000000000 > {10} ".format(
                                                                    AUTONITY_PATH.format(self.ssh_user),
                                                                    GENESIS_PATH.format(self.ssh_user),
                                                                    CHAIN_DATA_DIR.format(self.ssh_user,
@@ -155,7 +155,8 @@ class Client(object):
                                                                    self.ws_port,
                                                                    self.coin_base,
                                                                    KEY_PASSPHRASE_FILE.format(
-                                                                       self.ssh_user, self.host)
+                                                                       self.ssh_user, self.host),
+                                                                   LOG_PATH.format(self.ssh_user)
                                                                   )
         return cmd
 
@@ -196,7 +197,7 @@ class Client(object):
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
                 "password": self.ssh_pass
             }) as c:
-                # c.run("touch {}".format(LOG_PATH.format(self.ssh_user)))
+                c.run("touch {}".format(LOG_PATH.format(self.ssh_user)))
                 cmd = self.cli_cmd()
                 self.logger.info("*** starting autonity client cmd: %s", cmd)
                 # this run is a blocking call, it returns until the remote autonity service terminated.
