@@ -15,7 +15,7 @@ class Scheduler(object):
             self.clients[client.index] = client
         self.logger = log.get_logger()
         self.scheduler = sched.scheduler(time.time, time.sleep)
-        self.thread = threading.Thread(target=self.scheduler.run)
+        self.thread = threading.Thread(target=self.scheduler.run, daemon=True)
 
     def schedule(self):
         try:

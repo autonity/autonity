@@ -207,7 +207,7 @@ class Client(object):
         return False
 
     def start_client(self):
-        self.life = threading.Thread(target=self.client_life)
+        self.life = threading.Thread(target=self.client_life, daemon=True)
         self.life.start()
         self.client_stopped = False
         self.logger.info("autonity client lifecycle started: %s", self.host)
