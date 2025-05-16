@@ -38,7 +38,16 @@ env:
     ]
 
 jobs:
-
+  # generate test case IDs for docker tests.
+  generate-ids:
+    runs-on: ubuntu-24.04
+    outputs:
+      ids: ${{ steps.set-ids.outputs.ids }}
+    steps:
+      - name: Generate test IDs
+        id: set-ids
+        run: |
+          echo "ids=[$(seq -s ',' 0 26)]" >> $GITHUB_OUTPUT
   # prepare-cache fills the gocache with the source code for all modules and
   # attempts to fill the build cache with as much as possible intermediately
   # compiled source. Most other jobs depend on this job and so this serves to
@@ -301,11 +310,11 @@ jobs:
         shell: bash
 
   docker-e2e-tests:
-    needs: prepare-cache
+    needs: [prepare-cache, generate-ids]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        case_id: [0, 1, 2, ..., 26]  # Explicitly list all IDs or generate dynamically
+        case_id: ${{ fromJson(needs.generate-ids.outputs.ids) }}
     steps:
       - uses: actions/setup-go@v4
         with:
