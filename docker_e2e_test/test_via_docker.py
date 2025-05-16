@@ -4,7 +4,6 @@ import ipaddress
 import argparse
 import threading
 import signal
-import time
 import os
 
 TEST_ENGINE_IMAGE_NAME = "enginehost{}/ubuntu"

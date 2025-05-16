@@ -151,7 +151,7 @@ class Scheduler(object):
     def start_clients(self, test, nodes):
         for index in nodes:
             if index not in self.clients:
-                self.logger.warning("wrong node index in test case. skip the crash action. %s", index)
+                self.logger.warning("wrong node index in test case. skip the start action. %s", index)
                 continue
             self.clients[index].start_client()
 
