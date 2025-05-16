@@ -26,10 +26,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/holiman/uint256"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
+	"github.com/holiman/uint256"
 )
 
 // nonceHeap is a heap.Interface implementation over 64bit unsigned integers for

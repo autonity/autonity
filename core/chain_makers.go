@@ -364,6 +364,24 @@ func GenerateChainWithGenesis(genesis *Genesis, engine consensus.Engine, n int, 
 	return db, blocks, receipts
 }
 
+// makeHeaderChainWithGenesis creates a deterministic chain of headers from genesis.
+func makeHeaderChainWithGenesis(genesis *Genesis, n int, engine consensus.Engine, seed int) (ethdb.Database, []*types.Header) {
+	db, blocks := makeBlockChainWithGenesis(genesis, n, engine, seed)
+	headers := make([]*types.Header, len(blocks))
+	for i, block := range blocks {
+		headers[i] = block.Header()
+	}
+	return db, headers
+}
+
+// makeBlockChainWithGenesis creates a deterministic chain of blocks from genesis
+func makeBlockChainWithGenesis(genesis *Genesis, n int, engine consensus.Engine, seed int) (ethdb.Database, []*types.Block) {
+	db, blocks, _ := GenerateChainWithGenesis(genesis, engine, n, func(i int, b *BlockGen) {
+		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
+	})
+	return db, blocks
+}
+
 func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
 	var time uint64
 	if parent.Time() == 0 {
@@ -397,8 +415,8 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Header {
-	blocks := makeBlockChain(types.NewBlockWithHeader(parent), n, engine, db, seed)
+func makeHeaderChain(chainConfig *params.ChainConfig, parent *types.Header, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Header {
+	blocks := makeBlockChain(chainConfig, types.NewBlockWithHeader(parent), n, engine, db, seed)
 	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
@@ -407,8 +425,8 @@ func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db et
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
-	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
+func makeBlockChain(chainConfig *params.ChainConfig, parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
+	blocks, _ := GenerateChain(chainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
 	return blocks

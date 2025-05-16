@@ -199,7 +199,7 @@ func TestReleaseFromStakeableContract(t *testing.T) {
 
 		r.WaitNBlocks(10)
 		currentTime += 10
-		require.Equal(r.T, big.NewInt(currentTime), r.Evm.Context.Time, "time mismatch, release won't work")
+		require.Equal(r.T, uint64(currentTime), r.Evm.Context.Time, "time mismatch, release won't work")
 		// no more should be released as epoch did not change
 		newEpochID, _, err := r.Autonity.EpochID(nil)
 		require.NoError(r.T, err)

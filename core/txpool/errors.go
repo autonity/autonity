@@ -16,7 +16,9 @@
 
 package txpool
 
-import "errors"
+import (
+	"errors"
+)
 
 var (
 	// ErrAlreadyKnown is returned if the transactions is already contained
@@ -26,8 +28,9 @@ var (
 	// ErrInvalidSender is returned if the transaction contains an invalid signature.
 	ErrInvalidSender = errors.New("invalid sender")
 
-	// ErrUnderpriced is returned if a transaction's gas price is below the minimum
-	// configured for the transaction pool.
+	// ErrUnderpriced is returned if a transaction's gas price is too low to be
+	// included in the pool. If the gas price is lower than the minimum configured
+	// one for the transaction pool, use ErrTxGasPriceTooLow instead.
 	ErrUnderpriced = errors.New("transaction underpriced")
 
 	// ErrReplaceUnderpriced is returned if a transaction is attempted to be replaced
@@ -55,26 +58,13 @@ var (
 	// making the transaction invalid, rather a DOS protection.
 	ErrOversizedData = errors.New("oversized data")
 
-	// ErrFutureReplacePending is returned if a future transaction replaces a pending
-	// one. Future transactions should only be able to replace other future transactions.
-	ErrFutureReplacePending = errors.New("future transaction tries to replace pending")
-
 	// ErrAlreadyReserved is returned if the sender address has a pending transaction
 	// in a different subpool. For example, this error is returned in response to any
 	// input transaction of non-blob type when a blob transaction from this sender
 	// remains pending (and vice-versa).
 	ErrAlreadyReserved = errors.New("address already reserved")
 
-	// ErrAuthorityReserved is returned if a transaction has an authorization
-	// signed by an address which already has in-flight transactions known to the
-	// pool.
-	ErrAuthorityReserved = errors.New("authority already reserved")
-
-	// ErrAuthorityNonce is returned if a transaction has an authorization with
-	// a nonce that is not currently valid for the authority.
-	ErrAuthorityNonceTooLow = errors.New("authority nonce too low")
-
-	// ErrBlobTypeUnsupported is a returned when processing a blob transaction
-	// which is currently unsupported by Autonity.
-	ErrBlobTypeUnsupported = errors.New("blob type is unsupported")
+	// ErrInflightTxLimitReached is returned when the maximum number of in-flight
+	// transactions is reached for specific accounts.
+	ErrInflightTxLimitReached = errors.New("in-flight transaction limit reached for delegated accounts")
 )

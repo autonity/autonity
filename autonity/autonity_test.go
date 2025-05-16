@@ -5,17 +5,15 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	gomath "math"
 	"math/big"
 	"math/rand"
 	"net"
 	"sort"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
@@ -25,6 +23,9 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
+	"github.com/autonity/autonity/triedb"
+	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkComputeCommittee(b *testing.B) {
@@ -252,8 +253,7 @@ func deployAutonityTest(
 
 func initializeEvm(abi *abi.ABI) (*state.StateDB, *vm.EVM, *evmContract, error) {
 	ethDb := rawdb.NewMemoryDatabase()
-	db := state.NewDatabase(ethDb)
-	stateDB, err := state.New(common.Hash{}, db, nil)
+	stateDB, err := state.New(common.Hash{}, state.NewDatabase(triedb.NewDatabase(ethDb, nil), nil))
 	if err != nil {
 		return new(state.StateDB), new(vm.EVM), new(evmContract), err
 	}
@@ -263,10 +263,9 @@ func initializeEvm(abi *abi.ABI) (*state.StateDB, *vm.EVM, *evmContract, error) 
 }
 
 func deployContract(byteCode []byte, args []byte, deployer common.Address, evm *vm.EVM) (common.Address, error) {
-	gas := uint64(math.MaxUint64)
-	value := common.Big0
+	gas := uint64(gomath.MaxUint64)
 	data := append(byteCode, args...)
-	_, contractAddress, _, err := evm.Create(vm.AccountRef(deployer), data, gas, value)
+	_, contractAddress, _, err := evm.Create(deployer, data, gas, uint256.NewInt(0))
 	return contractAddress, err
 }
 
@@ -414,33 +413,35 @@ func autonityTestConfig() AutonityConfig {
 func createTestVM(state vm.StateDB) *vm.EVM {
 	vmBlockContext := vm.BlockContext{
 		// some calls fail when time is nil
-		Time:        common.Big1,
-		Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
-		CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
+		Time:        1,
+		Transfer:    func(vm.StateDB, common.Address, common.Address, *uint256.Int) {},
+		CanTransfer: func(vm.StateDB, common.Address, *uint256.Int) bool { return true },
 		BlockNumber: common.Big0,
 	}
 	txContext := vm.TxContext{
 		Origin:   common.Address{},
 		GasPrice: common.Big0,
 	}
-	evm := vm.NewEVM(vmBlockContext, txContext, state, params.TestChainConfig, vm.Config{})
+	evm := vm.NewEVM(vmBlockContext, state, params.TestChainConfig, vm.Config{})
+	evm.SetTxContext(txContext)
 	return evm
 }
 
 func testEVMProvider() func(header *types.Header, origin common.Address, stateDB vm.StateDB) *vm.EVM {
 	return func(header *types.Header, origin common.Address, stateDB vm.StateDB) *vm.EVM {
 		vmBlockContext := vm.BlockContext{
-			Transfer:    func(vm.StateDB, common.Address, common.Address, *big.Int) {},
-			CanTransfer: func(vm.StateDB, common.Address, *big.Int) bool { return true },
+			Transfer:    func(vm.StateDB, common.Address, common.Address, *uint256.Int) {},
+			CanTransfer: func(vm.StateDB, common.Address, *uint256.Int) bool { return true },
 			BlockNumber: common.Big0,
 			// some calls fail when time is nil
-			Time: common.Big1,
+			Time: 1,
 		}
 		txContext := vm.TxContext{
 			Origin:   common.Address{},
 			GasPrice: common.Big0,
 		}
-		evm := vm.NewEVM(vmBlockContext, txContext, stateDB, params.TestChainConfig, vm.Config{})
+		evm := vm.NewEVM(vmBlockContext, stateDB, params.TestChainConfig, vm.Config{})
+		evm.SetTxContext(txContext)
 		return evm
 	}
 }

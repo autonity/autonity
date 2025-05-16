@@ -32,6 +32,7 @@ import (
 	"github.com/autonity/autonity/ethdb/pebble"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/triedb"
 )
 
 func BenchmarkInsertChain_empty_memdb(b *testing.B) {
@@ -280,7 +281,8 @@ func makeChainForBench(db ethdb.Database, genesis *Genesis, full bool, count uin
 			ReceiptHash: types.EmptyReceiptsHash,
 		}
 		if n == 0 {
-			header = genesis.MustCommit(nil).Header()
+			triedb := triedb.NewDatabase(db, triedb.HashDefaults)
+			header = genesis.MustCommit(db, triedb).Header()
 		}
 		hash = header.Hash()
 
@@ -302,7 +304,7 @@ func makeChainForBench(db ethdb.Database, genesis *Genesis, full bool, count uin
 }
 
 func benchWriteChain(b *testing.B, full bool, count uint64) {
-	genesis := &Genesis{Config: params.AllEthashProtocolChanges}
+	genesis := &Genesis{Config: params.TestConfigNoVerkle}
 	for i := 0; i < b.N; i++ {
 		pdb, err := pebble.New(b.TempDir(), 1024, 128, "", false)
 		if err != nil {
@@ -339,7 +341,7 @@ func benchReadChain(b *testing.B, full bool, count uint64) {
 		}
 		db = rawdb.NewDatabase(pdb)
 
-		chain, err := NewBlockChain(db, &cacheConfig, genesis, nil, ethash.NewFaker(), vm.Config{}, nil)
+		chain, err := NewBlockChain(db, &cacheConfig, genesis, ethash.NewFaker(), vm.Config{}, nil, FakeContractBackendProvider(b), log.Root())
 		if err != nil {
 			b.Fatalf("error creating chain: %v", err)
 		}
