@@ -18,7 +18,7 @@ NUM_OF_CLIENT = 6
 NODE_NAME = "Node{}_{}"
 ENGINE_NAME = "Engine{}"
 VALIDATOR_IP_LIST_FILE = "./etc/validator.ip"
-COMMAND_START_TEST = "python3 e2etestengine.py ./test_bin/autonity -start {} -end {}"
+COMMAND_START_TEST = "python3 e2etestengine.py ./test_bin/autonity -id {}"
 FAILED_TEST_LOGS = "./JOB_{}.tar"
 SYSTEM_LOG_PATH = "/system_log"
 JOB_ID = ""
@@ -213,12 +213,12 @@ def dump_ips_to_engine_conf(ips):
         print("failed to dump ip into test engine validator.ip file. ", e)
 
 
-def start_test_engine_container(job_id, start, end):
+def start_test_engine_container(job_id, id):
     print("start test engine container, the testcase will be run in it.")
     try:
         print("test engine is going to start:")
         client = docker.from_env()
-        cmd = COMMAND_START_TEST.format(start, end)
+        cmd = COMMAND_START_TEST.format(id)
         container = client.containers.run(TEST_ENGINE_IMAGE_NAME.format(job_id), command=cmd,
                                           name=ENGINE_NAME.format(job_id), detach=True, privileged=True)
         print("test engine is started.")
@@ -260,9 +260,8 @@ if __name__ == "__main__":
     exit_code = 1
     parser = argparse.ArgumentParser()
     parser.add_argument("autonity", help="Autonity WorkDir Path")
-    # Adding two new integer parameters to set the testcase range for the testing.
-    parser.add_argument("-start", help='Start testcase index', type=int, required=True, default=0)
-    parser.add_argument("-end", help='End testcase index', type=int, required=True, default=26)
+    # Adding test case ID for the target test case to be run.
+    parser.add_argument("-id", help='Start testcase id', type=int, required=True, default=0)
 
     args = parser.parse_args()
     job_id = str(time.time())
@@ -272,8 +271,7 @@ if __name__ == "__main__":
     autonity_bin= os.path.join(autonity_path,"build/bin/autonity")
     key_inspector_bin= os.path.join(autonity_path,"build/bin/ethkey")
 
-    start = args.start
-    end = args.end
+    id = args.id
 
     # cleanup in case of test is killed by ci.
     signal.signal(signal.SIGTERM, receive_signal)
@@ -311,7 +309,7 @@ if __name__ == "__main__":
         create_test_engine_image_per_run(job_id)
 
         # start the e2e testing.
-        container = start_test_engine_container(job_id, start, end)
+        container = start_test_engine_container(job_id, id)
 
         if container is not None:
             thd = None

@@ -21,35 +21,26 @@ if __name__ == '__main__':
     parser.add_argument("autonity", help='Autonity Binary Path')
     parser.add_argument("-d", help='Start deploy remote network with brand new configurations.', type=bool, default=True)
     parser.add_argument("-t", help='Start test remote network.', type=bool, default=True)
-    # Adding two new integer parameters to set the testcase range for the testing.
-    parser.add_argument("-start", help='Start testcase index', type=int, required=True, default=0)
-    parser.add_argument("-end", help='End testcase index', type=int, required=True, default=26)
+    parser.add_argument("-id", help='testcase index', type=int, required=True, default=0)
 
     args = parser.parse_args()
 
     is_deploy = args.d
     is_testing = args.t
     autonity_path = args.autonity
-    start = args.start
-    end = args.end
+    id = args.id
 
-    LG.debug(f"First testcase index: {start}")
-    LG.debug(f"End testcase index: {end}")
+    LG.debug(f"testcase index: {id}")
 
     conf.load_project_conf()
     network_planner = None
-    passed_testcases = []
-    failed_testcases = []
 
     exit_code = 0
-    num_of_cases = 0
 
-    # Deploy will create brand new configurations then bootstrap entire network from genesis block.
-    if is_deploy:
-        network_planner = NetworkPlanner(autonity_path)
-        network_planner.plan()
-        network_planner.deploy()
-        network_planner.start_all_nodes()
+    network_planner = NetworkPlanner(autonity_path)
+    network_planner.plan()
+    network_planner.deploy()
+    network_planner.start_all_nodes()
 
     if is_testing:
         clients = None
@@ -72,11 +63,10 @@ if __name__ == '__main__':
                 exit_code = 1
 
         try:
-            # load test case view, and start testing one by one.
+            # load test case view, and start the specific test
             test_set = conf.get_test_case_conf()
-            num_of_cases = end - start
             for index, test_case in enumerate(test_set["playbook"]["testcases"]):
-                if not (start <= index < end):
+                if index != id:
                     continue
                 playbook = conf.get_test_case_conf()
                 if playbook["playbook"]["stop"] is True:
@@ -90,36 +80,18 @@ if __name__ == '__main__':
                 LG.debug("")
                 result = test.start_test()
                 if result is True:
-                    LG.info('TEST CASE PASSED: %s', test_case)
-                    passed_testcases.append(test_case)
+                    LG.info("[TEST PASSED]")
+                    exit(0)
                 if result is False:
-                    LG.error('TEST CASE FAILED: %s', test_case)
-                    failed_testcases.append(test_case)
-
+                    LG.info("[TEST FAILED]")
+                    LG.info("Log collecting for failed test ......")
+                    time.sleep(180)
+                    exit(1)
         except (KeyError, TypeError) as e:
             LG.error("Wrong configuration. %s", e)
             exit_code = 1
         except Exception as e:
             LG.error("Get error: %s", e)
             exit_code = 1
-
-    # generate an overview of the test report.
-    if len(passed_testcases) == num_of_cases:
-        LG.info("[TEST PASSED]")
-
-    LG.info("[PASS] %d/%d cases were passed.", len(passed_testcases), num_of_cases)
-    for case in passed_testcases:
-        LG.info("[PASS] %s", case["name"])
-
-    if len(failed_testcases) > 0:
-        exit_code = 1
-        LG.info("[TEST FAILED]")
-        LG.info("[FAILED] %d/%d cases were failed.", len(failed_testcases), num_of_cases)
-        for case in failed_testcases:
-            LG.info("[ERROR] %s", case["name"])
-
-        for i in range(0, len(failed_testcases)):
-            LG.info("Log collecting...")
-            time.sleep(180)
 
     exit(exit_code)
