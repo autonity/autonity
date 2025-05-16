@@ -344,5 +344,5 @@ if __name__ == "__main__":
     except Exception as e:
         print("e2e testing failed: ", e)
     finally:
-        clean_up(job_id)
+        clean_up(job_id, COMMIT_HASH)
         exit(exit_code)
