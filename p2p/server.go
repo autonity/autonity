@@ -429,7 +429,9 @@ func (srv *Server) UpdateConsensusEnodes(newCommitteeSubset []*enode.Node, newCo
 		}
 		if !found {
 			go func(peer *enode.Node) {
-				log.Debug("Dropping node from static peers", "enode", peer.String(), "server", srv.Net.String())
+				if srv.Net == Consensus {
+					log.Info("Dropping node from static peers", "enode", peer.String(), "server", srv.Net.String())
+				}
 				srv.RemoveTrustedPeer(peer)
 				switch srv.Net {
 				case Execution:
@@ -451,7 +453,7 @@ func (srv *Server) UpdateConsensusEnodes(newCommitteeSubset []*enode.Node, newCo
 		}
 		if !found {
 			go func(peer *enode.Node) {
-				log.Debug("Connecting to validator", "enode", peer.String())
+				log.Info("Connecting to validator", "enode", peer.String(), "server", srv.Net.String())
 				srv.AddTrustedPeer(peer)
 				srv.AddPeer(peer)
 			}(whitelistedEnode)
@@ -909,13 +911,23 @@ running:
 				// The handshakes are done and it passed all checks.
 				p := srv.launchPeer(c)
 				peers[c.node.ID()] = p
-				srv.log.Debug("Adding p2p peer", "peercount", len(peers), "id", p.ID(), "conn", c.flags, "addr", p.RemoteAddr(), "name", p.Name(), "server", srv.Net.String())
+				srv.log.Debug("Adding p2p peer", "id", p.ID(), "peercount", len(peers), "conn", c.flags, "local addr", p.LocalAddr(), "remote addr", p.RemoteAddr(), "name", p.Name(), "server", srv.Net.String())
 				srv.dialsched.peerAdded(c)
 				if p.Inbound() {
 					inboundCount++
 				}
 				// disconnect superfluous peers
 				srv.enforcePeersLimit(peers)
+			} else if srv.Net == Consensus {
+				srv.log.Error(
+					"Error while addPeer Checks",
+					"err",
+					err,
+					"local addr",
+					c.fd.LocalAddr(),
+					"remote",
+					c.fd.RemoteAddr(),
+				)
 			}
 			c.cont <- err
 
@@ -969,13 +981,29 @@ func (srv *Server) enforcePeersLimit(peers map[enode.ID]*Peer) {
 func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
 	srv.suspendedForBlocks.expire(srv.currentBlock.Load(), nil)
 	srv.suspendedForTimespan.expire(srv.clock.Now(), nil)
+
 	switch {
 	case !c.is(trustedConn) && len(peers) >= srv.MaxPeers:
 		return DiscTooManyPeers
 	case !c.is(trustedConn) && c.is(inboundConn) && inboundCount >= srv.maxInboundConns():
 		return DiscTooManyPeers
 	case peers[c.node.ID()] != nil:
-		return DiscAlreadyConnected
+		p := peers[c.node.ID()]
+		var err error
+		if !p.setupInProgress.Load() {
+			// Deterministic selection: keep connection from peer with lower ID
+			if bytes.Compare(srv.localnode.ID().Bytes(), c.node.ID().Bytes()) > 0 {
+				srv.log.Info("Rejecting simultaneous connection, preferring peer with lower ID", "peer", c.node.ID().String(), "server", srv.Net.String())
+				err = DiscRequested
+			} else {
+				srv.log.Info("Accepting simultaneous connection, local ID is lower", "peer", c.node.ID().String(), "server", srv.Net.String())
+				// Allow this connection to proceed, it will replace the existing one in addPeerChecks
+				err = nil
+			}
+		} else {
+			err = DiscAlreadyConnected
+		}
+		return err
 	case c.node.ID() == srv.localnode.ID():
 		return DiscSelf
 	case srv.suspendedForBlocks.contains(c.node.ID().String()):
@@ -997,6 +1025,16 @@ func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *
 	// Drop connections with no matching protocols.
 	if len(srv.Protocols) > 0 && countMatchingProtocols(srv.Protocols, c.caps) == 0 {
 		return DiscUselessPeer
+	}
+
+	if p, exists := peers[c.node.ID()]; exists {
+		if p.setupInProgress.Load() && bytes.Compare(srv.localnode.ID().Bytes(), c.node.ID().Bytes()) < 0 {
+			// This connection is preferred (lower ID), replace the existing one
+			srv.log.Info("Replacing existing connection with simultaneous one", "peer", c.node.ID().String(), "server", srv.Net.String())
+			p.Disconnect(DiscRequested)
+			return nil
+		}
+		return DiscAlreadyConnected
 	}
 	// Repeat the post-handshake checks because the
 	// peer set might have changed since those checks were performed.
@@ -1239,6 +1277,7 @@ func (srv *Server) launchPeer(c *conn) *Peer {
 		// to the peer.
 		p.events = &srv.peerFeed
 	}
+	p.UpdateSetupProgress(true)
 	go srv.runPeer(p)
 	return p
 }
