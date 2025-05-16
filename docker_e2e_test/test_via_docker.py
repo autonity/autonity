@@ -1,3 +1,5 @@
+import random
+
 import docker
 import utility
 import ipaddress
@@ -264,14 +266,14 @@ if __name__ == "__main__":
     parser.add_argument("-id", help='Start testcase id', type=int, required=True, default=0)
 
     args = parser.parse_args()
-    job_id = str(time.time())
-    JOB_ID = job_id
     autonity_path = os.path.abspath(args.autonity)
     bootnode_bin= os.path.join(autonity_path,"build/bin/bootnode")
     autonity_bin= os.path.join(autonity_path,"build/bin/autonity")
     key_inspector_bin= os.path.join(autonity_path,"build/bin/ethkey")
 
     id = args.id
+    job_id = "TS{}_CASE{}_RAND{}".format(str(time.time()), id, random.random)
+    JOB_ID = job_id
 
     # cleanup in case of test is killed by ci.
     signal.signal(signal.SIGTERM, receive_signal)
