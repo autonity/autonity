@@ -272,7 +272,7 @@ if __name__ == "__main__":
     key_inspector_bin= os.path.join(autonity_path,"build/bin/ethkey")
 
     id = args.id
-    job_id = "TS{}_CASE{}_RAND{}".format(str(time.time()), id, random.random)
+    job_id = "TS{}_CASE{}".format(str(time.time()), id)
     JOB_ID = job_id
 
     # cleanup in case of test is killed by ci.
