@@ -41,7 +41,7 @@ func TestHeaderVerificationNew(t *testing.T) {
 func testHeaderVerification(t *testing.T, scheme string) {
 	// Create a simple chain to verify
 	var (
-		gspec        = &Genesis{Config: params.TestChainConfig}
+		gspec        = &Genesis{Config: params.TestConfigNoVerkle}
 		_, blocks, _ = GenerateChainWithGenesis(gspec, ethash.NewFaker(), 8, nil)
 	)
 	headers := make([]*types.Header, len(blocks))
@@ -86,7 +86,10 @@ func testHeaderVerification(t *testing.T, scheme string) {
 	}
 }
 
-func TestHeaderVerificationForMergingClique(t *testing.T) { testHeaderVerificationForMerging(t, true) }
+func TestHeaderVerificationForMergingClique(t *testing.T) {
+	t.Skip("clique not supported with autonity")
+	testHeaderVerificationForMerging(t, true)
+}
 func TestHeaderVerificationForMergingEthash(t *testing.T) { testHeaderVerificationForMerging(t, false) }
 
 // Tests the verification for eth1/2 merging, including pre-merge and post-merge
@@ -101,7 +104,7 @@ func testHeaderVerificationForMerging(t *testing.T, isClique bool) {
 		var (
 			key, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 			addr   = crypto.PubkeyToAddress(key.PublicKey)
-			config = *params.TestChainConfig
+			config = *params.TestConfigNoVerkle
 		)
 		engine = ethash.NewFaker()
 		gspec = &Genesis{
@@ -140,7 +143,7 @@ func testHeaderVerificationForMerging(t *testing.T, isClique bool) {
 		gspec.Config.TerminalTotalDifficulty = big.NewInt(int64(td))
 		postBlocks, _ = GenerateChain(gspec.Config, preBlocks[len(preBlocks)-1], engine, genDb, 8, nil)
 	} else {
-		config := *params.TestChainConfig
+		config := *params.TestConfigNoVerkle
 		gspec = &Genesis{Config: &config}
 		engine = ethash.NewFaker()
 		td := int(params.GenesisDifficulty.Uint64())

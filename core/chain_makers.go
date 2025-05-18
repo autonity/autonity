@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/autonity/autonity/triedb/pathdb"
 	"github.com/holiman/uint256"
 
 	"github.com/autonity/autonity/common"
@@ -265,6 +266,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	if config == nil {
 		config = params.TestChainConfig
 	}
+
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 
 	cm := newChainMaker(parent, config, engine)
@@ -332,16 +334,20 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		return block, b.receipts
 	}
 
-	// Forcibly use hash-based state scheme for retaining all nodes in disk.
-	triedb := triedb.NewDatabase(db, triedb.HashDefaults)
-	defer triedb.Close()
+	triedCfg := triedb.HashDefaults
+	if config.VerkleBlock != nil {
+		triedCfg.PathDB = pathdb.Defaults
+		triedCfg.HashDB = nil
+	}
+	tdb := triedb.NewDatabase(db, triedCfg)
+	defer tdb.Close()
 
 	for i := 0; i < n; i++ {
-		statedb, err := state.New(parent.Root(), state.NewDatabase(triedb, nil))
+		statedb, err := state.New(parent.Root(), state.NewDatabase(tdb, nil))
 		if err != nil {
 			panic(err)
 		}
-		block, receipt := genblock(i, parent, triedb, statedb)
+		block, receipt := genblock(i, parent, tdb, statedb)
 		blocks[i] = block
 		receipts[i] = receipt
 		parent = block

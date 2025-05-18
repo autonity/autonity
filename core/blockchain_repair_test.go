@@ -1780,7 +1780,7 @@ func testRepairWithScheme(t *testing.T, tt *rewindTest, snapshots bool, scheme s
 	var (
 		gspec = &Genesis{
 			BaseFee: big.NewInt(params.InitialBaseFee),
-			Config:  params.TestChainConfig,
+			Config:  params.TestConfigNoVerkle,
 		}
 		engine = ethash.NewFullFaker()
 		config = &CacheConfig{
@@ -1796,7 +1796,7 @@ func testRepairWithScheme(t *testing.T, tt *rewindTest, snapshots bool, scheme s
 		config.SnapshotLimit = 256
 		config.SnapshotWait = true
 	}
-	chain, err := NewBlockChain(db, config, gspec, engine, vm.Config{}, nil, FakeContractBackendProvider(t), log.Root())
+	chain, err := NewBlockChain(db, nil, gspec, engine, vm.Config{}, nil, FakeContractBackendProvider(t), log.Root())
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
 	}

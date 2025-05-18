@@ -38,7 +38,7 @@ func TestHeaderVerification(t *testing.T) {
 	var (
 		testdb    = rawdb.NewMemoryDatabase()
 		trie      = triedb.NewDatabase(testdb, triedb.HashDefaults)
-		gspec     = &Genesis{Config: params.TestConfigNoVerkle, Difficulty: big.NewInt(0)}
+		gspec     = &Genesis{Config: params.TestConfigNoVerkle, Difficulty: big.NewInt(131072)}
 		genesis   = gspec.MustCommit(testdb, trie)
 		blocks, _ = GenerateChain(params.TestConfigNoVerkle, genesis, ethash.NewFaker(), testdb, 8, nil)
 	)
@@ -164,7 +164,7 @@ func testHeaderConcurrentAbortion(t *testing.T, threads int) {
 	var (
 		testdb    = rawdb.NewMemoryDatabase()
 		tdb       = triedb.NewDatabase(testdb, triedb.HashDefaults)
-		gspec     = &Genesis{Config: params.TestConfigNoVerkle, Difficulty: big.NewInt(0)}
+		gspec     = &Genesis{Config: params.TestConfigNoVerkle, Difficulty: big.NewInt(131072)}
 		genesis   = gspec.MustCommit(testdb, tdb)
 		blocks, _ = GenerateChain(params.TestConfigNoVerkle, genesis, ethash.NewFaker(), testdb, 1024, nil)
 	)

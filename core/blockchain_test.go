@@ -4168,7 +4168,7 @@ func testChainReorgSnapSync(t *testing.T, ancientLimit uint64) {
 			BaseFee: big.NewInt(params.InitialBaseFee),
 		}
 		signer = types.LatestSigner(gspec.Config)
-		engine = beacon.New(ethash.NewFaker())
+		engine = ethash.NewFaker()
 	)
 	genDb, blocks, receipts := GenerateChainWithGenesis(gspec, engine, 32, func(i int, block *BlockGen) {
 		block.SetCoinbase(common.Address{0x00})
