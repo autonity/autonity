@@ -39,19 +39,22 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// A mapping to retrieve the CDP for an account address.
     mapping(address => CDP) internal _cdps;
 
-    address[] private _accounts;
-    address private _autonity;
-    address private _operator;
-    address private _auctioneer;
-    address private _acu;
-    IERC20 private _collateralToken;
-    IOracle private _oracle;
-    ISupplyControl private _supplyControl;
+    address[] internal _accounts;
+    address internal _autonity;
+    address internal _operator;
+    address internal _auctioneer;
+    address internal _acu;
+    IERC20 internal _collateralToken;
+    IOracle internal _oracle;
+    ISupplyControl internal _supplyControl;
 
     // Parameters for initial CDP restrictions
-    bool private _restricted;
-    address private _atnSupplyOperator;
-    uint256 private _defaultGenesisBorrowInterestRate;
+    bool internal _restricted;
+    address internal _atnSupplyOperator;
+    uint256 internal _defaultGenesisBorrowInterestRate;
+
+    // Toggle for fixed genesis prices
+    bool internal _fixedGenesisPrices;
 
     // For borrow interest rate update mechanism
     /**
@@ -59,19 +62,19 @@ contract Stabilization is IStabilization, ReentrancyGuard {
      * The current rate `config.borrowInterestRate` is not included in this because
      * the time window of `config.borrowInterestRate` is not finished yet.
      */
-    uint256 private _aggregatedInterestExponent;
+    uint256 internal _aggregatedInterestExponent;
 
     /** @dev updatable borrow interest rate */
-    UpdatableConfig.UintConfig private _borrowInterestRate;
+    UpdatableConfig.UintConfig internal _borrowInterestRate;
 
     /** @dev updatable announcement window (in seconds) */
-    UpdatableConfig.UintConfig private _announcementWindow;
+    UpdatableConfig.UintConfig internal _announcementWindow;
 
     /** @dev Min collateralization ratio **/
-    UpdatableConfig.UintConfig private _minCollateralizationRatio;
+    UpdatableConfig.UintConfig internal _minCollateralizationRatio;
 
     /** @dev Liquidation ratio **/
-    UpdatableConfig.UintConfig private _liquidationRatio;
+    UpdatableConfig.UintConfig internal _liquidationRatio;
 
     /// Collateral Token was deposited into a CDP
     /// @param account The CDP account address
@@ -216,6 +219,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
         _acu = acu;
 
         _restricted = true;
+        _fixedGenesisPrices = true;
         _defaultGenesisBorrowInterestRate = config_.borrowInterestRate;
 
         // set updatable parameters
@@ -465,6 +469,13 @@ contract Stabilization is IStabilization, ReentrancyGuard {
         emit CDPRestrictionsRemoved();
     }
 
+    /// Transition out of the fixed genesis price state.
+    /// @dev Restricted to the operator.
+    function removeFixedGenesisPrices() external onlyOperator {
+        if (_fixedGenesisPrices == false) revert NotRestricted();
+        _fixedGenesisPrices = false;
+    }
+
     /**
      * @notice Updates the borrow interest rate. The new rate `newInterestRate` will take affect after the `config.announcementWindow` (in seconds).
      * @param newInterestRate The new interest rate multiplied by 10**18. If it is 5% then it should be `(5/100)*(10**18) = 50_000_000_000_000_000`
@@ -580,7 +591,9 @@ contract Stabilization is IStabilization, ReentrancyGuard {
             _liquidationRatio.value(),
             _minCollateralizationRatio.value(),
             _config.minDebtRequirement,
-            _config.targetPrice
+            _config.targetPrice,
+            _config.defaultNTNATNPrice,
+            _config.defaultNTNUSDPrice
         );
     }
 
@@ -839,13 +852,22 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     }
 
     function _collateralPriceACU() internal view returns (uint256) {
-        IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_USD_SYMBOL);
-        if (data.price <= 0) revert InvalidPrice();
-        uint256 acuUsd = _acuPrice();
-        return data.price * StabilizationMath.SCALE_FACTOR / acuUsd;
+        uint256 ntnUsdPrice;
+        if (_fixedGenesisPrices) {
+            ntnUsdPrice = _config.defaultNTNATNPrice;
+        } else {
+            IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_USD_SYMBOL);
+            if (data.price <= 0) revert InvalidPrice();
+            ntnUsdPrice = data.price;
+        }
+        uint256 acuUsd = acuPrice();
+        return ntnUsdPrice * StabilizationMath.SCALE_FACTOR / acuUsd;
     }
 
     function _collateralPrice() internal view returns (uint256 price) {
+        if (_fixedGenesisPrices) {
+            return _config.defaultNTNATNPrice;
+        }
         IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_SYMBOL);
         if (data.price <= 0) revert InvalidPrice();
         price = data.price;
