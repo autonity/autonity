@@ -112,10 +112,7 @@ def start_client_containers(job_id):
                                               volumes={"/sys/fs/cgroup": {"bind": "/sys/fs/cgroup", "mode": "ro"}})
             print("create new container: ", container.id)
             container.logs()
-            print(utility.execute("sudo docker ps -a"))
-            print(utility.execute("sudo docker logs " + str(node_name)))
             result = utility.execute("sudo docker inspect -f \'{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}\' " + node_name)
-            print(result)
             if result[1] != "":
                 print("cannot get container ip: ", result[1])
                 continue
