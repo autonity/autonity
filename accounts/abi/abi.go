@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
@@ -94,7 +95,7 @@ func (abi ABI) Pack(name string, args ...interface{}) ([]byte, error) {
 
 func (abi ABI) getArguments(name string, data []byte) (Arguments, error) {
 	// since there can't be naming collisions with contracts and events,
-	// we need to decide whether we're calling a method or an event
+	// we need to decide whether we're calling a method, event or an error
 	var args Arguments
 	if method, ok := abi.Methods[name]; ok {
 		if len(data)%32 != 0 {
@@ -105,8 +106,11 @@ func (abi ABI) getArguments(name string, data []byte) (Arguments, error) {
 	if event, ok := abi.Events[name]; ok {
 		args = event.Inputs
 	}
+	if err, ok := abi.Errors[name]; ok {
+		args = err.Inputs
+	}
 	if args == nil {
-		return nil, errors.New("abi: could not locate named method or event")
+		return nil, fmt.Errorf("abi: could not locate named method, event or error: %s", name)
 	}
 	return args, nil
 }
@@ -198,6 +202,8 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 			name := overloadedName(field.Name, func(s string) bool { _, ok := abi.Events[s]; return ok })
 			abi.Events[name] = NewEvent(name, field.Name, field.Anonymous, field.Inputs)
 		case "error":
+			// Errors cannot be overloaded or overridden but are inherited,
+			// no need to resolve the name conflict here.
 			abi.Errors[field.Name] = NewError(field.Name, field.Inputs)
 		default:
 			return fmt.Errorf("abi: could not recognize type %v of field %v", field.Type, field.Name)
@@ -248,6 +254,17 @@ func (abi *ABI) EventByID(topic common.Hash) (*Event, error) {
 	return nil, fmt.Errorf("no event with id: %#x", topic.Hex())
 }
 
+// ErrorByID looks up an error by the 4-byte id,
+// returns nil if none found.
+func (abi *ABI) ErrorByID(sigdata [4]byte) (*Error, error) {
+	for _, errABI := range abi.Errors {
+		if bytes.Equal(errABI.ID[:4], sigdata[:]) {
+			return &errABI, nil
+		}
+	}
+	return nil, fmt.Errorf("no error with id: %#x", sigdata[:])
+}
+
 // HasFallback returns an indicator whether a fallback function is included.
 func (abi *ABI) HasFallback() bool {
 	return abi.Fallback.Type == Fallback
@@ -261,6 +278,27 @@ func (abi *ABI) HasReceive() bool {
 // revertSelector is a special function selector for revert reason unpacking.
 var revertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
 
+// panicSelector is a special function selector for panic reason unpacking.
+var panicSelector = crypto.Keccak256([]byte("Panic(uint256)"))[:4]
+
+// panicReasons map is for readable panic codes
+// see this linkage for the details
+// https://docs.soliditylang.org/en/v0.8.21/control-structures.html#panic-via-assert-and-error-via-require
+// the reason string list is copied from ether.js
+// https://github.com/ethers-io/ethers.js/blob/fa3a883ff7c88611ce766f58bdd4b8ac90814470/src.ts/abi/interface.ts#L207-L218
+var panicReasons = map[uint64]string{
+	0x00: "generic panic",
+	0x01: "assert(false)",
+	0x11: "arithmetic underflow or overflow",
+	0x12: "division or modulo by zero",
+	0x21: "enum overflow",
+	0x22: "invalid encoded storage byte array accessed",
+	0x31: "out-of-bounds array access; popping on an empty array",
+	0x32: "out-of-bounds access of an array or bytesN",
+	0x41: "out of memory",
+	0x51: "uninitialized function",
+}
+
 // UnpackRevert resolves the abi-encoded revert reason. According to the solidity
 // spec https://solidity.readthedocs.io/en/latest/control-structures.html#revert,
 // the provided revert reason is abi-encoded as if it were a call to a function
@@ -269,15 +307,38 @@ func UnpackRevert(data []byte) (string, error) {
 	if len(data) < 4 {
 		return "", errors.New("invalid data for unpacking")
 	}
-	if !bytes.Equal(data[:4], revertSelector) {
+	switch {
+	case bytes.Equal(data[:4], revertSelector):
+		typ, err := NewType("string", "", nil)
+		if err != nil {
+			return "", err
+		}
+		unpacked, err := (Arguments{{Type: typ}}).Unpack(data[4:])
+		if err != nil {
+			return "", err
+		}
+		return unpacked[0].(string), nil
+	case bytes.Equal(data[:4], panicSelector):
+		typ, err := NewType("uint256", "", nil)
+		if err != nil {
+			return "", err
+		}
+		unpacked, err := (Arguments{{Type: typ}}).Unpack(data[4:])
+		if err != nil {
+			return "", err
+		}
+		pCode := unpacked[0].(*big.Int)
+		// uint64 safety check for future
+		// but the code is not bigger than MAX(uint64) now
+		if pCode.IsUint64() {
+			if reason, ok := panicReasons[pCode.Uint64()]; ok {
+				return reason, nil
+			}
+		}
+		return fmt.Sprintf("unknown panic code: %#x", pCode), nil
+	default:
 		return "", errors.New("invalid data for unpacking")
 	}
-	typ, _ := NewType("string", "", nil)
-	unpacked, err := (Arguments{{Type: typ}}).Unpack(data[4:])
-	if err != nil {
-		return "", err
-	}
-	return unpacked[0].(string), nil
 }
 
 // overloadedName returns the next available name for a given thing.

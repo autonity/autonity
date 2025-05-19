@@ -42,6 +42,7 @@ const (
 	// maxBlockFetchers is the max number of goroutines to spin up to pull blocks
 	// for the fee history calculation (mostly relevant for LES).
 	maxBlockFetchers = 4
+	maxQueryLimit    = 100
 )
 
 // blockFees represents a single block for processing
@@ -184,10 +185,11 @@ func (oracle *Oracle) resolveBlockRange(ctx context.Context, lastBlock rpc.Block
 // actually processed range is returned to avoid ambiguity when parts of the requested range
 // are not available or when the head has changed during processing this request.
 // Three arrays are returned based on the processed blocks:
-// - reward: the requested percentiles of effective priority fees per gas of transactions in each
-//   block, sorted in ascending order and weighted by gas used.
-// - baseFee: base fee per gas in the given block
-// - gasUsedRatio: gasUsed/gasLimit in the given block
+//   - reward: the requested percentiles of effective priority fees per gas of transactions in each
+//     block, sorted in ascending order and weighted by gas used.
+//   - baseFee: base fee per gas in the given block
+//   - gasUsedRatio: gasUsed/gasLimit in the given block
+//
 // Note: baseFee includes the next block after the newest of the returned range, because this
 // value can be derived from the newest block.
 func (oracle *Oracle) FeeHistory(ctx context.Context, blocks int, unresolvedLastBlock rpc.BlockNumber, rewardPercentiles []float64) (*big.Int, [][]*big.Int, []*big.Int, []float64, error) {
@@ -198,6 +200,9 @@ func (oracle *Oracle) FeeHistory(ctx context.Context, blocks int, unresolvedLast
 	if len(rewardPercentiles) != 0 {
 		maxFeeHistory = oracle.maxBlockHistory
 	}
+	if len(rewardPercentiles) > maxQueryLimit {
+		return common.Big0, nil, nil, nil, fmt.Errorf("%w: over the query limit %d", errInvalidPercentile, maxQueryLimit)
+	}
 	if blocks > maxFeeHistory {
 		log.Warn("Sanitizing fee history length", "requested", blocks, "truncated", maxFeeHistory)
 		blocks = maxFeeHistory
@@ -206,8 +211,8 @@ func (oracle *Oracle) FeeHistory(ctx context.Context, blocks int, unresolvedLast
 		if p < 0 || p > 100 {
 			return common.Big0, nil, nil, nil, fmt.Errorf("%w: %f", errInvalidPercentile, p)
 		}
-		if i > 0 && p < rewardPercentiles[i-1] {
-			return common.Big0, nil, nil, nil, fmt.Errorf("%w: #%d:%f > #%d:%f", errInvalidPercentile, i-1, rewardPercentiles[i-1], i, p)
+		if i > 0 && p <= rewardPercentiles[i-1] {
+			return common.Big0, nil, nil, nil, fmt.Errorf("%w: #%d:%f >= #%d:%f", errInvalidPercentile, i-1, rewardPercentiles[i-1], i, p)
 		}
 	}
 	var (

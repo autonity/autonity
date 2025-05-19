@@ -23,15 +23,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/autonity/autonity/metrics"
 	"github.com/stretchr/testify/require"
 )
-
-func init() {
-	rand.Seed(time.Now().Unix())
-}
 
 // TestFreezerBasics test initializing a freezertable from scratch, writing to the table,
 // and reading it back.

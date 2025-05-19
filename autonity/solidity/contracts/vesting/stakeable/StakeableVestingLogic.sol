@@ -11,9 +11,11 @@ import "./ValidatorManager.sol";
  * @notice It does not support to act as a treasury account. So only delegated staking works with this.
  * @dev Only one smart contract is deployed by `StakeableVestingManager` which is used by separate accounts.
  */
-contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, ValidatorManager, IStakeableVesting {
+contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, ValidatorManager, IStakeableVesting, IConfigEvents {
 
     using QueueLib for StakingRequestQueue;
+
+    event BeneficiaryChanged(address indexed newBeneficiary, address indexed oldBeneficiary, address indexed contractAddress);
 
     constructor(address payable _autonity) AccessAutonity(_autonity) {
         managerContract = IStakeableVestingManager(payable(msg.sender));
@@ -46,6 +48,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @custom:restricted-to operator account
      */
     function setManagerContract(address _managerContract) virtual external onlyOperator {
+        emit IConfigEvents.ConfigUpdateAddress("managerContract", address(managerContract), _managerContract);
         managerContract = IStakeableVestingManager(payable(_managerContract));
     }
 
@@ -54,13 +57,13 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * When releasing funds, it tries to release everything from NTN balance first.
      * If the withdrawable vested funds is `v` NTN and NTN balance of the contract is `n`,
      * one of the following will happen
-     * 
+     *
      *      1. `if (n >= v)`, all `v` NTN will be released from NTN balance and the
      *          remaining NTN balance will be `n-v` and no other asset is updated and the function exits.
-     * 
+     *
      *      2. `if (n < v)`, all `n` NTN will be released from NTN balance and we update `v = v-n` and additional
      *          LNTN equivalent of `v` NTN will be released. See `releaseAllLNTN()` for how the LNTN will be released.
-     * 
+     *
      * So before calling `releaseFunds()`, see the `linkedValidators` list using the function `getLinkedValidators()`.
      */
     function releaseFunds() virtual external onlyBeneficiary {
@@ -87,13 +90,13 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     /**
      * @notice Used by beneficiary to transfer all vested LNTN to his own address.
      * If the withdrawable vested funds is `v` NTN, the LNTN will be released in the following order starting from `idx = 0`.
-     * 
+     *
      *      1. Let `b` = unlocked LNTN balance of the contract for `linkedValidators[idx]` and `c` = equivalent NTN for `b` LNTN.
      *          `if (c >= v)`, then LNTN equivalent of `v` NTN will be released from `linkedValidators[idx]` and the function exits.
-     * 
+     *
      *      2. `if (c < v)`, then all unlocked LNTN from `linkedValidators[idx]` will be released and we increase `idx = idx+1`
      *          and we update `v = v-c` and repeate from the process 1 if `idx < linkedValidators.length`.
-     * 
+     *
      * So before calling `releaseAllLNTN()`, see the `linkedValidators` list using the function `getLinkedValidators()`.
      */
     function releaseAllLNTN() virtual external onlyBeneficiary {
@@ -149,8 +152,9 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @custom:restricted-to operator account
      */
     function changeContractBeneficiary(address _recipient) virtual external onlyManager {
-        _claimAndSendRewards();
+        _claimAndSendRewards(true);
         _clearValidators();
+        emit BeneficiaryChanged(_recipient, beneficiary, address(this));
         beneficiary = _recipient;
     }
 
@@ -211,8 +215,8 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     /**
      * @notice Used by beneficiary to claim all rewards from bonding to all the validators.
      */
-    function claimRewards() virtual external onlyBeneficiary {
-        _claimAndSendRewards();
+    function claimAllRewards() virtual external onlyBeneficiary {
+        _claimAndSendRewards(false);
         _clearValidators();
     }
 
@@ -363,10 +367,13 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         require(_sent, "LNTN transfer failed");
     }
 
-    function _sendRewards(uint256 _atnReward) internal {
+    function _sendRewards(uint256 _atnReward, bool _allowFailure) internal {
         // Send the AUT
         // solhint-disable-next-line avoid-low-level-calls
-        (bool _sent, ) = beneficiary.call{value: _atnReward}("");
+        (bool _sent, ) = beneficiary.call{value: _atnReward, gas: 2300}("");
+        if (_allowFailure && !_sent) {
+            (_sent, ) = autonity.getTreasuryAccount().call{value: _atnReward}("");
+        }
         require(_sent, "failed to send ATN");
     }
 
@@ -486,20 +493,20 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         address _myAddress = address(this);
         uint256 _atnBalance = _myAddress.balance;
         _liquidStateContract(_validator).claimRewards();
-        _sendRewards(_myAddress.balance - _atnBalance);
+        _sendRewards(_myAddress.balance - _atnBalance, false);
     }
 
     /**
      * @dev Claims all rewards from the liquid contract from all bonded validators.
      */
-    function _claimAndSendRewards() internal {
+    function _claimAndSendRewards(bool _allowFailure) internal {
         address _myAddress = address(this);
         uint256 _atnBalance = _myAddress.balance;
         uint256 _length = linkedValidators.length;
         for (uint256 i = 0; i < _length; i++) {
             _liquidStateContract(linkedValidators[i]).claimRewards();
         }
-        _sendRewards(_myAddress.balance - _atnBalance);
+        _sendRewards(_myAddress.balance - _atnBalance, _allowFailure);
     }
 
     /*
@@ -587,7 +594,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     }
 
     /**
-     * @notice Returns the amount of unlocked (not vested) LNTN bonded to `_validator` from the contract.
+     * @notice Returns the amount of unlocked (not unbonding) LNTN bonded to `_validator` from the contract.
      * @param _validator validator address
      */
     function unlockedLiquidBalance(address _validator) virtual external view returns (uint256) {
@@ -595,7 +602,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     }
 
     /**
-     * @notice Returns the amount of locked (not unvested) LNTN bonded to `_validator` from the contract.
+     * @notice Returns the amount of locked (unbonding) LNTN bonded to `_validator` from the contract.
      * @param _validator validator address
      */
     function lockedLiquidBalance(address _validator) virtual external view returns (uint256) {

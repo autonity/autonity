@@ -146,9 +146,9 @@ function checkUnbondingShare(unbondingRequest, delegatee, delegator, tokenUnbond
 }
 
 contract('Autonity', function (accounts) {
-    before(async function () {
-      await utils.mockPrecompile()
-    });
+  before(async function () {
+    await utils.mockPrecompile()
+  });
 
   for (let i = 0; i < accounts.length; i++) {
     console.log("account: ", i, accounts[i]);
@@ -282,19 +282,19 @@ contract('Autonity', function (accounts) {
 
     it("should revert with bad input", async () => {
       await truffleAssert.fails(
-        autonity.changeCommissionRate(genesisNodeAddresses[1], 1337, {from:accounts[3]}),
+        autonity.changeCommissionRate(genesisNodeAddresses[1], 1337, {from: accounts[3]}),
         truffleAssert.ErrorType.REVERT,
         "require caller to be validator admin account"
       );
 
       await truffleAssert.fails(
-        autonity.changeCommissionRate(accounts[5], 1337, {from:accounts[3]}),
+        autonity.changeCommissionRate(accounts[5], 1337, {from: accounts[3]}),
         truffleAssert.ErrorType.REVERT,
         "validator must be registered"
       );
 
       await truffleAssert.fails(
-        autonity.changeCommissionRate(genesisNodeAddresses[3], 13370, {from:accounts[4]}),
+        autonity.changeCommissionRate(genesisNodeAddresses[3], 13370, {from: accounts[4]}),
         truffleAssert.ErrorType.REVERT,
         "require correct commission rate"
       );
@@ -302,29 +302,29 @@ contract('Autonity', function (accounts) {
     });
 
     it("should change a validator commission rate with correct inputs", async () => {
-      const txChangeRate = await autonity.changeCommissionRate(genesisNodeAddresses[1], 1337, {from:accounts[1]});
+      const txChangeRate = await autonity.changeCommissionRate(genesisNodeAddresses[1], 1337, {from: accounts[1]});
       truffleAssert.eventEmitted(txChangeRate, 'CommissionRateChange', (ev) => {
         return ev.validator === genesisNodeAddresses[1] && ev.rate.toString() == "1337";
       }, 'should emit correct event');
 
-      await autonity.changeCommissionRate(genesisNodeAddresses[3], 1339, {from:accounts[4]});
-      await autonity.changeCommissionRate(genesisNodeAddresses[1], 1338, {from:accounts[1]});
+      await autonity.changeCommissionRate(genesisNodeAddresses[3], 1339, {from: accounts[4]});
+      await autonity.changeCommissionRate(genesisNodeAddresses[1], 1338, {from: accounts[1]});
 
-      const txApplyCommChange = await autonity.applyNewCommissionRates({from:deployer});
+      const txApplyCommChange = await autonity.applyNewCommissionRates({from: deployer});
       const v1 = await autonity.getValidator(genesisNodeAddresses[1]);
-      assert.equal(v1.commissionRate,1338);
+      assert.equal(v1.commissionRate, 1338);
 
       const v3 = await autonity.getValidator(genesisNodeAddresses[3]);
-      assert.equal(v3.commissionRate,1339);
+      assert.equal(v3.commissionRate, 1339);
 
     })
 
     it("should change a validator commission rate only after unbonding period", async () => {
-      await autonity.setUnbondingPeriod(5, {from:operator});
-      await autonity.changeCommissionRate(genesisNodeAddresses[1], 1338, {from:accounts[1]});
-      await autonity.applyNewCommissionRates({from:deployer});
+      await autonity.setUnbondingPeriod(5, {from: operator});
+      await autonity.changeCommissionRate(genesisNodeAddresses[1], 1338, {from: accounts[1]});
+      await autonity.applyNewCommissionRates({from: deployer});
       let v1 = await autonity.getValidator(genesisNodeAddresses[1]);
-      assert.equal(v1.commissionRate,100);
+      assert.equal(v1.commissionRate, 100);
 
       await utils.mineEmptyBlock()
       await utils.mineEmptyBlock()
@@ -334,9 +334,9 @@ contract('Autonity', function (accounts) {
       await utils.mineEmptyBlock()
       await utils.mineEmptyBlock()
 
-      await autonity.applyNewCommissionRates({from:deployer});
+      await autonity.applyNewCommissionRates({from: deployer});
       v1 = await autonity.getValidator(genesisNodeAddresses[1]);
-      assert.equal(v1.commissionRate,1338);
+      assert.equal(v1.commissionRate, 1338);
     });
   })
 
@@ -365,7 +365,7 @@ contract('Autonity', function (accounts) {
 
     it('test regular validator cannot set min base fee', async function () {
       let initMGP = await autonity.getMinimumBaseFee({from: operator});
-      
+
       await truffleAssert.fails(
         autonity.setMinimumBaseFee(50000, {from: accounts[9]}),
         truffleAssert.ErrorType.REVERT,
@@ -384,7 +384,7 @@ contract('Autonity', function (accounts) {
 
     it('test regular validator cannot set committee size', async function () {
       let initCommitteeSize = await autonity.getMaxCommitteeSize({from: operator});
-      
+
       await truffleAssert.fails(
         autonity.setCommitteeSize(500, {from: accounts[9]}),
         truffleAssert.ErrorType.REVERT,
@@ -398,39 +398,39 @@ contract('Autonity', function (accounts) {
     it('test set un-bonding period by operator', async function () {
       await autonity.setUnbondingPeriod(127, {from: operator});
       let uP = await autonity.getUnbondingPeriod({from: operator});
-      assert.equal(127,uP)
+      assert.equal(127, uP)
     });
 
     it('test regular validator cannot set un-bonding period', async function () {
       let initUP = await autonity.getUnbondingPeriod({from: operator});
-      
+
       await truffleAssert.fails(
         autonity.setUnbondingPeriod(127, {from: accounts[9]}),
         truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
       let uP = await autonity.getUnbondingPeriod({from: operator});
-      assert.equal(initUP.toString(),uP.toString())
+      assert.equal(initUP.toString(), uP.toString())
     });
 
     it('test extend epoch period by operator', async function () {
       await autonity.setEpochPeriod(98, {from: operator});
       await utils.endEpoch(autonity, operator, deployer);
       let eP = await autonity.getEpochPeriod({from: operator});
-      assert.equal("98",eP.toString())
+      assert.equal("98", eP.toString())
     });
 
     it('test regular validator cannot extend epoch period', async function () {
       let initEP = await autonity.getEpochPeriod({from: operator});
-      
+
       await truffleAssert.fails(
-        autonity.setEpochPeriod(98, {from:accounts[9]}),
+        autonity.setEpochPeriod(98, {from: accounts[9]}),
         truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
-      
+
       let eP = await autonity.getEpochPeriod({from: accounts[9]});
-      assert.equal(initEP.toString(),eP.toString())
+      assert.equal(initEP.toString(), eP.toString())
     });
 
     it('test set operator account by operator', async function () {
@@ -442,7 +442,7 @@ contract('Autonity', function (accounts) {
 
     it('test regular validator cannot set operator account', async function () {
       let initOperator = await autonity.getOperator({from: operator});
-      
+
       await truffleAssert.fails(
         autonity.setOperatorAccount(accounts[1], {from: accounts[9]}),
         truffleAssert.ErrorType.REVERT,
@@ -456,22 +456,22 @@ contract('Autonity', function (accounts) {
     it('test set treasury account by operator', async function () {
       let newTreasury = accounts[1];
       await autonity.setTreasuryAccount(newTreasury, {from: operator});
-      
+
       let treasury = await autonity.getTreasuryAccount({from: operator});
-      assert.deepEqual(newTreasury,treasury)
+      assert.deepEqual(newTreasury, treasury)
     });
 
     it('test regular validator cannot set treasury account', async function () {
       let initTreasury = await autonity.getTreasuryAccount({from: operator});
-      
+
       await truffleAssert.fails(
         autonity.setTreasuryAccount(accounts[9], {from: accounts[9]}),
         truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
-      
+
       let treasury = await autonity.getTreasuryAccount({from: operator});
-      assert.deepEqual(initTreasury,treasury)
+      assert.deepEqual(initTreasury, treasury)
     });
 
     it('test set treasury fee by operator', async function () {
@@ -479,7 +479,7 @@ contract('Autonity', function (accounts) {
       let newFee = initFee + 1;
       await autonity.setTreasuryFee(newFee, {from: operator});
       let treasuryFee = await autonity.getTreasuryFee({from: operator});
-      assert.equal(newFee,treasuryFee)
+      assert.equal(newFee, treasuryFee)
     });
 
     it.skip('test set treasury fee with invalid value by operator', async function () {
@@ -500,7 +500,7 @@ contract('Autonity', function (accounts) {
         "caller is not the operator"
       );
       let treasuryFee = await autonity.getTreasuryFee({from: operator});
-      assert.equal(treasuryFee.toString(),initFee.toString())
+      assert.equal(treasuryFee.toString(), initFee.toString())
     });
   });
   describe('Test onlyAccountability and onlyProtocol', function () {
@@ -559,7 +559,7 @@ contract('Autonity', function (accounts) {
     it('test regular validator cannot burn Newton', async function () {
       let initBalance = await autonity.balanceOf(accounts[1]);
       let tokenBurn = 10;
-      
+
       await truffleAssert.fails(
         autonity.burn(accounts[1], tokenBurn, {from: anyAccount}),
         truffleAssert.ErrorType.REVERT,
@@ -587,7 +587,7 @@ contract('Autonity', function (accounts) {
       let amount = 10000000;
       let initBalanceA = await autonity.balanceOf(accounts[1]);
       let initBalanceB = await autonity.balanceOf(accounts[3]);
-      
+
       await truffleAssert.fails(
         autonity.transfer(accounts[1], amount, {from: accounts[3]}),
         truffleAssert.ErrorType.REVERT,
@@ -658,16 +658,16 @@ contract('Autonity', function (accounts) {
       balance -= tokenMint;
       actualBalance = (await autonity.balanceOf(newAccount)).toNumber();
       assert.equal(actualBalance, balance, "incorrect balance after bonding");
-      
+
 
       // num of stakings from contract construction equals: length of validators and the latest bond.
       // ids start from 0
-      let latestBondingReqId = validators.length;      
+      let latestBondingReqId = validators.length;
       let bondingRequest = await autonity.getBondingRequest(latestBondingReqId);
       assert.equal(bondingRequest.amount, tokenMint, "stake bonding amount is not expected");
       assert.equal(bondingRequest.delegator, newAccount, "delegator addr is not expected");
       assert.equal(bondingRequest.delegatee, validators[0].nodeAddress, "delegatee addr is not expected");
-      
+
 
       // LNTN is minted to delegator at epoch end
       let validatorInfo = await autonity.getValidator(validators[0].nodeAddress);
@@ -700,16 +700,16 @@ contract('Autonity', function (accounts) {
       balance -= tokenMint;
       actualBalance = (await autonity.balanceOf(treasury)).toNumber();
       assert.equal(actualBalance, balance, "incorrect balance after bonding");
-      
+
 
       // num of stakings from contract construction equals: length of validators and the latest bond.
       // ids start from 0
-      let latestBondingReqId = validators.length;      
+      let latestBondingReqId = validators.length;
       let bondingRequest = await autonity.getBondingRequest(latestBondingReqId);
       assert.equal(bondingRequest.amount, tokenMint, "stake bonding amount is not expected");
       assert.equal(bondingRequest.delegator, treasury, "delegator addr is not expected");
       assert.equal(bondingRequest.delegatee, validator, "delegatee addr is not expected");
-      
+
 
       // for selfBonded, no LNTN is minted to delegator at epoch end
       await utils.endEpoch(autonity, operator, deployer);
@@ -741,7 +741,7 @@ contract('Autonity', function (accounts) {
 
     it("can't bond to a paused validator", async function () {
       await autonity.pauseValidator(validators[0].nodeAddress, {from: validators[0].treasury});
-      
+
       await truffleAssert.fails(
         autonity.bond(validators[0].nodeAddress, 100, {from: validators[0].treasury}),
         truffleAssert.ErrorType.REVERT,
@@ -757,7 +757,7 @@ contract('Autonity', function (accounts) {
       let balance = (await autonity.balanceOf(from)).toNumber();
       // unBond from self, a registered validator.
       let tx = await autonity.unbond(validators[0].nodeAddress, tokenUnBond, {from: from});
-      
+
       truffleAssert.eventEmitted(tx, 'NewUnbondingRequest', (ev) => {
         return ev.validator === validators[0].nodeAddress && ev.delegator === from && ev.selfBonded === true && ev.amount.toNumber() === tokenUnBond
       }, 'should emit newUnbondingRequest event');
@@ -795,7 +795,7 @@ contract('Autonity', function (accounts) {
       assert.equal(currentBalance, balance + tokenUnBond, "NTN not released after unbonding period");
       checkValInfoAfterRelease(await autonity.getValidator(validators[0].nodeAddress), validatorInfo, tokenUnBond, tokenUnBond);
 
-     
+
     });
 
     it('un-bond from a valid validator (non-self-bonded)', async function () {
@@ -812,7 +812,7 @@ contract('Autonity', function (accounts) {
       await utils.endEpoch(autonity, operator, deployer);
       // unBond from validator.
       let tx = await autonity.unbond(validator, tokenUnBond, {from: newAccount});
-      
+
       truffleAssert.eventEmitted(tx, 'NewUnbondingRequest', (ev) => {
         return ev.validator === validator && ev.delegator === newAccount && ev.selfBonded === false && ev.amount.toNumber() === tokenUnBond
       }, 'should emit newUnbondingRequest event');
@@ -855,7 +855,7 @@ contract('Autonity', function (accounts) {
       assert.equal(currentBalance, balance + tokenUnBond, "NTN not released after unbonding period");
       checkValInfoAfterRelease(await autonity.getValidator(validator), newValInfo, 0, tokenUnBond);
 
-     
+
     });
 
   });
@@ -869,7 +869,7 @@ contract('Autonity', function (accounts) {
     it('does not unbond from not registered validator', async function () {
       let unRegisteredVal = anyAccount;
       let tokenUnBond = 10;
-      
+
       await truffleAssert.fails(
         autonity.unbond(unRegisteredVal, tokenUnBond, {from: validators[0].treasury}),
         truffleAssert.ErrorType.REVERT,
@@ -880,15 +880,15 @@ contract('Autonity', function (accounts) {
     it("can't unbond from  avalidator with the amount exceeding the available balance", async function () {
       let tokenUnBond = 99999;
       let from = validators[0].treasury;
-      
+
       await truffleAssert.fails(
         autonity.unbond(validators[0].nodeAddress, tokenUnBond, {from: from}),
         truffleAssert.ErrorType.REVERT,
         "insufficient self bonded newton balance"
       );
     });
-    
-    it("non-self-unbond 0 amount without bonding first, and trigger end-epoch", async function() {
+
+    it("non-self-unbond 0 amount without bonding first, and trigger end-epoch", async function () {
       const newAccount = accounts[8];
       const validator = validators[0].nodeAddress;
       // should fail
@@ -901,7 +901,7 @@ contract('Autonity', function (accounts) {
       // and autonity contract will not be able to end epoch
       await utils.endEpoch(autonity, operator, deployer);
     });
-    
+
     it('test bonding queue logic', async function () {
       // num of stakings from contract construction equals: length of validators 
       let numOfStakings = validators.length;
@@ -909,18 +909,18 @@ contract('Autonity', function (accounts) {
       // they are all processed at contract construction time, so there should be no pending requests
       let tailBondingID = (await autonity.getTailBondingID()).toNumber();
       assert(tailBondingID >= (await autonity.getHeadBondingID()).toNumber(), "Pending bonding request found");
-      
+
       // ids start from 0
       let latestBondingReqId = numOfStakings - 1;
       assert.equal(latestBondingReqId, (await autonity.getHeadBondingID()).toNumber() - 1, "last bonding request id mismatch");
-      
+
       // do a new bonding req
       let newAccount = accounts[8];
       let tokenMint = 200;
       await autonity.mint(newAccount, tokenMint, {from: operator});
       await autonity.bond(validators[0].nodeAddress, tokenMint, {from: newAccount});
       numOfStakings++;
-      
+
       // ids start from 0
       latestBondingReqId = numOfStakings - 1;
       assert.equal(latestBondingReqId, (await autonity.getHeadBondingID()).toNumber() - 1, "last bonding request id mismatch");
@@ -939,12 +939,12 @@ contract('Autonity', function (accounts) {
       let headUnbondingID = (await autonity.getHeadUnbondingID()).toNumber();
       assert(lastUnlockedUnbonding >= headUnbondingID, "Pending unbonding request found");
       assert(headUnbondingID == 0, "Unbonding is requested");
-      
+
       // do a new unbonding req
       let tokenUnBond = 10;
       let from = validators[0].treasury;
       await autonity.unbond(validators[0].nodeAddress, tokenUnBond, {from: from});
-      
+
       let latestUnbondingReqId = 0;
       assert.equal(latestUnbondingReqId, (await autonity.getHeadUnbondingID()).toNumber() - 1, "last unbonding request id mismatch");
       assert.equal(latestUnbondingReqId, (await autonity.getLastUnlockedUnbonding()).toNumber(), "first unbonding request id mismatch");
@@ -1083,251 +1083,251 @@ contract('Autonity', function (accounts) {
   });
 
   describe('Test DPoS reward distribution', function () {
-      let copyParams = autonityConfig;
-      let token;
-      beforeEach(async function () {
-          // set short epoch period
-          let customizedEpochPeriod = 20;
-          copyParams.protocol.epochPeriod = customizedEpochPeriod;
+    let copyParams = autonityConfig;
+    let token;
+    beforeEach(async function () {
+      // set short epoch period
+      let customizedEpochPeriod = 20;
+      copyParams.protocol.epochPeriod = customizedEpochPeriod;
 
-          token = await utils.deployContracts(validators, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
-          assert.equal((await token.getEpochPeriod()).toNumber(),customizedEpochPeriod);
-      });
+      token = await utils.deployContracts(validators, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
+      assert.equal((await token.getEpochPeriod()).toNumber(), customizedEpochPeriod);
+    });
 
-      it('test finalize with not deployer account, exception should rise.', async function () {
-          await truffleAssert.fails(
-            token.finalize({from: anyAccount}),
-            truffleAssert.ErrorType.REVERT,
-            "function restricted to the protocol",
-          );
-      });
+    it('test finalize with not deployer account, exception should rise.', async function () {
+      await truffleAssert.fails(
+        token.finalize({from: anyAccount}),
+        truffleAssert.ErrorType.REVERT,
+        "function restricted to the protocol",
+      );
+    });
 
-      it('test reward distribution with only selfBondedStake (no delegated stake)', async function () {
-          let reward = 1000000000000000;
-          // contract account should have no funds.
-          let initFunds = await web3.eth.getBalance(token.address);
-          assert.equal(initFunds,0);
+    it('test reward distribution with only selfBondedStake (no delegated stake)', async function () {
+      let reward = 1000000000000000;
+      // contract account should have no funds.
+      let initFunds = await web3.eth.getBalance(token.address);
+      assert.equal(initFunds, 0);
 
-          // send funds to contract account, to get them distributed later on.
-          await web3.eth.sendTransaction({from: anyAccount, to: token.address, value: reward});
-          let loadedBalance = await web3.eth.getBalance(token.address);
-          assert.equal(loadedBalance, reward);
+      // send funds to contract account, to get them distributed later on.
+      await web3.eth.sendTransaction({from: anyAccount, to: token.address, value: reward});
+      let loadedBalance = await web3.eth.getBalance(token.address);
+      assert.equal(loadedBalance, reward);
 
-          // get validators and treasury initial ATN balance
-          let initBalanceV0 = toBN(await web3.eth.getBalance(validators[0].treasury));
-          let initBalanceV1 = toBN(await web3.eth.getBalance(validators[1].treasury));
-          let initBalanceV2 = toBN(await web3.eth.getBalance(validators[2].treasury));
-          let initBalanceV3 = toBN(await web3.eth.getBalance(validators[3].treasury));
-          let initBalanceTreasury = toBN(await web3.eth.getBalance(treasuryAccount));
+      // get validators and treasury initial ATN balance
+      let initBalanceV0 = toBN(await web3.eth.getBalance(validators[0].treasury));
+      let initBalanceV1 = toBN(await web3.eth.getBalance(validators[1].treasury));
+      let initBalanceV2 = toBN(await web3.eth.getBalance(validators[2].treasury));
+      let initBalanceV3 = toBN(await web3.eth.getBalance(validators[3].treasury));
+      let initBalanceTreasury = toBN(await web3.eth.getBalance(treasuryAccount));
 
-          // close epoch --> rewards are distributed
-          await utils.endEpoch(token,operator,deployer)
+      // close epoch --> rewards are distributed
+      await utils.endEpoch(token, operator, deployer)
 
-          // check autonity treasury reward
-          let expectedTreasuryReward = toBN(copyParams.policy.treasuryFee).mul(toBN(reward)).div(toBN(10 ** 18));
-          let afterBalanceTreasury = toBN(await web3.eth.getBalance(treasuryAccount));
-          assert.equal(afterBalanceTreasury.sub(initBalanceTreasury).toString(),expectedTreasuryReward.toString())
+      // check autonity treasury reward
+      let expectedTreasuryReward = toBN(copyParams.policy.treasuryFee).mul(toBN(reward)).div(toBN(10 ** 18));
+      let afterBalanceTreasury = toBN(await web3.eth.getBalance(treasuryAccount));
+      assert.equal(afterBalanceTreasury.sub(initBalanceTreasury).toString(), expectedTreasuryReward.toString())
 
-          // check validators rewards
-          let validatorRewards = toBN(reward).sub(expectedTreasuryReward)
-          let totalStake = toBN(validators[0].bondedStake).add(toBN(validators[1].bondedStake)).add(toBN(validators[2].bondedStake)).add(toBN(validators[3].bondedStake)) 
-          assert.equal(totalStake.toString(),"420")
+      // check validators rewards
+      let validatorRewards = toBN(reward).sub(expectedTreasuryReward)
+      let totalStake = toBN(validators[0].bondedStake).add(toBN(validators[1].bondedStake)).add(toBN(validators[2].bondedStake)).add(toBN(validators[3].bondedStake))
+      assert.equal(totalStake.toString(), "420")
 
-          let afterBalanceV0 = toBN(await web3.eth.getBalance(validators[0].treasury));
-          let expectedRewardV0 = toBN(validators[0].bondedStake).mul(validatorRewards).div(totalStake);
-          assert.equal(afterBalanceV0.sub(initBalanceV0).toString(),expectedRewardV0.toString())
-          
-          let afterBalanceV1 = toBN(await web3.eth.getBalance(validators[1].treasury));
-          let expectedRewardV1 = toBN(validators[1].bondedStake).mul(validatorRewards).div(totalStake);
-          assert.equal(afterBalanceV1.sub(initBalanceV1).toString(),expectedRewardV1.toString())
-          
-          let afterBalanceV2 = toBN(await web3.eth.getBalance(validators[2].treasury));
-          let expectedRewardV2 = toBN(validators[2].bondedStake).mul(validatorRewards).div(totalStake);
-          assert.equal(afterBalanceV2.sub(initBalanceV2).toString(),expectedRewardV2.toString())
-          
-          let afterBalanceV3 = toBN(await web3.eth.getBalance(validators[3].treasury));
-          let expectedRewardV3 = toBN(validators[3].bondedStake).mul(validatorRewards).div(totalStake);
-          assert.equal(afterBalanceV3.sub(initBalanceV3).toString(),expectedRewardV3.toString())
+      let afterBalanceV0 = toBN(await web3.eth.getBalance(validators[0].treasury));
+      let expectedRewardV0 = toBN(validators[0].bondedStake).mul(validatorRewards).div(totalStake);
+      assert.equal(afterBalanceV0.sub(initBalanceV0).toString(), expectedRewardV0.toString())
 
-          // Autonity contract should have left only dust ATN
-          let leftFund = toBN(await web3.eth.getBalance(token.address));
-          assert.equal(leftFund.toString(),toBN(loadedBalance).sub(expectedTreasuryReward).sub(expectedRewardV0).sub(expectedRewardV1).sub(expectedRewardV2).sub(expectedRewardV3).toString());
-      });
-      it('test reward distribution with delegations', async function () {
-          const COMMISSION_RATE_PRECISION = 10000
+      let afterBalanceV1 = toBN(await web3.eth.getBalance(validators[1].treasury));
+      let expectedRewardV1 = toBN(validators[1].bondedStake).mul(validatorRewards).div(totalStake);
+      assert.equal(afterBalanceV1.sub(initBalanceV1).toString(), expectedRewardV1.toString())
 
-          // mint Newton for external users.
-          let alice = accounts[7]; // n.b. accounts[7] is also anyAccount
-          let bob = accounts[9];
-          await token.mint(alice, 200, {from: operator});
-          await token.mint(bob, 200, {from: operator});
+      let afterBalanceV2 = toBN(await web3.eth.getBalance(validators[2].treasury));
+      let expectedRewardV2 = toBN(validators[2].bondedStake).mul(validatorRewards).div(totalStake);
+      assert.equal(afterBalanceV2.sub(initBalanceV2).toString(), expectedRewardV2.toString())
 
-          // bond Newton in different validators.
-          await token.bond(validators[0].nodeAddress, 120, {from: alice});
-          await token.bond(validators[1].nodeAddress, 150, {from: bob});
-          await token.bond(validators[2].nodeAddress, 80, {from: alice});
-          await token.bond(validators[3].nodeAddress, 50, {from: bob});
-          
-          // close epoch --> bondings are applied
-          await utils.endEpoch(token,operator,deployer)
-          
-          // check the bonded stake should grows according to the new bonding by Alice and Bob.
-          let val0 = await token.getValidator(validators[0].nodeAddress);
-          assert.equal(val0.bondedStake,validators[0].bondedStake + 120)
-          assert.equal(val0.selfBondedStake,validators[0].bondedStake)
-          let val1 = await token.getValidator(validators[1].nodeAddress);
-          assert.equal(val1.bondedStake,validators[1].bondedStake + 150)
-          assert.equal(val1.selfBondedStake,validators[1].bondedStake)
-          let val2 = await token.getValidator(validators[2].nodeAddress);
-          assert.equal(val2.bondedStake,validators[2].bondedStake + 80)
-          assert.equal(val2.selfBondedStake,validators[2].bondedStake)
-          let val3 = await token.getValidator(validators[3].nodeAddress);
-          assert.equal(val3.bondedStake,validators[3].bondedStake + 50)
-          assert.equal(val3.selfBondedStake,validators[3].bondedStake)
-          
-          // get initial ATN balances
-          let initBalanceV0 = toBN(await web3.eth.getBalance(validators[0].treasury));
-          let initBalanceV1 = toBN(await web3.eth.getBalance(validators[1].treasury));
-          let initBalanceV2 = toBN(await web3.eth.getBalance(validators[2].treasury));
-          let initBalanceV3 = toBN(await web3.eth.getBalance(validators[3].treasury));
-          let initBalanceTreasury = toBN(await web3.eth.getBalance(treasuryAccount));
-          let initBalanceAlice = toBN(await web3.eth.getBalance(alice));
-          let initBalanceBob = toBN(await web3.eth.getBalance(bob));
-          
-          // fund contract
-          let reward = 1000000000000000;
-          // contract account should have no funds.
-          let initFunds = await web3.eth.getBalance(token.address);
-          assert.equal(initFunds,0);
+      let afterBalanceV3 = toBN(await web3.eth.getBalance(validators[3].treasury));
+      let expectedRewardV3 = toBN(validators[3].bondedStake).mul(validatorRewards).div(totalStake);
+      assert.equal(afterBalanceV3.sub(initBalanceV3).toString(), expectedRewardV3.toString())
 
-          // send funds to contract account, to get them distributed later on.
-          await web3.eth.sendTransaction({from: operator, to: token.address, value: reward});
-          let loadedBalance = await web3.eth.getBalance(token.address);
-          assert.equal(loadedBalance, reward, "contract account have unexpected balance");
-          
-          // close epoch --> rewards are distributed
-          await utils.endEpoch(token,operator,deployer);
+      // Autonity contract should have left only dust ATN
+      let leftFund = toBN(await web3.eth.getBalance(token.address));
+      assert.equal(leftFund.toString(), toBN(loadedBalance).sub(expectedTreasuryReward).sub(expectedRewardV0).sub(expectedRewardV1).sub(expectedRewardV2).sub(expectedRewardV3).toString());
+    });
+    it('test reward distribution with delegations', async function () {
+      const COMMISSION_RATE_PRECISION = 10000
 
-          let totalRewardsDistributed = toBN(0)
-          
-          // check autonity treasury reward
-          let expectedTreasuryReward = toBN(copyParams.policy.treasuryFee).mul(toBN(reward)).div(toBN(10 ** 18));
-          let afterBalanceTreasury = toBN(await web3.eth.getBalance(treasuryAccount));
-          assert.equal(afterBalanceTreasury.sub(initBalanceTreasury).toString(),expectedTreasuryReward.toString())
-          totalRewardsDistributed = totalRewardsDistributed.add(expectedTreasuryReward)
+      // mint Newton for external users.
+      let alice = accounts[7]; // n.b. accounts[7] is also anyAccount
+      let bob = accounts[9];
+      await token.mint(alice, 200, {from: operator});
+      await token.mint(bob, 200, {from: operator});
 
-          // check validators rewards
-          let validatorRewards = toBN(reward).sub(expectedTreasuryReward)
-          let totalStake = toBN(val0.bondedStake).add(toBN(val1.bondedStake)).add(toBN(val2.bondedStake)).add(toBN(val3.bondedStake)) 
-          assert.equal(totalStake.toString(),"820")
+      // bond Newton in different validators.
+      await token.bond(validators[0].nodeAddress, 120, {from: alice});
+      await token.bond(validators[1].nodeAddress, 150, {from: bob});
+      await token.bond(validators[2].nodeAddress, 80, {from: alice});
+      await token.bond(validators[3].nodeAddress, 50, {from: bob});
 
-          let afterBalanceV0 = toBN(await web3.eth.getBalance(validators[0].treasury));
-          let expectedRewardV0 = toBN(val0.bondedStake).mul(validatorRewards).div(totalStake);
-          let selfRewardV0 = expectedRewardV0.mul(toBN(val0.selfBondedStake)).div(toBN(val0.bondedStake))
-          let delegatorRewardV0 = expectedRewardV0.sub(selfRewardV0)
-          let commissionIncomeV0 = delegatorRewardV0.mul(toBN(val0.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
-          assert.equal(afterBalanceV0.sub(initBalanceV0).toString(),selfRewardV0.add(commissionIncomeV0).toString())
-          totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV0).add(commissionIncomeV0)
-          
-          let afterBalanceV1 = toBN(await web3.eth.getBalance(validators[1].treasury));
-          let expectedRewardV1 = toBN(val1.bondedStake).mul(validatorRewards).div(totalStake);
-          let selfRewardV1 = expectedRewardV1.mul(toBN(val1.selfBondedStake)).div(toBN(val1.bondedStake))
-          let delegatorRewardV1 = expectedRewardV1.sub(selfRewardV1)
-          let commissionIncomeV1 = delegatorRewardV1.mul(toBN(val1.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
-          assert.equal(afterBalanceV1.sub(initBalanceV1).toString(),selfRewardV1.add(commissionIncomeV1).toString())
-          totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV1).add(commissionIncomeV1)
+      // close epoch --> bondings are applied
+      await utils.endEpoch(token, operator, deployer)
 
-          let afterBalanceV2 = toBN(await web3.eth.getBalance(validators[2].treasury));
-          let expectedRewardV2 = toBN(val2.bondedStake).mul(validatorRewards).div(totalStake);
-          let selfRewardV2 = expectedRewardV2.mul(toBN(val2.selfBondedStake)).div(toBN(val2.bondedStake))
-          let delegatorRewardV2 = expectedRewardV2.sub(selfRewardV2)
-          let commissionIncomeV2 = delegatorRewardV2.mul(toBN(val2.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
-          assert.equal(afterBalanceV2.sub(initBalanceV2).toString(),selfRewardV2.add(commissionIncomeV2).toString())
-          totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV2).add(commissionIncomeV2)
+      // check the bonded stake should grows according to the new bonding by Alice and Bob.
+      let val0 = await token.getValidator(validators[0].nodeAddress);
+      assert.equal(val0.bondedStake, validators[0].bondedStake + 120)
+      assert.equal(val0.selfBondedStake, validators[0].bondedStake)
+      let val1 = await token.getValidator(validators[1].nodeAddress);
+      assert.equal(val1.bondedStake, validators[1].bondedStake + 150)
+      assert.equal(val1.selfBondedStake, validators[1].bondedStake)
+      let val2 = await token.getValidator(validators[2].nodeAddress);
+      assert.equal(val2.bondedStake, validators[2].bondedStake + 80)
+      assert.equal(val2.selfBondedStake, validators[2].bondedStake)
+      let val3 = await token.getValidator(validators[3].nodeAddress);
+      assert.equal(val3.bondedStake, validators[3].bondedStake + 50)
+      assert.equal(val3.selfBondedStake, validators[3].bondedStake)
 
-          let afterBalanceV3 = toBN(await web3.eth.getBalance(validators[3].treasury));
-          let expectedRewardV3 = toBN(val3.bondedStake).mul(validatorRewards).div(totalStake);
-          let selfRewardV3 = expectedRewardV3.mul(toBN(val3.selfBondedStake)).div(toBN(val3.bondedStake))
-          let delegatorRewardV3 = expectedRewardV3.sub(selfRewardV3)
-          let commissionIncomeV3 = delegatorRewardV3.mul(toBN(val3.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
-          assert.equal(afterBalanceV3.sub(initBalanceV3).toString(),selfRewardV3.add(commissionIncomeV3).toString())
-          totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV3).add(commissionIncomeV3)
-          
-          // check delegators unclaimed reward
-          const fee_factor_unit_recip = toBN(1000000000)
+      // get initial ATN balances
+      let initBalanceV0 = toBN(await web3.eth.getBalance(validators[0].treasury));
+      let initBalanceV1 = toBN(await web3.eth.getBalance(validators[1].treasury));
+      let initBalanceV2 = toBN(await web3.eth.getBalance(validators[2].treasury));
+      let initBalanceV3 = toBN(await web3.eth.getBalance(validators[3].treasury));
+      let initBalanceTreasury = toBN(await web3.eth.getBalance(treasuryAccount));
+      let initBalanceAlice = toBN(await web3.eth.getBalance(alice));
+      let initBalanceBob = toBN(await web3.eth.getBalance(bob));
 
-          let val0Liquid = await liquidStateContract.at(val0.liquidStateContract)
-          let unclaimedRewardsV0 = await val0Liquid.unclaimedRewards(alice)
-          // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
-          assert.equal(unclaimedRewardsV0.toString(),delegatorRewardV0.sub(commissionIncomeV0).sub(toBN(1)).toString())
-          // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
-          totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV0).add(toBN(1)) 
-          
-          // check that if we mirror the computation done in Liquid.sol, we don't need the sub(toBN(1))
-          let supplyV0 = toBN(await val0Liquid.totalSupply())
-          let _rewardV0 = delegatorRewardV0.sub(commissionIncomeV0)
-          let _unclaimedRewardsV0 = _rewardV0.mul(fee_factor_unit_recip).div(supplyV0).mul(toBN(120)).div(fee_factor_unit_recip)
-          assert.equal(unclaimedRewardsV0.toString(),_unclaimedRewardsV0.toString())
-          
-          let val1Liquid = await liquidStateContract.at(val1.liquidStateContract)
-          let unclaimedRewardsV1 = await val1Liquid.unclaimedRewards(bob)
-          // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
-          assert.equal(unclaimedRewardsV1.toString(),delegatorRewardV1.sub(commissionIncomeV1).sub(toBN(1)).toString())
-          // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
-          totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV1).add(toBN(1))
-          
-          // check that if we mirror the computation done in Liquid.sol, we don't need the sub(toBN(1))
-          let supplyV1 = toBN(await val1Liquid.totalSupply())
-          let _rewardV1 = delegatorRewardV1.sub(commissionIncomeV1)
-          let _unclaimedRewardsV1 = _rewardV1.mul(fee_factor_unit_recip).div(supplyV1).mul(toBN(150)).div(fee_factor_unit_recip)
-          assert.equal(unclaimedRewardsV1.toString(),_unclaimedRewardsV1.toString())
+      // fund contract
+      let reward = 1000000000000000;
+      // contract account should have no funds.
+      let initFunds = await web3.eth.getBalance(token.address);
+      assert.equal(initFunds, 0);
 
-          let val2Liquid = await liquidStateContract.at(val2.liquidStateContract)
-          let unclaimedRewardsV2 = await val2Liquid.unclaimedRewards(alice)
-          assert.equal(unclaimedRewardsV2.toString(),delegatorRewardV2.sub(commissionIncomeV2).toString())
-          totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV2)
-          
-          // mirror computation in liquid.sol
-          let supplyV2 = toBN(await val2Liquid.totalSupply())
-          let _rewardV2 = delegatorRewardV2.sub(commissionIncomeV2)
-          let _unclaimedRewardsV2 = _rewardV2.mul(fee_factor_unit_recip).div(supplyV2).mul(toBN(80)).div(fee_factor_unit_recip)
-          assert.equal(unclaimedRewardsV2.toString(),_unclaimedRewardsV2.toString())
-          
-          let val3Liquid = await liquidStateContract.at(val3.liquidStateContract)
-          let unclaimedRewardsV3 = await val3Liquid.unclaimedRewards(bob)
-          assert.equal(unclaimedRewardsV3.toString(),delegatorRewardV3.sub(commissionIncomeV3).toString())
-          totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV3)
-          
-          // mirror computation in liquid.sol
-          let supplyV3 = toBN(await val3Liquid.totalSupply())
-          let _rewardV3 = delegatorRewardV3.sub(commissionIncomeV3)
-          let _unclaimedRewardsV3 = _rewardV3.mul(fee_factor_unit_recip).div(supplyV3).mul(toBN(50)).div(fee_factor_unit_recip)
-          assert.equal(unclaimedRewardsV3.toString(),_unclaimedRewardsV3.toString())
+      // send funds to contract account, to get them distributed later on.
+      await web3.eth.sendTransaction({from: operator, to: token.address, value: reward});
+      let loadedBalance = await web3.eth.getBalance(token.address);
+      assert.equal(loadedBalance, reward, "contract account have unexpected balance");
 
-          // Autonity contract should have left only dust ATN
-          let leftFund = toBN(await web3.eth.getBalance(token.address));
-          assert.equal(leftFund.toString(),toBN(loadedBalance).sub(totalRewardsDistributed).toString())
+      // close epoch --> rewards are distributed
+      await utils.endEpoch(token, operator, deployer);
+
+      let totalRewardsDistributed = toBN(0)
+
+      // check autonity treasury reward
+      let expectedTreasuryReward = toBN(copyParams.policy.treasuryFee).mul(toBN(reward)).div(toBN(10 ** 18));
+      let afterBalanceTreasury = toBN(await web3.eth.getBalance(treasuryAccount));
+      assert.equal(afterBalanceTreasury.sub(initBalanceTreasury).toString(), expectedTreasuryReward.toString())
+      totalRewardsDistributed = totalRewardsDistributed.add(expectedTreasuryReward)
+
+      // check validators rewards
+      let validatorRewards = toBN(reward).sub(expectedTreasuryReward)
+      let totalStake = toBN(val0.bondedStake).add(toBN(val1.bondedStake)).add(toBN(val2.bondedStake)).add(toBN(val3.bondedStake))
+      assert.equal(totalStake.toString(), "820")
+
+      let afterBalanceV0 = toBN(await web3.eth.getBalance(validators[0].treasury));
+      let expectedRewardV0 = toBN(val0.bondedStake).mul(validatorRewards).div(totalStake);
+      let selfRewardV0 = expectedRewardV0.mul(toBN(val0.selfBondedStake)).div(toBN(val0.bondedStake))
+      let delegatorRewardV0 = expectedRewardV0.sub(selfRewardV0)
+      let commissionIncomeV0 = delegatorRewardV0.mul(toBN(val0.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
+      assert.equal(afterBalanceV0.sub(initBalanceV0).toString(), selfRewardV0.add(commissionIncomeV0).toString())
+      totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV0).add(commissionIncomeV0)
+
+      let afterBalanceV1 = toBN(await web3.eth.getBalance(validators[1].treasury));
+      let expectedRewardV1 = toBN(val1.bondedStake).mul(validatorRewards).div(totalStake);
+      let selfRewardV1 = expectedRewardV1.mul(toBN(val1.selfBondedStake)).div(toBN(val1.bondedStake))
+      let delegatorRewardV1 = expectedRewardV1.sub(selfRewardV1)
+      let commissionIncomeV1 = delegatorRewardV1.mul(toBN(val1.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
+      assert.equal(afterBalanceV1.sub(initBalanceV1).toString(), selfRewardV1.add(commissionIncomeV1).toString())
+      totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV1).add(commissionIncomeV1)
+
+      let afterBalanceV2 = toBN(await web3.eth.getBalance(validators[2].treasury));
+      let expectedRewardV2 = toBN(val2.bondedStake).mul(validatorRewards).div(totalStake);
+      let selfRewardV2 = expectedRewardV2.mul(toBN(val2.selfBondedStake)).div(toBN(val2.bondedStake))
+      let delegatorRewardV2 = expectedRewardV2.sub(selfRewardV2)
+      let commissionIncomeV2 = delegatorRewardV2.mul(toBN(val2.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
+      assert.equal(afterBalanceV2.sub(initBalanceV2).toString(), selfRewardV2.add(commissionIncomeV2).toString())
+      totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV2).add(commissionIncomeV2)
+
+      let afterBalanceV3 = toBN(await web3.eth.getBalance(validators[3].treasury));
+      let expectedRewardV3 = toBN(val3.bondedStake).mul(validatorRewards).div(totalStake);
+      let selfRewardV3 = expectedRewardV3.mul(toBN(val3.selfBondedStake)).div(toBN(val3.bondedStake))
+      let delegatorRewardV3 = expectedRewardV3.sub(selfRewardV3)
+      let commissionIncomeV3 = delegatorRewardV3.mul(toBN(val3.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
+      assert.equal(afterBalanceV3.sub(initBalanceV3).toString(), selfRewardV3.add(commissionIncomeV3).toString())
+      totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV3).add(commissionIncomeV3)
+
+      // check delegators unclaimed reward
+      const fee_factor_unit_recip = toBN(1000000000)
+
+      let val0Liquid = await liquidStateContract.at(val0.liquidStateContract)
+      let unclaimedRewardsV0 = await val0Liquid.unclaimedRewards(alice)
+      // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
+      assert.equal(unclaimedRewardsV0.toString(), delegatorRewardV0.sub(commissionIncomeV0).sub(toBN(1)).toString())
+      // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
+      totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV0).add(toBN(1))
+
+      // check that if we mirror the computation done in Liquid.sol, we don't need the sub(toBN(1))
+      let supplyV0 = toBN(await val0Liquid.totalSupply())
+      let _rewardV0 = delegatorRewardV0.sub(commissionIncomeV0)
+      let _unclaimedRewardsV0 = _rewardV0.mul(fee_factor_unit_recip).div(supplyV0).mul(toBN(120)).div(fee_factor_unit_recip)
+      assert.equal(unclaimedRewardsV0.toString(), _unclaimedRewardsV0.toString())
+
+      let val1Liquid = await liquidStateContract.at(val1.liquidStateContract)
+      let unclaimedRewardsV1 = await val1Liquid.unclaimedRewards(bob)
+      // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
+      assert.equal(unclaimedRewardsV1.toString(), delegatorRewardV1.sub(commissionIncomeV1).sub(toBN(1)).toString())
+      // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
+      totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV1).add(toBN(1))
+
+      // check that if we mirror the computation done in Liquid.sol, we don't need the sub(toBN(1))
+      let supplyV1 = toBN(await val1Liquid.totalSupply())
+      let _rewardV1 = delegatorRewardV1.sub(commissionIncomeV1)
+      let _unclaimedRewardsV1 = _rewardV1.mul(fee_factor_unit_recip).div(supplyV1).mul(toBN(150)).div(fee_factor_unit_recip)
+      assert.equal(unclaimedRewardsV1.toString(), _unclaimedRewardsV1.toString())
+
+      let val2Liquid = await liquidStateContract.at(val2.liquidStateContract)
+      let unclaimedRewardsV2 = await val2Liquid.unclaimedRewards(alice)
+      assert.equal(unclaimedRewardsV2.toString(), delegatorRewardV2.sub(commissionIncomeV2).toString())
+      totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV2)
+
+      // mirror computation in liquid.sol
+      let supplyV2 = toBN(await val2Liquid.totalSupply())
+      let _rewardV2 = delegatorRewardV2.sub(commissionIncomeV2)
+      let _unclaimedRewardsV2 = _rewardV2.mul(fee_factor_unit_recip).div(supplyV2).mul(toBN(80)).div(fee_factor_unit_recip)
+      assert.equal(unclaimedRewardsV2.toString(), _unclaimedRewardsV2.toString())
+
+      let val3Liquid = await liquidStateContract.at(val3.liquidStateContract)
+      let unclaimedRewardsV3 = await val3Liquid.unclaimedRewards(bob)
+      assert.equal(unclaimedRewardsV3.toString(), delegatorRewardV3.sub(commissionIncomeV3).toString())
+      totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV3)
+
+      // mirror computation in liquid.sol
+      let supplyV3 = toBN(await val3Liquid.totalSupply())
+      let _rewardV3 = delegatorRewardV3.sub(commissionIncomeV3)
+      let _unclaimedRewardsV3 = _rewardV3.mul(fee_factor_unit_recip).div(supplyV3).mul(toBN(50)).div(fee_factor_unit_recip)
+      assert.equal(unclaimedRewardsV3.toString(), _unclaimedRewardsV3.toString())
+
+      // Autonity contract should have left only dust ATN
+      let leftFund = toBN(await web3.eth.getBalance(token.address));
+      assert.equal(leftFund.toString(), toBN(loadedBalance).sub(totalRewardsDistributed).toString())
     });
   });
   describe('Test epoch parameters updates', function () {
-      let copyParams = JSON.parse(JSON.stringify(autonityConfig));
-      let token;
-      beforeEach(async function () {
-          // set short epoch period 
-          let customizedEpochPeriod = 20;
-          copyParams.protocol.epochPeriod = customizedEpochPeriod;
+    let copyParams = JSON.parse(JSON.stringify(autonityConfig));
+    let token;
+    beforeEach(async function () {
+      // set short epoch period
+      let customizedEpochPeriod = 20;
+      copyParams.protocol.epochPeriod = customizedEpochPeriod;
 
-          token = await utils.deployContracts(validators, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, false);
-          assert.equal((await token.getEpochPeriod()).toNumber(),customizedEpochPeriod);
-      });
-      it('test epochid and lastEpochBlock', async function () {
-        //TODO(tariq) low priority change, leave for last
-        // check that epochid and lastEpochBlock grow as we expect. Terminate a couple epochs and check the variables.
-      });
-      it('test getEpochFromBlock and blockEpochMap', async function () {
-        //TODO(tariq) low priority change, leave for last
-        // check that blockEpochMap and getEpochFromBlock return the numbers we expect. Terminate a couple epochs and check the variables.
-      });
+      token = await utils.deployContracts(validators, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, false);
+      assert.equal((await token.getEpochPeriod()).toNumber(), customizedEpochPeriod);
+    });
+    it('test epochid and lastEpochBlock', async function () {
+      //TODO(tariq) low priority change, leave for last
+      // check that epochid and lastEpochBlock grow as we expect. Terminate a couple epochs and check the variables.
+    });
+    it('test getEpochFromBlock and blockEpochMap', async function () {
+      //TODO(tariq) low priority change, leave for last
+      // check that blockEpochMap and getEpochFromBlock return the numbers we expect. Terminate a couple epochs and check the variables.
+    });
   });
 
   describe('Test computeCommittee', function () {

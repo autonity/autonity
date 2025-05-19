@@ -10,7 +10,7 @@ LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
 ifeq ($(LATEST_COMMIT),)
 LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
-SOLC_VERSION = 0.8.21
+SOLC_VERSION = 0.8.22
 SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
 GOBINDATA_VERSION = 3.23.0
 GOBINDATA_BINARY = $(BINDIR)/go-bindata
@@ -73,7 +73,7 @@ define gen-contract
 	@echo 'import "github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
 	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@cat  $(GENERATED_CONTRACT_DIR)/$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@cat $(GENERATED_CONTRACT_DIR)/$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@printf '")\n\n' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
 	@echo Generating Abi for $(2)
@@ -94,6 +94,7 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,asm/,ACU)
 	@$(call gen-contract,asm/,SupplyControl)
 	@$(call gen-contract,asm/,Stabilization)
+	@$(call gen-contract,asm/,Auctioneer)
 	@$(call gen-contract,test-contract/,AccountabilityTest)
 	@$(call gen-contract,test-contract/,AutonityTest)
 	@$(call gen-contract,test-contract/,AutonityUpgradeTest)
@@ -149,9 +150,9 @@ test-race-all: all
 test-race:
 	go test -race -v ./consensus/tendermint/... -parallel 1
 
-test-contracts: test-contracts-asm test-contracts-truffle
+test-contracts: test-contracts-truffle
 
-test-contracts-fast: test-contracts-asm test-contracts-truffle-fast
+test-contracts-fast: test-contracts-truffle-fast
 
 # prerequisites for testing contracts
 test-contracts-pre:
@@ -169,33 +170,6 @@ test-contracts-pre:
 	@echo "check and install ganache"
 	@npm list ganache > /dev/null || npm install ganache
 	@npx truffle version
-
-APE_VERSION := 0.6.26
-HARDHAT_VERSION := 2.19.1
-test-contracts-asm: test-contracts-asm-pre
-	@echo "run tests for the asm contracts"
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity DEBUG test --network ::hardhat ./test/asm/acu
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity DEBUG test --network ::hardhat ./test/asm/stabilization
-	@cd $(CONTRACTS_BASE_DIR) && ape --verbosity DEBUG test --network ::hardhat ./test/asm/supply_control
-
-.PHONY: test-contracts-asm-pre
-test-contracts-asm-pre:
-	@echo "check and install ape framework"
-	@ape > /dev/null || pipx install eth-ape==$(APE_VERSION) || { pipx uninstall eth-ape; exit 1; }
-	@echo "pin version of numpy to 1.26.4"
-	@pipx inject --verbose --force eth-ape numpy==1.26.4
-	@echo "check ape framework version"
-	@test $$(ape --version) = "$(APE_VERSION)" || { \
-		echo -n "error: unsupported ape version $$(ape --version) "; \
-		echo "(need $(APE_VERSION))..."; \
-		echo "please uninstall eth-ape and then re-run the make target"; \
-		exit 1;\
-	}
-	@echo "check and install hardhat"
-	@cd $(CONTRACTS_BASE_DIR) && npm list hardhat@$(HARDHAT_VERSION) > /dev/null || npm install hardhat@$(HARDHAT_VERSION)
-	@echo "install ape framework plugins"
-	@cd $(CONTRACTS_BASE_DIR) && ape plugins install -y --verbosity ERROR .
-	@echo "dependencies installed"
 
 # start an autonity network for contract tests
 start-autonity:

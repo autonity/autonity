@@ -18,6 +18,8 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
 
     IStakeableVesting[] private contracts;
 
+    event NewStakeableContract(address indexed contractAddress, address indexed beneficiary, uint256 amount);
+
     constructor(address payable _autonity) AccessAutonity(_autonity) {
         stakeableVestingLogicContract = address(new StakeableVestingLogic(_autonity));
     }
@@ -61,6 +63,7 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
         contracts.push(_stakeableVestingContract);
         bool _sent = autonity.transfer(address(_stakeableVestingContract), _amount);
         require(_sent, "failed to transfer NTN");
+        emit NewStakeableContract(address(_stakeableVestingContract), _beneficiary, _amount);
     }
 
     /**
@@ -89,15 +92,6 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
          Getters
     ============================================================
      */
-
-    /**
-     * @notice Returns the smart contract account that holds the corresponding stake-able vesting contract.
-     * @param _uniqueContractID unique id of the contract
-     */
-    function getContractAccount(uint256 _uniqueContractID) external virtual view returns (IStakeableVesting) {
-        require(_uniqueContractID < contracts.length, "invalid contract id");
-        return contracts[_uniqueContractID];
-    }
 
     /**
      * @notice Returns the smart contract account that holds the corresponding stake-able vesting contract.

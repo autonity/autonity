@@ -495,6 +495,20 @@ func (mr *MockCoreMockRecorder) CurrentHeightMessages() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentHeightMessages", reflect.TypeOf((*MockCore)(nil).CurrentHeightMessages))
 }
 
+// EventCh mocks base method.
+func (m *MockCore) EventCh() <-chan events.CoreEvent {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EventCh")
+	ret0, _ := ret[0].(<-chan events.CoreEvent)
+	return ret0
+}
+
+// EventCh indicates an expected call of EventCh.
+func (mr *MockCoreMockRecorder) EventCh() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventCh", reflect.TypeOf((*MockCore)(nil).EventCh))
+}
+
 // Height mocks base method.
 func (m *MockCore) Height() *big.Int {
 	m.ctrl.T.Helper()

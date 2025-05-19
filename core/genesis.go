@@ -89,14 +89,14 @@ func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 }
 
 func (ga *GenesisAlloc) ToGenesisBonds() autonity.GenesisBonds {
-	ret := make(autonity.GenesisBonds, 0, len(*ga))
+	ret := make([]autonity.GenesisBond, 0, len(*ga))
 	for addr, alloc := range *ga {
 		delegations := make([]autonity.Delegation, 0)
 		for validator, amount := range alloc.Bonds {
 			delegations = append(delegations, autonity.Delegation{Validator: validator, Amount: amount})
 		}
-		slices.SortFunc(delegations, func(a, b autonity.Delegation) bool {
-			return a.Validator.String() < b.Validator.String()
+		slices.SortFunc(delegations, func(a, b autonity.Delegation) int {
+			return strings.Compare(a.Validator.String(), b.Validator.String())
 		})
 		ret = append(ret, autonity.GenesisBond{
 			Staker:        addr,
@@ -104,8 +104,8 @@ func (ga *GenesisAlloc) ToGenesisBonds() autonity.GenesisBonds {
 			Bonds:         delegations,
 		})
 	}
-	slices.SortFunc(ret, func(a, b autonity.GenesisBond) bool {
-		return a.Staker.String() < b.Staker.String()
+	slices.SortFunc(ret, func(a, b autonity.GenesisBond) int {
+		return strings.Compare(a.Staker.String(), b.Staker.String())
 	})
 	return ret
 }
@@ -333,15 +333,12 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 	}
 
 	genesisBonds := g.Alloc.ToGenesisBonds()
-	evmProvider := func(statedb vm.StateDB) *vm.EVM {
-		return genesisEVM(g, statedb)
+	evm := genesisEVM(g, statedb)
+	if err := autonity.ExecuteGenesisSequence(g.Config, genesisBonds, evm); err != nil {
+		return nil, fmt.Errorf("cannot execute genesis sequence: %w", err)
 	}
 
-	evmContracts := autonity.NewGenesisEVMContract(evmProvider, statedb, db, g.Config)
-	if err := autonity.DeployContracts(g.Config, genesisBonds, evmContracts); err != nil {
-		return nil, fmt.Errorf("cannot deploy contracts: %w", err)
-	}
-	committee, err := evmContracts.AutonityContract.Committee(nil, statedb)
+	committee, err := autonity.CallGetCommittee(evm)
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve genesis committee: %w", err)
 	}

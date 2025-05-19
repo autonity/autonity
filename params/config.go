@@ -694,6 +694,15 @@ func (c *ChainConfig) SetDefaults() {
 	} else {
 		c.ASM.StabilizationContractConfig.SetDefaults()
 	}
+
+	// Auctioneer
+	if c.ASM.AuctioneerContractConfig == nil {
+		log.Info("Config missing, using default parameters for the Auctioneer contract")
+		c.ASM.AuctioneerContractConfig = DefaultAuctioneerGenesis
+	} else {
+		c.ASM.AuctioneerContractConfig.SetDefaults()
+	}
+
 	// Inflation controller
 	if c.InflationContractConfig == nil {
 		log.Info("Config missing, using default parameters for the Inflation Controller contract")
@@ -783,6 +792,7 @@ type AsmConfig struct {
 	ACUContractConfig           *AcuContractGenesis           `json:"acu,omitempty"`
 	StabilizationContractConfig *StabilizationContractGenesis `json:"stabilization,omitempty"`
 	SupplyControlConfig         *SupplyControlGenesis         `json:"supplyControl,omitempty"`
+	AuctioneerContractConfig    *AuctioneerContractGenesis    `json:"auctioneer,omitempty"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.

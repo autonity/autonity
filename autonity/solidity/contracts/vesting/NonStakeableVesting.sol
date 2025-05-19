@@ -26,6 +26,8 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
     /** @dev ID of schedule that some contract is subscribed to. */
     mapping(uint256 => uint256) internal subscribedTo;
 
+    event NewNonStakeableContract(address indexed beneficiary, uint256 amount);
+
     constructor(address payable _autonity) AccessAutonity(_autonity) {}
 
     /**
@@ -67,6 +69,8 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
         subscribedTo[_contractID] = _scheduleID;
         _scheduleTracker.unsubscribedAmount -= _amount;
         _scheduleTracker.expiredFromContract += _expiredFunds;
+
+        emit NewNonStakeableContract(_beneficiary, _amount);
     }
 
     /**
@@ -83,6 +87,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
             _initializeSchedule(_scheduleTracker, _schedule.totalAmount);
         }
         _transferNTN(msg.sender, _scheduleTracker.unsubscribedAmount + _scheduleTracker.expiredFromContract);
+        emit FundsReleased(msg.sender, address(autonity), _scheduleTracker.unsubscribedAmount + _scheduleTracker.expiredFromContract);
         _scheduleTracker.unsubscribedAmount = 0;
         _scheduleTracker.expiredFromContract = 0;
     }
@@ -100,6 +105,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
             _initializeSchedule(_scheduleTracker, _totalAmount);
         }
         _transferNTN(msg.sender, _scheduleTracker.expiredFromContract);
+        emit FundsReleased(msg.sender, address(autonity), _scheduleTracker.expiredFromContract);
         _scheduleTracker.expiredFromContract = 0;
     }
 

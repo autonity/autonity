@@ -46,10 +46,20 @@ var (
 	// DefaultStabilizationGenesis contains the default values for the ASM Stabilization contract
 	DefaultStabilizationGenesis = &StabilizationContractGenesis{
 		BorrowInterestRate:        (*math.HexOrDecimal256)(math.MustParseBig256("50_000_000_000_000_000")),
+		AnnouncementWindow:        (*math.HexOrDecimal256)(math.MustParseBig256("3600")), // 1 hour
 		LiquidationRatio:          (*math.HexOrDecimal256)(math.MustParseBig256("1_800_000_000_000_000_000")),
 		MinCollateralizationRatio: (*math.HexOrDecimal256)(math.MustParseBig256("2_000_000_000_000_000_000")),
 		MinDebtRequirement:        (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000")),
 		TargetPrice:               (*math.HexOrDecimal256)(math.MustParseBig256("1_618_034_000_000_000_000")),
+	}
+
+	// ToDo: Add the real default values for the Auctioneer contract
+	DefaultAuctioneerGenesis = &AuctioneerContractGenesis{
+		LiquidationAuctionDuration: big.NewInt(60), // 60 blocks
+
+		InterestAuctionDuration:  big.NewInt(60),                                        // 60 blocks
+		InterestAuctionDiscount:  new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil), // 0.1
+		InterestAuctionThreshold: new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil), // 1 ATN
 	}
 
 	DefaultSupplyControlGenesis = &SupplyControlGenesis{
@@ -128,6 +138,7 @@ var (
 	StakeableVestingManagerContractAddress = crypto.CreateAddress(DeployerAddress, 8)
 	NonStakeableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 9)
 	OmissionAccountabilityContractAddress  = crypto.CreateAddress(DeployerAddress, 10)
+	AuctioneerContractAddress              = crypto.CreateAddress(DeployerAddress, 11)
 )
 
 type AutonityContractGenesis struct {
@@ -432,6 +443,7 @@ func (acu *AcuContractGenesis) SetDefaults() {
 
 type StabilizationContractGenesis struct {
 	BorrowInterestRate        *math.HexOrDecimal256
+	AnnouncementWindow        *math.HexOrDecimal256
 	LiquidationRatio          *math.HexOrDecimal256
 	MinCollateralizationRatio *math.HexOrDecimal256
 	MinDebtRequirement        *math.HexOrDecimal256
@@ -441,6 +453,9 @@ type StabilizationContractGenesis struct {
 func (s *StabilizationContractGenesis) SetDefaults() {
 	if s.BorrowInterestRate == nil {
 		s.BorrowInterestRate = DefaultStabilizationGenesis.BorrowInterestRate
+	}
+	if s.AnnouncementWindow == nil {
+		s.AnnouncementWindow = DefaultStabilizationGenesis.AnnouncementWindow
 	}
 	if s.LiquidationRatio == nil {
 		s.LiquidationRatio = DefaultStabilizationGenesis.LiquidationRatio
@@ -453,6 +468,28 @@ func (s *StabilizationContractGenesis) SetDefaults() {
 	}
 	if s.TargetPrice == nil {
 		s.TargetPrice = DefaultStabilizationGenesis.TargetPrice
+	}
+}
+
+type AuctioneerContractGenesis struct {
+	LiquidationAuctionDuration *big.Int
+	InterestAuctionDuration    *big.Int
+	InterestAuctionDiscount    *big.Int // value between [0,1) with SCALE_FACTOR precision
+	InterestAuctionThreshold   *big.Int // in ATN
+}
+
+func (a *AuctioneerContractGenesis) SetDefaults() {
+	if a.LiquidationAuctionDuration == nil {
+		a.LiquidationAuctionDuration = DefaultAuctioneerGenesis.LiquidationAuctionDuration
+	}
+	if a.InterestAuctionDuration == nil {
+		a.InterestAuctionDuration = DefaultAuctioneerGenesis.InterestAuctionDuration
+	}
+	if a.InterestAuctionDiscount == nil {
+		a.InterestAuctionDiscount = DefaultAuctioneerGenesis.InterestAuctionDiscount
+	}
+	if a.InterestAuctionThreshold == nil {
+		a.InterestAuctionThreshold = DefaultAuctioneerGenesis.InterestAuctionThreshold
 	}
 }
 

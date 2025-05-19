@@ -65,12 +65,17 @@ func AzureBlobstoreUpload(path string, name string, config AzureBlobstoreConfig)
 	}
 	defer in.Close()
 
-	_, err = blockblob.Upload(context.Background(), in, azblob.BlobHTTPHeaders{}, azblob.Metadata{}, azblob.BlobAccessConditions{})
+	// NOTE: added the following params
+	// azblob.AccessTierNone, azblob.BlobTagsMap{}, azblob.ClientProvidedKeyOptions{}, azblob.ImmutabilityPolicyOptions{}
+	// due to dependency upgrade. However they are untested and I am not sure that they are correct
+	// since we inherited this file from go-ethereum.
+	// Verify correct usage if we start to use this feature.
+	_, err = blockblob.Upload(context.Background(), in, azblob.BlobHTTPHeaders{}, azblob.Metadata{}, azblob.BlobAccessConditions{}, azblob.AccessTierNone, azblob.BlobTagsMap{}, azblob.ClientProvidedKeyOptions{}, azblob.ImmutabilityPolicyOptions{})
 	return err
 }
 
 // AzureBlobstoreList lists all the files contained within an azure blobstore.
-func AzureBlobstoreList(config AzureBlobstoreConfig) ([]azblob.BlobItem, error) {
+func AzureBlobstoreList(config AzureBlobstoreConfig) ([]azblob.BlobItemInternal, error) {
 	credential := azblob.NewAnonymousCredential()
 	if len(config.Token) > 0 {
 		c, err := azblob.NewSharedKeyCredential(config.Account, config.Token)
@@ -84,7 +89,7 @@ func AzureBlobstoreList(config AzureBlobstoreConfig) ([]azblob.BlobItem, error) 
 	u, _ := url.Parse(fmt.Sprintf("https://%s.blob.core.windows.net", config.Account))
 	service := azblob.NewServiceURL(*u, pipeline)
 
-	var allBlobs []azblob.BlobItem
+	var allBlobs []azblob.BlobItemInternal
 	// List all the blobs from the container and return them
 	container := service.NewContainerURL(config.Container)
 	nextMarker := azblob.Marker{}
@@ -104,7 +109,7 @@ func AzureBlobstoreList(config AzureBlobstoreConfig) ([]azblob.BlobItem, error) 
 
 // AzureBlobstoreDelete iterates over a list of files to delete and removes them
 // from the blobstore.
-func AzureBlobstoreDelete(config AzureBlobstoreConfig, blobs []azblob.BlobItem) error {
+func AzureBlobstoreDelete(config AzureBlobstoreConfig, blobs []azblob.BlobItemInternal) error {
 	if *DryRunFlag {
 		for _, blob := range blobs {
 			fmt.Printf("would delete %s (%s) from %s/%s\n", blob.Name, blob.Properties.LastModified, config.Account, config.Container)

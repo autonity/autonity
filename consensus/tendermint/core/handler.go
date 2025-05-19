@@ -92,6 +92,8 @@ func shouldDisconnectSender(err error) bool {
 		fallthrough
 	case errors.Is(err, constants.ErrAlreadyHaveBlock):
 		fallthrough
+	case errors.Is(err, consensus.ErrFutureTimestampBlock):
+		fallthrough
 	case errors.Is(err, consensus.ErrPrunedAncestor):
 		fallthrough
 	case errors.Is(err, constants.ErrAlreadyHaveProposal):
@@ -328,7 +330,12 @@ eventLoop:
 
 // SendEvent sends event to mux
 func (c *Core) SendEvent(ev any) {
-	c.backend.Post(ev)
+	switch ev := ev.(type) {
+	case events.CoreEvent:
+		c.eventCh <- ev
+	default:
+		c.backend.Post(ev)
+	}
 }
 
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
@@ -388,7 +395,7 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 		}
 		c.futureRoundLock.Unlock()
 
-		go c.SendEvent(events.FuturePowerChangeEvent{Height: c.Height().Uint64(), Round: r})
+		c.SendEvent(events.NewFuturePowerChangeEvent(c.Height().Uint64(), r))
 
 		c.roundSkipCheck(ctx, r)
 	}

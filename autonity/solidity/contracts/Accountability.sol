@@ -2,11 +2,12 @@
 pragma solidity ^0.8.19;
 
 import "./interfaces/IAccountability.sol";
+import "./interfaces/IAutonity.sol";
 import "./Autonity.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 import {AccessAutonity} from "./AccessAutonity.sol";
 
-contract Accountability is IAccountability, AccessAutonity {
+contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
 
     struct BaseSlashingRates {
         uint256 low;
@@ -68,8 +69,17 @@ contract Accountability is IAccountability, AccessAutonity {
         uint256 messageHash;    // hash of the main evidence. Will be populated internally.
     }
 
-    //Todo(youssef): consider another structure purely for internal events
+    /**
+    * @notice Event emitted after accountability factors namely collusion, history and jail.
+    */
+    event AccountabilityFactorsUpdate(Factors oldFactors, Factors newFactors);
 
+    /**
+    * @notice Event emitted after base slashing rates are updated
+    */
+    event BaseSlashingRateUpdate(BaseSlashingRates oldRates, BaseSlashingRates newRates);
+
+    //Todo(youssef): consider another structure purely for internal events
     Event[] public events;
     Config public config;
 
@@ -142,6 +152,10 @@ contract Accountability is IAccountability, AccessAutonity {
         // well, too bad, it goes to the autonity global treasury.
         if(!ok) {
             autonity.getTreasuryAccount().call{value:msg.value}("");
+            // 0 atn rewards for reporter
+            emit ReporterRewarded(_reporter.nodeAddress, _offender, _ntnReward, 0);
+        } else {
+            emit ReporterRewarded(_reporter.nodeAddress, _offender, _ntnReward, msg.value);
         }
         delete beneficiaries[_offender];
     }
@@ -204,12 +218,12 @@ contract Accountability is IAccountability, AccessAutonity {
         }
     }
 
-    function getValidatorAccusation(address _val) public virtual view returns (Event memory){
+    function getValidatorAccusation(address _val) public virtual view returns (Event memory) {
         require(validatorAccusation[_val] > 0 , "no accusation");
         return events[validatorAccusation[_val] - 1];
     }
 
-    function getValidatorFaults(address _val) public virtual view returns (Event[] memory){
+    function getValidatorFaults(address _val) public virtual view returns (Event[] memory) {
         Event[] memory _events = new Event[](validatorFaults[_val].length);
         for(uint256 i = 0; i < validatorFaults[_val].length; i++) {
             _events[i] = events[validatorFaults[_val][i]];
@@ -227,9 +241,9 @@ contract Accountability is IAccountability, AccessAutonity {
         require(_ruleId == uint256(_ev.rule), "rule id mismatch");
         require(_block < block.number, "can't be in the future");
         require(_block > 0, "can't be at genesis");
-        
+
         uint256 _epoch = autonity.getEpochFromBlock(_block);
-        
+
         _ev.block = _block;
         _ev.epoch = _epoch;
         _ev.reportingBlock = block.number;
@@ -244,7 +258,7 @@ contract Accountability is IAccountability, AccessAutonity {
 
         _ev.id = events.length;
         events.push(_ev);
-        
+
         validatorFaults[_ev.offender].push(_ev.id);
         slashingQueue.push(_ev.id);
         slashingHistory[_ev.offender][_ev.epoch] = _severity;
@@ -253,7 +267,7 @@ contract Accountability is IAccountability, AccessAutonity {
     }
 
     function _handleAccusation(Event memory _ev) internal virtual {
-        // Validate the accusation proof. It also does height related checks 
+        // Validate the accusation proof. It also does height related checks
         (bool _success, address _offender, uint256 _ruleId, uint256 _block, uint256 _messageHash) =
             Precompiled.verifyAccountabilityEvent(Precompiled.ACCUSATION_CONTRACT, _ev.rawProof);
         require(_success, "failed accusation verification");
@@ -269,7 +283,7 @@ contract Accountability is IAccountability, AccessAutonity {
 
         _handleValidAccusation(_ev);
     }
-    
+
     function _handleValidAccusation(Event memory _ev) internal virtual {
         require(validatorAccusation[_ev.offender] == 0, "already processing an accusation");
         uint256 _severity = _ruleSeverity(_ev.rule);
@@ -293,7 +307,7 @@ contract Accountability is IAccountability, AccessAutonity {
         require(_offender == _ev.offender, "offender mismatch");
         require(_ruleId == uint256(_ev.rule), "rule id mismatch");
         require(_block < block.number, "can't be in the future");
-        
+
         _ev.block = _block;
         _ev.messageHash = _messageHash;
         _ev.reportingBlock = block.number;
@@ -332,7 +346,7 @@ contract Accountability is IAccountability, AccessAutonity {
         beneficiaries[_offender] = _event.reporter;
 
         // if already jailbound, validator has 0 stake
-        if (autonity.getValidatorState(_offender) == ValidatorState.jailbound) {
+        if (autonity.getValidatorState(_offender) == IAutonity.ValidatorState.jailbound) {
             return;
         }
 
@@ -349,8 +363,8 @@ contract Accountability is IAccountability, AccessAutonity {
             _offender,
             _slashingRate,
             _jailtime,
-            ValidatorState.jailed,
-            ValidatorState.jailbound
+            IAutonity.ValidatorState.jailed,
+            IAutonity.ValidatorState.jailbound
         );
         emit SlashingEvent(_offender, _slashingAmount, _jailReleaseBlock, _isJailbound, _event.id);
     }
@@ -525,6 +539,7 @@ contract Accountability is IAccountability, AccessAutonity {
     * @param _window, the new value for the window (in blocks)
     */
     function setInnocenceProofSubmissionWindow(uint256 _window) external virtual onlyOperator {
+        emit ConfigUpdateUint("innocenceProofSubmissionWindow", config.innocenceProofSubmissionWindow, _window);
         config.innocenceProofSubmissionWindow = _window;
     }
 
@@ -535,16 +550,18 @@ contract Accountability is IAccountability, AccessAutonity {
     */
     function setBaseSlashingRates(BaseSlashingRates memory _rates) external virtual onlyOperator {
         _ratesSanityCheck(_rates);
+        emit BaseSlashingRateUpdate(config.baseSlashingRates, _rates);
         config.baseSlashingRates = _rates;
     }
 
     /*
     * @notice sets the new punishment factors
     * @dev restricted to the operator
-    * @param _factor, the new factor
+    * @param _factors, the new factor
     */
     function setFactors(Factors memory _factors) external virtual onlyOperator {
         _factorsSanityCheck(_factors);
+        emit AccountabilityFactorsUpdate(config.factors, _factors);
         config.factors = _factors;
     }
 

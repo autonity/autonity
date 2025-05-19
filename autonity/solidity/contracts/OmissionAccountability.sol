@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import {Autonity, ValidatorState} from "./Autonity.sol";
+import {Autonity} from "./Autonity.sol";
+import "./interfaces/IAutonity.sol";
 import {Precompiled} from "./lib/Precompiled.sol";
 import {IOmissionAccountability} from "./interfaces/IOmissionAccountability.sol";
+import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 
-contract OmissionAccountability is IOmissionAccountability {
+contract OmissionAccountability is IOmissionAccountability, IConfigEvents {
     // Used for fixed-point arithmetic during computation of inactivity score
     uint256 public constant SCALE_FACTOR = 10_000;
 
@@ -60,11 +62,11 @@ contract OmissionAccountability is IOmissionAccountability {
 
     event InactivitySlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound);
     event InactivityJailingEvent(address validator, uint256 releaseBlock);
+    event TotalProposerRewards(uint256 ntnReward, uint256 atnReward);
 
     constructor(
         address payable _autonity,
         address _operator,
-        address[] memory _treasuries,
         Config memory _config
     ) {
         // config sanity checks
@@ -83,8 +85,9 @@ contract OmissionAccountability is IOmissionAccountability {
         for (uint256 i = 0; i < epochInfo.committee.length; i++) {
             committee.push(epochInfo.committee[i]);
             lastActive[committee[i].addr] = - 1;
+            Autonity.Validator memory _validator = autonity.getValidator(epochInfo.committee[i].addr);
+            treasuries.push(_validator.treasury);
         }
-        treasuries = _treasuries;
 
         newLookbackWindow = config.lookbackWindow;
         newDelta = config.delta;
@@ -251,8 +254,8 @@ contract OmissionAccountability is IOmissionAccountability {
             // do not punish him for omission too. It would be unfair since peer ignore msgs from jailed vals.
             // However, do not decrease his probation since he was not fully honest
             // NOTE: validator already jailed by accountability are nonetheless taken into account into the collusion degree of omission
-            ValidatorState _state = autonity.getValidatorState(_nodeAddress);
-            if (_state == ValidatorState.jailed || _state == ValidatorState.jailbound) {
+            IAutonity.ValidatorState _state = autonity.getValidatorState(_nodeAddress);
+            if (_state == IAutonity.ValidatorState.jailed || _state == IAutonity.ValidatorState.jailbound) {
                 continue;
             }
 
@@ -284,13 +287,13 @@ contract OmissionAccountability is IOmissionAccountability {
                         _nodeAddress,
                         _slashingRate,
                         _jailingPeriod,
-                        ValidatorState.jailedForInactivity,
-                        ValidatorState.jailboundForInactivity
+                        IAutonity.ValidatorState.jailedForInactivity,
+                        IAutonity.ValidatorState.jailboundForInactivity
                     );
                     emit InactivitySlashingEvent(_nodeAddress, _slashingAmount, _jailReleaseBlock, _isJailbound);
                 } else {
                     // if not, only jail
-                    uint256 _jailReleaseBlock = autonity.jail(_nodeAddress, _jailingPeriod, ValidatorState.jailedForInactivity);
+                    uint256 _jailReleaseBlock = autonity.jail(_nodeAddress, _jailingPeriod, IAutonity.ValidatorState.jailedForInactivity);
                     emit InactivityJailingEvent(_nodeAddress, _jailReleaseBlock);
                 }
 
@@ -330,6 +333,7 @@ contract OmissionAccountability is IOmissionAccountability {
                 proposerEffort[_nodeAddress] = 0;
             }
         }
+        emit TotalProposerRewards(_ntnReward, _atnReward);
 
         totalEffort = 0;
     }
@@ -425,6 +429,7 @@ contract OmissionAccountability is IOmissionAccountability {
     function setInactivityThreshold(uint256 _inactivityThreshold) external virtual onlyOperator {
         require(_inactivityThreshold <= SCALE_FACTOR, "cannot exceed scale factor");
         require(_inactivityThreshold >= config.pastPerformanceWeight, "inactivityThreshold needs to be greater or equal to pastPerformanceWeight");
+        emit ConfigUpdateUint("inactivityThreshold", config.inactivityThreshold, _inactivityThreshold);
         config.inactivityThreshold = _inactivityThreshold;
     }
 
@@ -435,6 +440,7 @@ contract OmissionAccountability is IOmissionAccountability {
     function setPastPerformanceWeight(uint256 _pastPerformanceWeight) external virtual onlyOperator {
         require(_pastPerformanceWeight <= SCALE_FACTOR, "cannot exceed scale factor");
         require(_pastPerformanceWeight <= config.inactivityThreshold, "pastPerformanceWeight cannot be greater than inactivityThreshold");
+        emit ConfigUpdateUint("pastPerformanceWeight", config.pastPerformanceWeight, _pastPerformanceWeight);
         config.pastPerformanceWeight = _pastPerformanceWeight;
     }
 
@@ -443,6 +449,7 @@ contract OmissionAccountability is IOmissionAccountability {
     * @param _initialJailingPeriod, the new value for the initial jailing period
     */
     function setInitialJailingPeriod(uint256 _initialJailingPeriod) external virtual onlyOperator {
+        emit ConfigUpdateUint("initialJailingPeriod", config.initialJailingPeriod, _initialJailingPeriod);
         config.initialJailingPeriod = _initialJailingPeriod;
     }
 
@@ -451,6 +458,7 @@ contract OmissionAccountability is IOmissionAccountability {
     * @param _initialProbationPeriod, the new value for the initial probation period
     */
     function setInitialProbationPeriod(uint256 _initialProbationPeriod) external virtual onlyOperator {
+        emit ConfigUpdateUint("initialProbationPeriod", config.initialProbationPeriod, _initialProbationPeriod);
         config.initialProbationPeriod = _initialProbationPeriod;
     }
 
@@ -460,6 +468,7 @@ contract OmissionAccountability is IOmissionAccountability {
     */
     function setInitialSlashingRate(uint256 _initialSlashingRate) external virtual onlyOperator {
         require(_initialSlashingRate <= SLASHING_RATE_SCALE_FACTOR, "cannot exceed slashing rate scale factor");
+        emit ConfigUpdateUint("initialSlashingRate", config.initialSlashingRate, _initialSlashingRate);
         config.initialSlashingRate = _initialSlashingRate;
     }
 
@@ -473,6 +482,7 @@ contract OmissionAccountability is IOmissionAccountability {
 
         // utilize newDelta for comparison, so that if delta is also being changed in this epoch we take the new value
         require(_epochPeriod > newDelta + _lookbackWindow - 1, "epoch period needs to be greater than delta+lookbackWindow-1");
+        emit ConfigUpdateUint("newLookbackWindow", newLookbackWindow, _lookbackWindow);
         newLookbackWindow = _lookbackWindow;
     }
 
@@ -486,6 +496,7 @@ contract OmissionAccountability is IOmissionAccountability {
 
         // utilize newLookbackWindow for comparison, so that if delta is also being changed in this epoch we take the new value
         require(_epochPeriod > _delta + newLookbackWindow - 1, "epoch period needs to be greater than delta+lookbackWindow-1");
+        emit ConfigUpdateUint("newOmissionDelta", newDelta, _delta);
         newDelta = _delta;
     }
 

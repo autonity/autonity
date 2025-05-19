@@ -21,13 +21,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
-	"github.com/autonity/autonity/crypto"
 	"io"
 	"math/big"
 	"reflect"
 	"sync/atomic"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/bft"
+	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
@@ -44,29 +45,70 @@ var (
 )
 
 const (
-	/*
-	* We currently have in HeaderExtra:
-	* - ProposerSeal (ECDSA signature) = 65 bytes
-	* - Round (uint64) = 8 byte
-	* - ActivityProofRound (uint64) = 8 byte
-	* - QuorumCertificate (AggregateSignature) = BlsSignature + Signers struct = 96 bytes + n/4 bytes + 2n bytes = 9/4n + 96 bytes
-	*	with n being the committee size. This is the absolute worst case scenario, which I believe will rarely happen
-	* - Epoch = 3 *big.Int + committee = 3 * 32 + CommitteeMemberSize * n = 96 + (20+32+48) * n = 96 + 100n
-	* - ActivityProof, same as QuorumCertificate = 9/4n + 96 bytes
-	*
-	* Assuming n=1000, the worst case scenario total size of extra data will be:
-	* 65+8+8+96+9/4n+96+100n+9/4n+96 = 104.5n + 369 ~= 103kb
+	/* ===========
+	*  single fields sizes
+	*  ============
 	 */
-	maximumHeaderExtraLength = 110 * 1024 //110kb
+	blockNonceLength         = 8
+	uint64Length             = 8
+	uint256Length            = 32
 	maximumDifficultyBitlen  = 80
 	maximumBaseFeeBitlen     = 256
 	maximumVotingPowerBitlen = 256
+
+	// NOTE: some of the following constants are not used in the code yet, but it is useful to have them for estimating/capping data transfer
+	// (i.e. when a node is asking us to sync)
+
+	/* ===========
+	*  max header sizes, assuming 1000 committee members
+	*  to be used for data capping
+	*  ============
+	 */
+
+	// the original header size does not depend on the committee size
+	maximumOriginalHeaderSize = 6*common.HashLength + 1*common.AddressLength + 3*uint256Length + 3*uint64Length + BloomByteLength + blockNonceLength
+
+	// bls sig + signers bitmap (2 bit for each val) + signers coefficients (2 bytes for each val)
+	maximumAggregateSignatureSize = blst.BLSSignatureLength + 1000/4 + 2*1000
+	// ProposerSeal + Round + ActivityProofRound + QuorumCertificate + ActivityProof
+	maximumHeaderExtraSize = crypto.SignatureLength + uint64Length + uint64Length + 2*maximumAggregateSignatureSize
+	maximumHeaderSize      = maximumOriginalHeaderSize + maximumHeaderExtraSize //nolint
+
+	/* ===========
+	*  max epoch header sizes, assuming 1000 committee members
+	*  to be used for data capping
+	*  ============
+	 */
+
+	// we have the Epoch struct in addition, which contains 3 *big.Int + the Committee (address, power and bls pubkey)
+	maximumEpochHeaderExtraSize = maximumHeaderExtraSize + 3*uint256Length + 1000*100
+	maximumEpochHeaderSize      = maximumOriginalHeaderSize + maximumEpochHeaderExtraSize //nolint
+
+	/* ===========
+	*  sensible header sizes, assuming 100 committee members and no overlapping signatures with coefficient > 0
+	*  to be used for data estimation. The actual header can be bigger
+	*  ============
+	 */
+
+	// no coefficient array
+	sensibleAggregateSignatureSize = blst.BLSSignatureLength + 100/4                                                         //nolint
+	sensibleHeaderExtraSize        = crypto.SignatureLength + uint64Length + uint64Length + 2*sensibleAggregateSignatureSize //nolint
+	sensibleHeaderSize             = maximumOriginalHeaderSize + sensibleHeaderExtraSize                                     //nolint
+
+	/* ===========
+	*  sensible epoch header sizes, assuming 100 committee members and no overlapping signatures with coefficient > 0
+	*  to be used for data estimation. The actual header can be bigger
+	*  ============
+	 */
+
+	sensibleEpochHeaderExtraSize = sensibleHeaderSize + 3*uint256Length + 100*100           //nolint
+	sensibleEpochHeaderSize      = maximumOriginalHeaderSize + sensibleEpochHeaderExtraSize //nolint
 )
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
 // mix-hash) that a sufficient amount of computation has been carried
 // out on a block.
-type BlockNonce [8]byte
+type BlockNonce [blockNonceLength]byte
 
 // EncodeNonce converts the given integer to a block nonce.
 func EncodeNonce(i uint64) BlockNonce {
@@ -93,6 +135,7 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 //go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
 
 // Header represents a block header in the Autonity blockchain.
+// NOTE: if field get changed here, modify also the constants for the maximum header size at the top of the file.
 type Header struct {
 	// NOTE: HeaderParentHashFromRLP relies on ParentHash being the first element of the struct. Do not move it.
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
@@ -279,54 +322,6 @@ func (h *Header) Size() common.StorageSize {
 	return headerSize + common.StorageSize(len(h.Extra)+(h.Difficulty.BitLen()+h.Number.BitLen())/8)
 }
 
-// sanityCheck checks a few basic things -- these checks are way beyond what
-// any 'sane' production values should hold, and can mainly be used to prevent
-// that the unbounded fields are stuffed with junk data to add processing
-// overhead
-func (h *Header) sanityCheck() error {
-	if !h.Number.IsUint64() {
-		return fmt.Errorf("too large block number: bitlen %d", h.Number.BitLen())
-	}
-	if diffLen := h.Difficulty.BitLen(); diffLen > maximumDifficultyBitlen {
-		return fmt.Errorf("too large block difficulty: bitlen %d", diffLen)
-	}
-	if eLen := len(h.Extra); eLen > maximumHeaderExtraLength {
-		return fmt.Errorf("too large block extradata: size %d", eLen)
-	}
-	if bfLen := h.BaseFee.BitLen(); bfLen > maximumBaseFeeBitlen {
-		return fmt.Errorf("too large base fee: bitlen %d", bfLen)
-	}
-
-	// check sanity of epoch info if the header is an epoch header.
-	// assumes sanity nil checks have already been done
-	if h.IsEpochHeader() {
-		if !h.Epoch.PreviousEpochBlock.IsUint64() {
-			return fmt.Errorf("too large previous epoch block number: bitlen %d", h.Epoch.PreviousEpochBlock.BitLen())
-		}
-
-		if !h.Epoch.NextEpochBlock.IsUint64() {
-			return fmt.Errorf("too large next epoch block number: bitlen %d", h.Epoch.NextEpochBlock.BitLen())
-		}
-
-		if !h.Epoch.Delta.IsUint64() {
-			return fmt.Errorf("too large next epoch delta: bitlen %d", h.Epoch.Delta.BitLen())
-		}
-
-		if h.Epoch.PreviousEpochBlock.Cmp(h.Number) > 0 {
-			return fmt.Errorf("previous epoch block number %d is larger than current epoch block number %d", h.Epoch.PreviousEpochBlock.Uint64(), h.Number.Uint64())
-		}
-
-		if h.Epoch.PreviousEpochBlock.Cmp(h.Number) == 0 && !h.IsGenesis() { // genesis is allowed to have previousEpochBlock == epochBlock == common.Big0
-			return fmt.Errorf("previous epoch block number %d is equal to current epoch block number %d", h.Epoch.PreviousEpochBlock.Uint64(), h.Number.Uint64())
-		}
-
-		if h.Number.Cmp(h.Epoch.NextEpochBlock) >= 0 {
-			return fmt.Errorf("current epoch block number %d is larger or equal than next epoch block number %d", h.Number.Uint64(), h.Epoch.NextEpochBlock.Uint64())
-		}
-	}
-	return nil
-}
-
 // DecodeRLP decodes the Ethereum
 func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	origin := &originalHeader{}
@@ -334,7 +329,7 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 
-	// *big.Int fields sanity check
+	// *big.Int fields sanity checks
 	if origin.Number == nil {
 		return fmt.Errorf("header number is nil")
 	}
@@ -343,6 +338,20 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	}
 	if origin.BaseFee == nil {
 		return fmt.Errorf("header base fee is nil")
+	}
+	if !origin.Number.IsUint64() {
+		return fmt.Errorf("too large block number: bitlen %d", origin.Number.BitLen())
+	}
+	if diffLen := origin.Difficulty.BitLen(); diffLen > maximumDifficultyBitlen {
+		return fmt.Errorf("too large block difficulty: bitlen %d", diffLen)
+	}
+	if bfLen := origin.BaseFee.BitLen(); bfLen > maximumBaseFeeBitlen {
+		return fmt.Errorf("too large base fee: bitlen %d", bfLen)
+	}
+
+	// check that the extra is not too big even for an epoch header
+	if eLen := len(origin.Extra); eLen > maximumEpochHeaderExtraSize {
+		return fmt.Errorf("too large block extradata: size %d", eLen)
 	}
 
 	if origin.MixDigest == BFTDigest {
@@ -416,6 +425,30 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 			if hExtra.Epoch.Delta.Cmp(common.Big0) == 0 {
 				return fmt.Errorf("epoch delta is zero")
 			}
+
+			if !hExtra.Epoch.PreviousEpochBlock.IsUint64() {
+				return fmt.Errorf("too large previous epoch block number: bitlen %d", hExtra.Epoch.PreviousEpochBlock.BitLen())
+			}
+
+			if !hExtra.Epoch.NextEpochBlock.IsUint64() {
+				return fmt.Errorf("too large next epoch block number: bitlen %d", hExtra.Epoch.NextEpochBlock.BitLen())
+			}
+
+			if !hExtra.Epoch.Delta.IsUint64() {
+				return fmt.Errorf("too large next epoch delta: bitlen %d", hExtra.Epoch.Delta.BitLen())
+			}
+
+			if hExtra.Epoch.PreviousEpochBlock.Cmp(origin.Number) > 0 {
+				return fmt.Errorf("previous epoch block number %d is larger than current epoch block number %d", hExtra.Epoch.PreviousEpochBlock.Uint64(), origin.Number.Uint64())
+			}
+
+			if hExtra.Epoch.PreviousEpochBlock.Cmp(origin.Number) == 0 && origin.Number.Uint64() != 0 { // genesis is allowed to have previousEpochBlock == epochBlock == common.Big0
+				return fmt.Errorf("previous epoch block number %d is equal to current epoch block number %d", hExtra.Epoch.PreviousEpochBlock.Uint64(), origin.Number.Uint64())
+			}
+
+			if origin.Number.Cmp(hExtra.Epoch.NextEpochBlock) >= 0 {
+				return fmt.Errorf("current epoch block number %d is larger or equal than next epoch block number %d", origin.Number.Uint64(), hExtra.Epoch.NextEpochBlock.Uint64())
+			}
 		}
 
 		h.QuorumCertificate = hExtra.QuorumCertificate
@@ -443,10 +476,6 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	h.MixDigest = origin.MixDigest
 	h.Nonce = origin.Nonce
 	h.BaseFee = origin.BaseFee
-
-	if err := h.sanityCheck(); err != nil {
-		return fmt.Errorf("failed sanity check: %w", err)
-	}
 
 	return nil
 }

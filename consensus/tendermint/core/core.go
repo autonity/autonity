@@ -19,6 +19,8 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
+const EventQueueSize = 100
+
 // New creates a Tendermint consensus Core
 func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger, noGossip bool) *Core {
 	messagesMap := message.NewMap()
@@ -44,6 +46,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
 		noGossip:               noGossip,
+		eventCh:                make(chan events.CoreEvent, EventQueueSize),
 	}
 	c.SetDefaultHandlers()
 	if services != nil {
@@ -136,6 +139,12 @@ type Core struct {
 	newRound           time.Time
 	currBlockTimeStamp time.Time
 	noGossip           bool
+
+	eventCh chan events.CoreEvent // channel to communicate events from core to other modules (aggregator)
+}
+
+func (c *Core) EventCh() <-chan events.CoreEvent {
+	return c.eventCh
 }
 
 func (c *Core) Prevoter() interfaces.Prevoter {
@@ -358,7 +367,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
 	c.processFuture(previousRound, round)
-	go c.SendEvent(events.RoundChangeEvent{Height: c.Height().Uint64(), Round: round})
+	c.SendEvent(events.NewRoundChangeEvent(c.Height().Uint64(), round))
 }
 
 func (c *Core) setInitialState(r int64) {

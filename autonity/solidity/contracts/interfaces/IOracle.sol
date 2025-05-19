@@ -30,6 +30,7 @@ interface IOracle {
      * @dev emit {NewSymbols} event.
      */
     function setSymbols(string[] memory _symbols) external;
+
     /**
      * @notice Retrieve the lists of symbols to be voted on.
      * Need to be called by the Oracle Server as part of the init.
@@ -38,9 +39,7 @@ interface IOracle {
 
     /**
      * @notice Vote for the prices with a commit-reveal scheme.
-     *
      * @dev Emit a {Vote} event in case of succesful vote.
-     *
      * @param _commit hash of the ABI packed-encoded prevotes to be
      * submitted the next voting round.
      * @param _reports list of prices to be voted on. Ordering must
@@ -54,6 +53,7 @@ interface IOracle {
      */
     function getRoundData(uint256 _round, string memory _symbol) external
     view returns (RoundData memory data);
+
     /**
      * @notice  Get data about the last round
      */
@@ -71,7 +71,7 @@ interface IOracle {
      * @notice Called when the previous round is ended. Updates the voter info for new voters.
      * @dev Only accessible from the Autonity Contract.
      */
-    function updateVoters() external;
+    function updateVotersAndSymbol() external;
 
 
     /**
@@ -117,33 +117,66 @@ interface IOracle {
     */
     function getDecimals() external view returns (uint8);
 
-
     /**
-     * @dev Emitted when a vote has been succesfully accounted after a {vote} call.
-     */
-    event Voted(address indexed _voter, int[] _votes);
-
-    /**
-     * @dev Emitted when a vote has been succesfully accounted after a {vote} call.
-     * round - the round at which new symbols are effective
+     * @notice Emitted when the oracle symbol list is updated
+     * @param _symbols new symbol list
+     * @param _round the round at which new symbols are effective
      */
     event NewSymbols(string[] _symbols, uint256 _round);
 
     /**
-     * @dev Emitted when a new voting round is started.
-     * round - the new round ID
-     * height - the height of the current block being executed in the EVM context.
-     * timestamp - the TS in time's seconds since Jan 1 1970 (Unix time) that the block been mined by protocol
-     * votePeriod - the round period in blocks for the price voting and aggregation.
+     * @notice Emitted when a new voting round is started.
+     * @param _round the new round ID
+     * @param _timestamp the TS in time's seconds since Jan 1 1970 (Unix time) that the block been mined by protocol
+     * @param _votePeriod the round period in blocks for the price voting and aggregation.
      */
-    event NewRound(uint256 _round, uint256 _height, uint256 _timestamp, uint _votePeriod);
+    event NewRound(uint256 _round,  uint256 _timestamp, uint _votePeriod);
 
     /**
-     * @dev Emitted when a participant gets penalized as an outlier
+     * @notice Emitted when oracle rewards are distributed
+     * @param ntnReward total ntn rewards
+     * @param atnReward total atn rewards
+     */
+    event TotalOracleRewards(uint256 ntnReward, uint256 atnReward);
+
+    /**
+     * @notice Emitted when an invalid report is submitted
+     * @param cause cause of invalidation
+     * @param reporter report submitter
+     * @param expValue expected value in report
+     * @param actualValue actual value in report
+     */
+    event InvalidVote(string cause, address indexed reporter, uint256 expValue, uint256 actualValue);
+
+    /**
+     * @notice Emitted when a valid report is accepted
+     * @param reporter report submitter
+     */
+    event SuccessfulVote(address indexed reporter);
+
+    /**
+     * @notice Emitted when a new reporter submits a report
+     * @param reporter report submitter
+     */
+    event NewVoter(address reporter);
+
+    /**
+     * @notice Emitted when a new price is calculated for a symbol
+     * @param price new price
+     * @param round round number
+     * @param symbol symbol
+     * @param status status of price calculation
+     * @param timestamp timestamp of price
+     */
+    event PriceUpdated(uint256 price, uint256 round, string indexed symbol, bool status, uint256 timestamp);
+
+    /**
+     * @notice Emitted when a participant gets penalized as an outlier
      * @param _participant Oracle address of the validator
      * @param _symbol Outlier symbol.
      * @param _median Median price calculate for this symbol.
      * @param _reported Reported outlier price.
+     * @param _slashingAmount Slashing amount of the validator stakes. It can be zero if the penalty does not rise above the threshold.
      */
-    event Penalized(address indexed _participant, string _symbol, int256 _median, uint120 _reported);
+    event Penalized(address indexed _participant, uint256 _slashingAmount, string _symbol, int256 _median, uint120 _reported);
 }

@@ -73,6 +73,9 @@ const (
 	// This time limits inbound connection attempts per source IP.
 	inboundThrottleTime = 30 * time.Second
 
+	// smaller rate limit window on ACN port
+	acnInboundThrottleTime = 10 * time.Second
+
 	// Maximum time allowed for reading a complete message.
 	// This is effectively the amount of time a connection can be idle.
 	frameReadTimeout = 30 * time.Second
@@ -466,6 +469,35 @@ func (srv *Server) inCommittee(id enode.ID) bool {
 		}
 	}
 	return false
+}
+
+func (srv *Server) isConsensusEndpointReachable(id enode.ID) bool {
+	var (
+		ip   net.IP
+		port int
+	)
+
+	srv.enodeMu.RLock()
+	for _, node := range srv.committee {
+		if id == node.ID() {
+			ip = node.IP()
+			port = node.TCP()
+			break
+		}
+	}
+	srv.enodeMu.RUnlock()
+	if ip == nil || port == 0 {
+		return false
+	}
+
+	srv.log.Info("verifying connectivity towards consensus endpoint", "ip", ip, "port", port)
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), defaultDialTimeout)
+	if err != nil {
+		srv.log.Warn("unable to reach peer consensus endpoint", "error", err, "ip", ip, "port", port)
+		return false
+	}
+	_ = conn.Close()
+	return true
 }
 
 func (srv *Server) SetCurrentBlockNumber(num uint64) {
@@ -954,6 +986,8 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscPeerNotInCommittee
 	case srv.Net == Execution && srv.inCommittee(c.node.ID()) && !srv.inCommitteeSubset(c.node.ID()):
 		return DiscPeerOutsideTopology
+	case srv.Net == Consensus && !srv.isConsensusEndpointReachable(c.node.ID()):
+		return DiscACNPeerNotReachable
 	default:
 		return nil
 	}
@@ -1067,7 +1101,11 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 	if !netutil.IsLAN(remoteIP) && srv.inboundHistory.contains(remoteIP.String()) {
 		return fmt.Errorf("too many attempts")
 	}
-	srv.inboundHistory.add(remoteIP.String(), now.Add(inboundThrottleTime))
+	if srv.Net == Consensus {
+		srv.inboundHistory.add(remoteIP.String(), now.Add(acnInboundThrottleTime))
+	} else {
+		srv.inboundHistory.add(remoteIP.String(), now.Add(inboundThrottleTime))
+	}
 	return nil
 }
 

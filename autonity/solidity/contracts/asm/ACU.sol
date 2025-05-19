@@ -13,14 +13,16 @@ o88o     o8888o 8""88888P'  o8o        o888o
        Auton Stabilization Mechanism
 */
 
-import {IACU} from "./IACU.sol";
+import {IACU} from "./interfaces/IACU.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
+import "./lib/ASMErrors.sol";
+import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
 
 /// @title ASM ACU Contract
 /// @notice Computes the value of the ACU, an optimal currency basket of
 /// 7 free-floating fiat currencies.
 /// @dev Intended to be deployed by the protocol at genesis.
-contract ACU is IACU {
+contract ACU is IACU, IConfigEvents {
     /// The Oracle round of the current ACU value.
     uint256 public round;
     /// The decimal places used to represent the ACU as a fixed-point integer.
@@ -28,24 +30,23 @@ contract ACU is IACU {
     uint256 public scale;
     /// The multiplier for scaling numbers to the ACU scaled representation.
     uint256 public scaleFactor;
+    /// The quantity multiplier for the ACU basket.
+    uint256 public quantityMultiplier;
 
     string[] private _symbols;
     uint256[] private _quantities;
-    int256 private _value;
+    uint256 private _value;
     address private _autonity;
     address private _operator;
     IOracle private _oracle;
-    bytes32 private constant SYMBOL_USD =
-        keccak256(abi.encodePacked("USD-USD"));
+    bytes32 private constant SYMBOL_USD = keccak256(abi.encodePacked("USD-USD"));
 
     /// The ACU value was updated.
-    event Updated(uint height, uint timestamp, uint256 round, int256 value);
+    event Updated(uint height, uint timestamp, uint256 round, uint256 value);
     /// The ACU symbols, quantites, or scale were modified.
     event BasketModified(string[] symbols, uint256[] quantities, uint256 scale);
-
-    error InvalidBasket();
-    error NoACUValue();
-    error Unauthorized();
+    /// The ACU quantity multiplier has been updated
+    event Rescaled(uint256 newQuantityMultiplier, uint256 oldQuantityMultiplier);
 
     modifier onlyAutonity() {
         if (msg.sender != _autonity) revert Unauthorized();
@@ -88,6 +89,7 @@ contract ACU is IACU {
         _quantities = quantities_;
         scale = scale_;
         scaleFactor = 10 ** scale_;
+        quantityMultiplier = scaleFactor;
         _autonity = autonity;
         _operator = operator;
         _oracle = IOracle(oracle);
@@ -113,24 +115,24 @@ contract ACU is IACU {
     function update() external onlyAutonity returns (bool status) {
         uint256 latestRound = _oracle.getRound() - 1;
         if (round >= latestRound) return false;
-        int256 sumProduct = 0;
+        uint256 sumProduct = 0;
         uint256 oracleDecimals = uint256(_oracle.getDecimals());
         for (uint i = 0; i < _symbols.length; i++) {
-            int256 price;
+            uint256 price;
             if (keccak256(abi.encodePacked(_symbols[i])) == SYMBOL_USD) {
-                price = int256(10**oracleDecimals);
+                price = 10 ** oracleDecimals;
             } else {
                 IOracle.RoundData memory roundData = _oracle.getRoundData(
                     latestRound,
                     _symbols[i]
                 );
                 if (!roundData.success) return false;
-                price = int256(roundData.price);
+                price = roundData.price;
             }
-            sumProduct += (price * int256(_quantities[i]));
+            sumProduct += (price * _quantities[i]);
         }
 
-        _value = sumProduct / int256(10**oracleDecimals);
+        _value = sumProduct / 10 ** oracleDecimals;
         round = latestRound;
 
         // solhint-disable-next-line not-rely-on-time
@@ -143,6 +145,7 @@ contract ACU is IACU {
     /// @dev Only the Autonity Contract is authorized to set the Governance
     /// Operator account address.
     function setOperator(address operator) external onlyAutonity {
+        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
         _operator = operator;
     }
 
@@ -151,6 +154,7 @@ contract ACU is IACU {
     /// @dev Only the Autonity Contract is authorized to set the Oracle
     /// Contract address.
     function setOracle(address oracle) external onlyAutonity {
+        emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle);
         _oracle = IOracle(oracle);
     }
 
@@ -173,8 +177,20 @@ contract ACU is IACU {
         _symbols = symbols_;
         _quantities = quantities_;
         scale = scale_;
+        // Rescale the quantity multiplier to the new scaleFactor
+        quantityMultiplier = quantityMultiplier * (10 ** scale_) / scaleFactor;
         scaleFactor = 10 ** scale;
         emit BasketModified(symbols_, quantities_, scale_);
+    }
+
+    // Rescale the quantity multiplier.
+    /// @param newQuantityMultiplier The new quantity multiplier
+    /// @notice the quantity multiplier has precision of scaleFactor
+    function rescale(uint256 newQuantityMultiplier) external onlyOperator {
+        uint256 oldQuantityMultiplier = quantityMultiplier;
+        if (newQuantityMultiplier == 0) revert ZeroValue();
+        quantityMultiplier = newQuantityMultiplier;
+        emit Rescaled(newQuantityMultiplier, oldQuantityMultiplier);
     }
 
     /*
@@ -184,10 +200,11 @@ contract ACU is IACU {
     */
 
     /// The latest ACU value that was computed.
-    /// @return ACU value in fixed-point integer representation
-    function value() external view returns (int256) {
+    /// @return ACU value in fixed-point integer representation rescaled by the
+    /// quantity multiplier
+    function value() external view returns (uint256) {
         if (round == 0) revert NoACUValue();
-        return _value;
+        return quantityMultiplier * _value / scaleFactor;
     }
 
     /// The symbols that are used to compute the ACU.
@@ -200,5 +217,22 @@ contract ACU is IACU {
     /// @return Array of quantities
     function quantities() external view returns (uint256[] memory) {
         return _quantities;
+    }
+
+    /// The quantity multiplier that is used to compute the ACU.
+    /// @return Quantity multiplier
+    /// @dev The quantity multiplier has precision of scaleFactor
+    function multiplier() external view returns (uint256) {
+        return quantityMultiplier;
+    }
+
+    // The scaled quantities used to compute the ACU.
+    // @return Array of scaled quantities
+    function scaledQuantities() external view returns (uint256[] memory) {
+        uint256[] memory scaled = new uint256[](_quantities.length);
+        for (uint i = 0; i < _quantities.length; i++) {
+            scaled[i] = _quantities[i] * quantityMultiplier / scaleFactor;
+        }
+        return scaled;
     }
 }
