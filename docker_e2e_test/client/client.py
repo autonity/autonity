@@ -11,7 +11,7 @@ from invoke import Responder
 
 AUTONITY_PATH = "/home/{}/network-data/autonity"
 GENESIS_PATH = "/home/{}/network-data/genesis.json"
-LOG_PATH = "/home/{}/autonity.log"
+LOG_PATH = "/home/{}/{}.log"
 CHAIN_DATA_DIR = "/home/{}/network-data/{}/data/"
 BOOT_KEY_FILE = "/home/{}/network-data/{}/boot.key"
 KEY_PASSPHRASE_FILE = "/home/{}/network-data/{}/pass.txt"
@@ -156,7 +156,7 @@ class Client(object):
                                                                    self.coin_base,
                                                                    KEY_PASSPHRASE_FILE.format(
                                                                        self.ssh_user, self.host),
-                                                                   LOG_PATH.format(self.ssh_user)
+                                                                   LOG_PATH.format(self.ssh_user, self.host)
                                                                   )
         return cmd
 
@@ -197,7 +197,7 @@ class Client(object):
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
                 "password": self.ssh_pass
             }) as c:
-                c.run("touch {}".format(LOG_PATH.format(self.ssh_user)))
+                c.run("touch {}".format(LOG_PATH.format(self.ssh_user, self.host)))
                 cmd = self.cli_cmd()
                 self.logger.info("*** starting autonity client cmd: %s", cmd)
                 # this run is a blocking call, it returns until the remote autonity service terminated.
@@ -292,7 +292,7 @@ class Client(object):
 
                 # tar logs for remote node.
                 tar_file = "./{}.log.tgz".format(self.host)
-                cmd = "tar -zcvf {} {}".format(tar_file, LOG_PATH.format(self.ssh_user))
+                cmd = "tar -zcvf {} {}".format(tar_file, LOG_PATH.format(self.ssh_user, self.host))
                 result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('log was zip on host: %s', self.host)
