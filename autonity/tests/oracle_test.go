@@ -1269,17 +1269,10 @@ func nextRound(r *Runner) {
 }
 
 func TestMissedReveal(t *testing.T) {
-	missedRevealPeriod := int64(10)
-	missedRevealThreshold := int64(3)
+	missedRevealPeriod := int64(params.TestOracleConfig.MissedRevealPeriod)
+	missedRevealThreshold := int64(params.TestOracleConfig.MissedRevealThreshold)
 	setup := func() *Runner {
 		r := Setup(t, SetInflationReserveZero)
-		r.NoError(
-			r.Oracle.SetMissedRevealParams(
-				r.Operator,
-				big.NewInt(missedRevealPeriod),
-				big.NewInt(missedRevealThreshold),
-			),
-		)
 		return r
 	}
 

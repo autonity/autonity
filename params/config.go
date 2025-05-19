@@ -490,8 +490,8 @@ var (
 		OutlierDetectionThreshold: 15,
 		OutlierSlashingThreshold:  20,
 		BaseSlashingRate:          10,
-		MissedRevealPeriod:        60,
-		MissedRevealThreshold:     2,
+		MissedRevealPeriod:        10,
+		MissedRevealThreshold:     3,
 	}
 
 	TestChainConfig = &ChainConfig{
