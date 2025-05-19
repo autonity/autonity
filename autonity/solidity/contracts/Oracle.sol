@@ -459,6 +459,14 @@ contract Oracle is IOracle, IConfigEvents {
     }
 
     /**
+    * @notice Retrieve the new vote period that is going to be applied at the end of the vote round.
+    * @dev IOracle interface method implementation.
+    */
+    function getNewVotePeriod() external view returns (uint) {
+        return newVotePeriod;
+    }
+
+    /**
      * @notice Called to update the list of the oracle voters.
      * @dev Only accessible from the Autonity Contract.
      * @dev IOracle interface method implementation.

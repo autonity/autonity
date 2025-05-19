@@ -567,6 +567,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         // we need this check to update new voters at the end of voting round
         uint256 _votePeriod = config.contracts.oracleContract.getVotePeriod();
         require(_votePeriod * 2 <= _period, "epoch period is too small");
+        uint256 _newVotePeriod = config.contracts.oracleContract.getNewVotePeriod();
+        require(_newVotePeriod * 2 <= _period, "epoch period is too small");
 
         newEpochPeriod = _period;
         uint256 _appliedAtBlock = epochInfos[epochID].nextEpochBlock;
