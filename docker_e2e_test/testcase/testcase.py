@@ -216,9 +216,6 @@ class TestCase:
             self.collect_system_log()
             return False
 
-        # todo: remove below log print as okay case does not need logging.
-        self.collect_test_case_context_log()
-        self.collect_system_log()
         return True
 
     def run(self):
