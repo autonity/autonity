@@ -290,6 +290,10 @@ class Client(object):
                     response=self.sudo_pass + '\n'
                 )
 
+                # ls log files.
+                c.run("ls /home/tester/", pty=True, hide=False)
+                c.run("cat {}".format(LOG_PATH.format(self.ssh_user, self.host)), pty=True, hide=False)
+
                 # tar logs for remote node.
                 tar_file = "./{}.log.tgz".format(self.host)
                 cmd = "tar -zcvf {} {}".format(tar_file, LOG_PATH.format(self.ssh_user, self.host))
