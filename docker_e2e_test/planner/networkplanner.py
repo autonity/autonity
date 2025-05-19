@@ -181,7 +181,7 @@ class NetworkPlanner(object):
             validator = {
                 "treasury": coinbase,
                 "enode": client.e_node,
-                "bondedStake": 10000  if client.role  == "validator" else 5000,
+                "bondedStake": 10000 if client.role == "validator" else 5000,
                 "oracleAddress": coinbase,
                 "consensusKey": client.consensus_pub_key,
             }

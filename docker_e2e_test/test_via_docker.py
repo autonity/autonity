@@ -11,7 +11,6 @@ TEST_ENGINE_DOCKER_FILE = "./Dockerfile"
 CLIENT_IMAGE_NAME = "clienthost/ubuntu:2404"
 CLIENT_DOCKER_FILE = "./clientDockerFile"
 BUILDER_IMAGE_NAME = "go-builder/ubuntu"
-BUILDER_DOCKER_FILE = "./builderDockerfile"
 NUM_OF_CLIENT = 6
 NODE_NAME = "Node{}_{}"
 ENGINE_NAME = "Engine{}"
@@ -175,7 +174,7 @@ def remove_test_engine_image(commit_hash):
 
 # to stop and remove client and test engine containers.
 def clean_test_bed_containers(job_id):
-    print("start clean up current test context: test bed, test engine.")
+    print("start clean up current test context: test bed and test engine.")
     client = docker.from_env()
     for i in range(0, NUM_OF_CLIENT):
         try:
@@ -224,12 +223,12 @@ def dump_ips_to_engine_conf(ips):
         print("failed to dump ip into test engine validator.ip file. ", e)
 
 
-def start_test_engine_container(commit_hash, job_id, id):
+def start_test_engine_container(commit_hash, job_id, test_id):
     print("start test engine container, the testcase will be run in it.")
     try:
         print("test engine is going to start:")
         client = docker.from_env()
-        cmd = COMMAND_START_TEST.format(id)
+        cmd = COMMAND_START_TEST.format(test_id)
         container = client.containers.run(TEST_ENGINE_IMAGE_NAME.format(commit_hash), command=cmd,
                                           name=ENGINE_NAME.format(job_id), detach=True, privileged=True)
         print("test engine is started.")
@@ -272,7 +271,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("autonity", help="Autonity WorkDir Path")
     # Adding test case ID for the target test case to be run.
-    parser.add_argument("-id", help='Start testcase id', type=int, required=True, default=0)
+    parser.add_argument("-id", help='Test Case ID', type=int, required=True, default=0)
     parser.add_argument("-hash", help='Commit hash', type=str, required=True, default="0xaabcdef")
 
     args = parser.parse_args()
@@ -281,13 +280,11 @@ if __name__ == "__main__":
     autonity_bin= os.path.join(autonity_path,"build/bin/autonity")
     key_inspector_bin= os.path.join(autonity_path,"build/bin/ethkey")
 
-    id = args.id
-    hash = args.hash
-    COMMIT_HASH = hash
-    print("start docker test for commit hash: %s", hash)
+    test_id = args.id
+    COMMIT_HASH = args.hash
+    print("start docker test for commit hash: %s", COMMIT_HASH)
 
-    job_id = "hash_{}_case_{}".format(COMMIT_HASH, id)
-    JOB_ID = job_id
+    JOB_ID = "hash_{}_case_{}".format(COMMIT_HASH, test_id)
 
     # cleanup in case of test is killed by ci.
     signal.signal(signal.SIGTERM, receive_signal)
@@ -302,30 +299,23 @@ if __name__ == "__main__":
         prune_unused_volumes()
         prune_unused_network()
 
-
-        # Build builder image to removed since docker in docker build fails in CI.
-        #create_image(BUILDER_IMAGE_NAME, BUILDER_DOCKER_FILE)
-        #container = docker.from_env().containers.run(BUILDER_IMAGE_NAME, name="go-builder",
-        #    detach=False, remove=True, command='bash -c "cd autonity && make all"',
-        #    volumes={autonity_path: {"bind": "/autonity", "mode": "rw"}})
-
         # copy binary to binary dir for image building.
         utility.execute("cp {} ./test_bin/".format(autonity_bin))
         utility.execute("cp {} ./test_bin/".format(bootnode_bin))
         utility.execute("cp {} ./test_bin/".format(key_inspector_bin))
 
-        # build autonity client image.
+        # tyr to build autonity client image if the image hasn't being built.
         check_to_build_client_images()
 
-        # create test bed for the latter deployment.
-        ips = start_client_containers(job_id)
+        # create the network infra for the test.
+        ips = start_client_containers(JOB_ID)
 
-        # prepare test engine image.
+        # collect infra information and try to build test engine image.
         dump_ips_to_engine_conf(ips)
         check_to_build_engine_image(COMMIT_HASH)
 
-        # start the e2e testing.
-        container = start_test_engine_container(COMMIT_HASH, job_id, id)
+        # start the test engine with specific test case id.
+        container = start_test_engine_container(COMMIT_HASH, JOB_ID, test_id)
 
         if container is not None:
             thd = None
@@ -335,14 +325,14 @@ if __name__ == "__main__":
                     exit_code = 0
                 if line == b"INFO - [TEST FAILED]\n":
                     exit_code = 1
-                    thd = threading.Thread(target=thread_func_copy_system_logs, args=(job_id, SYSTEM_LOG_PATH))
+                    thd = threading.Thread(target=thread_func_copy_system_logs, args=(JOB_ID, SYSTEM_LOG_PATH))
                     thd.start()
-            # wait if log collecting is not finished.
+            # wait if log collection is not finished.
             if thd is not None:
                 thd.join(timeout=300)
 
     except Exception as e:
         print("e2e testing failed: ", e)
     finally:
-        clean_up(job_id, COMMIT_HASH)
+        clean_up(JOB_ID, COMMIT_HASH)
         exit(exit_code)

@@ -1,5 +1,9 @@
-# Autonity client docker file used for docker test.
-FROM jrei/systemd-ubuntu:24.04
+# Docker file for the autonity clients in the docker e2e test framework.
+# The version of ubuntu should be aligned with teh github workflow's OS version, as
+# autonity client's underlying libs like libc, etc... need a compatible kernel to run it.
+FROM ubuntu:24.04
+
+# Install those helpers for the tests.
 RUN  apt-get update && \
   apt-get dist-upgrade --yes && \
   apt-get install --yes iptables && \
@@ -8,10 +12,14 @@ RUN  apt-get update && \
   apt-get install --yes openssh-server
 RUN mkdir /var/run/sshd
 RUN echo 'root:root' |chpasswd
+# Register ssh user account and password for the test.
 RUN sed -ri 's/^#?PermitRootLogin\s+.*/PermitRootLogin yes/' /etc/ssh/sshd_config
 RUN sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config
 RUN useradd -m -p '$6$MtwVl8yJ/PeTevqf$C.7ANQ7EzLLP9b6dXte9keVRYeUDDZ2i579yEIA4nPRpx8DMvxkRx3mZSYbZHCdzh8rmvq/PAvV9zTwp/i6o1/' -g sudo -G sudo tester
+
 RUN apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+# Expose required ports for sshd and autonity client.
 EXPOSE 22 6000 7000 8000 20203 30303
+# Start the sshd service.
 CMD    ["/usr/sbin/sshd", "-D"]

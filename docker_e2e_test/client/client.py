@@ -203,6 +203,7 @@ class Client(object):
                 # this run is a blocking call, it returns until the remote autonity service terminated.
                 c.run(cmd, pty=False, warn=True, hide=True)
                 self.logger.info("*** autonity client lifecycle stopped: %s ", self.host)
+                self.client_stopped = True
         except Exception as e:
             self.logger.error("cannot start client, %s, %s", self.host, e)
         return False
@@ -278,7 +279,7 @@ class Client(object):
         except Exception as e:
             self.logger.error('Exception happens. %s', e)
 
-    def collect_system_log(self, log_folder):
+    def download_log(self, log_folder):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
                 # "key_filename": self.ssh_key,

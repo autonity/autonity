@@ -1,5 +1,7 @@
+# Docker file for the test engine of the autonity docker e2e test framework.
 FROM ubuntu:24.04
 
+# Use python 3.8 to create the virtual execution context for the test engine.
 ENV PYTHON_VERSION=3.8 \
     DEBIAN_FRONTEND=noninteractive \
     VENV=/opt/venv
@@ -35,6 +37,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools
 
 RUN python -c "import pkg_resources; print('setuptools version:', pkg_resources.get_distribution('setuptools').version)"
 
+# Install those python dependencies under the environment, pip will resolve those conflicts from now on.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
