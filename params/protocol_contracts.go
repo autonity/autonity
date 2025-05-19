@@ -428,7 +428,7 @@ func (g *OracleContractGenesis) SetDefaults() error {
 		g.OutlierDetectionThreshold = DefaultGenesisOracleConfig.OutlierDetectionThreshold
 	}
 	if g.MissedRevealPeriod == 0 {
-		g.MissedRevealThreshold = DefaultGenesisOracleConfig.MissedRevealThreshold
+		g.MissedRevealPeriod = DefaultGenesisOracleConfig.MissedRevealPeriod
 	}
 	if g.MissedRevealThreshold == 0 {
 		g.MissedRevealThreshold = DefaultGenesisOracleConfig.MissedRevealThreshold
