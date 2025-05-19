@@ -79,7 +79,8 @@ const (
 	DiscPeerOutsideTopology
 	DiscSyncFailed
 	DiscACNPeerNotReachable
-	DiscSubprotocolError = 0x11
+	DiscSimultaneousConnect
+	DiscSubprotocolError = 0x12
 	DiscInvalid          = 0xff
 )
 
@@ -101,6 +102,7 @@ var discReasonToString = [...]string{
 	DiscPeerOutsideTopology: "peer outside topology",
 	DiscSyncFailed:          "failed to sync with remote peer",
 	DiscACNPeerNotReachable: "peer consensus endpoint is not reachable",
+	DiscSimultaneousConnect: "Duplicate connection",
 	DiscSubprotocolError:    "subprotocol error",
 	DiscInvalid:             "invalid disconnect reason",
 }

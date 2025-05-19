@@ -932,6 +932,10 @@ running:
 			c.cont <- err
 
 		case pd := <-srv.delpeer:
+			if errors.Is(pd.err, DiscSimultaneousConnect) {
+				srv.log.Debug("Skipping peer removal for simultaneous connect", "id", pd.ID(), "server", srv.Net.String())
+				continue
+			}
 			// A peer disconnected.
 			d := common.PrettyDuration(mclock.Now() - pd.created)
 			delete(peers, pd.ID())
@@ -990,11 +994,11 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 	case peers[c.node.ID()] != nil:
 		p := peers[c.node.ID()]
 		var err error
-		if !p.setupInProgress.Load() {
+		if p.setupInProgress.Load() {
 			// Deterministic selection: keep connection from peer with lower ID
 			if bytes.Compare(srv.localnode.ID().Bytes(), c.node.ID().Bytes()) > 0 {
-				srv.log.Info("Rejecting simultaneous connection, preferring peer with lower ID", "peer", c.node.ID().String(), "server", srv.Net.String())
-				err = DiscRequested
+				srv.log.Info("Rejecting simultaneous connection, local node ID is higher than incoming peer connection node ID", "peer", c.node.ID().String(), "server", srv.Net.String())
+				err = DiscSimultaneousConnect
 			} else {
 				srv.log.Info("Accepting simultaneous connection, local ID is lower", "peer", c.node.ID().String(), "server", srv.Net.String())
 				// Allow this connection to proceed, it will replace the existing one in addPeerChecks
@@ -1030,8 +1034,8 @@ func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *
 	if p, exists := peers[c.node.ID()]; exists {
 		if p.setupInProgress.Load() && bytes.Compare(srv.localnode.ID().Bytes(), c.node.ID().Bytes()) < 0 {
 			// This connection is preferred (lower ID), replace the existing one
-			srv.log.Info("Replacing existing connection with simultaneous one", "peer", c.node.ID().String(), "server", srv.Net.String())
-			p.Disconnect(DiscRequested)
+			srv.log.Info("Replacing existing connection with new one", "peer", c.node.ID().String(), "server", srv.Net.String())
+			p.Disconnect(DiscSimultaneousConnect)
 			return nil
 		}
 		return DiscAlreadyConnected

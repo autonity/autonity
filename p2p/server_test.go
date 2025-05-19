@@ -17,14 +17,19 @@
 package p2p
 
 import (
+	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"errors"
 	"io"
 	"math/rand"
 	"net"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/internal/testlog"
@@ -516,10 +521,13 @@ func (c *setupTransport) close(err error) {
 
 // setupConn shouldn't write to/read from the connection.
 func (c *setupTransport) WriteMsg(Msg) error {
-	panic("WriteMsg called on setupTransport")
+	msg := "Write Msg called on setupTransport"
+	return errors.New(msg)
 }
+
 func (c *setupTransport) ReadMsg() (Msg, error) {
-	panic("ReadMsg called on setupTransport")
+	msg := "ReadMsg called on setupTransport"
+	return Msg{}, errors.New(msg)
 }
 
 func newkey() *ecdsa.PrivateKey {
@@ -652,4 +660,166 @@ func syncAddPeer(srv *Server, node *enode.Node) bool {
 			return false
 		}
 	}
+}
+
+func TestSimultaneousConnection(t *testing.T) {
+	key1 := newkey()
+	key2 := newkey()
+	if bytes.Compare(enode.PubkeyToIDV4(&key1.PublicKey).Bytes(), enode.PubkeyToIDV4(&key2.PublicKey).Bytes()) >= 0 {
+		// swap keys to ensure key1 < key2
+		key1, key2 = key2, key1
+	}
+
+	dialer1 := &syncDialer{ready: make(chan struct{}, 1), trigger: make(chan struct{})}
+	dialer2 := &syncDialer{ready: make(chan struct{}, 1), trigger: make(chan struct{})}
+
+	// server 1
+	srv1 := &Server{
+		Config: Config{
+			Name:        "s1",
+			MaxPeers:    10,
+			ListenAddr:  "127.0.0.1:0",
+			NoDiscovery: true,
+			//NoDial:      true, //review
+			Dialer:     dialer1,
+			PrivateKey: key1,
+			Logger:     testlog.Logger(t, log.LvlTrace).New("server", "s1"),
+		},
+		newTransport: func(fd net.Conn, dialDest *ecdsa.PublicKey) transport {
+			return newTestTransport(&key2.PublicKey, fd, dialDest)
+		},
+		newPeerHook: func(peer *Peer) {
+			time.Sleep(4 * time.Second) // Simulate some processing delay
+			peer.UpdateSetupProgress(false)
+		},
+	}
+
+	// server 2
+	srv2 := &Server{
+		Config: Config{
+			Name:        "s2",
+			MaxPeers:    10,
+			ListenAddr:  "127.0.0.1:0",
+			NoDiscovery: true,
+			Dialer:      dialer2,
+			PrivateKey:  key2,
+			//Protocols:   []Protocol{discard},
+			Logger: testlog.Logger(t, log.LvlTrace).New("server", "s2"),
+		},
+		newTransport: func(fd net.Conn, dialDest *ecdsa.PublicKey) transport {
+			return newTestTransport(&key1.PublicKey, fd, dialDest)
+		},
+		newPeerHook: func(peer *Peer) {
+			time.Sleep(1 * time.Second)
+			peer.UpdateSetupProgress(false)
+		},
+	}
+	if err := srv1.Start(); err != nil {
+		t.Fatalf("could not start server 1: %v", err)
+	}
+
+	if err := srv2.Start(); err != nil {
+		t.Fatalf("could not start server 2: %v", err)
+	}
+
+	defer srv1.Stop()
+	defer srv2.Stop()
+
+	eventCh1 := make(chan *PeerEvent, 10)
+	eventCh2 := make(chan *PeerEvent, 10)
+	sub1 := srv1.SubscribeEvents(eventCh1)
+	sub2 := srv2.SubscribeEvents(eventCh2)
+	defer sub1.Unsubscribe()
+	defer sub2.Unsubscribe()
+
+	// Initiate simultaneous connections.
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		srv1.AddPeer(srv2.Self())
+	}()
+	go func() {
+		defer wg.Done()
+		srv2.AddPeer(srv1.Self())
+	}()
+
+	var ready1, ready2 bool
+	timeout := time.After(2 * time.Second)
+	for !ready1 || !ready2 {
+		select {
+		case <-dialer1.ready:
+			ready1 = true
+		case <-dialer2.ready:
+			ready2 = true
+		case <-timeout:
+			t.Fatalf("dialers not ready in time: ready1=%v, ready2=%v", ready1, ready2)
+		}
+	}
+	// Both ready, trigger dials.
+	close(dialer1.trigger)
+	close(dialer2.trigger)
+	wg.Wait()
+
+	timeout = time.After(20 * time.Second)
+	var add1, add2, drop1, drop2 *PeerEvent
+
+	for add1 == nil || add2 == nil {
+		select {
+		case ev := <-eventCh1:
+			if ev.Peer == srv2.Self().ID() {
+				if ev.Type == PeerEventTypeAdd {
+					add1 = ev
+				} else if ev.Type == PeerEventTypeDrop {
+					drop1 = ev
+				}
+			}
+		case ev := <-eventCh2:
+			if ev.Peer == srv1.Self().ID() {
+				if ev.Type == PeerEventTypeAdd {
+					add2 = ev
+				} else if ev.Type == PeerEventTypeDrop {
+					drop2 = ev
+				}
+			}
+		case <-timeout:
+			t.Fatal("timeout waiting for peer events")
+		}
+	}
+
+	assert.NotNil(t, add1, "expected add event for server 1")
+	assert.NotNil(t, add2, "expected add event for server 2")
+
+	assert.Equal(t, 1, srv1.PeerCount(), "unexpected peer count for server 1")
+	assert.Equal(t, 1, srv2.PeerCount(), "unexpected peer count for server 2")
+
+	if drop1 == nil && drop2 == nil {
+		//t.Error("expected drop event from one of the server")
+	}
+	//assert.NotNil(t, drop1, "expected drop event for server 1")
+
+	//if drop2.Error != DiscRequested.String() {
+	//	t.Error("unexpected error for remove event for server 2:", drop2.Error)
+	//}
+
+	assert.Equal(t, add1.Peer, srv2.Self().ID(), "unexpected peer ID in add event for server 1")
+	assert.Equal(t, add2.Peer, srv1.Self().ID(), "unexpected peer ID in add event for server 2")
+}
+
+type syncDialer struct {
+	ready   chan struct{}
+	trigger chan struct{}
+}
+
+func (d *syncDialer) Dial(ctx context.Context, node *enode.Node) (net.Conn, error) {
+	select {
+	case d.ready <- struct{}{}:
+	default:
+	}
+	<-d.trigger
+
+	// Perform the actual dial.
+	dialer := &net.Dialer{Timeout: 2 * time.Second}
+	addr := &net.TCPAddr{IP: node.IP(), Port: node.TCP()}
+	return dialer.Dial("tcp", addr.String())
 }

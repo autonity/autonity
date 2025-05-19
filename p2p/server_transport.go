@@ -3,8 +3,9 @@ package p2p
 import (
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"github.com/autonity/autonity/p2p/rlpx"
 	"net"
+
+	"github.com/autonity/autonity/p2p/rlpx"
 
 	"github.com/autonity/autonity/crypto"
 )
@@ -32,7 +33,7 @@ func (c *testTransport) doEncHandshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey,
 
 func (c *testTransport) doProtoHandshake(our *protoHandshake) (*protoHandshake, error) {
 	pubkey := crypto.FromECDSAPub(c.rpub)[1:]
-	return &protoHandshake{ID: pubkey, Name: "test"}, nil
+	return &protoHandshake{ID: pubkey, Name: "test", Caps: []Cap{{"test", 1}}}, nil
 }
 
 func (c *testTransport) close(err error) {
