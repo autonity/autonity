@@ -234,12 +234,11 @@ contract Oracle is IOracle, IConfigEvents {
     }
 
     function _punishMissedReveal() internal {
-        // TODO: voters vs newVoters ??
         for (uint256 i = 0; i < voters.length; i++) {
             address _voter = voters[i];
             if (voterInfo[_voter].missedReveal > config.missedRevealThreshold) {
                 config.autonity.slash(voterValidators[_voter], ORACLE_SLASHING_RATE_CAP);
-                // TODO: emit event
+                emit NoRevealPenalty(_voter, round, voterInfo[_voter].missedReveal);
             }
             voterInfo[_voter].missedReveal = 0;
         }
