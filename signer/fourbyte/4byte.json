@@ -207,5 +207,8 @@
   "00ede7e4": "setAuctioneer(address)",
   "52e5a050": "setSupplyControl(address)",
   "15ef30f8": "setLiquidLogicContract(address)",
-  "d0b06f5d": "lastUpdated()"
+  "d0b06f5d": "lastUpdated()",
+  "ed78349d": "getNonRevealThreshold()",
+  "deae3481": "setNonRevealThreshold(uint256)",
+  "3bd17b39": "setRevealResetInterval(uint256)"
 }
