@@ -25,11 +25,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/gofrs/flock"
-
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
+	"github.com/gofrs/flock"
 )
 
 var (
@@ -326,8 +325,8 @@ func (f *Freezer) TruncateTail(tail uint64) (uint64, error) {
 	return old, nil
 }
 
-// Sync flushes all data tables to disk.
-func (f *Freezer) Sync() error {
+// SyncAncient flushes all data tables to disk.
+func (f *Freezer) SyncAncient() error {
 	var errs []error
 	for _, table := range f.tables {
 		if err := table.Sync(); err != nil {

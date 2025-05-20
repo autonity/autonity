@@ -638,12 +638,6 @@ func (bc *BlockChain) loadLastState() error {
 	}
 	bc.hc.SetCurrentHeader(headHeader)
 
-	// Initialize history pruning.
-	latest := max(headBlock.NumberU64(), headHeader.Number.Uint64())
-	if err := bc.initializeHistoryPruning(latest); err != nil {
-		return err
-	}
-
 	// Restore the last known head snap block
 	bc.currentSnapBlock.Store(headBlock.Header())
 	headFastBlockGauge.Update(int64(headBlock.NumberU64()))
@@ -711,6 +705,17 @@ func (bc *BlockChain) SetHeadWithTimestamp(timestamp uint64) error {
 	}
 	bc.chainHeadFeed.Send(ChainHeadEvent{Header: header})
 	return nil
+}
+
+// SetFinalized sets the finalized block.
+// This is really only used for testing purposes in the case of autonity:
+// the geth concept of finalized is not the same in our case.
+func (bc *BlockChain) SetFinalized(header *types.Header) {
+	if header != nil {
+		rawdb.WriteFinalizedBlockHash(bc.db, header.Hash())
+	} else {
+		rawdb.WriteFinalizedBlockHash(bc.db, common.Hash{})
+	}
 }
 
 // rewindHashHead implements the logic of rewindHead in the context of hash scheme.
@@ -1005,11 +1010,18 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, time uint64, root common.Ha
 	bc.bodyRLPCache.Purge()
 	bc.receiptsCache.Purge()
 	bc.blockCache.Purge()
-	bc.epochCache.Purge()
 	bc.txLookupCache.Purge()
+	bc.epochCache.Purge()
 	bc.futureBlocks.Purge()
 
-	// load last state from DB after chain rewind.
+	// Clear safe block, finalized block if needed
+	if finalizedHash := rawdb.ReadFinalizedBlockHash(bc.db); finalizedHash != (common.Hash{}) {
+		if finalized := bc.GetBlockByHash(finalizedHash); finalized != nil && head < finalized.Number().Uint64() {
+			bc.log.Error("SetHead invalidated finalized block")
+			bc.SetFinalized(nil)
+		}
+	}
+
 	return rootNumber, bc.loadLastState()
 }
 
@@ -1319,7 +1331,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 		// or tx hash, sending blobs within a block is not allowed.
 		for txIndex, tx := range block.Transactions() {
 			if tx.Type() == types.BlobTxType {
-				return 0, fmt.Errorf("block #%d contains unexpected blob tx %d", block.NumberU64(), txIndex)
+				return 0, fmt.Errorf("block #%d contains unexpected blob tx at index %d", block.NumberU64(), txIndex)
 			}
 		}
 	}
@@ -1489,8 +1501,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 	if stats.ignored > 0 {
 		context = append(context, []interface{}{"ignored", stats.ignored}...)
 	}
-	bc.log.Debug("Imported new block receipts", context...)
-
+	log.Debug("Imported new block receipts", context...)
 	return 0, nil
 }
 

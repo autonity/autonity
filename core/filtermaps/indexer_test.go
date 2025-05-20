@@ -515,6 +515,13 @@ func (tc *testChain) GetReceiptsByHash(hash common.Hash) types.Receipts {
 	return tc.receipts[hash]
 }
 
+func (tc *testChain) GetRawReceipts(hash common.Hash, number uint64) types.Receipts {
+	tc.lock.RLock()
+	defer tc.lock.RUnlock()
+
+	return tc.receipts[hash]
+}
+
 func (tc *testChain) addBlocks(count, maxTxPerBlock, maxLogsPerReceipt, maxTopicsPerLog int, random bool) {
 	tc.lock.Lock()
 	blockGen := func(i int, gen *core.BlockGen) {
@@ -563,7 +570,7 @@ func (tc *testChain) addBlocks(count, maxTxPerBlock, maxLogsPerReceipt, maxTopic
 		gspec := &core.Genesis{
 			Alloc:   types.GenesisAlloc{},
 			BaseFee: big.NewInt(params.InitialBaseFee),
-			Config:  params.TestChainConfig,
+			Config:  params.TestConfigNoVerkle,
 		}
 		tc.db, blocks, receipts = core.GenerateChainWithGenesis(gspec, engine, count, blockGen)
 		gblock, _ := gspec.ToBlock(nil)
@@ -572,7 +579,7 @@ func (tc *testChain) addBlocks(count, maxTxPerBlock, maxLogsPerReceipt, maxTopic
 		tc.blocks[ghash] = gblock
 		tc.receipts[ghash] = types.Receipts{}
 	} else {
-		blocks, receipts = core.GenerateChain(params.TestChainConfig, tc.blocks[tc.canonical[len(tc.canonical)-1]], engine, tc.db, count, blockGen)
+		blocks, receipts = core.GenerateChain(params.TestConfigNoVerkle, tc.blocks[tc.canonical[len(tc.canonical)-1]], engine, tc.db, count, blockGen)
 	}
 
 	for i, block := range blocks {

@@ -14,24 +14,25 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package snapshot
+package pathdb
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
-	"github.com/VictoriaMetrics/fastcache"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/trie"
-	"github.com/autonity/autonity/triedb"
+	"github.com/autonity/autonity/triedb/database"
 )
 
 var (
@@ -52,33 +53,147 @@ var (
 	errMissingTrie = errors.New("missing trie")
 )
 
-// generateSnapshot regenerates a brand new snapshot based on an existing state
+// diskReader is a wrapper of key-value store and implements database.NodeReader,
+// providing a function for accessing persistent trie nodes in the disk
+type diskReader struct{ db ethdb.KeyValueStore }
+
+// Node retrieves the trie node blob with the provided trie identifier,
+// node path and the corresponding node hash. No error will be returned
+// if the node is not found.
+func (r *diskReader) Node(owner common.Hash, path []byte, hash common.Hash) ([]byte, error) {
+	if owner == (common.Hash{}) {
+		return rawdb.ReadAccountTrieNode(r.db, path), nil
+	}
+	return rawdb.ReadStorageTrieNode(r.db, owner, path), nil
+}
+
+// diskStore is a wrapper of key-value store and implements database.NodeDatabase.
+// It's meant to be used for generating state snapshot from the trie data.
+type diskStore struct {
+	db ethdb.KeyValueStore
+}
+
+// NodeReader returns a node reader associated with the specific state.
+// An error will be returned if the specified state is not available.
+func (s *diskStore) NodeReader(stateRoot common.Hash) (database.NodeReader, error) {
+	root := types.EmptyRootHash
+	if blob := rawdb.ReadAccountTrieNode(s.db, nil); len(blob) > 0 {
+		root = crypto.Keccak256Hash(blob)
+	}
+	if root != stateRoot {
+		return nil, fmt.Errorf("state %x is not available", stateRoot)
+	}
+	return &diskReader{s.db}, nil
+}
+
+// Generator is the struct for initial state snapshot generation. It is not thread-safe;
+// the caller must manage concurrency issues themselves.
+type generator struct {
+	noBuild bool // Flag indicating whether snapshot generation is permitted
+	running bool // Flag indicating whether the background generation is running
+
+	db    ethdb.KeyValueStore // Key-value store containing the snapshot data
+	stats *generatorStats     // Generation statistics used throughout the entire life cycle
+	abort chan chan struct{}  // Notification channel to abort generating the snapshot in this layer
+	done  chan struct{}       // Notification channel when generation is done
+
+	progress []byte       // Progress marker of the state generation, nil means it's completed
+	lock     sync.RWMutex // Lock which protects the progress, only generator can mutate the progress
+}
+
+// newGenerator constructs the state snapshot generator.
+//
+// noBuild will be true if the background snapshot generation is not allowed,
+// usually used in read-only mode.
+//
+// progress indicates the starting position for resuming snapshot generation.
+// It must be provided even if generation is not allowed; otherwise, uncovered
+// states may be exposed for serving.
+func newGenerator(db ethdb.KeyValueStore, noBuild bool, progress []byte, stats *generatorStats) *generator {
+	if stats == nil {
+		stats = &generatorStats{start: time.Now()}
+	}
+	return &generator{
+		noBuild:  noBuild,
+		progress: progress,
+		db:       db,
+		stats:    stats,
+		abort:    make(chan chan struct{}),
+		done:     make(chan struct{}),
+	}
+}
+
+// run starts the state snapshot generation in the background.
+func (g *generator) run(root common.Hash) {
+	if g.noBuild {
+		log.Warn("Snapshot generation is not permitted")
+		return
+	}
+	if g.running {
+		g.stop()
+		log.Warn("Paused the leftover generation cycle")
+	}
+	g.running = true
+	go g.generate(newGeneratorContext(root, g.progress, g.db))
+}
+
+// stop terminates the background generation if it's actively running.
+// The Recent generation progress being made will be saved before returning.
+func (g *generator) stop() {
+	if !g.running {
+		log.Debug("Snapshot generation is not running")
+		return
+	}
+	ch := make(chan struct{})
+	g.abort <- ch
+	<-ch
+	g.running = false
+}
+
+// completed returns the flag indicating if the whole generation is done.
+func (g *generator) completed() bool {
+	progress := g.progressMarker()
+	return progress == nil
+}
+
+// progressMarker returns the current generation progress marker. It may slightly
+// lag behind the actual generation position, as the progress field is only updated
+// when checkAndFlush is called. The only effect is that some generated states
+// may be refused for serving.
+func (g *generator) progressMarker() []byte {
+	g.lock.RLock()
+	defer g.lock.RUnlock()
+
+	return g.progress
+}
+
+// splitMarker is an internal helper which splits the generation progress marker
+// into two parts.
+func splitMarker(marker []byte) ([]byte, []byte) {
+	var accMarker []byte
+	if len(marker) > 0 {
+		accMarker = marker[:common.HashLength]
+	}
+	return accMarker, marker
+}
+
+// generateSnapshot regenerates a brand-new snapshot based on an existing state
 // database and head block asynchronously. The snapshot is returned immediately
 // and generation is continued in the background until done.
-func generateSnapshot(diskdb ethdb.KeyValueStore, triedb *triedb.Database, cache int, root common.Hash) *diskLayer {
+func generateSnapshot(triedb *Database, root common.Hash, noBuild bool) *diskLayer {
 	// Create a new disk layer with an initialized state marker at zero
 	var (
 		stats     = &generatorStats{start: time.Now()}
-		batch     = diskdb.NewBatch()
 		genMarker = []byte{} // Initialized but empty!
 	)
-	rawdb.WriteSnapshotRoot(batch, root)
-	journalProgress(batch, genMarker, stats)
-	if err := batch.Write(); err != nil {
-		log.Crit("Failed to write initialized state marker", "err", err)
+	dl := newDiskLayer(root, 0, triedb, nil, nil, newBuffer(triedb.config.WriteBufferSize, nil, nil, 0))
+	dl.setGenerator(newGenerator(triedb.diskdb, noBuild, genMarker, stats))
+
+	if !noBuild {
+		dl.generator.run(root)
+		log.Info("Started snapshot generation", "root", root)
 	}
-	base := &diskLayer{
-		diskdb:     diskdb,
-		triedb:     triedb,
-		root:       root,
-		cache:      fastcache.New(cache * 1024 * 1024),
-		genMarker:  genMarker,
-		genPending: make(chan struct{}),
-		genAbort:   make(chan chan *generatorStats),
-	}
-	go base.generate(stats)
-	log.Debug("Start snapshot generation", "root", root)
-	return base
+	return dl
 }
 
 // journalProgress persists the generator stats into the database to resume later.
@@ -159,7 +274,7 @@ func (result *proofResult) forEach(callback func(key []byte, val []byte) error) 
 //
 // The proof result will be returned if the range proving is finished, otherwise
 // the error will be returned to abort the entire procedure.
-func (dl *diskLayer) proveRange(ctx *generatorContext, trieId *trie.ID, prefix []byte, kind string, origin []byte, max int, valueConvertFn func([]byte) ([]byte, error)) (*proofResult, error) {
+func (g *generator) proveRange(ctx *generatorContext, trieId *trie.ID, prefix []byte, kind string, origin []byte, max int, valueConvertFn func([]byte) ([]byte, error)) (*proofResult, error) {
 	var (
 		keys     [][]byte
 		vals     [][]byte
@@ -213,15 +328,15 @@ func (dl *diskLayer) proveRange(ctx *generatorContext, trieId *trie.ID, prefix [
 	}
 	// Update metrics for database iteration and merkle proving
 	if kind == snapStorage {
-		snapStorageSnapReadCounter.Inc(time.Since(start).Nanoseconds())
+		storageSnapReadCounter.Inc(time.Since(start).Nanoseconds())
 	} else {
-		snapAccountSnapReadCounter.Inc(time.Since(start).Nanoseconds())
+		accountSnapReadCounter.Inc(time.Since(start).Nanoseconds())
 	}
 	defer func(start time.Time) {
 		if kind == snapStorage {
-			snapStorageProveCounter.Inc(time.Since(start).Nanoseconds())
+			storageProveCounter.Inc(time.Since(start).Nanoseconds())
 		} else {
-			snapAccountProveCounter.Inc(time.Since(start).Nanoseconds())
+			accountProveCounter.Inc(time.Since(start).Nanoseconds())
 		}
 	}(time.Now())
 
@@ -244,9 +359,9 @@ func (dl *diskLayer) proveRange(ctx *generatorContext, trieId *trie.ID, prefix [
 		return &proofResult{keys: keys, vals: vals}, nil
 	}
 	// Snap state is chunked, generate edge proofs for verification.
-	tr, err := trie.New(trieId, dl.triedb)
+	tr, err := trie.New(trieId, &diskStore{db: g.db})
 	if err != nil {
-		ctx.stats.Log("Trie missing, state snapshotting paused", dl.root, dl.genMarker)
+		log.Info("Trie missing, snapshotting paused", "state", ctx.root, "kind", kind, "root", trieId.Root)
 		return nil, errMissingTrie
 	}
 	// Generate the Merkle proofs for the first and last element
@@ -304,9 +419,9 @@ type onStateCallback func(key []byte, val []byte, write bool, delete bool) error
 // generateRange generates the state segment with particular prefix. Generation can
 // either verify the correctness of existing state through range-proof and skip
 // generation, or iterate trie to regenerate state on demand.
-func (dl *diskLayer) generateRange(ctx *generatorContext, trieId *trie.ID, prefix []byte, kind string, origin []byte, max int, onState onStateCallback, valueConvertFn func([]byte) ([]byte, error)) (bool, []byte, error) {
+func (g *generator) generateRange(ctx *generatorContext, trieId *trie.ID, prefix []byte, kind string, origin []byte, max int, onState onStateCallback, valueConvertFn func([]byte) ([]byte, error)) (bool, []byte, error) {
 	// Use range prover to check the validity of the flat state in the range
-	result, err := dl.proveRange(ctx, trieId, prefix, kind, origin, max, valueConvertFn)
+	result, err := g.proveRange(ctx, trieId, prefix, kind, origin, max, valueConvertFn)
 	if err != nil {
 		return false, nil, err
 	}
@@ -321,7 +436,7 @@ func (dl *diskLayer) generateRange(ctx *generatorContext, trieId *trie.ID, prefi
 
 	// The range prover says the range is correct, skip trie iteration
 	if result.valid() {
-		snapSuccessfulRangeProofMeter.Mark(1)
+		successfulRangeProofMeter.Mark(1)
 		logger.Trace("Proved state range", "last", hexutil.Encode(last))
 
 		// The verification is passed, process each state with the given
@@ -334,7 +449,7 @@ func (dl *diskLayer) generateRange(ctx *generatorContext, trieId *trie.ID, prefi
 		return !result.diskMore && !result.trieMore, last, nil
 	}
 	logger.Trace("Detected outdated state range", "last", hexutil.Encode(last), "err", result.proofErr)
-	snapFailedRangeProofMeter.Mark(1)
+	failedRangeProofMeter.Mark(1)
 
 	// Special case, the entire trie is missing. In the original trie scheme,
 	// all the duplicated subtries will be filtered out (only one copy of data
@@ -342,9 +457,9 @@ func (dl *diskLayer) generateRange(ctx *generatorContext, trieId *trie.ID, prefi
 	// belong to different contracts will be kept even they are duplicated.
 	// Track it to a certain extent remove the noise data used for statistics.
 	if origin == nil && last == nil {
-		meter := snapMissallAccountMeter
+		meter := missallAccountMeter
 		if kind == snapStorage {
-			meter = snapMissallStorageMeter
+			meter = missallStorageMeter
 		}
 		meter.Mark(1)
 	}
@@ -366,9 +481,9 @@ func (dl *diskLayer) generateRange(ctx *generatorContext, trieId *trie.ID, prefi
 	// if it's already opened with some nodes resolved.
 	tr := result.tr
 	if tr == nil {
-		tr, err = trie.New(trieId, dl.triedb)
+		tr, err = trie.New(trieId, &diskStore{db: g.db})
 		if err != nil {
-			ctx.stats.Log("Trie missing, state snapshotting paused", dl.root, dl.genMarker)
+			log.Info("Trie missing, snapshotting paused", "state", ctx.root, "kind", kind, "root", trieId.Root)
 			return false, nil, errMissingTrie
 		}
 	}
@@ -452,11 +567,11 @@ func (dl *diskLayer) generateRange(ctx *generatorContext, trieId *trie.ID, prefi
 
 	// Update metrics for counting trie iteration
 	if kind == snapStorage {
-		snapStorageTrieReadCounter.Inc((time.Since(start) - internal).Nanoseconds())
+		storageTrieReadCounter.Inc((time.Since(start) - internal).Nanoseconds())
 	} else {
-		snapAccountTrieReadCounter.Inc((time.Since(start) - internal).Nanoseconds())
+		accountTrieReadCounter.Inc((time.Since(start) - internal).Nanoseconds())
 	}
-	logger.Debug("Regenerated state range", "root", trieId.Root, "last", hexutil.Encode(last),
+	logger.Trace("Regenerated state range", "root", trieId.Root, "last", hexutil.Encode(last),
 		"count", count, "created", created, "updated", updated, "untouched", untouched, "deleted", deleted)
 
 	// If there are either more trie items, or there are more snap items
@@ -466,32 +581,35 @@ func (dl *diskLayer) generateRange(ctx *generatorContext, trieId *trie.ID, prefi
 
 // checkAndFlush checks if an interruption signal is received or the
 // batch size has exceeded the allowance.
-func (dl *diskLayer) checkAndFlush(ctx *generatorContext, current []byte) error {
-	var abort chan *generatorStats
+func (g *generator) checkAndFlush(ctx *generatorContext, current []byte) error {
+	var abort chan struct{}
 	select {
-	case abort = <-dl.genAbort:
+	case abort = <-g.abort:
 	default:
 	}
 	if ctx.batch.ValueSize() > ethdb.IdealBatchSize || abort != nil {
-		if bytes.Compare(current, dl.genMarker) < 0 {
-			log.Error("Snapshot generator went backwards", "current", fmt.Sprintf("%x", current), "genMarker", fmt.Sprintf("%x", dl.genMarker))
+		if bytes.Compare(current, g.progress) < 0 {
+			log.Error("Snapshot generator went backwards", "current", fmt.Sprintf("%x", current), "genMarker", fmt.Sprintf("%x", g.progress))
 		}
-		// Flush out the batch anyway no matter it's empty or not.
-		// It's possible that all the states are recovered and the
-		// generation indeed makes progress.
-		journalProgress(ctx.batch, current, ctx.stats)
+		// Persist the progress marker regardless of whether the batch is empty or not.
+		// It may happen that all the flat states in the database are correct, so the
+		// generator indeed makes progress even if there is nothing to commit.
+		journalProgress(ctx.batch, current, g.stats)
 
+		// Flush out the database writes atomically
 		if err := ctx.batch.Write(); err != nil {
 			return err
 		}
 		ctx.batch.Reset()
 
-		dl.lock.Lock()
-		dl.genMarker = current
-		dl.lock.Unlock()
+		// Update the generation progress marker
+		g.lock.Lock()
+		g.progress = current
+		g.lock.Unlock()
 
+		// Abort the generation if it's required
 		if abort != nil {
-			ctx.stats.Log("Aborting state snapshot generation", dl.root, current)
+			g.stats.log("Aborting snapshot generation", ctx.root, g.progress)
 			return newAbortErr(abort) // bubble up an error for interruption
 		}
 		// Don't hold the iterators too long, release them to let compactor works
@@ -499,7 +617,7 @@ func (dl *diskLayer) checkAndFlush(ctx *generatorContext, current []byte) error 
 		ctx.reopenIterator(snapStorage)
 	}
 	if time.Since(ctx.logged) > 8*time.Second {
-		ctx.stats.Log("Generating state snapshot", dl.root, current)
+		g.stats.log("Generating snapshot", ctx.root, g.progress)
 		ctx.logged = time.Now()
 	}
 	return nil
@@ -507,28 +625,28 @@ func (dl *diskLayer) checkAndFlush(ctx *generatorContext, current []byte) error 
 
 // generateStorages generates the missing storage slots of the specific contract.
 // It's supposed to restart the generation from the given origin position.
-func generateStorages(ctx *generatorContext, dl *diskLayer, stateRoot common.Hash, account common.Hash, storageRoot common.Hash, storeMarker []byte) error {
+func (g *generator) generateStorages(ctx *generatorContext, account common.Hash, storageRoot common.Hash, storeMarker []byte) error {
 	onStorage := func(key []byte, val []byte, write bool, delete bool) error {
 		defer func(start time.Time) {
-			snapStorageWriteCounter.Inc(time.Since(start).Nanoseconds())
+			storageWriteCounter.Inc(time.Since(start).Nanoseconds())
 		}(time.Now())
 
 		if delete {
 			rawdb.DeleteStorageSnapshot(ctx.batch, account, common.BytesToHash(key))
-			snapWipedStorageMeter.Mark(1)
+			wipedStorageMeter.Mark(1)
 			return nil
 		}
 		if write {
 			rawdb.WriteStorageSnapshot(ctx.batch, account, common.BytesToHash(key), val)
-			snapGeneratedStorageMeter.Mark(1)
+			generatedStorageMeter.Mark(1)
 		} else {
-			snapRecoveredStorageMeter.Mark(1)
+			recoveredStorageMeter.Mark(1)
 		}
-		ctx.stats.storage += common.StorageSize(1 + 2*common.HashLength + len(val))
-		ctx.stats.slots++
+		g.stats.storage += common.StorageSize(1 + 2*common.HashLength + len(val))
+		g.stats.slots++
 
 		// If we've exceeded our batch allowance or termination was requested, flush to disk
-		if err := dl.checkAndFlush(ctx, append(account[:], key...)); err != nil {
+		if err := g.checkAndFlush(ctx, append(account[:], key...)); err != nil {
 			return err
 		}
 		return nil
@@ -536,8 +654,8 @@ func generateStorages(ctx *generatorContext, dl *diskLayer, stateRoot common.Has
 	// Loop for re-generating the missing storage slots.
 	var origin = common.CopyBytes(storeMarker)
 	for {
-		id := trie.StorageTrieID(stateRoot, account, storageRoot)
-		exhausted, last, err := dl.generateRange(ctx, id, append(rawdb.SnapshotStoragePrefix, account.Bytes()...), snapStorage, origin, storageCheckRange, onStorage, nil)
+		id := trie.StorageTrieID(ctx.root, account, storageRoot)
+		exhausted, last, err := g.generateRange(ctx, id, append(rawdb.SnapshotStoragePrefix, account.Bytes()...), snapStorage, origin, storageCheckRange, onStorage, nil)
 		if err != nil {
 			return err // The procedure it aborted, either by external signal or internal error.
 		}
@@ -555,17 +673,17 @@ func generateStorages(ctx *generatorContext, dl *diskLayer, stateRoot common.Has
 // generateAccounts generates the missing snapshot accounts as well as their
 // storage slots in the main trie. It's supposed to restart the generation
 // from the given origin position.
-func generateAccounts(ctx *generatorContext, dl *diskLayer, accMarker []byte) error {
+func (g *generator) generateAccounts(ctx *generatorContext, accMarker []byte) error {
 	onAccount := func(key []byte, val []byte, write bool, delete bool) error {
 		// Make sure to clear all dangling storages before this account
 		account := common.BytesToHash(key)
-		ctx.removeStorageBefore(account)
+		g.stats.dangling += ctx.removeStorageBefore(account)
 
 		start := time.Now()
 		if delete {
 			rawdb.DeleteAccountSnapshot(ctx.batch, account)
-			snapWipedAccountMeter.Mark(1)
-			snapAccountWriteCounter.Inc(time.Since(start).Nanoseconds())
+			wipedAccountMeter.Mark(1)
+			accountWriteCounter.Inc(time.Since(start).Nanoseconds())
 
 			ctx.removeStorageAt(account)
 			return nil
@@ -585,27 +703,27 @@ func generateAccounts(ctx *generatorContext, dl *diskLayer, accMarker []byte) er
 				if acc.Root == types.EmptyRootHash {
 					dataLen -= 32
 				}
-				snapRecoveredAccountMeter.Mark(1)
+				recoveredAccountMeter.Mark(1)
 			} else {
 				data := types.SlimAccountRLP(acc)
 				dataLen = len(data)
 				rawdb.WriteAccountSnapshot(ctx.batch, account, data)
-				snapGeneratedAccountMeter.Mark(1)
+				generatedAccountMeter.Mark(1)
 			}
-			ctx.stats.storage += common.StorageSize(1 + common.HashLength + dataLen)
-			ctx.stats.accounts++
+			g.stats.storage += common.StorageSize(1 + common.HashLength + dataLen)
+			g.stats.accounts++
 		}
 		// If the snap generation goes here after interrupted, genMarker may go backward
 		// when last genMarker is consisted of accountHash and storageHash
 		marker := account[:]
-		if accMarker != nil && bytes.Equal(marker, accMarker) && len(dl.genMarker) > common.HashLength {
-			marker = dl.genMarker[:]
+		if accMarker != nil && bytes.Equal(marker, accMarker) && len(g.progress) > common.HashLength {
+			marker = g.progress
 		}
 		// If we've exceeded our batch allowance or termination was requested, flush to disk
-		if err := dl.checkAndFlush(ctx, marker); err != nil {
+		if err := g.checkAndFlush(ctx, marker); err != nil {
 			return err
 		}
-		snapAccountWriteCounter.Inc(time.Since(start).Nanoseconds()) // let's count flush time as well
+		accountWriteCounter.Inc(time.Since(start).Nanoseconds()) // let's count flush time as well
 
 		// If the iterated account is the contract, create a further loop to
 		// verify or regenerate the contract storage.
@@ -613,10 +731,10 @@ func generateAccounts(ctx *generatorContext, dl *diskLayer, accMarker []byte) er
 			ctx.removeStorageAt(account)
 		} else {
 			var storeMarker []byte
-			if accMarker != nil && bytes.Equal(account[:], accMarker) && len(dl.genMarker) > common.HashLength {
-				storeMarker = dl.genMarker[common.HashLength:]
+			if accMarker != nil && bytes.Equal(account[:], accMarker) && len(g.progress) > common.HashLength {
+				storeMarker = g.progress[common.HashLength:]
 			}
-			if err := generateStorages(ctx, dl, dl.root, account, acc.Root, storeMarker); err != nil {
+			if err := g.generateStorages(ctx, account, acc.Root, storeMarker); err != nil {
 				return err
 			}
 		}
@@ -626,8 +744,8 @@ func generateAccounts(ctx *generatorContext, dl *diskLayer, accMarker []byte) er
 	}
 	origin := common.CopyBytes(accMarker)
 	for {
-		id := trie.StateTrieID(dl.root)
-		exhausted, last, err := dl.generateRange(ctx, id, rawdb.SnapshotAccountPrefix, snapAccount, origin, accountCheckRange, onAccount, types.FullAccountRLP)
+		id := trie.StateTrieID(ctx.root)
+		exhausted, last, err := g.generateRange(ctx, id, rawdb.SnapshotAccountPrefix, snapAccount, origin, accountCheckRange, onAccount, types.FullAccountRLP)
 		if err != nil {
 			return err // The procedure it aborted, either by external signal or internal error.
 		}
@@ -636,7 +754,7 @@ func generateAccounts(ctx *generatorContext, dl *diskLayer, accMarker []byte) er
 		// Last step, cleanup the storages after the last account.
 		// All the left storages should be treated as dangling.
 		if origin == nil || exhausted {
-			ctx.removeStorageLeft()
+			g.stats.dangling += ctx.removeRemainingStorage()
 			break
 		}
 	}
@@ -647,16 +765,19 @@ func generateAccounts(ctx *generatorContext, dl *diskLayer, accMarker []byte) er
 // constructing the state snapshot. All the arguments are purely for statistics
 // gathering and logging, since the method surfs the blocks as they arrive, often
 // being restarted.
-func (dl *diskLayer) generate(stats *generatorStats) {
-	var (
-		accMarker []byte
-		abort     chan *generatorStats
-	)
-	if len(dl.genMarker) > 0 { // []byte{} is the start, use nil for that
-		accMarker = dl.genMarker[:common.HashLength]
-	}
-	stats.Log("Resuming state snapshot generation", dl.root, dl.genMarker)
+func (g *generator) generate(ctx *generatorContext) {
+	g.stats.log("Resuming snapshot generation", ctx.root, g.progress)
+	defer ctx.close()
 
+	// Persist the initial marker and state snapshot root if progress is none
+	if len(g.progress) == 0 {
+		batch := g.db.NewBatch()
+		rawdb.WriteSnapshotRoot(batch, ctx.root)
+		journalProgress(batch, g.progress, g.stats)
+		if err := batch.Write(); err != nil {
+			log.Crit("Failed to write initialized state marker", "err", err)
+		}
+	}
 	// Initialize the global generator context. The snapshot iterators are
 	// opened at the interrupted position because the assumption is held
 	// that all the snapshot data are generated correctly before the marker.
@@ -665,45 +786,47 @@ func (dl *diskLayer) generate(stats *generatorStats) {
 	// For the account or storage slot at the interruption, they will be
 	// processed twice by the generator(they are already processed in the
 	// last run) but it's fine.
-	ctx := newGeneratorContext(stats, dl.diskdb, accMarker, dl.genMarker)
-	defer ctx.close()
-
-	if err := generateAccounts(ctx, dl, accMarker); err != nil {
+	var (
+		accMarker, _ = splitMarker(g.progress)
+		abort        chan struct{}
+	)
+	if err := g.generateAccounts(ctx, accMarker); err != nil {
 		// Extract the received interruption signal if exists
-		if aerr, ok := err.(*abortErr); ok {
+		var aerr *abortErr
+		if errors.As(err, &aerr) {
 			abort = aerr.abort
 		}
 		// Aborted by internal error, wait the signal
 		if abort == nil {
-			abort = <-dl.genAbort
+			abort = <-g.abort
 		}
-		abort <- stats
+		close(abort)
 		return
 	}
 	// Snapshot fully generated, set the marker to nil.
 	// Note even there is nothing to commit, persist the
 	// generator anyway to mark the snapshot is complete.
-	journalProgress(ctx.batch, nil, stats)
+	journalProgress(ctx.batch, nil, g.stats)
 	if err := ctx.batch.Write(); err != nil {
 		log.Error("Failed to flush batch", "err", err)
-
-		abort = <-dl.genAbort
-		abort <- stats
+		abort = <-g.abort
+		close(abort)
 		return
 	}
 	ctx.batch.Reset()
 
-	log.Info("Generated state snapshot", "accounts", stats.accounts, "slots", stats.slots,
-		"storage", stats.storage, "dangling", stats.dangling, "elapsed", common.PrettyDuration(time.Since(stats.start)))
+	log.Info("Generated snapshot", "accounts", g.stats.accounts, "slots", g.stats.slots,
+		"storage", g.stats.storage, "dangling", g.stats.dangling, "elapsed", common.PrettyDuration(time.Since(g.stats.start)))
 
-	dl.lock.Lock()
-	dl.genMarker = nil
-	close(dl.genPending)
-	dl.lock.Unlock()
+	// Update the generation progress marker
+	g.lock.Lock()
+	g.progress = nil
+	g.lock.Unlock()
+	close(g.done)
 
 	// Someone will be looking for us, wait it out
-	abort = <-dl.genAbort
-	abort <- nil
+	abort = <-g.abort
+	close(abort)
 }
 
 // increaseKey increase the input key by one bit. Return nil if the entire
@@ -721,10 +844,10 @@ func increaseKey(key []byte) []byte {
 // abortErr wraps an interruption signal received to represent the
 // generation is aborted by external processes.
 type abortErr struct {
-	abort chan *generatorStats
+	abort chan struct{}
 }
 
-func newAbortErr(abort chan *generatorStats) error {
+func newAbortErr(abort chan struct{}) error {
 	return &abortErr{abort: abort}
 }
 

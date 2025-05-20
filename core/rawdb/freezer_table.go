@@ -29,11 +29,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/snappy"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
+	"github.com/golang/snappy"
 )
 
 var (

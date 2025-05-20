@@ -27,10 +27,9 @@ import (
 	"testing"
 	"testing/quick"
 
+	"github.com/autonity/autonity/metrics"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
-
-	"github.com/autonity/autonity/metrics"
 )
 
 // TestFreezerBasics test initializing a freezertable from scratch, writing to the table,

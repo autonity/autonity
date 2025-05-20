@@ -23,7 +23,6 @@ import (
 	"maps"
 
 	"github.com/VictoriaMetrics/fastcache"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/crypto"

@@ -334,12 +334,13 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		return block, b.receipts
 	}
 
-	triedCfg := triedb.HashDefaults
+	triedCfg := *triedb.HashDefaults
 	if config.VerkleBlock != nil {
 		triedCfg.PathDB = pathdb.Defaults
+		triedCfg.IsVerkle = true
 		triedCfg.HashDB = nil
 	}
-	tdb := triedb.NewDatabase(db, triedCfg)
+	tdb := triedb.NewDatabase(db, &triedCfg)
 	defer tdb.Close()
 
 	for i := 0; i < n; i++ {

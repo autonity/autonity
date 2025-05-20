@@ -25,12 +25,11 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/fastcache"
-	"github.com/holiman/uint256"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rlp"
+	"github.com/holiman/uint256"
 )
 
 // randomHash generates a random blob of data and returns it as a hash.

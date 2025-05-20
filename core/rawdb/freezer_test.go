@@ -25,11 +25,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/autonity/autonity/core/rawdb/ancienttest"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/rlp"
+	"github.com/stretchr/testify/require"
 )
 
 var freezerTestTableDef = map[string]freezerTableConfig{"test": {noSnappy: true}}
@@ -393,7 +392,7 @@ func TestFreezerCloseSync(t *testing.T) {
 	if err := f.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.Sync(); err == nil {
+	if err := f.SyncAncient(); err == nil {
 		t.Fatalf("want error, have nil")
 	} else if have, want := err.Error(), "[closed closed]"; have != want {
 		t.Fatalf("want %v, have %v", have, want)

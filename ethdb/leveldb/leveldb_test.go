@@ -19,11 +19,10 @@ package leveldb
 import (
 	"testing"
 
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
-
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/ethdb/dbtest"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 func TestLevelDB(t *testing.T) {

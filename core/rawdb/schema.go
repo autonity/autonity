@@ -148,9 +148,6 @@ var (
 	FixedCommitteeRootKey = []byte("fixedRoot-") // bigEndian64(syncPeriod) -> committee root hash
 	SyncCommitteeKey      = []byte("committee-") // bigEndian64(syncPeriod) -> serialized committee
 
-	preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
-	preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
-
 	// new log index
 	filterMapsPrefix         = "fm-"
 	filterMapsRangeKey       = []byte(filterMapsPrefix + "R")
@@ -160,6 +157,10 @@ var (
 
 	jailedValidatorCount   = []byte("JailedCount")
 	jailedValidatorAddress = []byte("JailedAddress")
+
+	preimageCounter     = metrics.NewRegisteredCounter("db/preimage/total", nil)
+	preimageHitsCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
+	preimageMissCounter = metrics.NewRegisteredCounter("db/preimage/miss", nil)
 )
 
 const (

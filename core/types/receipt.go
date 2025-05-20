@@ -27,6 +27,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
@@ -374,4 +375,22 @@ func (rs Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, nu
 		}
 	}
 	return nil
+}
+
+// EncodeBlockReceiptLists encodes a list of block receipt lists into RLP.
+func EncodeBlockReceiptLists(receipts []Receipts) []rlp.RawValue {
+	var storageReceipts []*ReceiptForStorage
+	result := make([]rlp.RawValue, len(receipts))
+	for i, receipt := range receipts {
+		storageReceipts = storageReceipts[:0]
+		for _, r := range receipt {
+			storageReceipts = append(storageReceipts, (*ReceiptForStorage)(r))
+		}
+		bytes, err := rlp.EncodeToBytes(storageReceipts)
+		if err != nil {
+			log.Crit("Failed to encode block receipts", "err", err)
+		}
+		result[i] = bytes
+	}
+	return result
 }

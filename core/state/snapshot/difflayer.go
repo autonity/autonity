@@ -27,11 +27,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	bloomfilter "github.com/holiman/bloomfilter/v2"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rlp"
+	bloomfilter "github.com/holiman/bloomfilter/v2"
 )
 
 var (

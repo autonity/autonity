@@ -33,12 +33,12 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/ethdb/pebble"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/triedb"
 	"github.com/autonity/autonity/triedb/hashdb"
-	"github.com/autonity/autonity/triedb/pathdb"
 )
 
 // rewindTest is a test case for chain rollback upon user request.
@@ -1981,10 +1981,14 @@ func testSetHeadWithScheme(t *testing.T, tt *rewindTest, snapshots bool, scheme 
 	defer db.Close()
 
 	// Initialize a fresh chain
+	cfg := *params.TestConfigNoVerkle
+	if scheme == rawdb.PathScheme {
+		cfg = *params.TestChainConfig
+	}
 	var (
 		gspec = &Genesis{
 			BaseFee: big.NewInt(params.InitialBaseFee),
-			Config:  params.TestConfigNoVerkle,
+			Config:  &cfg,
 		}
 		engine = ethash.NewFullFaker()
 		config = &CacheConfig{
@@ -2004,18 +2008,27 @@ func testSetHeadWithScheme(t *testing.T, tt *rewindTest, snapshots bool, scheme 
 		t.Fatalf("Failed to create chain: %v", err)
 	}
 	defer chain.Stop()
-
+	prepareDB := func() ethdb.Database {
+		tmpDb := rawdb.NewMemoryDatabase()
+		tmpCfg := triedb.HashDefaults
+		if scheme == rawdb.PathScheme {
+			tmpCfg = triedb.VerkleDefaults
+		}
+		tmpTdb := triedb.NewDatabase(tmpDb, tmpCfg)
+		gspec.ToBlock(tmpTdb)
+		return tmpDb
+	}
 	// If sidechain blocks are needed, make a light chain and import it
 	var sideblocks types.Blocks
 	if tt.sidechainBlocks > 0 {
-		sideblocks, _ = GenerateChain(gspec.Config, chain.genesisBlock, engine, rawdb.NewMemoryDatabase(), tt.sidechainBlocks, func(i int, b *BlockGen) {
+		sideblocks, _ = GenerateChain(gspec.Config, chain.genesisBlock, engine, prepareDB(), tt.sidechainBlocks, func(i int, b *BlockGen) {
 			b.SetCoinbase(common.Address{0x01})
 		})
 		if _, err := chain.InsertChain(sideblocks); err != nil {
 			t.Fatalf("Failed to import side chain: %v", err)
 		}
 	}
-	canonblocks, _ := GenerateChain(gspec.Config, chain.genesisBlock, engine, rawdb.NewMemoryDatabase(), tt.canonicalBlocks, func(i int, b *BlockGen) {
+	canonblocks, _ := GenerateChain(gspec.Config, chain.genesisBlock, engine, prepareDB(), tt.canonicalBlocks, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0x02})
 		b.SetDifficulty(big.NewInt(1000000))
 	})
@@ -2037,7 +2050,7 @@ func testSetHeadWithScheme(t *testing.T, tt *rewindTest, snapshots bool, scheme 
 	chain.triedb.Close()
 	dbconfig := &triedb.Config{}
 	if scheme == rawdb.PathScheme {
-		dbconfig.PathDB = pathdb.Defaults
+		*dbconfig = *triedb.VerkleDefaults
 	} else {
 		dbconfig.HashDB = hashdb.Defaults
 	}

@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/VictoriaMetrics/fastcache"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/ethdb/memorydb"

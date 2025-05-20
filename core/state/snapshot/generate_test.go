@@ -22,9 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/holiman/uint256"
-	"golang.org/x/crypto/sha3"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
@@ -36,6 +33,8 @@ import (
 	"github.com/autonity/autonity/triedb"
 	"github.com/autonity/autonity/triedb/hashdb"
 	"github.com/autonity/autonity/triedb/pathdb"
+	"github.com/holiman/uint256"
+	"golang.org/x/crypto/sha3"
 )
 
 func hashData(input []byte) common.Hash {
@@ -167,7 +166,9 @@ func newHelper(scheme string) *testHelper {
 	diskdb := rawdb.NewMemoryDatabase()
 	config := &triedb.Config{}
 	if scheme == rawdb.PathScheme {
-		config.PathDB = &pathdb.Config{} // disable caching
+		config.PathDB = &pathdb.Config{
+			SnapshotNoBuild: true,
+		} // disable caching
 	} else {
 		config.HashDB = &hashdb.Config{} // disable caching
 	}

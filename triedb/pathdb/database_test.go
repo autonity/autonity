@@ -23,8 +23,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/holiman/uint256"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
@@ -33,6 +31,7 @@ import (
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/trie"
 	"github.com/autonity/autonity/trie/trienode"
+	"github.com/holiman/uint256"
 )
 
 func updateTrie(db *Database, stateRoot common.Hash, addrHash common.Hash, root common.Hash, dirties map[common.Hash][]byte) (common.Hash, *trienode.NodeSet) {
@@ -127,7 +126,8 @@ func newTester(t *testing.T, historyLimit uint64, isVerkle bool, layers int) *te
 		disk, _ = rawdb.NewDatabaseWithFreezer(rawdb.NewMemoryDatabase(), t.TempDir(), "", false)
 		db      = New(disk, &Config{
 			StateHistory:    historyLimit,
-			CleanCacheSize:  256 * 1024,
+			TrieCleanSize:   256 * 1024,
+			StateCleanSize:  256 * 1024,
 			WriteBufferSize: 256 * 1024,
 		}, isVerkle)
 

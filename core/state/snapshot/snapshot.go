@@ -216,7 +216,7 @@ func New(config Config, diskdb ethdb.KeyValueStore, triedb *triedb.Database, roo
 			snap.Rebuild(root)
 			return snap, nil
 		}
-		return nil, err // Bail out the error, don't rebuild automatically.*/
+		return nil, err // Bail out the error, don't rebuild automatically.
 	}
 	// Existing snapshot loaded, seed all the layers
 	for head != nil {
