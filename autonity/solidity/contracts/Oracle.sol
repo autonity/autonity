@@ -20,7 +20,6 @@ contract Oracle is IOracle, IConfigEvents {
         uint256 commit; // The commit hash of the voter's last report
         uint256 performance; // The performance score of the voter
         uint256 nonRevealCount; // Number of commits that were not revealed
-        uint256 revealResetCountdown; // Number of remaining continuous successful reveal submission to reset the missed reveal counter
         bool isVoter; // Indicates if the address is a registered voter
         bool reportAvailable; // Indicates if the last report is available for the voter
     }
@@ -41,7 +40,7 @@ contract Oracle is IOracle, IConfigEvents {
         int256 outlierSlashingThreshold; // Threshold for slashing outliers
         uint256 baseSlashingRate; // Base rate for slashing
         uint256 nonRevealThreshold; // Threshold for missed reveals
-        uint256 revealResetInterval; // Number of continuous successful reveal submission to reset the missed reveal counter
+        uint256 revealResetInterval; // Number of rounds after the missed reveal counter is reset
     }
 
     // ==== Public state variables ====
@@ -94,7 +93,7 @@ contract Oracle is IOracle, IConfigEvents {
         Config memory _config
     ) {
         require(
-            _config.nonRevealThreshold < _config.revealResetInterval,
+            _config.nonRevealThreshold < _config.revealResetInterval && _config.revealResetInterval > 0,
             "invalid config"
         );
         config = _config;
@@ -173,33 +172,22 @@ contract Oracle is IOracle, IConfigEvents {
         _voterInfo.round = round;
         // new voter/first round
         if (_lastVotedRound == 0) {
-            _restartRevealResetCountdown(_voterInfo);
             emit NewVoter(msg.sender);
             return;
         }
 
         if (_lastVotedRound != round - 1) {
-            _restartRevealResetCountdown(_voterInfo);
             emit InvalidVote("LastVotedRoundMismatch", msg.sender, round-1,  _lastVotedRound);
             return;
         }
 
         _commit = uint256(keccak256(abi.encode(_reports, _salt, msg.sender)));
         if (_pastCommit != _commit) {
-            _increaseNonRevealCount(msg.sender);
+            _increaseNonRevealCount(msg.sender, _voterInfo);
             emit InvalidVote("CommitMismatch", msg.sender, _pastCommit, _commit);
             // we return the tx fee in all cases, because in both cases voter is slashed during aggregation
             // phase, because the reports contain invalid prices
             return;
-        }
-
-        // successfully revealed past commit
-        uint256 _resetCountdown = _voterInfo.revealResetCountdown;
-        if (_resetCountdown > 0) {
-            _voterInfo.revealResetCountdown = _resetCountdown-1;
-            if (_resetCountdown == 1) {
-                _voterInfo.nonRevealCount = 0;
-            }
         }
 
         // if data is not supplied and voter is not a new voter
@@ -233,6 +221,9 @@ contract Oracle is IOracle, IConfigEvents {
 
         // first penalize for no reveal
         _penalizeForNoReveal();
+        if (round % config.revealResetInterval == 0) {
+            _resetNonRevealCounter();
+        }
 
         prices.push();
         for (uint i = 0; i < symbols.length; i += 1) {
@@ -557,7 +548,7 @@ contract Oracle is IOracle, IConfigEvents {
      */
     function setRevealResetInterval(uint256 _resetInterval) external onlyOperator {
         require(
-            config.nonRevealThreshold < _resetInterval,
+            config.nonRevealThreshold < _resetInterval && _resetInterval > 0,
             "invalid config"
         );
         emit ConfigUpdateUint("revealResetInterval", config.revealResetInterval, _resetInterval);
@@ -772,7 +763,8 @@ contract Oracle is IOracle, IConfigEvents {
 
         // penalize for commit without reveal
         for (uint i = 0; i < voters.length; i++) {
-            VoterInfo storage _voterInfo = voterInfo[voters[i]];
+            address _voter = voters[i];
+            VoterInfo storage _voterInfo = voterInfo[_voter];
             /*
                 Following two scenarios can happen:
                     1. Voter voted in this round but did not reveal his commit from
@@ -781,16 +773,22 @@ contract Oracle is IOracle, IConfigEvents {
                 In both cases, the voter submitted commit in the last round but did not reveal
             */
             if (_voterInfo.round == round-1 && _voterInfo.commit > 0) {
-                _increaseNonRevealCount(voters[i]);
+                _increaseNonRevealCount(_voter, _voterInfo);
             }
 
             if (_voterInfo.nonRevealCount > config.nonRevealThreshold) {
-                nonRevealSlashedVoters.add(voters[i]);
-                emit NoRevealPenalty(voters[i], round, _voterInfo.nonRevealCount);
+                nonRevealSlashedVoters.add(_voter);
+                emit NoRevealPenalty(_voter, round, _voterInfo.nonRevealCount);
                 _voterInfo.nonRevealCount = 0;
                 // penalize with highest
-                config.autonity.slash(voters[i], ORACLE_SLASHING_RATE_CAP);
+                config.autonity.slash(_voter, ORACLE_SLASHING_RATE_CAP);
             }
+        }
+    }
+
+    function _resetNonRevealCounter() internal {
+        for (uint i = 0; i < voters.length; i++) {
+            voterInfo[voters[i]].nonRevealCount = 0;
         }
     }
 
@@ -805,15 +803,9 @@ contract Oracle is IOracle, IConfigEvents {
         }
     }
 
-    function _increaseNonRevealCount(address _address) internal {
-        VoterInfo storage _voter = voterInfo[_address];
-        _restartRevealResetCountdown(_voter);
+    function _increaseNonRevealCount(address _address, VoterInfo storage _voter) internal {
         _voter.nonRevealCount++;
         emit CommitRevealMissed(_address, round, _voter.nonRevealCount);
-    }
-
-    function _restartRevealResetCountdown(VoterInfo storage _voter) internal {
-        _voter.revealResetCountdown = config.revealResetInterval;
     }
 
     /*
