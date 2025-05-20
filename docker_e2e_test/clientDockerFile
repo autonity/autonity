@@ -1,5 +1,5 @@
 # Docker file for the autonity clients in the docker e2e test framework.
-# The version of ubuntu should be aligned with teh github workflow's OS version, as
+# The version of ubuntu should be aligned with the github workflow's OS version, as
 # autonity client's underlying libs like libc, etc... need a compatible kernel to run it.
 FROM ubuntu:24.04
 
