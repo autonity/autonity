@@ -1657,190 +1657,7 @@ func TestRevealReset(t *testing.T) {
 		)
 	}
 
-	checkRevealResetCountDown := func(r *Runner, voter common.Address, countDown int64) {
-		voterInfo, _, err := r.Oracle.VoterInfo(nil, voter)
-		require.NoError(r.T, err)
-		require.Equal(r.T, countDown, voterInfo.RevealResetCountdown.Int64())
-	}
-
-	RunWithSetup("reveal-reset-countdown restarts with first vote", setup, func(r *Runner) {
-		voter := r.Committee.Validators[0].OracleAddress
-		checkRevealResetCountDown(r, voter, 0)
-
-		symbolCount := 10 // doesn't need to be right for first vote
-		vote(
-			r,
-			voter,
-			symbolCount,
-		)
-		// first vote
-		checkRevealResetCountDown(r, voter, revealResetInterval)
-		round := r.CheckErrorAndGetData(
-			r.Oracle.GetRound(nil),
-		).(*big.Int)
-
-		progressRound(
-			r,
-			round,
-		)
-		round = new(big.Int).Add(
-			round,
-			common.Big1,
-		)
-		// proper reveal
-		vote(
-			r,
-			voter,
-			symbolCount,
-		)
-
-		// vote after a gap
-		rounds := 5
-		for rounds > 0 {
-			progressRound(
-				r,
-				round,
-			)
-			round = new(big.Int).Add(
-				round,
-				common.Big1,
-			)
-			rounds--
-		}
-
-		// first voter after a gap
-		vote(
-			r,
-			voter,
-			symbolCount,
-		)
-		checkRevealResetCountDown(r, voter, revealResetInterval)
-	})
-
-	RunWithSetup("reveal-reset-countdown restarts with invalid reveal", setup, func(r *Runner) {
-		voter := r.Committee.Validators[0].OracleAddress
-
-		symbolCount := 10 // doesn't need to be right for first vote
-		vote(
-			r,
-			voter,
-			symbolCount,
-		)
-		round := r.CheckErrorAndGetData(
-			r.Oracle.GetRound(nil),
-		).(*big.Int)
-		progressRound(
-			r,
-			round,
-		)
-		round = new(big.Int).Add(
-			round,
-			common.Big1,
-		)
-		// proper reveal
-		vote(
-			r,
-			voter,
-			symbolCount,
-		)
-		progressRound(
-			r,
-			round,
-		)
-
-		// invalid reveal
-		vote(
-			r,
-			voter,
-			symbolCount+1,
-		)
-		checkRevealResetCountDown(r, voter, revealResetInterval)
-	})
-
-	RunWithSetup("reveal-reset-countdown restarts with missed reveal at the end of voting round", setup, func(r *Runner) {
-		voter := r.Committee.Validators[0].OracleAddress
-
-		symbolCount := 10 // doesn't need to be right for first vote
-		vote(
-			r,
-			voter,
-			symbolCount,
-		)
-		round := r.CheckErrorAndGetData(
-			r.Oracle.GetRound(nil),
-		).(*big.Int)
-		progressRound(
-			r,
-			round,
-		)
-		round = new(big.Int).Add(
-			round,
-			common.Big1,
-		)
-		// proper reveal
-		vote(
-			r,
-			voter,
-			symbolCount,
-		)
-		progressRound(
-			r,
-			round,
-		)
-		round = new(big.Int).Add(
-			round,
-			common.Big1,
-		)
-		// no reveal
-		progressRound(
-			r,
-			round,
-		)
-		checkRevealResetCountDown(r, voter, revealResetInterval)
-	})
-
-	RunWithSetup("reveal-reset-countdown decreases with successful reveal", setup, func(r *Runner) {
-		voter := r.Committee.Validators[0].OracleAddress
-
-		symbolCount := 10 // doesn't need to be right for first vote
-		vote(
-			r,
-			voter,
-			symbolCount,
-		)
-		round := r.CheckErrorAndGetData(
-			r.Oracle.GetRound(nil),
-		).(*big.Int)
-		progressRound(
-			r,
-			round,
-		)
-		round = new(big.Int).Add(
-			round,
-			common.Big1,
-		)
-		// proper reveal
-		vote(
-			r,
-			voter,
-			symbolCount,
-		)
-		checkRevealResetCountDown(r, voter, revealResetInterval-1)
-
-		progressRound(
-			r,
-			round,
-		)
-		// proper reveal
-		vote(
-			r,
-			voter,
-			symbolCount,
-		)
-		checkRevealResetCountDown(r, voter, revealResetInterval-2)
-	})
-
-	RunWithSetup("non-reveal-count = 0 when reveal-reset-countdown = 0", setup, func(r *Runner) {
+	RunWithSetup("non-reveal-count is reset periodically", setup, func(r *Runner) {
 		voter := r.Committee.Validators[0].OracleAddress
 
 		symbolCount := 10 // doesn't need to be right for first vote
@@ -1868,7 +1685,8 @@ func TestRevealReset(t *testing.T) {
 			symbolCount,
 		)
 
-		for successfulReveal := 0; successfulReveal < int(revealResetInterval); successfulReveal++ {
+		// progress round till reset
+		for round.Int64() <= revealResetInterval {
 			progressRound(
 				r,
 				round,
@@ -1877,13 +1695,8 @@ func TestRevealReset(t *testing.T) {
 				round,
 				common.Big1,
 			)
-			vote(
-				r,
-				voter,
-				symbolCount,
-			)
 		}
-		checkRevealResetCountDown(r, voter, 0)
+
 		voterInfo, _, err := r.Oracle.VoterInfo(nil, voter)
 		require.NoError(r.T, err)
 		require.Equal(r.T, int64(0), voterInfo.NonRevealCount.Int64())
