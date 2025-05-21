@@ -212,7 +212,7 @@ contract Oracle is IOracle, IConfigEvents {
      * @return true if there is a new round and new symbol prices are available, false if not.
      * @dev This function has technically infinite gas budget and must not throw in any condition.
      */
-    function finalize() onlyAutonity external returns (bool){
+    function finalize() onlyAutonity external returns (bool) {
         if (block.number < lastRoundBlock + config.votePeriod) {
             return false;
         }
@@ -540,27 +540,17 @@ contract Oracle is IOracle, IConfigEvents {
     }
 
     /**
-     * @notice Setter for the tolerance of missed reveal count before the voter gets punished.
+     * @notice Setter for commit-reveal penalty mechanism configuration.
      */
-    function setNonRevealThreshold(uint256 _threshold) external onlyOperator {
+    function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) external onlyOperator {
         require(
-            _threshold < config.revealResetInterval,
-            "invalid config"
-        );
-        emit ConfigUpdateUint("nonRevealThreshold", config.nonRevealThreshold, _threshold);
-        config.nonRevealThreshold = _threshold;
-    }
-
-    /**
-     * @notice Setter for the maximum count of rounds after which missed reveal counter is reset.
-     */
-    function setRevealResetInterval(uint256 _resetInterval) external onlyOperator {
-        require(
-            config.nonRevealThreshold < _resetInterval && _resetInterval > 0,
+            _threshold < _resetInterval && _resetInterval > 0,
             "invalid config"
         );
         emit ConfigUpdateUint("revealResetInterval", config.revealResetInterval, _resetInterval);
         config.revealResetInterval = _resetInterval;
+        emit ConfigUpdateUint("nonRevealThreshold", config.nonRevealThreshold, _threshold);
+        config.nonRevealThreshold = _threshold;
     }
 
     /**
@@ -569,9 +559,8 @@ contract Oracle is IOracle, IConfigEvents {
     function setSlashingConfig(
         int256 _outlierSlashingThreshold,
         int256 _outlierDetectionThreshold,
-        uint256 _baseSlashingRate)
-    external
-    onlyOperator
+        uint256 _baseSlashingRate
+    ) external onlyOperator
     {
         emit ConfigUpdateInt("outlierSlashingThreshold", config.outlierSlashingThreshold, _outlierSlashingThreshold);
         config.outlierSlashingThreshold = _outlierSlashingThreshold;
@@ -783,7 +772,8 @@ contract Oracle is IOracle, IConfigEvents {
                     1. Voter voted in this round but did not reveal his commit from
                         the last round (it's not the first round for the voter).
                     2. Voter provided commit in the last round but did not vote in this round.
-                In both cases, the voter submitted commit in the last round but did not reveal
+                In both cases, the voter submitted commit in the last round but did not reveal.
+                Point 2 is handled here and point 1 is handled in `vote` function.
             */
             if (_voterInfo.round == round - 1 && _voterInfo.commit > 0) {
                 _increaseNonRevealCount(_voter, _voterInfo);

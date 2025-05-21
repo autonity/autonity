@@ -93,14 +93,18 @@ interface IOracle {
     function setOperator(address _operator) external;
 
     /**
-     * @notice Setter for the threshold of missed reveal count before the voter gets punished.
+     * @notice Setter for commit-reveal penalty mechanism configuration.
      */
-    function setNonRevealThreshold(uint256 _threshold) external;
+    function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) external;
 
     /**
-     * @notice Setter for the reset interval for missed reveal.
-     */
-    function setRevealResetInterval(uint256 _resetInterval) external;
+    * @notice Setter for the internal slashing and outlier detection configuration.
+    */
+    function setSlashingConfig(
+        int256 _outlierSlashingThreshold,
+        int256 _outlierDetectionThreshold,
+        uint256 _baseSlashingRate
+    ) external;
 
     /**
     * @notice Retrieve the vote period.
