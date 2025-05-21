@@ -77,8 +77,6 @@ contract Oracle is IOracle, IConfigEvents {
     mapping(address => uint256) private rewardPeriodPerformance;
     uint256 private rewardPeriodAggregatedScore;
 
-    EnumerableSet.AddressSet private nonRevealSlashedVoters;
-
     /**
      * @dev Constructor to initialize the Oracle contract.
      * @param _voters List of initial voters' addresses.
@@ -177,7 +175,7 @@ contract Oracle is IOracle, IConfigEvents {
         }
 
         if (_lastVotedRound != round - 1) {
-            emit InvalidVote("LastVotedRoundMismatch", msg.sender, round-1,  _lastVotedRound);
+            emit InvalidVote("LastVotedRoundMismatch", msg.sender, round - 1, _lastVotedRound);
             return;
         }
 
@@ -201,7 +199,7 @@ contract Oracle is IOracle, IConfigEvents {
         for (uint256 i = 0; i < _reports.length; i++) {
             require(_reports[i].confidence <= 100, "invalid confidence score");
             require(
-                (_reports[i].price > 0 && _reports[i].confidence > 0) ,
+                (_reports[i].price > 0 && _reports[i].confidence > 0),
                 "confidence/price error"
             );
             reports[symbols[i]][msg.sender] = _reports[i];
@@ -220,14 +218,14 @@ contract Oracle is IOracle, IConfigEvents {
         }
 
         // first penalize for no reveal
-        _penalizeForNoReveal();
+        bool[] memory _penalizedVoters = _penalizeForNoReveal();
         if (round % config.revealResetInterval == 0) {
             _resetNonRevealCounter();
         }
 
         prices.push();
         for (uint i = 0; i < symbols.length; i += 1) {
-            _aggregateReports(i);
+            _aggregateReports(i, _penalizedVoters);
         }
 
         _finalizeRewards();
@@ -239,7 +237,7 @@ contract Oracle is IOracle, IConfigEvents {
             config.votePeriod = newVotePeriod;
         }
         emit NewRound(round, block.timestamp, config.votePeriod);
-        _removePenalizedVoters();
+        _resetPenalizedReports(_penalizedVoters);
         return true;
     }
 
@@ -273,7 +271,7 @@ contract Oracle is IOracle, IConfigEvents {
             // Transfer ATN rewards
             // 2300 gas fowarded with send()
             // funds for failed transfers will be redistributed for the next round
-            voterTreasuries[_voter].call{value:_atn, gas: 2300}("");
+            voterTreasuries[_voter].call{value: _atn, gas: 2300}("");
 
             // Transfer NTN rewards
             config.autonity.autobond(voterValidators[_voter], _ntn, 0);
@@ -290,7 +288,7 @@ contract Oracle is IOracle, IConfigEvents {
         // are able to send their first vote, but they will not be used for aggregation
         // in this round
         if (newVotersSet == true) {
-            for(uint i = 0; i < newVoters.length; i++) {
+            for (uint i = 0; i < newVoters.length; i++) {
                 voterInfo[newVoters[i]].isVoter = true;
             }
             newVotersAccessUpdated = true;
@@ -319,7 +317,7 @@ contract Oracle is IOracle, IConfigEvents {
      * @param _sindex The index of the symbol to aggregate.
      * @dev This function detects outliers and calculates the final price for the symbol.
      */
-    function _aggregateReports(uint _sindex) internal {
+    function _aggregateReports(uint _sindex, bool[] memory _penalizedVoters) internal {
         string memory _symbol = symbols[_sindex];
         Report[] memory _totalReports = new Report[](voters.length);
         uint256 _count;
@@ -336,16 +334,29 @@ contract Oracle is IOracle, IConfigEvents {
         if (_count > 0) {
             int256 _priceMedian = int256(uint256(_getMedian(_totalReports, _count)));
             // exclude and detect outliers
-            (address[] memory _outliers, uint256 _totalOutliers, Report[] memory _filteredReports, uint256 _reportsCount)
-            = _findOutliers(_priceMedian, _symbol);
+            OutlierDetection memory _outlierDetection = _findOutliers(_priceMedian, _symbol);
 
-            if (_reportsCount > 0) {
+            if (_outlierDetection.totalReports > 0) {
                 // punish outliers if found
-                for (uint256 i = 0; i < _totalOutliers; i++) {
-                    uint256 _slashingAmount = _penalize(_outliers[i], _priceMedian, reports[_symbol][_outliers[i]]);
-                    emit Penalized(_outliers[i], _slashingAmount, _symbol, _priceMedian, reports[_symbol][_outliers[i]].price);
+                for (uint256 i = 0; i < _outlierDetection.totalOutliers; i++) {
+                    uint256 _slashingAmount = _penalize(
+                        _outlierDetection.outliers[i],
+                        _priceMedian,
+                        reports[_symbol][voters[_outlierDetection.outliers[i]]],
+                        _penalizedVoters
+                    );
+                    emit Penalized(
+                        voters[_outlierDetection.outliers[i]],
+                        _slashingAmount,
+                        _symbol,
+                        _priceMedian,
+                        reports[_symbol][voters[_outlierDetection.outliers[i]]].price
+                    );
                 }
-                uint256 _price = _calculateWeightedPrice(_filteredReports, _reportsCount);
+                uint256 _price = _calculateWeightedPrice(
+                    _outlierDetection.filteredReports,
+                    _outlierDetection.totalReports
+                );
                 prices[round][_symbol] = Price(
                     _price,
                     block.timestamp,
@@ -499,14 +510,11 @@ contract Oracle is IOracle, IConfigEvents {
         address[] memory _newVoters,
         address[] memory _treasury,
         address[] memory _validator
-    )
-        onlyAutonity
-        external
-    {
+    ) onlyAutonity external {
         require(_newVoters.length != 0, "Voters can't be empty");
         for (uint256 i = 0; i < _newVoters.length; i++) {
             voterTreasuries[_newVoters[i]] = _treasury[i];
-            voterValidators[_newVoters[i]]= _validator[i];
+            voterValidators[_newVoters[i]] = _validator[i];
         }
         _votersSort(_newVoters, int(0), int(_newVoters.length - 1));
         newVoters = _newVoters;
@@ -673,6 +681,14 @@ contract Oracle is IOracle, IConfigEvents {
         return;
     }
 
+    /// @dev Return struct for outlier detection
+    struct OutlierDetection {
+        uint256[] outliers;
+        uint256 totalOutliers;
+        Report[] filteredReports;
+        uint256 totalReports;
+    }
+
     /**
      * @dev Identifies and returns outlier voter addresses based on their price reports relative to a given median.
      *
@@ -686,22 +702,18 @@ contract Oracle is IOracle, IConfigEvents {
      * @param _median The median price to compare against for outlier detection.
      * @param _symbol The symbol representing the price report to analyze.
      *
-     * @return _outliers An array of addresses representing the voters identified as outliers.
-     * @return _totalOutliers The total count of outlier addresses.
-     * @return _filteredReports An array of non-outlier price reports.
-     * @return _totalReports The total count of non-outlier reports collected.
+     * @return OutlierDetection Struct containing:
+     *         - outliers: Array of outlier indices.
+     *         - totalOutliers: Total number of outliers detected.
+     *         - filteredReports: Array of reports that are not outliers.
+     *         - totalReports: Total number of reports that are not outliers.
      */
-    function _findOutliers(int256 _median, string memory _symbol)
-        internal
-        returns (
-            address[] memory _outliers,
-            uint256 _totalOutliers,
-            Report[] memory _filteredReports,
-            uint256 _totalReports
-        )
-    {
-        _filteredReports = new Report[](voters.length);
-        _outliers = new address[](voters.length);
+    function _findOutliers(int256 _median, string memory _symbol) internal returns (OutlierDetection memory){
+        OutlierDetection memory result;
+
+        result.filteredReports = new Report[](voters.length);
+        result.outliers = new uint256[](voters.length);
+
         for (uint256 i = 0; i < voters.length; i++) {
             address _voter = voters[i];
             if (!voterInfo[_voter].reportAvailable) {
@@ -711,14 +723,14 @@ contract Oracle is IOracle, IConfigEvents {
             // we don't want the following to underflow
             int256 _ratio = (_median - int256(uint256(reports[_symbol][_voter].price))) * 100 / _median;
             if (_ratio <= config.outlierDetectionThreshold && - 1 * _ratio <= config.outlierDetectionThreshold) {
-                _filteredReports[_totalReports++] = reports[_symbol][_voter];
+                result.filteredReports[result.totalReports++] = reports[_symbol][_voter];
                 // take advantage of this iteration to include performance calculation
                 voterInfo[_voter].performance += reports[_symbol][_voter].confidence;
             } else {
-                _outliers[_totalOutliers++] = _voter;
+                result.outliers[result.totalOutliers++] = i;
             }
         }
-        return (_outliers, _totalOutliers, _filteredReports, _totalReports);
+        return result;
     }
 
     function _calculateWeightedPrice(Report[] memory _report, uint256 _reportCount) internal pure returns (uint256) {
@@ -731,12 +743,13 @@ contract Oracle is IOracle, IConfigEvents {
         return _price / _totalConfidence;
     }
 
-    function _penalize(address _outlier, int256 _median, Report memory _report) internal returns (uint256) {
+    function _penalize(uint256 _outlierIndex, int256 _median, Report memory _report, bool[] memory _penalizeVoters) internal returns (uint256) {
+        address _outlier = voters[_outlierIndex];
         // Stop considering this reporter for any future calculation.
         // This is symbol independant.
         voterInfo[_outlier].reportAvailable = false;
-        if (nonRevealSlashedVoters.contains(_outlier)) {
-            // we already slashed this voter
+        if (_penalizeVoters[_outlierIndex]) {
+            // already penalized for no reveal
             return 0;
         }
         int256 _diffRatio = (int256(uint256(_report.price)) - _median) * 100 / _median;
@@ -758,9 +771,9 @@ contract Oracle is IOracle, IConfigEvents {
 
         return config.autonity.slash(voterValidators[_outlier], _slashingRate);
     }
-    
-    function _penalizeForNoReveal() internal {
 
+    function _penalizeForNoReveal() internal returns (bool[] memory) {
+        bool[] memory penalizedVoters = new bool[](voters.length);
         // penalize for commit without reveal
         for (uint i = 0; i < voters.length; i++) {
             address _voter = voters[i];
@@ -772,18 +785,19 @@ contract Oracle is IOracle, IConfigEvents {
                     2. Voter provided commit in the last round but did not vote in this round.
                 In both cases, the voter submitted commit in the last round but did not reveal
             */
-            if (_voterInfo.round == round-1 && _voterInfo.commit > 0) {
+            if (_voterInfo.round == round - 1 && _voterInfo.commit > 0) {
                 _increaseNonRevealCount(_voter, _voterInfo);
             }
 
             if (_voterInfo.nonRevealCount > config.nonRevealThreshold) {
-                nonRevealSlashedVoters.add(_voter);
+                penalizedVoters[i] = true;
                 emit NoRevealPenalty(_voter, round, _voterInfo.nonRevealCount);
                 _voterInfo.nonRevealCount = 0;
                 // penalize with highest
                 config.autonity.slash(_voter, ORACLE_SLASHING_RATE_CAP);
             }
         }
+        return penalizedVoters;
     }
 
     function _resetNonRevealCounter() internal {
@@ -792,14 +806,11 @@ contract Oracle is IOracle, IConfigEvents {
         }
     }
 
-    function _removePenalizedVoters() internal {
-        uint256 _length = nonRevealSlashedVoters.length();
-        while (_length > 0) {
-            address _voter = nonRevealSlashedVoters.at(0);
-            // don't consider past reports from the penalized voters
-            voterInfo[_voter].reportAvailable = false;
-            require(nonRevealSlashedVoters.remove(_voter), "voter not removed");
-            _length--;
+    function _resetPenalizedReports(bool[] memory penalizedVoters) internal {
+        for (uint i = 0; i < voters.length; i++) {
+            if (penalizedVoters[i]) {
+                voterInfo[voters[i]].reportAvailable = false;
+            }
         }
     }
 
