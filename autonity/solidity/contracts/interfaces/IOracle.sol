@@ -98,6 +98,11 @@ interface IOracle {
     function getVotePeriod() external view returns (uint);
 
     /**
+    * @notice Retrieve the new vote period that to be applied at the end of vote round.
+    */
+    function getNewVotePeriod() external view returns (uint);
+
+    /**
     * @notice Retrieve the current voters in the committee.
     */
     function getVoters() external view returns(address[] memory);
