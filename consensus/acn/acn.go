@@ -104,19 +104,21 @@ func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFu
 		return err
 	}
 
-	ep, err := acn.server.ConsensusEndpoint(peer.ID())
-	if err != nil {
-		peer.Log().Error("Consensus endpoint verification failed", "err", err)
-		return p2p.DiscACNPeerNotReachable
-	}
+	if peer.Peer.Inbound() { // only for inbound peers
+		ep, err := acn.server.ConsensusEndpoint(peer.ID())
+		if err != nil {
+			peer.Log().Error("Consensus endpoint verification failed", "err", err)
+			return p2p.DiscACNPeerNotReachable
+		}
 
-	peer.Log().Debug("verifying connectivity towards consensus endpoint", "ep", ep)
-	conn, err := net.DialTimeout("tcp",  ep, 5*time.Second)
-	if err != nil {
-		peer.Log().Error("unable to reach peer consensus endpoint, dropping connection", "error", err, "ep", ep)
-		return p2p.DiscACNPeerNotReachable
+		peer.Log().Debug("verifying connectivity towards consensus endpoint", "ep", ep)
+		conn, err := net.DialTimeout("tcp",  ep, 5*time.Second)
+		if err != nil {
+			peer.Log().Error("unable to reach peer consensus endpoint, dropping connection", "error", err, "ep", ep)
+			return p2p.DiscACNPeerNotReachable
+		}
+		_ = conn.Close()
 	}
-	_ = conn.Close()
 
 	if err := acn.peers.register(peer); err != nil {
 		peer.Log().Error("peer registration failed", "err", err)
