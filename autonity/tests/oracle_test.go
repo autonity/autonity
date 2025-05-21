@@ -364,8 +364,44 @@ func TestVotingPeriodUpdate(t *testing.T) {
 		r.NoError(
 			r.Oracle.SetVotePeriod(r.Operator, big.NewInt(30)),
 		)
+		progressRound(r, r.CheckErrorAndGetData(
+			r.Oracle.GetVotePeriod(nil),
+		).(*big.Int))
 		return r
 	}
+
+	RunWithSetup("voting period is updated at the end of the round", setup, func(r *Runner) {
+		newVotingPeriod := big.NewInt(40)
+		currentVotingPeriod := r.CheckErrorAndGetData(
+			r.Oracle.GetVotePeriod(nil),
+		).(*big.Int)
+		require.True(
+			r.T,
+			newVotingPeriod.Cmp(currentVotingPeriod) != 0,
+		)
+
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, newVotingPeriod),
+		)
+		require.Equal(
+			r.T,
+			currentVotingPeriod,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetVotePeriod(nil),
+			).(*big.Int),
+		)
+
+		progressRound(r, r.CheckErrorAndGetData(
+			r.Oracle.GetRound(nil),
+		).(*big.Int))
+		require.Equal(
+			r.T,
+			newVotingPeriod,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetVotePeriod(nil),
+			).(*big.Int),
+		)
+	})
 
 	RunWithSetup("voting period cannot be too big", setup, func(r *Runner) {
 		epochPeriod, _, err := r.Autonity.GetEpochPeriod(nil)
@@ -416,14 +452,11 @@ func TestVotingPeriodUpdate(t *testing.T) {
 		require.True(r.T, epochPeriod.Cmp(common.Big2) >= 0, "cannot test")
 
 		// set new epoch period bigger
-		newEpochPeriod := new(big.Int).Add(epochPeriod, big.NewInt(10))
+		newEpochPeriod := new(big.Int).Add(epochPeriod, big.NewInt(20))
 		maxVotingPeriod := new(big.Int).Div(epochPeriod, big.NewInt(2))
 		r.NoError(
 			r.Autonity.SetEpochPeriod(r.Operator, newEpochPeriod),
 		)
-		currentEpochPeriod, _, err := r.Autonity.GetCurrentEpochPeriod(nil)
-		require.NoError(r.T, err)
-		require.Equal(r.T, epochPeriod, currentEpochPeriod)
 		_, err = r.Oracle.SetVotePeriod(r.Operator, new(big.Int).Add(maxVotingPeriod, common.Big1))
 		require.Equal(r.T, "execution reverted: vote period is too big", err.Error())
 		r.NoError(
@@ -431,10 +464,13 @@ func TestVotingPeriodUpdate(t *testing.T) {
 		)
 
 		r.WaitNextEpoch()
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
 		epochPeriod = newEpochPeriod
-		currentEpochPeriod, _, err = r.Autonity.GetEpochPeriod(nil)
-		require.NoError(r.T, err)
-		require.Equal(r.T, epochPeriod, currentEpochPeriod)
 
 		// set new epoch period smaller
 		newEpochPeriod = new(big.Int).Sub(epochPeriod, big.NewInt(10))
@@ -442,14 +478,51 @@ func TestVotingPeriodUpdate(t *testing.T) {
 		r.NoError(
 			r.Autonity.SetEpochPeriod(r.Operator, newEpochPeriod),
 		)
-		currentEpochPeriod, _, err = r.Autonity.GetCurrentEpochPeriod(nil)
-		require.NoError(r.T, err)
-		require.Equal(r.T, epochPeriod, currentEpochPeriod)
 		_, err = r.Oracle.SetVotePeriod(r.Operator, new(big.Int).Add(maxVotingPeriod, common.Big1))
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: vote period is too big", err.Error())
 		r.NoError(
 			r.Oracle.SetVotePeriod(r.Operator, maxVotingPeriod),
+		)
+	})
+
+	RunWithSetup("epoch period respects both current and new voting period", setup, func(r *Runner) {
+		votingPeriod := r.CheckErrorAndGetData(
+			r.Oracle.GetVotePeriod(nil),
+		).(*big.Int)
+
+		// set new epoch period smaller
+		newVotingPeriod := new(big.Int).Sub(votingPeriod, big.NewInt(20))
+		minEpochPeriod := new(big.Int).Mul(votingPeriod, big.NewInt(2))
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, newVotingPeriod),
+		)
+		_, err := r.Autonity.SetEpochPeriod(r.Operator, new(big.Int).Sub(minEpochPeriod, common.Big1))
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: epoch period is too small", err.Error())
+		r.NoError(
+			r.Autonity.SetEpochPeriod(r.Operator, minEpochPeriod),
+		)
+
+		r.WaitNextEpoch()
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		votingPeriod = newVotingPeriod
+
+		// set new voting period bigger
+		newVotingPeriod = new(big.Int).Add(votingPeriod, big.NewInt(15))
+		minEpochPeriod = new(big.Int).Mul(newVotingPeriod, big.NewInt(2))
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, newVotingPeriod),
+		)
+		_, err = r.Autonity.SetEpochPeriod(r.Operator, new(big.Int).Sub(minEpochPeriod, common.Big1))
+		require.Equal(r.T, "execution reverted: epoch period is too small", err.Error())
+		r.NoError(
+			r.Autonity.SetEpochPeriod(r.Operator, minEpochPeriod),
 		)
 	})
 }
@@ -747,11 +820,15 @@ func TestVotersUpdate(t *testing.T) {
 			r.NoError(
 				r.Autonity.SetEpochPeriod(
 					r.Operator,
-					new(big.Int).Add(epochPeriod, common.Big1),
+					new(big.Int).Sub(epochPeriod, common.Big1),
 				),
 			)
 		}
-		r.WaitNextEpoch()
+		nextEpochBlock := r.CheckErrorAndGetData(
+			r.Autonity.GetNextEpochBlock(nil),
+		).(*big.Int)
+		diff := new(big.Int).Sub(nextEpochBlock, r.Evm.Context.BlockNumber)
+		r.WaitNBlocks(int(diff.Uint64()))
 		// new voting round and epoch starts together
 		// set the edge case (votingPeriod * 2 = epochPeriod)
 		epochPeriod, _, err = r.Autonity.GetEpochPeriod(nil)
@@ -762,6 +839,7 @@ func TestVotersUpdate(t *testing.T) {
 				new(big.Int).Div(epochPeriod, common.Big2),
 			),
 		)
+		r.WaitNBlocks(1)
 
 		// test the conditions
 		votePeriod, _, err := r.Oracle.GetVotePeriod(nil)
