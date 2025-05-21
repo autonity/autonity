@@ -1319,33 +1319,33 @@ func TestConfigRequirement(t *testing.T) {
 
 		// set
 		// nonRevealThreshold = revealResetInterval
-		_, err = r.Oracle.SetNonRevealThreshold(r.Operator, config.RevealResetInterval)
+		_, err = r.Oracle.SetCommitRevealConfig(r.Operator, config.RevealResetInterval, config.RevealResetInterval)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: invalid config", err.Error())
 
 		// nonRevealThreshold > revealResetInterval
-		_, err = r.Oracle.SetNonRevealThreshold(
-			r.Operator, new(big.Int).Add(config.RevealResetInterval, common.Big1),
+		_, err = r.Oracle.SetCommitRevealConfig(
+			r.Operator, new(big.Int).Add(config.RevealResetInterval, common.Big1), config.RevealResetInterval,
 		)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: invalid config", err.Error())
 
 		// nonRevealThreshold = revealResetInterval
-		_, err = r.Oracle.SetRevealResetInterval(r.Operator, config.NonRevealThreshold)
+		_, err = r.Oracle.SetCommitRevealConfig(r.Operator, config.NonRevealThreshold, config.NonRevealThreshold)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: invalid config", err.Error())
 
 		// nonRevealThreshold > revealResetInterval
-		_, err = r.Oracle.SetRevealResetInterval(
-			r.Operator, new(big.Int).Sub(config.NonRevealThreshold, common.Big1),
+		_, err = r.Oracle.SetCommitRevealConfig(
+			r.Operator, config.NonRevealThreshold, new(big.Int).Sub(config.NonRevealThreshold, common.Big1),
 		)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: invalid config", err.Error())
 
 		// nonRevealThreshold can be 0
 		r.NoError(
-			r.Oracle.SetNonRevealThreshold(
-				r.Operator, big.NewInt(0),
+			r.Oracle.SetCommitRevealConfig(
+				r.Operator, big.NewInt(0), config.RevealResetInterval,
 			),
 		)
 
@@ -1372,14 +1372,9 @@ func TestMissedReveal(t *testing.T) {
 	setup := func() *Runner {
 		r := Setup(t, SetInflationReserveZero)
 		r.NoError(
-			r.Oracle.SetNonRevealThreshold(
+			r.Oracle.SetCommitRevealConfig(
 				r.Operator,
 				big.NewInt(nonRevealThreshold),
-			),
-		)
-		r.NoError(
-			r.Oracle.SetRevealResetInterval(
-				r.Operator,
 				big.NewInt(revealResetInterval),
 			),
 		)
@@ -1708,14 +1703,9 @@ func TestRevealReset(t *testing.T) {
 	setup := func() *Runner {
 		r := Setup(t, SetInflationReserveZero)
 		r.NoError(
-			r.Oracle.SetNonRevealThreshold(
+			r.Oracle.SetCommitRevealConfig(
 				r.Operator,
 				big.NewInt(nonRevealThreshold),
-			),
-		)
-		r.NoError(
-			r.Oracle.SetRevealResetInterval(
-				r.Operator,
 				big.NewInt(revealResetInterval),
 			),
 		)
