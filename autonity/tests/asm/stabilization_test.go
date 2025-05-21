@@ -27,6 +27,8 @@ var basicConfig = tests.IStabilizationConfig{
 	MinCollateralizationRatio: toBase("2.5", 18),
 	MinDebtRequirement:        new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil),
 	TargetPrice:               toBase("1.0", 18),
+	DefaultNTNATNPrice:        toBase("1.0", 18),
+	DefaultNTNUSDPrice:        toBase("1.0", 18),
 }
 
 func TestStabilizationConstructor(t *testing.T) {
@@ -44,6 +46,8 @@ func TestStabilizationConstructor(t *testing.T) {
 				MinCollateralizationRatio: big.NewInt(0),
 				MinDebtRequirement:        basicConfig.MinDebtRequirement,
 				TargetPrice:               basicConfig.TargetPrice,
+				DefaultNTNATNPrice:        basicConfig.DefaultNTNATNPrice,
+				DefaultNTNUSDPrice:        basicConfig.DefaultNTNUSDPrice,
 			},
 			r.Autonity.Address(),
 			params.TestAutonityContractConfig.Operator,
@@ -67,6 +71,8 @@ func TestStabilizationConstructor(t *testing.T) {
 				MinCollateralizationRatio: e18,
 				MinDebtRequirement:        basicConfig.MinDebtRequirement,
 				TargetPrice:               basicConfig.TargetPrice,
+				DefaultNTNATNPrice:        basicConfig.DefaultNTNATNPrice,
+				DefaultNTNUSDPrice:        basicConfig.DefaultNTNUSDPrice,
 			},
 			r.Autonity.Address(),
 			params.TestAutonityContractConfig.Operator,
@@ -88,6 +94,8 @@ func TestStabilizationConstructor(t *testing.T) {
 				MinCollateralizationRatio: basicConfig.MinCollateralizationRatio,
 				MinDebtRequirement:        basicConfig.MinDebtRequirement,
 				TargetPrice:               basicConfig.TargetPrice,
+				DefaultNTNATNPrice:        basicConfig.DefaultNTNATNPrice,
+				DefaultNTNUSDPrice:        basicConfig.DefaultNTNUSDPrice,
 			},
 			r.Autonity.Address(),
 			params.TestAutonityContractConfig.Operator,
@@ -110,6 +118,8 @@ func TestStabilizationConstructor(t *testing.T) {
 				MinCollateralizationRatio: basicConfig.MinCollateralizationRatio,
 				MinDebtRequirement:        basicConfig.MinDebtRequirement,
 				TargetPrice:               basicConfig.TargetPrice,
+				DefaultNTNATNPrice:        basicConfig.DefaultNTNATNPrice,
+				DefaultNTNUSDPrice:        basicConfig.DefaultNTNUSDPrice,
 			},
 			common.Address{},
 			common.Address{},
@@ -129,6 +139,7 @@ func TestStabilizationDeposit(t *testing.T) {
 	fundedAmount := new(big.Int).Mul(e18, big.NewInt(100))
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.RemoveFixedGenesisPrices(r.Operator))
 		primePrices(r, newtonAutonPrice, newtonUSDPrice)
 		for _, account := range []common.Address{userAccount, secondUserAccount} {
 			r.GiveMeSomeMoney(account, new(big.Int).Mul(e18, big.NewInt(100)))
@@ -213,6 +224,7 @@ func TestStabilizationWithdraw(t *testing.T) {
 
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.RemoveFixedGenesisPrices(r.Operator))
 		setBasicConfig(r)
 		primePrices(r, newtonAutonPrice, newtonUSDPrice)
 		r.GiveMeSomeMoney(userAccount, new(big.Int).Mul(e18, big.NewInt(100)))
@@ -339,6 +351,7 @@ func TestStabilizationBorrow(t *testing.T) {
 
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.RemoveFixedGenesisPrices(r.Operator))
 		setBasicConfig(r)
 		primePrices(r, newtonAutonPrice, newtonUSDPrice)
 		r.GiveMeSomeMoney(userAccount, new(big.Int).Mul(e18, big.NewInt(100)))
@@ -510,6 +523,7 @@ func TestStabilizationRepay(t *testing.T) {
 
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.RemoveFixedGenesisPrices(r.Operator))
 		setBasicConfig(r)
 		primePrices(r, newtonAutonPrice, toBase("0.97", 18))
 		r.GiveMeSomeMoney(userAccount, new(big.Int).Mul(e18, big.NewInt(100)))
@@ -651,6 +665,7 @@ func TestStabilizationLiquidate(t *testing.T) {
 	userAccount := testrand.Address()
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.RemoveFixedGenesisPrices(r.Operator))
 		setBasicConfig(r)
 		primePrices(r, newtonAutonPrice, newtonUSDPrice)
 
@@ -769,7 +784,9 @@ func TestStabilizationLiquidate(t *testing.T) {
 
 func TestStabilizationCalculations(t *testing.T) {
 	setup := func() *tests.Runner {
-		return tests.Setup(t, nil)
+		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.RemoveFixedGenesisPrices(r.Operator))
+		return r
 	}
 
 	tests.RunWithSetup("Test borrow limit", setup, func(r *tests.Runner) {
@@ -1535,6 +1552,21 @@ func TestRestrictedFunctionAccess(t *testing.T) {
 		_, err = r.Stabilization.RemoveCDPRestrictions(r.Operator)
 		require.NoError(t, err)
 	})
+
+	tests.RunWithSetup("removeFixedGenesisPrices restricted to operator", setup, func(r *tests.Runner) {
+		unauthorizedUsers := []common.Address{
+			testUser,
+			params.DeployerAddress,
+			testrand.Address(),
+		}
+		for _, user := range unauthorizedUsers {
+			_, err := r.Stabilization.RemoveFixedGenesisPrices(tests.FromSender(user, common.Big0))
+			require.Error(t, err)
+			require.ErrorAs(t, err, &tests.StabilizationUnauthorizedError{})
+		}
+		_, err := r.Stabilization.RemoveFixedGenesisPrices(r.Operator)
+		require.NoError(t, err)
+	})
 }
 
 func TestInterestRate(t *testing.T) {
@@ -1608,6 +1640,10 @@ func TestUpdatableConfigParams(t *testing.T) {
 		require.Equal(t, expectedTime, lastUpdated.MinCollateralizationRatioTimestamp.Int64())
 		require.Equal(t, expectedTime, lastUpdated.BorrowInterestRateTimestamp.Int64())
 	})
+}
+
+func TestFixedGenesisPrices(t *testing.T) {
+
 }
 
 // test helpers functions

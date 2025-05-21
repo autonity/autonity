@@ -255,8 +255,8 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 func TestAuctioneerDebtAuction(t *testing.T) {
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
-		_, err := r.Stabilization.RemoveCDPRestrictions(r.Operator)
-		require.NoError(t, err)
+		r.NoError(r.Stabilization.RemoveCDPRestrictions(r.Operator))
+		r.NoError(r.Stabilization.RemoveFixedGenesisPrices(r.Operator))
 		return r
 	}
 
