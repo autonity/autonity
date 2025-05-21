@@ -15,7 +15,7 @@ class Scheduler(object):
             self.clients[client.index] = client
         self.logger = log.get_logger()
         self.scheduler = sched.scheduler(time.time, time.sleep)
-        self.thread = threading.Thread(target=self.scheduler.run)
+        self.thread = threading.Thread(target=self.scheduler.run, daemon=True)
 
     def schedule(self):
         try:
@@ -116,7 +116,7 @@ class Scheduler(object):
 
     def connect_peers(self, test, peers):
         for peer in peers:
-            if len(peer) is not 2:
+            if len(peer) != 2:
                 self.logger.warning('Wrong peer configuration, skip the connection control %s', peer)
                 continue
             if peer[0] not in self.clients and peer[1] not in self.clients:
@@ -130,7 +130,7 @@ class Scheduler(object):
 
     def dis_connect_peers(self, test, peers):
         for peer in peers:
-            if len(peer) is not 2:
+            if len(peer) != 2:
                 self.logger.warning('Wrong peer configuration, skip the connection control %s', peer)
                 continue
             if peer[0] not in self.clients and peer[1] not in self.clients:
@@ -151,7 +151,7 @@ class Scheduler(object):
     def start_clients(self, test, nodes):
         for index in nodes:
             if index not in self.clients:
-                self.logger.warning("wrong node index in test case. skip the crash action. %s", index)
+                self.logger.warning("wrong node index in test case. skip the start action. %s", index)
                 continue
             self.clients[index].start_client()
 

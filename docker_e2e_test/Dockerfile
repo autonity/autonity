@@ -1,26 +1,45 @@
-# Use the official Ubuntu 20.04 image as the base image
-FROM ubuntu:20.04
+# Docker file for the test engine of the autonity docker e2e test framework.
+FROM ubuntu:24.04
 
-# Update package list and install necessary dependencies
+# Use python 3.8 to create the virtual execution context for the test engine.
+ENV PYTHON_VERSION=3.8 \
+    DEBIAN_FRONTEND=noninteractive \
+    VENV=/opt/venv
+
 RUN apt-get update && \
-    apt-get dist-upgrade --yes && \
-    apt-get install -y build-essential wget zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev python3-pip openssh-client
+    apt-get install -y --no-install-recommends \
+        software-properties-common \
+        build-essential \
+        wget \
+        zlib1g-dev \
+        libncurses5-dev \
+        libgdbm-dev \
+        libnss3-dev \
+        libssl-dev \
+        libreadline-dev \
+        libffi-dev \
+        libsqlite3-dev \
+        openssh-client && \
+    add-apt-repository ppa:deadsnakes/ppa -y && \
+    apt-get install -y --no-install-recommends \
+        python${PYTHON_VERSION} \
+        python${PYTHON_VERSION}-venv \
+        python${PYTHON_VERSION}-dev && \
+    apt-get clean && \
+    rm -f /usr/bin/python3 && \
+    ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
+    ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python
 
+RUN python3 -m venv ${VENV}
+ENV PATH="${VENV}/bin:$PATH"
 
-# Download Python 3.6 source code
-WORKDIR /tmp
-RUN wget https://www.python.org/ftp/python/3.6.9/Python-3.6.9.tgz && \
-    tar -xf Python-3.6.9.tgz && \
-    cd Python-3.6.9
+RUN pip install --no-cache-dir --upgrade pip setuptools
 
-# Configure, build, and install Python 3.6 from source
-RUN cd Python-3.6.9 && \
-    ./configure && \
-    make && \
-    make install
+RUN python -c "import pkg_resources; print('setuptools version:', pkg_resources.get_distribution('setuptools').version)"
 
-# Verify the installation
-RUN python3 --version
+# Install those python dependencies under the environment, pip will resolve those conflicts from now on.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY . .
-RUN python3 -m pip install -r ./requirements.txt
 EXPOSE 22 6000 7000

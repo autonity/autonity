@@ -7,7 +7,7 @@
 # with ';' or '&&'. So any python commands that depend on a venv needs to be
 # run in the same shell in which the venv is activated.
 docker-e2e-tests: ./venv/bin/activate
-	. venv/bin/activate && sudo python3 test_via_docker.py .. -start=$(START) -end=$(END)
+	. venv/bin/activate && sudo python3 test_via_docker.py .. -id=$(ID) -hash=$(HASH)
 
 # Creates venv if not present and then installs dependencies. Executes only if
 # requirements_docker_test.txt has been updated since the last time it ran.
@@ -16,6 +16,8 @@ docker-e2e-tests: ./venv/bin/activate
 # as autocomplete options.
 ./venv/bin/activate: requirements_docker_test.txt
 	test -d venv || python3 -m venv venv
+	python3 --version
+	pip3 --version
 	. venv/bin/activate && sudo pip3 install -r requirements_docker_test.txt
 	touch ./venv/bin/activate
 
@@ -24,7 +26,14 @@ clean:
 
 # Installs the prerequisites for a Linux user
 install-prerequisites-linux:
-	sudo apt-get install python3 python3-venv python3-pip golang-docker-credential-helpers
+	gpg --recv-keys "B26995E310250568"
+	wget https://www.python.org/ftp/python/3.8.2/Python-3.8.2.tgz
+	wget https://www.python.org/ftp/python/3.8.2/Python-3.8.2.tgz.asc
+	gpgv --keyring ~/.gnupg/pubring.kbx Python-3.8.2.tgz.asc Python-3.8.2.tgz
+	tar -xf Python-3.8.2.tgz
+	cd Python-3.8.2 && ./configure --with-ensurepip=install && make && sudo make install
+	python3 --version
+	sudo apt install golang-docker-credential-helpers
 
 # Installs the prerequisites for a mac user
 install-prerequisites-mac:
