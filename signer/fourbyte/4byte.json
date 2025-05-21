@@ -208,5 +208,8 @@
   "52e5a050": "setSupplyControl(address)",
   "15ef30f8": "setLiquidLogicContract(address)",
   "d0b06f5d": "lastUpdated()",
-  "57eba759": "getNewVotePeriod()"
+  "57eba759": "getNewVotePeriod()",
+  "ed78349d": "getNonRevealThreshold()",
+  "3f422ef3": "setCommitRevealConfig(uint256,uint256)",
+  "29dc4c49": "setSlashingConfig(int256,int256,uint256)"
 }
