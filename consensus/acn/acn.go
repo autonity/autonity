@@ -110,7 +110,7 @@ func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFu
 		return p2p.DiscACNPeerNotReachable
 	}
 
-	peer.Log().Info("verifying connectivity towards consensus endpoint", "ep", ep)
+	peer.Log().Debug("verifying connectivity towards consensus endpoint", "ep", ep)
 	conn, err := net.DialTimeout("tcp",  ep, 5*time.Second)
 	if err != nil {
 		peer.Log().Error("unable to reach peer consensus endpoint, dropping connection", "error", err, "ep", ep)
