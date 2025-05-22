@@ -281,7 +281,7 @@ type LostSyncMsg struct {
 	rounds           map[uint64]struct{}                 `rlp:"-"`
 	prevoteSigners   map[uint64]map[common.Hash]*big.Int `rlp:"-"` // maps point to the signers bitmap for that specific value
 	precommitSigners map[uint64]map[common.Hash]*big.Int `rlp:"-"` // maps point to the signers bitmap for that specific value
-	nilProposal      map[uint64]struct{}                 `rlp:"-"` // marks height where remote node doesn't have a proposal
+	nilProposal      map[uint64]struct{}                 `rlp:"-"` // marks round where remote node doesn't have a proposal
 }
 
 func (lsm *LostSyncMsg) Validate() error {
