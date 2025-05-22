@@ -61,8 +61,6 @@ var (
 	errNoEvidenceForPVN = errors.New("no proof of innocence found for rule PVN")
 	errNoEvidenceForPVO = errors.New("no proof of innocence found for rule PVO")
 	errNoEvidenceForC1  = errors.New("no proof of innocence found for rule C1")
-
-	nilValue = common.Hash{}
 )
 
 // FaultDetector it subscribe chain event to trigger rule engine to apply patterns over
@@ -717,7 +715,7 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 
 		//check all precommits for previous rounds from this signer are nil
 		precommits := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
-			return m.R() < proposal.R() && m.Value() != nilValue && m.Signers().Contains(signerIndex)
+			return m.R() < proposal.R() && m.Value() != types.NilValue && m.Signers().Contains(signerIndex)
 		})
 
 		if len(precommits) != 0 {
@@ -765,7 +763,7 @@ oldProposalLoop:
 		// round? If there is, the proposer has proposed a value for which it is not locked on, thus a Proof of
 		// misbehaviour can be generated.
 		precommitsFromPiInVR := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
-			return m.R() == validRound && m.Value() != nilValue && m.Value() != proposal.Value() && m.Signers().Contains(signerIndex)
+			return m.R() == validRound && m.Value() != types.NilValue && m.Value() != proposal.Value() && m.Signers().Contains(signerIndex)
 		})
 		if len(precommitsFromPiInVR) > 0 {
 			proof := &Proof{
@@ -784,7 +782,7 @@ oldProposalLoop:
 		// the proposal? If there is then that implies the proposer saw 2f+1 prevotes in that round and hence it should
 		// have set that round as the valid round.
 		precommitsFromPiAfterVR := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
-			return m.R() > validRound && m.R() < proposal.R() && m.Value() != nilValue && m.Signers().Contains(signerIndex)
+			return m.R() > validRound && m.R() < proposal.R() && m.Value() != types.NilValue && m.Signers().Contains(signerIndex)
 		})
 
 		if len(precommitsFromPiAfterVR) > 0 {
@@ -856,7 +854,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 	// ------------New and Old prevotes------------
 
 	prevotes := fd.msgStore.GetPrevotes(height, func(m *message.Prevote) bool {
-		return m.Value() != nilValue
+		return m.Value() != types.NilValue
 	})
 
 	for _, prevote := range prevotes {
@@ -986,7 +984,7 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 		rPrime := precommitsFromPi[len(precommitsFromPi)-1].R()
 		// Check if the difference between the previous round and current round is more than 1 then exit and return nil
 		for i := len(precommitsFromPi) - 1; i >= 0 && (r-rPrime) <= 1; i-- {
-			if precommitsFromPi[i].Value() != nilValue {
+			if precommitsFromPi[i].Value() != types.NilValue {
 				// we found the latest non-nil precommit and we don't have gaps in the following ones
 				pc := precommitsFromPi[i]
 
@@ -1136,7 +1134,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 					lastRoundForV = pc.R()
 				}
 
-				if pc.Value() != prevote.Value() && pc.Value() != nilValue && pc.R() > lastRoundForNotV {
+				if pc.Value() != prevote.Value() && pc.Value() != types.NilValue && pc.R() > lastRoundForNotV {
 					lastRoundForNotV = pc.R()
 				}
 			}
@@ -1194,7 +1192,7 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 	// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
 
 	precommits := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
-		return m.Value() != nilValue
+		return m.Value() != types.NilValue
 	})
 
 	for _, precommit := range precommits {

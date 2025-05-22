@@ -5,6 +5,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/rlp"
@@ -20,7 +21,7 @@ var (
 	randomBytes2 = make([]byte, 32)
 	_, _         = cr.Read(randomBytes1)
 	_, _         = cr.Read(randomBytes2)
-	values       = []common.Hash{crypto.Hash(randomBytes1), crypto.Hash(randomBytes2), nilValue}
+	values       = []common.Hash{crypto.Hash(randomBytes1), crypto.Hash(randomBytes2), types.NilValue}
 	parentHeader = newBlockHeader(h-1, committee)
 )
 

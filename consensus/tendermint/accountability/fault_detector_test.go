@@ -614,14 +614,14 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	nonNilPrecommit2VPrime := newValidatedPrecommit(2, height, block1.Hash(), signer, self, cSize)
 	nonNilPrecommit1 := newValidatedPrecommit(1, height, block.Hash(), signer, self, cSize)
 
-	nilPrecommit0 := newValidatedPrecommit(0, height, nilValue, signer, self, cSize)
+	nilPrecommit0 := newValidatedPrecommit(0, height, types.NilValue, signer, self, cSize)
 	quorumPrevotes0VPrime := aggregatedPreVote(int(quorum.Int64()), height, 0, block1.Hash(), keys, committee)
 	quorumPrevotes0V := aggregatedPreVote(int(quorum.Int64()), height, 0, block.Hash(), keys, committee)
 	lessThanQurorumPrevotes := aggregatedPreVote(int(quorum.Int64())-1, height, 0, block.Hash(), keys, committee)
 
 	var precommiteNilAfterVR []message.Msg
 	for i := 1; i < 3; i++ {
-		precommit := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize)
+		precommit := newValidatedPrecommit(int64(i), height, types.NilValue, signer, self, cSize)
 		precommiteNilAfterVR = append(precommiteNilAfterVR, precommit)
 	}
 
@@ -998,7 +998,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		aggregatablePrecomits := make([]*message.Precommit, 5)
 		aggregatablePrecomits[0] = precommitForB1In0
 		for i := 1; i < 5; i++ {
-			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize)
+			precommitNil := newValidatedPrecommit(int64(i), height, types.NilValue, signer, self, cSize)
 			fd.msgStore.Save(precommitNil)
 			aggregatablePrecomits[i] = precommitNil
 		}
@@ -1037,7 +1037,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		precommits = append(precommits, precommitForB1In1)
 
 		for i := 2; i < 5; i++ {
-			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize)
+			precommitNil := newValidatedPrecommit(int64(i), height, types.NilValue, signer, self, cSize)
 			precommits = append(precommits, precommitNil)
 			fd.msgStore.Save(precommitNil)
 		}
@@ -1092,7 +1092,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(precommitForBIn0)
-		fd.msgStore.Save(newValidatedPrecommit(3, height, nilValue, signer, self, cSize))
+		fd.msgStore.Save(newValidatedPrecommit(3, height, types.NilValue, signer, self, cSize))
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
 		require.Equal(t, 0, len(proofs))
@@ -1104,7 +1104,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(precommitForBIn0)
 		for i := 1; i < 5; i++ {
-			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize)
+			precommitNil := newValidatedPrecommit(int64(i), height, types.NilValue, signer, self, cSize)
 			fd.msgStore.Save(precommitNil)
 		}
 
@@ -1121,7 +1121,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		// fill gaps with nil
 		for i := 1; i < 4; i++ {
-			precommitNil := newValidatedPrecommit(int64(i), height, nilValue, signer, self, cSize)
+			precommitNil := newValidatedPrecommit(int64(i), height, types.NilValue, signer, self, cSize)
 			fd.msgStore.Save(precommitNil)
 		}
 
@@ -1228,7 +1228,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		// create precomits in between the valid round and the current only for proposer node, thus this event is only
 		// accountable for propser node. Missing precomits for the other voter, making the event is not accountable for it.
 		for i := newProposalBIn5.R(); i < precommitForBIn7.R(); i++ {
-			pc := newValidatedPrecommit(i, height, nilValue, signer, self, cSize)
+			pc := newValidatedPrecommit(i, height, types.NilValue, signer, self, cSize)
 			fd.msgStore.Save(pc)
 			if i > oldProposalB10.ValidRound() {
 				precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, pc)
@@ -1239,7 +1239,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, precommitForBIn7)
 		fd.msgStore.Save(precommitForB1In8)
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, precommitForB1In8)
-		p := newValidatedPrecommit(precommitForB1In8.R()+1, height, nilValue, signer, self, cSize)
+		p := newValidatedPrecommit(precommitForB1In8.R()+1, height, types.NilValue, signer, self, cSize)
 		fd.msgStore.Save(p)
 		precommitsFromPiAfterLatestPrecommitForB = append(precommitsFromPiAfterLatestPrecommitForB, p)
 
@@ -1283,7 +1283,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggVotes)
 		fd.msgStore.Save(precommitForBIn7)
 		for i := precommitForBIn7.R() + 1; i < oldProposalB10.R(); i++ {
-			v := newValidatedPrecommit(i, height, nilValue, signer, self, cSize)
+			v := newValidatedPrecommit(i, height, types.NilValue, signer, self, cSize)
 			fd.msgStore.Save(v)
 		}
 
@@ -1321,7 +1321,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		var precomitsFromPiAfterVR1 []*message.Precommit
 		for i := newProposalBIn5.R() + 1; i < aggregatedPrecommitForB1In8.R(); i++ {
-			p := newValidatedPrecommit(i, height, nilValue, signer, self, cSize)
+			p := newValidatedPrecommit(i, height, types.NilValue, signer, self, cSize)
 			fd.msgStore.Save(p)
 			precomitsFromPiAfterVR1 = append(precomitsFromPiAfterVR1, p)
 		}
@@ -1329,7 +1329,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggregatedPrecommitForB1In8)
 		precomitsFromPiAfterVR1 = append(precomitsFromPiAfterVR1, aggregatedPrecommitForB1In8)
 
-		p := newValidatedPrecommit(aggregatedPrecommitForB1In8.R()+1, height, nilValue, signer, self, cSize)
+		p := newValidatedPrecommit(aggregatedPrecommitForB1In8.R()+1, height, types.NilValue, signer, self, cSize)
 		fd.msgStore.Save(p)
 		precomitsFromPiAfterVR1 = append(precomitsFromPiAfterVR1, p)
 
@@ -1337,14 +1337,14 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		var precommitsFromPiAfterVR2 []*message.Precommit
 		for i := newProposalBIn5.R() + 1; i < aggregatedPrecommitForB1In8.R(); i++ {
-			p = newValidatedPrecommit(i, height, nilValue, makeSigner(keys[prevoterIdx]), &committee.Members[prevoterIdx], cSize)
+			p = newValidatedPrecommit(i, height, types.NilValue, makeSigner(keys[prevoterIdx]), &committee.Members[prevoterIdx], cSize)
 			fd.msgStore.Save(p)
 			precommitsFromPiAfterVR2 = append(precommitsFromPiAfterVR2, p)
 		}
 
 		precommitsFromPiAfterVR2 = append(precommitsFromPiAfterVR2, aggregatedPrecommitForB1In8)
 
-		p = newValidatedPrecommit(aggregatedPrecommitForB1In8.R()+1, height, nilValue, makeSigner(keys[prevoterIdx]),
+		p = newValidatedPrecommit(aggregatedPrecommitForB1In8.R()+1, height, types.NilValue, makeSigner(keys[prevoterIdx]),
 			&committee.Members[prevoterIdx], cSize)
 		fd.msgStore.Save(p)
 		precommitsFromPiAfterVR2 = append(precommitsFromPiAfterVR2, p)
@@ -1408,7 +1408,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggVotes)
 
 		for i := newProposalBIn5.R() + 1; i < oldProposalB10.R(); i++ {
-			fd.msgStore.Save(newValidatedPrecommit(i, height, nilValue, signer, self, cSize))
+			fd.msgStore.Save(newValidatedPrecommit(i, height, types.NilValue, signer, self, cSize))
 		}
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
@@ -1426,7 +1426,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 		fd.msgStore.Save(precommitForB1In8)
 
-		p := newValidatedPrecommit(precommitForB1In8.R()+1, height, nilValue, signer, self, cSize)
+		p := newValidatedPrecommit(precommitForB1In8.R()+1, height, types.NilValue, signer, self, cSize)
 		fd.msgStore.Save(p)
 
 		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
@@ -1443,7 +1443,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		fd.msgStore.Save(aggVotes)
 
 		for i := newProposalBIn5.R() + 1; i < precommitForB1In8.R(); i++ {
-			fd.msgStore.Save(newValidatedPrecommit(i, height, nilValue, signer, self, cSize))
+			fd.msgStore.Save(newValidatedPrecommit(i, height, types.NilValue, signer, self, cSize))
 		}
 		fd.msgStore.Save(precommitForB1In8)
 

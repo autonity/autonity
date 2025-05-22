@@ -22,7 +22,6 @@ import (
 var (
 	height = uint64(100)
 
-	lastHeight          = height - 1
 	futureHeight        = height + 10
 	defRound            = int64(0)
 	defValidRound       = int64(-1)
@@ -40,11 +39,11 @@ var (
 	prevoteForOldProposal2 = newValidatedPrevote(newRound, height, defOldProposal.Value(), makeSigner(keys[1]), &committee.Members[1], cSize)
 	aggPrevoteForOld       = message.AggregatePrevotes([]message.Vote{prevoteForOldProposal1, prevoteForOldProposal2})
 
-	nilPrevote1     = newValidatedPrevote(defRound, height, nilValue, signer, self, cSize)
-	nilPrevote2     = newValidatedPrevote(defRound, height, nilValue, makeSigner(keys[1]), &committee.Members[1], cSize)
+	nilPrevote1     = newValidatedPrevote(defRound, height, types.NilValue, signer, self, cSize)
+	nilPrevote2     = newValidatedPrevote(defRound, height, types.NilValue, makeSigner(keys[1]), &committee.Members[1], cSize)
 	aggNilPrevote   = message.AggregatePrevotes([]message.Vote{nilPrevote1, nilPrevote2})
-	nilPrecommit1   = newValidatedPrecommit(defRound, height, nilValue, signer, self, cSize)
-	nilPrecommit2   = newValidatedPrecommit(defRound, height, nilValue, makeSigner(keys[1]), &committee.Members[1], cSize)
+	nilPrecommit1   = newValidatedPrecommit(defRound, height, types.NilValue, signer, self, cSize)
+	nilPrecommit2   = newValidatedPrecommit(defRound, height, types.NilValue, makeSigner(keys[1]), &committee.Members[1], cSize)
 	aggNilPrecommit = message.AggregatePrecommits([]message.Vote{nilPrecommit1, nilPrecommit2})
 
 	prevote1     = newValidatedPrevote(defRound, height, defNewProposal.Value(), signer, self, cSize)
@@ -421,21 +420,21 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	aggVoteNoQuorum := message.AggregatePrevotes(prevotes[1:2])
 	fakedVote1 := newValidatedPrevote(1, height, noneNilValue, signer, self, cSize)
 	fakedVote2 := newValidatedPrevote(0, height, liteOldP.Value(), signer, self, cSize)
-	fakedVote3 := newValidatedPrevote(0, height, nilValue, signer, self, cSize)
+	fakedVote3 := newValidatedPrevote(0, height, types.NilValue, signer, self, cSize)
 	commit1 := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize)
 	commit2 := newValidatedPrecommit(0, height, noneNilValue, makeSigner(keys[1]), &committee.Members[1], cSize)
 	commit3 := newValidatedPrecommit(0, height, noneNilValue, makeSigner(keys[2]), &committee.Members[2], cSize)
-	commit4 := newValidatedPrecommit(0, height, nilValue, signer, self, cSize)
+	commit4 := newValidatedPrecommit(0, height, types.NilValue, signer, self, cSize)
 	commit5 := newValidatedPrecommit(2, height, noneNilValue, signer, self, cSize)
 	aggCommit := message.AggregatePrecommits([]message.Vote{commit1, commit2})
 
 	// node locked at V1 at round 0.
 	preCommitPVN := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize)
-	preCommitR1PVN := newValidatedPrecommit(1, height, nilValue, signer, self, cSize)
-	preCommitR1PVN2 := newValidatedPrecommit(1, height, nilValue, makeSigner(keys[1]), &committee.Members[1], cSize)
+	preCommitR1PVN := newValidatedPrecommit(1, height, types.NilValue, signer, self, cSize)
+	preCommitR1PVN2 := newValidatedPrecommit(1, height, types.NilValue, makeSigner(keys[1]), &committee.Members[1], cSize)
 	aggPrecomitR1PVN := message.AggregatePrecommits([]message.Vote{preCommitR1PVN, preCommitR1PVN2})
 
-	preCommitR2PVN := newValidatedPrecommit(2, height, nilValue, signer, self, cSize)
+	preCommitR2PVN := newValidatedPrecommit(2, height, types.NilValue, signer, self, cSize)
 	proposalPVN := newValidatedLightProposal(height, 3, -1, signer, committee, nil, proposerIdx)
 	preCommitR2PVN1 := newValidatedPrecommit(2, height, noneNilValue, signer, self, cSize)
 	// node preVote for V2 at round 3
@@ -476,7 +475,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 
 	// Rule C settings.
 	preCommitC := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize)
-	preCommitNilC := newValidatedPrecommit(0, height, nilValue, signer, self, cSize)
+	preCommitNilC := newValidatedPrecommit(0, height, types.NilValue, signer, self, cSize)
 	votesC := make([]message.Vote, committee.Len())
 	for i := range committee.Members {
 		votesC[i] = newValidatedPrevote(0, height, common.Hash{0x2}, makeSigner(keys[i]), &committee.Members[i], cSize)
@@ -1187,7 +1186,7 @@ func TestInnocenceVerifier(t *testing.T) {
 	aggVotesPONoQuorum := message.AggregatePrevotes(votesPO[2:3])
 	votesForOtherValue := newValidatedPrevote(0, height, noneNilValue, signer, self, cSize)
 
-	nilPrevote := newValidatedPrevote(1, height, nilValue, signer, self, cSize)
+	nilPrevote := newValidatedPrevote(1, height, types.NilValue, signer, self, cSize)
 
 	// PVN settings
 	lightProposalPVN := newValidatedLightProposal(height, 1, -1, signer, committee, nil, proposerIdx)
@@ -1195,7 +1194,7 @@ func TestInnocenceVerifier(t *testing.T) {
 	// PVO settings
 	proposalPVO := newValidatedLightProposal(height, 1, 0, signer, committee, nil, proposerIdx)
 	preVotePVO := newValidatedPrevote(1, height, proposalPVO.Value(), signer, self, cSize)
-	preVoteNilPVO := newValidatedPrevote(1, height, nilValue, signer, self, cSize)
+	preVoteNilPVO := newValidatedPrevote(1, height, types.NilValue, signer, self, cSize)
 	// prepare quorum prevotes at valid round.
 	votesPVO := make([]message.Vote, committee.Len())
 	for i := range committee.Members {
@@ -1206,7 +1205,7 @@ func TestInnocenceVerifier(t *testing.T) {
 
 	// C1 settings
 	preCommitC1 := newValidatedPrecommit(1, height, noneNilValue, signer, self, cSize)
-	preCommitC1Nil := newValidatedPrecommit(1, height, nilValue, signer, self, cSize)
+	preCommitC1Nil := newValidatedPrecommit(1, height, types.NilValue, signer, self, cSize)
 	votesC1 := make([]message.Vote, committee.Len())
 	for i := range committee.Members {
 		votesC1[i] = newValidatedPrevote(1, height, noneNilValue, makeSigner(keys[i]), &committee.Members[i], cSize)
@@ -1542,7 +1541,7 @@ func TestCheckEquivocation(t *testing.T) {
 	})
 
 	t.Run("check equivocation with valid Proof of prevote equivocation", func(t *testing.T) {
-		vote1 := newValidatedPrevote(round, height, nilValue, signer, self, cSize)
+		vote1 := newValidatedPrevote(round, height, types.NilValue, signer, self, cSize)
 		vote2 := newValidatedPrevote(round, height, common.Hash{0x1}, signer, self, cSize)
 		var p Proof
 		p.Rule = autonity.Equivocation
@@ -1553,7 +1552,7 @@ func TestCheckEquivocation(t *testing.T) {
 	})
 
 	t.Run("check equivocation with valid Proof of precomit equivocation", func(t *testing.T) {
-		vote1 := newValidatedPrecommit(round, height, nilValue, signer, self, cSize)
+		vote1 := newValidatedPrecommit(round, height, types.NilValue, signer, self, cSize)
 		vote2 := newValidatedPrecommit(round, height, common.Hash{0x1}, signer, self, cSize)
 		var p Proof
 		p.Rule = autonity.Equivocation

@@ -270,7 +270,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 			Evidences:     nil,
 		}
 
-		preCommit := newValidatedPrecommit(msgRound, msgHeight, nilValue, signer, self, cSize)
+		preCommit := newValidatedPrecommit(msgRound, msgHeight, types.NilValue, signer, self, cSize)
 		var accusationC1 = Proof{
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
@@ -311,7 +311,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 			Evidences:     nil,
 		}
 
-		preCommit := newValidatedPrecommit(msgRound, msgHeight, nilValue, signer, self, cSize)
+		preCommit := newValidatedPrecommit(msgRound, msgHeight, types.NilValue, signer, self, cSize)
 		var accusationC1 = Proof{
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
