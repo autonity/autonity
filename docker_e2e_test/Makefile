@@ -33,6 +33,7 @@ install-prerequisites-linux:
 	tar -xf Python-3.8.2.tgz
 	cd Python-3.8.2 && ./configure --with-ensurepip=install && make && sudo make install
 	python3 --version
+	sudo apt update
 	sudo apt install golang-docker-credential-helpers --fix-missing
 
 # Installs the prerequisites for a mac user
