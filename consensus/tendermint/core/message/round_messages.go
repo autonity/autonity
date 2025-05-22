@@ -1,10 +1,13 @@
 package message
 
 import (
+	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 )
 
 type Map struct {
@@ -266,8 +269,121 @@ type RoundMsgView struct {
 	PrecommitsSigners []*big.Int
 }
 
+var errInvalidLostSyncMsg = errors.New("invalid ask sync message")
+
 // LostSyncMsg carries all the msgs' views, include future rounds of current consensus engine for tendermint state recovery.
 type LostSyncMsg struct {
 	Height      uint64
 	RoundsViews []*RoundMsgView
+	// following fields are ignored when rlp/json encoding/decoding.
+	// They are built locally when validating the message
+	validated        bool                                `rlp:"-"`
+	rounds           map[uint64]struct{}                 `rlp:"-"`
+	prevoteSigners   map[uint64]map[common.Hash]*big.Int `rlp:"-"` // maps point to the signers bitmap for that specific value
+	precommitSigners map[uint64]map[common.Hash]*big.Int `rlp:"-"` // maps point to the signers bitmap for that specific value
+	nilProposal      map[uint64]struct{}                 `rlp:"-"` // marks height where remote node doesn't have a proposal
+}
+
+func (lsm *LostSyncMsg) Validate() error {
+	// cannot have more than `MaxRound` distinct rounds
+	if len(lsm.RoundsViews) > constants.MaxRound {
+		return errInvalidLostSyncMsg
+	}
+
+	rounds := make(map[uint64]struct{})
+	prevoteSigners := make(map[uint64]map[common.Hash]*big.Int)
+	precommitSigners := make(map[uint64]map[common.Hash]*big.Int)
+	nilProposal := make(map[uint64]struct{})
+	for _, v := range lsm.RoundsViews {
+		// view cannot be nil
+		if v == nil {
+			return errInvalidLostSyncMsg
+		}
+		// round number cannot be > `MaxRound`
+		if v.Round > constants.MaxRound {
+			return errInvalidLostSyncMsg
+		}
+		// rounds should not repeat
+		if _, ok := rounds[v.Round]; ok {
+			return errInvalidLostSyncMsg
+		} else {
+			rounds[v.Round] = struct{}{}
+		}
+
+		// if the remote peer does not have a proposal for this round, mark it
+		if v.Proposal == (common.Hash{}) {
+			nilProposal[v.Round] = struct{}{}
+		}
+
+		// sanity check prevotes of this round
+		currentPrevoteSigners, err := validateVotes(v.Prevotes, v.PrevotesSigners)
+		if err != nil {
+			return fmt.Errorf("error while sanity checking prevotes: %w", err)
+		}
+
+		// sanity check precommits of this round
+		currentPrecommitSigners, err := validateVotes(v.Precommits, v.PrecommitsSigners)
+		if err != nil {
+			return fmt.Errorf("error while sanity checking precommits: %w", err)
+		}
+		prevoteSigners[v.Round] = currentPrevoteSigners
+		precommitSigners[v.Round] = currentPrecommitSigners
+	}
+
+	// populate local fields if valid
+	lsm.validated = true
+	lsm.rounds = rounds
+	lsm.prevoteSigners = prevoteSigners
+	lsm.precommitSigners = precommitSigners
+	lsm.nilProposal = nilProposal
+	return nil
+}
+
+func validateVotes(values []common.Hash, signers []*big.Int) (map[common.Hash]*big.Int, error) {
+	// number of values and number of signers should be coherent
+	if len(values) != len(signers) {
+		return nil, errInvalidLostSyncMsg
+	}
+
+	voteSigners := make(map[common.Hash]*big.Int)
+	for i, value := range values {
+		// values of same round votes shouldn't repeat
+		if _, ok := voteSigners[value]; ok {
+			return nil, errInvalidLostSyncMsg
+		}
+		// signers shouldn't be nil or empty
+		if signers[i] == nil || signers[i] == common.Big0 {
+			return nil, errInvalidLostSyncMsg
+		}
+		voteSigners[value] = signers[i]
+	}
+	return voteSigners, nil
+}
+
+func (lsm *LostSyncMsg) Rounds() map[uint64]struct{} {
+	if !lsm.validated {
+		panic("LostSyncMsg.Rounds() called before validated")
+	}
+	return lsm.rounds
+}
+
+func (lsm *LostSyncMsg) NilProposal() map[uint64]struct{} {
+	if !lsm.validated {
+		panic("LostSyncMsg.NilProposal() called before validated")
+	}
+	return lsm.nilProposal
+}
+
+func (lsm *LostSyncMsg) Prevotes() map[uint64]map[common.Hash]*big.Int {
+	if !lsm.validated {
+		panic("LostSyncMsg.Prevotes() called before validated")
+	}
+	return lsm.prevoteSigners
+}
+
+func (lsm *LostSyncMsg) Precommits() map[uint64]map[common.Hash]*big.Int {
+	if !lsm.validated {
+		panic("LostSyncMsg.Precommits() called before validated")
+	}
+	return lsm.precommitSigners
 }
