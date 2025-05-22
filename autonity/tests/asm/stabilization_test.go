@@ -1643,7 +1643,76 @@ func TestUpdatableConfigParams(t *testing.T) {
 }
 
 func TestFixedGenesisPrices(t *testing.T) {
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
 
+	tests.RunWithSetup("Genesis prices are set at fixed rates", setup, func(r *tests.Runner) {
+		cfg, _, err := r.Stabilization.Config(nil)
+		require.NoError(t, err)
+
+		require.Equal(t, cfg.DefaultNTNATNPrice, toBase("1.0", 18))
+		require.Equal(t, cfg.DefaultNTNUSDPrice, toBase("1.0", 18))
+
+		// initialize oracle
+		or := newOracleTestRounds([]*big.Int{toBase("3.0", 18)})
+		or.initialize(r)
+		or.increment(r)
+		or.increment(r)
+
+		acuDecimals, _, err := r.Acu.Scale(nil)
+		require.NoError(t, err)
+
+		acuPrice, _, err := r.Acu.Value(nil)
+		require.NoError(t, err)
+
+		// acu price scaled to oracle decimals
+		scaledAcuPrice := new(big.Int).Div(
+			new(big.Int).Mul(acuPrice, e18),
+			toBase("1.0", acuDecimals.Int64()),
+		)
+
+		// $1.0193722 is the default ACU ntnAcuPrice set up by oracleTestRounds
+		// this is not dependent on the fixed genesis prices, only the FX prices
+		require.Equal(t, acuPrice, toBase("1.0193722", acuDecimals.Int64()))
+
+		// this collateral ntnAcuPrice should be the ntnAcuPrice of NTN in ACU assuming a variable ACU ntnAcuPrice
+		ntnAcuPrice, _, err := r.Stabilization.CollateralPriceACU(nil)
+		require.NoError(t, err)
+		require.Equal(t, new(big.Int).Div(
+			new(big.Int).Mul(cfg.DefaultNTNUSDPrice, e18),
+			scaledAcuPrice,
+		), ntnAcuPrice)
+
+		ntnAtnPrice, _, err := r.Stabilization.CollateralPrice(nil)
+		require.NoError(t, err)
+		require.Equal(t, cfg.DefaultNTNATNPrice, ntnAtnPrice)
+
+		// should revert to oracle prices once fixed genesis prices are removed
+		_, err = r.Stabilization.RemoveFixedGenesisPrices(r.Operator)
+		require.NoError(t, err)
+
+		// check that the oracle price is set
+		oracleNtnAtnPrice, _, err := r.Oracle.LatestRoundData(nil, "NTN-ATN")
+		require.NoError(t, err)
+
+		ntnAtnPrice, _, err = r.Stabilization.CollateralPrice(nil)
+		require.NoError(t, err)
+
+		require.Equal(t, oracleNtnAtnPrice.Price, ntnAtnPrice)
+
+		oracleNtnUsdPrice, _, err := r.Oracle.LatestRoundData(nil, "NTN-USD")
+		require.NoError(t, err)
+
+		ntnAcuPrice, _, err = r.Stabilization.CollateralPriceACU(nil)
+		require.NoError(t, err)
+
+		require.NotEqual(t, oracleNtnUsdPrice.Price, cfg.DefaultNTNUSDPrice)
+		require.Equal(t, new(big.Int).Div(
+			new(big.Int).Mul(oracleNtnUsdPrice.Price, e18),
+			scaledAcuPrice,
+		), ntnAcuPrice)
+	})
 }
 
 // test helpers functions
