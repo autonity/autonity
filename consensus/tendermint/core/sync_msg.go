@@ -9,7 +9,7 @@ import (
 func (c *Core) createSyncMsg() *message.AskSyncMsg {
 	msg := &message.AskSyncMsg{}
 	msg.Height = c.Height().Uint64()
-	msg.KnownMessages = c.Messages().Snapshot()
+	msg.KnownMessages = c.Messages().DumpMsgView()
 
 	// and future rounds
 	future := c.futureRoundMsgView()

@@ -39,12 +39,12 @@ func (s *Map) GetOrCreate(round int64) *RoundMessages {
 	return state
 }
 
-func (s *Map) Snapshot() []*RoundMsgView {
+func (s *Map) DumpMsgView() []*RoundMsgView {
 	s.RLock()         // nolint
 	defer s.RUnlock() // nolint
 	var views []*RoundMsgView
-	for r, v := range s.internal {
-		views = append(views, v.Snapshot(r))
+	for r, state := range s.internal {
+		views = append(views, state.DumpMsgView(r))
 	}
 	return views
 }
@@ -227,7 +227,7 @@ func (s *RoundMessages) AllMessages() []Msg {
 	return result
 }
 
-func (s *RoundMessages) Snapshot(round int64) *RoundMsgView {
+func (s *RoundMessages) DumpMsgView(round int64) *RoundMsgView {
 	s.RLock()         // nolint
 	defer s.RUnlock() // nolint
 	view := &RoundMsgView{}
@@ -238,13 +238,13 @@ func (s *RoundMessages) Snapshot(round int64) *RoundMsgView {
 	}
 
 	if s.prevotes != nil {
-		values, signers := s.prevotes.Snapshot()
+		values, signers := s.prevotes.DumpMsgView()
 		view.Prevotes = values
 		view.PrevotesSigners = signers
 	}
 
 	if s.precommits != nil {
-		values, signers := s.precommits.Snapshot()
+		values, signers := s.precommits.DumpMsgView()
 		view.Precommits = values
 		view.PrecommitsSigners = signers
 	}

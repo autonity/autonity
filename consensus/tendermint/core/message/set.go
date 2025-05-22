@@ -111,7 +111,7 @@ func (s *Set) VotesFor(blockHash common.Hash) []Vote {
 	return s.votes[blockHash]
 }
 
-func (s *Set) Snapshot() ([]common.Hash, []*big.Int) {
+func (s *Set) DumpMsgView() ([]common.Hash, []*big.Int) {
 	s.RLock()         //nolint
 	defer s.RUnlock() //nolint
 
