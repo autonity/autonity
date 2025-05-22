@@ -62,8 +62,6 @@ var (
 	errNoEvidenceForPVO = errors.New("no proof of innocence found for rule PVO")
 	errNoEvidenceForC1  = errors.New("no proof of innocence found for rule C1")
 
-	errInvalidLostSyncMsg = errors.New("invalid ask sync message")
-
 	nilValue = common.Hash{}
 )
 

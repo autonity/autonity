@@ -10,6 +10,8 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 )
 
+var NilValue = common.Hash{}
+
 func TestMsgStore(t *testing.T) {
 	height := uint64(100)
 	round := int64(0)

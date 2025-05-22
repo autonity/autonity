@@ -8,8 +8,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 )
 
-var NilValue = common.Hash{}
-
 type MsgStore struct {
 	sync.RWMutex
 	// the first height that msg are buffered from after node is start.
@@ -200,36 +198,6 @@ func (ms *MsgStore) GetProposals(height uint64, query func(*message.Propose) boo
 			result = append(result, proposal)
 		}
 	}
-	return result
-}
-
-func (ms *MsgStore) GetVotes(height uint64, step uint8, query func(vote message.Vote) bool) []message.Vote {
-	ms.RLock()         // nolint
-	defer ms.RUnlock() // nolint
-	var result []message.Vote
-	_, ok := ms.prevotes[height]
-	if !ok {
-		return result
-	}
-
-	if step == message.PrevoteCode {
-		for _, prevote := range ms.prevotes[height] {
-			if query(prevote) {
-				result = append(result, prevote)
-			}
-		}
-		return result
-	}
-
-	if step == message.PrecommitCode {
-		for _, precommit := range ms.precommits[height] {
-			if query(precommit) {
-				result = append(result, precommit)
-			}
-		}
-		return result
-	}
-
 	return result
 }
 
