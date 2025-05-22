@@ -226,6 +226,8 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
     outlierDetectionThreshold: 100,
     outlierSlashingThreshold: 100,
     baseSlashingRate: 10,
+    nonRevealThreshold: 3,
+    revealResetInterval: 10,
   }, {from: deployer});
 
   // acu contract (temporary empty basket and scale = 2)

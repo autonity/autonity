@@ -490,6 +490,8 @@ var (
 		OutlierDetectionThreshold: 15,
 		OutlierSlashingThreshold:  20,
 		BaseSlashingRate:          10,
+		NonRevealThreshold:        DefaultGenesisOracleConfig.NonRevealThreshold,
+		RevealResetInterval:       DefaultGenesisOracleConfig.RevealResetInterval,
 	}
 
 	TestChainConfig = &ChainConfig{

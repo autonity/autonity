@@ -364,8 +364,44 @@ func TestVotingPeriodUpdate(t *testing.T) {
 		r.NoError(
 			r.Oracle.SetVotePeriod(r.Operator, big.NewInt(30)),
 		)
+		progressRound(r, r.CheckErrorAndGetData(
+			r.Oracle.GetVotePeriod(nil),
+		).(*big.Int))
 		return r
 	}
+
+	RunWithSetup("voting period is updated at the end of the round", setup, func(r *Runner) {
+		newVotingPeriod := big.NewInt(40)
+		currentVotingPeriod := r.CheckErrorAndGetData(
+			r.Oracle.GetVotePeriod(nil),
+		).(*big.Int)
+		require.True(
+			r.T,
+			newVotingPeriod.Cmp(currentVotingPeriod) != 0,
+		)
+
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, newVotingPeriod),
+		)
+		require.Equal(
+			r.T,
+			currentVotingPeriod,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetVotePeriod(nil),
+			).(*big.Int),
+		)
+
+		progressRound(r, r.CheckErrorAndGetData(
+			r.Oracle.GetRound(nil),
+		).(*big.Int))
+		require.Equal(
+			r.T,
+			newVotingPeriod,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetVotePeriod(nil),
+			).(*big.Int),
+		)
+	})
 
 	RunWithSetup("voting period cannot be too big", setup, func(r *Runner) {
 		epochPeriod, _, err := r.Autonity.GetEpochPeriod(nil)
@@ -416,14 +452,11 @@ func TestVotingPeriodUpdate(t *testing.T) {
 		require.True(r.T, epochPeriod.Cmp(common.Big2) >= 0, "cannot test")
 
 		// set new epoch period bigger
-		newEpochPeriod := new(big.Int).Add(epochPeriod, big.NewInt(10))
+		newEpochPeriod := new(big.Int).Add(epochPeriod, big.NewInt(20))
 		maxVotingPeriod := new(big.Int).Div(epochPeriod, big.NewInt(2))
 		r.NoError(
 			r.Autonity.SetEpochPeriod(r.Operator, newEpochPeriod),
 		)
-		currentEpochPeriod, _, err := r.Autonity.GetCurrentEpochPeriod(nil)
-		require.NoError(r.T, err)
-		require.Equal(r.T, epochPeriod, currentEpochPeriod)
 		_, err = r.Oracle.SetVotePeriod(r.Operator, new(big.Int).Add(maxVotingPeriod, common.Big1))
 		require.Equal(r.T, "execution reverted: vote period is too big", err.Error())
 		r.NoError(
@@ -431,10 +464,13 @@ func TestVotingPeriodUpdate(t *testing.T) {
 		)
 
 		r.WaitNextEpoch()
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
 		epochPeriod = newEpochPeriod
-		currentEpochPeriod, _, err = r.Autonity.GetEpochPeriod(nil)
-		require.NoError(r.T, err)
-		require.Equal(r.T, epochPeriod, currentEpochPeriod)
 
 		// set new epoch period smaller
 		newEpochPeriod = new(big.Int).Sub(epochPeriod, big.NewInt(10))
@@ -442,14 +478,51 @@ func TestVotingPeriodUpdate(t *testing.T) {
 		r.NoError(
 			r.Autonity.SetEpochPeriod(r.Operator, newEpochPeriod),
 		)
-		currentEpochPeriod, _, err = r.Autonity.GetCurrentEpochPeriod(nil)
-		require.NoError(r.T, err)
-		require.Equal(r.T, epochPeriod, currentEpochPeriod)
 		_, err = r.Oracle.SetVotePeriod(r.Operator, new(big.Int).Add(maxVotingPeriod, common.Big1))
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: vote period is too big", err.Error())
 		r.NoError(
 			r.Oracle.SetVotePeriod(r.Operator, maxVotingPeriod),
+		)
+	})
+
+	RunWithSetup("epoch period respects both current and new voting period", setup, func(r *Runner) {
+		votingPeriod := r.CheckErrorAndGetData(
+			r.Oracle.GetVotePeriod(nil),
+		).(*big.Int)
+
+		// set new epoch period smaller
+		newVotingPeriod := new(big.Int).Sub(votingPeriod, big.NewInt(20))
+		minEpochPeriod := new(big.Int).Mul(votingPeriod, big.NewInt(2))
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, newVotingPeriod),
+		)
+		_, err := r.Autonity.SetEpochPeriod(r.Operator, new(big.Int).Sub(minEpochPeriod, common.Big1))
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: epoch period is too small", err.Error())
+		r.NoError(
+			r.Autonity.SetEpochPeriod(r.Operator, minEpochPeriod),
+		)
+
+		r.WaitNextEpoch()
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		votingPeriod = newVotingPeriod
+
+		// set new voting period bigger
+		newVotingPeriod = new(big.Int).Add(votingPeriod, big.NewInt(15))
+		minEpochPeriod = new(big.Int).Mul(newVotingPeriod, big.NewInt(2))
+		r.NoError(
+			r.Oracle.SetVotePeriod(r.Operator, newVotingPeriod),
+		)
+		_, err = r.Autonity.SetEpochPeriod(r.Operator, new(big.Int).Sub(minEpochPeriod, common.Big1))
+		require.Equal(r.T, "execution reverted: epoch period is too small", err.Error())
+		r.NoError(
+			r.Autonity.SetEpochPeriod(r.Operator, minEpochPeriod),
 		)
 	})
 }
@@ -747,11 +820,15 @@ func TestVotersUpdate(t *testing.T) {
 			r.NoError(
 				r.Autonity.SetEpochPeriod(
 					r.Operator,
-					new(big.Int).Add(epochPeriod, common.Big1),
+					new(big.Int).Sub(epochPeriod, common.Big1),
 				),
 			)
 		}
-		r.WaitNextEpoch()
+		nextEpochBlock := r.CheckErrorAndGetData(
+			r.Autonity.GetNextEpochBlock(nil),
+		).(*big.Int)
+		diff := new(big.Int).Sub(nextEpochBlock, r.Evm.Context.BlockNumber)
+		r.WaitNBlocks(int(diff.Uint64()))
 		// new voting round and epoch starts together
 		// set the edge case (votingPeriod * 2 = epochPeriod)
 		epochPeriod, _, err = r.Autonity.GetEpochPeriod(nil)
@@ -762,6 +839,7 @@ func TestVotersUpdate(t *testing.T) {
 				new(big.Int).Div(epochPeriod, common.Big2),
 			),
 		)
+		r.WaitNBlocks(1)
 
 		// test the conditions
 		votePeriod, _, err := r.Oracle.GetVotePeriod(nil)
@@ -1225,6 +1303,471 @@ func TestEveryoneIsOutlier(t *testing.T) {
 		}
 		checkRewards()
 		checkRewards()
+	})
+}
+
+func TestConfigRequirement(t *testing.T) {
+	setup := func() *Runner {
+		return Setup(t, nil)
+	}
+
+	RunWithSetup("nonRevealThreshold < revealResetInterval", setup, func(r *Runner) {
+		config, _, err := r.Oracle.Config(nil)
+		require.NoError(r.T, err)
+
+		fmt.Printf("confg %v %v\n", config.NonRevealThreshold, config.RevealResetInterval)
+
+		// set
+		// nonRevealThreshold = revealResetInterval
+		_, err = r.Oracle.SetCommitRevealConfig(r.Operator, config.RevealResetInterval, config.RevealResetInterval)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: invalid config", err.Error())
+
+		// nonRevealThreshold > revealResetInterval
+		_, err = r.Oracle.SetCommitRevealConfig(
+			r.Operator, new(big.Int).Add(config.RevealResetInterval, common.Big1), config.RevealResetInterval,
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: invalid config", err.Error())
+
+		// nonRevealThreshold = revealResetInterval
+		_, err = r.Oracle.SetCommitRevealConfig(r.Operator, config.NonRevealThreshold, config.NonRevealThreshold)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: invalid config", err.Error())
+
+		// nonRevealThreshold > revealResetInterval
+		_, err = r.Oracle.SetCommitRevealConfig(
+			r.Operator, config.NonRevealThreshold, new(big.Int).Sub(config.NonRevealThreshold, common.Big1),
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: invalid config", err.Error())
+
+		// nonRevealThreshold can be 0
+		r.NoError(
+			r.Oracle.SetCommitRevealConfig(
+				r.Operator, big.NewInt(0), config.RevealResetInterval,
+			),
+		)
+
+		// deploy
+		// nonRevealThreshold = revealResetInterval
+		config.NonRevealThreshold = big.NewInt(6)
+		config.RevealResetInterval = big.NewInt(6)
+		_, _, _, err = r.DeployOracle(nil, nil, nil, nil, nil, config)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: invalid config", err.Error())
+
+		// nonRevealThreshold > revealResetInterval
+		config.NonRevealThreshold = big.NewInt(6)
+		config.RevealResetInterval = big.NewInt(5)
+		_, _, _, err = r.DeployOracle(nil, nil, nil, nil, nil, config)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: invalid config", err.Error())
+	})
+}
+
+func TestMissedReveal(t *testing.T) {
+	var nonRevealThreshold int64 = 5
+	var revealResetInterval int64 = 10
+	setup := func() *Runner {
+		r := Setup(t, SetInflationReserveZero)
+		r.NoError(
+			r.Oracle.SetCommitRevealConfig(
+				r.Operator,
+				big.NewInt(nonRevealThreshold),
+				big.NewInt(revealResetInterval),
+			),
+		)
+		return r
+	}
+
+	RunWithSetup("no vote no counter", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.True(r.T, info.NonRevealCount.Cmp(common.Big0) == 0)
+
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err = r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.True(r.T, info.NonRevealCount.Cmp(common.Big0) == 0)
+	})
+
+	vote := func(r *Runner, voter common.Address, symbolCount int) {
+		reports := genReports(symbolCount)
+		r.NoError(
+			r.Oracle.Vote(
+				FromSender(voter, nil),
+				MakeOracleCommit(r.T, common.Big0, voter, reports),
+				reports,
+				common.Big0,
+				0,
+			),
+		)
+	}
+
+	RunWithSetup("no counter for first vote", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+
+		// first vote
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.True(r.T, info.NonRevealCount.Cmp(common.Big0) == 0)
+
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err = r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+
+		// first vote after a gap
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		newInfo, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, info.NonRevealCount, newInfo.NonRevealCount)
+	})
+
+	RunWithSetup("counter increases for missed reveal (no vote)", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, common.Big1, info.NonRevealCount)
+	})
+
+	voteAndCheckReveal := func(r *Runner, voter common.Address, symbolCount, missedReveal int) {
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, int64(missedReveal), info.NonRevealCount.Int64())
+	}
+
+	RunWithSetup("counter increases for missed reveal (vote but invalid report)", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		// invalid report because of symbol count
+		voteAndCheckReveal(r, voter, symbolCount+1, 1)
+	})
+
+	RunWithSetup("counter increases for continuous missed reveal", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		// invalid report because of symbol count
+		voteAndCheckReveal(r, voter, symbolCount+1, 1)
+		voteAndCheckReveal(r, voter, symbolCount+2, 2)
+		voteAndCheckReveal(r, voter, symbolCount+3, 3)
+	})
+
+	RunWithSetup("no overcounting for missed reveal", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, int64(1), info.NonRevealCount.Int64())
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		info, _, err = r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, int64(1), info.NonRevealCount.Int64())
+	})
+
+	RunWithSetup("doesn't get punished for missed reveal <= threshold", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+		validator := r.Committee.Validators[0].NodeAddress
+		stake := r.CheckErrorAndGetData(
+			r.Autonity.GetValidator(nil, validator),
+		).(AutonityValidator).BondedStake
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+
+		for counter := 0; counter < int(nonRevealThreshold); counter++ {
+			voteAndCheckReveal(r, voter, symbolCount+counter+1, counter+1)
+		}
+		require.Equal(
+			r.T,
+			stake,
+			r.CheckErrorAndGetData(
+				r.Autonity.GetValidator(nil, validator),
+			).(AutonityValidator).BondedStake,
+		)
+	})
+
+	RunWithSetup("punished with highest offence for missed reveal = threshold (no vote in last round)", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+		validator := r.Committee.Validators[0].NodeAddress
+		stake := r.CheckErrorAndGetData(
+			r.Autonity.GetValidator(nil, validator),
+		).(AutonityValidator).BondedStake
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+
+		for counter := 0; counter < int(nonRevealThreshold); counter++ {
+			voteAndCheckReveal(r, voter, symbolCount+counter+1, counter+1)
+		}
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+		require.Equal(
+			r.T,
+			new(big.Int).Div(
+				new(big.Int).Mul(stake, big.NewInt(9)),
+				big.NewInt(10),
+			),
+			r.CheckErrorAndGetData(
+				r.Autonity.GetValidator(nil, validator),
+			).(AutonityValidator).BondedStake,
+		)
+
+		// also counter is reset
+		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, int64(0), info.NonRevealCount.Int64())
+	})
+
+	RunWithSetup("punished with highest offence for missed reveal = threshold (continuous invalid report)", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+		validator := r.Committee.Validators[0].NodeAddress
+		stake := r.CheckErrorAndGetData(
+			r.Autonity.GetValidator(nil, validator),
+		).(AutonityValidator).BondedStake
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		progressRound(
+			r,
+			r.CheckErrorAndGetData(
+				r.Oracle.GetRound(nil),
+			).(*big.Int),
+		)
+
+		for counter := 0; counter < int(nonRevealThreshold); counter++ {
+			voteAndCheckReveal(r, voter, symbolCount+counter+1, counter+1)
+		}
+		// counter is reset
+		voteAndCheckReveal(r, voter, symbolCount+int(nonRevealThreshold)+1, 0)
+		require.Equal(
+			r.T,
+			new(big.Int).Div(
+				new(big.Int).Mul(stake, big.NewInt(9)),
+				big.NewInt(10),
+			),
+			r.CheckErrorAndGetData(
+				r.Autonity.GetValidator(nil, validator),
+			).(AutonityValidator).BondedStake,
+		)
+	})
+}
+
+func TestRevealReset(t *testing.T) {
+	var nonRevealThreshold int64 = 5
+	var revealResetInterval int64 = 10
+	setup := func() *Runner {
+		r := Setup(t, SetInflationReserveZero)
+		r.NoError(
+			r.Oracle.SetCommitRevealConfig(
+				r.Operator,
+				big.NewInt(nonRevealThreshold),
+				big.NewInt(revealResetInterval),
+			),
+		)
+		return r
+	}
+
+	vote := func(r *Runner, voter common.Address, symbolCount int) {
+		reports := genReports(symbolCount)
+		r.NoError(
+			r.Oracle.Vote(
+				FromSender(voter, nil),
+				MakeOracleCommit(r.T, common.Big0, voter, reports),
+				reports,
+				common.Big0,
+				0,
+			),
+		)
+	}
+
+	RunWithSetup("non-reveal-count is reset periodically", setup, func(r *Runner) {
+		voter := r.Committee.Validators[0].OracleAddress
+
+		symbolCount := 10 // doesn't need to be right for first vote
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+		round := r.CheckErrorAndGetData(
+			r.Oracle.GetRound(nil),
+		).(*big.Int)
+		progressRound(
+			r,
+			round,
+		)
+		round = new(big.Int).Add(
+			round,
+			common.Big1,
+		)
+		// invalid reveal
+		symbolCount++
+		vote(
+			r,
+			voter,
+			symbolCount,
+		)
+
+		// progress round till reset
+		for round.Int64() <= revealResetInterval {
+			progressRound(
+				r,
+				round,
+			)
+			round = new(big.Int).Add(
+				round,
+				common.Big1,
+			)
+		}
+
+		voterInfo, _, err := r.Oracle.VoterInfo(nil, voter)
+		require.NoError(r.T, err)
+		require.Equal(r.T, int64(0), voterInfo.NonRevealCount.Int64())
 	})
 }
 
