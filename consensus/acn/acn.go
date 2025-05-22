@@ -124,7 +124,6 @@ func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFu
 		peer.Log().Error("peer registration failed", "err", err)
 		return err
 	}
-	peer.UpdateSetupProgress(false)
 	defer acn.peers.unregister(peer)
 
 	// read consensus msgs from wire and process them
