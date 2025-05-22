@@ -611,13 +611,14 @@ func EnableVerkleAtGenesis(db ethdb.Database, genesis *Genesis) (bool, error) {
 // DefaultGenesisBlock returns a default genesis block for testing purposes.
 func DefaultGenesisBlock() *Genesis {
 	return &Genesis{
-		Config:     params.TestChainConfig,
+		Config:     params.TestConfigNoVerkle,
 		Nonce:      66,
 		ExtraData:  hexutil.MustDecode("0x11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa"),
 		GasLimit:   5000,
 		Difficulty: big.NewInt(0),
 		BaseFee:    big.NewInt(params.InitialBaseFee),
 		Mixhash:    types.BFTDigest,
+		Alloc:      make(map[common.Address]types.Account),
 	}
 }
 

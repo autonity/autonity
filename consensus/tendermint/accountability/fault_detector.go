@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -29,6 +30,7 @@ import (
 
 type ChainContext interface {
 	consensus.ChainReader
+	backends.ChainContext
 	CurrentBlock() *types.Header
 	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
 	State() (*state.StateDB, error)

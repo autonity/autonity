@@ -6,24 +6,21 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/autonity/autonity/triedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/autonity/autonity/consensus/ethash"
-	"github.com/autonity/autonity/core/rawdb"
-	"github.com/autonity/autonity/core/vm"
-
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	ccore "github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
@@ -152,7 +149,7 @@ func TestRunRuleEngine(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		fdAddr := committee.Members[1].Address
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(types.GenesisAlloc{fdAddr: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountability, _ := autonity.NewAccountability(proposer, ccore.FakeContractBackendProvider(t)(nil, nil))
 
 		fd := NewFaultDetector(chainMock, fdAddr, nil, core.NewMsgStore(), nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 		// store a msg before check point height in case of node is start from reset.
@@ -254,7 +251,7 @@ func TestAccusationProvers(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		bindings, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(types.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		bindings, _ := autonity.NewAccountability(proposer, ccore.FakeContractBackendProvider(t)(nil, nil))
 
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: bindings}, log.Root())
 		// simulate a proposal message with an old value and a valid round.
@@ -287,7 +284,7 @@ func TestAccusationProvers(t *testing.T) {
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(types.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountability, _ := autonity.NewAccountability(proposer, ccore.FakeContractBackendProvider(t)(nil, nil))
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
@@ -375,7 +372,7 @@ func TestAccusationProvers(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(types.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountability, _ := autonity.NewAccountability(proposer, ccore.FakeContractBackendProvider(t)(nil, nil))
 
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 
@@ -398,7 +395,7 @@ func TestAccusationProvers(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(types.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountability, _ := autonity.NewAccountability(proposer, ccore.FakeContractBackendProvider(t)(nil, nil))
 
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 		var p Proof
@@ -428,7 +425,7 @@ func TestAccusationProvers(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(types.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountability, _ := autonity.NewAccountability(proposer, ccore.FakeContractBackendProvider(t)(nil, nil))
 
 		// C1: node preCommit at a none nil value, there must be quorum corresponding preVotes with same value and round.
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
@@ -463,7 +460,7 @@ func TestAccusationProvers(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(types.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountability, _ := autonity.NewAccountability(proposer, ccore.FakeContractBackendProvider(t)(nil, nil))
 
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 
@@ -504,7 +501,7 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 	newProposal0E := newValidatedProposalMessage(height, 3, 1, signer, committee, nil, proposerIdx)
 
 	t.Run("misbehaviour when pi has sent a non-nil precommit in a previous round", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposal0)
 		fd.msgStore.Save(nonNilPrecommit0)
 
@@ -523,7 +520,7 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof is returned when proposal is equivocated", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposal0)
 		fd.msgStore.Save(nonNilPrecommit0)
 		fd.msgStore.Save(newProposal0E)
@@ -533,7 +530,7 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when pi proposes a new proposal and no precommit has been sent", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposal0)
 		fd.msgStore.Save(newProposal1)
 
@@ -542,7 +539,7 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when pi proposes a new proposal and has sent nil precommits in previous rounds", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposal0)
 		fd.msgStore.Save(nilPrecommit0)
 		fd.msgStore.Save(newProposal1)
@@ -553,7 +550,7 @@ func TestNewProposalAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("multiple proof of misbehaviours when pi has sent non-nil precommits in previous rounds for multiple proposals", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposal0)
 		fd.msgStore.Save(nonNilPrecommit0)
 		fd.msgStore.Save(newProposal1)
@@ -627,7 +624,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	}
 
 	t.Run("misbehaviour when pi precommited for a different value in valid round than in the old proposal", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(nonNilPrecommit0VPrime)
 
@@ -646,7 +643,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("misbehaviour when pi incorrectly set the valid round with a different value than the proposal", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(nonNilPrecommit2VPrime)
 
@@ -665,7 +662,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("misbehaviour when pi incorrectly set the valid round with the same value as the proposal", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(nonNilPrecommit1)
 
@@ -684,7 +681,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("misbehaviour when in valid round there is a quorum of prevotes for a value different than old proposal", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(quorumPrevotes0VPrime)
 
@@ -706,7 +703,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("accusation when no prevotes for proposal value in valid round", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 
 		expectedProof := &Proof{
@@ -723,7 +720,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("accusation when less than quorum prevotes for proposal value in valid round", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(lessThanQurorumPrevotes)
 
@@ -741,7 +738,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof for equivocated proposal with different valid round", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(oldProposal0E)
 
@@ -750,7 +747,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof for equivocated proposal with same valid round however different block value", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(oldProposal0E2)
 
@@ -759,7 +756,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when quorum of prevotes for V in vr, precommit for V from pi in vr, and precommit nils from pi from vr+1 to r", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(quorumPrevotes0V)
 		fd.msgStore.Save(nonNilPrecommit0V)
@@ -772,7 +769,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when quorum of prevotes for V in vr, precommit for V from pi in vr, and some precommit nils from pi from vr+1 to r", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(quorumPrevotes0V)
 		fd.msgStore.Save(nonNilPrecommit0V)
@@ -786,7 +783,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when quorum of prevotes for V in vr, precommit for V from pi in vr", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(quorumPrevotes0V)
 		fd.msgStore.Save(nonNilPrecommit0V)
@@ -796,7 +793,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when quorum of prevotes for V in vr, precommit nil from pi in vr", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(quorumPrevotes0V)
 		fd.msgStore.Save(nilPrecommit0)
@@ -806,7 +803,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when quorum of prevotes for V in vr", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(quorumPrevotes0V)
 
@@ -815,7 +812,7 @@ func TestOldProposalsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("multiple proofs from different rounds", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposal0)
 		fd.msgStore.Save(nonNilPrecommit0VPrime)
 
@@ -898,7 +895,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	precommitForBIn7 := newValidatedPrecommit(7, height, block.Hash(), signer, self, cSize)
 
 	t.Run("accusation when there are no corresponding proposals", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(prevoteForB)
 		expectedAccusation := &Proof{
 			OffenderIndex: proposerIdx,
@@ -912,7 +909,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("accusation of aggregated prevotes when there are no corresponding proposals", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		expectedAccusation1 := &Proof{
 			OffenderIndex: proposerIdx,
@@ -934,7 +931,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 	// Testcases for PVN
 	t.Run("misbehaviour when pi precommited for a different value in a previous round than the prevoted value", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(aggregatedPrecommitForB1)
@@ -962,7 +959,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("misbehaviour when pi precommited for a different value in a previous round than the prevoted value", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(aggregatedPrecommitForB1)
@@ -991,7 +988,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("misbehaviour when pi precommited for a different value in a previous round than the prevoted value while precommit nils in middle rounds", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(precommitForB1In0)
@@ -1028,7 +1025,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("misbehaviour when pi precommited for a different value in a previous round than the prevoted value, after a flip flop, while precommit nils in middle rounds", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(precommitForBIn0)
@@ -1069,7 +1066,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when pi precommited for the same value as the prevoted value in a previous round", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(precommitForBIn4)
@@ -1079,7 +1076,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when pi precommited for the same value as the prevoted value in a previous round with missing precommits in middle rounds", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(prevoteForB)
 		fd.msgStore.Save(precommitForBIn0)
@@ -1089,7 +1086,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when pi precommited for the same value as the prevoted value in a previous round with some missing precommits and precommit nils in middle rounds", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(precommitForBIn0)
@@ -1100,7 +1097,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when pi precommited for the same value as the prevoted value in a previous round with no missing precommits in middle rounds", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(precommitForBIn0)
@@ -1114,7 +1111,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when pi precommited for {B1,nil*,B} and then prevoted B", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrevoteForB)
 
@@ -1134,7 +1131,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 	// Testcases for PVO
 	t.Run("accusation when there is no quorum for the prevote value in the valid round", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 
@@ -1160,7 +1157,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("misbehaviour when pi prevotes for an old proposal while in the valid round there is quorum for different value", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposalB10)
 		// Need to add this new proposal in valid round so that unwanted accusation are not returned by the prevotes
 		// accountability check method. Since we are adding a quorum of prevotes in round 6 we also need to add a new
@@ -1217,7 +1214,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("misbehaviour when pi has precommited for V in a previous round however the latest precommit from pi is not for V yet pi still prevoted for V in the current round", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
@@ -1275,7 +1272,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when pi has precommited for V in a previous round and precommit nils afterwards", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
@@ -1295,7 +1292,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 
 	t.Run("no proof when pi has precommited for V in a previous round however the latest precommit from pi is not for V yet pi still prevoted for V in the current round"+
 		" but there are missing message after latest precommit for V", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
@@ -1312,7 +1309,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("misbehaviour when pi has never precommited for V in a previous round however pi prevoted for V which is being reproposed", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
@@ -1400,7 +1397,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when pi has never precommited for V in a previous round however has precommitted nil after VR", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
@@ -1417,7 +1414,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when pi has never precommited for V in a previous round however pi prevoted for V while it has precommited for V' but there are missing precommit before precommit for V'", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposalB10)
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
 		fd.msgStore.Save(newProposalBIn5)
@@ -1435,7 +1432,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when pi has never precommited for V in a previous round however pi prevoted for V while it has precommited for V' but there are missing precommit after precommit for V'", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(oldProposalB10)
 
 		fd.msgStore.Save(aggregatedPrevoteForOldB10)
@@ -1453,7 +1450,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("prevotes accountability check can return multiple proofs", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrevoteForB)
@@ -1473,7 +1470,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when prevote is equivocated with different values", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(aggregatedPrevoteForB)
 		fd.msgStore.Save(aggregatedPrevoteForB1)
 
@@ -1507,7 +1504,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	precommitForB1In3 := newValidatedPrecommit(3, height, block1.Hash(), signer, self, cSize)
 
 	t.Run("accusation when prevotes is less than quorum", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrecommitForB)
 
@@ -1536,7 +1533,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("misbehaviour when there is a quorum for V' than what pi precommitted for", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrecommitForB)
 
@@ -1566,7 +1563,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("multiple proofs can be returned from precommits accountability check", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(precommitForB1In3)
 
 		fd.msgStore.Save(newProposalForB)
@@ -1618,7 +1615,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when there is enough prevotes to form a quorum", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrecommitForB)
 
@@ -1631,7 +1628,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when there is more than quorum prevotes ", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(newProposalForB)
 		fd.msgStore.Save(aggregatedPrecommitForB)
 
@@ -1644,7 +1641,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	})
 
 	t.Run("no proof when precommit is equivocated with different values", func(t *testing.T) {
-		fd := testFD()
+		fd := testFD(t)
 		fd.msgStore.Save(aggregatedPrecommitForB)
 		fd.msgStore.Save(aggregatedPrecommitForB1)
 
@@ -1653,20 +1650,21 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	})
 }
 
-func testFD() *FaultDetector {
+func testFD(t *testing.T) *FaultDetector {
 	return &FaultDetector{
 		msgStore:   core.NewMsgStore(),
 		logger:     log.Root(),
-		blockchain: newTestBlockchain(),
+		blockchain: newTestBlockchain(t),
 	}
 }
 
-func newTestBlockchain() *ccore.BlockChain {
+func newTestBlockchain(t *testing.T) *ccore.BlockChain {
 	db := rawdb.NewMemoryDatabase()
-	triedb := triedb.NewDatabase(db, nil)
-	ccore.GenesisBlockForTesting(db, triedb, common.Address{}, common.Big0)
-
-	chain, err := ccore.NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil, backends.NewInternalBackend(nil), log.Root())
+	//triedb := triedb.NewDatabase(db, nil)
+	gspec := &ccore.Genesis{
+		Config: params.TestChainConfig,
+	}
+	chain, err := ccore.NewBlockChain(db, nil, gspec, ethash.NewFaker(), vm.Config{}, nil, ccore.FakeContractBackendProvider(t), log.Root())
 	if err != nil {
 		panic(err)
 	}

@@ -5,7 +5,6 @@
 //
 //	mockgen -source=consensus/tendermint/accountability/fault_detector.go -package=accountability -destination=consensus/tendermint/accountability/fault_detector_mock.go
 //
-
 // Package accountability is a generated GoMock package.
 package accountability
 
@@ -19,6 +18,7 @@ import (
 	core "github.com/autonity/autonity/core"
 	state "github.com/autonity/autonity/core/state"
 	types "github.com/autonity/autonity/core/types"
+	vm "github.com/autonity/autonity/core/vm"
 	event "github.com/autonity/autonity/event"
 	params "github.com/autonity/autonity/params"
 	gomock "go.uber.org/mock/gomock"
@@ -147,6 +147,34 @@ func (mr *MockChainContextMockRecorder) GetBlock(hash, number any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlock", reflect.TypeOf((*MockChainContext)(nil).GetBlock), hash, number)
 }
 
+// GetBlockByHash mocks base method.
+func (m *MockChainContext) GetBlockByHash(hash common.Hash) *types.Block {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockByHash", hash)
+	ret0, _ := ret[0].(*types.Block)
+	return ret0
+}
+
+// GetBlockByHash indicates an expected call of GetBlockByHash.
+func (mr *MockChainContextMockRecorder) GetBlockByHash(hash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHash", reflect.TypeOf((*MockChainContext)(nil).GetBlockByHash), hash)
+}
+
+// GetBlockByNumber mocks base method.
+func (m *MockChainContext) GetBlockByNumber(number uint64) *types.Block {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockByNumber", number)
+	ret0, _ := ret[0].(*types.Block)
+	return ret0
+}
+
+// GetBlockByNumber indicates an expected call of GetBlockByNumber.
+func (mr *MockChainContextMockRecorder) GetBlockByNumber(number any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByNumber", reflect.TypeOf((*MockChainContext)(nil).GetBlockByNumber), number)
+}
+
 // GetHeader mocks base method.
 func (m *MockChainContext) GetHeader(hash common.Hash, number uint64) *types.Header {
 	m.ctrl.T.Helper()
@@ -189,18 +217,18 @@ func (mr *MockChainContextMockRecorder) GetHeaderByNumber(number any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHeaderByNumber", reflect.TypeOf((*MockChainContext)(nil).GetHeaderByNumber), number)
 }
 
-// GetTd mocks base method.
-func (m *MockChainContext) GetTd(hash common.Hash, number uint64) *big.Int {
+// GetVMConfig mocks base method.
+func (m *MockChainContext) GetVMConfig() *vm.Config {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTd", hash, number)
-	ret0, _ := ret[0].(*big.Int)
+	ret := m.ctrl.Call(m, "GetVMConfig")
+	ret0, _ := ret[0].(*vm.Config)
 	return ret0
 }
 
-// GetTd indicates an expected call of GetTd.
-func (mr *MockChainContextMockRecorder) GetTd(hash, number any) *gomock.Call {
+// GetVMConfig indicates an expected call of GetVMConfig.
+func (mr *MockChainContextMockRecorder) GetVMConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTd", reflect.TypeOf((*MockChainContext)(nil).GetTd), hash, number)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVMConfig", reflect.TypeOf((*MockChainContext)(nil).GetVMConfig))
 }
 
 // HasBadBlock mocks base method.
@@ -287,6 +315,34 @@ func (m *MockChainContext) SubscribeChainEvent(ch chan<- core.ChainEvent) event.
 func (mr *MockChainContextMockRecorder) SubscribeChainEvent(ch any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeChainEvent", reflect.TypeOf((*MockChainContext)(nil).SubscribeChainEvent), ch)
+}
+
+// SubscribeLogsEvent mocks base method.
+func (m *MockChainContext) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeLogsEvent", ch)
+	ret0, _ := ret[0].(event.Subscription)
+	return ret0
+}
+
+// SubscribeLogsEvent indicates an expected call of SubscribeLogsEvent.
+func (mr *MockChainContextMockRecorder) SubscribeLogsEvent(ch any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeLogsEvent", reflect.TypeOf((*MockChainContext)(nil).SubscribeLogsEvent), ch)
+}
+
+// SubscribeRemovedLogsEvent mocks base method.
+func (m *MockChainContext) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeRemovedLogsEvent", ch)
+	ret0, _ := ret[0].(event.Subscription)
+	return ret0
+}
+
+// SubscribeRemovedLogsEvent indicates an expected call of SubscribeRemovedLogsEvent.
+func (mr *MockChainContextMockRecorder) SubscribeRemovedLogsEvent(ch any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeRemovedLogsEvent", reflect.TypeOf((*MockChainContext)(nil).SubscribeRemovedLogsEvent), ch)
 }
 
 // Validator mocks base method.

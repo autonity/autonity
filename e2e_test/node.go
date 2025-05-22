@@ -88,7 +88,7 @@ type Node struct {
 // port the node bound on till after starting if using the 0 port. This means
 // that we have to predefine ports in the genesis, which could cause problems
 // if anything is already bound on that port.
-func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int, inMemory bool) (*Node, error) {
+func NewValidatorNode(t *testing.T, validator *gengen.Validator, genesis *core.Genesis, id int, inMemory bool) (*Node, error) {
 	address := crypto.PubkeyToAddress(validator.NodeKey.PublicKey)
 
 	// Copy the base node config, so we can modify it without damaging the
@@ -110,10 +110,14 @@ func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int
 
 	if !inMemory {
 		tempDir, err := os.MkdirTemp("", "autonity-datadir")
+		t.Cleanup(func() {
+			os.RemoveAll(tempDir)
+		})
 		if err != nil {
 			return nil, err
 		}
 		nodeConfig.DataDir = tempDir
+
 	} else {
 		nodeConfig.DataDir = ""
 	}
@@ -643,14 +647,14 @@ func (nw Network) CheckReimbursement(height uint64, reporter common.Address) err
 // mining. For each provided user a corresponding node is created. If there is
 // an error it will be returned immediately, meaning that some nodes may be
 // running and others not.
-func NewNetworkFromValidators(_ *testing.T, validators []*gengen.Validator, start bool, options ...gengen.GenesisOption) (Network, error) {
-	g, err := Genesis(validators, options...)
+func NewNetworkFromValidators(t *testing.T, validators []*gengen.Validator, start bool, options ...gengen.GenesisOption) (Network, error) {
+	gspec, err := Genesis(validators, options...)
 	if err != nil {
 		return nil, fmt.Errorf("failed the genesis: %w", err)
 	}
 	network := make([]*Node, len(validators))
-	for i, u := range validators {
-		n, err := NewValidatorNode(u, g, i, false)
+	for i, validator := range validators {
+		n, err := NewValidatorNode(t, validator, gspec, i, false)
 		if len(validators) > 21 {
 			n.EthConfig.DatabaseCache = 16
 			n.EthConfig.DatabaseHandles = 8
@@ -754,7 +758,7 @@ func NewInMemoryNetwork(t *testing.T, validators []*gengen.Validator, start bool
 	for i, u := range validators {
 		wg.Add(1)
 		go func(id int, val *gengen.Validator) {
-			n, _ := NewValidatorNode(val, g, id, true)
+			n, _ := NewValidatorNode(t, val, g, id, true)
 			if id == 0 {
 				n.Config.WSPort = freeport.GetOne(t)
 			}

@@ -157,7 +157,7 @@ func (c *Conn) ReadEth() (any, error) {
 		var msg any
 		switch int(code) {
 		case eth.StatusMsg:
-			msg = new(eth.StatusPacket)
+			msg = new(eth.StatusPacket68)
 		case eth.GetBlockHeadersMsg:
 			msg = new(eth.GetBlockHeadersPacket)
 		case eth.BlockHeadersMsg:
@@ -232,7 +232,7 @@ func (c *Conn) ReadSnap() (any, error) {
 
 // peer performs both the protocol handshake and the status message
 // exchange with the node in order to peer with it.
-func (c *Conn) peer(chain *Chain, status *eth.StatusPacket) error {
+func (c *Conn) peer(chain *Chain, status *eth.StatusPacket68) error {
 	if err := c.handshake(); err != nil {
 		return fmt.Errorf("handshake failed: %v", err)
 	}
@@ -305,7 +305,7 @@ func (c *Conn) negotiateEthProtocol(caps []p2p.Cap) {
 }
 
 // statusExchange performs a `Status` message exchange with the given node.
-func (c *Conn) statusExchange(chain *Chain, status *eth.StatusPacket) error {
+func (c *Conn) statusExchange(chain *Chain, status *eth.StatusPacket68) error {
 loop:
 	for {
 		code, data, err := c.Read()
@@ -314,7 +314,7 @@ loop:
 		}
 		switch code {
 		case eth.StatusMsg + protoOffset(ethProto):
-			msg := new(eth.StatusPacket)
+			msg := new(eth.StatusPacket68)
 			if err := rlp.DecodeBytes(data, &msg); err != nil {
 				return fmt.Errorf("error decoding status packet: %w", err)
 			}
@@ -349,7 +349,7 @@ loop:
 	}
 	if status == nil {
 		// default status message
-		status = &eth.StatusPacket{
+		status = &eth.StatusPacket68{
 			ProtocolVersion: uint32(c.negotiatedProtoVersion),
 			NetworkID:       chain.config.ChainID.Uint64(),
 			TD:              chain.TD(),

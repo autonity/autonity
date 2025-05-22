@@ -40,10 +40,10 @@ func (p *Peer) Handshake(network uint64, height *big.Int, head common.Hash, gene
 	// Send out own handshake in a new thread
 	errc := make(chan error, 2)
 
-	var status StatusPacket // safe to read after two values have been received from errc
+	var status StatusPacket68 // safe to read after two values have been received from errc
 
 	go func() {
-		errc <- p2p.Send(p.rw, StatusMsg, &StatusPacket{
+		errc <- p2p.Send(p.rw, StatusMsg, &StatusPacket68{
 			ProtocolVersion: uint32(p.version),
 			NetworkID:       network,
 			TD:              new(big.Int).Set(height), // used by autonity to communicate last height
@@ -77,7 +77,7 @@ func (p *Peer) Handshake(network uint64, height *big.Int, head common.Hash, gene
 }
 
 // readStatus reads the remote handshake message.
-func (p *Peer) readStatus(network uint64, status *StatusPacket, genesis common.Hash, forkFilter forkid.Filter) error {
+func (p *Peer) readStatus(network uint64, status *StatusPacket68, genesis common.Hash, forkFilter forkid.Filter) error {
 	msg, err := p.rw.ReadMsg()
 	if err != nil {
 		return err
@@ -127,4 +127,15 @@ func markError(p *Peer, err error) {
 	default:
 		m.peerError.Mark(1)
 	}
+}
+
+// Validate checks basic validity of a block range announcement.
+func (p *BlockRangeUpdatePacket) Validate() error {
+	if p.EarliestBlock > p.LatestBlock {
+		return errors.New("earliest > latest")
+	}
+	if p.LatestBlockHash == (common.Hash{}) {
+		return errors.New("zero latest hash")
+	}
+	return nil
 }

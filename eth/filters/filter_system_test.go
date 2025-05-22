@@ -75,6 +75,10 @@ func (b *testBackend) GetHeader(hash common.Hash, number uint64) *types.Header {
 	return hdr
 }
 
+func (b *testBackend) GetRawReceipts(hash common.Hash, number uint64) types.Receipts {
+	return rawdb.ReadRawReceipts(b.db, hash, number)
+}
+
 func (b *testBackend) GetReceiptsByHash(hash common.Hash) types.Receipts {
 	r, _ := b.GetReceipts(context.Background(), hash)
 	return r

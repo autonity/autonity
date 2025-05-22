@@ -8,7 +8,9 @@ import (
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/filtermaps"
 	"github.com/autonity/autonity/core/rawdb"
@@ -33,12 +35,34 @@ type TxSender func(signedTx *types.Transaction) error
 // This nil assignment ensures at compile time that SimulatedBackend implements bind.ContractBackend.
 var _ bind.ContractBackend = (*InternalBackend)(nil)
 
+type ChainContext interface {
+	core.ChainContext
+	CurrentBlock() *types.Header
+	CurrentHeader() *types.Header
+	GetHeaderByNumber(number uint64) *types.Header
+	GetHeaderByHash(hash common.Hash) *types.Header
+	GetBlockByNumber(number uint64) *types.Block
+	GetBlockByHash(hash common.Hash) *types.Block
+	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
+	SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription
+	SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription
+	State() (*state.StateDB, error)
+	ProtocolContracts() *autonity.ProtocolContracts
+	StateAt(root common.Hash) (*state.StateDB, error)
+	HasBadBlock(hash common.Hash) bool
+	Validator() core.Validator
+	CommitteeByHeight(height uint64) (*types.Committee, error)
+	Config() *params.ChainConfig
+	Engine() consensus.Engine
+	GetVMConfig() *vm.Config
+}
+
 // InternalBackend implements the contract.Backend interface to interact with the
 // protocol contracts. This is used internally by the accountability module and by the autonity cache.
 type InternalBackend struct {
 	mu           sync.Mutex
 	database     ethdb.Database
-	blockchain   *core.BlockChain
+	blockchain   ChainContext
 	filterSystem *filters.FilterSystem
 	eventSystem  *filters.EventSystem
 	config       *params.ChainConfig
@@ -331,7 +355,7 @@ func (b *InternalBackend) CurrentBlock() *types.Header {
 // taking bloom-bits acceleration structures into account.
 type filterBackend struct {
 	db ethdb.Database
-	bc *core.BlockChain
+	bc ChainContext
 }
 
 func (fb *filterBackend) GetBody(ctx context.Context, hash common.Hash, number rpc.BlockNumber) (*types.Body, error) {

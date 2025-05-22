@@ -31,6 +31,7 @@ import (
 // Constants to match up protocol versions and messages
 const (
 	ETH68 = 68
+	ETH69 = 69
 )
 
 // ProtocolName is the official short name of the `eth` protocol used during
@@ -62,6 +63,7 @@ const (
 	PooledTransactionsMsg         = 0x0a
 	GetReceiptsMsg                = 0x0f
 	ReceiptsMsg                   = 0x10
+	BlockRangeUpdateMsg           = 0x11
 )
 
 var (
@@ -73,6 +75,7 @@ var (
 	errNetworkIDMismatch       = errors.New("network ID mismatch")
 	errGenesisMismatch         = errors.New("genesis mismatch")
 	errForkIDRejected          = errors.New("fork ID rejected")
+	errInvalidBlockRange       = errors.New("invalid block range in status")
 )
 
 // Packet represents a p2p message in the `eth` protocol.
@@ -82,13 +85,25 @@ type Packet interface {
 }
 
 // StatusPacket is the network packet for the status message.
-type StatusPacket struct {
+type StatusPacket68 struct {
 	ProtocolVersion uint32
 	NetworkID       uint64
 	TD              *big.Int
 	Head            common.Hash
 	Genesis         common.Hash
 	ForkID          forkid.ID
+}
+
+// StatusPacket69 is the network packet for the status message.
+type StatusPacket69 struct {
+	ProtocolVersion uint32
+	NetworkID       uint64
+	Genesis         common.Hash
+	ForkID          forkid.ID
+	// initial available block range
+	EarliestBlock   uint64
+	LatestBlock     uint64
+	LatestBlockHash common.Hash
 }
 
 // NewBlockHashesPacket is the network packet for the block announcements.
@@ -261,13 +276,21 @@ type GetReceiptsPacket struct {
 }
 
 // ReceiptsResponse is the network packet for block receipts distribution.
-type ReceiptsResponse [][]*types.Receipt
+type ReceiptsResponse []types.Receipts
+
+// ReceiptsList is a type constraint for block receceipt list types.
+type ReceiptsList interface {
+	*ReceiptList68 | *ReceiptList69
+	setBuffers(*receiptListBuffers)
+	EncodeForStorage() rlp.RawValue
+	types.DerivableList
+}
 
 // ReceiptsPacket is the network packet for block receipts distribution with
 // request ID wrapping.
-type ReceiptsPacket struct {
+type ReceiptsPacket[L ReceiptsList] struct {
 	RequestId uint64
-	ReceiptsResponse
+	List      []L
 }
 
 // ReceiptsRLPResponse is used for receipts, when we already have it encoded
@@ -315,8 +338,18 @@ type PooledTransactionsRLPPacket struct {
 	PooledTransactionsRLPResponse
 }
 
-func (*StatusPacket) Name() string { return "Status" }
-func (*StatusPacket) Kind() byte   { return StatusMsg }
+// BlockRangeUpdatePacket is an announcement of the node's available block range.
+type BlockRangeUpdatePacket struct {
+	EarliestBlock   uint64
+	LatestBlock     uint64
+	LatestBlockHash common.Hash
+}
+
+func (*StatusPacket68) Name() string { return "Status" }
+func (*StatusPacket68) Kind() byte   { return StatusMsg }
+
+func (*StatusPacket69) Name() string { return "Status" }
+func (*StatusPacket69) Kind() byte   { return StatusMsg }
 
 func (*NewBlockHashesPacket) Name() string { return "NewBlockHashes" }
 func (*NewBlockHashesPacket) Kind() byte   { return NewBlockHashesMsg }
@@ -353,3 +386,9 @@ func (*GetReceiptsRequest) Kind() byte   { return GetReceiptsMsg }
 
 func (*ReceiptsResponse) Name() string { return "Receipts" }
 func (*ReceiptsResponse) Kind() byte   { return ReceiptsMsg }
+
+func (*ReceiptsRLPResponse) Name() string { return "Receipts" }
+func (*ReceiptsRLPResponse) Kind() byte   { return ReceiptsMsg }
+
+func (*BlockRangeUpdatePacket) Name() string { return "BlockRangeUpdate" }
+func (*BlockRangeUpdatePacket) Kind() byte   { return BlockRangeUpdateMsg }

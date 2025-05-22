@@ -523,7 +523,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.Secret
 
 	// generate genesis block
 
-	genesis.Config = copyConfig(params.TestChainConfig)
+	genesis.Config = copyConfig(params.TestConfigNoVerkle)
 	genesis.Config.AutonityContractConfig.Validators = nil
 	genesis.Config.Ethash = nil
 	genesis.GasLimit = 10000000
@@ -579,7 +579,7 @@ func makeHeader(parent *types.Header, feeGetter misc.BaseFeeGetter) *types.Heade
 		Number:     new(big.Int).Add(parent.Number, common.Big1),
 		GasLimit:   core.CalcGasLimit(parent.GasLimit, 8000000),
 		GasUsed:    0,
-		BaseFee:    misc.CalcBaseFee(params.TestChainConfig, parent, feeGetter),
+		BaseFee:    misc.CalcBaseFee(params.TestChainConfig, parent, nil),
 		Extra:      parent.Extra,
 		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time)), new(big.Int).SetUint64(1)).Uint64(),
 		Difficulty: defaultDifficulty,
@@ -646,25 +646,17 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 		receipts = append(receipts, receipt)
 	}
 
-	block, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, &receipts)
+	block, err := engine.FinalizeAndAssemble(chain, header, state, &types.Body{txs, nil}, &receipts)
 	if err != nil {
 		return nil, err
 	}
 
 	// Write state changes to db
-	root, err := state.Commit(header.Number.Uint64(), chain.Config().IsEIP158(b.header.Number), chain.Config().IsCancun(b.header.Number))
+	root, err := state.Commit(header.Number.Uint64(), chain.Config().IsEIP158(header.Number), chain.Config().IsCancun(header.Number))
 	if err != nil {
 		panic(fmt.Sprintf("state write error: %v", err))
 	}
-	if err = triedb.Commit(root, false); err != nil {
-		panic(fmt.Sprintf("trie write error: %v", err))
-	}
-
-	root, err := state.Commit(chain.Config().IsEIP158(block.Header().Number))
-	if err != nil {
-		return nil, fmt.Errorf("state write error: %v", err)
-	}
-	if err := state.Database().TrieDB().Commit(root, false, nil); err != nil {
+	if err := state.Database().TrieDB().Commit(root, false); err != nil {
 		return nil, fmt.Errorf("trie write error: %v", err)
 	}
 

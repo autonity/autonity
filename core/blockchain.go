@@ -321,15 +321,22 @@ func NewBlockChain(
 	contractBackendCreator func(chain *BlockChain, state ethdb.Database) bind.ContractBackend,
 	log log.Logger,
 ) (*BlockChain, error) {
-
-	if cacheConfig == nil {
-		cacheConfig = defaultCacheConfig
-	}
 	// Open trie database with provided config
 	enableVerkle, err := EnableVerkleAtGenesis(db, genesis)
 	if err != nil {
 		return nil, err
 	}
+	if cacheConfig == nil {
+		if enableVerkle {
+			cacheConfig = DefaultCacheConfigWithScheme(rawdb.PathScheme)
+		} else {
+			cacheConfig = DefaultCacheConfigWithScheme(rawdb.HashScheme)
+		}
+	}
+	if enableVerkle && cacheConfig.StateScheme == rawdb.HashScheme {
+		log.Crit("Verkle tries with Hash-Scheme DB unusupported")
+	}
+
 	/* Testing stuff
 	g, _ := genesis.ToBlock(nil)
 	statedb, err := state.New(g.Root(), state.NewDatabase(triedb.NewDatabase(db, triedb.HashDefaults), nil))
@@ -337,7 +344,6 @@ func NewBlockChain(
 		panic(err)
 	}
 	statedb.Snapshot()
-
 	*/
 	triedb := triedb.NewDatabase(db, cacheConfig.triedbConfig(enableVerkle))
 
@@ -2681,6 +2687,7 @@ func (bc *BlockChain) GetTrieFlushInterval() time.Duration {
 }
 
 func (bc *BlockChain) StartWatchingCache() {
+	// todo(youssef): to remove once Lorenzo's cache PR is merged
 	state, err := bc.StateAt(bc.CurrentBlock().Root)
 	if err != nil {
 		bc.log.Crit("error starting cache", "err", err)

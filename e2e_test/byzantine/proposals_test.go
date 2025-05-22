@@ -3,7 +3,6 @@ package byzantine
 import (
 	"context"
 	"math/big"
-	"sync/atomic"
 	"testing"
 
 	fuzz "github.com/google/gofuzz"
@@ -155,13 +154,10 @@ type partialProposalSender struct {
 func (c *partialProposalSender) SendProposal(_ context.Context, p *types.Block) {
 	fakeTransactions := make([]*types.Transaction, 0)
 	for i := 0; i < 5; i++ {
-		var fakeTransaction types.Transaction
 		f := fuzz.New()
-		f.Fuzz(&fakeTransaction)
 		var tx types.LegacyTx
 		f.Fuzz(&tx)
-		fakeTransaction.SetInner(&tx)
-		fakeTransactions = append(fakeTransactions, &fakeTransaction)
+		fakeTransactions = append(fakeTransactions, types.NewTx(&tx))
 	}
 	p.SetTransactions(fakeTransactions)
 	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
@@ -205,21 +201,15 @@ func (c *invalidBlockProposer) SendProposal(_ context.Context, p *types.Block) {
 	fakeTransactions := make([]*types.Transaction, 0)
 	f := fuzz.New()
 	for i := 0; i < 5; i++ {
-		var fakeTransaction types.Transaction
-		f.Fuzz(&fakeTransaction)
 		var tx types.LegacyTx
 		f.Fuzz(&tx)
-		fakeTransaction.SetInner(&tx)
-
-		fakeTransactions = append(fakeTransactions, &fakeTransaction)
+		fakeTransactions = append(fakeTransactions, types.NewTx(&tx))
 	}
 	p.SetTransactions(fakeTransactions)
 	var hash common.Hash
 	f.Fuzz(&hash)
-	var atmHash atomic.Value
-	atmHash.Store(hash)
 	// nil hash
-	p.SetHash(atmHash)
+	p.SetHash(&hash)
 
 	// nil header
 	var num big.Int

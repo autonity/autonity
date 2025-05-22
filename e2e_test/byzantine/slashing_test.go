@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/core/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
@@ -85,7 +86,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 			key, _ := crypto.GenerateKey()
 			address := crypto.PubkeyToAddress(key.PublicKey)
 
-			genesis.Alloc[address] = core2.GenesisAccount{
+			genesis.Alloc[address] = types.Account{
 				NewtonBalance: big.NewInt(int64(stake)),
 				Balance:       new(big.Int),
 				Bonds: map[common.Address]*big.Int{

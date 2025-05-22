@@ -118,6 +118,9 @@ func tmpGenesisFile(t *testing.T, dir string) string {
 
 func tmpDataDirWithGenesisFile(t *testing.T) (dir string, genesisFile string) {
 	dir = tmpdir(t)
+	t.Cleanup(func() {
+		os.RemoveAll(dir)
+	})
 	genesisFile = tmpGenesisFile(t, dir)
 	return dir, genesisFile
 }

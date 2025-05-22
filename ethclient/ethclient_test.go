@@ -65,7 +65,7 @@ var (
 )
 
 var genesis = &core.Genesis{
-	Config: params.TestChainConfig,
+	Config: params.TestConfigNoVerkle,
 	Alloc: types.GenesisAlloc{
 		testAddr:           {Balance: testBalance},
 		revertContractAddr: {Code: revertCode},
