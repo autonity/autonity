@@ -466,6 +466,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
         _borrowInterestRate.currentValue = _defaultGenesisBorrowInterestRate;
         _borrowInterestRate.currentActiveFrom = block.timestamp;
         emit IConfigEvents.ConfigUpdateUint("borrowInterestRate", 0, _defaultGenesisBorrowInterestRate, block.number);
+        emit IConfigEvents.ConfigUpdateBool("restricted", true, false, block.number);
         emit CDPRestrictionsRemoved();
     }
 
@@ -474,6 +475,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     function removeFixedGenesisPrices() external onlyOperator {
         if (_fixedGenesisPrices == false) revert NotRestricted();
         _fixedGenesisPrices = false;
+        emit IConfigEvents.ConfigUpdateBool("fixedGenesisPrices", true, false, block.number);
     }
 
     /**
