@@ -74,7 +74,7 @@ func (cg *customGossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	}
 }
 
-func (cg *customGossiper) AskSync(_ *types.Committee, _ *message.LostSyncMsg) {
+func (cg *customGossiper) AskSync(_ *types.Committee, _ *message.AskSyncMsg) {
 	// I disable the ask sync recovery mechanism, so that I can see if the gossip only is enough to keep the network live
 	log.Info("liveness lost, supposed to ask sync (but will not)")
 }

@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/rlp"
 )
+
+const AskSyncInterval = 5 // the interval in seconds to check the liveness and rise AskSync request.
 
 // lost sync handler, process the ask sync msg from a lost liveness node. As the msg store in the AFD module saves recent
 // 256 blocks consensus messages, thus it provides extensive msg views for those chain head synced or un-synced nodes,
@@ -40,24 +41,25 @@ func (r *AskSyncRateLimiter) overRated(asker common.Address) bool {
 	r.lastRequestTSs[asker] = now
 	timeDiff := now - lastTS
 
-	return timeDiff < int64(constants.AskSyncInterval)
+	return timeDiff < int64(AskSyncInterval)
 }
 
 func (r *AskSyncRateLimiter) resetRateLimiter() {
+	// todo: save recent 5s records?
 	for k := range r.lastRequestTSs {
 		delete(r.lastRequestTSs, k)
 	}
 }
 
-// handleLostSyncEvent handles the ask sync request from a lost sync validator or from a rebooting validator.
+// handleAskSyncEvent handles the ask sync request from a lost sync validator or from a rebooting validator.
 // Any error return from this function will drop the remote peer.
-func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Address) error {
+func (fd *FaultDetector) handleAskSyncEvent(payload []byte, sender common.Address) error {
 
 	if fd.askSyncRateLimiter.overRated(sender) {
 		return errAskSyncOverRated
 	}
 
-	lostSync := new(message.LostSyncMsg)
+	lostSync := new(message.AskSyncMsg)
 	if err := rlp.DecodeBytes(payload, lostSync); err != nil {
 		return fmt.Errorf("cannot decode ask sync msg: %w", err)
 	}
@@ -104,7 +106,7 @@ func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Addre
 }
 
 // missingProposals collects all the missing proposals of a consensus instance base on the asker's view.
-func (fd *FaultDetector) missingProposals(lostSync *message.LostSyncMsg) []*message.Propose {
+func (fd *FaultDetector) missingProposals(lostSync *message.AskSyncMsg) []*message.Propose {
 	rounds := lostSync.Rounds()
 	nilProposal := lostSync.NilProposal()
 	missingProposals := fd.msgStore.GetProposals(lostSync.Height, func(m *message.Propose) bool {
@@ -117,7 +119,7 @@ func (fd *FaultDetector) missingProposals(lostSync *message.LostSyncMsg) []*mess
 }
 
 // missingPrevotes collects all the missing prevotes of a consensus instance base on the asker's view.
-func (fd *FaultDetector) missingPrevotes(lostSync *message.LostSyncMsg) []*message.Prevote {
+func (fd *FaultDetector) missingPrevotes(lostSync *message.AskSyncMsg) []*message.Prevote {
 
 	rounds := lostSync.Rounds()
 	prevoteSigners := lostSync.Prevotes()
@@ -148,7 +150,7 @@ func (fd *FaultDetector) missingPrevotes(lostSync *message.LostSyncMsg) []*messa
 }
 
 // missingPrecommits collects all the missing precommits of a consensus instance base on the asker's view.
-func (fd *FaultDetector) missingPrecommits(lostSync *message.LostSyncMsg) []*message.Precommit {
+func (fd *FaultDetector) missingPrecommits(lostSync *message.AskSyncMsg) []*message.Precommit {
 
 	rounds := lostSync.Rounds()
 	precommitSigners := lostSync.Precommits()

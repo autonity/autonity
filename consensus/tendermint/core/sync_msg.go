@@ -6,29 +6,29 @@ import (
 	"math/big"
 )
 
-func (c *Core) snapshotLostSyncMsg() *message.LostSyncMsg {
-	msg := &message.LostSyncMsg{}
+func (c *Core) createSyncMsg() *message.AskSyncMsg {
+	msg := &message.AskSyncMsg{}
 	msg.Height = c.Height().Uint64()
-	msg.RoundsViews = c.Messages().Snapshot()
+	msg.KnownMessages = c.Messages().Snapshot()
 
 	// and future rounds
-	future := c.futureRoundSnapshot()
+	future := c.futureRoundMsgView()
 	if len(future) > 0 {
-		msg.RoundsViews = append(msg.RoundsViews, future...)
+		msg.KnownMessages = append(msg.KnownMessages, future...)
 	}
 
 	return msg
 }
 
-func (c *Core) futureRoundSnapshot() []*message.RoundMsgView {
+func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 	c.futureRoundLock.RLock()
 	defer c.futureRoundLock.RUnlock()
 
 	var views []*message.RoundMsgView
 
-	for k, roundMsgs := range c.futureRound {
+	for r, roundMsgs := range c.futureRound {
 		roundView := &message.RoundMsgView{}
-		roundView.Round = uint64(k)
+		roundView.Round = uint64(r)
 
 		preVoteSigners := make(map[common.Hash]*message.AggregatedPower)
 		preCommitSigners := make(map[common.Hash]*message.AggregatedPower)

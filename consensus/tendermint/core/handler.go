@@ -289,7 +289,7 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 	height := c.Height()
 
 	// Ask for sync when the engine starts
-	syncMsg := c.snapshotLostSyncMsg()
+	syncMsg := c.createSyncMsg()
 	c.backend.AskSync(c.committee.Committee(), syncMsg)
 
 eventLoop:
@@ -301,9 +301,9 @@ eventLoop:
 
 			// we only ask for sync if the current view stayed the same for the past 30 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
-				c.logger.Warn("⚠️ Consensus liveliness lost", "node", c.Address(), "height", height, "round", currentRound, "step", c.Step())
-				c.logger.Warn("Broadcasting sync request..", "node", c.Address(), "height", height, "round", currentRound, "step", c.Step())
-				syncMsg = c.snapshotLostSyncMsg()
+				c.logger.Warn("⚠️ Consensus liveliness lost", "node", c.Address(), "height", height, "round", round, "step", c.Step())
+				c.logger.Warn("Broadcasting sync request..", "node", c.Address(), "height", height, "round", round, "step", c.Step())
+				syncMsg = c.createSyncMsg()
 				c.backend.AskSync(c.committee.Committee(), syncMsg)
 			}
 			round = currentRound

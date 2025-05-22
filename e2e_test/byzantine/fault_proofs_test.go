@@ -141,7 +141,7 @@ func (s *PVN) Broadcast(msg message.Msg) {
 	precommit := message.NewPrecommit(proposal.R(), proposal.H(), proposal.Block().Hash(), s.Backend().Sign, self, csize)
 	// simulate nil precommits until nPr to get contiguous precommits
 	for i := proposal.R() + 1; i < nPR; i++ {
-		nilPrecommit := message.NewPrecommit(i, proposal.H(), core.NilValue, s.Backend().Sign, self, csize)
+		nilPrecommit := message.NewPrecommit(i, proposal.H(), common.NilValue, s.Backend().Sign, self, csize)
 		s.BroadcastAll(nilPrecommit)
 	}
 	// simulate a preVote at round nPR, for value v2, this preVote for new value break PVN.

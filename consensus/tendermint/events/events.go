@@ -144,7 +144,7 @@ func (f FuturePowerChangeEvent) Value() common.Hash {
 	panic("not implemented")
 }
 
-type LostSyncEvent struct {
+type SyncRequestEvent struct {
 	Sender  common.Address
 	Payload []byte
 	ErrCh   chan<- error

@@ -23,7 +23,7 @@ type Backend interface {
 
 	AddSeal(block *types.Block) (*types.Block, error)
 
-	AskSync(committee *types.Committee, syncMsg *message.LostSyncMsg)
+	AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg)
 
 	// Broadcast sends a message to all validators (include self)
 	Broadcast(committee *types.Committee, message message.Msg)

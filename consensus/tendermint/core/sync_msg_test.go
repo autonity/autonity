@@ -28,24 +28,24 @@ func TestSyncMsg(t *testing.T) {
 		PrecommitsSigners: []*big.Int{},
 	}
 
-	syncMsg := &message.LostSyncMsg{
-		Height:      100,
-		RoundsViews: []*message.RoundMsgView{round1, round2},
+	syncMsg := &message.AskSyncMsg{
+		Height:        100,
+		KnownMessages: []*message.RoundMsgView{round1, round2},
 	}
 
 	encoded, err := rlp.EncodeToBytes(syncMsg)
 	require.NoError(t, err)
 
-	var decodedSyncMsg message.LostSyncMsg
+	var decodedSyncMsg message.AskSyncMsg
 	err = rlp.DecodeBytes(encoded, &decodedSyncMsg)
 	require.NoError(t, err)
 
 	require.Equal(t, syncMsg.Height, decodedSyncMsg.Height)
-	require.Equal(t, len(syncMsg.RoundsViews), len(decodedSyncMsg.RoundsViews))
+	require.Equal(t, len(syncMsg.KnownMessages), len(decodedSyncMsg.KnownMessages))
 
-	for i := range syncMsg.RoundsViews {
-		round1 := syncMsg.RoundsViews[i]
-		round2 := decodedSyncMsg.RoundsViews[i]
+	for i := range syncMsg.KnownMessages {
+		round1 := syncMsg.KnownMessages[i]
+		round2 := decodedSyncMsg.KnownMessages[i]
 
 		require.Equal(t, round1.Round, round2.Round)
 		require.Equal(t, round1.Proposal, round2.Proposal)

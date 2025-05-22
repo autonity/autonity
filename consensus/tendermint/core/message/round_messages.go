@@ -271,10 +271,10 @@ type RoundMsgView struct {
 
 var errInvalidLostSyncMsg = errors.New("invalid ask sync message")
 
-// LostSyncMsg carries all the msgs' views, include future rounds of current consensus engine for tendermint state recovery.
-type LostSyncMsg struct {
-	Height      uint64
-	RoundsViews []*RoundMsgView
+// AskSyncMsg carries all the msgs' views, include future rounds of current consensus engine for tendermint state recovery.
+type AskSyncMsg struct {
+	Height        uint64
+	KnownMessages []*RoundMsgView
 	// following fields are ignored when rlp/json encoding/decoding.
 	// They are built locally when validating the message
 	validated        bool                                `rlp:"-"`
@@ -284,9 +284,9 @@ type LostSyncMsg struct {
 	nilProposal      map[uint64]struct{}                 `rlp:"-"` // marks round where remote node doesn't have a proposal
 }
 
-func (lsm *LostSyncMsg) Validate() error {
+func (lsm *AskSyncMsg) Validate() error {
 	// cannot have more than `MaxRound` distinct rounds
-	if len(lsm.RoundsViews) > constants.MaxRound {
+	if len(lsm.KnownMessages) > constants.MaxRound {
 		return errInvalidLostSyncMsg
 	}
 
@@ -294,7 +294,7 @@ func (lsm *LostSyncMsg) Validate() error {
 	prevoteSigners := make(map[uint64]map[common.Hash]*big.Int)
 	precommitSigners := make(map[uint64]map[common.Hash]*big.Int)
 	nilProposal := make(map[uint64]struct{})
-	for _, v := range lsm.RoundsViews {
+	for _, v := range lsm.KnownMessages {
 		// view cannot be nil
 		if v == nil {
 			return errInvalidLostSyncMsg
@@ -360,30 +360,30 @@ func validateVotes(values []common.Hash, signers []*big.Int) (map[common.Hash]*b
 	return voteSigners, nil
 }
 
-func (lsm *LostSyncMsg) Rounds() map[uint64]struct{} {
+func (lsm *AskSyncMsg) Rounds() map[uint64]struct{} {
 	if !lsm.validated {
-		panic("LostSyncMsg.Rounds() called before validated")
+		panic("AskSyncMsg.Rounds() called before validated")
 	}
 	return lsm.rounds
 }
 
-func (lsm *LostSyncMsg) NilProposal() map[uint64]struct{} {
+func (lsm *AskSyncMsg) NilProposal() map[uint64]struct{} {
 	if !lsm.validated {
-		panic("LostSyncMsg.NilProposal() called before validated")
+		panic("AskSyncMsg.NilProposal() called before validated")
 	}
 	return lsm.nilProposal
 }
 
-func (lsm *LostSyncMsg) Prevotes() map[uint64]map[common.Hash]*big.Int {
+func (lsm *AskSyncMsg) Prevotes() map[uint64]map[common.Hash]*big.Int {
 	if !lsm.validated {
-		panic("LostSyncMsg.Prevotes() called before validated")
+		panic("AskSyncMsg.Prevotes() called before validated")
 	}
 	return lsm.prevoteSigners
 }
 
-func (lsm *LostSyncMsg) Precommits() map[uint64]map[common.Hash]*big.Int {
+func (lsm *AskSyncMsg) Precommits() map[uint64]map[common.Hash]*big.Int {
 	if !lsm.validated {
-		panic("LostSyncMsg.Precommits() called before validated")
+		panic("AskSyncMsg.Precommits() called before validated")
 	}
 	return lsm.precommitSigners
 }

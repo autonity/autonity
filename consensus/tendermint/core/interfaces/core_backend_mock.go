@@ -81,7 +81,7 @@ func (mr *MockBackendMockRecorder) Address() *gomock.Call {
 }
 
 // AskSync mocks base method.
-func (m *MockBackend) AskSync(committee *types.Committee, syncMsg *message.LostSyncMsg) {
+func (m *MockBackend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AskSync", committee, syncMsg)
 }

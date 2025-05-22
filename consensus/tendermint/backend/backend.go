@@ -189,7 +189,7 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	})
 }
 
-func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.LostSyncMsg) {
+func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) {
 	sb.gossiper.AskSync(committee, syncMsg)
 }
 

@@ -102,7 +102,7 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 		}
 		sb.logger.Debug("Received sync message", "from", sender)
 		// post the sync message to the event handler, let the handler handle DoS attack vectors.
-		go sb.Post(events.LostSyncEvent{Sender: sender, Payload: data, ErrCh: errCh})
+		go sb.Post(events.SyncRequestEvent{Sender: sender, Payload: data, ErrCh: errCh})
 	case message.AccountabilityNetworkMsg:
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Accountability Msg received but core not running")

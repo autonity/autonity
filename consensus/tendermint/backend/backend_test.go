@@ -116,7 +116,7 @@ func TestAskSync(t *testing.T) {
 	}
 	b.SetBroadcaster(broadcaster)
 
-	askSyncMsg := &message.LostSyncMsg{}
+	askSyncMsg := &message.AskSyncMsg{}
 	b.AskSync(committee, askSyncMsg)
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 5 {
