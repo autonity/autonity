@@ -207,7 +207,7 @@ class NetworkPlanner(object):
         self.generate_package()
         self.logger.info("===== SETUP FINISHED =====")
 
-    def deploy(self):
+    def deploy_all_nodes(self):
         for client in self.clients:
             client.deploy_client()
 
@@ -220,3 +220,13 @@ class NetworkPlanner(object):
             if client.start_client() is not True:
                 return False
         return True
+
+    def clean_all_nodes_data(self):
+        for client in self.clients:
+            client.clean_chain_data()
+
+    def re_genesis_network(self):
+        self.stop_all_nodes()
+        self.clean_all_nodes_data()
+        self.deploy_all_nodes()
+        self.start_all_nodes()

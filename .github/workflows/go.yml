@@ -47,7 +47,7 @@ jobs:
       - name: Generate test IDs
         id: set-ids
         run: |
-          echo "ids=[$(seq -s ',' 0 26)]" >> $GITHUB_OUTPUT
+          echo "ids=[$(seq -s ',' 0 3 26)]" >> $GITHUB_OUTPUT
   # prepare-cache fills the gocache with the source code for all modules and
   # attempts to fill the build cache with as much as possible intermediately
   # compiled source. Most other jobs depend on this job and so this serves to
@@ -309,7 +309,7 @@ jobs:
         run: make lint-ci
         shell: bash
 
-  docker-e2e-tests:
+  docker-e2e-batch-tests:
     needs: [prepare-cache, generate-ids]
     runs-on: ubuntu-24.04
     strategy:
