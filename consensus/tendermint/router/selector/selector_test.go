@@ -1,4 +1,4 @@
-package router
+package selector
 
 import (
 	"fmt"
@@ -15,6 +15,8 @@ import (
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/router"
+	"github.com/autonity/autonity/consensus/tendermint/router/network"
 	"github.com/autonity/autonity/core/types"
 )
 
@@ -92,7 +94,7 @@ func (m *MockMessage) Originator() common.Address { return m.originator }
 func (m *MockMessage) Hash() common.Hash          { return m.hash }
 
 // generateClusters creates clusters using router.NewClusters
-func generateClusters(nodeCount int, maxLatency uint) (Clusters, *types.Committee, common.Address) {
+func generateClusters(nodeCount int, maxLatency uint) (network.Clusters, *types.Committee, common.Address) {
 	latencyMap := make(map[common.Address]uint)
 	addresses := make([]common.Address, nodeCount)
 	committee := &types.Committee{Members: make([]types.CommitteeMember, nodeCount)}
@@ -107,7 +109,7 @@ func generateClusters(nodeCount int, maxLatency uint) (Clusters, *types.Committe
 	self := common.HexToAddress("0x0")
 
 	// Create clusters using router.NewClusters
-	clusters := NewClusters(addresses, latencyMap, self)
+	clusters := network.New(addresses, latencyMap, self)
 
 	return clusters, committee, self
 
@@ -169,13 +171,13 @@ func TestClusterSelection(t *testing.T) {
 			broadcaster.EXPECT().FindPeer(node.Addr).Return(mockedPeer, true).AnyTimes()
 		}
 	}
-	router := &Router{
+	router := &router.Router{
 		self:        self,
 		clusters:    clusters,
 		broadcaster: broadcaster,
 		cache:       &MockCache{},
 	}
-	selector := NewSelector(router)
+	selector := New(router)
 	router.peerSelector = selector
 
 	msg := &message.Fake{
@@ -296,13 +298,13 @@ func TestBucketSelection(t *testing.T) {
 			broadcaster.EXPECT().FindPeer(node.Addr).Return(mockedPeer, true).AnyTimes()
 		}
 	}
-	router := &Router{
+	router := &router.Router{
 		self:        self,
 		clusters:    clusters,
 		broadcaster: broadcaster,
 		cache:       &MockCache{},
 	}
-	selector := NewSelector(router)
+	selector := New(router)
 	router.peerSelector = selector
 	// Disconnect half of primary nodes
 	for bucketIdx, node := range clusters.bucketNodes {
@@ -398,13 +400,13 @@ func TestPeerSelectionStrategies(t *testing.T) {
 					broadcaster.EXPECT().FindPeer(node.Addr).Return(mockedPeer, true).AnyTimes()
 				}
 			}
-			router := &Router{
+			router := &router.Router{
 				self:        self,
 				clusters:    clusters,
 				broadcaster: broadcaster,
 				cache:       &MockCache{},
 			}
-			selector := NewSelector(router)
+			selector := New(router)
 			router.peerSelector = selector
 
 			// Test for proposal and non-proposal messages

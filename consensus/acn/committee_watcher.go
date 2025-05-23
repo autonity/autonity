@@ -66,7 +66,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 					// there is no longer the need to retain the full connections and the
 					// consensus engine enabled.
 					if wasValidating {
-						log.Info("Node is no longer part of the committee, disaconnecting from consensus network")
+						log.Info("Node is no longer part of the committee, disconnecting from consensus network")
 						acn.server.UpdateConsensusEnodes(nil, nil)
 						wasValidating = false
 					}
