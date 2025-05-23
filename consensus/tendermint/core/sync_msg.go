@@ -44,8 +44,8 @@ func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 				if !ok {
 					preVoteSigners[value] = message.NewAggregatedPower()
 				}
-				for index, power := range m.(message.Vote).Signers().Powers() {
-					preVoteSigners[value].Set(index, power)
+				for index, _ := range m.(message.Vote).Signers().Powers() {
+					preVoteSigners[value].SetBit(index)
 				}
 			}
 
@@ -55,8 +55,8 @@ func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 				if !ok {
 					preCommitSigners[value] = message.NewAggregatedPower()
 				}
-				for index, power := range m.(message.Vote).Signers().Powers() {
-					preCommitSigners[value].Set(index, power)
+				for index, _ := range m.(message.Vote).Signers().Powers() {
+					preCommitSigners[value].SetBit(index)
 				}
 			}
 		}
