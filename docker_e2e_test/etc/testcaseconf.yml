@@ -537,26 +537,20 @@ playbook:
 
     ######################reset within star topology###################################3
     - name: "TC-23: 6 nodes in star network topology, restart the central node, should not on-hold."
-      re-deploy: true
       condition:
         crashNodes: [0] # contain the nodes which leave the main party.
         scenario:
-          - delay: 1
-            action: "re-deploy"
-          - delay: 60
-            action: "start"
-            target: [0, 1, 2, 3, 4, 5]
-          - delay: 70 # on the 10th second, disconnect peers.
+          - delay: 10 # on the 10th second, disconnect peers.
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[4,3], [4, 5], [4,2], [4,1], [5, 1], [5, 2], [5,3], [3, 1], [3,2], [2, 1]]
-          - delay: 90 # on the 30th second, stop central node.
+          - delay: 30 # on the 30th second, stop central node.
             action: "stop" # it apply p2p connection by managing ip-tables in linux kernel.
             target: [0]
-          - delay: 100 # on the 150th second, start central node.
+          - delay: 60 # on the 150th second, start central node.
             action: "start" # it apply p2p connection by managing ip-tables in linux kernel.
             target: [0]
       input:
-        duration: 300 # num of seconds the transaction sending duration.
+        duration: 150 # num of seconds the transaction sending duration.
         senderNode: 1  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -646,23 +640,17 @@ playbook:
 
     ##################### bridging in between two partition######################
     - name: "TC-26: Network partition. 6 break into 3 and 3, then the two slices connected by bridge, engine recovers too."
-      re-deploy: true
       condition:
         crashNodes: [] # contain the node domain name we want to crash.
         scenario:
-          - delay: 1
-            action: "re-deploy"
-          - delay: 60
-            action: "start"
-            target: [0, 1, 2, 3, 4, 5]
-          - delay: 65 # on the 10th second, disconnect peers.
+          - delay: 10 # on the 10th second, disconnect peers.
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[4, 0], [4, 1], [4, 2], [5, 0], [5, 1], [5, 2], [3, 0], [3, 1], [3, 2]]
-          - delay: 150 # on the 90th second, connect peers.
+          - delay: 30 # on the 90th second, connect peers.
             action: "connect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[4, 0]]
       input:
-        duration: 260 # num of seconds the transaction sending duration.
+        duration: 120 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -671,33 +659,27 @@ playbook:
         engineAlive: true # false means consensus engine should on-hold.
 
     - name: "TC-27: Network partition. 6 break to 3 full mesh plus 1 node, and 2 nodes of bus line, recover with 3 nodes of full mesh plus a 3 nodes of bus line."
-      re-deploy: true
       condition:
         crashNodes: [] # contain the node domain name we want to crash.
         scenario:
-          - delay: 1
-            action: "re-deploy"
-          - delay: 2
-            action: "start"
-            target: [0, 1, 2, 3, 4, 5]
           # 6 break to 3 + 3 in full mesh, then break one of the 3 into 1 + 2.
-          - delay: 65 # on the 10th second, disconnect peers.
+          - delay: 10 # on the 10th second, disconnect peers.
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[4, 0], [4, 1], [4, 2], [5, 0], [5, 1], [5, 2], [3, 0], [3, 1], [3, 2], [0, 1], [0, 2]]
           # 3 + 1 alone, producing blocks.
-          - delay: 85 # on the 25th second, connect peers. 3 + 1, start producing block.
+          - delay: 20 # on the 25th second, connect peers. 3 + 1, start producing block.
             action: "connect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[4, 0]]
           # break the alone node from 3 full mesh,
-          - delay: 125 # on the 65th second, disconnect peers, on-hold.
+          - delay: 40 # on the 65th second, disconnect peers, on-hold.
             action: "disconnect" # turn to 3 + 1 + 2
             peers: [[4, 0]]
           # connect the left node in bus line 65.198-----79.95-----85.250
-          - delay: 185 # on the 125th second, turn to 6 with 3 node in full mesh + 3 node in bus line.
+          - delay: 60 # on the 125th second, turn to 6 with 3 node in full mesh + 3 node in bus line.
             action: "connect" # it apply p2p connection by managing ip-tables in linux kernel.
             peers: [[0, 1], [4, 0]]
       input:
-        duration: 300 # num of seconds the transaction sending duration.
+        duration: 120 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
