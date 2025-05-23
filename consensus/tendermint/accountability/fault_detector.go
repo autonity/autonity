@@ -132,7 +132,7 @@ func NewFaultDetector(
 		protocolContracts:     protocolContracts,
 		accusationRateLimiter: NewAFDRateLimiter(),
 		// 1 ask sync per 5s, rate limit reset per 5s.
-		askSyncRateLimiter:    NewTimeWindowLimiter(AskSyncInterval*time.Second, 1, AskSyncInterval*time.Second),
+		askSyncRateLimiter:    NewTimeWindowLimiter(AskSyncInterval*time.Second, 1),
 		txPool:                txPool,
 		ethBackend:            ethBackend,
 		txOpts:                txOpts,

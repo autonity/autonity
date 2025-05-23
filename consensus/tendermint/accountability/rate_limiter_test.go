@@ -10,7 +10,7 @@ import (
 
 // TimeWindowLimiter Tests
 func TestTimeWindowLimiter_BasicAllowance(t *testing.T) {
-	limiter := NewTimeWindowLimiter(time.Second, 3, time.Minute)
+	limiter := NewTimeWindowLimiter(time.Second, 3)
 	addr := common.HexToAddress("0x1")
 
 	// under rate.
@@ -22,8 +22,8 @@ func TestTimeWindowLimiter_BasicAllowance(t *testing.T) {
 	require.Equal(t, ErrRateLimitExceeded, limiter.Allow(addr))
 }
 
-func TestTimeWindowLimiter_TTLExpiration(t *testing.T) {
-	limiter := NewTimeWindowLimiter(time.Second, 1, 500*time.Millisecond)
+func TestTimeWindowLimiter_Expiration(t *testing.T) {
+	limiter := NewTimeWindowLimiter(time.Second, 1)
 	addr := common.HexToAddress("0x2")
 
 	// allow to
@@ -33,7 +33,7 @@ func TestTimeWindowLimiter_TTLExpiration(t *testing.T) {
 	require.Equal(t, ErrRateLimitExceeded, limiter.Allow(addr))
 
 	// allowed again as the last access expired.
-	time.Sleep(600 * time.Millisecond)
+	time.Sleep(2 * time.Second)
 	require.NoError(t, limiter.Allow(addr))
 }
 
