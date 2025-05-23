@@ -1,8 +1,9 @@
 package latency
 
 import (
+	"context"
 	"errors"
-	"time"
+	"sync"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -63,16 +64,17 @@ func (f *Fetcher) Fetch(validators []common.Address, self common.Address) (map[c
 		}
 	}
 
-	latencyArray := f.pingPeers(pingTargets)
+	latencyArray := f.pingPeers(context.Background(), pingTargets)
 	for i, addr := range validators {
 		if addr == self || pingTargets[i].IP == "" {
 			continue
 		}
-		if latencyArray[i].Nanoseconds() == 0 {
+		if latencyArray[i].Err != nil {
 			failedNodes = append(failedNodes, addr)
+			latency[addr] = constants.DefaultLatency
 			continue
 		}
-		latency[addr] = uint(latencyArray[i].Milliseconds())
+		latency[addr] = uint(latencyArray[i].Latency.Milliseconds())
 	}
 
 	return latency, failedNodes, nil
@@ -82,22 +84,22 @@ func (f *Fetcher) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	f.peerFinder = broadcaster
 }
 
-func (f *Fetcher) pingPeers(targets []ping.Target) []time.Duration {
-	channelArray := make([]chan time.Duration, len(targets))
+func (f *Fetcher) pingPeers(ctx context.Context, targets []ping.Target) []ping.Result {
+	results := make([]ping.Result, len(targets))
+	var wg sync.WaitGroup
 	for i, t := range targets {
-		resultCh := make(chan time.Duration, 1)
 		if t.IP == "" {
-			resultCh <- time.Second * 5 // Default for skipped pings
-			channelArray[i] = resultCh
+			results[i] = ping.Result{Err: errors.New("skipped: empty target")}
 			continue
 		}
-		f.pinger.Ping(t, resultCh)
-		channelArray[i] = resultCh
+		wg.Add(1)
+		go func(index int, target ping.Target) {
+			defer wg.Done()
+			results[index] = f.pinger.Ping(ctx, target)
+		}(i, t)
 	}
-	results := make([]time.Duration, len(targets))
-	for i, resultCh := range channelArray {
-		results[i] = <-resultCh
-	}
+	wg.Wait()
+
 	return results
 }
 
