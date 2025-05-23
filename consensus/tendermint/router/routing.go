@@ -81,7 +81,7 @@ func New(
 	nodeKey *ecdsa.PrivateKey,
 	self common.Address,
 	recipientCache cache.RecipientCache,
-	latencyFetcher interfaces.LatencyProvider, // Assuming Fetcher is an interface
+	latencyFetcher interfaces.LatencyProvider,
 	peerSelector interfaces.PeerSelector,
 	networkProvider interfaces.NetworkProvider,
 ) *Router {
@@ -95,36 +95,10 @@ func New(
 		nodesToRetry:    make(map[common.Address]struct{}),
 		self:            self,
 		peerSelector:    peerSelector,
-		network:         networkProvider, // Injected
+		network:         networkProvider,
 	}
 	return router
 }
-
-//func New(
-//	broadcaster consensus.Broadcaster,
-//	nodeKey *ecdsa.PrivateKey,
-//	pinger ping.Pinger,
-//	ps selector.PeerSelector,
-//	self common.Address,
-//) *Router {
-//	c := cache.NewPeerSelectionCache()
-//	router := &Router{
-//		broadcaster:     broadcaster,
-//		nodeKey:         nodeKey,
-//		epochEventChan:  make(chan core.EpochHeadEvent, 2),
-//		fetcher:         latency.NewLatencyFetcher(pinger, broadcaster),
-//		cache:           c,
-//		latestLatencies: make(map[common.Address]uint),
-//		nodesToRetry:    make(map[common.Address]struct{}),
-//		self:            self,
-//	}
-//	if ps == nil {
-//		router.peerSelector = selector.New(router, c, router, self)
-//	} else {
-//		router.peerSelector = ps
-//	}
-//	return router
-//}
 
 func (m *Router) committeeAddresses(committee *types.Committee) []common.Address {
 	result := make([]common.Address, committee.Len())
