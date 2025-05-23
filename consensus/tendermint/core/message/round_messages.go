@@ -309,7 +309,7 @@ func (lsm *AskSyncMsg) Validate() error {
 		}
 
 		// if the remote peer does not have a proposal for this round, mark it
-		if v.HaveProposal {
+		if !v.HaveProposal {
 			nilProposal[v.Round] = struct{}{}
 		}
 
