@@ -1,9 +1,13 @@
 package constants
 
+import "time"
 
 const (
-	DefaultLatency       = uint(132)
-	DefaultNearThreshold = 50
-	MeasurementWindow    = 2000
-	MaxLatencyCapFactor  = 0.75
+	DefaultLatency             = uint(132)
+	DefaultNearThreshold       = 50
+	LatencyMeasurementDelayCap = 2000
+	MaxLatencyCapFactor        = 0.75
+	LatencyDataExpiry          = 5 * time.Minute
+	RetryLatencyTimeout        = 30 * time.Second
+	CacheCleanupInterval       = 10 * time.Minute
 )

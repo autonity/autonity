@@ -4,7 +4,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/router/cache"
 	"github.com/autonity/autonity/consensus/tendermint/router/network"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/p2p/enode"
@@ -13,12 +12,6 @@ import (
 type NetworkProvider interface {
 	Clusters() network.Clusters
 	UpdateClusters(network.Clusters)
-}
-
-type CacheProvider interface {
-	Get(key string) (cache.CacheEntry, bool)
-	Set(key string, recipients []common.Address)
-	UpdateLastUsed(key string)
 }
 
 type LatencyProvider interface {

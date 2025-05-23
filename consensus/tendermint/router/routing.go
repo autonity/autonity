@@ -28,69 +28,64 @@ const (
 )
 
 func SetupRouter(
-	broadcaster interfaces.PeerFinder, // Must implement interfaces.Broadcaster
+	peerFinder interfaces.PeerFinder,
 	nodeKey *ecdsa.PrivateKey,
 	self common.Address,
 	pinger ping.Pinger,
 	peerSelector selector.PeerSelector,
+	logger log.Logger,
 ) *Router {
-
-	peerCache := cache.NewPeerSelectionCache()
+	peerCache := cache.New()
 	nw := &network.Network{}
 	if pinger == nil {
-		pinger = ping.NewPinger(ping.TCP)
+		pinger, _ = ping.NewPinger(ping.ProtocolTCP, logger)
 	}
 	if peerSelector == nil {
-		peerSelector = selector.New(nw, peerCache, broadcaster, self)
+		peerSelector = selector.New(nw, peerCache, peerFinder, self)
 	}
-	fetcher := latency.NewFetcher(pinger, broadcaster)
+	fetcher := latency.NewFetcher(pinger, peerFinder)
 
-	return New(broadcaster,
-		nodeKey,
-		self,
-		peerCache,
-		fetcher, // If Fetcher is concrete, or the interface type
-		peerSelector,
-		nw,
-	)
+	return New(peerFinder, nodeKey, self, peerCache, fetcher, peerSelector, nw)
 }
 
 type Router struct {
-	self            common.Address
-	nodeKey         *ecdsa.PrivateKey
-	clusterMu       sync.RWMutex
-	network         interfaces.NetworkProvider
-	broadcaster     consensus.Broadcaster
-	epochEventChan  chan core.EpochHeadEvent
-	epochEventSub   event.Subscription
-	committee       []common.Address
-	inCommittee     bool
-	fetcher         interfaces.LatencyProvider
-	peerSelector    selector.PeerSelector
-	cache           cache.RecipientCache
-	cancel          context.CancelFunc
-	wg              sync.WaitGroup
+	self           common.Address
+	nodeKey        *ecdsa.PrivateKey
+	epochEventChan chan core.EpochHeadEvent
+	epochEventSub  event.Subscription
+	committee      []common.Address
+	inCommittee    bool
+	cancel         context.CancelFunc
+	wg             sync.WaitGroup
+
 	latestLatencies map[common.Address]uint
 	latencyMu       sync.RWMutex
-	nodesToRetry    map[common.Address]struct{}
-	retryMu         sync.RWMutex
+
+	nodesToRetry map[common.Address]struct{}
+	retryMu      sync.RWMutex
+
+	network        interfaces.NetworkProvider
+	peerFinder     interfaces.PeerFinder
+	latencyFetcher interfaces.LatencyProvider
+	peerSelector   selector.PeerSelector
+	recipientCache cache.Recipients
 }
 
 func New(
 	broadcaster consensus.Broadcaster,
 	nodeKey *ecdsa.PrivateKey,
 	self common.Address,
-	recipientCache cache.RecipientCache,
+	recipientCache cache.Recipients,
 	latencyFetcher interfaces.LatencyProvider,
 	peerSelector interfaces.PeerSelector,
 	networkProvider interfaces.NetworkProvider,
 ) *Router {
 	router := &Router{
-		broadcaster:     broadcaster,
+		peerFinder:      broadcaster,
 		nodeKey:         nodeKey,
 		epochEventChan:  make(chan core.EpochHeadEvent, 2),
-		fetcher:         latencyFetcher,
-		cache:           recipientCache,
+		latencyFetcher:  latencyFetcher,
+		recipientCache:  recipientCache,
 		latestLatencies: make(map[common.Address]uint),
 		nodesToRetry:    make(map[common.Address]struct{}),
 		self:            self,
@@ -131,7 +126,7 @@ func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender com
 		if recipient == sender {
 			continue
 		}
-		if p, ok := m.broadcaster.FindPeer(recipient); ok {
+		if p, ok := m.peerFinder.FindPeer(recipient); ok {
 			if p.Cache().Contains(msg.Hash()) {
 				continue
 			}
@@ -177,8 +172,8 @@ func (m *Router) Stop() {
 }
 
 func (m *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
-	m.broadcaster = broadcaster
-	m.fetcher.SetBroadcaster(broadcaster)
+	m.peerFinder = broadcaster
+	m.latencyFetcher.SetBroadcaster(broadcaster)
 }
 
 func (m *Router) refreshClustersLatencies(latMap map[common.Address]uint) {
@@ -188,7 +183,7 @@ func (m *Router) refreshClustersLatencies(latMap map[common.Address]uint) {
 
 func (m *Router) measureLatency() error {
 	log.Info("Router: measure latency")
-	latencyMap, failedNodes, err := m.fetcher.Fetch(m.committee, m.self)
+	latencyMap, failedNodes, err := m.latencyFetcher.Fetch(m.committee, m.self)
 	if err != nil {
 		log.Error("Router: failed to fetch latency", "err", err)
 		return err
@@ -226,7 +221,7 @@ func (m *Router) retryLatency() error {
 	m.retryMu.Unlock()
 
 	log.Debug("Router: retrying latency for nodes", "count", len(nodes))
-	latencyMap, failedNodes, err := m.fetcher.Fetch(nodes, m.self)
+	latencyMap, failedNodes, err := m.latencyFetcher.Fetch(nodes, m.self)
 	if err != nil || len(latencyMap) == 0 {
 		log.Error("Router: failed to retry latency", "err", err)
 		return err
@@ -267,9 +262,9 @@ func (m *Router) retryLatency() error {
 func (m *Router) loop(ctx context.Context) {
 	defer m.wg.Done()
 
-	ticker := time.NewTicker(5 * time.Minute)
-	retryTicker := time.NewTicker(30 * time.Second)
-	cleanupTicker := time.NewTicker(10 * time.Minute)
+	ticker := time.NewTicker(constants.LatencyDataExpiry)
+	retryTicker := time.NewTicker(constants.RetryLatencyTimeout)
+	cleanupTicker := time.NewTicker(constants.CacheCleanupInterval)
 	defer func() {
 		ticker.Stop()
 		retryTicker.Stop()
@@ -287,23 +282,23 @@ func (m *Router) loop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if !m.inCommittee || m.broadcaster == nil || len(m.committee) < ScaleThresholdForClustering {
+			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < ScaleThresholdForClustering {
 				continue
 			}
-			delay := time.Duration(rand.Intn(constants.MeasurementWindow)) * time.Millisecond
+			delay := time.Duration(rand.Intn(constants.LatencyMeasurementDelayCap)) * time.Millisecond
 			time.Sleep(delay)
 			if err := m.measureLatency(); err != nil {
 				log.Warn("measureToReport failed", "err", err)
 			}
 		case <-retryTicker.C:
-			if !m.inCommittee || m.broadcaster == nil || len(m.committee) < ScaleThresholdForClustering {
+			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < ScaleThresholdForClustering {
 				continue
 			}
 			if err := m.retryLatency(); err != nil {
 				log.Warn("retryLatency failed", "err", err)
 			}
 		case <-cleanupTicker.C:
-			m.cache.Cleanup()
+			m.recipientCache.Cleanup()
 			log.Debug("Router: cache cleanup completed")
 		case epochEv := <-m.epochEventChan:
 			log.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
@@ -342,7 +337,7 @@ func (m *Router) updateCommittee(epoch *types.Epoch) {
 
 func (m *Router) updateNetwork(clusters network.Clusters) {
 	m.network.UpdateClusters(clusters)
-	m.cache.Invalidate()
+	m.recipientCache.Invalidate()
 }
 
 func (m *Router) Latencies() map[common.Address]uint {
