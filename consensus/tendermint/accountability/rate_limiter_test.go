@@ -66,7 +66,7 @@ func TestHeightBasedLimiter_CleanupLogic(t *testing.T) {
 
 	limiter.rwMutex.Lock()
 	defer limiter.rwMutex.Unlock()
-	require.Empty(t, limiter.accusations[addr])
+	require.Empty(t, limiter.records[addr])
 }
 
 // DuplicateTracker Tests
