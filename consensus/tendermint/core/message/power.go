@@ -15,10 +15,6 @@ func Contribution(aggregatorSigners *big.Int, coreSigners *big.Int) *big.Int {
 	return contribution
 }
 
-func (p *AggregatedPower) SetBit(index int) {
-	p.signers.SetBit(p.signers, index, 1)
-}
-
 func (p *AggregatedPower) Set(index int, power *big.Int) {
 	if p.signers.Bit(index) == 1 {
 		return

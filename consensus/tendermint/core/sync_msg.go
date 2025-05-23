@@ -1,9 +1,10 @@
 package core
 
 import (
+	"math/big"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"math/big"
 )
 
 func (c *Core) createSyncMsg() *message.AskSyncMsg {
@@ -30,8 +31,8 @@ func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 		roundView := &message.RoundMsgView{}
 		roundView.Round = uint64(r)
 
-		preVoteSigners := make(map[common.Hash]*message.AggregatedPower)
-		preCommitSigners := make(map[common.Hash]*message.AggregatedPower)
+		preVoteSigners := make(map[common.Hash]*big.Int)
+		preCommitSigners := make(map[common.Hash]*big.Int)
 
 		for _, m := range roundMsgs {
 			if m.Code() == message.ProposalCode {
@@ -42,10 +43,10 @@ func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 				value := m.Value()
 				_, ok := preVoteSigners[value]
 				if !ok {
-					preVoteSigners[value] = message.NewAggregatedPower()
+					preVoteSigners[value] = new(big.Int)
 				}
-				for index, _ := range m.(message.Vote).Signers().Powers() {
-					preVoteSigners[value].SetBit(index)
+				for _, index := range m.(message.Vote).Signers().FlattenUniq() {
+					preVoteSigners[value].SetBit(preVoteSigners[value], index, 1)
 				}
 			}
 
@@ -53,10 +54,10 @@ func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 				value := m.Value()
 				_, ok := preCommitSigners[value]
 				if !ok {
-					preCommitSigners[value] = message.NewAggregatedPower()
+					preCommitSigners[value] = new(big.Int)
 				}
-				for index, _ := range m.(message.Vote).Signers().Powers() {
-					preCommitSigners[value].SetBit(index)
+				for _, index := range m.(message.Vote).Signers().FlattenUniq() {
+					preCommitSigners[value].SetBit(preCommitSigners[value], index, 1)
 				}
 			}
 		}
@@ -65,7 +66,7 @@ func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 		var preVoteSigns []*big.Int
 		for v, s := range preVoteSigners {
 			preVotes = append(preVotes, v)
-			preVoteSigns = append(preVoteSigns, s.Signers())
+			preVoteSigns = append(preVoteSigns, s)
 		}
 
 		roundView.Prevotes = preVotes
@@ -75,7 +76,7 @@ func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 		var preCommitSigns []*big.Int
 		for v, s := range preCommitSigners {
 			preCommits = append(preCommits, v)
-			preCommitSigns = append(preCommitSigns, s.Signers())
+			preCommitSigns = append(preCommitSigns, s)
 		}
 		roundView.Precommits = preCommits
 		roundView.PrecommitsSigners = preCommitSigns
