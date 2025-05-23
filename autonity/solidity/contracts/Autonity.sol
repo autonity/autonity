@@ -1068,8 +1068,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         // This is why the `nonReentrantView` modifier is not explicitly used.
         require(
             _reentrancyGuardEntered() == false ||
-            msg.sender == address(config.contracts.accountabilityContract) ||
-            msg.sender == address(config.contracts.omissionAccountabilityContract),
+            _contains(msg.sender, _accountabilityContracts()),
             "read only reentrancy detected"
         );
         return config.protocol.epochPeriod;
@@ -1175,8 +1174,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         // This is why the `nonReentrantView` modifier is not explicitly used.
         require(
             _reentrancyGuardEntered() == false ||
-            msg.sender == address(config.contracts.accountabilityContract) ||
-            msg.sender == address(config.contracts.omissionAccountabilityContract),
+            _contains(msg.sender, _accountabilityContracts()),
             "read only reentrancy detected"
         );
         return config.policy.treasuryAccount;
@@ -1239,8 +1237,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         // This is why the `nonReentrantView` modifier is not explicitly used.
         require(
             _reentrancyGuardEntered() == false ||
-            msg.sender == address(config.contracts.accountabilityContract) ||
-            msg.sender == address(config.contracts.omissionAccountabilityContract),
+            _contains(msg.sender, _accountabilityContracts()),
             "read only reentrancy detected"
         );
         return _getValidator(_addr).state;
@@ -1290,15 +1287,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
         // This is why the `nonReentrantView` modifier is not explicitly used.
         require(
             _reentrancyGuardEntered() == false ||
-            msg.sender == address(config.contracts.accountabilityContract) ||
-            msg.sender == address(config.contracts.oracleContract) ||
-            msg.sender == address(config.contracts.acuContract) ||
-            msg.sender == address(config.contracts.supplyControlContract) ||
-            msg.sender == address(config.contracts.stabilizationContract) ||
-            msg.sender == address(config.contracts.upgradeManagerContract) ||
-            msg.sender == address(config.contracts.inflationControllerContract) ||
-            msg.sender == address(config.contracts.omissionAccountabilityContract) ||
-            msg.sender == address(config.contracts.auctioneerContract),
+            _contains(msg.sender, _allProtocolContracts()),
             "read only reentrancy detected"
         );
         return config.protocol.operatorAccount;
@@ -1475,6 +1464,36 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
     ============================================================
     */
+
+    function _accountabilityContracts() internal virtual view returns (address[] memory) {
+        address[] memory addresses = new address[](2);
+        addresses[0] = address(config.contracts.accountabilityContract);
+        addresses[1] = address(config.contracts.omissionAccountabilityContract);
+        return addresses;
+    }
+
+    function _allProtocolContracts() internal virtual view returns (address[] memory) {
+        address[] memory addresses = new address[](9);
+        addresses[0] = address(config.contracts.accountabilityContract);
+        addresses[1] = address(config.contracts.oracleContract);
+        addresses[2] = address(config.contracts.acuContract);
+        addresses[3] = address(config.contracts.supplyControlContract);
+        addresses[4] = address(config.contracts.stabilizationContract);
+        addresses[5] = address(config.contracts.upgradeManagerContract);
+        addresses[6] = address(config.contracts.inflationControllerContract);
+        addresses[7] = address(config.contracts.omissionAccountabilityContract);
+        addresses[8] = address(config.contracts.auctioneerContract);
+        return addresses;
+    }
+
+    function _contains(address _address, address[] memory _addresses) internal virtual pure returns (bool) {
+        for (uint256 i = 0; i < _addresses.length; i++) {
+            if(_address == _addresses[i]){
+                return true;
+            }
+        }
+        return false;
+    }
 
     /**
     * @notice update the current committee by selecting top staking validators.
