@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/autonity/autonity/triedb/pathdb"
 	"github.com/holiman/uint256"
 
 	"github.com/autonity/autonity/common"
@@ -247,7 +246,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time <= b.cm.bottom.Header().Time {
 		panic("block time out of range")
 	}
-	//b.header.Difficulty = b.engine.CalcDifficulty(b.cm, b.header.Time, b.parent.Header())
+	b.header.Difficulty = b.engine.CalcDifficulty(b.cm, b.header.Time, b.parent.Header())
 }
 
 // GenerateChain creates a chain of n blocks. The first block's
@@ -334,13 +333,11 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		return block, b.receipts
 	}
 
-	triedCfg := *triedb.HashDefaults
+	triedCfg := triedb.HashDefaults
 	if config.VerkleBlock != nil {
-		triedCfg.PathDB = pathdb.Defaults
-		triedCfg.IsVerkle = true
-		triedCfg.HashDB = nil
+		triedCfg = triedb.VerkleDefaults
 	}
-	tdb := triedb.NewDatabase(db, &triedCfg)
+	tdb := triedb.NewDatabase(db, triedCfg)
 	defer tdb.Close()
 
 	for i := 0; i < n; i++ {

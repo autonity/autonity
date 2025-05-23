@@ -417,6 +417,41 @@ var (
 		BloomRoot:    common.HexToHash("0x02a41b6606bd3f741bd6ae88792d75b1ad8cf0ea5e28fbaa03bc8b95cbd20034"),
 	}
 
+	// TestConfigOld is the replication of TestChainConfig in upstream geth
+	// used to make some test pass.
+	TestConfigOld = &ChainConfig{
+		ChainID:                 big.NewInt(1337),
+		HomesteadBlock:          big.NewInt(0),
+		EIP150Block:             big.NewInt(0),
+		EIP155Block:             big.NewInt(0),
+		EIP158Block:             big.NewInt(0),
+		ByzantiumBlock:          big.NewInt(0),
+		ConstantinopleBlock:     big.NewInt(0),
+		PetersburgBlock:         big.NewInt(0),
+		IstanbulBlock:           big.NewInt(0),
+		MuirGlacierBlock:        big.NewInt(0),
+		BerlinBlock:             big.NewInt(0),
+		LondonBlock:             big.NewInt(0),
+		ArrowGlacierBlock:       nil,
+		MergeForkBlock:          nil,
+		CancunBlock:             nil,
+		PragueBlock:             nil,
+		Ethash:                  new(EthashConfig),
+		AutonityContractConfig:  TestAutonityContractConfig,
+		AccountabilityConfig:    TestAccountabilityConfig,
+		OracleContractConfig:    TestOracleConfig,
+		InflationContractConfig: DefaultInflationControllerGenesis,
+		ASM: AsmConfig{
+			ACUContractConfig:           DefaultAcuContractGenesis,
+			StabilizationContractConfig: DefaultStabilizationGenesis,
+			SupplyControlConfig:         DefaultSupplyControlGenesis,
+		},
+		NonStakeableVestingConfig:    DefaultNonStakeableVestingGenesis,
+		StakeableVestingConfig:       DefaultStakeableVestingGenesis,
+		OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig,
+		TestMode:                     false,
+	}
+
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//

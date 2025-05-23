@@ -42,11 +42,11 @@ var (
 	testKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testAddress = crypto.PubkeyToAddress(testKey.PublicKey)
 	gspec       = &core.Genesis{
-		Config:  params.TestChainConfig,
+		Config:  params.TestConfigNoVerkle,
 		Alloc:   types.GenesisAlloc{testAddress: {Balance: big.NewInt(1000000000000000)}},
 		BaseFee: big.NewInt(params.InitialBaseFee),
 	}
-	genesis      = gspec.MustCommit(testdb, triedb.NewDatabase(testdb, triedb.VerkleDefaults))
+	genesis      = gspec.MustCommit(testdb, triedb.NewDatabase(testdb, triedb.HashDefaults))
 	unknownBlock = types.NewBlock(&types.Header{Root: types.EmptyRootHash, GasLimit: params.GenesisGasLimit, BaseFee: big.NewInt(params.InitialBaseFee)}, nil, nil, trie.NewStackTrie(nil))
 )
 
