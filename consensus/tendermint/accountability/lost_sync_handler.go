@@ -1,10 +1,7 @@
 package accountability
 
 import (
-	"errors"
 	"fmt"
-	"time"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/rlp"
@@ -17,46 +14,12 @@ const AskSyncInterval = 5 // the interval in seconds to check the liveness and r
 // more over that, future round messages can be synced now and the handling of AskSync msg does not block the consensus
 // engine anymore.
 
-var errAskSyncOverRated = errors.New("ask sync over rated")
-
-type AskSyncRateLimiter struct {
-	lastRequestTSs map[common.Address]int64
-}
-
-func NewAskSyncRateLimiter() *AskSyncRateLimiter {
-	return &AskSyncRateLimiter{
-		lastRequestTSs: make(map[common.Address]int64),
-	}
-}
-
-func (r *AskSyncRateLimiter) overRated(asker common.Address) bool {
-	now := time.Now().Unix()
-
-	lastTS, exists := r.lastRequestTSs[asker]
-	if !exists {
-		r.lastRequestTSs[asker] = now
-		return false
-	}
-
-	r.lastRequestTSs[asker] = now
-	timeDiff := now - lastTS
-
-	return timeDiff < int64(AskSyncInterval)
-}
-
-func (r *AskSyncRateLimiter) resetRateLimiter() {
-	// todo: save recent 5s records?
-	for k := range r.lastRequestTSs {
-		delete(r.lastRequestTSs, k)
-	}
-}
-
 // handleAskSyncEvent handles the ask sync request from a lost sync validator or from a rebooting validator.
 // Any error return from this function will drop the remote peer.
 func (fd *FaultDetector) handleAskSyncEvent(payload []byte, sender common.Address) error {
 
-	if fd.askSyncRateLimiter.overRated(sender) {
-		return errAskSyncOverRated
+	if err := fd.askSyncRateLimiter.Allow(sender); err != nil {
+		return err
 	}
 
 	lostSync := new(message.AskSyncMsg)

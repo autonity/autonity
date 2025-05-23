@@ -70,8 +70,8 @@ var (
 type FaultDetector struct {
 	innocenceProofBuff    *InnocenceProofBuffer
 	protocolContracts     *autonity.ProtocolContracts
-	accusationRateLimiter *AccusationRateLimiter
-	askSyncRateLimiter    *AskSyncRateLimiter
+	accusationRateLimiter *AFDRateLimiter
+	askSyncRateLimiter    *TimeWindowLimiter
 
 	wg               sync.WaitGroup
 	tendermintMsgSub *event.TypeMuxSubscription
@@ -130,8 +130,9 @@ func NewFaultDetector(
 	fd := &FaultDetector{
 		innocenceProofBuff:    NewInnocenceProofBuffer(),
 		protocolContracts:     protocolContracts,
-		accusationRateLimiter: NewAccusationRateLimiter(),
-		askSyncRateLimiter:    NewAskSyncRateLimiter(),
+		accusationRateLimiter: NewAFDRateLimiter(),
+		// 1 ask sync per 5s, rate limit reset per 5s.
+		askSyncRateLimiter:    NewTimeWindowLimiter(AskSyncInterval*time.Second, 1, AskSyncInterval*time.Second),
 		txPool:                txPool,
 		ethBackend:            ethBackend,
 		txOpts:                txOpts,
@@ -179,8 +180,6 @@ func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
 }
 
 func (fd *FaultDetector) consensusMsgHandlerLoop() {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
 tendermintMsgLoop:
 	for {
 		select {
@@ -255,13 +254,9 @@ tendermintMsgLoop:
 
 			// on every 60 blocks, reset Peer Justified Accusations and height accusations counters.
 			if e.Block.NumberU64()%msgGCInterval == 0 {
-				fd.askSyncRateLimiter.resetRateLimiter()
-				fd.accusationRateLimiter.resetHeightRateLimiter()
-				fd.accusationRateLimiter.resetPeerJustifiedAccusations()
+				fd.askSyncRateLimiter.Cleanup()
+				fd.accusationRateLimiter.Cleanup(e.Block.NumberU64())
 			}
-		case <-ticker.C:
-			// on each 1 seconds, reset the rate limiter counters.
-			fd.accusationRateLimiter.resetRateLimiter()
 		case err, ok := <-fd.chainEventSub.Err():
 			if ok {
 				// why crit? what can happen here?
