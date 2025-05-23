@@ -12,7 +12,7 @@ import (
 func TestSyncMsg(t *testing.T) {
 	round1 := &message.RoundMsgView{
 		Round:             1,
-		Proposal:          common.HexToHash("0x1234"),
+		HaveProposal:      true,
 		Prevotes:          []common.Hash{common.HexToHash("0xabcd"), common.HexToHash("0xefgh")},
 		PrevotesSigners:   []*big.Int{big.NewInt(1), big.NewInt(2)},
 		Precommits:        []common.Hash{common.HexToHash("0xijkl")},
@@ -21,7 +21,7 @@ func TestSyncMsg(t *testing.T) {
 
 	round2 := &message.RoundMsgView{
 		Round:             2,
-		Proposal:          common.Hash{},
+		HaveProposal:      false,
 		Prevotes:          []common.Hash{},
 		PrevotesSigners:   []*big.Int{},
 		Precommits:        []common.Hash{},
@@ -48,7 +48,7 @@ func TestSyncMsg(t *testing.T) {
 		round2 := decodedSyncMsg.KnownMessages[i]
 
 		require.Equal(t, round1.Round, round2.Round)
-		require.Equal(t, round1.Proposal, round2.Proposal)
+		require.Equal(t, round1.HaveProposal, round2.HaveProposal)
 
 		require.Equal(t, len(round1.Prevotes), len(round2.Prevotes))
 		for j := range round1.Prevotes {

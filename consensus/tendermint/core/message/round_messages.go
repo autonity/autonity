@@ -234,7 +234,7 @@ func (s *RoundMessages) DumpMsgView(round int64) *RoundMsgView {
 	view.Round = uint64(round)
 
 	if s.proposal != nil {
-		view.Proposal = s.proposal.Value()
+		view.HaveProposal = true
 	}
 
 	if s.prevotes != nil {
@@ -254,9 +254,7 @@ func (s *RoundMessages) DumpMsgView(round int64) *RoundMsgView {
 type RoundMsgView struct {
 	Round uint64
 
-	// the 1st received proposal that the client prevoted, normally only one, could be multiple if proposer equivocated.
-	// different proposals will be exchanged if one find there is an equivocated one.
-	Proposal common.Hash
+	HaveProposal bool
 
 	// prevoted values in the round
 	Prevotes []common.Hash
@@ -311,7 +309,7 @@ func (lsm *AskSyncMsg) Validate() error {
 		}
 
 		// if the remote peer does not have a proposal for this round, mark it
-		if v.Proposal == (common.Hash{}) {
+		if v.HaveProposal {
 			nilProposal[v.Round] = struct{}{}
 		}
 

@@ -35,7 +35,7 @@ func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 
 		for _, m := range roundMsgs {
 			if m.Code() == message.ProposalCode {
-				roundView.Proposal = m.Value()
+				roundView.HaveProposal = true
 			}
 
 			if m.Code() == message.PrevoteCode {
