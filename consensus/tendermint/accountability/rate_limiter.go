@@ -18,21 +18,18 @@ type TimeWindowLimiter struct {
 	limits     map[common.Address]*rateRecord
 	timeWindow time.Duration
 	burst      int
-	ttl        time.Duration
 }
 
 type rateRecord struct {
 	count      int
-	last       time.Time
 	expiration time.Time
 }
 
-func NewTimeWindowLimiter(window time.Duration, burst int, ttl time.Duration) *TimeWindowLimiter {
+func NewTimeWindowLimiter(window time.Duration, burst int) *TimeWindowLimiter {
 	return &TimeWindowLimiter{
 		limits:     make(map[common.Address]*rateRecord),
 		timeWindow: window,
 		burst:      burst,
-		ttl:        ttl,
 	}
 }
 
@@ -46,8 +43,7 @@ func (l *TimeWindowLimiter) Allow(sender common.Address) error {
 	if !exists || now.After(record.expiration) {
 		l.limits[sender] = &rateRecord{
 			count:      1,
-			last:       now,
-			expiration: now.Add(l.ttl),
+			expiration: now.Add(l.timeWindow),
 		}
 		return nil
 	}
@@ -57,7 +53,6 @@ func (l *TimeWindowLimiter) Allow(sender common.Address) error {
 	}
 
 	record.count++
-	record.last = now
 	return nil
 }
 
@@ -185,7 +180,7 @@ func NewAFDRateLimiter() *AFDRateLimiter {
 		// could exceed the number of accusation that could be produced by rule engine over a height, so we set higher
 		// rate limit during 1 second to be tolerant for such case.
 		// 8 accusations per 1s window for per client, rate limit reset per 1s.
-		timeLimiter: NewTimeWindowLimiter(time.Second, maxAccusationPerHeight*2, time.Second),
+		timeLimiter: NewTimeWindowLimiter(time.Second, maxAccusationPerHeight*2),
 		// 4 accusations per height for per client.
 		heightLimiter: NewHeightBasedLimiter(maxAccusationPerHeight, msgGCInterval),
 		// duplicated accusation checker, reset per 10 minutes.
