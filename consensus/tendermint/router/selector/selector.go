@@ -1,4 +1,4 @@
-package router
+package selector
 
 import (
 	"errors"
@@ -11,6 +11,10 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/router/cache"
+	"github.com/autonity/autonity/consensus/tendermint/router/constants"
+	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/router/network"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 )
@@ -27,37 +31,35 @@ const (
 	localRelayerRemoteCluster
 )
 
-const (
-	ScaleThresholdForClustering = 6
-	DefaultLatency              = uint(132)
-	farThreshold                = 180
-	DefaultNearThreshold        = 50
-	diversityThreshold          = 40
-	MeasurementWindow           = 2000
-	MaxLatencyCapFactor         = 0.75
-)
-
 type PeerSelector interface {
 	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
 }
 
 type Selector struct {
-	*Router
-	heightLock    sync.Mutex
-	loggedHR      map[string]uint64
-	recentHeights [50]uint64
-	heightIndex   int
+	networkProvider interfaces.NetworkProvider
+	peerCache       interfaces.CacheProvider
+	peerFinder      interfaces.PeerFinder
+	heightLock      sync.Mutex
+	loggedHR        map[string]uint64
+	recentHeights   [50]uint64
+	heightIndex     int
+	self            common.Address
 }
 
-func NewSelector(router *Router) *Selector {
-	s := &Selector{Router: router}
-	s.loggedHR = make(map[string]uint64)
-	s.recentHeights = [50]uint64{}
-	s.heightIndex = 0
+func New(np interfaces.NetworkProvider, cache interfaces.CacheProvider, peerFinder interfaces.PeerFinder, self common.Address) *Selector {
+	s := &Selector{
+		networkProvider: np,
+		peerCache:       cache,
+		peerFinder:      peerFinder,
+		self:            self,
+		loggedHR:        make(map[string]uint64),
+		recentHeights:   [50]uint64{},
+		heightIndex:     0,
+	}
 	return s
 }
 
-func (r *Selector) containsAddress(addrs []common.Address, addr common.Address) bool {
+func (s *Selector) containsAddress(addrs []common.Address, addr common.Address) bool {
 	for _, a := range addrs {
 		if a == addr {
 			return true
@@ -66,14 +68,15 @@ func (r *Selector) containsAddress(addrs []common.Address, addr common.Address) 
 	return false
 }
 
-func (r *Selector) routingCandidatesFromCluster(clusterID int, exclude []common.Address, committee *types.Committee) []NodeLatency {
-	members := r.clusters.base[clusterID].Members
-	candidates := make([]NodeLatency, 0, len(members))
+func (s *Selector) routingCandidatesFromCluster(clusterID int, exclude []common.Address, committee *types.Committee) []network.Node {
+	clusters := s.networkProvider.Clusters()
+	members := clusters.MembersByID(clusterID)
+	candidates := make([]network.Node, 0, len(members))
 	for _, node := range members {
-		if r.containsAddress(exclude, node.Addr) {
+		if s.containsAddress(exclude, node.Addr) {
 			continue
 		}
-		if _, ok := r.broadcaster.FindPeer(node.Addr); ok {
+		if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
 			if member := committee.MemberByAddress(node.Addr); member != nil {
 				candidates = append(candidates, node)
 			}
@@ -82,84 +85,84 @@ func (r *Selector) routingCandidatesFromCluster(clusterID int, exclude []common.
 	return candidates
 }
 
-func (r *Selector) allConnected(recipients []common.Address) bool {
+func (s *Selector) allConnected(recipients []common.Address) bool {
 	for _, recipient := range recipients {
-		if _, ok := r.broadcaster.FindPeer(recipient); !ok {
+		if _, ok := s.peerFinder.FindPeer(recipient); !ok {
 			return false
 		}
 	}
 	return true
 }
 
-func (r *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
+func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
 	switch msg.Code() {
 	case message.ProposalCode:
-		return r.selectProposalPeers(committee, msg, from)
+		return s.selectProposalPeers(committee, msg, from)
 	default:
-		return r.selectNonProposalPeers(committee, msg, from)
+		return s.selectNonProposalPeers(committee, msg, from)
 	}
 }
 
-func (r *Selector) selectProposalPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
-	return r.selectPeersWithBuckets(committee, msg, from, true)
+func (s *Selector) selectProposalPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
+	return s.selectPeersWithBuckets(committee, msg, from, true)
 }
 
-func (r *Selector) selectNonProposalPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
-	return r.selectPeersWithBuckets(committee, msg, from, false)
+func (s *Selector) selectNonProposalPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
+	return s.selectPeersWithBuckets(committee, msg, from, false)
 }
 
-func (r *Selector) selectPeersWithBuckets(committee *types.Committee, msg message.Msg, from common.Address, isProposal bool) ([]common.Address, error) {
-	clusters := r.Clusters()
-	if len(clusters.base) == 0 {
-		fmt.Println("Selector: no clusters, falling back to all committee members")
-		return r.committeeAddresses(committee), nil
+func (s *Selector) selectPeersWithBuckets(committee *types.Committee, msg message.Msg, from common.Address, isProposal bool) ([]common.Address, error) {
+	clusters := s.networkProvider.Clusters()
+	if len(clusters.Base()) == 0 {
+		return []common.Address{}, errors.New("no clusters")
 	}
 
-	senderClusterID := clusters.clusterContaining(from)
-	originClusterID := clusters.clusterContaining(msg.Originator())
-	ownClusterID := clusters.clusterContaining(r.self)
+	senderClusterID := clusters.IDByAddress(from)
+	originClusterID := clusters.IDByAddress(msg.Originator())
+	ownClusterID := clusters.IDByAddress(s.self)
 
 	if senderClusterID == -1 || originClusterID == -1 || ownClusterID == -1 {
-		fmt.Println("Selector: unknown clusters", "sender", from.Hex(), "originator", msg.Originator().Hex(), "msg hash", msg.Hash().Hex(), "self", r.self.Hex())
+		fmt.Println("Selector: unknown clusters", "sender", from.Hex(), "originator", msg.Originator().Hex(), "msg hash", msg.Hash().Hex(), "self", s.self.Hex())
 		return nil, errors.New("unknown clusters")
 	}
 
-	senderType := determineSenderType(from, r.self, msg, originClusterID, ownClusterID, senderClusterID)
-	cacheKey := GenerateCacheKey(from, senderType, msg.Code())
-	if cached, exists := r.cache.Get(cacheKey); exists {
-		if r.allConnected(cached.Recipients) {
-			r.cache.UpdateLastUsed(cacheKey)
-			r.clusterStatus(r.buildResultFromRecipients(cached.Recipients, clusters), msg, from, senderType, ownClusterID, originClusterID)
+	senderType := determineSenderType(from, s.self, msg, originClusterID, ownClusterID, senderClusterID)
+	cacheKey := cache.GenerateCacheKey(from, int(senderType), msg.Code())
+	if cached, exists := s.peerCache.Get(cacheKey); exists {
+		if s.allConnected(cached.Recipients) {
+			s.peerCache.UpdateLastUsed(cacheKey)
+			s.clusterStatus(s.buildResultFromRecipients(cached.Recipients, clusters), msg, from, senderType, ownClusterID, originClusterID)
 			return cached.Recipients, nil
 		}
 	}
 
-	recipients := r.selectBucketBasedNodes(clusters, committee, senderType, ownClusterID, from, isProposal)
+	recipients := s.selectBucketBasedNodes(clusters, committee, senderType, ownClusterID, from, isProposal)
 	selected := make([]common.Address, 0, len(recipients))
 	for _, r := range recipients {
 		selected = append(selected, r.Addr)
 	}
 
-	r.cache.Set(cacheKey, selected)
-	r.clusterStatus(r.buildResultFromRecipients(selected, clusters), msg, from, senderType, ownClusterID, originClusterID)
+	s.peerCache.Set(cacheKey, selected)
+	s.clusterStatus(s.buildResultFromRecipients(selected, clusters), msg, from, senderType, ownClusterID, originClusterID)
 	return selected, nil
 }
 
-func (r *Selector) selectNodesByLatencySpread() ([]NodeLatency, error) {
+func (s *Selector) selectNodesByLatencySpread() ([]network.Node, error) {
 
-	recipients := make([]NodeLatency, 0)
+	recipients := make([]network.Node, 0)
 	usedClusters := make(map[int]bool)
 
+	clusters := s.networkProvider.Clusters()
 	// Select one node from each remote cluster
-	for clusterID := range r.clusters.base {
-		if clusterID == r.clusters.ownClusterID || usedClusters[clusterID] {
+	for clusterID := range clusters.Base() {
+		if clusterID == clusters.ID() || usedClusters[clusterID] {
 			continue
 		}
-		var selectedNode *NodeLatency
+		var selectedNode *network.Node
 		// Try primary nodes from this cluster
-		for _, primary := range r.clusters.bucketNodes {
+		for _, primary := range clusters.BucketNodes() {
 			if primary.ClusterID == clusterID && !usedClusters[clusterID] {
-				if _, ok := r.broadcaster.FindPeer(primary.Addr); ok {
+				if _, ok := s.peerFinder.FindPeer(primary.Addr); ok {
 					selectedNode = &primary
 					break
 				}
@@ -167,10 +170,10 @@ func (r *Selector) selectNodesByLatencySpread() ([]NodeLatency, error) {
 		}
 		// Try fallback nodes from this cluster
 		if selectedNode == nil {
-			for _, fallbacks := range r.clusters.bucketFallbacks {
+			for _, fallbacks := range clusters.BucketFallBacks() {
 				for _, node := range fallbacks {
 					if node.ClusterID == clusterID && !usedClusters[clusterID] {
-						if _, ok := r.broadcaster.FindPeer(node.Addr); ok {
+						if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
 							selectedNode = &node
 							break
 						}
@@ -183,43 +186,43 @@ func (r *Selector) selectNodesByLatencySpread() ([]NodeLatency, error) {
 		}
 		// Try any node from the cluster
 		if selectedNode == nil {
-			for _, node := range r.clusters.base[clusterID].Members {
-				if usedClusters[node.ClusterID] || node.Addr == r.self {
+			for _, node := range clusters.MembersByID(clusterID) {
+				if usedClusters[node.ClusterID] || node.Addr == s.self {
 					continue
 				}
-				if _, ok := r.broadcaster.FindPeer(node.Addr); ok {
+				if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
 					selectedNode = &node
 					break
 				}
 			}
 		}
 		if selectedNode != nil {
-			recipients = append(recipients, NodeLatency{selectedNode.Addr, selectedNode.Lat, selectedNode.ClusterID})
+			recipients = append(recipients, network.Node{selectedNode.Addr, selectedNode.Lat, selectedNode.ClusterID})
 			usedClusters[clusterID] = true
 		}
 	}
 
 	// Select local cluster nodes (up to sqrt(n))
-	if r.clusters.ownClusterID != -1 && !usedClusters[r.clusters.ownClusterID] {
-		localTarget := int(math.Sqrt(float64(len(r.clusters.base[r.clusters.ownClusterID].Members))))
+	if clusters.ID() != -1 && !usedClusters[clusters.ID()] {
+		localTarget := int(math.Sqrt(float64(len(clusters.MembersByID(clusters.ID())))))
 		localSelected := 0
 		// Try local primary nodes
-		for _, node := range r.clusters.localBucketNodes {
-			if localSelected >= localTarget || usedClusters[node.ClusterID] || node.Addr == r.self {
+		for _, node := range clusters.LocalBucketNodes() {
+			if localSelected >= localTarget || usedClusters[node.ClusterID] || node.Addr == s.self {
 				continue
 			}
-			if _, ok := r.broadcaster.FindPeer(node.Addr); ok {
+			if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
 				recipients = append(recipients, node)
 				usedClusters[node.ClusterID] = true
 				localSelected++
 			}
 		}
 		// Try local fallback nodes
-		for _, node := range r.clusters.localBucketFallbacks {
-			if localSelected >= localTarget || usedClusters[node.ClusterID] || node.Addr == r.self {
+		for _, node := range clusters.LocalBucketFallBacks() {
+			if localSelected >= localTarget || usedClusters[node.ClusterID] || node.Addr == s.self {
 				continue
 			}
-			if _, ok := r.broadcaster.FindPeer(node.Addr); ok {
+			if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
 				recipients = append(recipients, node)
 				usedClusters[node.ClusterID] = true
 				localSelected++
@@ -227,11 +230,11 @@ func (r *Selector) selectNodesByLatencySpread() ([]NodeLatency, error) {
 		}
 		// Try any node from local cluster
 		if localSelected < localTarget {
-			for _, node := range r.clusters.base[r.clusters.ownClusterID].Members {
-				if localSelected >= localTarget || usedClusters[node.ClusterID] || node.Addr == r.self {
+			for _, node := range clusters.MembersByID(clusters.ID()) {
+				if localSelected >= localTarget || usedClusters[node.ClusterID] || node.Addr == s.self {
 					continue
 				}
-				if _, ok := r.broadcaster.FindPeer(node.Addr); ok {
+				if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
 					recipients = append(recipients, node)
 					usedClusters[node.ClusterID] = true
 					localSelected++
@@ -260,14 +263,14 @@ func determineSenderType(from, self common.Address, msg message.Msg, originClust
 	}
 }
 
-func (r *Selector) selectBucketBasedNodes(clusters Clusters, committee *types.Committee, senderType SenderType, ownClusterID int, from common.Address, isProposal bool) []NodeLatency {
-	var recipients []NodeLatency
+func (s *Selector) selectBucketBasedNodes(clusters network.Clusters, committee *types.Committee, senderType SenderType, ownClusterID int, from common.Address, isProposal bool) []network.Node {
+	var recipients []network.Node
 	var minNodes, lowLatencyNodes int
 
 	switch senderType {
 	case originator:
 		var err error
-		recipients, err = r.selectNodesByLatencySpread()
+		recipients, err = s.selectNodesByLatencySpread()
 		if err != nil {
 			log.Error("Error selecting nodes for originator", "error", err)
 			break
@@ -281,46 +284,46 @@ func (r *Selector) selectBucketBasedNodes(clusters Clusters, committee *types.Co
 			lowLatencyNodes = 6
 		}
 		// 1 closest node from each cluster
-		for clusterID, cluster := range clusters.base {
-			recipients = append(recipients, r.selectCloseNodes(cluster, committee, clusterID, minNodes, lowLatencyNodes, []common.Address{r.self, from})...)
+		for clusterID := range clusters.Base() {
+			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{s.self, from})...)
 		}
 
 	case firstRelayerOriginCluster:
 		// remote clusters
 		minNodes = 1
 		lowLatencyNodes = 4
-		for clusterID, cluster := range clusters.base {
+		for clusterID := range clusters.Base() {
 			if clusterID == ownClusterID {
 				continue
 			}
-			recipients = append(recipients, r.selectCloseNodes(cluster, committee, clusterID, minNodes, lowLatencyNodes, []common.Address{r.self, from})...)
+			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{s.self, from})...)
 		}
 		// local cluster
-		minNodes = len(clusters.base[ownClusterID].Members)
-		recipients = append(recipients, r.selectCloseNodes(clusters.base[ownClusterID], committee, ownClusterID, minNodes, 0, []common.Address{r.self, from})...)
+		minNodes = len(clusters.MembersByID(clusters.ID()))
+		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, []common.Address{s.self, from})...)
 
 	case firstRelayerRemoteCluster: // now also includes messages from the first Relayer in origin cluster
 		// remote clusters
 		minNodes = 0
 		lowLatencyNodes = 4
-		for clusterID, cluster := range clusters.base {
+		for clusterID:= range clusters.Base() {
 			if clusterID == ownClusterID {
 				continue
 			}
-			recipients = append(recipients, r.selectCloseNodes(cluster, committee, clusterID, minNodes, lowLatencyNodes, []common.Address{r.self, from})...)
+			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{s.self, from})...)
 		}
 		// local cluster
-		minNodes = len(clusters.base[ownClusterID].Members)
-		recipients = append(recipients, r.selectCloseNodes(clusters.base[ownClusterID], committee, ownClusterID, minNodes, 0, []common.Address{r.self, from})...)
+		minNodes = len(clusters.Base()[ownClusterID])
+		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, []common.Address{s.self, from})...)
 
 	case localRelayerOriginCluster, localRelayerRemoteCluster:
-		localNodes := len(clusters.base[ownClusterID].Members)
+		localNodes := len(clusters.Base()[ownClusterID])
 		targetLocalNodes := localNodes
 		if isProposal {
 			// Select sqrt(n) nodes from local cluster for proposal
 			targetLocalNodes = int(math.Sqrt(float64(localNodes)))
 		}
-		localCandidates := r.routingCandidatesFromCluster(ownClusterID, []common.Address{r.self, from}, committee)
+		localCandidates := s.routingCandidatesFromCluster(ownClusterID, []common.Address{s.self, from}, committee)
 		rand.Shuffle(len(localCandidates), func(i, j int) {
 			localCandidates[i], localCandidates[j] = localCandidates[j], localCandidates[i]
 		})
@@ -329,15 +332,15 @@ func (r *Selector) selectBucketBasedNodes(clusters Clusters, committee *types.Co
 		}
 	}
 
-	recipients = r.deduplicate(recipients)
+	recipients = s.deduplicate(recipients)
 	// Sort by latency for consistent ordering
 	sort.Slice(recipients, func(i, j int) bool { return recipients[i].Lat < recipients[j].Lat })
 	return recipients
 }
 
-func (r *Selector) deduplicate(recipients []NodeLatency) []NodeLatency {
+func (s *Selector) deduplicate(recipients []network.Node) []network.Node {
 	seen := make(map[common.Address]struct{}, len(recipients))
-	var selected []NodeLatency
+	var selected []network.Node
 	for _, node := range recipients {
 		if _, exists := seen[node.Addr]; !exists {
 			seen[node.Addr] = struct{}{}
@@ -347,9 +350,9 @@ func (r *Selector) deduplicate(recipients []NodeLatency) []NodeLatency {
 	return selected
 }
 
-func (r *Selector) selectCloseNodes(cluster ClusterView, committee *types.Committee, clusterID, minNodes, lowLatencyNodes int, exclude []common.Address) []NodeLatency {
-	var selected, candidates []NodeLatency
-	candidates = r.routingCandidatesFromCluster(clusterID, exclude, committee)
+func (s *Selector) selectCloseNodes(committee *types.Committee, clusterID, minNodes, lowLatencyNodes int, exclude []common.Address) []network.Node {
+	var selected, candidates []network.Node
+	candidates = s.routingCandidatesFromCluster(clusterID, exclude, committee)
 	if len(candidates) == 0 {
 		return nil
 	}
@@ -363,7 +366,7 @@ func (r *Selector) selectCloseNodes(cluster ClusterView, committee *types.Commit
 		}
 	}
 
-	for ; i < len(candidates) && candidates[i].Lat < uint(DefaultNearThreshold) && len(selected) < lowLatencyNodes; i++ {
+	for ; i < len(candidates) && candidates[i].Lat < uint(constants.DefaultNearThreshold) && len(selected) < lowLatencyNodes; i++ {
 		c := candidates[i]
 		if _, exists := seen[c.Addr]; !exists {
 			seen[c.Addr] = struct{}{}
@@ -374,11 +377,11 @@ func (r *Selector) selectCloseNodes(cluster ClusterView, committee *types.Commit
 	return selected
 }
 
-func (r *Selector) buildResultFromRecipients(recipients []common.Address, clusters Clusters) []NodeLatency {
-	result := make([]NodeLatency, 0, len(recipients))
+func (s *Selector) buildResultFromRecipients(recipients []common.Address, clusters network.Clusters) []network.Node {
+	result := make([]network.Node, 0, len(recipients))
 	for _, recipient := range recipients {
-		id := clusters.clusterContaining(recipient)
-		member, err := clusters.addressToMember(id, recipient)
+		id := clusters.IDByAddress(recipient)
+		member, err := clusters.GetNode(id, recipient)
 		if err == nil {
 			result = append(result, member)
 		}
@@ -386,28 +389,28 @@ func (r *Selector) buildResultFromRecipients(recipients []common.Address, cluste
 	return result
 }
 
-func (r *Selector) clusterStatus(recipients []NodeLatency, msg message.Msg, from common.Address, senderType SenderType, ownClusterID int, originClusterID int) {
+func (s *Selector) clusterStatus(recipients []network.Node, msg message.Msg, from common.Address, senderType SenderType, ownClusterID int, originClusterID int) {
 	logKey := fmt.Sprintf("%d-%d-%d", msg.H(), msg.R(), msg.Code())
 
-	r.heightLock.Lock()
-	if _, logged := r.loggedHR[logKey]; logged {
-		r.heightLock.Unlock()
+	s.heightLock.Lock()
+	if _, logged := s.loggedHR[logKey]; logged {
+		s.heightLock.Unlock()
 		return
 	}
 
-	oldHeight := r.recentHeights[r.heightIndex]
+	oldHeight := s.recentHeights[s.heightIndex]
 	if oldHeight != 0 {
-		for k, h := range r.loggedHR {
+		for k, h := range s.loggedHR {
 			if h == oldHeight {
-				delete(r.loggedHR, k)
+				delete(s.loggedHR, k)
 			}
 		}
 	}
 
-	r.recentHeights[r.heightIndex] = msg.H()
-	r.loggedHR[logKey] = msg.H()
-	r.heightIndex = (r.heightIndex + 1) % 50
-	r.heightLock.Unlock()
+	s.recentHeights[s.heightIndex] = msg.H()
+	s.loggedHR[logKey] = msg.H()
+	s.heightIndex = (s.heightIndex + 1) % 50
+	s.heightLock.Unlock()
 
 	var sb strings.Builder
 	totalDisconnected := 0
@@ -445,7 +448,7 @@ func (r *Selector) clusterStatus(recipients []NodeLatency, msg message.Msg, from
 	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s MessageHash=%s SenderType=%s localCluster=%d originCluster=%d\n",
 		msg.H(), msg.R(), from.Hex(), msgType, msg.Hash().Hex(), sender, ownClusterID, originClusterID))
 
-	clusterMap := make(map[int][]NodeLatency)
+	clusterMap := make(map[int][]network.Node)
 	for _, node := range recipients {
 		clusterMap[node.ClusterID] = append(clusterMap[node.ClusterID], node)
 	}
@@ -456,7 +459,7 @@ func (r *Selector) clusterStatus(recipients []NodeLatency, msg message.Msg, from
 		latencyList := []string{}
 
 		for _, peer := range cluster {
-			_, ok := r.broadcaster.FindPeer(peer.Addr)
+			_, ok := s.peerFinder.FindPeer(peer.Addr)
 			if ok {
 				connectedCount++
 				totalConnected++

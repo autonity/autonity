@@ -15,7 +15,7 @@ import (
 )
 
 type msgRouter interface {
-	Route(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
+	Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 }
 
@@ -82,9 +82,24 @@ func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
 	g.gossip(msg, recipients)
 }
 
+func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
+	recipients, err := g.router.Recipients(committee, msg, g.address)
+	if err != nil {
+		log.Debug("no recipients for message from msgRouter, broadcast", "error", err, "height", msg.H(), "message type", msg.Code())
+		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
+		recipients := make([]common.Address, 0, committee.Len())
+		for _, val := range committee.Members {
+			if val.Address != g.address {
+				recipients = append(recipients, val.Address)
+			}
+		}
+	}
+	g.gossip(msg, recipients)
+}
+
 func (g *Gossiper) gossip(msg message.Msg, recipients []common.Address) {
 	hash := msg.Hash()
-	if !g.knownMessages.Contains(hash) {
+	if msg.Originator() == g.address {
 		g.knownMessages.Add(hash, true)
 	}
 	if g.broadcaster == nil {
@@ -109,7 +124,7 @@ func (g *Gossiper) gossip(msg message.Msg, recipients []common.Address) {
 		}
 	}
 	if len(lostPeers) > 0 {
-		g.logger.Debug("Gossiper: peers not found", "len", len(lostPeers), "peers", lostPeers)
+		g.logger.Debug("peers not found", "len", len(lostPeers), "peers", lostPeers)
 	}
 }
 
