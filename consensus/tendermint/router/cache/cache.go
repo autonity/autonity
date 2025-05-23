@@ -1,4 +1,4 @@
-package router
+package cache
 
 import (
 	"fmt"
@@ -92,6 +92,6 @@ func (c *PeerSelectionCache) Cleanup() {
 	}
 }
 
-func GenerateCacheKey(from common.Address, senderType SenderType, msgCode uint8) string {
+func GenerateCacheKey(from common.Address, senderType int, msgCode uint8) string {
 	return fmt.Sprintf("%s-%d-%d", from.Hex(), senderType, msgCode)
 }

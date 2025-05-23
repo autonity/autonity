@@ -1,8 +1,8 @@
 package interfaces
 
 import (
-	"github.com/autonity/autonity/consensus/tendermint/router"
 	"github.com/autonity/autonity/consensus/tendermint/router/ping"
+	"github.com/autonity/autonity/consensus/tendermint/router/selector"
 )
 
 type Services struct {
@@ -11,6 +11,6 @@ type Services struct {
 	Proposer    func(c Core) Proposer
 	Precommiter func(c Core) Precommiter
 	Gossiper func(b Backend) Gossiper
-	Selector router.PeerSelector
+	Selector selector.PeerSelector
 	Pinger   ping.Pinger
 }

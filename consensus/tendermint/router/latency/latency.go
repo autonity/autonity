@@ -1,4 +1,4 @@
-package router
+package latency
 
 import (
 	"errors"
@@ -6,34 +6,33 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/router/constants"
+	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 )
 
-type LatencyFetcher struct {
-	pinger      ping.Pinger
-	broadcaster consensus.Broadcaster
+type Fetcher struct {
+	pinger     ping.Pinger
+	peerFinder interfaces.PeerFinder
 }
 
-func NewLatencyFetcher(pinger ping.Pinger, broadcaster consensus.Broadcaster) *LatencyFetcher {
-	if pinger == nil {
-		pinger = ping.NewPinger(ping.TCP)
-	}
-	return &LatencyFetcher{
-		pinger:      pinger,
-		broadcaster: broadcaster,
+func NewFetcher(pinger ping.Pinger, peerFinder interfaces.PeerFinder) *Fetcher {
+	return &Fetcher{
+		pinger:     pinger,
+		peerFinder: peerFinder,
 	}
 }
 
-// FetchLatency measures latency for all validators, returning the latency map and a list of nodes that failed measurement.
-func (f *LatencyFetcher) FetchLatency(validators []common.Address, self common.Address) (map[common.Address]uint, []common.Address, error) {
-	if f.broadcaster == nil {
+// Fetch measures latency for all validators, returning the latency map and a list of nodes that failed measurement.
+func (f *Fetcher) Fetch(validators []common.Address, self common.Address) (map[common.Address]uint, []common.Address, error) {
+	if f.peerFinder == nil {
 		return nil, nil, errors.New("broadcaster not set, can't fetch latency")
 	}
 
-	committeeEnodes := f.broadcaster.CommitteeEnodes()
+	committeeEnodes := f.peerFinder.CommitteeEnodes()
 	latency := make(map[common.Address]uint)
 	pingTargets := make([]ping.Target, len(validators))
 	failedNodes := make([]common.Address, 0)
@@ -44,14 +43,14 @@ func (f *LatencyFetcher) FetchLatency(validators []common.Address, self common.A
 			latency[member] = 0
 			continue
 		}
-		if _, ok := f.broadcaster.FindPeer(member); !ok {
+		if _, ok := f.peerFinder.FindPeer(member); !ok {
 			log.Debug("Node not connected, skipping ping", "peer", member.Hex())
 			pingTargets[i] = ping.Target{}
 			failedNodes = append(failedNodes, member)
-			latency[member] = DefaultLatency
+			latency[member] = constants.DefaultLatency
 			continue
 		}
-		if memberNode, ok := findByAddress(committeeEnodes, member); ok {
+		if memberNode, ok := enodeByAddress(committeeEnodes, member); ok {
 			ip := memberNode.IP()
 			port := memberNode.TCP()
 			pingTargets[i] = ping.Target{IP: ip.String(), Port: port}
@@ -60,7 +59,7 @@ func (f *LatencyFetcher) FetchLatency(validators []common.Address, self common.A
 			log.Error("Peer not found in broadcaster enodes", "peer", member.Hex())
 			pingTargets[i] = ping.Target{}
 			failedNodes = append(failedNodes, member)
-			latency[member] = DefaultLatency
+			latency[member] = constants.DefaultLatency
 		}
 	}
 
@@ -79,7 +78,11 @@ func (f *LatencyFetcher) FetchLatency(validators []common.Address, self common.A
 	return latency, failedNodes, nil
 }
 
-func (f *LatencyFetcher) pingPeers(targets []ping.Target) []time.Duration {
+func (f *Fetcher) SetBroadcaster(broadcaster consensus.Broadcaster) {
+	f.peerFinder = broadcaster
+}
+
+func (f *Fetcher) pingPeers(targets []ping.Target) []time.Duration {
 	channelArray := make([]chan time.Duration, len(targets))
 	for i, t := range targets {
 		resultCh := make(chan time.Duration, 1)
@@ -98,7 +101,7 @@ func (f *LatencyFetcher) pingPeers(targets []ping.Target) []time.Duration {
 	return results
 }
 
-func findByAddress(committeeEnodes []*enode.Node, addr common.Address) (*enode.Node, bool) {
+func enodeByAddress(committeeEnodes []*enode.Node, addr common.Address) (*enode.Node, bool) {
 	for _, memberNode := range committeeEnodes {
 		pubKey := memberNode.Pubkey()
 		if crypto.PubkeyToAddress(*pubKey) == addr {

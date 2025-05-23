@@ -1,43 +1,32 @@
-package router
+package network
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"sort"
-	"strings"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/consensus/tendermint/router/constants"
 )
 
-type NodeLatency struct {
+type Node struct {
 	Addr      common.Address
 	Lat       uint
 	ClusterID int
 }
 
-type ClusterView struct {
-	Members []NodeLatency
-}
-
 type Clusters struct {
-	base                 []ClusterView
+	base                 [][]Node
 	ownClusterID         int
 	minLatency           uint
 	maxLatency           uint
 	bucketSize           float64
-	clusterToBucket      map[int][]int         // clusterID -> list of bucket indices it can fill
-	bucketNodes          map[int]NodeLatency   // bucketIdx -> preselected node (remote clusters)
-	bucketFallbacks      map[int][]NodeLatency // bucketIdx -> fallback nodes (remote clusters)
-	localBucketNodes     []NodeLatency         // preselected nodes for local cluster
-	localBucketFallbacks []NodeLatency         // fallback nodes for local cluster
+	clusterToBucket      map[int][]int  // clusterID -> list of bucket indices it can fill
+	bucketNodes          map[int]Node   // bucketIdx -> preselected node (remote clusters)
+	bucketFallbacks      map[int][]Node // bucketIdx -> fallback nodes (remote clusters)
+	localBucketNodes     []Node         // preselected nodes for local cluster
+	localBucketFallbacks []Node         // fallback nodes for local cluster
 	addressToCluster     map[common.Address]int
-}
-
-// Base returns the base cluster views
-func (c *Clusters) Base() []ClusterView {
-	return c.base
 }
 
 // createClusters initializes the Clusters struct with committee members and latency data
@@ -48,19 +37,19 @@ func createClusters(
 	numClusters int,
 ) Clusters {
 	c := Clusters{
-		base:             make([]ClusterView, numClusters),
+		base:             make([][]Node, numClusters),
 		addressToCluster: make(map[common.Address]int),
 		minLatency:       uint(math.MaxUint),
 		maxLatency:       uint(0),
 		clusterToBucket:  make(map[int][]int),
-		bucketNodes:      make(map[int]NodeLatency),
-		bucketFallbacks:  make(map[int][]NodeLatency),
+		bucketNodes:      make(map[int]Node),
+		bucketFallbacks:  make(map[int][]Node),
 		ownClusterID:     -1,
 	}
 
 	for i, addr := range committee {
 		clusterID := i % numClusters
-		latency := DefaultLatency
+		latency := constants.DefaultLatency
 		if lat, ok := latencyMap[addr]; ok {
 			latency = lat
 		}
@@ -70,25 +59,30 @@ func createClusters(
 		if latency > c.maxLatency {
 			c.maxLatency = latency
 		}
-		c.base[clusterID].Members = append(c.base[clusterID].Members, NodeLatency{Addr: addr, Lat: uint(latency), ClusterID: clusterID})
+		c.base[clusterID] = append(c.base[clusterID], Node{Addr: addr, Lat: uint(latency), ClusterID: clusterID})
 		c.addressToCluster[addr] = clusterID
 		if addr == self {
 			c.ownClusterID = clusterID
 		}
 	}
-	c.maxLatency = uint(float64(c.maxLatency) * MaxLatencyCapFactor)
+	c.maxLatency = uint(float64(c.maxLatency) * constants.MaxLatencyCapFactor)
 
 	return c
 }
 
-func (c *Clusters) ComputeLatencyBuckets() (remoteBuckets, localBuckets [][]NodeLatency) {
+// Base returns the base cluster views
+func (c *Clusters) Base() [][]Node {
+	return c.base
+}
+
+func (c *Clusters) ComputeLatencyBuckets() (remoteBuckets, localBuckets [][]Node) {
 	BucketCount := len(c.base)
 	c.bucketSize = float64(c.maxLatency-c.minLatency) / float64(BucketCount)
 	if c.bucketSize < 1 {
 		c.bucketSize = 1
 	}
-	remoteBuckets = make([][]NodeLatency, BucketCount)
-	localBuckets = make([][]NodeLatency, BucketCount)
+	remoteBuckets = make([][]Node, BucketCount)
+	localBuckets = make([][]Node, BucketCount)
 
 	for clusterID, cluster := range c.base {
 		bucketSet := make(map[int]bool)
@@ -99,7 +93,7 @@ func (c *Clusters) ComputeLatencyBuckets() (remoteBuckets, localBuckets [][]Node
 		} else {
 			c.clusterToBucket[clusterID] = []int{}
 		}
-		for _, node := range cluster.Members {
+		for _, node := range cluster {
 			bucketIdx := int(float64(node.Lat-c.minLatency) / c.bucketSize)
 			if bucketIdx >= BucketCount {
 				bucketIdx = BucketCount - 1
@@ -119,7 +113,7 @@ func (c *Clusters) ComputeLatencyBuckets() (remoteBuckets, localBuckets [][]Node
 	return remoteBuckets, localBuckets
 }
 
-func (c *Clusters) AssignRemoteNodes(buckets [][]NodeLatency, numClusters int) {
+func (c *Clusters) AssignRemoteNodes(buckets [][]Node, numClusters int) {
 	BucketCount := len(c.base)
 	filledBuckets := make([]bool, BucketCount)
 	clusterAssigned := make(map[int]bool)
@@ -155,7 +149,7 @@ func (c *Clusters) AssignRemoteNodes(buckets [][]NodeLatency, numClusters int) {
 			break
 		}
 
-		var bestNode *NodeLatency
+		var bestNode *Node
 		for _, clusterID := range clusterCandidatesForBucket[bestBucket] {
 			for _, node := range buckets[bestBucket] {
 				if node.ClusterID == clusterID {
@@ -191,7 +185,7 @@ func (c *Clusters) AssignRemoteFallbacks() {
 				continue // Skip local cluster
 			}
 			// Select fallback nodes from the same cluster, excluding the primary
-			for _, node := range c.base[clusterID].Members {
+			for _, node := range c.base[clusterID] {
 				if node.Addr == primary.Addr {
 					continue // Skip the primary node
 				}
@@ -206,14 +200,14 @@ func (c *Clusters) AssignRemoteFallbacks() {
 			for _, node := range c.bucketNodes {
 				usedClusters[node.ClusterID] = true
 			}
-			for clusterID := range c.base {
+			for clusterID = range c.base {
 				if clusterID == c.ownClusterID || usedClusters[clusterID] {
 					continue
 				}
 				// Select the closest node from this cluster
-				var closest *NodeLatency
+				var closest *Node
 				minDiff := uint(math.MaxUint32)
-				for _, node := range c.base[clusterID].Members {
+				for _, node := range c.base[clusterID] {
 					diff := uint(math.Abs(float64(node.Lat - targetLat)))
 					if diff < minDiff {
 						minDiff = diff
@@ -230,7 +224,7 @@ func (c *Clusters) AssignRemoteFallbacks() {
 }
 
 // PreselectLocalNodes preselects sqrt(n) nodes and fallbacks for the local cluster
-func (c *Clusters) PreselectLocalNodes(localNodes []NodeLatency, localBuckets [][]NodeLatency, self common.Address) {
+func (c *Clusters) PreselectLocalNodes(localNodes []Node, localBuckets [][]Node, self common.Address) {
 	BucketCount := len(c.base)
 	targetLocalNodes := int(math.Sqrt(float64(len(localNodes))))
 	if targetLocalNodes == 0 {
@@ -260,111 +254,72 @@ func (c *Clusters) PreselectLocalNodes(localNodes []NodeLatency, localBuckets []
 	}
 }
 
-// PrepareClusters filters self from clusters and sorts members by latency
-func (c *Clusters) PrepareClusters(self common.Address) {
+// Prepare filters self from clusters and sorts members by latency
+func (c *Clusters) Prepare(self common.Address) {
 	for clusterID := range c.base {
-		var peers []NodeLatency
-		for _, node := range c.base[clusterID].Members {
+		var peers []Node
+		for _, node := range c.base[clusterID] {
 			if node.Addr == self {
 				continue
 			}
 			peers = append(peers, node)
 		}
 		if len(peers) == 0 {
-			c.base[clusterID] = ClusterView{}
+			c.base[clusterID] = []Node{}
 			continue
 		}
 		sort.Slice(peers, func(i, j int) bool { return peers[i].Lat < peers[j].Lat })
-		c.base[clusterID] = ClusterView{Members: peers}
+		c.base[clusterID] = peers
 	}
 }
 
-func PrintLatencyBuckets(remoteBuckets, localBuckets [][]NodeLatency, ownClusterID int, bucketSize float64, minLatency uint) {
-	var sb strings.Builder
-	sb.WriteString("\nLatency Buckets for Clusters:\n")
-
-	// Log remote buckets
-	sb.WriteString("Remote Buckets:\n")
-	for bucketIdx, nodes := range remoteBuckets {
-		lowerLat := uint(float64(bucketIdx)*bucketSize) + minLatency
-		upperLat := uint(float64(bucketIdx+1)*bucketSize) + minLatency
-		sb.WriteString(fmt.Sprintf("  Bucket #%d (Latency %d-%d ms): %d nodes\n", bucketIdx, lowerLat, upperLat, len(nodes)))
-		if len(nodes) == 0 {
-			sb.WriteString("    [Empty]\n")
-			continue
-		}
-		for _, node := range nodes {
-			sb.WriteString(fmt.Sprintf("    Node: %s, Latency: %d ms, ClusterID: %d\n", node.Addr.Hex(), node.Lat, node.ClusterID))
-		}
-	}
-
-	// Log local buckets
-	sb.WriteString(fmt.Sprintf("Local Buckets (Cluster #%d):\n", ownClusterID))
-	for bucketIdx, nodes := range localBuckets {
-		lowerLat := uint(float64(bucketIdx)*bucketSize) + minLatency
-		upperLat := uint(float64(bucketIdx+1)*bucketSize) + minLatency
-		sb.WriteString(fmt.Sprintf("  Bucket #%d (Latency %d-%d ms): %d nodes\n", bucketIdx, lowerLat, upperLat, len(nodes)))
-		if len(nodes) == 0 {
-			sb.WriteString("    [Empty]\n")
-			continue
-		}
-		for _, node := range nodes {
-			sb.WriteString(fmt.Sprintf("    Node: %s, Latency: %d ms, ClusterID: %d\n", node.Addr.Hex(), node.Lat, node.ClusterID))
-		}
-	}
-
-	log.Info(sb.String())
-}
-
-// NewClusters creates and fully initializes a Clusters object from committee addresses and latency data.
-func NewClusters(
-	committee []common.Address,
-	latencyMap map[common.Address]uint,
-	self common.Address,
-) Clusters {
-	numClusters := int(math.Floor(math.Sqrt(float64(len(committee)))))
-
-	c := createClusters(committee, latencyMap, self, numClusters)
-
-	c.PrepareClusters(self)
-
-	remoteBuckets, localBuckets := c.ComputeLatencyBuckets()
-
-	PrintLatencyBuckets(remoteBuckets, localBuckets, c.ownClusterID, c.bucketSize, c.minLatency)
-
-	c.AssignRemoteNodes(remoteBuckets, numClusters)
-
-	c.AssignRemoteFallbacks()
-
-	c.PreselectLocalNodes(c.base[c.ownClusterID].Members, localBuckets, self)
-
-	return c
-}
-
-// clusterContaining returns the ID of the cluster which containing the given address
-func (c *Clusters) clusterContaining(address common.Address) int {
+// IDByAddress returns the ID of the cluster which containing the given address
+func (c *Clusters) IDByAddress(address common.Address) int {
 	if idx, exists := c.addressToCluster[address]; exists {
 		return idx
 	}
 	return -1
 }
 
-func (c *Clusters) addressToMember(id int, address common.Address) (NodeLatency, error) {
-	for _, m := range c.base[id].Members {
+func (c *Clusters) GetNode(id int, address common.Address) (Node, error) {
+	for _, m := range c.base[id] {
 		if m.Addr == address {
 			return m, nil
 		}
 	}
-	return NodeLatency{}, errors.New("address not found in any cluster")
+	return Node{}, errors.New("address not found in any cluster")
 }
 
-// todo: use this function later
-func (c *Clusters) LatencyFromNode(address common.Address) (NodeLatency, error) {
-	id := c.clusterContaining(address)
-	for _, m := range c.base[id].Members {
+func (c *Clusters) LatencyByAddress(address common.Address) (Node, error) {
+	id := c.IDByAddress(address)
+	for _, m := range c.base[id] {
 		if m.Addr == address {
 			return m, nil
 		}
 	}
-	return NodeLatency{}, errors.New("address not found in any cluster")
+	return Node{}, errors.New("address not found in any cluster")
+}
+
+func (c *Clusters) MembersByID(clusterID int) []Node {
+	return c.base[clusterID]
+}
+
+func (c *Clusters) ID() int {
+	return c.ownClusterID
+}
+
+func (c *Clusters) BucketNodes() map[int]Node {
+	return c.bucketNodes
+}
+
+func (c *Clusters) BucketFallBacks() map[int][]Node {
+	return c.bucketFallbacks
+}
+
+func (c *Clusters) LocalBucketNodes() []Node {
+	return c.localBucketNodes
+}
+
+func (c *Clusters) LocalBucketFallBacks() []Node {
+	return c.localBucketFallbacks
 }
