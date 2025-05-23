@@ -70,14 +70,14 @@ func (l *TimeWindowLimiter) Cleanup() {
 
 type HeightBasedLimiter struct {
 	rwMutex      sync.RWMutex
-	accusations  map[common.Address]map[uint64]int
+	records      map[common.Address]map[uint64]int
 	maxPerHeight int
 	btl          uint64
 }
 
 func NewHeightBasedLimiter(maxPerHeight int, btl uint64) *HeightBasedLimiter {
 	return &HeightBasedLimiter{
-		accusations:  make(map[common.Address]map[uint64]int),
+		records:      make(map[common.Address]map[uint64]int),
 		maxPerHeight: maxPerHeight,
 		btl:          btl,
 	}
@@ -87,15 +87,15 @@ func (l *HeightBasedLimiter) Allow(sender common.Address, height uint64) error {
 	l.rwMutex.Lock()
 	defer l.rwMutex.Unlock()
 
-	if _, exists := l.accusations[sender]; !exists {
-		l.accusations[sender] = make(map[uint64]int)
+	if _, exists := l.records[sender]; !exists {
+		l.records[sender] = make(map[uint64]int)
 	}
 
-	if l.accusations[sender][height] >= l.maxPerHeight {
+	if l.records[sender][height] >= l.maxPerHeight {
 		return ErrHeightQuotaExhausted
 	}
 
-	l.accusations[sender][height]++
+	l.records[sender][height]++
 	return nil
 }
 
@@ -104,34 +104,34 @@ func (l *HeightBasedLimiter) Cleanup(head uint64) {
 	defer l.rwMutex.Unlock()
 
 	staled := head - l.btl
-	for addr, heights := range l.accusations {
+	for addr, heights := range l.records {
 		for h := range heights {
 			if h <= staled {
 				delete(heights, h)
 			}
 		}
 		if len(heights) == 0 {
-			delete(l.accusations, addr)
+			delete(l.records, addr)
 		}
 	}
 }
 
 type DuplicateTracker struct {
-	rwMutex  sync.RWMutex
-	messages map[common.Address]map[common.Hash]time.Time
-	ttl      time.Duration
+	rwMutex sync.RWMutex
+	records map[common.Address]map[common.Hash]time.Time
+	ttl     time.Duration
 }
 
 func NewDuplicateTracker(ttl time.Duration) *DuplicateTracker {
 	return &DuplicateTracker{
-		messages: make(map[common.Address]map[common.Hash]time.Time),
-		ttl:      ttl,
+		records: make(map[common.Address]map[common.Hash]time.Time),
+		ttl:     ttl,
 	}
 }
 
 func (t *DuplicateTracker) Allow(sender common.Address, hash common.Hash) error {
 	t.rwMutex.RLock()
-	if hashes, exists := t.messages[sender]; exists {
+	if hashes, exists := t.records[sender]; exists {
 		if _, duplicate := hashes[hash]; duplicate {
 			t.rwMutex.RUnlock()
 			return ErrDuplicateMessage
@@ -142,11 +142,11 @@ func (t *DuplicateTracker) Allow(sender common.Address, hash common.Hash) error 
 	t.rwMutex.Lock()
 	defer t.rwMutex.Unlock()
 
-	if _, exists := t.messages[sender]; !exists {
-		t.messages[sender] = make(map[common.Hash]time.Time)
+	if _, exists := t.records[sender]; !exists {
+		t.records[sender] = make(map[common.Hash]time.Time)
 	}
 
-	t.messages[sender][hash] = time.Now()
+	t.records[sender][hash] = time.Now()
 	return nil
 }
 
@@ -155,14 +155,14 @@ func (t *DuplicateTracker) Cleanup() {
 	defer t.rwMutex.Unlock()
 
 	cutoff := time.Now().Add(-t.ttl)
-	for addr, hashes := range t.messages {
+	for addr, hashes := range t.records {
 		for h, timestamp := range hashes {
 			if timestamp.Before(cutoff) {
 				delete(hashes, h)
 			}
 		}
 		if len(hashes) == 0 {
-			delete(t.messages, addr)
+			delete(t.records, addr)
 		}
 	}
 }

@@ -131,8 +131,8 @@ func NewFaultDetector(
 		innocenceProofBuff:    NewInnocenceProofBuffer(),
 		protocolContracts:     protocolContracts,
 		accusationRateLimiter: NewAFDRateLimiter(),
-		// 1 ask sync per 5s, rate limit reset per 5s.
-		askSyncRateLimiter:    NewTimeWindowLimiter(AskSyncInterval*time.Second, 1),
+		// 2 ask sync per 5s, as in some edge case node can send 2 within 5s: A node ask sync then followed with a restart.
+		askSyncRateLimiter:    NewTimeWindowLimiter(AskSyncInterval*time.Second, 2),
 		txPool:                txPool,
 		ethBackend:            ethBackend,
 		txOpts:                txOpts,
