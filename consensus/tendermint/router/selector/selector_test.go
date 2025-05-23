@@ -16,6 +16,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router"
+	"github.com/autonity/autonity/consensus/tendermint/router/cache"
 	"github.com/autonity/autonity/consensus/tendermint/router/network"
 	"github.com/autonity/autonity/core/types"
 )
@@ -67,11 +68,11 @@ type MockCache struct {
 	data sync.Map
 }
 
-func (mc *MockCache) Get(key string) (CacheEntry, bool) {
+func (mc *MockCache) Get(key string) (cache.Entry, bool) {
 	if val, ok := mc.data.Load(key); ok {
-		return val.(CacheEntry), true
+		return val.(cache.Entry), true
 	}
-	return CacheEntry{}, false
+	return cache.Entry{}, false
 }
 
 func (mc *MockCache) Set(key string, recipients []common.Address) {

@@ -37,7 +37,7 @@ type PeerSelector interface {
 
 type Selector struct {
 	networkProvider interfaces.NetworkProvider
-	peerCache       interfaces.CacheProvider
+	recipientCache  cache.Recipients
 	peerFinder      interfaces.PeerFinder
 	heightLock      sync.Mutex
 	loggedHR        map[string]uint64
@@ -46,10 +46,10 @@ type Selector struct {
 	self            common.Address
 }
 
-func New(np interfaces.NetworkProvider, cache interfaces.CacheProvider, peerFinder interfaces.PeerFinder, self common.Address) *Selector {
+func New(np interfaces.NetworkProvider, cache cache.Recipients, peerFinder interfaces.PeerFinder, self common.Address) *Selector {
 	s := &Selector{
 		networkProvider: np,
-		peerCache:       cache,
+		recipientCache:  cache,
 		peerFinder:      peerFinder,
 		self:            self,
 		loggedHR:        make(map[string]uint64),
@@ -127,10 +127,10 @@ func (s *Selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 	}
 
 	senderType := determineSenderType(from, s.self, msg, originClusterID, ownClusterID, senderClusterID)
-	cacheKey := cache.GenerateCacheKey(from, int(senderType), msg.Code())
-	if cached, exists := s.peerCache.Get(cacheKey); exists {
+	cacheKey := cache.GenerateKey(from, int(senderType), msg.Code())
+	if cached, exists := s.recipientCache.Get(cacheKey); exists {
 		if s.allConnected(cached.Recipients) {
-			s.peerCache.UpdateLastUsed(cacheKey)
+			s.recipientCache.UpdateLastUsed(cacheKey)
 			s.clusterStatus(s.buildResultFromRecipients(cached.Recipients, clusters), msg, from, senderType, ownClusterID, originClusterID)
 			return cached.Recipients, nil
 		}
@@ -142,7 +142,7 @@ func (s *Selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 		selected = append(selected, r.Addr)
 	}
 
-	s.peerCache.Set(cacheKey, selected)
+	s.recipientCache.Set(cacheKey, selected)
 	s.clusterStatus(s.buildResultFromRecipients(selected, clusters), msg, from, senderType, ownClusterID, originClusterID)
 	return selected, nil
 }
@@ -306,7 +306,7 @@ func (s *Selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 		// remote clusters
 		minNodes = 0
 		lowLatencyNodes = 4
-		for clusterID:= range clusters.Base() {
+		for clusterID := range clusters.Base() {
 			if clusterID == ownClusterID {
 				continue
 			}

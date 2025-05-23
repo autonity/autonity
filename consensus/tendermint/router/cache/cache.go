@@ -13,85 +13,85 @@ const (
 	cacheEntryTTL = 30 * time.Minute
 )
 
-type RecipientCache interface {
-	Get(key string) (CacheEntry, bool)
+type Recipients interface {
+	Get(key string) (Entry, bool)
 	Set(key string, recipients []common.Address)
 	UpdateLastUsed(key string)
 	Invalidate()
 	Cleanup()
 }
 
-type CacheEntry struct {
+type Entry struct {
 	Recipients []common.Address
 	Version    int64
 	LastUsed   time.Time
 }
 
-type PeerSelectionCache struct {
-	cache        map[string]CacheEntry
-	cacheMu      sync.RWMutex
+type peerCache struct {
+	recipients map[string]Entry
+	sync.RWMutex
 	cacheVersion int64
 }
 
-func NewPeerSelectionCache() *PeerSelectionCache {
-	return &PeerSelectionCache{
-		cache:        make(map[string]CacheEntry),
+func New() Recipients {
+	return &peerCache{
+		recipients:   make(map[string]Entry),
 		cacheVersion: 1,
 	}
 }
 
-func (c *PeerSelectionCache) Get(key string) (CacheEntry, bool) {
-	c.cacheMu.RLock()
-	defer c.cacheMu.RUnlock()
-	entry, exists := c.cache[key]
+func (c *peerCache) Get(key string) (Entry, bool) {
+	c.RLock()
+	defer c.RUnlock()
+	entry, exists := c.recipients[key]
 	if entry.Version == c.cacheVersion {
 		return entry, exists
 	} else {
-		return CacheEntry{}, false
+		return Entry{}, false
 	}
 }
 
-func (c *PeerSelectionCache) Set(key string, recipients []common.Address) {
-	c.cacheMu.Lock()
-	defer c.cacheMu.Unlock()
-	c.cache[key] = CacheEntry{
+func (c *peerCache) Set(key string, recipients []common.Address) {
+	c.Lock()
+	defer c.Unlock()
+	c.recipients[key] = Entry{
 		Recipients: recipients,
 		Version:    c.cacheVersion,
 		LastUsed:   time.Now(),
 	}
 }
 
-func (c *PeerSelectionCache) UpdateLastUsed(key string) {
-	c.cacheMu.Lock()
-	defer c.cacheMu.Unlock()
-	if entry, exists := c.cache[key]; exists {
+func (c *peerCache) UpdateLastUsed(key string) {
+	c.Lock()
+	defer c.Unlock()
+	if entry, exists := c.recipients[key]; exists {
 		entry.LastUsed = time.Now()
-		c.cache[key] = entry
+		c.recipients[key] = entry
 	}
 }
 
-func (c *PeerSelectionCache) Invalidate() {
-	c.cacheMu.Lock()
-	defer c.cacheMu.Unlock()
+func (c *peerCache) Invalidate() {
+	c.Lock()
+	defer c.Unlock()
 	c.cacheVersion++
 }
 
-func (c *PeerSelectionCache) Cleanup() {
-	c.cacheMu.Lock()
-	defer c.cacheMu.Unlock()
+func (c *peerCache) Cleanup() {
+	c.Lock()
+	defer c.Unlock()
 	now := time.Now()
 	removed := 0
-	for key, entry := range c.cache {
+	for key, entry := range c.recipients {
 		if now.Sub(entry.LastUsed) > cacheEntryTTL {
-			delete(c.cache, key)
+			delete(c.recipients, key)
 			removed++
 		}
 	}
 	if removed > 0 {
-		log.Debug("PeerSelectionCache: cleaned up cache entries", "count", removed, "remaining", len(c.cache))
+		log.Debug("peerCache: cleaned up cache entries", "count", removed, "remaining", len(c.recipients))
 	}
 }
 
-func GenerateCacheKey(from common.Address, senderType int, msgCode uint8) string {
+func GenerateKey(from common.Address, senderType int, msgCode uint8) string {
 	return fmt.Sprintf("%s-%d-%d", from.Hex(), senderType, msgCode)
 }
