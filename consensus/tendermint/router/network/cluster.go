@@ -18,6 +18,7 @@ type Node struct {
 type Clusters struct {
 	base                 [][]Node
 	ownClusterID         int
+	self                 common.Address
 	minLatency           uint
 	maxLatency           uint
 	bucketSize           float64
@@ -62,6 +63,7 @@ func createClusters(
 		c.base[clusterID] = append(c.base[clusterID], Node{Addr: addr, Lat: uint(latency), ClusterID: clusterID})
 		c.addressToCluster[addr] = clusterID
 		if addr == self {
+			c.self = addr
 			c.ownClusterID = clusterID
 		}
 	}
@@ -81,6 +83,8 @@ func (c *Clusters) ComputeLatencyBuckets() (remoteBuckets, localBuckets [][]Node
 	if c.bucketSize < 1 {
 		c.bucketSize = 1
 	}
+	// latency buckets are used to group nodes by latency ranges, we create two sets:
+	// one for remote nodes and one for the local nodes
 	remoteBuckets = make([][]Node, BucketCount)
 	localBuckets = make([][]Node, BucketCount)
 
@@ -292,6 +296,9 @@ func (c *Clusters) GetNode(id int, address common.Address) (Node, error) {
 
 func (c *Clusters) LatencyByAddress(address common.Address) (Node, error) {
 	id := c.IDByAddress(address)
+	if id == -1 {
+		return Node{}, errors.New("address not found in any cluster")
+	}
 	for _, m := range c.base[id] {
 		if m.Addr == address {
 			return m, nil
@@ -306,6 +313,10 @@ func (c *Clusters) MembersByID(clusterID int) []Node {
 
 func (c *Clusters) ID() int {
 	return c.ownClusterID
+}
+
+func (c *Clusters) Self() common.Address {
+	return c.self
 }
 
 func (c *Clusters) BucketNodes() map[int]Node {
