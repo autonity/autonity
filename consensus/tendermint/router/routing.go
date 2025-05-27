@@ -27,7 +27,7 @@ const (
 	ScaleThresholdForClustering = 21
 )
 
-func SetupRouter(
+func Setup(
 	peerFinder interfaces.PeerFinder,
 	nodeKey *ecdsa.PrivateKey,
 	self common.Address,
