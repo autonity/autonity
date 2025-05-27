@@ -32,7 +32,7 @@ func SetupRouter(
 	nodeKey *ecdsa.PrivateKey,
 	self common.Address,
 	pinger ping.Pinger,
-	peerSelector selector.PeerSelector,
+	peerSelector interfaces.PeerSelector,
 	logger log.Logger,
 ) *Router {
 	peerCache := cache.New()
@@ -41,7 +41,7 @@ func SetupRouter(
 		pinger, _ = ping.NewPinger(ping.ProtocolTCP, logger)
 	}
 	if peerSelector == nil {
-		peerSelector = selector.New(nw, peerCache, peerFinder, self)
+		peerSelector = selector.New(nw, peerCache, peerFinder)
 	}
 	fetcher := latency.NewFetcher(pinger, peerFinder)
 
@@ -67,7 +67,7 @@ type Router struct {
 	network        interfaces.NetworkProvider
 	peerFinder     interfaces.PeerFinder
 	latencyFetcher interfaces.LatencyProvider
-	peerSelector   selector.PeerSelector
+	peerSelector   interfaces.PeerSelector
 	recipientCache cache.Recipients
 }
 

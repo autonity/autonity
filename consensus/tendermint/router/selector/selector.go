@@ -31,10 +31,6 @@ const (
 	localRelayerRemoteCluster
 )
 
-type PeerSelector interface {
-	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
-}
-
 type Selector struct {
 	networkProvider interfaces.NetworkProvider
 	recipientCache  cache.Recipients
@@ -43,15 +39,13 @@ type Selector struct {
 	loggedHR        map[string]uint64
 	recentHeights   [50]uint64
 	heightIndex     int
-	self            common.Address
 }
 
-func New(np interfaces.NetworkProvider, cache cache.Recipients, peerFinder interfaces.PeerFinder, self common.Address) *Selector {
+func New(np interfaces.NetworkProvider, cache cache.Recipients, peerFinder interfaces.PeerFinder) *Selector {
 	s := &Selector{
 		networkProvider: np,
 		recipientCache:  cache,
 		peerFinder:      peerFinder,
-		self:            self,
 		loggedHR:        make(map[string]uint64),
 		recentHeights:   [50]uint64{},
 		heightIndex:     0,
@@ -119,14 +113,14 @@ func (s *Selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 
 	senderClusterID := clusters.IDByAddress(from)
 	originClusterID := clusters.IDByAddress(msg.Originator())
-	ownClusterID := clusters.IDByAddress(s.self)
+	ownClusterID := clusters.ID()
 
 	if senderClusterID == -1 || originClusterID == -1 || ownClusterID == -1 {
-		fmt.Println("Selector: unknown clusters", "sender", from.Hex(), "originator", msg.Originator().Hex(), "msg hash", msg.Hash().Hex(), "self", s.self.Hex())
+		fmt.Println("Selector: unknown clusters", "sender", from.Hex(), "originator", msg.Originator().Hex(), "msg hash", msg.Hash().Hex(), "self", clusters.Self().Hex())
 		return nil, errors.New("unknown clusters")
 	}
 
-	senderType := determineSenderType(from, s.self, msg, originClusterID, ownClusterID, senderClusterID)
+	senderType := determineSenderType(from, clusters.Self(), msg, originClusterID, ownClusterID, senderClusterID)
 	cacheKey := cache.GenerateKey(from, int(senderType), msg.Code())
 	if cached, exists := s.recipientCache.Get(cacheKey); exists {
 		if s.allConnected(cached.Recipients) {
@@ -187,7 +181,7 @@ func (s *Selector) selectNodesByLatencySpread() ([]network.Node, error) {
 		// Try any node from the cluster
 		if selectedNode == nil {
 			for _, node := range clusters.MembersByID(clusterID) {
-				if usedClusters[node.ClusterID] || node.Addr == s.self {
+				if usedClusters[node.ClusterID] {
 					continue
 				}
 				if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
@@ -208,7 +202,7 @@ func (s *Selector) selectNodesByLatencySpread() ([]network.Node, error) {
 		localSelected := 0
 		// Try local primary nodes
 		for _, node := range clusters.LocalBucketNodes() {
-			if localSelected >= localTarget || usedClusters[node.ClusterID] || node.Addr == s.self {
+			if localSelected >= localTarget || usedClusters[node.ClusterID] {
 				continue
 			}
 			if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
@@ -219,7 +213,7 @@ func (s *Selector) selectNodesByLatencySpread() ([]network.Node, error) {
 		}
 		// Try local fallback nodes
 		for _, node := range clusters.LocalBucketFallBacks() {
-			if localSelected >= localTarget || usedClusters[node.ClusterID] || node.Addr == s.self {
+			if localSelected >= localTarget || usedClusters[node.ClusterID] {
 				continue
 			}
 			if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
@@ -231,7 +225,7 @@ func (s *Selector) selectNodesByLatencySpread() ([]network.Node, error) {
 		// Try any node from local cluster
 		if localSelected < localTarget {
 			for _, node := range clusters.MembersByID(clusters.ID()) {
-				if localSelected >= localTarget || usedClusters[node.ClusterID] || node.Addr == s.self {
+				if localSelected >= localTarget || usedClusters[node.ClusterID] {
 					continue
 				}
 				if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
@@ -285,7 +279,7 @@ func (s *Selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 		}
 		// 1 closest node from each cluster
 		for clusterID := range clusters.Base() {
-			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{s.self, from})...)
+			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{from})...)
 		}
 
 	case firstRelayerOriginCluster:
@@ -296,11 +290,11 @@ func (s *Selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 			if clusterID == ownClusterID {
 				continue
 			}
-			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{s.self, from})...)
+			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{from})...)
 		}
 		// local cluster
 		minNodes = len(clusters.MembersByID(clusters.ID()))
-		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, []common.Address{s.self, from})...)
+		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, []common.Address{from})...)
 
 	case firstRelayerRemoteCluster: // now also includes messages from the first Relayer in origin cluster
 		// remote clusters
@@ -310,11 +304,11 @@ func (s *Selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 			if clusterID == ownClusterID {
 				continue
 			}
-			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{s.self, from})...)
+			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{from})...)
 		}
 		// local cluster
 		minNodes = len(clusters.Base()[ownClusterID])
-		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, []common.Address{s.self, from})...)
+		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, []common.Address{from})...)
 
 	case localRelayerOriginCluster, localRelayerRemoteCluster:
 		localNodes := len(clusters.Base()[ownClusterID])
@@ -323,7 +317,7 @@ func (s *Selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 			// Select sqrt(n) nodes from local cluster for proposal
 			targetLocalNodes = int(math.Sqrt(float64(localNodes)))
 		}
-		localCandidates := s.routingCandidatesFromCluster(ownClusterID, []common.Address{s.self, from}, committee)
+		localCandidates := s.routingCandidatesFromCluster(ownClusterID, []common.Address{from}, committee)
 		rand.Shuffle(len(localCandidates), func(i, j int) {
 			localCandidates[i], localCandidates[j] = localCandidates[j], localCandidates[i]
 		})
