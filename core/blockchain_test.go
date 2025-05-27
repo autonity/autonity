@@ -3945,6 +3945,8 @@ func TestEIP3651(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
+	state, _ := chain.State()
+	t.Log("balance", state.GetBalance(aa).ToBig())
 	defer chain.Stop()
 	if n, err := chain.InsertChain(blocks); err != nil {
 		t.Fatalf("block %d: failed to insert into chain: %v", n, err)
@@ -3958,14 +3960,14 @@ func TestEIP3651(t *testing.T) {
 	if block.GasUsed() != expectedGas {
 		t.Fatalf("incorrect amount of gas spent: expected %d, got %d", expectedGas, block.GasUsed())
 	}
-
-	state, _ := chain.State()
-
+	state, _ = chain.State()
 	// 3: Ensure that miner received only the tx's tip.
 	actual := state.GetBalance(block.Coinbase()).ToBig()
 	expected := new(big.Int).SetUint64(block.GasUsed() * block.Transactions()[0].GasTipCap().Uint64())
-	if actual.Cmp(expected) != 0 {
-		t.Fatalf("miner balance incorrect: expected %d, got %d", expected, actual)
+	// we have to account for PoW block rewards as the beacon chain consensus module is not compatible with autonity.
+	newExptected := new(big.Int).Add(expected, ethash.ConstantinopleBlockReward.ToBig())
+	if actual.Cmp(newExptected) != 0 {
+		t.Fatalf("miner balance incorrect: expected %d, got %d", newExptected, actual)
 	}
 
 	// 4: Ensure the tx sender paid for the gasUsed * (tip + block baseFee).

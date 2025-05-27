@@ -33,6 +33,7 @@ var (
 
 // This test checks that those getter functions can be accessed via the client's HTTP RPC calls.
 func TestACGetterRPCs(t *testing.T) {
+	t.Skip("aut namespace currently disabled")
 	network, err := e2e.NewNetwork(t, 1, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)

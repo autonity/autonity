@@ -378,9 +378,6 @@ func (g *Genesis) ToBlock(db *triedb.Database) (*types.Block, error) {
 	if err := g.Config.Prepare(); err != nil {
 		return nil, err
 	}
-	if g.Difficulty == nil {
-		g.Difficulty = params.MinimumDifficulty
-	}
 	// If a genesis-time verkle trie is requested, create a trie config
 	// with the verkle trie enabled so that the tree can be initialized
 	// as such.
@@ -454,7 +451,7 @@ func (g *Genesis) ToBlock(db *triedb.Database) (*types.Block, error) {
 		head.GasLimit = params.GenesisGasLimit
 	}
 	if g.Difficulty == nil && g.Mixhash == (common.Hash{}) {
-		head.Difficulty = params.GenesisDifficulty
+		head.Difficulty = params.MinimumDifficulty
 	}
 	if g.Config != nil && g.Config.IsLondon(common.Big0) {
 		if g.BaseFee != nil {

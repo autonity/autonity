@@ -25,11 +25,15 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
+	"github.com/stretchr/testify/require"
 )
 
 // Tests that DAO-fork enabled clients can properly filter out fork-commencing
 // blocks based on their extradata fields.
 func TestDAOForkRangeExtradata(t *testing.T) {
+	// we need with autonity to have cancun enabled for the protocol contracts opcodes
+	// deployed at genesis to function correctly.
+	t.Skip("unsupported with autonity")
 	forkBlock := big.NewInt(32)
 	chainConfig := *params.TestConfigNoVerkle
 	chainConfig.HomesteadBlock = big.NewInt(0)
@@ -51,7 +55,8 @@ func TestDAOForkRangeExtradata(t *testing.T) {
 		BaseFee: big.NewInt(params.InitialBaseFee),
 		Config:  &proConf,
 	}
-	proBc, _ := NewBlockChain(proDb, nil, progspec, ethash.NewFaker(), vm.Config{}, nil, FakeContractBackendProvider(t), log.Root())
+	proBc, err := NewBlockChain(proDb, nil, progspec, ethash.NewFaker(), vm.Config{}, nil, FakeContractBackendProvider(t), log.Root())
+	require.NoError(t, err)
 	defer proBc.Stop()
 
 	conDb := rawdb.NewMemoryDatabase()

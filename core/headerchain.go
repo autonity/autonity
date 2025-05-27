@@ -252,6 +252,9 @@ func (hc *HeaderChain) WriteHeaders(headers []*types.Header) (int, error) {
 	if len(headers) == 0 {
 		return 0, nil
 	}
+	if !hc.HasHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1) {
+		return 0, consensus.ErrUnknownAncestor
+	}
 	var (
 		inserted    []rawdb.NumberHash // Ephemeral lookup of number/hash for the chain
 		parentKnown = true             // Set to true to force hc.HasHeader check the first iteration
@@ -333,8 +336,8 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header) (int, error) {
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		if chain[i].Number.Uint64() != chain[i-1].Number.Uint64()+1 {
-			hash := chain[i].Hash()
-			parentHash := chain[i-1].Hash()
+			hash, parentHash := chain[i].Hash(), chain[i-1].Hash()
+
 			// Chain broke ancestry, log a message (programming error) and skip insertion
 			log.Error("Non contiguous header insert", "number", chain[i].Number, "hash", hash,
 				"parent", chain[i].ParentHash, "prevnumber", chain[i-1].Number, "prevhash", parentHash)

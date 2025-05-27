@@ -49,26 +49,26 @@ func ExampleGenerateChain() {
 
 	// Ensure that key1 has some funds in the genesis block.
 	gspec := &Genesis{
-		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
+		Config: params.TestChainConfig,
+		Alloc:  types.GenesisAlloc{addr1: {Balance: params.Ntn1}},
 	}
-	genesis := gspec.MustCommit(genDb, triedb.NewDatabase(genDb, triedb.HashDefaults))
+	genesis := gspec.MustCommit(genDb, triedb.NewDatabase(genDb, triedb.VerkleDefaults))
 
 	// This call generates a chain of 5 blocks. The function runs for
 	// each block and adds different features to gen based on the
 	// block index.
-	signer := types.HomesteadSigner{}
+	signer := types.NewPragueSigner(gspec.Config.ChainID)
 	chain, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), genDb, 5, func(i int, gen *BlockGen) {
 		switch i {
 		case 0:
 			// In block 1, addr1 sends addr2 some ether.
-			tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(10000), params.TxGas, nil, nil), signer, key1)
+			tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(10000), params.TxGas, genesis.BaseFee(), nil), signer, key1)
 			gen.AddTx(tx)
 		case 1:
 			// In block 2, addr1 sends some more ether to addr2.
 			// addr2 passes it on to addr3.
-			tx1, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(1000), params.TxGas, nil, nil), signer, key1)
-			tx2, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr2), addr3, big.NewInt(1000), params.TxGas, nil, nil), signer, key2)
+			tx1, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(21000000001000), params.TxGas, genesis.BaseFee(), nil), signer, key1)
+			tx2, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr2), addr3, big.NewInt(1000), params.TxGas, genesis.BaseFee(), nil), signer, key2)
 			gen.AddTx(tx1)
 			gen.AddTx(tx2)
 		case 2:
@@ -87,7 +87,7 @@ func ExampleGenerateChain() {
 	})
 
 	// Import the chain. This runs all block validation rules.
-	blockchain, _ := NewBlockChain(db, DefaultCacheConfigWithScheme(rawdb.HashScheme), gspec, ethash.NewFaker(), vm.Config{}, nil, FakeContractBackendProvider(nil), log.Root())
+	blockchain, _ := NewBlockChain(db, DefaultCacheConfigWithScheme(rawdb.PathScheme), gspec, ethash.NewFullFaker(), vm.Config{}, nil, FakeContractBackendProvider(nil), log.Root())
 	defer blockchain.Stop()
 
 	if i, err := blockchain.InsertChain(chain); err != nil {
@@ -102,7 +102,7 @@ func ExampleGenerateChain() {
 	fmt.Println("balance of addr3:", state.GetBalance(addr3))
 	// Output:
 	// last block: #5
-	// balance of addr1: 989000
+	// balance of addr1: 999936999999989000
 	// balance of addr2: 10000
-	// balance of addr3: 19687500000000001000
+	// balance of addr3: 7875000000000001000
 }

@@ -456,7 +456,7 @@ var (
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//
 	TestConfigNoVerkle = &ChainConfig{
-		ChainID:                 big.NewInt(1337),
+		ChainID:                 big.NewInt(1),
 		HomesteadBlock:          big.NewInt(0),
 		EIP150Block:             big.NewInt(0),
 		EIP155Block:             big.NewInt(0),
@@ -543,7 +543,7 @@ var (
 	}
 
 	TestChainConfig = &ChainConfig{
-		big.NewInt(1337),
+		big.NewInt(1),
 		big.NewInt(0),
 		nil,
 		false,
