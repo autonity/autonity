@@ -13,20 +13,20 @@ func benchmarkAggregateRawPK(n int, b *testing.B) {
 	b.Logf("n: %d\n", n)
 
 	// setup public keys
-	var pks [][]byte
+	var pks []PublicKey
 	for i := 0; i < n; i++ {
 		sk, err := RandKey()
 		if err != nil {
 			b.Fatal("Failed to generate random bls key: ", err)
 		}
-		pk := sk.PublicKey().Marshal()
+		pk := sk.PublicKey()
 		pks = append(pks, pk)
 	}
 
 	// start the actual aggregation benchmarking
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := AggregateRawPublicKeys(pks); err != nil {
+		if _, err := AggregatePublicKeys(pks); err != nil {
 			b.Fatal("failed pks aggregation: ", err)
 		}
 	}
@@ -106,7 +106,7 @@ func BenchmarkSigVerify(b *testing.B) {
 	// start the actual verification benchmarking
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		res := sig.Verify(sk.PublicKey(), msg[:])
+		res := sig.Verify(sk.PublicKey(), msg[:], DefaultAssumeZeroValid)
 		if !res {
 			b.Fatal("failed signature verification")
 		}
@@ -151,20 +151,20 @@ func BenchmarkSigVerifyAgg(b *testing.B) {
 
 	// generate signatures over constant msg
 	var sigs []Signature
-	var pks [][]byte
+	var pks []PublicKey
 	for i := 0; i < 100; i++ {
 		sk, err := RandKey()
 		if err != nil {
 			b.Fatal("Failed to generate random bls key: ", err)
 		}
-		pk := sk.PublicKey().Marshal()
+		pk := sk.PublicKey()
 		pks = append(pks, pk)
 		sig := sk.Sign(msg[:])
 		sigs = append(sigs, sig)
 	}
 
 	sig := AggregateSignatures(sigs)
-	aggPk, err := AggregateRawPublicKeys(pks)
+	aggPk, err := AggregatePublicKeys(pks)
 	if err != nil {
 		b.Fatal("failed pks aggregation: ", err)
 	}
@@ -172,7 +172,7 @@ func BenchmarkSigVerifyAgg(b *testing.B) {
 	// start the actual aggregation benchmarking
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		res := sig.Verify(aggPk, msg[:])
+		res := sig.Verify(aggPk, msg[:], DefaultAssumeZeroValid)
 		if !res {
 			b.Fatal("failed signature verification")
 		}
@@ -202,13 +202,13 @@ func BenchmarkAggregateVerify3(b *testing.B) {
 	// generate signatures over votes
 	var sigsPrevote []Signature
 	var sigsPrecommit []Signature
-	var pks [][]byte
+	var pks []PublicKey
 	for i := 0; i < 100; i++ {
 		sk, err := RandKey()
 		if err != nil {
 			b.Fatal("Failed to generate random bls key: ", err)
 		}
-		pk := sk.PublicKey().Marshal()
+		pk := sk.PublicKey()
 		pks = append(pks, pk)
 		sigPrevote := sk.Sign(prevote[:])
 		sigsPrevote = append(sigsPrevote, sigPrevote)
@@ -219,7 +219,7 @@ func BenchmarkAggregateVerify3(b *testing.B) {
 	aggSigPrevote := AggregateSignatures(sigsPrevote)
 	aggSigPrecommit := AggregateSignatures(sigsPrecommit)
 	aggSig := AggregateSignatures([]Signature{sigPropose, aggSigPrevote, aggSigPrecommit})
-	aggPk, err := AggregateRawPublicKeys(pks)
+	aggPk, err := AggregatePublicKeys(pks)
 	if err != nil {
 		b.Fatal("failed pks aggregation: ", err)
 	}
@@ -252,13 +252,13 @@ func BenchmarkAggregateVerify15(b *testing.B) {
 
 	// generate signatures over msgs
 	sigs := make([][]Signature, n)
-	var pks [][]byte
+	var pks []PublicKey
 	for i := 0; i < 100; i++ {
 		sk, err := RandKey()
 		if err != nil {
 			b.Fatal("Failed to generate random bls key: ", err)
 		}
-		pk := sk.PublicKey().Marshal()
+		pk := sk.PublicKey()
 		pks = append(pks, pk)
 		for j := 0; j < len(msgs); j++ {
 			sig := sk.Sign(msgs[j][:])
@@ -266,7 +266,7 @@ func BenchmarkAggregateVerify15(b *testing.B) {
 		}
 	}
 
-	aggPk, err := AggregateRawPublicKeys(pks)
+	aggPk, err := AggregatePublicKeys(pks)
 	if err != nil {
 		b.Fatal("failed pks aggregation: ", err)
 	}
@@ -295,18 +295,12 @@ func BenchmarkAggregateVerify15(b *testing.B) {
 
 func BenchmarkAggregateVerifyInvalid(b *testing.B) {
 	b.Run("1 in 500", func(b *testing.B) {
-		b.Run("simple", func(b *testing.B) {
-			runBenchmarkAggregateVerifyInvalid(b, 500, 21)
-		})
 		b.Run("fast", func(b *testing.B) {
 			runBenchmarkFastAggregateVerifyInvalid(b, 500, 21)
 		})
 	})
 
 	b.Run("1 in 1000", func(b *testing.B) {
-		b.Run("simple", func(b *testing.B) {
-			runBenchmarkAggregateVerifyInvalid(b, 1000, 21)
-		})
 		b.Run("fast", func(b *testing.B) {
 			runBenchmarkFastAggregateVerifyInvalid(b, 1000, 21)
 
@@ -314,18 +308,12 @@ func BenchmarkAggregateVerifyInvalid(b *testing.B) {
 	})
 
 	b.Run("5 in 1000", func(b *testing.B) {
-		b.Run("simple", func(b *testing.B) {
-			runBenchmarkAggregateVerifyInvalid(b, 1000, 21, 37, 434, 795)
-		})
 		b.Run("fast", func(b *testing.B) {
 			runBenchmarkFastAggregateVerifyInvalid(b, 1000, 21, 37, 434, 795)
 		})
 	})
 
 	b.Run("10 in 1000", func(b *testing.B) {
-		b.Run("simple", func(b *testing.B) {
-			runBenchmarkAggregateVerifyInvalid(b, 1000, 21, 37, 155, 245, 343, 664, 712, 713, 800, 911)
-		})
 		b.Run("fast", func(b *testing.B) {
 			runBenchmarkFastAggregateVerifyInvalid(b, 1000, 21, 37, 155, 245, 343, 664, 712, 713, 800, 911)
 		})
@@ -514,62 +502,6 @@ func BenchmarkAggregateVerifyInvalid(b *testing.B) {
 				runBenchmarkFastAggregateVerifyInvalid(b, 5000, 21)
 			})
 		})*/
-
-}
-
-func runBenchmarkAggregateVerifyInvalid(b *testing.B, size int, failedNs ...int) {
-
-	// initialize deterministic randomness
-	rand := mrand.New(mrand.NewSource(0)) //nolint
-
-	n := size
-	//failedNs := []int{21, 37, 434, 795}
-
-	invalidSk, err := RandKey()
-	if err != nil {
-		b.Fatal("Failed to generate random  key. error: ", err)
-	}
-
-	// create messages
-	var msgs [][32]byte
-	var msg [32]byte
-	for i := 0; i < n; i++ {
-		rand.Read(msg[:])
-		msgs = append(msgs, msg)
-	}
-
-	// generate signatures over msgs
-	sigs := make([]Signature, 0, n)
-
-	var pks []PublicKey
-	for i := 0; i < n; i++ {
-		sk, err := RandKey()
-		if err != nil {
-			b.Fatal("Failed to generate random bls key: ", err)
-		}
-		pk := sk.PublicKey()
-		pks = append(pks, pk)
-
-		sig := sk.Sign(msgs[i][:])
-		sigs = append(sigs, sig)
-	}
-
-	for _, i := range failedNs {
-		invalidSig := invalidSk.Sign(msgs[failedNs[0]][:])
-
-		sigs[i] = invalidSig
-	}
-
-	// start the actual aggregation benchmarking
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-
-		_, err := FindInvalidSignatures(sigs, pks, msgs)
-		if err != nil {
-			b.Fatalf("not expected err %s", err)
-		}
-	}
 
 }
 

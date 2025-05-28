@@ -1001,7 +1001,7 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 				proof.Evidences = append(proof.Evidences, message.NewLightProposal(correspondingProposal))
 				precommits := precommitsFromPi[i:]
 
-				// we won't do aggregation for a single prommit.
+				// we won't do aggregation for a single precommit.
 				if len(precommits) == 1 {
 					proof.Evidences = append(proof.Evidences, message.Msg(precommits[0]))
 					return proof
@@ -1133,7 +1133,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 					OffenderIndex: signerIndex,
 				}
 				proof.Evidences = append(proof.Evidences, message.NewLightProposal(correspondingProposal))
-				// we won't do aggregation for a single prommit.
+				// we won't do aggregation for a single precommit.
 				if len(precommitsFromPi) == 1 {
 					proof.Evidences = append(proof.Evidences, message.Msg(precommitsFromPi[0]))
 					return proof

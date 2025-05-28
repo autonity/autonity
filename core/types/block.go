@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/autonity/autonity/log"
+
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/crypto"
 
@@ -205,7 +207,10 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 	if err != nil {
 		return nil, nil, errors.Join(ErrNonAggregatablePublicKeys, err)
 	}
-	valid := a.Signature.Verify(aggregatedKey, message[:])
+	if !aggregatedKey.Validate() {
+		log.Warn("aggregated public key from committee is zero! Please report the issue!", "signers", a.Signers.String())
+	}
+	valid := a.Signature.Verify(aggregatedKey, message[:], blst.DefaultAssumeZeroValid)
 	if !valid {
 		return nil, nil, errInvalidSignature
 	}

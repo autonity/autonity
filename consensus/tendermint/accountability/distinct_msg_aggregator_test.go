@@ -5,10 +5,12 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/require"
+	"math/big"
 	"math/rand"
 	"testing"
 )
@@ -24,7 +26,7 @@ var (
 	parentHeader = newBlockHeader(h-1, committee)
 )
 
-func TestRLPEncodingDeconding(t *testing.T) {
+func TestRLPEncodingDecoding(t *testing.T) {
 	rvs := Signers{
 		Round:               r,
 		Value:               common.Hash{},
@@ -79,7 +81,7 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 	var precommits []*message.Precommit
 	for n := 0; n < numOfFastAggPrecommits; n++ {
 		value := values[n%len(values)]
-		precommits = append(precommits, fastAggregatedPrecommit(height, int64(n), value, randomSigners(cSize)))
+		precommits = append(precommits, aggregatedPrecommit(height, int64(n), value, randomSigners(cSize), committee, keys))
 	}
 
 	t.Run("with wrong height", func(t *testing.T) {
@@ -152,10 +154,10 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 	})
 }
 
-func fastAggregatedPrecommit(h uint64, r int64, v common.Hash, signers []int) *message.Precommit {
+func aggregatedPrecommit(h uint64, r int64, v common.Hash, signers []int, committee *types.Committee, keys []blst.SecretKey) *message.Precommit {
 	precommits := make([]message.Vote, len(signers))
 	for i, s := range signers {
-		precommits[i] = newValidatedPrecommit(r, h, v, makeSigner(keys[s]), &committee.Members[s], cSize)
+		precommits[i] = newValidatedPrecommit(r, h, v, makeSigner(keys[s]), &committee.Members[s], committee.Len())
 	}
 	return message.AggregatePrecommits(precommits)
 }
@@ -177,12 +179,12 @@ func randomHighlyAggregatedPrecommits(height uint64, round int64) HighlyAggregat
 	for n := 0; n < numOfFastAggPrecommits; n++ {
 		value := values[n%len(values)]
 		// add duplicated msg but with different signers, thus the aggregation need to do a further fast aggregate.
-		precommits = append(precommits, fastAggregatedPrecommit(height, round+int64(n), value, randomSigners(cSize)))
+		precommits = append(precommits, aggregatedPrecommit(height, round+int64(n), value, randomSigners(cSize), committee, keys))
 	}
 	return AggregateDistinctPrecommits(precommits)
 }
 
-// maliciousAggregatePrecommits aggregate the precomits in a wrong way by modifying meta-data.
+// maliciousAggregatePrecommits aggregate the precommits in a wrong way by modifying meta-data.
 func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *uint64, wrongRound *int64,
 	wrongValue *common.Hash, wrongSigners []int) HighlyAggregatedPrecommit {
 
@@ -235,4 +237,113 @@ func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *
 	result.Height = defaultHeight
 	result.Signature = blst.AggregateSignatures(signatures).Marshal()
 	return result
+}
+
+func TestDistinctPrecommitsWithZeroes(t *testing.T) {
+	tweakedCommittee, blsKeys, _ := generateCommittee()
+
+	// add some keys that sum to 0 to the committee
+	x1Hex := "15d1a39e3e11a76ba764d153b1f5c28ace584e11a34d91f5bffb98e553e41079"
+	x2Hex := "5e1c03b4eb8bd5dc8bd506b457ac157a856555f15cb0ca0940046719ac1bef88"
+
+	x1, err := blst.SecretKeyFromHex(x1Hex)
+	require.NoError(t, err)
+
+	x2, err := blst.SecretKeyFromHex(x2Hex)
+	require.NoError(t, err)
+
+	X1 := x1.PublicKey()
+	X2 := x2.PublicKey()
+
+	aggX, err := blst.AggregatePublicKeys([]blst.PublicKey{X1, X2})
+	require.NoError(t, err)
+
+	// aggregated key is 0
+	require.False(t, aggX.Validate())
+
+	csize := tweakedCommittee.Len()
+	privateKey1, _ := crypto.GenerateKey()
+	committeeMember1 := types.CommitteeMember{
+		Address:           crypto.PubkeyToAddress(privateKey1.PublicKey),
+		VotingPower:       new(big.Int).SetUint64(1),
+		ConsensusKey:      X1,
+		ConsensusKeyBytes: X1.Marshal(),
+		Index:             uint64(csize),
+	}
+	csize++
+	tweakedCommittee.Members = append(tweakedCommittee.Members, committeeMember1)
+	blsKeys = append(blsKeys, x1)
+
+	privateKey2, _ := crypto.GenerateKey()
+	committeeMember2 := types.CommitteeMember{
+		Address:           crypto.PubkeyToAddress(privateKey2.PublicKey),
+		VotingPower:       new(big.Int).SetUint64(1),
+		ConsensusKey:      X2,
+		ConsensusKeyBytes: X2.Marshal(),
+		Index:             uint64(csize),
+	}
+	csize++
+	tweakedCommittee.Members = append(tweakedCommittee.Members, committeeMember2)
+	blsKeys = append(blsKeys, x2)
+
+	t.Run("1 zero key/sig in the set", func(t *testing.T) {
+		var precommits []*message.Precommit
+		precommits = append(precommits, aggregatedPrecommit(h, r, values[0], randomSigners(cSize), tweakedCommittee, blsKeys))
+		precommits = append(precommits, aggregatedPrecommit(h, r, values[1], randomSigners(cSize), tweakedCommittee, blsKeys))
+
+		// add a precommit with zero signature
+		precommits = append(precommits, aggregatedPrecommit(h, r, values[2], []int{csize - 1, csize - 2}, tweakedCommittee, blsKeys))
+
+		// signature should be valid
+		highlyAggregatedPrecommit := AggregateDistinctPrecommits(precommits)
+		require.NoError(t, highlyAggregatedPrecommit.PreValidate(tweakedCommittee, h))
+		require.NoError(t, highlyAggregatedPrecommit.Validate())
+	})
+	t.Run("whole sig/key is zero", func(t *testing.T) {
+		var precommits []*message.Precommit
+		precommits = append(precommits, aggregatedPrecommit(h, r, values[0], []int{csize - 1}, tweakedCommittee, blsKeys))
+		precommits = append(precommits, aggregatedPrecommit(h, r, values[1], []int{csize - 2}, tweakedCommittee, blsKeys))
+
+		// here key is 0 but signature is not 0
+		highlyAggregatedPrecommit := AggregateDistinctPrecommits(precommits)
+		sig, err := blst.SignatureFromBytes(highlyAggregatedPrecommit.Signature)
+		require.NoError(t, err)
+		require.False(t, sig.IsZero())
+		require.NoError(t, highlyAggregatedPrecommit.PreValidate(tweakedCommittee, h))
+		err = highlyAggregatedPrecommit.Validate()
+		t.Log(err)
+		require.Error(t, highlyAggregatedPrecommit.Validate())
+
+		// substitute signature with a zero one
+		m := common.Hash{0xca, 0xfe}
+		sig1 := x1.Sign(m[:])
+		sig2 := x2.Sign(m[:])
+		zeroSig := blst.AggregateSignatures([]blst.Signature{sig1, sig2})
+		require.True(t, zeroSig.IsZero())
+		highlyAggregatedPrecommit.Signature = zeroSig.Marshal()
+
+		// 0 sig with 0 key should be valid
+		require.NoError(t, highlyAggregatedPrecommit.PreValidate(tweakedCommittee, h))
+		require.NoError(t, highlyAggregatedPrecommit.Validate())
+
+	})
+	t.Run("all sigs are 0", func(t *testing.T) {
+		var precommits []*message.Precommit
+
+		precommits = append(precommits, aggregatedPrecommit(h, r, values[0], []int{csize - 1, csize - 2}, tweakedCommittee, blsKeys))
+		precommits = append(precommits, aggregatedPrecommit(h, r, values[1], []int{csize - 1, csize - 2}, tweakedCommittee, blsKeys))
+
+		highlyAggregatedPrecommit := AggregateDistinctPrecommits(precommits)
+		require.NoError(t, highlyAggregatedPrecommit.PreValidate(tweakedCommittee, h))
+		require.NoError(t, highlyAggregatedPrecommit.Validate())
+
+		// put not 0 signature, verification should fail
+		sig := x1.Sign(values[0][:])
+		highlyAggregatedPrecommit.Signature = sig.Marshal()
+		require.NoError(t, highlyAggregatedPrecommit.PreValidate(tweakedCommittee, h))
+		err = highlyAggregatedPrecommit.Validate()
+		t.Log(err)
+		require.Error(t, err)
+	})
+
 }
