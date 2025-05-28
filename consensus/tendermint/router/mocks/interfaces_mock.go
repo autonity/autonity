@@ -15,6 +15,7 @@ import (
 	common "github.com/autonity/autonity/common"
 	consensus "github.com/autonity/autonity/consensus"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
+	interfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	network "github.com/autonity/autonity/consensus/tendermint/router/network"
 	types "github.com/autonity/autonity/core/types"
 	enode "github.com/autonity/autonity/p2p/enode"
@@ -112,7 +113,7 @@ func (mr *MockLatencyProviderMockRecorder) Fetch(validators, self any) *gomock.C
 }
 
 // SetBroadcaster mocks base method.
-func (m *MockLatencyProvider) SetBroadcaster(broadcaster consensus.Broadcaster) {
+func (m *MockLatencyProvider) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetBroadcaster", broadcaster)
 }
@@ -227,4 +228,16 @@ func (m *MockPeerSelector) SelectPeers(committee *types.Committee, msg message.M
 func (mr *MockPeerSelectorMockRecorder) SelectPeers(committee, msg, from any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectPeers", reflect.TypeOf((*MockPeerSelector)(nil).SelectPeers), committee, msg, from)
+}
+
+// SetBroadcaster mocks base method.
+func (m *MockPeerSelector) SetBroadcaster(broadcaster interfaces.PeerFinder) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetBroadcaster", broadcaster)
+}
+
+// SetBroadcaster indicates an expected call of SetBroadcaster.
+func (mr *MockPeerSelectorMockRecorder) SetBroadcaster(broadcaster any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBroadcaster", reflect.TypeOf((*MockPeerSelector)(nil).SetBroadcaster), broadcaster)
 }
