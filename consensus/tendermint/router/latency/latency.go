@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/router/constants"
 	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/router/ping"
@@ -20,10 +19,9 @@ type Fetcher struct {
 	peerFinder interfaces.PeerFinder
 }
 
-func NewFetcher(pinger ping.Pinger, peerFinder interfaces.PeerFinder) *Fetcher {
+func NewFetcher(pinger ping.Pinger) *Fetcher {
 	return &Fetcher{
 		pinger:     pinger,
-		peerFinder: peerFinder,
 	}
 }
 
@@ -80,7 +78,7 @@ func (f *Fetcher) Fetch(validators []common.Address, self common.Address) (map[c
 	return latency, failedNodes, nil
 }
 
-func (f *Fetcher) SetBroadcaster(broadcaster consensus.Broadcaster) {
+func (f *Fetcher) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 	f.peerFinder = broadcaster
 }
 

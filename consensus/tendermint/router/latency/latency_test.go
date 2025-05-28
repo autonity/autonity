@@ -14,6 +14,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/router/constants"
 	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/router/mocks"
 	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/p2p/enode"
@@ -23,8 +24,8 @@ func TestFetcher_Fetch(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	pinger := ping.NewMockPinger(ctrl)
-	peerFinder := interfaces.NewMockPeerFinder(ctrl)
+	pinger := mocks.NewMockPinger(ctrl)
+	peerFinder := mocks.NewMockPeerFinder(ctrl)
 	fetcher := NewFetcher(pinger, peerFinder)
 
 	pubkey1, _ := crypto.HexToECDSA("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
@@ -61,7 +62,7 @@ func TestFetcher_FetchNilPeerFinder(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	pinger := ping.NewMockPinger(ctrl)
+	pinger := mocks.NewMockPinger(ctrl)
 	fetcher := NewFetcher(pinger, nil)
 
 	_, _, err := fetcher.Fetch([]common.Address{common.HexToAddress("0x111")}, common.HexToAddress("0x222"))
@@ -73,8 +74,8 @@ func TestFetcher_SetBroadcaster(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	pinger := ping.NewMockPinger(ctrl)
-	peerFinder := interfaces.NewMockPeerFinder(ctrl)
+	pinger := mocks.NewMockPinger(ctrl)
+	peerFinder := mocks.NewMockPeerFinder(ctrl)
 	fetcher := NewFetcher(pinger, nil)
 
 	fetcher.SetBroadcaster(peerFinder)
@@ -85,8 +86,8 @@ func TestFetcher_PingPeers(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	pinger := ping.NewMockPinger(ctrl)
-	peerFinder := interfaces.NewMockPeerFinder(ctrl)
+	pinger := mocks.NewMockPinger(ctrl)
+	peerFinder := mocks.NewMockPeerFinder(ctrl)
 	fetcher := NewFetcher(pinger, peerFinder)
 
 	targets := []ping.Target{
@@ -129,9 +130,10 @@ func TestFetcher_ConcurrentPingPeers(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	pinger := ping.NewMockPinger(ctrl)
-	peerFinder := interfaces.NewMockPeerFinder(ctrl)
-	fetcher := NewFetcher(pinger, peerFinder)
+	pinger := mocks.NewMockPinger(ctrl)
+	peerFinder := mocks.NewMockPeerFinder(ctrl)
+	fetcher := NewFetcher(pinger)
+	fetcher.SetBroadcaster(peerFinder)
 
 	targets := make([]ping.Target, 10)
 	for i := 0; i < 10; i++ {

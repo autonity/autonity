@@ -41,16 +41,19 @@ type Selector struct {
 	heightIndex     int
 }
 
-func New(np interfaces.NetworkProvider, cache cache.Recipients, peerFinder interfaces.PeerFinder) *Selector {
+func New(np interfaces.NetworkProvider, cache cache.Recipients) *Selector {
 	s := &Selector{
 		networkProvider: np,
 		recipientCache:  cache,
-		peerFinder:      peerFinder,
 		loggedHR:        make(map[string]uint64),
 		recentHeights:   [50]uint64{},
 		heightIndex:     0,
 	}
 	return s
+}
+
+func (s *Selector) SetBroadcaster(broadcaster interfaces.PeerFinder)  {
+	s.peerFinder = broadcaster
 }
 
 func (s *Selector) containsAddress(addrs []common.Address, addr common.Address) bool {
