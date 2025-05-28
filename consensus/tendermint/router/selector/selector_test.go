@@ -25,7 +25,8 @@ func TestSelector_New(t *testing.T) {
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
 
-	selector := New(np, recipients, peerFinder)
+	selector := New(np, recipients)
+	selector.SetBroadcaster(peerFinder)
 
 	assert.Equal(t, np, selector.networkProvider, "Expected network provider to be set")
 	assert.Equal(t, recipients, selector.recipientCache, "Expected recipients recorder to be set")
@@ -40,7 +41,8 @@ func TestSelector_SelectPeers_Proposal_CacheHit(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients, peerFinder)
+	selector := New(np, recipients)
+	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
 	committeeAddrs := []common.Address{
@@ -94,7 +96,8 @@ func TestSelector_SelectPeers_SelfNotInCommittee(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients, peerFinder)
+	selector := New(np, recipients)
+	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
 	committee := types.Committee{
@@ -128,7 +131,8 @@ func TestSelector_SelectPeers_EmptyCommittee(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients, peerFinder)
+	selector := New(np, recipients)
+	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
 	committee := types.Committee{Members: []types.CommitteeMember{}}
@@ -157,7 +161,8 @@ func TestSelector_SelectPeers_NonProposal_NoCache(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients, peerFinder)
+	selector := New(np, recipients)
+	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
 	committeeAddrs := []common.Address{
@@ -211,7 +216,8 @@ func TestSelector_selectNodesByLatencySpread(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients, peerFinder)
+	selector := New(np, recipients)
+	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
 	committeeAddrs := []common.Address{
@@ -246,7 +252,8 @@ func TestSelector_selectBucketBasedNodes_Originator(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients, peerFinder)
+	selector := New(np, recipients)
+	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
 	committeeAddrs := []common.Address{
@@ -288,7 +295,8 @@ func TestSelector_selectBucketBasedNodes_FirstRelayerOriginCluster(t *testing.T)
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients, peerFinder)
+	selector := New(np, recipients)
+	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
 	committeeAddrs := []common.Address{
@@ -343,7 +351,8 @@ func TestSelector_selectCloseNodes(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients, peerFinder)
+	selector := New(np, recipients)
+	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
 	committeeAddrs := []common.Address{
@@ -381,7 +390,8 @@ func TestSelector_routingCandidatesFromCluster(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients, peerFinder)
+	selector := New(np, recipients)
+	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
 	committeeAddrs := []common.Address{
@@ -415,7 +425,8 @@ func TestSelector_allConnected(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients, peerFinder)
+	selector := New(np, recipients)
+	selector.SetBroadcaster(peerFinder)
 
 	recipientsToTest := []common.Address{common.HexToAddress("0x111"), common.HexToAddress("0x222")}
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x111")).Return(consensus.NewMockPeer(ctrl), true).Times(1)
@@ -533,7 +544,8 @@ func TestSelector_ConcurrentSelectPeers(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients, peerFinder)
+	selector := New(np, recipients)
+	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
 	committeeAddrs := []common.Address{
