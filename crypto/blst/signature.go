@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/autonity/autonity/log"
 	"github.com/pkg/errors"
 	blst "github.com/supranational/blst/bindings/go"
 
@@ -190,6 +191,16 @@ func FastAggregateVerifyBatch(sigs []Signature, pubkeys []PublicKey, msg [32]byt
 
 	// if the aggregated sig is not part of the group, signature is invalid
 	if !aggregatedSignature.s.SigValidate(false) {
+		// I believe this should never happen, but if it does print some debugging info
+		var serializedSigs [][]byte
+		var serializedKeys [][]byte
+		var serializedScalars [][]byte
+		for i := range rawSigs {
+			serializedSigs = append(serializedSigs, rawSigs[i].Serialize())
+			serializedKeys = append(serializedKeys, rawKeys[i].Serialize())
+			serializedScalars = append(serializedScalars, scalars[i].Serialize())
+		}
+		log.Error("Unexpected error: aggregate signature is not part of the group, please report it", "sigs", serializedSigs, "rawKeys", serializedKeys, "scalars", serializedScalars)
 		return false
 	}
 
