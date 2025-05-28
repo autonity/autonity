@@ -36,7 +36,10 @@ func createClusters(
 	latencyMap map[common.Address]uint,
 	self common.Address,
 	numClusters int,
-) Clusters {
+) (Clusters, error) {
+	if len(committee) == 0 {
+		return Clusters{}, errors.New("committee cannot be empty")
+	}
 	c := Clusters{
 		base:             make([][]Node, numClusters),
 		addressToCluster: make(map[common.Address]int),
@@ -67,9 +70,14 @@ func createClusters(
 			c.ownClusterID = clusterID
 		}
 	}
+	if c.ownClusterID == -1 {
+		return Clusters{}, errors.New("self address not in committee")
+	}
 	c.maxLatency = uint(float64(c.maxLatency) * constants.MaxLatencyCapFactor)
-
-	return c
+	if c.maxLatency < c.minLatency {
+		c.maxLatency = c.minLatency
+	}
+	return c, nil
 }
 
 // Base returns the base cluster views

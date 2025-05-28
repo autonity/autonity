@@ -224,9 +224,9 @@ mock-gen:
 	mockgen -source=accounts/abi/bind/backend.go -package=bind -destination=accounts/abi/bind/backend_mock.go
 	mockgen -source=consensus/tendermint/core/interfaces/gossiper.go -package=interfaces -destination=consensus/tendermint/core/interfaces/gossiper_mock.go
 	mockgen -source=consensus/tendermint/core/interfaces/broadcaster.go -package=interfaces -destination=consensus/tendermint/core/interfaces/broadcaster_mock.go
-	mockgen -source=consensus/tendermint/router/interfaces/interfaces.go -package=mo -destination=consensus/tendermint/router/mocks/interfaces_mock.go
-	mockgen -source=consensus/tendermint/router/ping/pinger.go -package=ping -destination=consensus/tendermint/router/mocks/pinger_mock.go
-	mockgen -source=consensus/tendermint/router/cache/cache.go -package=cache -destination=consensus/tendermint/router/mocks/cache_mock.go
+	mockgen -source=consensus/tendermint/router/interfaces/interfaces.go -package=mocks -destination=consensus/tendermint/router/mocks/interfaces_mock.go
+	mockgen -source=consensus/tendermint/router/ping/pinger.go -package=mocks -destination=consensus/tendermint/router/mocks/pinger_mock.go
+	mockgen -source=consensus/tendermint/router/cache/cache.go -package=mocks -destination=consensus/tendermint/router/mocks/cache_mock.go
 
 generate:
 	cd core/types/ && go generate

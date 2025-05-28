@@ -131,7 +131,13 @@ func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender com
 				continue
 			}
 			p.Cache().Add(msg.Hash(), true)
-			go p.SendRaw(message.NetworkCodes[msg.Code()], msg.Payload())
+			go func() {
+				err := p.SendRaw(message.NetworkCodes[msg.Code()], msg.Payload())
+				if err != nil {
+					log.Error("Router: failed to send message", "recipient", recipient.Hex(), "error", err)
+					return
+				}
+			}()
 		} else {
 			lostPeers = append(lostPeers, recipient)
 		}
@@ -157,9 +163,12 @@ func (m *Router) Start(ctx context.Context, chain *core.BlockChain) {
 	}
 	m.committee = result
 	m.inCommittee = curEpoch.Committee.MemberByAddress(m.self) != nil
-	nw := network.New(result, m.latestLatencies, m.self)
-	m.updateNetwork(nw)
-
+	nw, err := network.New(result, m.latestLatencies, m.self)
+	if err != nil {
+		log.Error("Router: failed to create network", "err", err)
+	} else {
+		m.updateNetwork(nw)
+	}
 	ctx, m.cancel = context.WithCancel(ctx)
 	m.wg.Add(1)
 	go m.loop(ctx)
@@ -177,7 +186,11 @@ func (m *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 }
 
 func (m *Router) refreshClustersLatencies(latMap map[common.Address]uint) {
-	nw := network.New(m.committee, latMap, m.self)
+	nw, err := network.New(m.committee, latMap, m.self)
+	if err != nil {
+		log.Error("Router: failed to create network", "err", err)
+		return
+	}
 	m.updateNetwork(nw)
 }
 
@@ -271,7 +284,7 @@ func (m *Router) loop(ctx context.Context) {
 		cleanupTicker.Stop()
 	}()
 
-	if len(m.committee) >= ScaleThresholdForClustering {
+	if m.inCommittee && len(m.committee) >= ScaleThresholdForClustering {
 		if err := m.measureLatency(); err != nil {
 			log.Warn("Latency measurement failed", "err", err)
 		}
@@ -309,7 +322,11 @@ func (m *Router) loop(ctx context.Context) {
 				continue
 			}
 			m.updateCommittee(epoch)
-			nw := network.New(m.committee, m.latestLatencies, m.self)
+			nw, err := network.New(m.committee, m.latestLatencies, m.self)
+			if err != nil {
+				log.Error("Router: failed to create network", "err", err)
+				continue
+			}
 			m.updateNetwork(nw)
 			if err := m.measureLatency(); err != nil {
 				log.Warn("measureToReport failed", "err", err)

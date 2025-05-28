@@ -975,10 +975,9 @@ type Fake struct {
 	FakeSignerIndex   uint64
 	FakePower         *big.Int
 	FakeVerified      bool // for prevote and precommits this is set to true by default for now
-	FakeOriginator    common.Address
 }
 
-func (f Fake) Originator() common.Address           { return f.FakeOriginator }
+func (f Fake) Originator() common.Address           { return f.FakeSigner }
 func (f Fake) Code() uint8                          { return f.FakeCode }
 func (f Fake) R() int64                             { return int64(f.FakeRound) }
 func (f Fake) H() uint64                            { return f.FakeHeight }
@@ -1026,7 +1025,8 @@ func NewFakePrevote(f Fake) *Prevote {
 	return &Prevote{
 		value: f.FakeValue,
 		vote: vote{
-			signers: f.FakeSigners,
+			signers:    f.FakeSigners,
+			originator: f.FakeSigner,
 			base: base{
 				round:          int64(f.FakeRound),
 				height:         f.FakeHeight,
