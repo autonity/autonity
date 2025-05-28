@@ -19,10 +19,12 @@ func New(
 	committee []common.Address,
 	latencyMap map[common.Address]uint,
 	self common.Address,
-) Clusters {
+) (Clusters, error) {
 	numClusters := int(math.Floor(math.Sqrt(float64(len(committee)))))
-
-	c := createClusters(committee, latencyMap, self, numClusters)
+	c, err := createClusters(committee, latencyMap, self, numClusters)
+	if err != nil {
+		return Clusters{}, err
+	}
 
 	c.Prepare(self)
 
@@ -36,7 +38,7 @@ func New(
 
 	c.PreselectLocalNodes(c.base[c.ownClusterID], localBuckets, self)
 
-	return c
+	return c, nil
 }
 
 func (n *Network) Clusters() Clusters {
