@@ -96,9 +96,7 @@ func New(
 		selector = services.Selector
 	}
 
-	peerFinder := backend.Broadcaster.(routerInterfaces.PeerFinder)
-
-	backend.router = router.Setup(peerFinder, nodeKey, backend.address, pinger, selector, backend.logger)
+	backend.router = router.Setup(nodeKey, backend.address, pinger, selector, backend.logger)
 
 	backend.gossiper = NewGossiper(
 		backend.knownMessages,

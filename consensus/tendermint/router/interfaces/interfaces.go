@@ -15,7 +15,7 @@ type NetworkProvider interface {
 }
 
 type LatencyProvider interface {
-	SetBroadcaster(broadcaster consensus.Broadcaster)
+	SetBroadcaster(broadcaster PeerFinder)
 	Fetch(validators []common.Address, self common.Address) (map[common.Address]uint, []common.Address, error)
 }
 
@@ -27,4 +27,5 @@ type PeerFinder interface {
 
 type PeerSelector interface {
 	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
+	SetBroadcaster(broadcaster PeerFinder)
 }

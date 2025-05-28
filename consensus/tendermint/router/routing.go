@@ -28,7 +28,6 @@ const (
 )
 
 func Setup(
-	peerFinder interfaces.PeerFinder,
 	nodeKey *ecdsa.PrivateKey,
 	self common.Address,
 	pinger ping.Pinger,
@@ -41,11 +40,11 @@ func Setup(
 		pinger, _ = ping.NewPinger(ping.ProtocolTCP, logger)
 	}
 	if peerSelector == nil {
-		peerSelector = selector.New(nw, peerCache, peerFinder)
+		peerSelector = selector.New(nw, peerCache)
 	}
-	fetcher := latency.NewFetcher(pinger, peerFinder)
+	fetcher := latency.NewFetcher(pinger)
 
-	return New(peerFinder, nodeKey, self, peerCache, fetcher, peerSelector, nw)
+	return New(nodeKey, self, peerCache, fetcher, peerSelector, nw)
 }
 
 type Router struct {
@@ -72,7 +71,6 @@ type Router struct {
 }
 
 func New(
-	broadcaster consensus.Broadcaster,
 	nodeKey *ecdsa.PrivateKey,
 	self common.Address,
 	recipientCache cache.Recipients,
@@ -81,7 +79,6 @@ func New(
 	networkProvider interfaces.NetworkProvider,
 ) *Router {
 	router := &Router{
-		peerFinder:      broadcaster,
 		nodeKey:         nodeKey,
 		epochEventChan:  make(chan core.EpochHeadEvent, 2),
 		latencyFetcher:  latencyFetcher,
@@ -183,6 +180,7 @@ func (m *Router) Stop() {
 func (m *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	m.peerFinder = broadcaster
 	m.latencyFetcher.SetBroadcaster(broadcaster)
+	m.peerSelector.SetBroadcaster(broadcaster)
 }
 
 func (m *Router) refreshClustersLatencies(latMap map[common.Address]uint) {
