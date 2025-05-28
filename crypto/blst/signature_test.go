@@ -21,7 +21,7 @@ func TestSignVerify(t *testing.T) {
 	pub := priv.PublicKey()
 	msg := []byte("hello")
 	sig := priv.Sign(msg)
-	require.Equal(t, true, sig.Verify(pub, msg), "Signature did not verify")
+	require.Equal(t, true, sig.Verify(pub, msg, DefaultAssumeZeroValid), "Signature did not verify")
 }
 
 func TestPOPVerify(t *testing.T) {
@@ -424,12 +424,12 @@ func TestBlsAttacks(t *testing.T) {
 		require.True(t, aggSig.IsZero())
 
 		// individual signatures are valid
-		require.True(t, sig1.Verify(X1, m[:]))
-		require.True(t, sig2.Verify(X2, m[:]))
+		require.True(t, sig1.Verify(X1, m[:], DefaultAssumeZeroValid))
+		require.True(t, sig2.Verify(X2, m[:], DefaultAssumeZeroValid))
 
 		// 0 aggregate signature with 0 public key is considerate valid by all validation methods
 		// except for AggregateVerify
-		require.True(t, aggSig.Verify(aggX, m[:]))
+		require.True(t, aggSig.Verify(aggX, m[:], DefaultAssumeZeroValid))
 		require.True(t, FastAggregateVerifyBatch([]Signature{sig1, sig2}, []PublicKey{X1, X2}, m))
 		require.True(t, FastAggregateVerifyBatch([]Signature{aggSig}, []PublicKey{aggX}, m))
 		require.True(t, aggSig.AggregateVerify([]PublicKey{X1, X2}, [][32]byte{m, m}))
@@ -438,9 +438,9 @@ func TestBlsAttacks(t *testing.T) {
 		require.False(t, aggSig.AggregateVerify([]PublicKey{aggX}, [][32]byte{m}))
 
 		// all these cases should fail
-		require.False(t, aggSig.Verify(X1, m[:]))
-		require.False(t, aggSig.Verify(X2, m[:]))
-		require.False(t, sig1.Verify(aggX, m[:]))
+		require.False(t, aggSig.Verify(X1, m[:], DefaultAssumeZeroValid))
+		require.False(t, aggSig.Verify(X2, m[:], DefaultAssumeZeroValid))
+		require.False(t, sig1.Verify(aggX, m[:], DefaultAssumeZeroValid))
 
 		require.False(t, FastAggregateVerifyBatch([]Signature{aggSig}, []PublicKey{X1}, m))
 		require.False(t, FastAggregateVerifyBatch([]Signature{aggSig}, []PublicKey{X2}, m))
@@ -504,8 +504,8 @@ func TestBlsAttacks(t *testing.T) {
 		sig4Offsetted := AggregateSignatures([]Signature{sig4, sig2})
 
 		// individual signatures are not valid anymore
-		require.False(t, sig3Offsetted.Verify(X3, m[:]))
-		require.False(t, sig4Offsetted.Verify(X4, m[:]))
+		require.False(t, sig3Offsetted.Verify(X3, m[:], DefaultAssumeZeroValid))
+		require.False(t, sig4Offsetted.Verify(X4, m[:], DefaultAssumeZeroValid))
 
 		// aggregate signature is not valid with FastAggregateVerifyBatch
 		require.False(t, FastAggregateVerifyBatch([]Signature{sig3Offsetted, sig4Offsetted}, []PublicKey{X3, X4}, m))
@@ -538,8 +538,8 @@ func TestBlsAttacks(t *testing.T) {
 		require.True(t, sig34Offsetted.IsZero())
 
 		// individual signatures are not valid anymore
-		require.False(t, sig3Offsetted.Verify(X3, m[:]))
-		require.False(t, sig4Offsetted.Verify(X4, m[:]))
+		require.False(t, sig3Offsetted.Verify(X3, m[:], DefaultAssumeZeroValid))
+		require.False(t, sig4Offsetted.Verify(X4, m[:], DefaultAssumeZeroValid))
 
 		// aggregate signature is not valid with FastAggregateVerifyBatch
 		require.False(t, FastAggregateVerifyBatch([]Signature{sig3Offsetted, sig4Offsetted}, []PublicKey{X3, X4}, m))
@@ -577,8 +577,8 @@ func TestBlsAttacks(t *testing.T) {
 		require.True(t, sig34Offsetted.IsZero())
 
 		// individual signatures are not valid anymore
-		require.False(t, sig3Offsetted.Verify(X3, m[:]))
-		require.False(t, sig4Offsetted.Verify(X4, m[:]))
+		require.False(t, sig3Offsetted.Verify(X3, m[:], DefaultAssumeZeroValid))
+		require.False(t, sig4Offsetted.Verify(X4, m[:], DefaultAssumeZeroValid))
 
 		// aggregate signature is not valid with FastAggregateVerifyBatch
 		require.False(t, FastAggregateVerifyBatch([]Signature{sig3Offsetted, sig4Offsetted}, []PublicKey{X3, X4}, m))
@@ -814,6 +814,48 @@ func TestAggregateVerifyWithZero(t *testing.T) {
 		// 0 signature gets flagged as invalid even if the public key is not 0
 		require.False(t, sig12.AggregateVerify([]PublicKey{X34}, [][32]byte{m1}))
 	})
+}
+
+func TestVerifyZero(t *testing.T) {
+	x1, x2 := generateZeroKeyPair(t)
+
+	X1 := x1.PublicKey()
+	X2 := x2.PublicKey()
+	// individual pubkeys are valid
+	require.True(t, X1.(*BlsPublicKey).p.KeyValidate())
+	require.True(t, X2.(*BlsPublicKey).p.KeyValidate())
+
+	aggX, err := AggregatePublicKeys([]PublicKey{X1, X2})
+	require.NoError(t, err)
+	// aggregate pubkey is not valid, since it is the infinite pubkey
+	require.False(t, aggX.(*BlsPublicKey).p.KeyValidate())
+
+	msg := []byte("hello")
+	sig1 := x1.Sign(msg)
+	sig2 := x2.Sign(msg)
+
+	// individual signatures are valid whether we check for zero or not
+	require.True(t, sig1.Verify(X1, msg, true), "Signature did not verify")
+	require.True(t, sig2.Verify(X2, msg, true), "Signature did not verify")
+	require.True(t, sig1.Verify(X1, msg, false), "Signature did not verify")
+	require.True(t, sig2.Verify(X2, msg, false), "Signature did not verify")
+
+	zeroSig := AggregateSignatures([]Signature{sig1, sig2})
+	require.True(t, zeroSig.IsZero())
+
+	// zero sig and not zero pub key should always be invalid
+	require.False(t, zeroSig.Verify(X1, msg, true))
+	require.False(t, zeroSig.Verify(X2, msg, false))
+
+	// non zero sig and zero pubkey should always be invalid
+	require.False(t, sig1.Verify(aggX, msg, true))
+	require.False(t, sig1.Verify(aggX, msg, false))
+
+	// zero sig and zero key should be valid if explictly allowed
+	require.True(t, zeroSig.Verify(aggX, msg, true))
+
+	// invalid if explicitly not allowed
+	require.False(t, zeroSig.Verify(aggX, msg, false))
 }
 
 func benchmarkFastAggregateVerifyBatch(b *testing.B, seed int64, n int) {

@@ -27,13 +27,13 @@ func findInvalid(
 
 		var ret []uint
 
-		valid := signatures[start].Verify(pks[start], msg[:])
+		valid := signatures[start].Verify(pks[start], msg[:], DefaultAssumeZeroValid)
 		if !valid {
 			ret = append(ret, start)
 		}
 
 		if end-start == 2 {
-			valid := signatures[end-1].Verify(pks[end-1], msg[:])
+			valid := signatures[end-1].Verify(pks[end-1], msg[:], DefaultAssumeZeroValid)
 			if !valid {
 				ret = append(ret, end-1)
 			}

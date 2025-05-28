@@ -296,7 +296,7 @@ func TestSign(t *testing.T) {
 
 	//Check signature verification
 	publicKey := b.consensusKey.PublicKey()
-	valid := sig.Verify(publicKey, data.Bytes())
+	valid := sig.Verify(publicKey, data.Bytes(), blst.DefaultAssumeZeroValid)
 	require.True(t, valid)
 }
 

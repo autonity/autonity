@@ -46,6 +46,15 @@ var popDST = []byte("BLS_POP_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_")
 const scalarBytes = 32
 const randBitsEntropy = 64
 
+// Individual signatures MUST be checked for 0 value at decoding / preValidation phase.
+// Aggregate signatures are allowed to be 0.
+// Therefore, the default behavior in Autonity is to assume the (zero sig, zero key)
+// pairs valid during signature verification, since individual zero signatures are
+// pre-filtered at previous stages.
+// IMPORTANT: PLEASE do not use this constant blindly, carefully consider whether to
+// pass true or false based on the use case.
+const DefaultAssumeZeroValid = true
+
 // BlsSignature used in the BLS signature scheme.
 type BlsSignature struct {
 	s *blstSignature
@@ -99,12 +108,12 @@ func (s *BlsSignature) POPVerify(pubKey PublicKey, msg []byte) bool {
 }
 
 // Verify a blst signature given a public key, a message.
-// considers 0 signature as valid
-func (s *BlsSignature) Verify(pubKey PublicKey, msg []byte) bool {
-	// consider valid the 0 signature 0 key pair
-	// this should be allowed to happen only for aggregate signatures.
-	// individual signature should be checked for 0 value at decoding / preValidation
-	if s.IsZero() && !pubKey.Validate() {
+// if the last parameter `assumeZeroValid` is:
+//   - true: zero signature and zero key pair will be considered as valid
+//   - false: zero signature and zero key pair will be considered as invalid
+func (s *BlsSignature) Verify(pubKey PublicKey, msg []byte, assumeZeroValid bool) bool {
+	// check for zero signature and zero key only if it is assumed valid in the first place
+	if assumeZeroValid && s.IsZero() && !pubKey.Validate() {
 		return true
 	}
 	// Signature and PKs are assumed to have been validated upon decompression!
@@ -184,7 +193,7 @@ func FastAggregateVerifyBatch(sigs []Signature, pubkeys []PublicKey, msg [32]byt
 		return false
 	}
 
-	return aggregatedSignature.Verify(aggregatedKey, msg[:])
+	return aggregatedSignature.Verify(aggregatedKey, msg[:], DefaultAssumeZeroValid)
 }
 
 /* ----------------

@@ -21,12 +21,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/log"
 	"io"
 	"math/big"
 	"reflect"
 	"sync/atomic"
 	"time"
+
+	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/crypto"
@@ -209,7 +210,7 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 	if !aggregatedKey.Validate() {
 		log.Warn("aggregated public key from committee is zero! Please report the issue!", "signers", a.Signers.String())
 	}
-	valid := a.Signature.Verify(aggregatedKey, message[:])
+	valid := a.Signature.Verify(aggregatedKey, message[:], blst.DefaultAssumeZeroValid)
 	if !valid {
 		return nil, nil, errInvalidSignature
 	}

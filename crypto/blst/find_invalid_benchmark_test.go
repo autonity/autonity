@@ -106,7 +106,7 @@ func BenchmarkSigVerify(b *testing.B) {
 	// start the actual verification benchmarking
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		res := sig.Verify(sk.PublicKey(), msg[:])
+		res := sig.Verify(sk.PublicKey(), msg[:], DefaultAssumeZeroValid)
 		if !res {
 			b.Fatal("failed signature verification")
 		}
@@ -172,7 +172,7 @@ func BenchmarkSigVerifyAgg(b *testing.B) {
 	// start the actual aggregation benchmarking
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		res := sig.Verify(aggPk, msg[:])
+		res := sig.Verify(aggPk, msg[:], DefaultAssumeZeroValid)
 		if !res {
 			b.Fatal("failed signature verification")
 		}

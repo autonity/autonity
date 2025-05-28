@@ -49,7 +49,7 @@ type PublicKey interface {
 
 // Signature represents a BLS signature.
 type Signature interface {
-	Verify(pubKey PublicKey, msg []byte) bool
+	Verify(pubKey PublicKey, msg []byte, assumeZeroValid bool) bool
 	POPVerify(pubKey PublicKey, msg []byte) bool
 	IsZero() bool
 	AggregateVerify(pubKeys []PublicKey, msgs [][32]byte) bool
