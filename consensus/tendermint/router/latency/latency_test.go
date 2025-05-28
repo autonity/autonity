@@ -13,7 +13,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/router/constants"
-	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/router/mocks"
 	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	"github.com/autonity/autonity/crypto"
@@ -26,7 +25,8 @@ func TestFetcher_Fetch(t *testing.T) {
 
 	pinger := mocks.NewMockPinger(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	fetcher := NewFetcher(pinger, peerFinder)
+	fetcher := NewFetcher(pinger)
+	fetcher.SetBroadcaster(peerFinder)
 
 	pubkey1, _ := crypto.HexToECDSA("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
 	pubkey2, _ := crypto.HexToECDSA("abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
@@ -63,7 +63,7 @@ func TestFetcher_FetchNilPeerFinder(t *testing.T) {
 	defer ctrl.Finish()
 
 	pinger := mocks.NewMockPinger(ctrl)
-	fetcher := NewFetcher(pinger, nil)
+	fetcher := NewFetcher(pinger)
 
 	_, _, err := fetcher.Fetch([]common.Address{common.HexToAddress("0x111")}, common.HexToAddress("0x222"))
 	assert.Error(t, err, "Expected error when peerFinder is nil")
@@ -76,7 +76,7 @@ func TestFetcher_SetBroadcaster(t *testing.T) {
 
 	pinger := mocks.NewMockPinger(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	fetcher := NewFetcher(pinger, nil)
+	fetcher := NewFetcher(pinger)
 
 	fetcher.SetBroadcaster(peerFinder)
 	assert.Equal(t, peerFinder, fetcher.peerFinder, "PeerFinder should be set")
@@ -88,7 +88,8 @@ func TestFetcher_PingPeers(t *testing.T) {
 
 	pinger := mocks.NewMockPinger(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	fetcher := NewFetcher(pinger, peerFinder)
+	fetcher := NewFetcher(pinger)
+	fetcher.SetBroadcaster(peerFinder)
 
 	targets := []ping.Target{
 		{IP: "192.168.1.1", Port: 30303},
