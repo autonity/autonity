@@ -108,7 +108,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     /**
      * @notice Send the unclaimed ATN entitled to treasury account
      */
-    function claimTreasuryATN() external virtual nonReentrant {
+    function claimTreasuryATN() external nonReentrant virtual {
         require(msg.sender == treasury, "only treasury can claim his reward");
         uint256 _rewards = treasuryUnclaimedATN;
         treasuryUnclaimedATN = 0;
@@ -378,19 +378,19 @@ contract LiquidLogic is ILiquid, LiquidStorage {
         return allowances[_owner][_spender];
     }
 
-    function name() external virtual view nonReentrantView returns (string memory) {
+    function name() external virtual view returns (string memory) {
         return liquidName;
     }
 
-    function symbol() external virtual view nonReentrantView returns (string memory) {
+    function symbol() external virtual view returns (string memory) {
         return liquidSymbol;
     }
 
-    function getValidator() external virtual view nonReentrantView returns (address) {
+    function getValidator() external virtual view returns (address) {
         return validator;
     }
 
-    function getTreasury() external virtual view nonReentrantView returns (address) {
+    function getTreasury() external virtual view returns (address) {
         return treasury;
     }
 

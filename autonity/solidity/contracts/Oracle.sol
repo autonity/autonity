@@ -294,7 +294,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
         rewardPeriodAggregatedScore = 0;
     }
 
-    function updateVotersAndSymbol() onlyAutonity external virtual nonReentrant {
+    function updateVotersAndSymbol() onlyAutonity external virtual {
         // this votingInfo is updated with the newVoter set just so that the new voters
         // are able to send their first vote, but they will not be used for aggregation
         // in this round
@@ -432,7 +432,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
         return voterTreasuries[_oracleAddress];
     }
 
-    function getSymbolUpdatedRound() external virtual view nonReentrantView returns (int256){
+    function getSymbolUpdatedRound() external virtual view returns (int256){
         return symbolUpdatedRound;
     }
 
@@ -456,7 +456,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
      * @dev emit {NewSymbols} event.
      * @dev IOracle interface method
      */
-    function setSymbols(string[] memory _symbols) external virtual nonReentrant onlyOperator {
+    function setSymbols(string[] memory _symbols) external virtual onlyOperator {
         require(_symbols.length != 0, "symbols can't be empty");
         require((symbolUpdatedRound + 1 != int256(round)) && (symbolUpdatedRound != int256(round)), "can't be updated in this round");
         newSymbols = _symbols;
@@ -468,7 +468,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
     /**
      * @notice Retrieve the lists of symbols to be voted on.
      */
-    function getSymbols() external virtual view nonReentrantView returns (string[] memory) {
+    function getSymbols() external virtual view returns (string[] memory) {
         // if current round is the next round of the symbol update round
         // we should return the updated symbols, because oracle clients are supposed
         // to use updated symbols to fetch data
@@ -497,7 +497,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
     /**
      * @notice Returns the tolerance for missed reveal count before the voter gets punished.
      */
-    function getNonRevealThreshold() external virtual view nonReentrantView returns (uint256) {
+    function getNonRevealThreshold() external virtual view returns (uint256) {
         return config.nonRevealThreshold;
     }
 
@@ -564,7 +564,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
     * @notice Setter for the operator.
     * @dev IOracle interface method implementation.
     */
-    function setOperator(address _operator) external virtual nonReentrant onlyAutonity {
+    function setOperator(address _operator) external virtual onlyAutonity {
         config.operator = _operator;
     }
 
@@ -572,7 +572,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
     * @notice Setter for the vote period, new vote period will be applied at the end of the round.
     * @dev IOracle interface method implementation..
     */
-    function setVotePeriod(uint _votePeriod) external virtual nonReentrant onlyOperator {
+    function setVotePeriod(uint _votePeriod) external virtual onlyOperator {
         _checkVotePeriod(_votePeriod);
         newVotePeriod = _votePeriod;
         emit ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod);
@@ -581,7 +581,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
     /**
      * @notice Setter for commit-reveal penalty mechanism configuration.
      */
-    function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) external virtual nonReentrant onlyOperator {
+    function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) external virtual onlyOperator {
         require(
             _threshold < _resetInterval && _resetInterval > 0,
             "invalid config"
@@ -599,7 +599,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
         int256 _outlierSlashingThreshold,
         int256 _outlierDetectionThreshold,
         uint256 _baseSlashingRate
-    ) external virtual nonReentrant onlyOperator {
+    ) external virtual onlyOperator {
         emit ConfigUpdateInt("outlierSlashingThreshold", config.outlierSlashingThreshold, _outlierSlashingThreshold);
         config.outlierSlashingThreshold = _outlierSlashingThreshold;
         emit ConfigUpdateInt("outlierDetectionThreshold", config.outlierDetectionThreshold, _outlierDetectionThreshold);

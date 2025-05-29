@@ -195,7 +195,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     // @notice Set the operator address
     // @param operator_ The address of the operator
     // @dev This function is restricted to the Autonity contract
-    function setOperator(address operator_) external onlyAutonity nonReentrant {
+    function setOperator(address operator_) external onlyAutonity {
         if (operator_ == address(0)) {
             revert InvalidParameter("operator_");
         }
@@ -206,7 +206,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     // @notice Set the stabilization address
     // @param stabilization_ The address of the stabilization contract
     // @dev This function is restricted to the Autonity contract
-    function setStabilization(address stabilization_) external onlyAutonity nonReentrant {
+    function setStabilization(address stabilization_) external onlyAutonity {
         if (stabilization_ == address(0)) {
             revert InvalidParameter("stabilization_");
         }
@@ -217,7 +217,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     // @notice Set the oracle address
     // @param oracle_ The address of the oracle
     // @dev This function is restricted to the Autonity contract
-    function setOracle(address oracle_) external onlyAutonity nonReentrant {
+    function setOracle(address oracle_) external onlyAutonity {
         if (oracle_ == address(0)) {
             revert InvalidParameter("oracle_");
         }
@@ -233,7 +233,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
 
     // @notice Set the liquidation auction duration
     // @param duration The duration of the liquidation auction
-    function setLiquidationAuctionDuration(uint256 duration) external onlyOperator nonReentrant {
+    function setLiquidationAuctionDuration(uint256 duration) external onlyOperator {
         if (duration == 0) {
             revert InvalidParameter("duration");
         }
@@ -247,7 +247,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
 
     // @notice Set the interest auction duration
     // @param duration The duration of the interest auction
-    function setInterestAuctionDuration(uint256 duration) external onlyOperator nonReentrant {
+    function setInterestAuctionDuration(uint256 duration) external onlyOperator {
         if (duration == 0) {
             revert InvalidParameter("duration");
         }
@@ -262,7 +262,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     // @notice Set the interest auction discount
     // @param discount The discount applied to the interest auction
     // @dev The discount is a value between [0,1) with SCALE_FACTOR precision
-    function setInterestAuctionDiscount(uint256 discount) external onlyOperator nonReentrant {
+    function setInterestAuctionDiscount(uint256 discount) external onlyOperator {
         if (discount >= StabilizationMath.SCALE_FACTOR) {
             revert InvalidParameter("discount");
         }
@@ -276,7 +276,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
 
     // @notice Set the interest auction threshold
     // @param threshold The threshold for starting an interest auction
-    function setInterestAuctionThreshold(uint256 threshold) external onlyOperator nonReentrant {
+    function setInterestAuctionThreshold(uint256 threshold) external onlyOperator {
         if (threshold == 0) {
             revert InvalidParameter("threshold");
         }
@@ -290,7 +290,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
 
     // @notice Set the proceeds address
     // @param proceedAddress_ The address to send proceeds to
-    function setProceedAddress(address proceedAddress_) external onlyOperator nonReentrant {
+    function setProceedAddress(address proceedAddress_) external onlyOperator {
         emit IConfigEvents.ConfigUpdateAddress("proceedAddress", proceedAddress, proceedAddress_);
         proceedAddress = proceedAddress_;
     }
@@ -327,15 +327,15 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         return _minInterestPayment(auction);
     }
 
-    function getConfig() external view nonReentrantView returns (Config memory) {
+    function getConfig() external view returns (Config memory) {
         return config;
     }
 
-    function getCollateralToken() external view nonReentrantView returns (address) {
+    function getCollateralToken() external view returns (address) {
         return address(collateralToken);
     }
 
-    function getProceedAddress() external view nonReentrantView returns (address) {
+    function getProceedAddress() external view returns (address) {
         return proceedAddress;
     }
 

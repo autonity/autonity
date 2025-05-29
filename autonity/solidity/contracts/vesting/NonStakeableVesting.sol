@@ -46,7 +46,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
         uint256 _amount,
         uint256 _scheduleID,
         uint256 _cliffDuration
-    ) virtual onlyOperator external nonReentrant {
+    ) virtual onlyOperator external {
         ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
@@ -78,7 +78,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
      * @param _scheduleID id of the schedule
      * @custom:restricted-to treasury account
      */
-    function releaseAllFundsForTreasury(uint256 _scheduleID) virtual external onlyAutonityTreasury nonReentrant {
+    function releaseAllFundsForTreasury(uint256 _scheduleID) virtual external onlyAutonityTreasury {
         ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
         require(_schedule.lastUnlockTime >= _schedule.start + _schedule.totalDuration, "schedule total duration not expired yet");
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
@@ -97,7 +97,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
      * @param _scheduleID id of the schedule
      * @custom:restricted-to treasury account
      */
-    function releaseExpiredFundsForTreasury(uint256 _scheduleID) virtual external onlyAutonityTreasury nonReentrant {
+    function releaseExpiredFundsForTreasury(uint256 _scheduleID) virtual external onlyAutonityTreasury {
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
         if (!_scheduleTracker.initialized) {
@@ -118,7 +118,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
      */
     function changeContractBeneficiary(
         address _beneficiary, uint256 _id, address _recipient
-    ) virtual external onlyOperator nonReentrant {
+    ) virtual external onlyOperator {
         uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
         _changeContractBeneficiary(_beneficiary, _contractID, _recipient);
     }
@@ -229,11 +229,11 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
         return expiredFundsFromContract[_getUniqueContractID(_beneficiary, _id)];
     }
 
-    function getContract(address _beneficiary, uint256 _id) virtual external view nonReentrantView returns (ContractBase.Contract memory) {
+    function getContract(address _beneficiary, uint256 _id) virtual external view returns (ContractBase.Contract memory) {
         return contracts[_getUniqueContractID(_beneficiary, _id)];
     }
 
-    function getContracts(address _beneficiary) virtual external view nonReentrantView returns (ContractBase.Contract[] memory) {
+    function getContracts(address _beneficiary) virtual external view returns (ContractBase.Contract[] memory) {
         uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
         ContractBase.Contract[] memory _res = new ContractBase.Contract[] (_contractIDs.length);
         for (uint256 i = 0; i < _contractIDs.length; i++) {
@@ -246,7 +246,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
      * @notice Returns the schedule tracker for some schedule.
      * @param _id schedule id
      */
-    function getScheduleTracker(uint256 _id) virtual external view nonReentrantView returns (ScheduleTracker memory) {
+    function getScheduleTracker(uint256 _id) virtual external view returns (ScheduleTracker memory) {
         return scheduleTracker[_id];
     }
 
@@ -254,7 +254,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
      * @notice Returns the number of contracts entitled to some beneficiary.
      * @param _beneficiary address of the beneficiary
      */
-    function totalContracts(address _beneficiary) virtual external view nonReentrantView returns (uint256) {
+    function totalContracts(address _beneficiary) virtual external view returns (uint256) {
         return _totalContracts(_beneficiary);
     }
 
@@ -263,7 +263,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
      * @param _beneficiary address of the contract holder
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
      */
-    function getUniqueContractID(address _beneficiary, uint256 _id) external view nonReentrantView returns (uint256) {
+    function getUniqueContractID(address _beneficiary, uint256 _id) external view returns (uint256) {
         return _getUniqueContractID(_beneficiary, _id);
     }
 

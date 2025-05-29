@@ -20,6 +20,15 @@ pragma solidity ^0.8.19;
  * TIP: If you would like to learn more about reentrancy and alternative ways
  * to protect against it, check out our blog post
  * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
+ *
+ * Notes: We use reentrancy guards quite liberally in this project. In general, the
+ * guidelines we followed are:
+ *      - Use `nonReentrant` for functions that modify state and can be called by external actors.
+ *      - Use `nonReentrantView` for functions that read state set by external actors
+ *      - Functions that are called as part of the Autonity contract's finalize()
+ *      - Functions that call external accounts (even if gas limited)
+ * When in doubt, leave the nonReentrant modifier on. It is better to be safe than sorry. If it's
+ * a simple operator call (or otherwise restricted to a trusted actor), then it can be removed.
  */
 abstract contract ReentrancyGuard {
     uint256 private constant NOT_ENTERED = 0;

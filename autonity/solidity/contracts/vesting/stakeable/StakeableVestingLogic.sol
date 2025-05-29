@@ -36,7 +36,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         uint256 _startTime,
         uint256 _cliffDuration,
         uint256 _totalDuration
-    ) virtual external onlyManager nonReentrant {
+    ) virtual external onlyManager {
         require(beneficiary == address(0), "contract already created");
         beneficiary = _beneficiary;
         stakeableContract = _createContract(_beneficiary, _amount, _startTime, _cliffDuration, _totalDuration, true);
@@ -47,7 +47,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @notice Set the address of the manager contract.
      * @custom:restricted-to operator account
      */
-    function setManagerContract(address _managerContract) virtual external onlyOperator nonReentrant {
+    function setManagerContract(address _managerContract) virtual external onlyOperator {
         emit IConfigEvents.ConfigUpdateAddress("managerContract", address(managerContract), _managerContract);
         managerContract = IStakeableVestingManager(payable(_managerContract));
     }
@@ -567,14 +567,14 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
     /**
      * @notice Returns the address of the `StakeableVestingManager` smart contract.
      */
-    function getManagerContractAddress() virtual external view nonReentrantView returns (address) {
+    function getManagerContractAddress() virtual external view returns (address) {
         return address(managerContract);
     }
 
     /**
      * @notice Returns the beneficiary address of the contract.
      */
-    function getBeneficiary() virtual external view nonReentrantView returns (address) {
+    function getBeneficiary() virtual external view returns (address) {
         return beneficiary;
     }
 

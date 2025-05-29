@@ -145,7 +145,7 @@ contract ACU is IACU, IConfigEvents, ReentrancyGuard {
     /// @param operator Address of the new Governance Operator
     /// @dev Only the Autonity Contract is authorized to set the Governance
     /// Operator account address.
-    function setOperator(address operator) external onlyAutonity nonReentrant {
+    function setOperator(address operator) external onlyAutonity {
         emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
         _operator = operator;
     }
@@ -154,7 +154,7 @@ contract ACU is IACU, IConfigEvents, ReentrancyGuard {
     /// @param oracle Address of the new Oracle Contract
     /// @dev Only the Autonity Contract is authorized to set the Oracle
     /// Contract address.
-    function setOracle(address oracle) external onlyAutonity nonReentrant {
+    function setOracle(address oracle) external onlyAutonity {
         emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle);
         _oracle = IOracle(oracle);
     }
@@ -174,7 +174,7 @@ contract ACU is IACU, IConfigEvents, ReentrancyGuard {
         string[] memory symbols_,
         uint256[] memory quantities_,
         uint256 scale_
-    ) external validBasket(symbols_, quantities_) onlyOperator nonReentrant {
+    ) external validBasket(symbols_, quantities_) onlyOperator {
         _symbols = symbols_;
         _quantities = quantities_;
         scale = scale_;
@@ -187,7 +187,7 @@ contract ACU is IACU, IConfigEvents, ReentrancyGuard {
     // Rescale the quantity multiplier.
     /// @param newQuantityMultiplier The new quantity multiplier
     /// @notice the quantity multiplier has precision of scaleFactor
-    function rescale(uint256 newQuantityMultiplier) external onlyOperator nonReentrant {
+    function rescale(uint256 newQuantityMultiplier) external onlyOperator {
         uint256 oldQuantityMultiplier = quantityMultiplier;
         if (newQuantityMultiplier == 0) revert ZeroValue();
         quantityMultiplier = newQuantityMultiplier;
@@ -210,26 +210,26 @@ contract ACU is IACU, IConfigEvents, ReentrancyGuard {
 
     /// The symbols that are used to compute the ACU.
     /// @return Array of symbols
-    function symbols() external view nonReentrantView returns (string[] memory) {
+    function symbols() external view returns (string[] memory) {
         return _symbols;
     }
 
     /// The basket quantities that are used to compute the ACU.
     /// @return Array of quantities
-    function quantities() external view nonReentrantView returns (uint256[] memory) {
+    function quantities() external view returns (uint256[] memory) {
         return _quantities;
     }
 
     /// The quantity multiplier that is used to compute the ACU.
     /// @return Quantity multiplier
     /// @dev The quantity multiplier has precision of scaleFactor
-    function multiplier() external view nonReentrantView returns (uint256) {
+    function multiplier() external view returns (uint256) {
         return quantityMultiplier;
     }
 
     /// The scaled quantities used to compute the ACU.
     /// @return Array of scaled quantities
-    function scaledQuantities() external view nonReentrantView returns (uint256[] memory) {
+    function scaledQuantities() external view returns (uint256[] memory) {
         uint256[] memory scaled = new uint256[](_quantities.length);
         for (uint i = 0; i < _quantities.length; i++) {
             scaled[i] = _quantities[i] * quantityMultiplier / scaleFactor;
@@ -238,12 +238,12 @@ contract ACU is IACU, IConfigEvents, ReentrancyGuard {
     }
 
     /// @return The multiplier for scaling numbers to the ACU scaled representation.
-    function getScaleFactor() external view nonReentrantView returns (uint256) {
+    function getScaleFactor() external view returns (uint256) {
         return scaleFactor;
     }
 
     /// @return The decimal places used to represent the ACU as a fixed-point integer.
-    function getScale() external view nonReentrantView returns (uint256) {
+    function getScale() external view returns (uint256) {
         return scale;
     }
 

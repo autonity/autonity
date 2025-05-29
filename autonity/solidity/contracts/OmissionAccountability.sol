@@ -365,7 +365,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * the new value will be returned
     * @return the delta number of blocks to wait before generating the activity proof
     */
-    function getDelta() external view virtual nonReentrantView returns (uint256) {
+    function getDelta() external view virtual returns (uint256) {
         return newDelta;
     }
 
@@ -374,7 +374,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * the new value will be returned
     * @return the lookback window current value
     */
-    function getLookbackWindow() external view virtual nonReentrantView returns (uint256) {
+    function getLookbackWindow() external view virtual returns (uint256) {
         return newLookbackWindow;
     }
 
@@ -444,7 +444,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @param _committee, committee members
     * @param _treasuries, treasuries of the new committee
     */
-    function setCommittee(Autonity.CommitteeMember[] memory _committee, address[] memory _treasuries) external virtual nonReentrant onlyAutonity {
+    function setCommittee(Autonity.CommitteeMember[] memory _committee, address[] memory _treasuries) external virtual onlyAutonity {
         delete committee;
         for (uint256 i = 0; i < _committee.length; i++) {
             committee.push(_committee[i]);
@@ -457,7 +457,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @dev restricted to the Autonity contract. It is used to mirror this information when it is updated at epoch finalize.
     * @param _epochBlock, epoch block of the current epoch
     */
-    function setEpochBlock(uint256 _epochBlock) external virtual nonReentrant onlyAutonity {
+    function setEpochBlock(uint256 _epochBlock) external virtual onlyAutonity {
         epochBlock = _epochBlock;
     }
 
@@ -465,7 +465,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @dev restricted to the Autonity contract. It is used to mirror the operator account.
     * @param _operator, the new operator account
     */
-    function setOperator(address _operator) external virtual nonReentrant onlyAutonity {
+    function setOperator(address _operator) external virtual onlyAutonity {
         operator = _operator;
     }
 
@@ -475,7 +475,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @dev restricted to the operator
     * @param _inactivityThreshold, the new value for inactivity threshold
     */
-    function setInactivityThreshold(uint256 _inactivityThreshold) external virtual nonReentrant onlyOperator {
+    function setInactivityThreshold(uint256 _inactivityThreshold) external virtual onlyOperator {
         require(_inactivityThreshold <= SCALE_FACTOR, "cannot exceed scale factor");
         require(_inactivityThreshold >= config.pastPerformanceWeight, "inactivityThreshold needs to be greater or equal to pastPerformanceWeight");
         emit ConfigUpdateUint("inactivityThreshold", config.inactivityThreshold, _inactivityThreshold);
@@ -486,7 +486,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @dev restricted to the operator
     * @param _pastPerformanceWeight, the new value for the past performance weight
     */
-    function setPastPerformanceWeight(uint256 _pastPerformanceWeight) external virtual nonReentrant onlyOperator {
+    function setPastPerformanceWeight(uint256 _pastPerformanceWeight) external virtual onlyOperator {
         require(_pastPerformanceWeight <= SCALE_FACTOR, "cannot exceed scale factor");
         require(_pastPerformanceWeight <= config.inactivityThreshold, "pastPerformanceWeight cannot be greater than inactivityThreshold");
         emit ConfigUpdateUint("pastPerformanceWeight", config.pastPerformanceWeight, _pastPerformanceWeight);
@@ -497,7 +497,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @dev restricted to the operator
     * @param _initialJailingPeriod, the new value for the initial jailing period
     */
-    function setInitialJailingPeriod(uint256 _initialJailingPeriod) external virtual nonReentrant onlyOperator {
+    function setInitialJailingPeriod(uint256 _initialJailingPeriod) external virtual onlyOperator {
         emit ConfigUpdateUint("initialJailingPeriod", config.initialJailingPeriod, _initialJailingPeriod);
         config.initialJailingPeriod = _initialJailingPeriod;
     }
@@ -506,7 +506,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @dev restricted to the operator
     * @param _initialProbationPeriod, the new value for the initial probation period
     */
-    function setInitialProbationPeriod(uint256 _initialProbationPeriod) external virtual nonReentrant onlyOperator {
+    function setInitialProbationPeriod(uint256 _initialProbationPeriod) external virtual onlyOperator {
         emit ConfigUpdateUint("initialProbationPeriod", config.initialProbationPeriod, _initialProbationPeriod);
         config.initialProbationPeriod = _initialProbationPeriod;
     }
@@ -515,7 +515,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @dev restricted to the operator
     * @param _initialSlashingRate, the new value for the initial slashing rate
     */
-    function setInitialSlashingRate(uint256 _initialSlashingRate) external virtual nonReentrant onlyOperator {
+    function setInitialSlashingRate(uint256 _initialSlashingRate) external virtual onlyOperator {
         require(_initialSlashingRate <= SLASHING_RATE_SCALE_FACTOR, "cannot exceed slashing rate scale factor");
         emit ConfigUpdateUint("initialSlashingRate", config.initialSlashingRate, _initialSlashingRate);
         config.initialSlashingRate = _initialSlashingRate;
@@ -525,7 +525,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @dev restricted to the operator
     * @param _lookbackWindow, the new value for the lookbackWindow
     */
-    function setLookbackWindow(uint256 _lookbackWindow) external virtual nonReentrant onlyOperator {
+    function setLookbackWindow(uint256 _lookbackWindow) external virtual onlyOperator {
         require(_lookbackWindow >= 1, "lookbackWindow cannot be 0");
         uint256 _epochPeriod = autonity.getEpochPeriod();
 
@@ -539,7 +539,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @dev restricted to the operator
     * @param _delta, the new value for delta
     */
-    function setDelta(uint256 _delta) external virtual nonReentrant onlyOperator {
+    function setDelta(uint256 _delta) external virtual onlyOperator {
         require(_delta >= 2, "delta needs to be at least 2"); // cannot be 1 due to optimistic block building
         uint256 _epochPeriod = autonity.getEpochPeriod();
 

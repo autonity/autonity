@@ -583,7 +583,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
     * @dev restricted to the operator
     * @param _window, the new value for the window (in blocks)
     */
-    function setInnocenceProofSubmissionWindow(uint256 _window) external virtual nonReentrant onlyOperator {
+    function setInnocenceProofSubmissionWindow(uint256 _window) external virtual onlyOperator {
         emit ConfigUpdateUint("innocenceProofSubmissionWindow", config.innocenceProofSubmissionWindow, _window);
         config.innocenceProofSubmissionWindow = _window;
     }
@@ -593,7 +593,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
     * @dev restricted to the operator
     * @param _rates, the new rates
     */
-    function setBaseSlashingRates(BaseSlashingRates memory _rates) external virtual nonReentrant onlyOperator {
+    function setBaseSlashingRates(BaseSlashingRates memory _rates) external virtual onlyOperator {
         _ratesSanityCheck(_rates);
         emit BaseSlashingRateUpdate(config.baseSlashingRates, _rates);
         config.baseSlashingRates = _rates;
@@ -604,7 +604,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
     * @dev restricted to the operator
     * @param _factors, the new factor
     */
-    function setFactors(Factors memory _factors) external virtual nonReentrant onlyOperator {
+    function setFactors(Factors memory _factors) external virtual onlyOperator {
         _factorsSanityCheck(_factors);
         emit AccountabilityFactorsUpdate(config.factors, _factors);
         config.factors = _factors;

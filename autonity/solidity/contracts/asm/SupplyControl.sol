@@ -94,7 +94,7 @@ contract SupplyControl is ISupplyControl, IConfigEvents, ReentrancyGuard {
     /// @param operator Address of the new Governance Operator
     /// @dev Only the Autonity Contract is authorized to set the Governance
     /// Operator account address.
-    function setOperator(address operator) external onlyAutonity nonReentrant {
+    function setOperator(address operator) external onlyAutonity {
         emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
         _operator = operator;
     }
@@ -102,7 +102,7 @@ contract SupplyControl is ISupplyControl, IConfigEvents, ReentrancyGuard {
     /// Update the stabilizer that is authorized to mint and burn.
     /// @param stabilizer_ The new stabilizer account
     /// @dev Only the autonity contract can update the stabilizer address.
-    function setStabilizer(address stabilizer_) external onlyAutonity nonReentrant {
+    function setStabilizer(address stabilizer_) external onlyAutonity {
         emit IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, stabilizer_);
         stabilizer = stabilizer_;
     }
@@ -116,7 +116,7 @@ contract SupplyControl is ISupplyControl, IConfigEvents, ReentrancyGuard {
         return totalSupply;
     }
 
-    function getStabilizer() external view nonReentrantView returns (address) {
+    function getStabilizer() external view returns (address) {
         return stabilizer;
     }
 }

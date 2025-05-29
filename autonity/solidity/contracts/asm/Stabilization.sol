@@ -441,7 +441,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// Set the minimum debt requirement.
     /// @param amount The minimum debt amount
     /// @dev Restricted to the operator.
-    function setMinDebtRequirement(uint256 amount) external onlyOperator nonReentrant {
+    function setMinDebtRequirement(uint256 amount) external onlyOperator {
         emit IConfigEvents.ConfigUpdateUint("minDebtRequirement", _config.minDebtRequirement, amount);
         _config.minDebtRequirement = amount;
     }
@@ -449,14 +449,14 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// Set the _atnSupplyOperator address.
     /// @param atnSupplyOperator The _atnSupplyOperator address
     /// @dev Restricted to the operator.
-    function setAtnSupplyOperator(address atnSupplyOperator) external onlyOperator nonReentrant {
+    function setAtnSupplyOperator(address atnSupplyOperator) external onlyOperator {
         emit IConfigEvents.ConfigUpdateAddress("atnSupplyOperator", _atnSupplyOperator, atnSupplyOperator);
         _atnSupplyOperator = atnSupplyOperator;
     }
 
     /// Transition out of the restricted state.
     /// @dev Restricted to the operator.
-    function removeCDPRestrictions() external onlyOperator nonReentrant {
+    function removeCDPRestrictions() external onlyOperator {
         if (_restricted == false) revert NotRestricted();
         _restricted = false;
         _borrowInterestRate.currentValue = _defaultGenesisBorrowInterestRate;
@@ -469,7 +469,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
      * @notice Updates the borrow interest rate. The new rate `newInterestRate` will take affect after the `config.announcementWindow` (in seconds).
      * @param newInterestRate The new interest rate multiplied by 10**18. If it is 5% then it should be `(5/100)*(10**18) = 50_000_000_000_000_000`
      */
-    function updateBorrowInterestRate(uint256 newInterestRate) external restricted onlyOperator nonReentrant {
+    function updateBorrowInterestRate(uint256 newInterestRate) external restricted onlyOperator {
         _applyInterestRateUpdate();
         bool overridden = _borrowInterestRate.update(
             newInterestRate,
@@ -483,7 +483,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
      * @notice Updates the announcement window. The new window `window` will take affect after the `config.announcementWindow` (in seconds).
      * It requires that there is no announcement window in pending.
      */
-    function updateAnnouncementWindow(uint256 window) external onlyOperator nonReentrant {
+    function updateAnnouncementWindow(uint256 window) external onlyOperator {
         if (window == 0) revert ZeroValue();
         bool overridden = _announcementWindow.update(
             window,
@@ -502,7 +502,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     function updateRatios(
         uint256 newLiquidationRatio,
         uint256 newMinCollateralizationRatio
-    ) external onlyOperator validRatios(newLiquidationRatio, newMinCollateralizationRatio) nonReentrant {
+    ) external onlyOperator validRatios(newLiquidationRatio, newMinCollateralizationRatio) {
         bool lrOverridden = _liquidationRatio.update(
             newLiquidationRatio,
             block.timestamp + _announcementWindow.value()
@@ -528,7 +528,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// Set the Governance Operator account address.
     /// @param operator Address of the new Governance Operator
     /// @dev Restricted to the Autonity Contract.
-    function setOperator(address operator) external onlyAutonity nonReentrant {
+    function setOperator(address operator) external onlyAutonity {
         emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
         _operator = operator;
     }
@@ -536,7 +536,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// Set the Oracle Contract address.
     /// @param oracle Address of the new Oracle Contract
     /// @dev Restricted to the Autonity Contract.
-    function setOracle(address oracle) external onlyAutonity nonReentrant {
+    function setOracle(address oracle) external onlyAutonity {
         emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle);
         _oracle = IOracle(oracle);
     }
@@ -544,7 +544,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// Set the Auctioneer Contract address.
     /// @param auctioneer Address of the new Auctioneer Contract
     /// @dev Restricted to the Autonity Contract.
-    function setAuctioneer(address auctioneer) external onlyAutonity nonReentrant {
+    function setAuctioneer(address auctioneer) external onlyAutonity {
         emit IConfigEvents.ConfigUpdateAddress("auctioneer", _auctioneer, auctioneer);
         _auctioneer = auctioneer;
     }
@@ -552,7 +552,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// Set the ACU contract address.
     /// @param acu Address of the new ACU Contract
     /// @dev Restricted to the Autonity Contract.
-    function setACU(address acu) external onlyAutonity nonReentrant {
+    function setACU(address acu) external onlyAutonity {
         emit IConfigEvents.ConfigUpdateAddress("acu", _acu, acu);
         _acu = acu;
     }
@@ -560,7 +560,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /// Set the SupplyControl Contract address.
     /// @param supplyControl Address of the new SupplyControl Contract
     /// @dev Restricted to the Autonity Contract.
-    function setSupplyControl(address supplyControl) external onlyAutonity nonReentrant {
+    function setSupplyControl(address supplyControl) external onlyAutonity {
         emit IConfigEvents.ConfigUpdateAddress("supplyControl", address(_supplyControl), supplyControl);
         _supplyControl = ISupplyControl(supplyControl);
     }
@@ -573,7 +573,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
 
     /// Retrieve the current Stabilization configuration.
     /// @return The Stabilization configuration
-    function config() external view nonReentrantView returns (Config memory) {
+    function config() external view returns (Config memory) {
         return Config(
             _borrowInterestRate.value(),
             _announcementWindow.value(),
@@ -673,7 +673,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
      * @return uint256 The pending rate
      * @return uint256 The timestamp since it will be active
      */
-    function getPendingInterestRateInfo() external view nonReentrantView returns (uint256, uint256) {
+    function getPendingInterestRateInfo() external view returns (uint256, uint256) {
         return _borrowInterestRate.pending();
     }
 
@@ -687,14 +687,14 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     /**
      * @notice Get the timestamp since when the current rate is active.
      */
-    function getCurrentRateActiveTimestamp() external view nonReentrantView returns (uint256) {
+    function getCurrentRateActiveTimestamp() external view returns (uint256) {
         return _borrowInterestRate.currentActiveFrom;
     }
 
     /**
      * @notice Get the active current rate.
      */
-    function getCurrentRate() external view nonReentrantView returns (uint256) {
+    function getCurrentRate() external view returns (uint256) {
         return _borrowInterestRate.value();
     }
 
@@ -703,14 +703,14 @@ contract Stabilization is IStabilization, ReentrancyGuard {
      * @return uint256 The pending announcement window
      * @return uint256 The timestamp since the pending announcement window will be active
      */
-    function getPendingAnnouncementWindowInfo() external view nonReentrantView returns (uint256, uint256) {
+    function getPendingAnnouncementWindowInfo() external view returns (uint256, uint256) {
         return _announcementWindow.pending();
     }
 
     /**
      * @notice Get the announcement window in seconds.
      */
-    function getAnnouncementWindow() external view nonReentrantView returns (uint256) {
+    function getAnnouncementWindow() external view returns (uint256) {
         return _announcementWindow.value();
     }
 
@@ -718,7 +718,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
      * @notice Get the min collateralization ratio.
      * @return uint256 The pending min collateralization ratio
      */
-    function minCollateralizationRatio() external view nonReentrantView returns (uint256) {
+    function minCollateralizationRatio() external view returns (uint256) {
         return _minCollateralizationRatio.value();
     }
 
@@ -727,7 +727,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
      * @return uint256 The pending min collateralization ratio
      * @return uint256 The timestamp since the pending min collateralization ratio will be active
      */
-    function getPendingMinCollateralizationRatioInfo() external view nonReentrantView returns (uint256, uint256) {
+    function getPendingMinCollateralizationRatioInfo() external view returns (uint256, uint256) {
         return _minCollateralizationRatio.pending();
     }
 
@@ -735,7 +735,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
      * @notice Get the liquidation ratio.
      * @return uint256 The liquidation ratio
      */
-    function liquidationRatio() external view nonReentrantView returns (uint256) {
+    function liquidationRatio() external view returns (uint256) {
         return _liquidationRatio.value();
     }
 
@@ -744,7 +744,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
      * @return uint256 The pending liquidation ratio
      * @return uint256 The timestamp since the pending liquidation ratio will be active
      */
-    function getPendingLiquidationRatioInfo() external view nonReentrantView returns (uint256, uint256) {
+    function getPendingLiquidationRatioInfo() external view returns (uint256, uint256) {
         return _liquidationRatio.pending();
     }
 
@@ -752,7 +752,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
      * @notice Get the last updated timestamp of the updatable config parameters
      * @return LastUpdated The last updated timestamps
      */
-    function lastUpdated() external view nonReentrantView returns (LastUpdated memory) {
+    function lastUpdated() external view returns (LastUpdated memory) {
         return LastUpdated(
             _borrowInterestRate.activeFrom(),
             _announcementWindow.activeFrom(),
