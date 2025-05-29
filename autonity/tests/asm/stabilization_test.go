@@ -1651,8 +1651,8 @@ func TestFixedGenesisPrices(t *testing.T) {
 		cfg, _, err := r.Stabilization.Config(nil)
 		require.NoError(t, err)
 
-		require.Equal(t, cfg.DefaultNTNATNPrice, toBase("1.0", 18))
-		require.Equal(t, cfg.DefaultNTNUSDPrice, toBase("1.0", 18))
+		require.Equal(t, cfg.DefaultNTNATNPrice, (*big.Int)(params.DefaultStabilizationGenesis.DefaultNTNATNPrice))
+		require.Equal(t, cfg.DefaultNTNUSDPrice, (*big.Int)(params.DefaultStabilizationGenesis.DefaultNTNUSDPrice))
 
 		// initialize oracle
 		or := newOracleTestRounds([]*big.Int{toBase("3.0", 18)})
@@ -1675,6 +1675,10 @@ func TestFixedGenesisPrices(t *testing.T) {
 		// $1.0193722 is the default ACU ntnAcuPrice set up by oracleTestRounds
 		// this is not dependent on the fixed genesis prices, only the FX prices
 		require.Equal(t, acuPrice, toBase("1.0193722", acuDecimals.Int64()))
+
+		acuPriceRead, _, err := r.Stabilization.AcuPrice(nil)
+		require.NoError(t, err)
+		require.Equal(t, scaledAcuPrice, acuPriceRead)
 
 		// this collateral ntnAcuPrice should be the ntnAcuPrice of NTN in ACU assuming a variable ACU ntnAcuPrice
 		ntnAcuPrice, _, err := r.Stabilization.CollateralPriceACU(nil)

@@ -653,7 +653,6 @@ contract Stabilization is IStabilization, ReentrancyGuard {
         return _maxBorrow(collateral);
     }
 
-
     /// Price the Collateral Token in Auton.
     ///
     /// Retrieves the Collateral Token price from the Oracle Contract and
@@ -856,7 +855,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     function _collateralPriceACU() internal view returns (uint256) {
         uint256 ntnUsdPrice;
         if (_fixedGenesisPrices) {
-            ntnUsdPrice = _config.defaultNTNATNPrice;
+            ntnUsdPrice = _config.defaultNTNUSDPrice;
         } else {
             IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_USD_SYMBOL);
             if (data.price <= 0) revert InvalidPrice();

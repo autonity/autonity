@@ -55,7 +55,7 @@ var (
 		MinDebtRequirement:        (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000")),
 		TargetPrice:               (*math.HexOrDecimal256)(math.MustParseBig256("1_618_034_000_000_000_000")),
 		DefaultNTNATNPrice:        (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000_000_000_000_000")),
-		DefaultNTNUSDPrice:        (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000_000_000_000_000")),
+		DefaultNTNUSDPrice:        (*math.HexOrDecimal256)(math.MustParseBig256("1_600_000_000_000_000_000")),
 	}
 
 	// ToDo: Add the real default values for the Auctioneer contract
@@ -496,6 +496,12 @@ func (s *StabilizationContractGenesis) SetDefaults() {
 	}
 	if s.TargetPrice == nil {
 		s.TargetPrice = DefaultStabilizationGenesis.TargetPrice
+	}
+	if s.DefaultNTNATNPrice == nil {
+		s.DefaultNTNATNPrice = DefaultStabilizationGenesis.DefaultNTNATNPrice
+	}
+	if s.DefaultNTNUSDPrice == nil {
+		s.DefaultNTNUSDPrice = DefaultStabilizationGenesis.DefaultNTNUSDPrice
 	}
 }
 
