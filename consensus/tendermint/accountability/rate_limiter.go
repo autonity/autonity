@@ -17,19 +17,19 @@ type TimeWindowLimiter struct {
 	rwMutex    sync.RWMutex
 	limits     map[common.Address]*rateRecord
 	timeWindow time.Duration
-	burst      int
+	maxBurst   uint64
 }
 
 type rateRecord struct {
-	count      int
+	count      uint64
 	expiration time.Time
 }
 
-func NewTimeWindowLimiter(window time.Duration, burst int) *TimeWindowLimiter {
+func NewTimeWindowLimiter(window time.Duration, maxBurst uint64) *TimeWindowLimiter {
 	return &TimeWindowLimiter{
 		limits:     make(map[common.Address]*rateRecord),
 		timeWindow: window,
-		burst:      burst,
+		maxBurst:   maxBurst,
 	}
 }
 
@@ -48,7 +48,7 @@ func (l *TimeWindowLimiter) Allow(sender common.Address) error {
 		return nil
 	}
 
-	if record.count >= l.burst {
+	if record.count >= l.maxBurst {
 		return ErrRateLimitExceeded
 	}
 
@@ -70,14 +70,14 @@ func (l *TimeWindowLimiter) Cleanup() {
 
 type HeightBasedLimiter struct {
 	rwMutex      sync.RWMutex
-	records      map[common.Address]map[uint64]int
-	maxPerHeight int
+	records      map[common.Address]map[uint64]uint64
+	maxPerHeight uint64
 	btl          uint64
 }
 
-func NewHeightBasedLimiter(maxPerHeight int, btl uint64) *HeightBasedLimiter {
+func NewHeightBasedLimiter(maxPerHeight uint64, btl uint64) *HeightBasedLimiter {
 	return &HeightBasedLimiter{
-		records:      make(map[common.Address]map[uint64]int),
+		records:      make(map[common.Address]map[uint64]uint64),
 		maxPerHeight: maxPerHeight,
 		btl:          btl,
 	}
@@ -88,7 +88,7 @@ func (l *HeightBasedLimiter) Allow(sender common.Address, height uint64) error {
 	defer l.rwMutex.Unlock()
 
 	if _, exists := l.records[sender]; !exists {
-		l.records[sender] = make(map[uint64]int)
+		l.records[sender] = make(map[uint64]uint64)
 	}
 
 	if l.records[sender][height] >= l.maxPerHeight {
@@ -182,9 +182,9 @@ func NewAFDRateLimiter() *AFDRateLimiter {
 		// 8 accusations per 1s window for per client, rate limit reset per 1s.
 		timeLimiter: NewTimeWindowLimiter(time.Second, maxAccusationPerHeight*2),
 		// 4 accusations per height for per client.
-		heightLimiter: NewHeightBasedLimiter(maxAccusationPerHeight, msgGCInterval),
-		// duplicated accusation checker, reset per 10 minutes.
-		duplicateCheck: NewDuplicateTracker(time.Minute * 10),
+		heightLimiter: NewHeightBasedLimiter(maxAccusationPerHeight, HeightRange),
+		// duplicated accusation checker, reset per 5 minutes.
+		duplicateCheck: NewDuplicateTracker(time.Minute * 5),
 	}
 
 	return limiter
