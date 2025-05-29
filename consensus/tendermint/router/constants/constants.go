@@ -3,6 +3,7 @@ package constants
 import "time"
 
 const (
+	ScaleThresholdForClustering = 21
 	DefaultLatency             = uint(132)
 	DefaultNearThreshold       = 50
 	LatencyMeasurementDelayCap = 2000

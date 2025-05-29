@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/autonity/autonity/consensus"
+	routerInterfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/autonity"
@@ -120,13 +120,12 @@ type Core interface {
 }
 
 type Router interface {
-	Start(ctx context.Context, chain *ethcore.BlockChain)
+	Start(ctx context.Context, chain routerInterfaces.BlockChainProvider)
 	Stop()
-	SetBroadcaster(broadcaster consensus.Broadcaster)
+	SetBroadcaster(broadcaster routerInterfaces.PeerFinder)
 	Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
 	Forward(committee *types.Committee, m message.Msg, sender common.Address)
 }
-
 
 type EventDispatcher interface {
 	Post(ev any)

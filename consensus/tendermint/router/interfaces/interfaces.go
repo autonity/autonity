@@ -5,7 +5,9 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/network"
+	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/p2p/enode"
 )
 
@@ -28,4 +30,9 @@ type PeerFinder interface {
 type PeerSelector interface {
 	SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
 	SetBroadcaster(broadcaster PeerFinder)
+}
+
+type BlockChainProvider interface {
+	LatestEpoch() (*types.EpochInfo, error)
+	SubscribeEpochHeadEvent(chan<- core.EpochHeadEvent) event.Subscription
 }

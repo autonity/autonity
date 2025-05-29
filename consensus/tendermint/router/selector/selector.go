@@ -19,8 +19,6 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
-var errUnknownClusters = errors.New("unknown clustering")
-
 type SenderType int
 
 const (
@@ -52,7 +50,7 @@ func New(np interfaces.NetworkProvider, cache cache.Recipients) *Selector {
 	return s
 }
 
-func (s *Selector) SetBroadcaster(broadcaster interfaces.PeerFinder)  {
+func (s *Selector) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 	s.peerFinder = broadcaster
 }
 

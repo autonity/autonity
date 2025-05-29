@@ -21,6 +21,7 @@ import (
 	consensus "github.com/autonity/autonity/consensus"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
 	events "github.com/autonity/autonity/consensus/tendermint/events"
+	interfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	core "github.com/autonity/autonity/core"
 	types "github.com/autonity/autonity/core/types"
 	blst "github.com/autonity/autonity/crypto/blst"
@@ -724,7 +725,7 @@ func (mr *MockRouterMockRecorder) SetBroadcaster(broadcaster any) *gomock.Call {
 }
 
 // Start mocks base method.
-func (m *MockRouter) Start(ctx context.Context, chain *core.BlockChain) {
+func (m *MockRouter) Start(ctx context.Context, chain interfaces.BlockChainProvider) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Start", ctx, chain)
 }
