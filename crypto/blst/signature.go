@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/autonity/autonity/log"
 	"github.com/pkg/errors"
 	blst "github.com/supranational/blst/bindings/go"
+
+	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/rlp"
@@ -45,6 +46,7 @@ var generalDST = []byte("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_")
 var popDST = []byte("BLS_POP_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_")
 
 const scalarBytes = 32
+const randBitsEntropy = 64
 
 // Individual signatures MUST be checked for 0 value at decoding / preValidation phase.
 // Aggregate signatures are allowed to be 0.
