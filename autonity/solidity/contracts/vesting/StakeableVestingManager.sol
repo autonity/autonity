@@ -11,7 +11,7 @@ import "./stakeable/StakeableVestingState.sol";
  * @notice It only creates new stakeable vesting contract which deploys new smart contract for each new stakeable vesting contract.
  * It can also manage the beneficiary of an existing stakeable vesting contract.
  */
-contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager, ReentrancyGuard {
+contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager {
     uint256 internal contractVersion = 1;
 
     address internal stakeableVestingLogicContract;
