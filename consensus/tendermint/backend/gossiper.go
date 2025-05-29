@@ -9,6 +9,7 @@ import (
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
@@ -16,7 +17,7 @@ import (
 
 type msgRouter interface {
 	Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
-	SetBroadcaster(broadcaster consensus.Broadcaster)
+	SetBroadcaster(broadcaster interfaces.PeerFinder)
 }
 
 type Gossiper struct {
@@ -83,17 +84,7 @@ func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
 }
 
 func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
-	recipients, err := g.router.Recipients(committee, msg, g.address)
-	if err != nil {
-		log.Debug("no recipients for message from msgRouter, broadcast", "error", err, "height", msg.H(), "message type", msg.Code())
-		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
-		recipients := make([]common.Address, 0, committee.Len())
-		for _, val := range committee.Members {
-			if val.Address != g.address {
-				recipients = append(recipients, val.Address)
-			}
-		}
-	}
+	recipients, _ := g.router.Recipients(committee, msg, g.address)
 	g.gossip(msg, recipients)
 }
 

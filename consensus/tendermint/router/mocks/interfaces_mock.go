@@ -17,7 +17,9 @@ import (
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
 	interfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	network "github.com/autonity/autonity/consensus/tendermint/router/network"
+	core "github.com/autonity/autonity/core"
 	types "github.com/autonity/autonity/core/types"
+	event "github.com/autonity/autonity/event"
 	enode "github.com/autonity/autonity/p2p/enode"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -240,4 +242,57 @@ func (m *MockPeerSelector) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 func (mr *MockPeerSelectorMockRecorder) SetBroadcaster(broadcaster any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBroadcaster", reflect.TypeOf((*MockPeerSelector)(nil).SetBroadcaster), broadcaster)
+}
+
+// MockBlockChainProvider is a mock of BlockChainProvider interface.
+type MockBlockChainProvider struct {
+	ctrl     *gomock.Controller
+	recorder *MockBlockChainProviderMockRecorder
+	isgomock struct{}
+}
+
+// MockBlockChainProviderMockRecorder is the mock recorder for MockBlockChainProvider.
+type MockBlockChainProviderMockRecorder struct {
+	mock *MockBlockChainProvider
+}
+
+// NewMockBlockChainProvider creates a new mock instance.
+func NewMockBlockChainProvider(ctrl *gomock.Controller) *MockBlockChainProvider {
+	mock := &MockBlockChainProvider{ctrl: ctrl}
+	mock.recorder = &MockBlockChainProviderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockBlockChainProvider) EXPECT() *MockBlockChainProviderMockRecorder {
+	return m.recorder
+}
+
+// LatestEpoch mocks base method.
+func (m *MockBlockChainProvider) LatestEpoch() (*types.EpochInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LatestEpoch")
+	ret0, _ := ret[0].(*types.EpochInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LatestEpoch indicates an expected call of LatestEpoch.
+func (mr *MockBlockChainProviderMockRecorder) LatestEpoch() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestEpoch", reflect.TypeOf((*MockBlockChainProvider)(nil).LatestEpoch))
+}
+
+// SubscribeEpochHeadEvent mocks base method.
+func (m *MockBlockChainProvider) SubscribeEpochHeadEvent(arg0 chan<- core.EpochHeadEvent) event.Subscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeEpochHeadEvent", arg0)
+	ret0, _ := ret[0].(event.Subscription)
+	return ret0
+}
+
+// SubscribeEpochHeadEvent indicates an expected call of SubscribeEpochHeadEvent.
+func (mr *MockBlockChainProviderMockRecorder) SubscribeEpochHeadEvent(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeEpochHeadEvent", reflect.TypeOf((*MockBlockChainProvider)(nil).SubscribeEpochHeadEvent), arg0)
 }

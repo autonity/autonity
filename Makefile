@@ -227,6 +227,7 @@ mock-gen:
 	mockgen -source=consensus/tendermint/router/interfaces/interfaces.go -package=mocks -destination=consensus/tendermint/router/mocks/interfaces_mock.go
 	mockgen -source=consensus/tendermint/router/ping/pinger.go -package=mocks -destination=consensus/tendermint/router/mocks/pinger_mock.go
 	mockgen -source=consensus/tendermint/router/cache/cache.go -package=mocks -destination=consensus/tendermint/router/mocks/cache_mock.go
+	mockgen -source=event/subscription.go -package=mocks -destination=consensus/tendermint/router/mocks/subscription_mock.go
 
 generate:
 	cd core/types/ && go generate
