@@ -1026,9 +1026,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
 
     /**
     * @notice Returns the liquid logic contract
-    * @param _validator, only used for access control
     */
-    function getLiquidLogicContract(address _validator) external view virtual returns (address) {
+    function getLiquidLogicContract() external view virtual returns (address) {
         return liquidLogicContract;
     }
 
