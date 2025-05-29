@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/cache"
 	"github.com/autonity/autonity/consensus/tendermint/router/constants"
@@ -21,10 +20,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
-)
-
-const (
-	ScaleThresholdForClustering = 21
 )
 
 func Setup(
@@ -63,11 +58,12 @@ type Router struct {
 	nodesToRetry map[common.Address]struct{}
 	retryMu      sync.RWMutex
 
-	network        interfaces.NetworkProvider
-	peerFinder     interfaces.PeerFinder
-	latencyFetcher interfaces.LatencyProvider
-	peerSelector   interfaces.PeerSelector
-	recipientCache cache.Recipients
+	network             interfaces.NetworkProvider
+	peerFinder          interfaces.PeerFinder
+	latencyFetcher      interfaces.LatencyProvider
+	peerSelector        interfaces.PeerSelector
+	recipientCache      cache.Recipients
+	clusteringThreshold int
 }
 
 func New(
@@ -79,15 +75,16 @@ func New(
 	networkProvider interfaces.NetworkProvider,
 ) *Router {
 	router := &Router{
-		nodeKey:         nodeKey,
-		epochEventChan:  make(chan core.EpochHeadEvent, 2),
-		latencyFetcher:  latencyFetcher,
-		recipientCache:  recipientCache,
-		latestLatencies: make(map[common.Address]uint),
-		nodesToRetry:    make(map[common.Address]struct{}),
-		self:            self,
-		peerSelector:    peerSelector,
-		network:         networkProvider,
+		nodeKey:             nodeKey,
+		epochEventChan:      make(chan core.EpochHeadEvent, 2),
+		latencyFetcher:      latencyFetcher,
+		recipientCache:      recipientCache,
+		latestLatencies:     make(map[common.Address]uint),
+		nodesToRetry:        make(map[common.Address]struct{}),
+		self:                self,
+		peerSelector:        peerSelector,
+		network:             networkProvider,
+		clusteringThreshold: constants.ScaleThresholdForClustering,
 	}
 	return router
 }
@@ -101,7 +98,7 @@ func (m *Router) committeeAddresses(committee *types.Committee) []common.Address
 }
 
 func (m *Router) Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
-	if committee.Len() <= ScaleThresholdForClustering {
+	if committee.Len() <= m.clusteringThreshold {
 		return m.committeeAddresses(committee), nil
 	}
 	recipients, err := m.peerSelector.SelectPeers(committee, msg, from)
@@ -113,11 +110,7 @@ func (m *Router) Recipients(committee *types.Committee, msg message.Msg, from co
 }
 
 func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender common.Address) {
-	recipients, err := m.Recipients(committee, msg, sender)
-	if err != nil {
-		log.Debug("Forward: No recipients for message, broadcast", "error", err, "height", msg.H(), "message type", msg.Code())
-		recipients = m.committeeAddresses(committee)
-	}
+	recipients, _ := m.Recipients(committee, msg, sender)
 	lostPeers := make([]common.Address, 0)
 	for _, recipient := range recipients {
 		if recipient == sender {
@@ -144,8 +137,8 @@ func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender com
 	}
 }
 
-func (m *Router) Start(ctx context.Context, chain *core.BlockChain) {
-	log.Info("Router: starting routing manager")
+func (m *Router) Start(ctx context.Context, chain interfaces.BlockChainProvider) {
+	log.Info("Router: starting")
 
 	curEpoch, err := chain.LatestEpoch()
 	if err != nil {
@@ -177,7 +170,7 @@ func (m *Router) Stop() {
 	m.wg.Wait()
 }
 
-func (m *Router) SetBroadcaster(broadcaster consensus.Broadcaster) {
+func (m *Router) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 	m.peerFinder = broadcaster
 	m.latencyFetcher.SetBroadcaster(broadcaster)
 	m.peerSelector.SetBroadcaster(broadcaster)
@@ -282,7 +275,7 @@ func (m *Router) loop(ctx context.Context) {
 		cleanupTicker.Stop()
 	}()
 
-	if m.inCommittee && len(m.committee) >= ScaleThresholdForClustering {
+	if m.inCommittee && len(m.committee) >= m.clusteringThreshold {
 		if err := m.measureLatency(); err != nil {
 			log.Warn("Latency measurement failed", "err", err)
 		}
@@ -293,7 +286,7 @@ func (m *Router) loop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < ScaleThresholdForClustering {
+			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < m.clusteringThreshold {
 				continue
 			}
 			delay := time.Duration(rand.Intn(constants.LatencyMeasurementDelayCap)) * time.Millisecond
@@ -302,7 +295,7 @@ func (m *Router) loop(ctx context.Context) {
 				log.Warn("measureToReport failed", "err", err)
 			}
 		case <-retryTicker.C:
-			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < ScaleThresholdForClustering {
+			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < m.clusteringThreshold {
 				continue
 			}
 			if err := m.retryLatency(); err != nil {
@@ -315,7 +308,7 @@ func (m *Router) loop(ctx context.Context) {
 			log.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
 			epoch := epochEv.Header.Epoch
 			m.inCommittee = epoch.Committee.MemberByAddress(m.self) != nil
-			if !m.inCommittee || len(m.committee) < ScaleThresholdForClustering {
+			if !m.inCommittee || len(m.committee) < m.clusteringThreshold {
 				log.Info("Router: clustering not needed, skipping measurement")
 				continue
 			}
