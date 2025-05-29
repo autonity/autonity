@@ -189,9 +189,8 @@ func FastAggregateVerifyBatch(sigs []Signature, pubkeys []PublicKey, msg [32]byt
 	aggregatedSignature := &BlsSignature{s: aggregatedSignatureAffine}
 	aggregatedKey := &BlsPublicKey{p: aggregatedKeyAffine}
 
-	// if the aggregated sig is not part of the group, signature is invalid
+	// I believe this should never happen, but if it does print some debugging info and fail fast
 	if !aggregatedSignature.s.SigValidate(false) {
-		// I believe this should never happen, but if it does print some debugging info
 		var serializedSigs [][]byte
 		var serializedKeys [][]byte
 		var serializedScalars [][]byte
@@ -201,7 +200,7 @@ func FastAggregateVerifyBatch(sigs []Signature, pubkeys []PublicKey, msg [32]byt
 			serializedScalars = append(serializedScalars, scalars[i].Serialize())
 		}
 		log.Error("Unexpected error: aggregate signature is not part of the group, please report it", "sigs", serializedSigs, "rawKeys", serializedKeys, "scalars", serializedScalars)
-		return false
+		panic("unexpected error: aggregate signature is not part of the group")
 	}
 
 	return aggregatedSignature.Verify(aggregatedKey, msg[:], DefaultAssumeZeroValid)
