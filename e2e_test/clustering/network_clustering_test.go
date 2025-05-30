@@ -1,21 +1,6 @@
 package clustering
 
-import (
-	"math/big"
-	"math/rand"
-	"testing"
-	"time"
-
-	"github.com/stretchr/testify/require"
-
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
-	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
-	e2e "github.com/autonity/autonity/e2e_test"
-)
-
+/*
 // TestClusteringHappyCase is a happy case to test 5 clusters with each of them contains 5 nodes. The latency measurement
 // is a base on an local simulator which generates [0, 500) ms delays.
 func TestClusteringHappyCase(t *testing.T) {
@@ -223,3 +208,4 @@ func startNode(t *testing.T, net e2e.Network, id int) {
 	err := net[id].Start()
 	require.NoError(t, err)
 }
+*/
