@@ -574,7 +574,7 @@ func newVote[
 
 	payload, _ := rlp.EncodeToBytes(extVote{
 		Code:       code,
-		Round:      uint64(r),
+		Round:      uint64(r), // #nosec
 		Height:     h,
 		Value:      value,
 		Signers:    signers,
@@ -672,7 +672,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 
 	payload, _ := rlp.EncodeToBytes(extVote{
 		Code:       c,
-		Round:      uint64(r),
+		Round:      uint64(r), // #nosec
 		Height:     h,
 		Value:      value,
 		Signers:    signers,
@@ -797,7 +797,7 @@ func AggregateVotesSimple[
 
 		payload, _ := rlp.EncodeToBytes(extVote{
 			Code:       code,
-			Round:      uint64(r),
+			Round:      uint64(r), // #nosec
 			Height:     h,
 			Value:      value,
 			Signers:    signersList[i],

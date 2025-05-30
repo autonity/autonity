@@ -108,7 +108,7 @@ func TestAskSync(t *testing.T) {
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	broadcaster.EXPECT().FindPeers(m).Return(peers)
-	rt := NewMockrouter(ctrl)
+	rt := interfaces.NewMockRouter(ctrl)
 	rt.EXPECT().SetBroadcaster(broadcaster)
 
 	b := &Backend{
@@ -149,9 +149,9 @@ func BenchmarkGossip(b *testing.B) {
 	}
 
 	sender := common.Address{}
-	rt := NewMockrouter(ctrl)
+	rt := interfaces.NewMockRouter(ctrl)
 	rt.EXPECT().SetBroadcaster(broadcaster)
-	rt.EXPECT().Route(committee, gomock.Any(), sender).AnyTimes().Return(nil)
+	rt.EXPECT().Recipients(committee, gomock.Any(), sender).AnyTimes().Return(nil)
 
 	knownMessages := fixsizecache.New[common.Hash, bool](4997, 20, fixsizecache.HashKey[common.Hash])
 	bk := &Backend{
@@ -214,9 +214,9 @@ func TestGossip(t *testing.T) {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, fixsizecache.HashKey[common.Hash])
 	sender := common.Address{}
-	rt := NewMockrouter(ctrl)
+	rt := interfaces.NewMockRouter(ctrl)
 	rt.EXPECT().SetBroadcaster(broadcaster)
-	rt.EXPECT().Route(committee, gomock.Any(), sender).AnyTimes().Return(committee.Members, nil)
+	rt.EXPECT().Recipients(committee, gomock.Any(), sender).AnyTimes().Return(committee.Members, nil)
 
 	b := &Backend{
 		database:      rawdb.NewMemoryDatabase(),

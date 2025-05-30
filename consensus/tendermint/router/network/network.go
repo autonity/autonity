@@ -36,7 +36,7 @@ func New(
 
 	c.AssignRemoteFallbacks()
 
-	c.PreselectLocalNodes(c.base[c.ownClusterID], localBuckets, self)
+	c.PreselectLocalNodes(c.base[c.ownClusterID], localBuckets)
 
 	return c, nil
 }

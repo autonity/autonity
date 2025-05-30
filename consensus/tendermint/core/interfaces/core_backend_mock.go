@@ -18,7 +18,6 @@ import (
 	abi "github.com/autonity/autonity/accounts/abi"
 	autonity "github.com/autonity/autonity/autonity"
 	common "github.com/autonity/autonity/common"
-	consensus "github.com/autonity/autonity/consensus"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
 	events "github.com/autonity/autonity/consensus/tendermint/events"
 	interfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
@@ -713,7 +712,7 @@ func (mr *MockRouterMockRecorder) Recipients(committee, msg, from any) *gomock.C
 }
 
 // SetBroadcaster mocks base method.
-func (m *MockRouter) SetBroadcaster(broadcaster consensus.Broadcaster) {
+func (m *MockRouter) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetBroadcaster", broadcaster)
 }

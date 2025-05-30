@@ -241,7 +241,6 @@ lint:
 	@./.github/tools/golangci-lint run \
 	    --new-from-rev=$(LATEST_COMMIT) \
 	    --config ./.golangci/step1.yml \
-	    --exclude "which can be annoying to use"
 
 	@./.github/tools/golangci-lint run \
 	    --new-from-rev=$(LATEST_COMMIT) \
@@ -263,7 +262,7 @@ test-deps:
 	cd tests/testdata && git checkout b5eb9900ee2147b40d3e681fe86efa4fd693959a
 
 lint-deps:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./build/bin v1.55.2
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./build/bin v1.64.2
 
 clean:
 	go clean -cache
