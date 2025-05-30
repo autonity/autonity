@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/log"
 	"io"
 	"math/big"
 	"reflect"
