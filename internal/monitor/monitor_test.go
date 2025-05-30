@@ -239,7 +239,7 @@ func Test_GoroutineThresholdBreach(t *testing.T) {
 
 	cfg := DefaultMonitorConfig
 	mockGRNum := func() int {
-		return 7000
+		return 11000
 	}
 	cfg.monitoringInterval = time.Second * 2
 	cfg.cpuProfilingDuration = time.Second
