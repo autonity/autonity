@@ -618,6 +618,19 @@ func AggregatePrecommits(votes []Vote) *Precommit {
 	return AggregateVotes[Precommit](votes)
 }
 
+func deterministicRepresentative(votes []Vote) Vote {
+	minVote := votes[0]
+	minHash := minVote.Originator().Hash().Big()
+	for _, vote := range votes[1:] {
+		hash := vote.Originator().Hash().Big()
+		if hash.Cmp(minHash) < 0 {
+			minVote = vote
+			minHash = hash
+		}
+	}
+	return minVote
+}
+
 // NOTE: this function assumes that:
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been preverified and cryptographically verified
@@ -628,8 +641,8 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 	}
 
 	// use votes[0] as a set representative
-	representative := votes[0]
 
+	representative := deterministicRepresentative(votes)
 	// signers of the aggregate
 	signers := types.NewSigners(representative.Signers().CommitteeSize())
 
@@ -772,7 +785,7 @@ func AggregateVotesSimple[
 	}
 
 	// build aggregates
-	representative := votes[0]
+	representative := deterministicRepresentative(votes)
 	h := representative.H()
 	r := representative.R()
 	value := representative.Value()
