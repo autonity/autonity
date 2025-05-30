@@ -238,8 +238,7 @@ func TestSelector_selectNodesByLatencySpread(t *testing.T) {
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).Times(1)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).Times(1)
 
-	nodes, err := selector.selectNodesByLatencySpread()
-	assert.NoError(t, err, "Expected no error")
+	nodes := selector.selectNodesByLatencySpread()
 	assert.Len(t, nodes, 2, "Expected one node per remote cluster")
 	assert.Contains(t, nodes, network.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node 0x222")
 	assert.Contains(t, nodes, network.Node{Addr: common.HexToAddress("0x333"), Lat: 150, ClusterID: 0}, "Expected node 0x333")

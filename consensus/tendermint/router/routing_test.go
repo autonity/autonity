@@ -129,7 +129,8 @@ func TestRouter_Stop(t *testing.T) {
 	recipientCache := cache.New()
 	nodeKey := newTestKey(t)
 	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	sub := mocks.NewMockSubscription(ctrl)
 	sub.EXPECT().Unsubscribe().Times(1)
@@ -140,6 +141,7 @@ func TestRouter_Stop(t *testing.T) {
 	go router.Start(ctx, chain)
 	time.Sleep(50 * time.Millisecond)
 	router.Stop()
+
 }
 
 func TestRouter_Recipients_SmallCommittee(t *testing.T) {

@@ -21,7 +21,7 @@ type Fetcher struct {
 
 func NewFetcher(pinger ping.Pinger) *Fetcher {
 	return &Fetcher{
-		pinger:     pinger,
+		pinger: pinger,
 	}
 }
 
@@ -72,7 +72,7 @@ func (f *Fetcher) Fetch(validators []common.Address, self common.Address) (map[c
 			latency[addr] = constants.DefaultLatency
 			continue
 		}
-		latency[addr] = uint(latencyArray[i].Latency.Milliseconds())
+		latency[addr] = uint(latencyArray[i].Latency.Milliseconds()) // #nosec
 	}
 
 	return latency, failedNodes, nil

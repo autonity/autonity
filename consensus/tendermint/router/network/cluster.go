@@ -63,7 +63,7 @@ func createClusters(
 		if latency > c.maxLatency {
 			c.maxLatency = latency
 		}
-		c.base[clusterID] = append(c.base[clusterID], Node{Addr: addr, Lat: uint(latency), ClusterID: clusterID})
+		c.base[clusterID] = append(c.base[clusterID], Node{Addr: addr, Lat: latency, ClusterID: clusterID})
 		c.addressToCluster[addr] = clusterID
 		if addr == self {
 			c.self = addr
@@ -236,7 +236,7 @@ func (c *Clusters) AssignRemoteFallbacks() {
 }
 
 // PreselectLocalNodes preselects sqrt(n) nodes and fallbacks for the local cluster
-func (c *Clusters) PreselectLocalNodes(localNodes []Node, localBuckets [][]Node, self common.Address) {
+func (c *Clusters) PreselectLocalNodes(localNodes []Node, localBuckets [][]Node) {
 	BucketCount := len(c.base)
 	targetLocalNodes := int(math.Sqrt(float64(len(localNodes))))
 	if targetLocalNodes == 0 {

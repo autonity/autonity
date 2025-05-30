@@ -34,7 +34,7 @@ func TestNew_ValidCommittee(t *testing.T) {
 	assert.Equal(t, numClusters, len(clusters.Base()), "Expected 2 clusters")
 	assert.Equal(t, 0, clusters.ID(), "Expected self in cluster 0")
 	assert.Equal(t, self, clusters.Self(), "Expected self address")
-	assert.Equal(t, 50, int(clusters.minLatency), "Expected min latency 50")
+	assert.Equal(t, uint(50), clusters.minLatency, "Expected min latency 50")
 	assert.Equal(t, uint(200*constants.MaxLatencyCapFactor), clusters.maxLatency, "Expected max latency capped")
 	// Cluster 0: 0x333 (self removed by Prepare)
 	// Cluster 1: 0x222, 0x444 (sorted by latency)
@@ -89,9 +89,9 @@ func TestNew_SingleMemberCommittee(t *testing.T) {
 	assert.Equal(t, numClusters, len(clusters.Base()), "Expected 1 cluster")
 	assert.Equal(t, 0, clusters.ID(), "Expected self in cluster 0")
 	assert.Equal(t, self, clusters.Self(), "Expected self address")
-	assert.Equal(t, 50, int(clusters.minLatency), "Expected min latency 50")
+	assert.Equal(t, uint(50), clusters.minLatency, "Expected min latency 50")
 	// no capping because min and max are the same
-	assert.Equal(t, 50, int(clusters.maxLatency), "Expected max latency 50")
+	assert.Equal(t, uint(50), clusters.maxLatency, "Expected max latency 50")
 	assert.Empty(t, clusters.base[0], "Expected empty cluster 0 (self removed)")
 	assert.Empty(t, clusters.BucketNodes(), "Expected no remote bucket nodes")
 	assert.Empty(t, clusters.LocalBucketNodes(), "Expected no local bucket nodes")
@@ -276,7 +276,7 @@ func TestClusters_PreselectLocalNodes(t *testing.T) {
 	assert.NoError(t, err, "Expected no error for create cluster")
 	clusters.Prepare(self)
 	_, localBuckets := clusters.ComputeLatencyBuckets()
-	clusters.PreselectLocalNodes(clusters.base[clusters.ownClusterID], localBuckets, self)
+	clusters.PreselectLocalNodes(clusters.base[clusters.ownClusterID], localBuckets)
 
 	assert.Len(t, clusters.LocalBucketNodes(), 1, "Expected sqrt(2) = 1 local node")
 	assert.Empty(t, clusters.LocalBucketFallBacks(), "Expected no local fallbacks")
@@ -425,7 +425,7 @@ func TestNetwork_UpdateClusters_Concurrent(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			committee := []common.Address{common.HexToAddress("0x111")}
-			latencyMap := map[common.Address]uint{common.HexToAddress("0x111"): uint(50 + i%10)}
+			latencyMap := map[common.Address]uint{common.HexToAddress("0x111"): uint(50 + i%10)} // #nosec
 			self := common.HexToAddress("0x111")
 			clusters, err := New(committee, latencyMap, self)
 			assert.NoError(t, err, "Expected no error for concurrency")
