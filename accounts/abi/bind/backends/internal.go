@@ -3,6 +3,8 @@ package backends
 import (
 	"context"
 	"errors"
+	"github.com/autonity/autonity/common/math"
+	stdmath "math"
 	"math/big"
 	"sync"
 
@@ -268,8 +270,13 @@ func (b *InternalBackend) CallContract(ctx context.Context, call ethereum.CallMs
 	}
 	blockCtx := core.NewEVMBlockContext(header, b.blockchain, nil)
 	evm := vm.NewEVM(blockCtx, statedb, b.ChainConfig(), *b.blockchain.GetVMConfig())
+	msg, err := b.callDataToMessage(&call)
+	if err != nil {
+		return nil, err
+	}
 	gp := core.GasPool(call.Gas)
-	res, err := core.ApplyMessage(evm, nil, &gp)
+
+	res, err := core.ApplyMessage(evm, msg, &gp)
 	if err != nil {
 		return nil, err
 	}
@@ -349,6 +356,62 @@ func (b *InternalBackend) ChainConfig() *params.ChainConfig {
 // CurrentBlock returns the current block.
 func (b *InternalBackend) CurrentBlock() *types.Header {
 	return b.blockchain.CurrentHeader()
+}
+
+// callDataToMessage convert the contract read call data to a message
+func (b *InternalBackend) callDataToMessage(call *ethereum.CallMsg) (*core.Message, error) {
+	// Gas prices post 1559 need to be initialized
+	if call.GasPrice != nil && (call.GasFeeCap != nil || call.GasTipCap != nil) {
+		return nil, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
+	}
+	head := b.blockchain.CurrentHeader()
+	if !b.blockchain.Config().IsLondon(head.Number) {
+		// If there's no basefee, then it must be a non-1559 execution
+		if call.GasPrice == nil {
+			call.GasPrice = new(big.Int)
+		}
+		call.GasFeeCap, call.GasTipCap = call.GasPrice, call.GasPrice
+	} else {
+		// A basefee is provided, necessitating 1559-type execution
+		if call.GasPrice != nil {
+			// User specified the legacy gas field, convert to 1559 gas typing
+			call.GasFeeCap, call.GasTipCap = call.GasPrice, call.GasPrice
+		} else {
+			// User specified 1559 gas feilds (or none), use those
+			if call.GasFeeCap == nil {
+				call.GasFeeCap = new(big.Int)
+			}
+			if call.GasTipCap == nil {
+				call.GasTipCap = new(big.Int)
+			}
+			// Backfill the legacy gasPrice for EVM execution, unless we're all zeroes
+			call.GasPrice = new(big.Int)
+			if call.GasFeeCap.BitLen() > 0 || call.GasTipCap.BitLen() > 0 {
+				call.GasPrice = math.BigMin(new(big.Int).Add(call.GasTipCap, head.BaseFee), call.GasFeeCap)
+			}
+		}
+	}
+	// Ensure message is initialized properly.
+	if call.Gas == 0 {
+		call.Gas = stdmath.MaxUint64 / 2
+	}
+	if call.Value == nil {
+		call.Value = new(big.Int)
+	}
+
+	return &core.Message{
+		From:            call.From,
+		To:              call.To,
+		Nonce:           0,
+		Value:           call.Value,
+		GasLimit:        call.Gas,
+		GasPrice:        call.GasPrice,
+		GasFeeCap:       call.GasFeeCap,
+		GasTipCap:       call.GasTipCap,
+		Data:            call.Data,
+		AccessList:      call.AccessList,
+		SkipNonceChecks: true,
+	}, nil
 }
 
 // filterBackend implements filters.Backend to support filtering for logs without
