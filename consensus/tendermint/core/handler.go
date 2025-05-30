@@ -223,7 +223,6 @@ eventLoop:
 
 					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
 						go func() {
-							time.Sleep(5 * time.Millisecond) // minor sleep for old round messages
 							c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 						}()
 					}
