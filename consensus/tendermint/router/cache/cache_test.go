@@ -154,6 +154,6 @@ func TestGenerateKey(t *testing.T) {
 	msgCode := uint8(42)
 
 	key := GenerateKey(addr, senderType, msgCode)
-	expected := "0x123-1-42"
+	expected := addr.Hex() + "-1-42"
 	assert.Equal(t, expected, key, "Generated key should match expected format")
 }
