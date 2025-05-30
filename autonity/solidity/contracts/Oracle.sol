@@ -257,6 +257,10 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
         }
     }
 
+    /**
+     * @notice Distributes oracle rewards to voters based on their performance. Called by Autonity at finalize().
+     * @param _ntn, the amount of ntn to redistribute
+     */
     function distributeRewards(uint256 _ntn) onlyAutonity external virtual nonReentrant payable {
         uint256 _atn = address(this).balance;
         _performRewardDistribution(_atn, _ntn);
@@ -294,6 +298,10 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
         rewardPeriodAggregatedScore = 0;
     }
 
+    /**
+     * @notice updates voters and symbols, taking into account boundary edge cases.
+     *         Called by Autonity at the start of a new Oracle round
+     */
     function updateVotersAndSymbol() onlyAutonity external virtual {
         // this votingInfo is updated with the newVoter set just so that the new voters
         // are able to send their first vote, but they will not be used for aggregation
@@ -420,30 +428,56 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
         return _d;
     }
 
+    /**
+     * @return config, the current oracle config
+     */
     function getConfig() external virtual view nonReentrantView returns (Config memory){
         return config;
     }
 
+    /**
+     * @param _oracleAddress, the oracle address of a validator
+     * @return his node address
+     */
     function getVoterValidators(address _oracleAddress) external virtual view nonReentrantView returns (address) {
         return voterValidators[_oracleAddress];
     }
 
+    /**
+     * @param _oracleAddress, the oracle address of a validator
+     * @return his treasury address
+     */
     function getVoterTreasuries(address _oracleAddress) external virtual view nonReentrantView returns (address) {
         return voterTreasuries[_oracleAddress];
     }
 
+    /**
+    * @return the round at which the symbols got updated
+    */
     function getSymbolUpdatedRound() external virtual view returns (int256){
         return symbolUpdatedRound;
     }
 
+    /**
+    * @return the block at which the last completed round ended
+    */
     function getLastRoundBlock() external virtual view nonReentrantView returns (uint256){
         return lastRoundBlock;
     }
 
+    /**
+    * @param _voter, the voter address
+    * @return the related voter information
+    */
     function getVoterInfo(address _voter) external virtual view nonReentrantView returns (VoterInfo memory){
         return voterInfo[_voter];
     }
 
+    /**
+    * @param _symbol, the target symbol
+    * @param _voter, the target voter address
+    * @return the latest report of that voter for that symbol
+    */
     function getReports(string memory _symbol, address _voter) external virtual view nonReentrantView returns (Report memory){
         return reports[_symbol][_voter];
     }
