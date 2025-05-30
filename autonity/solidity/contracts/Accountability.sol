@@ -520,7 +520,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
         revert("unknown severity");
     }
 
-    function _grantReportAccess(address[] memory _members) internal virtual onlyAutonity {
+    function _grantReportAccess(address[] memory _members) internal virtual {
         for (uint256 i=0; i < _members.length; i++) {
             if (allowedReporters[_members[i]] == true) {
                 continue;
@@ -529,7 +529,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
         }
     }
 
-    function _revokeReportAccess(address[] memory _members) internal virtual onlyAutonity {
+    function _revokeReportAccess(address[] memory _members) internal virtual {
         for (uint256 i=0; i < _members.length; i++) {
             if (allowedReporters[_members[i]] == false) {
                 continue;
