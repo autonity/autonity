@@ -27,8 +27,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/autonity/autonity/common/math"
 	"github.com/urfave/cli/v2"
+
+	"github.com/autonity/autonity/common/math"
 )
 
 // DirectoryString is custom type which is registered in the flags library which cli uses for
