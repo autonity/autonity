@@ -472,10 +472,9 @@ contract Stabilization is IStabilization, ReentrancyGuard {
 
     /// Transition out of the fixed genesis price state.
     /// @dev Restricted to the operator.
-    function removeFixedGenesisPrices() external onlyOperator {
-        if (_fixedGenesisPrices == false) revert NotRestricted();
-        _fixedGenesisPrices = false;
-        emit IConfigEvents.ConfigUpdateBool("fixedGenesisPrices", true, false, block.number);
+    function useFixedGenesisPrices(bool useFixed) external onlyOperator {
+        emit IConfigEvents.ConfigUpdateBool("fixedGenesisPrices", _fixedGenesisPrices, useFixed, block.number);
+        _fixedGenesisPrices = useFixed;
     }
 
     /**
@@ -530,6 +529,36 @@ contract Stabilization is IStabilization, ReentrancyGuard {
         emit MinCollateralizationRatioUpdateAnnounced(newMinCollateralizationRatio, _minCollateralizationRatio.nextActiveFrom, mcrOverridden);
         emit IConfigEvents.ConfigUpdateUint("liquidationRatio", _liquidationRatio.value(), newLiquidationRatio, block.number);
         emit IConfigEvents.ConfigUpdateUint("minCollateralizationRatio", _minCollateralizationRatio.value(), newMinCollateralizationRatio, block.number);
+    }
+
+    /**
+    * @notice Set the default NTN-USD price for use when fixed prices are enabled.
+    * @param defaultNTNATNPrice The new default NTN-USD price
+    * @dev Restricted to the operator.
+    */
+    function setDefaultNTNATNPrice(uint256 defaultNTNATNPrice) external onlyOperator {
+        emit IConfigEvents.ConfigUpdateUint("defaultNTNATNPrice", _config.defaultNTNATNPrice, defaultNTNATNPrice, block.number);
+        _config.defaultNTNATNPrice = defaultNTNATNPrice;
+    }
+
+    /**
+    * @notice Set the default NTN-USD price for use when fixed prices are enabled.
+    * @param defaultNTNUSDPrice The new default NTN-USD price
+    * @dev Restricted to the operator.
+    */
+    function setDefaultNTNUSDPrice(uint256 defaultNTNUSDPrice) external onlyOperator {
+        emit IConfigEvents.ConfigUpdateUint("defaultNTNUSDPrice", _config.defaultNTNUSDPrice, defaultNTNUSDPrice, block.number);
+        _config.defaultNTNUSDPrice = defaultNTNUSDPrice;
+    }
+
+    /**
+    * @notice Set the default ACU price for use when fixed prices are enabled.
+    * @param defaultACUUSDPrice The new default ACU price
+    * @dev Restricted to the operator.
+    */
+    function setDefaultACUUSDPrice(uint256 defaultACUUSDPrice) external onlyOperator {
+        emit IConfigEvents.ConfigUpdateUint("defaultACUUSDPrice", _config.defaultACUUSDPrice, defaultACUUSDPrice, block.number);
+        _config.defaultACUUSDPrice = defaultACUUSDPrice;
     }
 
     /*
@@ -595,7 +624,8 @@ contract Stabilization is IStabilization, ReentrancyGuard {
             _config.minDebtRequirement,
             _config.targetPrice,
             _config.defaultNTNATNPrice,
-            _config.defaultNTNUSDPrice
+            _config.defaultNTNUSDPrice,
+            _config.defaultACUUSDPrice
         );
     }
 
@@ -842,10 +872,13 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     */
 
     function _acuPrice() internal view returns (uint256 price) {
+        if (_fixedGenesisPrices && _config.defaultACUUSDPrice > 0) {
+            return _config.defaultACUUSDPrice;
+        }
         try IACU(_acu).value() returns (uint256 acuValue) {
             return StabilizationMath.toScaleFactor(
                 acuValue,
-                IACU(_acu).getScaleFactor()
+                IACU(_acu).scaleFactor()
             );
         } catch {
             revert PriceUnavailable("ACU-USD");

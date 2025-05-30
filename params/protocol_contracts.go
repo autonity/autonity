@@ -56,6 +56,7 @@ var (
 		TargetPrice:               (*math.HexOrDecimal256)(math.MustParseBig256("1_618_034_000_000_000_000")),
 		DefaultNTNATNPrice:        (*math.HexOrDecimal256)(math.MustParseBig256("1_000_000_000_000_000_000")),
 		DefaultNTNUSDPrice:        (*math.HexOrDecimal256)(math.MustParseBig256("1_600_000_000_000_000_000")),
+		DefaultACUUSDPrice:        (*math.HexOrDecimal256)(math.MustParseBig256("0")),
 	}
 
 	// ToDo: Add the real default values for the Auctioneer contract
@@ -476,6 +477,7 @@ type StabilizationContractGenesis struct {
 	TargetPrice               *math.HexOrDecimal256
 	DefaultNTNATNPrice        *math.HexOrDecimal256
 	DefaultNTNUSDPrice        *math.HexOrDecimal256
+	DefaultACUUSDPrice        *math.HexOrDecimal256
 }
 
 func (s *StabilizationContractGenesis) SetDefaults() {
@@ -502,6 +504,9 @@ func (s *StabilizationContractGenesis) SetDefaults() {
 	}
 	if s.DefaultNTNUSDPrice == nil {
 		s.DefaultNTNUSDPrice = DefaultStabilizationGenesis.DefaultNTNUSDPrice
+	}
+	if s.DefaultACUUSDPrice == nil {
+		s.DefaultACUUSDPrice = DefaultStabilizationGenesis.DefaultACUUSDPrice
 	}
 }
 

@@ -32,10 +32,12 @@ interface IStabilization {
         uint256 minDebtRequirement;
         /// The ACU value of 1 unit of debt.
         uint256 targetPrice;
-        // Default NTN-ATN price for use at genesis (with Oracle decimals precision)
+        /// Default NTN-ATN price for use at genesis (with Oracle decimals precision)
         uint256 defaultNTNATNPrice;
-        // Default NTN-USD price for use at genesis (with Oracle decimals precision)
+        /// Default NTN-USD price for use at genesis (with Oracle decimals precision)
         uint256 defaultNTNUSDPrice;
+        /// Default ACU-USD price for use at genesis (with Oracle decimals precision)
+        uint256 defaultACUUSDPrice;
     }
 
     /// Represents a Collateralized Debt Position (CDP)

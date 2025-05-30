@@ -434,6 +434,7 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 		TargetPrice:               (*big.Int)(config.ASM.StabilizationContractConfig.TargetPrice),
 		DefaultNTNATNPrice:        (*big.Int)(config.ASM.StabilizationContractConfig.DefaultNTNATNPrice),
 		DefaultNTNUSDPrice:        (*big.Int)(config.ASM.StabilizationContractConfig.DefaultNTNUSDPrice),
+		DefaultACUUSDPrice:        (*big.Int)(config.ASM.StabilizationContractConfig.DefaultACUUSDPrice),
 	}
 
 	err := deploy(

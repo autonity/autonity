@@ -256,7 +256,7 @@ func TestAuctioneerDebtAuction(t *testing.T) {
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
 		r.NoError(r.Stabilization.RemoveCDPRestrictions(r.Operator))
-		r.NoError(r.Stabilization.RemoveFixedGenesisPrices(r.Operator))
+		r.NoError(r.Stabilization.UseFixedGenesisPrices(r.Operator, false))
 		return r
 	}
 
