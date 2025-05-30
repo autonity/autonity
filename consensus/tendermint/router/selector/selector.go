@@ -142,7 +142,7 @@ func (s *Selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 	return selected, nil
 }
 
-func (s *Selector) selectNodesByLatencySpread() ([]network.Node, error) {
+func (s *Selector) selectNodesByLatencySpread() []network.Node {
 
 	recipients := make([]network.Node, 0)
 	usedClusters := make(map[int]bool)
@@ -192,7 +192,7 @@ func (s *Selector) selectNodesByLatencySpread() ([]network.Node, error) {
 			}
 		}
 		if selectedNode != nil {
-			recipients = append(recipients, network.Node{selectedNode.Addr, selectedNode.Lat, selectedNode.ClusterID})
+			recipients = append(recipients, network.Node{Addr: selectedNode.Addr, Lat: selectedNode.Lat, ClusterID: selectedNode.ClusterID})
 			usedClusters[clusterID] = true
 		}
 	}
@@ -238,7 +238,7 @@ func (s *Selector) selectNodesByLatencySpread() ([]network.Node, error) {
 		}
 	}
 
-	return recipients, nil
+	return recipients
 }
 
 func determineSenderType(from, self common.Address, msg message.Msg, originClusterID, ownClusterID, senderClusterID int) SenderType {
@@ -264,12 +264,7 @@ func (s *Selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 
 	switch senderType {
 	case originator:
-		var err error
-		recipients, err = s.selectNodesByLatencySpread()
-		if err != nil {
-			log.Error("Error selecting nodes for originator", "error", err)
-			break
-		}
+		recipients = s.selectNodesByLatencySpread()
 		// additional nodes
 		if isProposal {
 			minNodes = 1
@@ -412,7 +407,7 @@ func (s *Selector) clusterStatus(recipients []network.Node, msg message.Msg, fro
 	totalSelected := 0
 	var fullyConnectedClusters []string
 	var totalConnected int
-	sender := "originator"
+	var sender string
 	switch senderType {
 	case originator:
 		sender = "originator"
@@ -426,7 +421,7 @@ func (s *Selector) clusterStatus(recipients []network.Node, msg message.Msg, fro
 		sender = "local relayer remote cluster"
 	}
 
-	msgType := "proposal"
+	var msgType string
 	switch msg.Code() {
 	case message.ProposalCode:
 		msgType = "Proposal"

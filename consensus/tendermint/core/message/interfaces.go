@@ -57,10 +57,10 @@ type Msg interface {
 
 	// getters for validity flags
 	Verified() bool
+
 	PreVerified() bool
 
 	Originator() common.Address
-
 }
 
 // Votes have an additional method, which returns all the available information about the signers

@@ -5,7 +5,6 @@ linters:
   enable:
     - unconvert
     - unparam
-    - varcheck
     - nakedret
     - prealloc
 

@@ -13,5 +13,4 @@ func (*simulatedPinger) Ping(_ ping.Target, resultCh chan<- time.Duration) {
 	latency := time.Duration(10+rand.Int63n(491)) * time.Millisecond
 	resultCh <- latency
 }
-
- */
+*/

@@ -5,7 +5,7 @@ run:
 
 linters:
   enable:
-    - deadcode
+    - unused
     - govet
     - misspell
     - megacheck

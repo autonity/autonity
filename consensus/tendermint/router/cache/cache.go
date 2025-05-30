@@ -46,9 +46,8 @@ func (c *peerCache) Get(key string) (Entry, bool) {
 	entry, exists := c.recipients[key]
 	if entry.Version == c.cacheVersion {
 		return entry, exists
-	} else {
-		return Entry{}, false
 	}
+	return Entry{}, false
 }
 
 func (c *peerCache) Set(key string, recipients []common.Address) {

@@ -23,11 +23,11 @@ func (m *mockDialer) DialContext(ctx context.Context, network, addr string) (net
 
 type mockConn struct{}
 
-func (m mockConn) Read(b []byte) (n int, err error) {
+func (m mockConn) Read(_ []byte) (n int, err error) {
 	return 0, nil
 }
 
-func (m mockConn) Write(b []byte) (n int, err error) {
+func (m mockConn) Write(_ []byte) (n int, err error) {
 	return 0, nil
 }
 
@@ -43,15 +43,15 @@ func (m mockConn) RemoteAddr() net.Addr {
 	return &net.TCPAddr{}
 }
 
-func (m mockConn) SetDeadline(t time.Time) error {
+func (m mockConn) SetDeadline(_ time.Time) error {
 	return nil
 }
 
-func (m mockConn) SetReadDeadline(t time.Time) error {
+func (m mockConn) SetReadDeadline(_ time.Time) error {
 	return nil
 }
 
-func (m mockConn) SetWriteDeadline(t time.Time) error {
+func (m mockConn) SetWriteDeadline(_ time.Time) error {
 	return nil
 }
 
@@ -64,7 +64,7 @@ func TestTCPPingerPing(t *testing.T) {
 			config: DefaultConfig(),
 			logger: logger,
 			dialer: &mockDialer{
-				dialFunc: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				dialFunc: func(_ context.Context, _, _ string) (net.Conn, error) {
 					return &mockConn{}, nil
 				},
 			},
@@ -101,7 +101,7 @@ func TestTCPPingerPing(t *testing.T) {
 			config: DefaultConfig(),
 			logger: logger,
 			dialer: &mockDialer{
-				dialFunc: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				dialFunc: func(_ context.Context, _, _ string) (net.Conn, error) {
 					return nil, errors.New("connection refused")
 				},
 			},
@@ -122,7 +122,7 @@ func TestTCPPingerPing(t *testing.T) {
 			},
 			logger: logger,
 			dialer: &mockDialer{
-				dialFunc: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				dialFunc: func(_ context.Context, _, _ string) (net.Conn, error) {
 					attempts++
 					if attempts < 2 {
 						return nil, errors.New("temporary failure")
@@ -147,7 +147,7 @@ func TestTCPPingerPing(t *testing.T) {
 			},
 			logger: logger,
 			dialer: &mockDialer{
-				dialFunc: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				dialFunc: func(_ context.Context, _, _ string) (net.Conn, error) {
 					return nil, errors.New("connection refused")
 				},
 			},
@@ -166,7 +166,7 @@ func TestTCPPingerPing(t *testing.T) {
 			config: DefaultConfig(),
 			logger: logger,
 			dialer: &mockDialer{
-				dialFunc: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				dialFunc: func(_ context.Context, _, _ string) (net.Conn, error) {
 					time.Sleep(10 * time.Millisecond) // Simulate network delay
 					return &mockConn{}, nil
 				},
