@@ -151,12 +151,6 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
 
         auctions.remove(auction);
 
-        // transfer ATN
-        (bool ok,) = msg.sender.call{value: atnToReceive, gas: 2300}("");
-        if (!ok) {
-            revert TransferFailed();
-        }
-
         // if the proceeds address has not been set, the collateral will accumulate in this contract until
         // the next auction
         if (proceedAddress != address(0)) {
@@ -165,6 +159,12 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
             }
         }
         emit AuctionedInterest(msg.sender, atnToReceive, ntnToPay);
+
+        // transfer ATN
+        (bool ok,) = msg.sender.call{value: atnToReceive, gas: 2300}("");
+        if (!ok) {
+            revert TransferFailed();
+        }
     }
 
     /*
