@@ -216,7 +216,7 @@ func TestGossip(t *testing.T) {
 	sender := common.Address{}
 	rt := interfaces.NewMockRouter(ctrl)
 	rt.EXPECT().SetBroadcaster(broadcaster)
-	rt.EXPECT().Recipients(committee, gomock.Any(), sender).AnyTimes().Return(committee.Members, nil)
+	rt.EXPECT().Recipients(committee, gomock.Any(), sender).AnyTimes().Return(addresses, nil)
 
 	b := &Backend{
 		database:      rawdb.NewMemoryDatabase(),
