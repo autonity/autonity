@@ -208,7 +208,6 @@ eventLoop:
 				if !errors.Is(err, constants.ErrRedundantVote) {
 					c.syncState.setLastLivenessTime(time.Now())
 				}
-
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
@@ -287,7 +286,6 @@ eventLoop:
 					c.logTimeoutEvent("Timer expired while at PrecommitDone step, ignoring", "", timeoutE)
 					continue
 				}
-				c.updateSyncTimeout(syncTimeOut) // reset sync timeout to default
 				switch timeoutE.Step {
 				case Propose:
 					c.handleTimeoutPropose(ctx, timeoutE)
@@ -343,6 +341,7 @@ eventLoop:
 		select {
 		case <-ticker.C:
 
+<<<<<<< HEAD
 			elapsedTime := time.Since(c.syncState.getLastLivenessTime())
 			currentSyncTimeout := c.syncState.getSyncTimeout()
 			if elapsedTime < currentSyncTimeout {
@@ -357,6 +356,27 @@ eventLoop:
 				c.logger.Warn("Failed to ask consensus sync", "err", err)
 				// will automatically retry at next iteration
 			}
+=======
+			currentRound := c.Round()
+			currentHeight := c.Height()
+
+			// we only ask for sync if the current view stayed the same for the interval syncTimeOut
+			if currentHeight.Cmp(height) == 0 && currentRound == round {
+				c.logger.Warn("⚠️ Consensus liveliness lost")
+				c.logger.Warn("Broadcasting sync request..")
+				c.backend.AskSync(c.committee.Committee())
+			}
+			round = currentRound
+			height = currentHeight
+
+		case ev, ok := <-c.syncEventSub.Chan():
+			if !ok {
+				break eventLoop
+			}
+			event := ev.Data.(events.SyncEvent)
+			c.logger.Debug("Processing sync message", "from", event.Addr)
+			c.backend.SyncPeer(event.Addr)
+>>>>>>> d08648658 (revert sync changes)
 		case <-ctx.Done():
 			c.logger.Debug("livenessTrackerLoop is stopped", "event", ctx.Err())
 			break eventLoop
