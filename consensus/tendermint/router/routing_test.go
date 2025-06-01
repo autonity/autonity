@@ -102,7 +102,6 @@ func TestRouter_Start(t *testing.T) {
 	nodeKey := newTestKey(t)
 	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// Mock network.New
 	latencyMap := map[common.Address]uint{self: 50, common.HexToAddress("0x222"): 100}
@@ -112,6 +111,8 @@ func TestRouter_Start(t *testing.T) {
 
 	go router.Start(ctx, chain)
 	time.Sleep(50 * time.Millisecond) // Allow goroutine to start
+	cancel()
+	router.wg.Wait()
 
 	assert.Equal(t, committeeAddrs, router.committee, "Expected committee to be set")
 	assert.True(t, router.inCommittee, "Expected self in committee")
@@ -138,7 +139,7 @@ func TestRouter_Stop(t *testing.T) {
 	epoch := &types.EpochInfo{Epoch: types.Epoch{Committee: &types.Committee{}}}
 	chain.EXPECT().LatestEpoch().Return(epoch, nil).Times(1)
 
-	go router.Start(ctx, chain)
+	router.Start(ctx, chain)
 	time.Sleep(50 * time.Millisecond)
 	router.Stop()
 
@@ -480,10 +481,11 @@ func TestRouter_Loop_OverallFlow(t *testing.T) {
 	// Wait for goroutine to process
 	time.Sleep(500 * time.Millisecond)
 
+	cancel()
+	router.wg.Wait()
 	// Verify state
 	assert.Equal(t, newCommitteeAddrs, router.committee, "Expected updated committee")
 	assert.Equal(t, latencyMap, router.latestLatencies, "Expected updated latencies")
-	cancel()
 }
 
 func TestRouter_Loop_Tickers(t *testing.T) {
