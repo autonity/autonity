@@ -422,7 +422,7 @@ func TestMessageHash(t *testing.T) {
 
 		payload, _ := rlp.EncodeToBytes(extVote{
 			Code:       PrecommitCode,
-			Round:      uint64(r),
+			Round:      uint64(r), // #nosec
 			Height:     h,
 			Value:      v,
 			Signers:    signers,
