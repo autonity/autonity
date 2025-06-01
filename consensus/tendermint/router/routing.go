@@ -206,7 +206,7 @@ func (m *Router) measureLatency() error {
 	}
 	m.retryMu.Unlock()
 
-	m.refreshClustersLatencies(m.latestLatencies)
+	m.refreshClustersLatencies(m.Latencies())
 	log.Debug("Router: latency measurement completed", "failed_nodes", len(failedNodes))
 	return nil
 }
@@ -313,7 +313,7 @@ func (m *Router) loop(ctx context.Context) {
 				continue
 			}
 			m.updateCommittee(epoch)
-			nw, err := network.New(m.committee, m.latestLatencies, m.self)
+			nw, err := network.New(m.committee, m.Latencies(), m.self)
 			if err != nil {
 				log.Error("Router: failed to create network", "err", err)
 				continue
@@ -351,5 +351,9 @@ func (m *Router) updateNetwork(clusters network.Clusters) {
 func (m *Router) Latencies() map[common.Address]uint {
 	m.latencyMu.RLock()
 	defer m.latencyMu.RUnlock()
-	return m.latestLatencies
+	latCopy := make(map[common.Address]uint, len(m.latestLatencies))
+	for k, v := range m.latestLatencies {
+		latCopy[k] = v
+	}
+	return latCopy
 }

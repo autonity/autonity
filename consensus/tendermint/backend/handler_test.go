@@ -30,11 +30,17 @@ func setupMocks(backend *Backend, ctrl *gomock.Controller, t *testing.T) {
 	if err := backend.Close(); err != nil { // close engine to avoid race while updating the broadcaster
 		t.Fatalf("can't stop the engine")
 	}
-	mockedPeer := consensus.NewMockPeer(ctrl)
+	member := backend.blockchain.Genesis().Header().Epoch.Committee.Members[0]
+	sender := consensus.NewMockPeer(ctrl)
+	committeeMember := consensus.NewMockPeer(ctrl)
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	addressCache := fixsizecache.New[common.Hash, bool](1997, 10, fixsizecache.HashKey[common.Hash])
-	mockedPeer.EXPECT().Cache().Return(addressCache).AnyTimes()
-	broadcaster.EXPECT().FindPeer(testAddress).Return(mockedPeer, true).AnyTimes()
+	sender.EXPECT().Cache().Return(addressCache).AnyTimes()
+	committeeMember.EXPECT().Cache().Return(addressCache).AnyTimes()
+	broadcaster.EXPECT().FindPeer(testAddress).Return(sender, true).AnyTimes()
+	broadcaster.EXPECT().FindPeer(member.Address).Return(committeeMember, true).AnyTimes()
+	committeeMember.EXPECT().SendRaw(gomock.Any(), gomock.Any()).AnyTimes()
+
 	backend.SetBroadcaster(broadcaster)
 
 	if err := backend.Start(context.Background()); err != nil {
