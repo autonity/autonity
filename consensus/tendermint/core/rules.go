@@ -61,7 +61,6 @@ func (c *Core) prevoteTimeoutCheck() {
 	if !c.prevoteTimeout.TimerStarted() && !c.sentPrecommit && c.curRoundMessages.PrevotesTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		timeoutDuration := c.timeoutPrevote(c.Round())
 		c.prevoteTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrevote)
-		c.updateSyncTimeout(timeoutDuration)
 		c.logger.Debug("Scheduled Prevote Timeout", "Timeout Duration", timeoutDuration)
 	}
 }
@@ -114,7 +113,6 @@ func (c *Core) precommitTimeoutCheck() {
 	if !c.precommitTimeout.TimerStarted() && c.curRoundMessages.PrecommitsTotalPower().Cmp(c.CommitteeSet().Quorum()) >= 0 {
 		timeoutDuration := c.timeoutPrecommit(c.Round())
 		c.precommitTimeout.ScheduleTimeout(timeoutDuration, c.Round(), c.Height(), c.onTimeoutPrecommit)
-		c.updateSyncTimeout(timeoutDuration)
 		c.logger.Debug("Scheduled Precommit Timeout", "Timeout Duration", timeoutDuration)
 	}
 }

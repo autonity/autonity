@@ -203,10 +203,6 @@ eventLoop:
 					}
 				}
 
-				// valid message, reset sync timeout
-				c.SyncState().SetLastValidMsgTime(time.Now())
-				c.SyncState().SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
-
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
@@ -277,7 +273,6 @@ eventLoop:
 					c.logTimeoutEvent("Timer expired while at PrecommitDone step, ignoring", "", timeoutE)
 					continue
 				}
-				c.updateSyncTimeout(syncTimeOut) // reset sync timeout to default
 				switch timeoutE.Step {
 				case Propose:
 					c.handleTimeoutPropose(ctx, timeoutE)
@@ -319,12 +314,6 @@ eventLoop:
 		select {
 		case <-time.After(time.Second * 5): //check for sync every 5 seconds
 
-			if time.Since(c.SyncState().GetLastValidMsgTime()) < c.SyncState().GetSyncTimeOut() {
-				c.logger.Debug("Sync timeout not reached yet", "last valid message received", c.SyncState().GetLastValidMsgTime(), "sync timeout", c.SyncState().GetSyncTimeOut())
-				round = c.Round()
-				height = c.Height()
-				continue
-			}
 			currentRound := c.Round()
 			currentHeight := c.Height()
 
@@ -333,7 +322,6 @@ eventLoop:
 				c.logger.Warn("⚠️ Consensus liveliness lost")
 				c.logger.Warn("Broadcasting sync request..")
 				c.backend.AskSync(c.committee.Committee())
-				c.SyncState().SetOutOfSync(true)
 			}
 			round = currentRound
 			height = currentHeight
@@ -343,10 +331,6 @@ eventLoop:
 				break eventLoop
 			}
 			event := ev.Data.(events.SyncEvent)
-			if c.SyncState().IsOutOfSync() {
-				c.logger.Info("sync request received while we are out of sync, dropping", "from", event.Addr)
-				continue
-			}
 			c.logger.Debug("Processing sync message", "from", event.Addr)
 			c.backend.SyncPeer(event.Addr)
 		case <-ctx.Done():
