@@ -394,46 +394,91 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
         return absenteesLastHeight;
     }
 
+    /**
+    * @param _height, height number
+    * @return whether the proposer of that height was faulty or not
+    */
     function getFaultyProposers(uint256 _height) external view virtual nonReentrantView returns (bool){
         return faultyProposers[_height];
     }
 
+    /**
+    * @return the number of faulty proposers in the current window
+    */
     function getFaultyProposersInWindow() external view virtual nonReentrantView returns (uint256){
         return faultyProposersInWindow;
     }
 
+    /**
+    * @notice the result of this getter does not take into account the lookback window logic.
+    *         It just signals whether the validator was included in the activity proof or not.
+    * @param _height, height number
+    * @param _validator, validator node address
+    * @return whether the specified validator was inactive at the specified height
+    */
     function getInactiveValidators(uint256 _height, address _validator) external view virtual nonReentrantView returns (bool){
         return inactiveValidators[_height][_validator];
     }
 
+    /**
+    * @param _validator, node address of the validator
+    * @return the last block at which the validator was recorded as active.
+    *         -1 means that they are not on an inactivity streak
+    */
     function getLastActive(address _validator) external view virtual nonReentrantView returns (int256){
         return lastActive[_validator];
     }
 
+    /**
+    * @param _validator, node address of the validator
+    * @return the current inactivity counter of the validator
+    */
     function getInactivityCounter(address _validator) external view virtual nonReentrantView returns (uint256){
         return inactivityCounter[_validator];
     }
 
+    /**
+    * @param _validator, node address of the validator
+    * @return the current probation period of the validator
+    */
     function getProbationPeriods(address _validator) external view virtual nonReentrantView returns (uint256){
         return probationPeriods[_validator];
     }
 
+    /**
+    * @param _validator, node address of the validator
+    * @return the current number of repeated offences of the validator
+    */
     function getRepeatedOffences(address _validator) external view virtual nonReentrantView returns (uint256){
         return repeatedOffences[_validator];
     }
 
-    function getEpochCollusionDegree() external view virtual nonReentrantView returns (uint256[] memory){
-        return epochCollusionDegree;
+    /**
+    * @return length of the collusion degree array
+    */
+    function getEpochCollusionDegreeLength() external view virtual nonReentrantView returns (uint256){
+        return epochCollusionDegree.length;
     }
 
+    /**
+    * @param _epochID, the epoch id
+    * @return the collusion degree (number of punished validators) in that epoch
+    */
     function getEpochCollusionDegree(uint256 _epochID) external view virtual nonReentrantView returns (uint256){
         return epochCollusionDegree[_epochID];
     }
 
+    /**
+    * @return the current config
+    */
     function getConfig() external view virtual nonReentrantView returns (Config memory){
         return config;
     }
 
+    /**
+    * @param _nodeAddress, the validator node address
+    * @return the proposer effort accumulated by the validator up to now
+    */
     function getProposerEffort(address _nodeAddress) external view virtual nonReentrantView returns (uint256) {
         return proposerEffort[_nodeAddress];
     }

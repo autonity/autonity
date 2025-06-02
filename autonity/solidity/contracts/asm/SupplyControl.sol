@@ -107,15 +107,17 @@ contract SupplyControl is ISupplyControl, IConfigEvents, ReentrancyGuard {
         stabilizer = stabilizer_;
     }
 
-    /// The supply of Auton available for minting.
+    /// @return The supply of Auton available for minting.
     function availableSupply() external view nonReentrantView returns (uint) {
         return address(this).balance;
     }
 
+    /// @return The initial total supply of Auton
     function getTotalSupply() external view nonReentrantView returns (uint256) {
         return totalSupply;
     }
 
+    /// @return The address of the stabilizer contract
     function getStabilizer() external view returns (address) {
         return stabilizer;
     }

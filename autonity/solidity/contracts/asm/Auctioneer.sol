@@ -331,14 +331,20 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         return _minInterestPayment(auction);
     }
 
+    // @notice Get the current Auctioneer configuration
+    // @return the current configuration
     function getConfig() external view returns (Config memory) {
         return config;
     }
 
+    // @notice Get the address of the collateral token
+    // @return the address of the collateral token
     function getCollateralToken() external view returns (address) {
         return address(collateralToken);
     }
 
+    // @notice Get the proceed address
+    // @return the proceed address
     function getProceedAddress() external view returns (address) {
         return proceedAddress;
     }
