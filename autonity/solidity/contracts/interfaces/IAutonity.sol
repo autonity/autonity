@@ -1,11 +1,26 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
+import {IACU} from "../asm/interfaces/IACU.sol";
+import {IAuctioneer} from "../asm/interfaces/IAuctioneer.sol";
+import {IStabilization} from "../asm/interfaces/IStabilization.sol";
+import {ISupplyControl} from "../asm/interfaces/ISupplyControl.sol";
+import {IAccountability} from "./IAccountability.sol";
+import {IERC20} from "./IERC20.sol";
+import {IInflationController} from "./IInflationController.sol";
+import {ILiquid} from "./ILiquid.sol";
+import {IOmissionAccountability} from "./IOmissionAccountability.sol";
+import {IOracle} from "./IOracle.sol";
+import {IScheduleController} from "./IScheduleController.sol";
+import {IUpgradeManager} from "./IUpgradeManager.sol";
+
+uint8 constant DECIMALS = 18;
+
 /**
  * @dev Interface of the Autonity Contract.
  * Import this over Autonity.sol.
  */
-interface IAutonity {
+interface IAutonity is IERC20, IScheduleController {
 
     struct Eip1559 {
         uint256 minBaseFee;
@@ -15,6 +30,265 @@ interface IAutonity {
     }
 
     enum ValidatorState {active, paused, jailed, jailbound, jailedForInactivity, jailboundForInactivity}
+
+    // any change in Validator struct must be synced with offset constants in core/vm/contracts.go
+    struct Validator {
+        address payable treasury;
+        address nodeAddress;
+        address oracleAddress;
+        string enode; //addr must match provided enode
+        uint256 commissionRate;
+        uint256 bondedStake;
+        uint256 unbondingStake;
+        uint256 unbondingShares; // not effective - used for accounting purposes
+        uint256 selfBondedStake;
+        // bonded stake = selfBounded stake + delegated stake
+        uint256 selfUnbondingStake;
+        uint256 selfUnbondingShares; // not effective - used for accounting purposes
+        uint256 selfUnbondingStakeLocked;
+        ILiquid liquidStateContract;
+        uint256 liquidSupply;
+        uint256 registrationBlock;
+        uint256 totalSlashed;
+        uint256 jailReleaseBlock;
+        bytes consensusKey;
+        ValidatorState state;
+    }
+
+    /**************************************************/
+    // Todo: Create a FIFO structure library, integrate with Staking{}
+    /* Used for epoched staking */
+    struct BondingRequest {
+        address payable delegator;
+        address delegatee;
+        uint256 amount;
+        uint256 requestBlock;
+    }
+
+    struct UnbondingRequest {
+        address payable delegator;
+        address delegatee;
+        uint256 amount; // NTN for self-delegation, LNTN otherwise
+        uint256 unbondingShare;
+        uint256 requestBlock;
+        bool unlocked;
+        bool released;
+        bool selfDelegation;
+    }
+
+    /**************************************************/
+    struct Contracts {
+        IAccountability accountabilityContract;
+        IOracle oracleContract;
+        IACU acuContract;
+        ISupplyControl supplyControlContract;
+        IStabilization stabilizationContract;
+        IUpgradeManager upgradeManagerContract;
+        IInflationController inflationControllerContract;
+        IOmissionAccountability omissionAccountabilityContract;
+        IAuctioneer auctioneerContract;
+    }
+
+    // parameters that affect the economic of the system.
+    struct Policy {
+        uint256 treasuryFee;
+        uint256 minBaseFee;
+        uint256 delegationRate;
+        uint256 unbondingPeriod;
+        uint256 initialInflationReserve;
+        uint256 withholdingThreshold;
+        uint256 proposerRewardRate; // fraction of epoch fees allocated for proposer rewarding based on activity proof
+        uint256 oracleRewardRate;
+        address payable withheldRewardsPool; // set to the autonity global treasury at genesis, but can be changed
+        address payable treasuryAccount;
+        uint256 baseFeeChangeDenominator; // EIP-1559
+        uint256 elasticityMultiplier; // EIP-1559
+    }
+
+    // protocol parameters unrelated to the economic of the system. Expected to rarely change.
+    struct Protocol {
+        address operatorAccount;
+        uint256 epochPeriod;
+        uint256 blockPeriod;
+        uint256 committeeSize;
+        uint256 maxScheduleDuration;
+        uint256 gasLimit;
+        uint256 gasLimitBoundDivisor;
+    }
+
+    struct Config {
+        Policy policy;
+        Contracts contracts;
+        Protocol protocol;
+        uint256 contractVersion;
+    }
+
+    /* Any change in CommitteeMember struct must be synced with:
+     * 1. CommitteeSelector code to write committee in DB (see `CommitteeSelector.updateCommittee` function in core/vm/contracts.go)
+     * 2. AbsenteeComputer code to read the committee from the DB (see `readCommittee` function in core/vm/contracts.go)
+     */
+    struct CommitteeMember {
+        address addr;
+        uint256 votingPower;
+        bytes consensusKey;
+    }
+
+    struct EpochInfo {
+        CommitteeMember[] committee;
+        uint256 previousEpochBlock;
+        uint256 epochBlock;
+        uint256 nextEpochBlock;
+        uint256 omissionDelta;
+        Eip1559 eip1559;
+    }
+
+    struct Accountability {
+        uint256 range;
+        uint256 delta;
+        uint256 gracePeriod;
+    }
+
+    // part of the config which the golang client is keeping track of
+    struct ClientAwareConfig {
+        uint256 epochPeriod;
+        uint256 blockPeriod;
+        uint256 gasLimit;
+        Accountability accountability;
+        Eip1559 eip1559;
+    }
+
+    /**
+    * @notice Register a new validator in the system.  The validator might be selected to be part of consensus.
+    * This validator will have assigned to its treasury account the caller of this function.
+    * A new token "Liquid Stake" is deployed at this phase.
+    * @param _enode enode identifying the validator node.
+    * @param _oracleAddress identifying the oracle server node that the validator is managing.
+    * @param _consensusKey identifying the bls public key in bytes that the validator node is using.
+    * @param _signatures is a combination of two ecdsa signatures, and a bls signature as the ownership proof of the
+    * validator key appended sequentially. The 1st two ecdsa signatures are in below order:
+        1. a message containing treasury account and signed by validator account private key .
+        2. a message containing treasury account and signed by Oracle account private key .
+    * @dev Emit a {RegisteredValidator} event.
+    */
+    function registerValidator(
+        string memory _enode,
+        address _oracleAddress,
+        bytes memory _consensusKey,
+        bytes memory _signatures
+    ) external;
+
+    /**
+    * @notice Update enode of a registered validator. This function updates the network connection information (IP or/and port)
+    of a registered validator. you cannot change the validator's address (pubkey part of the enode)
+    * @param _nodeAddress This identifies the validator you want to update
+    * @param _enode new enode to be updated
+    */
+    function updateEnode(address _nodeAddress, string memory _enode) external;
+
+    /**
+    * @notice Create a bonding(delegation) request with the caller as delegator. In case the caller is a contract, it needs
+    * to send some gas so autonity can notify the caller about staking operations. In case autonity fails to notify
+    * the caller (contract), the applied request is reverted.
+    * @param _validator address of the validator to delegate stake to.
+    * @param _amount total amount of NTN to bond.
+    * @return uint256 id of the bonding request in the bonding queue
+    */
+    function bond(address _validator, uint256 _amount) external returns (uint256);
+
+    /**
+    * @notice Create an unbonding request with the caller as delegator. In case the caller is a contract, it needs
+    * to send some gas so autonity can notify the caller about staking operations. In case autonity fails to notify
+    * the caller (contract), the applied request is reverted.
+    * @param _validator address of the validator to unbond stake to.
+    * @param _amount total amount of LNTN (or NTN if self delegated) to unbond.
+    * @return uint256 id of the unbonding request in the unbonding queue
+    */
+    function unbond(address _validator, uint256 _amount) external returns (uint256);
+
+    /**
+    * @dev Bonds the inflation rewards to the validator's stake at epoch finalization.
+    * Restricted to protocol contracts.
+    */
+    function autobond(address _validator, uint256 _selfBond, uint256 _delegated) external;
+
+    /**
+    * @notice Pause the validator and stop it accepting delegations.
+    * @param _address address to be disabled.
+    * @dev emit a {DisabledValidator} event.
+    */
+    function pauseValidator(address _address) external;
+
+    /**
+    * @notice Re-activate the specified validator.
+    * @param _address address to be enabled.
+    */
+    function activateValidator(address _address) external;
+
+    /**
+    * @notice Change commission rate for the specified validator.
+    * @param _validator address to be enabled.
+            _rate new commission rate, ranging between 0-10000 (10000 = 100%).
+    */
+    function changeCommissionRate(address _validator, uint256 _rate) external;
+
+    /**
+    * @dev jails the specified validator
+    * @param _nodeAddress the node address of the validator to be jailed
+    * @param _jailtime the jailing time to be assigned to the validator
+    * @param _newJailedState the validator state to be applied
+    * @return uint256 the block at which the validator will be released from jail
+    */
+    function jail(
+        address _nodeAddress,
+        uint256 _jailtime,
+        ValidatorState _newJailedState
+    ) external returns (uint256); 
+
+    /**
+    * @dev jailbounds the specified validator
+    * @param _nodeAddress the node address of the validator to be jailbound
+    * @param _newJailboundState the validator state to be applied
+    */
+    function jailbound(
+        address _nodeAddress,
+        ValidatorState _newJailboundState
+    ) external;
+
+    /**
+    * @dev slashes the specified validator
+    * @dev NOTE: 100% slash is not allowed and if attempted will cause a revert
+    * @param _nodeAddress the node address of the validator to be slashed
+    * @param _slashingRate the rate for the slash
+    * @return slashingAmount the slashing amount
+    */
+    function slash(
+        address _nodeAddress,
+        uint256 _slashingRate
+    ) external returns (uint256 slashingAmount);
+
+    /**
+      * @dev slashes and jails the specified validator
+      * @param _nodeAddress the node address of the validator to be slashed
+      * @param _slashingRate the rate to be used
+      * @param _jailtime the jailing time to be assigned to the validator
+      * @param _newJailedState the validator state to be applied for jailing
+      * @param _newJailboundState the validator state to be applied in case of 100% slashing
+      * @return slashingAmount the amount slashed in NTN
+      * @return jailReleaseBlock the block at which the validator will be released from jail
+      * @return isJailbound a flag that signals if the validator has been permanently jailed
+      */
+    function slashAndJail(
+        address _nodeAddress,
+        uint256 _slashingRate,
+        uint256 _jailtime,
+        ValidatorState _newJailedState,
+        ValidatorState _newJailboundState
+    ) external returns (
+        uint256 slashingAmount,
+        uint256 jailReleaseBlock,
+        bool isJailbound
+    );
+
     /**
     * @notice Returns the current operator account.
     */
@@ -25,6 +299,172 @@ interface IAutonity {
     */
     function getOracle() external view returns (address);
 
+    /**
+    * @notice Returns the liquid logic contract
+    */
+    function getLiquidLogicContract() external view returns (address);
+
+    /**
+    * @notice Returns the current client aware config
+    */
+    function getClientConfig() external view returns (ClientAwareConfig memory);
+
+    /**
+    * @notice Returns the bonding request corresponding to bonding ID.
+    */
+    function getBondingRequestByID(uint256 _id) external view returns (BondingRequest memory);
+
+    /**
+    * @notice Returns the unbonding request corresponding to unbonding ID.
+    */
+    function getUnbondingRequestByID(uint256 _id) external view returns (UnbondingRequest memory);
+
+    /**
+    * @notice Returns the epoch period. If there will be an update at epoch end, the new epoch period is returned
+    */
+    function getEpochPeriod() external view returns (uint256);
+
+    /**
+    * @notice Returns the epoch period of the current epoch
+    */
+    function getCurrentEpochPeriod() external view returns (uint256);
+
+    /**
+    * @notice Returns the block period.
+    */
+    function getBlockPeriod() external view returns (uint256);
+
+    /**
+     * @notice Returns the un-bonding period.
+     */
+    function getUnbondingPeriod() external view returns (uint256);
+
+    /**
+     * @notice Returns the current epoch ID
+     */
+    function getEpochID() external view returns (uint256);
+
+    /**
+    * @notice Returns the last epoch's end block height.
+    */
+    function getLastEpochBlock() external view returns (uint256);
+
+    /**
+    * @notice Returns the last epoch's end block timestamp
+    */
+    function getLastEpochTime() external view returns (uint256);
+
+    /**
+    * @notice Returns the current contract config
+    */
+    function getConfig() external view returns (Config memory);
+
+    /**
+    * @notice Returns the current contract version.
+    */
+    function getVersion() external view returns (uint256);
+
+    /**
+    * @notice Returns the current inflation reserve
+    */
+    function getInflationReserve() external view returns (uint256);
+
+    /**
+    * @notice Returns the current epoch total bonded stake
+    */
+    function getEpochTotalBondedStake() external view returns (uint256);
+
+    /**
+    * @notice Returns the current epoch info of the chain.
+    */
+    function getEpochInfo() external view returns (EpochInfo memory);
+
+    /**
+     * @notice Returns the block committee.
+     */
+    function getCommittee() external view returns (CommitteeMember[] memory);
+
+    /**
+     * @notice Returns the current list of validators.
+     */
+    function getValidators() external view returns (address[] memory);
+
+    /**
+     * @notice Returns the current treasury account.
+     */
+    function getTreasuryAccount() external view returns (address);
+
+    /**
+     * @notice Returns the current treasury fee.
+     */
+    function getTreasuryFee() external view returns (uint256);
+
+    /**
+     * @notice Returns the next epoch block.
+     */
+    function getNextEpochBlock() external view returns (uint256);
+
+    /**
+     * @notice Returns the amount of tokens circulating in the network.
+     */
+    function circulatingSupply() external view returns (uint256);
+
+    /**
+    * @notice Returns the validator object associated with `_addr`.
+    */
+    function getValidator(address _addr) external view returns (Validator memory);
+
+    /**
+    * @notice Returns the state of the validator associated with `_addr`.
+    */
+    function getValidatorState(address _addr) external view returns (ValidatorState);
+
+    /**
+    * @notice Returns the current size of the consensus committee.
+    */
+    function getCurrentCommitteeSize() external view returns (uint256);
+
+    /**
+    * @notice Returns the maximum size of the consensus committee.
+    */
+    function getMaxCommitteeSize() external view returns (uint256);
+    /**
+     * @notice Returns the max allowed duration of any schedule or contract.
+     */
+    function getMaxScheduleDuration() external view returns (uint256);
+
+    /**
+     * @notice Returns the consensus committee enodes.
+     */
+    function getCommitteeEnodes() external view returns (string[] memory);
+
+    /**
+     * @notice Returns the minimum gas price.
+     */
+    function getMinimumBaseFee() external view returns (uint256);
+
+    /**
+    * @notice Returns the epoch info of the height.
+    */
+    function getEpochByHeight(uint256 _height) external view returns (EpochInfo memory);
+
+    /**
+     * @notice Returns epoch associated to the block number.
+     * @param _block the input block number.
+     */
+    function getEpochFromBlock(uint256 _block) external view returns (uint256);
+
+    /**
+     * @notice Returns `true` if unbonding is released and `false` otherwise.
+     * @param _unbondingID id of the unbonding request in unbonding queue
+     */
+    function isUnbondingReleased(uint256 _unbondingID) external view returns (bool);
+
+    /**
+    * @notice Returns the unbonding share after the unbonding request is applied at epoch end.
+    * @param _unbondingID id of the unbonding request in unbonding queue
+    */
+    function getUnbondingShare(uint256 _unbondingID) external view returns (uint256);
 
     /**
     * @notice Emitted after updating a enode address of a validator

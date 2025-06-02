@@ -23,10 +23,8 @@ import {ISlasher} from "./interfaces/ISlasher.sol";
 import {Slasher} from "./Slasher.sol";
 import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
 
-uint8 constant DECIMALS = 18;
-
 /** @title Proof-of-Stake Autonity Contract */
-contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upgradeable, IConfigEvents {
+contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable, IConfigEvents {
     uint256 internal constant CONSENSUS_KEY_LEN = 48;
     uint256 internal constant BLS_PROOF_LEN = 96;
     uint256 internal constant ECDSA_SIGNATURE_LEN = 65;
@@ -35,64 +33,9 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     uint256 public constant STANDARD_DECIMALS = 4;
     uint256 public constant STANDARD_SCALE_FACTOR = 10 ** STANDARD_DECIMALS;
 
-    // any change in Validator struct must be synced with offset constants in core/vm/contracts.go
-    struct Validator {
-        address payable treasury;
-        address nodeAddress;
-        address oracleAddress;
-        string enode; //addr must match provided enode
-        uint256 commissionRate;
-        uint256 bondedStake;
-        uint256 unbondingStake;
-        uint256 unbondingShares; // not effective - used for accounting purposes
-        uint256 selfBondedStake;
-        // bonded stake = selfBounded stake + delegated stake
-        uint256 selfUnbondingStake;
-        uint256 selfUnbondingShares; // not effective - used for accounting purposes
-        uint256 selfUnbondingStakeLocked;
-        ILiquid liquidStateContract;
-        uint256 liquidSupply;
-        uint256 registrationBlock;
-        uint256 totalSlashed;
-        uint256 jailReleaseBlock;
-        bytes consensusKey;
-        ValidatorState state;
-    }
-
-    /* Any change in CommitteeMember struct must be synced with:
-     * 1. CommitteeSelector code to write committee in DB (see `CommitteeSelector.updateCommittee` function in core/vm/contracts.go)
-     * 2. AbsenteeComputer code to read the committee from the DB (see `readCommittee` function in core/vm/contracts.go)
-     */
-    struct CommitteeMember {
-        address addr;
-        uint256 votingPower;
-        bytes consensusKey;
-    }
-
-    /**************************************************/
-    // Todo: Create a FIFO structure library, integrate with Staking{}
-    /* Used for epoched staking */
-    struct BondingRequest {
-        address payable delegator;
-        address delegatee;
-        uint256 amount;
-        uint256 requestBlock;
-    }
-
     mapping(uint256 => BondingRequest) internal bondingMap;
     uint256 internal tailBondingID;
     uint256 internal headBondingID;
-
-    struct UnbondingRequest {
-        address payable delegator;
-        address delegatee;
-        uint256 amount; // NTN for self-delegation, LNTN otherwise
-        uint256 unbondingShare;
-        uint256 requestBlock;
-        bool unlocked;
-        bool released;
-        bool selfDelegation;
-    }
 
     mapping(uint256 => UnbondingRequest) internal unbondingMap;
     uint256 internal tailUnbondingID;
@@ -111,75 +54,6 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     uint256 internal commissionRateChangeQueueLast = 0;
 
     /**************************************************/
-    struct Contracts {
-        IAccountability accountabilityContract;
-        IOracle oracleContract;
-        IACU acuContract;
-        ISupplyControl supplyControlContract;
-        IStabilization stabilizationContract;
-        UpgradeManager upgradeManagerContract;
-        IInflationController inflationControllerContract;
-        IOmissionAccountability omissionAccountabilityContract;
-        IAuctioneer auctioneerContract;
-    }
-
-    // parameters that affect the economic of the system.
-    struct Policy {
-        uint256 treasuryFee;
-        uint256 minBaseFee;
-        uint256 delegationRate;
-        uint256 unbondingPeriod;
-        uint256 initialInflationReserve;
-        uint256 withholdingThreshold;
-        uint256 proposerRewardRate; // fraction of epoch fees allocated for proposer rewarding based on activity proof
-        uint256 oracleRewardRate;
-        address payable withheldRewardsPool; // set to the autonity global treasury at genesis, but can be changed
-        address payable treasuryAccount;
-        uint256 baseFeeChangeDenominator; // EIP-1559
-        uint256 elasticityMultiplier; // EIP-1559
-    }
-
-    // protocol parameters unrelated to the economic of the system. Expected to rarely change.
-    struct Protocol {
-        address operatorAccount;
-        uint256 epochPeriod;
-        uint256 blockPeriod;
-        uint256 committeeSize;
-        uint256 maxScheduleDuration;
-        uint256 gasLimit;
-        uint256 gasLimitBoundDivisor;
-    }
-
-    struct Config {
-        Policy policy;
-        Contracts contracts;
-        Protocol protocol;
-        uint256 contractVersion;
-    }
-
-    struct EpochInfo {
-        CommitteeMember[] committee;
-        uint256 previousEpochBlock;
-        uint256 epochBlock;
-        uint256 nextEpochBlock;
-        uint256 omissionDelta;
-        Eip1559 eip1559;
-    }
-
-    struct Accountability {
-        uint256 range;
-        uint256 delta;
-        uint256 gracePeriod;
-    }
-
-    // part of the config which the golang client is keeping track of
-    struct ClientAwareConfig {
-        uint256 epochPeriod;
-        uint256 blockPeriod;
-        uint256 gasLimit;
-        Accountability accountability;
-        Eip1559 eip1559;
-    }
 
     struct FinalizeResult {
         bool contractUpgradeReady;
@@ -387,17 +261,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-    * @notice Register a new validator in the system.  The validator might be selected to be part of consensus.
-    * This validator will have assigned to its treasury account the caller of this function.
-    * A new token "Liquid Stake" is deployed at this phase.
-    * @param _enode enode identifying the validator node.
-    * @param _oracleAddress identifying the oracle server node that the validator is managing.
-    * @param _consensusKey identifying the bls public key in bytes that the validator node is using.
-    * @param _signatures is a combination of two ecdsa signatures, and a bls signature as the ownership proof of the
-    * validator key appended sequentially. The 1st two ecdsa signatures are in below order:
-        1. a message containing treasury account and signed by validator account private key .
-        2. a message containing treasury account and signed by Oracle account private key .
-    * @dev Emit a {RegisteredValidator} event.
+    * @inheritdoc IAutonity
     */
     function registerValidator(string memory _enode, address _oracleAddress, bytes memory _consensusKey, bytes memory _signatures) external virtual nonReentrant {
         Validator memory _val = Validator(
@@ -427,10 +291,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-    * @notice Update enode of a registered validator. This function updates the network connection information (IP or/and port)
-    of a registered validator. you cannot change the validator's address (pubkey part of the enode)
-    * @param _nodeAddress This identifies the validator you want to update
-    * @param _enode new enode to be updated
+    * @inheritdoc IAutonity
     */
     function updateEnode(address _nodeAddress, string memory _enode) external virtual nonReentrant {
         Validator storage _val = validators[_nodeAddress];
@@ -449,11 +310,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-    * @notice Create a bonding(delegation) request with the caller as delegator. In case the caller is a contract, it needs
-    * to send some gas so autonity can notify the caller about staking operations. In case autonity fails to notify
-    * the caller (contract), the applied request is reverted.
-    * @param _validator address of the validator to delegate stake to.
-    * @param _amount total amount of NTN to bond.
+    * @inheritdoc IAutonity
     */
     function bond(address _validator, uint256 _amount) external virtual nonReentrant returns (uint256) {
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
@@ -462,11 +319,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-    * @notice Create an unbonding request with the caller as delegator. In case the caller is a contract, it needs
-    * to send some gas so autonity can notify the caller about staking operations. In case autonity fails to notify
-    * the caller (contract), the applied request is reverted.
-    * @param _validator address of the validator to unbond stake to.
-    * @param _amount total amount of LNTN (or NTN if self delegated) to unbond.
+    * @inheritdoc IAutonity
     */
     function unbond(address _validator, uint256 _amount) external virtual nonReentrant returns (uint256) {
         require(validators[_validator].nodeAddress == _validator, "validator not registered");
@@ -475,9 +328,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-    * @notice Pause the validator and stop it accepting delegations.
-    * @param _address address to be disabled.
-    * @dev emit a {DisabledValidator} event.
+    * @inheritdoc IAutonity
     */
     function pauseValidator(address _address) external virtual nonReentrant {
         require(validators[_address].nodeAddress == _address, "validator must be registered");
@@ -1013,11 +864,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     */
 
     /**
-    * @dev jails the specified validator
-    * @param _nodeAddress, the node address of the validator to be jailed
-    * @param _jailtime, the jailing time to be assigned to the validator
-    * @param _newJailedState, the validator state to be applied
-    * @return the block at which the validator will be released from jail
+    * @inheritdoc IAutonity
     */
     function jail(
         address _nodeAddress,
@@ -1039,9 +886,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-    * @dev jailbounds the specified validator
-    * @param _nodeAddress, the node address of the validator to be jailbound
-    * @param _newJailboundState, the validator state to be applied
+    * @inheritdoc IAutonity
     */
     function jailbound(
         address _nodeAddress,
@@ -1057,11 +902,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-    * @dev slashes the specified validator
-    * @dev NOTE: 100% slash is not allowed and if attempted will cause a revert
-    * @param _nodeAddress, the node address of the validator to be slashed
-    * @param _slashingRate, the rate for the slash
-    * @return slashingAmount , the slashing amount
+    * @inheritdoc IAutonity
     */
     function slash(
         address _nodeAddress,
@@ -1080,16 +921,8 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-      * @dev slashes and jails the specified validator
-      * @param _nodeAddress, the node address of the validator to be slashed
-      * @param _slashingRate, the rate to be used
-      * @param _jailtime, the jailing time to be assigned to the validator
-      * @param _newJailedState, the validator state to be applied for jailing
-      * @param _newJailboundState, the validator state to be applied in case of 100% slashing
-      * @return slashingAmount , the amount slashed in NTN
-      * @return jailReleaseBlock , the block at which the validator will be released from jail
-      * @return isJailbound , a flag that signals if the validator has been permanently jailed
-      */
+    * @inheritdoc IAutonity
+    */
     function slashAndJail(
         address _nodeAddress,
         uint256 _slashingRate,
@@ -1136,14 +969,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-    * @notice Returns the liquid logic contract
+    * @inheritdoc IAutonity
     */
     function getLiquidLogicContract() external view virtual returns (address) {
         return liquidLogicContract;
     }
 
     /**
-    * @notice Returns the current client aware config
+    * @inheritdoc IAutonity
     */
     function getClientConfig() external virtual view returns (ClientAwareConfig memory) {
         IAccountability.Config memory accountabilityConfig = config.contracts.accountabilityContract.getConfig();
@@ -1167,134 +1000,133 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-    * @notice Returns the bonding request corresponding to bonding ID.
+    * @inheritdoc IAutonity
     */
     function getBondingRequestByID(uint256 _id) external view virtual nonReentrantView returns (BondingRequest memory) {
         return bondingMap[_id];
     }
 
     /**
-    * @notice Returns the unbonding request corresponding to unbonding ID.
+    * @inheritdoc IAutonity
     */
     function getUnbondingRequestByID(uint256 _id) external view virtual nonReentrantView returns (UnbondingRequest memory) {
         return unbondingMap[_id];
     }
 
     /**
-    * @notice Returns the epoch period. If there will be an update at epoch end, the new epoch period is returned
+    * @inheritdoc IAutonity
     */
     function getEpochPeriod() external view virtual returns (uint256) {
         return newEpochPeriod;
     }
 
     /**
-    * @notice Returns the epoch period of the current epoch
+    * @inheritdoc IAutonity
     */
     function getCurrentEpochPeriod() external view virtual returns (uint256) {
         return config.protocol.epochPeriod;
     }
 
     /**
-    * @notice Returns the block period.
+    * @inheritdoc IAutonity
     */
     function getBlockPeriod() external view virtual returns (uint256) {
         return config.protocol.blockPeriod;
     }
 
     /**
-     * @notice Returns the un-bonding period.
+     * @inheritdoc IAutonity
      */
     function getUnbondingPeriod() external view virtual returns (uint256) {
         return config.policy.unbondingPeriod;
     }
 
     /**
-     * @notice Returns the current epoch ID
+     * @inheritdoc IAutonity
      */
     function getEpochID() external view virtual returns (uint256) {
         return epochID;
     }
 
     /**
-    * @notice Returns the last epoch's end block height.
+    * @inheritdoc IAutonity
     */
     function getLastEpochBlock() external view virtual returns (uint256) {
         return epochInfos[epochID].epochBlock;
     }
 
     /**
-    * @notice Returns the last epoch's end block timestamp
+    * @inheritdoc IAutonity
     */
     function getLastEpochTime() external view virtual returns (uint256) {
         return lastEpochTime;
     }
 
     /**
-    * @notice Returns the current contract config
+    * @inheritdoc IAutonity
     */
     function getConfig() external view virtual returns (Config memory) {
         return config;
     }
 
     /**
-    * @notice Returns the current contract version.
+    * @inheritdoc IAutonity
     */
     function getVersion() external view virtual returns (uint256) {
         return config.contractVersion;
     }
 
     /**
-    * @notice Returns the current inflation reserve
+    * @inheritdoc IAutonity
     */
     function getInflationReserve() external view virtual returns (uint256) {
         return inflationReserve;
     }
 
     /**
-    * @notice Returns the current epoch total bonded stake
+    * @inheritdoc IAutonity
     */
     function getEpochTotalBondedStake() external view virtual returns (uint256) {
         return epochTotalBondedStake;
     }
 
     /**
-    * @notice Returns the current epoch info of the chain.
+    * @inheritdoc IAutonity
     */
     function getEpochInfo() external view virtual returns (EpochInfo memory) {
         return epochInfos[epochID];
     }
 
     /**
-     * @notice Returns the block committee.
-     * @return Current block committee if called before finalize(), next block committee if called after.
+     * @inheritdoc IAutonity
      */
     function getCommittee() external view virtual returns (CommitteeMember[] memory) {
         return committee;
     }
 
     /**
-     * @notice Returns the current list of validators.
+     * @inheritdoc IAutonity
      */
     function getValidators() external view virtual nonReentrantView returns (address[] memory) {
         return validatorList;
     }
 
     /**
-     * @notice Returns the current treasury account.
+     * @inheritdoc IAutonity
      */
     function getTreasuryAccount() external view virtual returns (address) {
         return config.policy.treasuryAccount;
     }
 
     /**
-     * @notice Returns the current treasury fee.
+     * @inheritdoc IAutonity
      */
     function getTreasuryFee() external view virtual returns (uint256) {
         return config.policy.treasuryFee;
     }
 
     /**
-     * @notice Returns the next epoch block.
+     * @inheritdoc IAutonity
      */
     function getNextEpochBlock() external view virtual returns (uint256) {
         return epochInfos[epochID].nextEpochBlock;
@@ -1315,14 +1147,14 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-     * @notice Returns the amount of tokens circulating in the network.
+     * @inheritdoc IAutonity
      */
     function circulatingSupply() external view virtual nonReentrantView returns (uint256) {
         return stakeCirculating;
     }
 
     /**
-    * @return Returns the validator object associated with `_addr`.
+    * @inheritdoc IAutonity
     */
     function getValidator(address _addr) external view virtual returns (Validator memory) {
         // allow reentrancy only from the accountability contract
@@ -1336,7 +1168,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-    * @return Returns the state of the validator associated with `_addr`.
+    * @inheritdoc IAutonity
     */
     function getValidatorState(address _addr) external view virtual returns (ValidatorState) {
         // allow reentrancy only from the accountability contract and omission accountability contract
@@ -1351,35 +1183,35 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-    * @return Returns the current size of the consensus committee.
+    * @inheritdoc IAutonity
     */
     function getCurrentCommitteeSize() external view virtual returns (uint256) {
         return configuredCommitteeSize;
     }
 
     /**
-    * @return Returns the maximum size of the consensus committee.
+    * @inheritdoc IAutonity
     */
     function getMaxCommitteeSize() external view virtual returns (uint256) {
         return config.protocol.committeeSize;
     }
 
     /**
-     * @notice Returns the max allowed duration of any schedule or contract.
+     * @inheritdoc IAutonity
      */
     function getMaxScheduleDuration() external virtual view returns (uint256) {
         return config.protocol.maxScheduleDuration;
     }
 
     /**
-     * @return Returns the consensus committee enodes.
+     * @inheritdoc IAutonity
      */
     function getCommitteeEnodes() external view virtual returns (string[] memory) {
         return committeeNodes;
     }
 
     /**
-     * @return Returns the minimum gas price.
+     * @inheritdoc IAutonity
      * @dev Autonity transaction's gas price must be greater or equal to the minimum gas price.
      */
     function getMinimumBaseFee() external view virtual returns (uint256) {
@@ -1387,21 +1219,21 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-     * @notice Returns the current operator account.
+     * @inheritdoc IAutonity
      */
     function getOperator() external view virtual returns (address) {
         return config.protocol.operatorAccount;
     }
 
     /**
-     * @notice Returns the current Oracle account.
+     * @inheritdoc IAutonity
      */
     function getOracle() external view virtual returns (address) {
         return address(config.contracts.oracleContract);
     }
 
     /**
-    * @notice Returns the epoch info of the height.
+    * @inheritdoc IAutonity
     */
     // todo: Jason, add some test for this function by using the new contract test framework.
     function getEpochByHeight(uint256 _height) external view virtual nonReentrantView returns (EpochInfo memory) {
@@ -1417,8 +1249,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-     * @notice Returns epoch associated to the block number.
-     * @param _block the input block number.
+     * @inheritdoc IAutonity
      */
     function getEpochFromBlock(uint256 _block) external view virtual returns (uint256) {
         require(_block <= lastFinalizedBlock + 1, "cannot get epoch id for a future block");
@@ -1430,7 +1261,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     }
 
     /**
-     * @notice Returns `true` if unbonding is released and `false` otherwise.
+     * @inheritdoc IAutonity
      */
     function isUnbondingReleased(uint256 _unbondingID) external virtual view nonReentrantView returns (bool) {
         return unbondingMap[_unbondingID].released;
