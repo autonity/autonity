@@ -663,7 +663,6 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	// This also implies that height checks still needs to be done in Core.
 	coreHeight := a.core.Height().Uint64()
 	if msg.H() < coreHeight {
-		//a.logger.Debug("Storing old height message in the aggregator", "msgHeight", msg.H(), "coreHeight", coreHeight)
 		signatureInput := msg.SignatureInput()
 		a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], event)
 		return
@@ -909,58 +908,58 @@ loop:
 
 			a.staleMessages = make(map[common.Hash][]events.UnverifiedMessageEvent)
 		case <-oldMessagesStatsTicker.C:
-			stats := make(map[uint64]map[int64][4]int)
-			for _, batch := range a.staleMessages {
-				for _, event := range batch {
-					height := event.Message.H()
-					round := event.Message.R()
-					code := event.Message.Code()
+			a.logger.Debug("Stale message statistics", "stats", log.Lazy{Fn: func() interface{} {
+				stats := make(map[uint64]map[int64][4]int)
+				for _, batch := range a.staleMessages {
+					for _, event := range batch {
+						height := event.Message.H()
+						round := event.Message.R()
+						code := event.Message.Code()
 
-					if stats[height] == nil {
-						stats[height] = make(map[int64][4]int)
-					}
+						if stats[height] == nil {
+							stats[height] = make(map[int64][4]int)
+						}
 
-					counts := stats[height][round]
-					switch code {
-					case message.ProposalCode:
-						counts[0]++
-					case message.PrevoteCode:
-						counts[1]++
-					case message.PrecommitCode:
-						counts[2]++
-					default:
-						counts[3]++
+						counts := stats[height][round]
+						switch code {
+						case message.ProposalCode:
+							counts[0]++
+						case message.PrevoteCode:
+							counts[1]++
+						case message.PrecommitCode:
+							counts[2]++
+						default:
+							counts[3]++
+						}
+						stats[height][round] = counts
 					}
-					stats[height][round] = counts
 				}
-			}
 
-			sb := strings.Builder{}
-			sb.Grow(len(stats) * 100)
+				sb := strings.Builder{}
+				sb.Grow(len(stats) * 100)
 
-			sb.WriteString("\nStale message Statistics by Height and Round\n")
-			sb.WriteString("=====================================\n")
-			for height, rounds := range stats {
-				for round, counts := range rounds {
-					fmt.Fprintf(&sb, "H:%d R:%d | ", height, round)
-					if counts[0] > 0 {
-						fmt.Fprintf(&sb, "proposal:%d ", counts[0])
+				sb.WriteString("Stale message Statistics by Height and Round\n")
+				for height, rounds := range stats {
+					for round, counts := range rounds {
+						fmt.Fprintf(&sb, "H:%d R:%d | ", height, round)
+						if counts[0] > 0 {
+							fmt.Fprintf(&sb, "proposal:%d ", counts[0])
+						}
+						if counts[1] > 0 {
+							fmt.Fprintf(&sb, "prevote:%d ", counts[1])
+						}
+						if counts[2] > 0 {
+							fmt.Fprintf(&sb, "precommit:%d ", counts[2])
+						}
+						if counts[3] > 0 {
+							fmt.Fprintf(&sb, "unknown:%d ", counts[3])
+						}
+						sb.WriteByte('\n')
 					}
-					if counts[1] > 0 {
-						fmt.Fprintf(&sb, "prevote:%d ", counts[1])
-					}
-					if counts[2] > 0 {
-						fmt.Fprintf(&sb, "precommit:%d ", counts[2])
-					}
-					if counts[3] > 0 {
-						fmt.Fprintf(&sb, "unknown:%d ", counts[3])
-					}
-					sb.WriteByte('\n')
+					sb.WriteString("-------------------------------------\n")
 				}
-				sb.WriteString("-------------------------------------\n")
-			}
-			a.logger.Debug(sb.String())
-
+				return sb.String()
+			}})
 		case <-ctx.Done():
 			break loop
 		}
