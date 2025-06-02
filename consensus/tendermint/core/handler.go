@@ -265,11 +265,6 @@ eventLoop:
 							break // do not gossip single message, only complex aggregate
 						}
 					}
-
-					// gossip message. We should arrive here only if we did not already gossip a complex aggregate
-					//todo(fix): no gossip for future round messages, the current gossip relies on clustering, which relies on gossiper being the
-					// originator only
-					//go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 				}
 				recordMessageProcessingTime(msg.Code(), start)
 			case StateRequestEvent:
