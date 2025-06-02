@@ -18,6 +18,7 @@
 package eth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -631,8 +632,10 @@ func (s *Ethereum) validatorController() {
 	if err != nil {
 		panic(err)
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	startMiningWhenReady := func(committee *types.Committee) {
+	startMiningWhenReady := func(ctx context.Context, committee *types.Committee) {
 		go func() {
 			ticker := time.NewTicker(1 * time.Second)
 			timeout := time.After(1 * time.Minute) // max wait for 1 minute
@@ -640,6 +643,8 @@ func (s *Ethereum) validatorController() {
 
 			for {
 				select {
+				case <-ctx.Done():
+					return
 				case <-ticker.C:
 					// total number of nodes should include node itself.
 					if float64(s.consensusServer.PeerCount()+1) >= (float64(committee.Len()) * (2.0 / 3.0)) {
@@ -663,7 +668,7 @@ func (s *Ethereum) validatorController() {
 	if committee.MemberByAddress(s.address) != nil {
 		updateConsensusEnodes(currentHead)
 		//todo: the minor control should move to acn server
-		startMiningWhenReady(committee)
+		startMiningWhenReady(ctx, committee)
 		s.log.Info("Starting node as validator")
 	}
 
