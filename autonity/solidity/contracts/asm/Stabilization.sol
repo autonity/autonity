@@ -887,7 +887,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
 
     function _collateralPriceACU() internal view returns (uint256) {
         uint256 ntnUsdPrice;
-        if (_fixedGenesisPrices) {
+        if (_fixedGenesisPrices && _config.defaultNTNUSDPrice > 0) {
             ntnUsdPrice = _config.defaultNTNUSDPrice;
         } else {
             IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_USD_SYMBOL);
@@ -899,7 +899,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     }
 
     function _collateralPrice() internal view returns (uint256 price) {
-        if (_fixedGenesisPrices) {
+        if (_fixedGenesisPrices && _config.defaultNTNATNPrice > 0) {
             return _config.defaultNTNATNPrice;
         }
         IOracle.RoundData memory data = _oracle.latestRoundData(StabilizationMath.NTN_SYMBOL);
