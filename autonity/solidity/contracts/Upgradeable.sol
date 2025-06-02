@@ -15,7 +15,7 @@ abstract contract Upgradeable {
     * @notice Append to the contract storage buffer the new contract bytecode and abi.
     * Should be called as many times as required.
     */
-    function upgradeContract(bytes memory _bytecode, string memory _abi) public onlyOperator {
+    function _upgradeContract(bytes memory _bytecode, string memory _abi) internal virtual {
         BytesLib.concatStorage(newContractBytecode, _bytecode);
         BytesLib.concatStorage(bytes(newContractABI), bytes(_abi));
     }
@@ -25,14 +25,14 @@ abstract contract Upgradeable {
     * To be called once the storage buffer for the new contract are filled using {upgradeContract}
     * The protocol will then update the bytecode of the autonity contract at block finalization phase.
     */
-    function completeContractUpgrade() public onlyOperator {
+    function _completeContractUpgrade() internal virtual {
         contractUpgradeReady = true;
     }
 
     /**
     * @notice Reset internal storage contract-upgrade buffers in case of issue.
     */
-    function resetContractUpgrade() public onlyOperator {
+    function _resetContractUpgrade() internal virtual {
         delete newContractBytecode;
         delete newContractABI;
         contractUpgradeReady = false;
@@ -43,9 +43,7 @@ abstract contract Upgradeable {
      * @return `bytecode` the new contract bytecode.
      * @return `contractAbi` the new contract ABI.
      */
-    function getNewContract() external view returns (bytes memory, string memory) {
+    function _getNewContract() internal view virtual returns (bytes memory, string memory) {
         return (newContractBytecode, newContractABI);
     }
-
-    modifier onlyOperator() virtual {_;}
 }

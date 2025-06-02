@@ -9,8 +9,9 @@ import {IERC20} from "../interfaces/IERC20.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {IAuctioneer} from "./interfaces/IAuctioneer.sol";
 import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
+import {ReentrancyGuard} from "../ReentrancyGuard.sol";
 
-contract Auctioneer is IAuctioneer, IConfigEvents {
+contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     using AuctionLib for AuctionLib.AuctionSet;
     struct Config {
         uint256 liquidationAuctionDuration;
@@ -27,9 +28,9 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
     event NewInterestAuction(uint256 auctionId, uint256 amount, uint256 startRound);
 
     // Public state
-    Config public config;
-    IERC20 public collateralToken;
-    address public proceedAddress;
+    Config internal config;
+    IERC20 internal collateralToken;
+    address internal proceedAddress;
 
     // Internal state
     IStabilization internal _stabilization;
@@ -90,7 +91,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
     // @param ntnAmount The amount of NTN to receive in exchange for paying off the debt
     // @dev The caller must send the debt amount in ATN (via msg.value), and ntnAmount must be less than or equal to
     // maxLiquidationReturn for the caller to successfully execute a liquidation.
-    function bidDebt(address debtor, uint256 liquidatableRound, uint256 ntnAmount) external payable {
+    function bidDebt(address debtor, uint256 liquidatableRound, uint256 ntnAmount) external payable nonReentrant {
         IStabilization.CDP memory cdp = _stabilization.cdps(debtor);
         IOracle.RoundData memory round = _oracle.getRoundData(liquidatableRound, StabilizationMath.NTN_SYMBOL);
 
@@ -130,9 +131,9 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
     // @notice Place a bid on an interest auction
     // @param auction The ID of the auction
     // @param ntnAmount The amount of NTN to pay for the interest (must be greater than or equal to minInterestPayment)
-    function bidInterest(uint256 auction, uint256 ntnAmount) external {
+    function bidInterest(uint256 auction, uint256 ntnAmount) external nonReentrant {
         AuctionLib.Auction storage interestAuction = auctions.get(auction);
-        uint256 ntnToPay = minInterestPayment(auction);
+        uint256 ntnToPay = _minInterestPayment(auction);
         uint256 atnToReceive = interestAuction.amount;
 
         if (ntnAmount < ntnToPay) {
@@ -150,12 +151,6 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
 
         auctions.remove(auction);
 
-        // transfer ATN
-        (bool ok,) = msg.sender.call{value: atnToReceive, gas: 2300}("");
-        if (!ok) {
-            revert TransferFailed();
-        }
-
         // if the proceeds address has not been set, the collateral will accumulate in this contract until
         // the next auction
         if (proceedAddress != address(0)) {
@@ -164,6 +159,12 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
             }
         }
         emit AuctionedInterest(msg.sender, atnToReceive, ntnToPay);
+
+        // transfer ATN
+        (bool ok,) = msg.sender.call{value: atnToReceive, gas: 2300}("");
+        if (!ok) {
+            revert TransferFailed();
+        }
     }
 
     /*
@@ -174,6 +175,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
 
     // @notice Deposit interest payments into the contract
     // @dev This function is called by the stabilization mechanism contract
+    // reentrancy is expected and allowed when liquidating a position.
     function paidInterest() external payable onlyStabilization {
         _pendingAllocatedInterest += msg.value;
         if (_pendingAllocatedInterest >= config.interestAuctionThreshold) {
@@ -301,27 +303,49 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
 
     // @notice Get all open interest auctions
     // @return An array of all open interest auctions
-    function openAuctions() external view returns (AuctionLib.Auction[] memory) {
+    function openAuctions() external view nonReentrantView returns (AuctionLib.Auction[] memory) {
         return auctions.values();
     }
 
     // @notice Get an auction by ID
     // @param auction The ID of the auction
-    function getAuction(uint256 auction) external view returns (AuctionLib.Auction memory) {
+    function getAuction(uint256 auction) external view nonReentrantView returns (AuctionLib.Auction memory) {
         return auctions.get(auction);
     }
 
     // @notice Get the maximum amount of NTN that can be returned to a liquidator for a given CDP
     // @param debtor The address of the CDP owner
     // @param liquidatableRound The earliest round in which the CDP was liquidatable
-    function maxLiquidationReturn(address debtor, uint256 liquidatableRound) external view returns (uint256) {
+    function maxLiquidationReturn(address debtor, uint256 liquidatableRound) external view nonReentrantView returns (uint256) {
         IOracle.RoundData memory round = _oracle.getRoundData(liquidatableRound, StabilizationMath.NTN_SYMBOL);
         return _maxLiquidationReturn(debtor, round.timestamp);
     }
 
     // @notice Get the minimum amount of NTN that can be paid for an interest auction
     // @param auction The ID of the auction
-    function minInterestPayment(uint256 auction) public view returns (uint256) {
+    function minInterestPayment(uint256 auction) external view nonReentrantView returns (uint256) {
+        return _minInterestPayment(auction);
+    }
+
+    function getConfig() external view returns (Config memory) {
+        return config;
+    }
+
+    function getCollateralToken() external view returns (address) {
+        return address(collateralToken);
+    }
+
+    function getProceedAddress() external view returns (address) {
+        return proceedAddress;
+    }
+
+    /*
+    ┌────────────────────┐
+    │ Internal Functions │
+    └────────────────────┘
+    */
+
+    function _minInterestPayment(uint256 auction) internal view returns (uint256) {
         AuctionLib.Auction storage interestAuction = auctions.get(auction);
         if (interestAuction.startTimestamp == 0) {
             revert InvalidAuctionId();
@@ -335,12 +359,6 @@ contract Auctioneer is IAuctioneer, IConfigEvents {
             config.interestAuctionDuration
         );
     }
-
-    /*
-    ┌────────────────────┐
-    │ Internal Functions │
-    └────────────────────┘
-    */
 
     function _maxLiquidationReturn(address debtor, uint256 roundTimestamp) internal view returns (uint256) {
         IStabilization.CDP memory cdp = _stabilization.cdps(debtor);

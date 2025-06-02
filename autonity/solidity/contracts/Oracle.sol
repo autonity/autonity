@@ -2,16 +2,19 @@
 pragma solidity >=0.8.2 < 0.9.0;
 
 import "./interfaces/IOracle.sol";
-import "./Autonity.sol";
+import "./interfaces/IAutonity.sol";
+import {Autonity} from "./Autonity.sol";
 import {EnumerableSet} from "./utils/Set.sol";
 import {ORACLE_SLASHING_RATE_CAP} from "./ProtocolConstants.sol";
+import {ReentrancyGuard} from "./ReentrancyGuard.sol";
+import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
 
 /**
  * @title Autonity Protocol - Oracle Contract
  * @notice This contract implements the Oracle for the Autonity Protocol, allowing voters to submit price reports
  * and aggregate them while detecting outliers.
  */
-contract Oracle is IOracle, IConfigEvents {
+contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     // Struct to hold metadata information concerning a voter
@@ -44,11 +47,11 @@ contract Oracle is IOracle, IConfigEvents {
     }
 
     // ==== Public state variables ====
-    Config public config;
-    int256 public symbolUpdatedRound = type(int256).min; // todo(youssef): confused why not uint256
-    uint256 public lastRoundBlock;
-    mapping(address => VoterInfo) public voterInfo;
-    mapping(string => mapping(address => Report)) public reports;
+    Config internal config;
+    int256 internal symbolUpdatedRound = type(int256).min; // todo(youssef): confused why not uint256
+    uint256 internal lastRoundBlock;
+    mapping(address => VoterInfo) internal voterInfo;
+    mapping(string => mapping(address => Report)) internal reports;
 
     // ==== Private state variables ====
     // @dev Note that the oracle DECIMALS cannot be changed without having an effect on the
@@ -72,8 +75,8 @@ contract Oracle is IOracle, IConfigEvents {
     // in the voterInfo mapping we only store the performance for the current voting round
     // in order to persist information between epochs and voter sets, we keep a separate accumulating
     // mapping for all rounds ended this epoch
-    mapping(address => address) public voterTreasuries;
-    mapping(address => address) public voterValidators;
+    mapping(address => address) internal voterTreasuries;
+    mapping(address => address) internal voterValidators;
     mapping(address => uint256) private rewardPeriodPerformance;
     uint256 private rewardPeriodAggregatedScore;
 
@@ -153,7 +156,7 @@ contract Oracle is IOracle, IConfigEvents {
         Report[] calldata _reports,
         uint256 _salt,
         uint8 _extra
-    ) onlyVoters external {
+    ) onlyVoters external virtual nonReentrant {
         // revert if already voted for this round
         // voters should not be allowed to vote multiple times in a round
         // because we are refunding the tx fee and this opens up the possibility
@@ -170,19 +173,19 @@ contract Oracle is IOracle, IConfigEvents {
         _voterInfo.round = round;
         // new voter/first round
         if (_lastVotedRound == 0) {
-            emit NewVoter(msg.sender);
+            emit NewVoter(msg.sender, _extra);
             return;
         }
 
         if (_lastVotedRound != round - 1) {
-            emit InvalidVote("LastVotedRoundMismatch", msg.sender, round - 1, _lastVotedRound);
+            emit InvalidVote("LastVotedRoundMismatch", msg.sender, round - 1, _lastVotedRound, _extra);
             return;
         }
 
         _commit = uint256(keccak256(abi.encode(_reports, _salt, msg.sender)));
         if (_pastCommit != _commit) {
             _increaseNonRevealCount(msg.sender, _voterInfo);
-            emit InvalidVote("CommitMismatch", msg.sender, _pastCommit, _commit);
+            emit InvalidVote("CommitMismatch", msg.sender, _pastCommit, _commit, _extra);
             // we return the tx fee in all cases, because in both cases voter is slashed during aggregation
             // phase, because the reports contain invalid prices
             return;
@@ -191,7 +194,7 @@ contract Oracle is IOracle, IConfigEvents {
         // if data is not supplied and voter is not a new voter
         // report must contain the correct price
         if (_reports.length != symbols.length) {
-            emit InvalidVote("ReportLengthMismatch", msg.sender, _reports.length, symbols.length);
+            emit InvalidVote("ReportLengthMismatch", msg.sender, _reports.length, symbols.length, _extra);
             return;
         }
 
@@ -205,14 +208,15 @@ contract Oracle is IOracle, IConfigEvents {
             reports[symbols[i]][msg.sender] = _reports[i];
         }
         _voterInfo.reportAvailable = true;
-        emit SuccessfulVote(msg.sender);
+        emit SuccessfulVote(msg.sender, _extra);
     }
+
     /**
      * @notice Finalizes the current round and aggregates the votes. Called by the Autonity contract.
      * @return true if there is a new round and new symbol prices are available, false if not.
      * @dev This function has technically infinite gas budget and must not throw in any condition.
      */
-    function finalize() onlyAutonity external returns (bool) {
+    function finalize() onlyAutonity external virtual nonReentrant returns (bool) {
         if (block.number < lastRoundBlock + config.votePeriod) {
             return false;
         }
@@ -241,7 +245,7 @@ contract Oracle is IOracle, IConfigEvents {
         return true;
     }
 
-    function _finalizeRewards() internal {
+    function _finalizeRewards() internal virtual {
         for (uint256 i = 0; i < voters.length; i++) {
             address _voter = voters[i];
             if (voterInfo[_voter].performance > 0) {
@@ -253,12 +257,16 @@ contract Oracle is IOracle, IConfigEvents {
         }
     }
 
-    function distributeRewards(uint256 _ntn) onlyAutonity external payable {
+    /**
+     * @notice Distributes oracle rewards to voters based on their performance. Called by Autonity at finalize().
+     * @param _ntn, the amount of ntn to redistribute
+     */
+    function distributeRewards(uint256 _ntn) onlyAutonity external virtual nonReentrant payable {
         uint256 _atn = address(this).balance;
         _performRewardDistribution(_atn, _ntn);
     }
 
-    function _performRewardDistribution(uint256 _totalATN, uint256 _totalNTN) internal {
+    function _performRewardDistribution(uint256 _totalATN, uint256 _totalNTN) internal virtual {
         if (rewardPeriodAggregatedScore == 0) {
             return;
         }
@@ -269,12 +277,19 @@ contract Oracle is IOracle, IConfigEvents {
             uint256 _ntn = (_totalNTN * rewardPeriodPerformance[_voter]) / rewardPeriodAggregatedScore;
 
             // Transfer ATN rewards
-            // 2300 gas fowarded with send()
             // funds for failed transfers will be redistributed for the next round
-            voterTreasuries[_voter].call{value: _atn, gas: 2300}("");
+            // emit an event to notify the voter
+            if(_atn > 0) {
+                (bool _sent, bytes memory _returnData) = voterTreasuries[_voter].call{value: _atn, gas: 2300}("");
+                if (_sent == false) {
+                    emit IAutonity.CallFailed(voterTreasuries[_voter], "", _returnData);
+                }
+            }
 
             // Transfer NTN rewards
-            config.autonity.autobond(voterValidators[_voter], _ntn, 0);
+            if(_ntn > 0) {
+                config.autonity.autobond(voterValidators[_voter], _ntn, 0);
+            }
 
             rewardPeriodPerformance[_voter] = 0;
             rewardReceivers.remove(_voter);
@@ -283,7 +298,11 @@ contract Oracle is IOracle, IConfigEvents {
         rewardPeriodAggregatedScore = 0;
     }
 
-    function updateVotersAndSymbol() onlyAutonity external {
+    /**
+     * @notice updates voters and symbols, taking into account boundary edge cases.
+     *         Called by Autonity at the start of a new Oracle round
+     */
+    function updateVotersAndSymbol() onlyAutonity external virtual {
         // this votingInfo is updated with the newVoter set just so that the new voters
         // are able to send their first vote, but they will not be used for aggregation
         // in this round
@@ -317,10 +336,10 @@ contract Oracle is IOracle, IConfigEvents {
      * @param _sindex The index of the symbol to aggregate.
      * @dev This function detects outliers and calculates the final price for the symbol.
      */
-    function _aggregateReports(uint _sindex, bool[] memory _penalizedVoters) internal {
+    function _aggregateReports(uint _sindex, bool[] memory _penalizedVoters) internal virtual {
         string memory _symbol = symbols[_sindex];
         Report[] memory _totalReports = new Report[](voters.length);
-        uint256 _count;
+        uint256 _count = 0;
         for (uint i = 0; i < voters.length; i++) {
             address _voter = voters[i];
             // if there is no available report from this validator we must account for it.
@@ -390,7 +409,7 @@ contract Oracle is IOracle, IConfigEvents {
      * @notice Return latest available price data.
      * @param _symbol, the symbol from which the current price should be returned.
      */
-    function latestRoundData(string memory _symbol) public view returns (RoundData memory data) {
+    function latestRoundData(string memory _symbol) external view virtual nonReentrantView returns (RoundData memory data) {
         //return last aggregated round
         Price memory _p = prices[round - 1][_symbol];
         RoundData memory _d = RoundData(round - 1, _p.price, _p.timestamp, _p.success);
@@ -403,10 +422,64 @@ contract Oracle is IOracle, IConfigEvents {
      * @param _symbol, the symbol for which the current price should be returned.
      * @dev IOracle interface method
      */
-    function getRoundData(uint256 _round, string memory _symbol) external view returns (RoundData memory data) {
+    function getRoundData(uint256 _round, string memory _symbol) external view virtual nonReentrantView returns (RoundData memory data) {
         Price memory _p = prices[_round][_symbol];
         RoundData memory _d = RoundData(_round, _p.price, _p.timestamp, _p.success);
         return _d;
+    }
+
+    /**
+     * @return config, the current oracle config
+     */
+    function getConfig() external virtual view nonReentrantView returns (Config memory){
+        return config;
+    }
+
+    /**
+     * @param _oracleAddress, the oracle address of a validator
+     * @return his node address
+     */
+    function getVoterValidators(address _oracleAddress) external virtual view nonReentrantView returns (address) {
+        return voterValidators[_oracleAddress];
+    }
+
+    /**
+     * @param _oracleAddress, the oracle address of a validator
+     * @return his treasury address
+     */
+    function getVoterTreasuries(address _oracleAddress) external virtual view nonReentrantView returns (address) {
+        return voterTreasuries[_oracleAddress];
+    }
+
+    /**
+    * @return the round at which the symbols got updated
+    */
+    function getSymbolUpdatedRound() external virtual view returns (int256){
+        return symbolUpdatedRound;
+    }
+
+    /**
+    * @return the block at which the last completed round ended
+    */
+    function getLastRoundBlock() external virtual view nonReentrantView returns (uint256){
+        return lastRoundBlock;
+    }
+
+    /**
+    * @param _voter, the voter address
+    * @return the related voter information
+    */
+    function getVoterInfo(address _voter) external virtual view nonReentrantView returns (VoterInfo memory){
+        return voterInfo[_voter];
+    }
+
+    /**
+    * @param _symbol, the target symbol
+    * @param _voter, the target voter address
+    * @return the latest report of that voter for that symbol
+    */
+    function getReports(string memory _symbol, address _voter) external virtual view nonReentrantView returns (Report memory){
+        return reports[_symbol][_voter];
     }
 
     /**
@@ -417,7 +490,7 @@ contract Oracle is IOracle, IConfigEvents {
      * @dev emit {NewSymbols} event.
      * @dev IOracle interface method
      */
-    function setSymbols(string[] memory _symbols) external onlyOperator {
+    function setSymbols(string[] memory _symbols) external virtual onlyOperator {
         require(_symbols.length != 0, "symbols can't be empty");
         require((symbolUpdatedRound + 1 != int256(round)) && (symbolUpdatedRound != int256(round)), "can't be updated in this round");
         newSymbols = _symbols;
@@ -429,7 +502,7 @@ contract Oracle is IOracle, IConfigEvents {
     /**
      * @notice Retrieve the lists of symbols to be voted on.
      */
-    function getSymbols() external view returns (string[] memory) {
+    function getSymbols() external virtual view returns (string[] memory) {
         // if current round is the next round of the symbol update round
         // we should return the updated symbols, because oracle clients are supposed
         // to use updated symbols to fetch data
@@ -443,7 +516,7 @@ contract Oracle is IOracle, IConfigEvents {
      * @notice Retrieve the list of new participants in the Oracle process.
      * @dev IOracle interface method implementation.
      */
-    function getNewVoters() external view returns (address[] memory) {
+    function getNewVoters() external virtual view nonReentrantView returns (address[] memory) {
         return newVoters;
     }
 
@@ -451,14 +524,14 @@ contract Oracle is IOracle, IConfigEvents {
      * @notice Retrieve the list of participants in the Oracle process.
      * @dev IOracle interface method implementation.
      */
-    function getVoters() external view returns (address[] memory) {
+    function getVoters() external virtual view nonReentrantView returns (address[] memory) {
         return voters;
     }
 
     /**
      * @notice Returns the tolerance for missed reveal count before the voter gets punished.
      */
-    function getNonRevealThreshold() external view returns (uint256) {
+    function getNonRevealThreshold() external virtual view returns (uint256) {
         return config.nonRevealThreshold;
     }
 
@@ -466,7 +539,7 @@ contract Oracle is IOracle, IConfigEvents {
     * @notice Retrieve the current round ID.
     * @dev IOracle interface method implementation.
     */
-    function getRound() external view returns (uint256) {
+    function getRound() external virtual view nonReentrantView returns (uint256) {
         return round;
     }
 
@@ -481,7 +554,7 @@ contract Oracle is IOracle, IConfigEvents {
     /**
     * @notice Retrieve the performance for a voter in this reward (epoch) period.
     */
-    function getRewardPeriodPerformance(address _voter) external view returns (uint256) {
+    function getRewardPeriodPerformance(address _voter) external virtual view nonReentrantView returns (uint256) {
         return rewardPeriodPerformance[_voter];
     }
 
@@ -489,7 +562,7 @@ contract Oracle is IOracle, IConfigEvents {
     * @notice Retrieve the vote period.
     * @dev IOracle interface method implementation.
     */
-    function getVotePeriod() external view returns (uint) {
+    function getVotePeriod() external virtual view nonReentrantView returns (uint) {
         return config.votePeriod;
     }
 
@@ -497,7 +570,7 @@ contract Oracle is IOracle, IConfigEvents {
     * @notice Retrieve the new vote period that is going to be applied at the end of the vote round.
     * @dev IOracle interface method implementation.
     */
-    function getNewVotePeriod() external view returns (uint) {
+    function getNewVotePeriod() external virtual view nonReentrantView returns (uint) {
         return newVotePeriod;
     }
 
@@ -510,7 +583,7 @@ contract Oracle is IOracle, IConfigEvents {
         address[] memory _newVoters,
         address[] memory _treasury,
         address[] memory _validator
-    ) onlyAutonity external {
+    ) onlyAutonity external virtual nonReentrant {
         require(_newVoters.length != 0, "Voters can't be empty");
         for (uint256 i = 0; i < _newVoters.length; i++) {
             voterTreasuries[_newVoters[i]] = _treasury[i];
@@ -525,7 +598,7 @@ contract Oracle is IOracle, IConfigEvents {
     * @notice Setter for the operator.
     * @dev IOracle interface method implementation.
     */
-    function setOperator(address _operator) external onlyAutonity {
+    function setOperator(address _operator) external virtual onlyAutonity {
         config.operator = _operator;
     }
 
@@ -533,7 +606,7 @@ contract Oracle is IOracle, IConfigEvents {
     * @notice Setter for the vote period, new vote period will be applied at the end of the round.
     * @dev IOracle interface method implementation..
     */
-    function setVotePeriod(uint _votePeriod) external onlyOperator {
+    function setVotePeriod(uint _votePeriod) external virtual onlyOperator {
         _checkVotePeriod(_votePeriod);
         newVotePeriod = _votePeriod;
         emit ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod);
@@ -542,7 +615,7 @@ contract Oracle is IOracle, IConfigEvents {
     /**
      * @notice Setter for commit-reveal penalty mechanism configuration.
      */
-    function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) external onlyOperator {
+    function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) external virtual onlyOperator {
         require(
             _threshold < _resetInterval && _resetInterval > 0,
             "invalid config"
@@ -560,8 +633,7 @@ contract Oracle is IOracle, IConfigEvents {
         int256 _outlierSlashingThreshold,
         int256 _outlierDetectionThreshold,
         uint256 _baseSlashingRate
-    ) external onlyOperator
-    {
+    ) external virtual onlyOperator {
         emit ConfigUpdateInt("outlierSlashingThreshold", config.outlierSlashingThreshold, _outlierSlashingThreshold);
         config.outlierSlashingThreshold = _outlierSlashingThreshold;
         emit ConfigUpdateInt("outlierDetectionThreshold", config.outlierDetectionThreshold, _outlierDetectionThreshold);
@@ -570,7 +642,7 @@ contract Oracle is IOracle, IConfigEvents {
         config.baseSlashingRate = _baseSlashingRate;
     }
 
-    function _checkVotePeriod(uint _votePeriod) internal view {
+    function _checkVotePeriod(uint _votePeriod) internal virtual view {
         // we need this check to update new voters at the end of voting round
         uint256 _epochPeriod = config.autonity.getCurrentEpochPeriod();
         require(_votePeriod * 2 <= _epochPeriod, "vote period is too big");
@@ -578,7 +650,7 @@ contract Oracle is IOracle, IConfigEvents {
         require(_votePeriod * 2 <= _epochPeriod, "vote period is too big");
     }
 
-    function _updateVotingInfo() internal {
+    function _updateVotingInfo() internal virtual {
         uint _i = 0;
         uint _j = 0;
 
@@ -607,7 +679,7 @@ contract Oracle is IOracle, IConfigEvents {
     /**
     * @dev QuickSort algorithm sorting addresses in lexicographic order.
     */
-    function _votersSort(address[] memory _voters, int _low, int _high) internal pure {
+    function _votersSort(address[] memory _voters, int _low, int _high) internal virtual pure {
         if (_low >= _high) return;
         int _i = _low;
         int _j = _high;
@@ -635,7 +707,7 @@ contract Oracle is IOracle, IConfigEvents {
     /**
     * @dev QuickSort algorithm sorting addresses in lexicographic order.
     */
-    function _getMedian(Report[] memory _priceArray, uint _length) internal pure returns (uint120) {
+    function _getMedian(Report[] memory _priceArray, uint _length) internal virtual pure returns (uint120) {
         if (_length == 0) {
             return 0;
         }
@@ -645,7 +717,7 @@ contract Oracle is IOracle, IConfigEvents {
             (_priceArray[_midIndex - 1].price + _priceArray[_midIndex].price) / 2 : _priceArray[_midIndex].price;
     }
 
-    function _sortPrice(Report[] memory _priceArray, int _low, int _high) internal pure {
+    function _sortPrice(Report[] memory _priceArray, int _low, int _high) internal virtual pure {
         int _i = _low;
         int _j = _high;
         if (_i == _j) return;
@@ -697,7 +769,7 @@ contract Oracle is IOracle, IConfigEvents {
      *         - filteredReports: Array of reports that are not outliers.
      *         - totalReports: Total number of reports that are not outliers.
      */
-    function _findOutliers(int256 _median, string memory _symbol) internal returns (OutlierDetection memory){
+    function _findOutliers(int256 _median, string memory _symbol) internal virtual returns (OutlierDetection memory){
         OutlierDetection memory result;
 
         result.filteredReports = new Report[](voters.length);
@@ -722,7 +794,7 @@ contract Oracle is IOracle, IConfigEvents {
         return result;
     }
 
-    function _calculateWeightedPrice(Report[] memory _report, uint256 _reportCount) internal pure returns (uint256) {
+    function _calculateWeightedPrice(Report[] memory _report, uint256 _reportCount) internal virtual pure returns (uint256) {
         uint256 _totalConfidence = 0;
         uint256 _price = 0;
         for (uint256 i = 0; i < _reportCount; i++) {
@@ -732,7 +804,7 @@ contract Oracle is IOracle, IConfigEvents {
         return _price / _totalConfidence;
     }
 
-    function _penalize(uint256 _outlierIndex, int256 _median, Report memory _report, bool[] memory _penalizeVoters) internal returns (uint256) {
+    function _penalize(uint256 _outlierIndex, int256 _median, Report memory _report, bool[] memory _penalizeVoters) internal virtual returns (uint256) {
         address _outlier = voters[_outlierIndex];
         // Stop considering this reporter for any future calculation.
         // This is symbol independant.
@@ -761,7 +833,7 @@ contract Oracle is IOracle, IConfigEvents {
         return config.autonity.slash(voterValidators[_outlier], _slashingRate);
     }
 
-    function _penalizeForNoReveal() internal returns (bool[] memory) {
+    function _penalizeForNoReveal() internal virtual returns (bool[] memory) {
         bool[] memory penalizedVoters = new bool[](voters.length);
         // penalize for commit without reveal
         for (uint i = 0; i < voters.length; i++) {
@@ -790,13 +862,13 @@ contract Oracle is IOracle, IConfigEvents {
         return penalizedVoters;
     }
 
-    function _resetNonRevealCounter() internal {
+    function _resetNonRevealCounter() internal virtual {
         for (uint i = 0; i < voters.length; i++) {
             voterInfo[voters[i]].nonRevealCount = 0;
         }
     }
 
-    function _resetPenalizedReports(bool[] memory penalizedVoters) internal {
+    function _resetPenalizedReports(bool[] memory penalizedVoters) internal virtual {
         for (uint i = 0; i < voters.length; i++) {
             if (penalizedVoters[i]) {
                 voterInfo[voters[i]].reportAvailable = false;
@@ -804,7 +876,7 @@ contract Oracle is IOracle, IConfigEvents {
         }
     }
 
-    function _increaseNonRevealCount(address _address, VoterInfo storage _voter) internal {
+    function _increaseNonRevealCount(address _address, VoterInfo storage _voter) internal virtual {
         _voter.nonRevealCount++;
         emit CommitRevealMissed(_address, round, _voter.nonRevealCount);
     }

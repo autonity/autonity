@@ -17,7 +17,7 @@ func TestExample1(t *testing.T) {
 	validators, consumed, err := r.Autonity.GetValidators(nil)
 	require.NoError(t, err)
 	require.Equal(t, *params.TestAutonityContractConfig.Validators[0].NodeAddress, validators[0])
-	require.LessOrEqual(t, consumed, uint64(2100))
+	require.LessOrEqual(t, consumed, uint64(2200))
 }
 
 func TestExample2(t *testing.T) {
@@ -89,7 +89,7 @@ func TestUpgrade(t *testing.T) {
 		gas, err := r.UpgradeManager.Upgrade(r.Operator, r.Autonity.address, string(calldata))
 		require.NoError(r.T, err)
 		r.T.Log("upgrade autonity: gas consumed:", gas)
-		cfg, _, err := r.Autonity.Config(nil)
+		cfg, _, err := r.Autonity.GetConfig(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, cfg.ContractVersion.Uint64(), common.Big2.Uint64())
 		// test the hot patched _transfer operation, see AutonityUpgradeTest.sol

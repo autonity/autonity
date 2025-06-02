@@ -30,7 +30,7 @@ func TestSupplyControlConstructor(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check total supply
-		actualTotalSupply, _, err := supplyControl.TotalSupply(nil)
+		actualTotalSupply, _, err := supplyControl.GetTotalSupply(nil)
 		require.NoError(t, err)
 
 		require.Equal(t, totalSupply, actualTotalSupply)
@@ -162,7 +162,7 @@ func TestSupplyControlMintAndBurn(t *testing.T) {
 		_, err := r.SupplyControl.Mint(tests.FromSender(r.Stabilization.Address(), nil), testrand.Address(), common.Big0)
 		require.ErrorAs(t, err, &tests.SupplyControlInvalidAmountError{})
 
-		totalSupply, _, err := r.SupplyControl.TotalSupply(nil)
+		totalSupply, _, err := r.SupplyControl.GetTotalSupply(nil)
 		require.NoError(t, err)
 		_, err = r.SupplyControl.Mint(
 			tests.FromSender(r.Stabilization.Address(), nil),

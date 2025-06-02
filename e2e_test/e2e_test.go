@@ -57,7 +57,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	defer network.Shutdown(t)
 	// Autonity Contract
 	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
-	autonityConfig, err := autonityContract.Config(nil)
+	autonityConfig, err := autonityContract.GetConfig(nil)
 	require.NoError(t, err)
 
 	validators, err := autonityContract.GetValidators(nil)
@@ -83,7 +83,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.Equal(t, params.SupplyControlContractAddress, autonityConfig.Contracts.SupplyControlContract)
 	// Accountability Contract
 	accountabilityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, network[0].WsClient)
-	accountabilityConfig, err := accountabilityContract.Config(nil)
+	accountabilityConfig, err := accountabilityContract.GetConfig(nil)
 	require.NoError(t, err)
 	require.Equal(t, params.TestAccountabilityConfig.HistoryFactor, accountabilityConfig.Factors.History.Uint64())
 	require.Equal(t, params.TestAccountabilityConfig.CollusionFactor, accountabilityConfig.Factors.Collusion.Uint64())
@@ -99,7 +99,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	// Omission Contract -- todo
 	// Upgrade Manager Contract
 	upgradeManagerContract, _ := autonity.NewUpgradeManager(params.UpgradeManagerContractAddress, network[0].WsClient)
-	upgradeManagerAutonityAddress, err := upgradeManagerContract.Autonity(nil)
+	upgradeManagerAutonityAddress, err := upgradeManagerContract.GetAutonity(nil)
 	require.NoError(t, err)
 	require.Equal(t, params.AutonityContractAddress, upgradeManagerAutonityAddress)
 	err = network.WaitToMineNBlocks(2, 15, false)
@@ -215,7 +215,7 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 	sendAndWait(tx)
 
 	// we should still be in epoch 0, getDelta should already return the new value
-	epochID, err := autonityContract.EpochID(nil)
+	epochID, err := autonityContract.GetEpochID(nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), epochID.Uint64())
 	newDeltaFetched, err := omissionContract.GetDelta(nil)
@@ -232,7 +232,7 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	// should be in epoch 1
-	epochID, err = autonityContract.EpochID(nil)
+	epochID, err = autonityContract.GetEpochID(nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), epochID.Uint64())
 
@@ -253,7 +253,7 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	// should be in epoch 2
-	epochID, err = autonityContract.EpochID(nil)
+	epochID, err = autonityContract.GetEpochID(nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), epochID.Uint64())
 
@@ -342,7 +342,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 
 	fmt.Println("total rewards", totalRewards)
 	balanceGlobalTreasury, _ := n.WsClient.BalanceAt(context.Background(), common.Address{120}, nil)
-	cfg, _ := autonityContract.Config(nil)
+	cfg, _ := autonityContract.GetConfig(nil)
 	fmt.Println(cfg)
 	require.Equal(t, treasuryRewards, balanceGlobalTreasury)
 

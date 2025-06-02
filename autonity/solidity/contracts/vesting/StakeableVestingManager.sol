@@ -12,9 +12,9 @@ import "./stakeable/StakeableVestingState.sol";
  * It can also manage the beneficiary of an existing stakeable vesting contract.
  */
 contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager {
-    uint256 public contractVersion = 1;
+    uint256 internal contractVersion = 1;
 
-    address public stakeableVestingLogicContract;
+    address internal stakeableVestingLogicContract;
 
     IStakeableVesting[] private contracts;
 
@@ -44,7 +44,7 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
         uint256 _startTime,
         uint256 _cliffDuration,
         uint256 _totalDuration
-    ) virtual onlyOperator public {
+    ) virtual external onlyOperator {
         require(_startTime >= block.timestamp, "contract cannot start before creation");
         require(autonity.balanceOf(address(this)) >= _amount, "not enough stake reserved to create a new contract");
 
@@ -77,7 +77,7 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
     function changeContractBeneficiary(
         address _beneficiary, uint256 _id, address _recipient
     ) virtual external onlyOperator {
-        uint256 _contractID = getUniqueContractID(_beneficiary, _id);
+        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
         contracts[_contractID].changeContractBeneficiary(_recipient);
         _changeContractBeneficiary(_beneficiary, _contractID, _recipient);
     }
@@ -99,7 +99,7 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
      * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding already canceled ones)
      */
     function getContractAccount(address _beneficiary, uint256 _id) external virtual view returns (IStakeableVesting) {
-        return contracts[getUniqueContractID(_beneficiary, _id)];
+        return contracts[_getUniqueContractID(_beneficiary, _id)];
     }
 
     /**
@@ -126,6 +126,34 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
             _res[i] = contracts[_contractIDs[i]].getContract();
         }
         return _res;
+    }
+
+    /**
+     * @notice Returns the number of contracts entitled to some beneficiary.
+     * @param _beneficiary address of the beneficiary
+     */
+    function totalContracts(address _beneficiary) virtual external view returns (uint256) {
+        return _totalContracts(_beneficiary);
+    }
+
+    /**
+     * @notice Returns a unique id for each contract.
+     * @param _beneficiary address of the contract holder
+     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
+     */
+    function getUniqueContractID(address _beneficiary, uint256 _id) external view returns (uint256) {
+        return _getUniqueContractID(_beneficiary, _id);
+    }
+
+    /// @return the contract version
+    function getContractVersion() external view returns (uint256) {
+        return contractVersion;
+    }
+
+    /// @return the address of the stakeable contract logic
+    /// reentrancy from the state contracts is expected and allowed
+    function getStakeableVestingLogicContract() external view returns (address) {
+        return stakeableVestingLogicContract;
     }
 
 }

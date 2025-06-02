@@ -29,7 +29,7 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, auctions, 0)
 
-		config, _, err := r.Auctioneer.Config(nil)
+		config, _, err := r.Auctioneer.GetConfig(nil)
 		require.NoError(t, err)
 
 		interestPayment := new(big.Int).Add(config.InterestAuctionThreshold, big.NewInt(1000))
@@ -55,7 +55,7 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, auctions, 0)
 
-		config, _, err := r.Auctioneer.Config(nil)
+		config, _, err := r.Auctioneer.GetConfig(nil)
 		require.NoError(t, err)
 
 		interestPayment := new(big.Int).Sub(config.InterestAuctionThreshold, big.NewInt(1000))
@@ -93,7 +93,7 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 		ntnCost, _, err := r.Auctioneer.MinInterestPayment(nil, auction.Id)
 		require.NoError(t, err)
 
-		config, _, err := r.Auctioneer.Config(nil)
+		config, _, err := r.Auctioneer.GetConfig(nil)
 		require.NoError(t, err)
 
 		priceDiscount := newFloat0().Sub(
@@ -113,7 +113,7 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 
 	tests.RunWithSetup("Interest auction price ends at 0", setup, func(r *tests.Runner) {
 		auctionAmount := setupInterestAuction(r, big.NewInt(1000))
-		config, _, err := r.Auctioneer.Config(nil)
+		config, _, err := r.Auctioneer.GetConfig(nil)
 		require.NoError(t, err)
 
 		// Check that the auction is for the correct amount
@@ -766,7 +766,7 @@ func setupInterestAuction(r *tests.Runner, atnAboveMininum *big.Int) (auctionAmo
 	or.increment(r)
 
 	// start an auction
-	config, _, err := r.Auctioneer.Config(nil)
+	config, _, err := r.Auctioneer.GetConfig(nil)
 	require.NoError(r.T, err)
 
 	auctionAmount = new(big.Int).Add(config.InterestAuctionThreshold, atnAboveMininum)
@@ -854,14 +854,14 @@ func newOracleTestRounds(ntnPrices []*big.Int) *testOracleRounds {
 }
 
 func (o *testOracleRounds) initialize(r *tests.Runner) {
-	config, _, err := r.Oracle.Config(nil)
+	config, _, err := r.Oracle.GetConfig(nil)
 	require.NoError(r.T, err)
 
 	_, err = r.Oracle.SetSymbols(r.Operator, o.symbols)
 	require.NoError(r.T, err)
 	r.WaitNBlocks(2 * int(config.VotePeriod.Int64()))
 
-	acuScale, _, err := r.Acu.Scale(nil)
+	acuScale, _, err := r.Acu.GetScale(nil)
 	require.NoError(r.T, err)
 	acuDecimals := acuScale.Int64()
 
@@ -890,7 +890,7 @@ func (o *testOracleRounds) initialize(r *tests.Runner) {
 }
 
 func (o *testOracleRounds) increment(r *tests.Runner) {
-	config, _, err := r.Oracle.Config(nil)
+	config, _, err := r.Oracle.GetConfig(nil)
 	require.NoError(r.T, err)
 	voter := r.Committee.Validators[0].OracleAddress
 

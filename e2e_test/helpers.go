@@ -86,7 +86,7 @@ func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, e
 		header := n.Eth.BlockChain().CurrentHeader()
 		db, err := n.Eth.BlockChain().StateAt(header.Root)
 		require.NoError(t, err)
-		epochID, err := n.Eth.BlockChain().ProtocolContracts().AutonityContract.CallEpochID(db, header)
+		epochID, err := n.Eth.BlockChain().ProtocolContracts().AutonityContract.CallGetEpochID(db, header)
 		require.NoError(t, err)
 		if !epochID.IsInt64() {
 			require.Fail(t, "fatal error: epoch id does not fit in int64")
@@ -109,7 +109,7 @@ func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, e
 		iter, err := accountabilityContract.FilterNewAccusation(nil, []common.Address{faultyValidator})
 		require.NoError(t, err)
 		for iter.Next() {
-			event, err := accountabilityContract.Events(nil, iter.Event.Id)
+			event, err := accountabilityContract.GetEvent(nil, iter.Event.Id)
 			require.NoError(t, err)
 			events = append(events, event)
 		}

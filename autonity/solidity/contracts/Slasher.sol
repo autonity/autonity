@@ -6,36 +6,34 @@ import "./interfaces/IAutonity.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 
 contract Slasher {
-    address private autonity;
-
-    constructor(address _autonity){
-        autonity = _autonity; // we could use msg.sender but it would make deploying a new upgraded slasher contract harder
-    }
 
     /**
     * @dev modifies the passed validator structure to enable jailing
     * @param _val, the validator to be jailed
+    * @param _blockNumber, the current block number
     * @param _jailtime, the jailing time to be assigned to the validator
     * @param _newJailedState, the validator state to be applied
     * @return the modified validator
     */
     function jail(
         Autonity.Validator memory _val,
+        uint256 _blockNumber,
         uint256 _jailtime,
         IAutonity.ValidatorState _newJailedState
-    ) external virtual onlyAutonity returns (
+    ) external virtual pure returns (
         Autonity.Validator memory
     ){
-        _jail(_val, _jailtime, _newJailedState);
+        _jail(_val, _blockNumber, _jailtime, _newJailedState);
         return _val;
     }
 
     function _jail(
         Autonity.Validator memory _val,
+        uint256 _blockNumber,
         uint256 _jailtime,
         IAutonity.ValidatorState _newJailedState
-    ) internal virtual {
-        _val.jailReleaseBlock = block.number + _jailtime;
+    ) internal virtual pure {
+        _val.jailReleaseBlock = _blockNumber + _jailtime;
         _val.state = _newJailedState;
     }
 
@@ -48,7 +46,7 @@ contract Slasher {
     function jailbound(
         Autonity.Validator memory _val,
         IAutonity.ValidatorState _newJailboundState
-    ) external virtual onlyAutonity returns (
+    ) external virtual pure returns (
         Autonity.Validator memory
     ){
         _jailbound(_val, _newJailboundState);
@@ -58,7 +56,7 @@ contract Slasher {
     function _jailbound(
         Autonity.Validator memory _val,
         IAutonity.ValidatorState _newJailboundState
-    ) internal virtual {
+    ) internal virtual pure {
         _val.jailReleaseBlock = 0;
         _val.state = _newJailboundState;
     }
@@ -74,7 +72,7 @@ contract Slasher {
     function slash(
         Autonity.Validator memory _val,
         uint256 _slashingRate
-    ) external virtual onlyAutonity returns (
+    ) external virtual pure returns (
         Autonity.Validator memory,
         uint256
     ){
@@ -85,7 +83,7 @@ contract Slasher {
     function _slash(
         Autonity.Validator memory _val,
         uint256 _slashingRate
-    ) internal virtual returns (
+    ) internal virtual pure returns (
         uint256 // slashingAmount
     ){
         require(_slashingRate < SLASHING_RATE_SCALE_FACTOR, "cannot slash 100% without jailbounding");
@@ -149,6 +147,7 @@ contract Slasher {
       * @dev slashes and jails the specified validator
       * @param _val, the validator to be slashed
       * @param _slashingRate, the rate to be used
+      * @param _blockNumber, the current block number
       * @param _jailtime, the jailing time to be assigned to the validator
       * @param _newJailedState, the validator state to be applied for jailing
       * @param _newJailboundState, the validator state to be applied in case of 100% slashing
@@ -159,10 +158,11 @@ contract Slasher {
     function slashAndJail(
         Autonity.Validator memory _val,
         uint256 _slashingRate,
+        uint256 _blockNumber,
         uint256 _jailtime,
         IAutonity.ValidatorState _newJailedState,
         IAutonity.ValidatorState _newJailboundState
-    ) external virtual onlyAutonity returns (
+    ) external virtual pure returns (
         Autonity.Validator memory,  // slashedVal
         uint256,                    // slashingAmount
         bool                        // isJailbound
@@ -181,7 +181,7 @@ contract Slasher {
         }
 
         uint256 _slashingAmount = _slash(_val, _slashingRate);
-        _jail(_val, _jailtime, _newJailedState);
+        _jail(_val, _blockNumber, _jailtime, _newJailedState);
         return (_val, _slashingAmount, false);
     }
 
@@ -189,14 +189,7 @@ contract Slasher {
       * @notice returns the scale factor used for slashing
       * @return slashing scale factor
       */
-    function getSlashingScaleFactor() external pure returns (uint256) {
+    function getSlashingScaleFactor() external virtual pure returns (uint256) {
         return SLASHING_RATE_SCALE_FACTOR;
-    }
-
-    modifier onlyAutonity {
-        require(
-            msg.sender == autonity,
-            "Call restricted to the Autonity Contract");
-        _;
     }
 }

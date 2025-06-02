@@ -262,7 +262,7 @@ func TestRewardsDistribution(t *testing.T) {
 		require.NoError(r.T, err)
 		r.WaitNBlocks(int(epochInfo.NextEpochBlock.Int64() - r.Evm.Context.BlockNumber.Int64()))
 		currentRound := getRound(r)
-		currentEpochID, _, err := r.Autonity.EpochID(nil)
+		currentEpochID, _, err := r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		votePeriod, _, err := r.Oracle.GetVotePeriod(nil)
 		require.NoError(r.T, err)
@@ -280,7 +280,7 @@ func TestRewardsDistribution(t *testing.T) {
 		r.WaitNBlocks(int(votePeriod.Int64()))
 		newRound := getRound(r)
 		require.Equal(r.T, new(big.Int).Add(currentRound, common.Big1), newRound)
-		newEpochID, _, err := r.Autonity.EpochID(nil)
+		newEpochID, _, err := r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, new(big.Int).Add(currentEpochID, common.Big1), newEpochID)
 		// check if `oldVoter` is removed from committee
@@ -542,12 +542,12 @@ func TestVotersUpdate(t *testing.T) {
 		for _, v := range r.Committee.Validators {
 			_, ok := newVoterSet[v.OracleAddress]
 			require.True(r.T, ok)
-			voterInfo, _, err := r.Oracle.VoterInfo(nil, v.OracleAddress)
+			voterInfo, _, err := r.Oracle.GetVoterInfo(nil, v.OracleAddress)
 			require.NoError(r.T, err)
-			voterValidator, _, err := r.Oracle.VoterValidators(nil, v.OracleAddress)
+			voterValidator, _, err := r.Oracle.GetVoterValidators(nil, v.OracleAddress)
 			require.NoError(r.T, err)
 
-			voterTreasury, _, err := r.Oracle.VoterTreasuries(nil, v.OracleAddress)
+			voterTreasury, _, err := r.Oracle.GetVoterTreasuries(nil, v.OracleAddress)
 			require.NoError(r.T, err)
 			require.Equal(r.T, v.Treasury, voterTreasury)
 			require.Equal(r.T, v.NodeAddress, voterValidator)
@@ -567,13 +567,13 @@ func TestVotersUpdate(t *testing.T) {
 		for _, v := range voters {
 			_, ok := expectedVoters[v]
 			require.True(r.T, ok)
-			voterInfo, _, err := r.Oracle.VoterInfo(nil, v)
+			voterInfo, _, err := r.Oracle.GetVoterInfo(nil, v)
 			require.NoError(r.T, err)
-			voterValidator, _, err := r.Oracle.VoterValidators(nil, v)
+			voterValidator, _, err := r.Oracle.GetVoterValidators(nil, v)
 			require.NoError(r.T, err)
 			validator, _, err := r.Autonity.GetValidator(nil, voterValidator)
 			require.NoError(r.T, err)
-			voterTreasury, _, err := r.Oracle.VoterTreasuries(nil, v)
+			voterTreasury, _, err := r.Oracle.GetVoterTreasuries(nil, v)
 			require.NoError(r.T, err)
 			require.Equal(r.T, validator.Treasury, voterTreasury)
 			require.Equal(r.T, true, voterInfo.IsVoter)
@@ -659,7 +659,7 @@ func TestVotersUpdate(t *testing.T) {
 		// check if old voters got their access removed
 		for v := range oldVoters {
 			if _, ok := voters[v]; !ok {
-				voterInfo, _, err := r.Oracle.VoterInfo(nil, v)
+				voterInfo, _, err := r.Oracle.GetVoterInfo(nil, v)
 				require.NoError(r.T, err)
 				require.False(r.T, voterInfo.IsVoter)
 			}
@@ -846,7 +846,7 @@ func TestVotersUpdate(t *testing.T) {
 		require.NoError(r.T, err)
 		require.Equal(r.T, new(big.Int).Mul(votePeriod, common.Big2), epochPeriod, "(votingPeriod * 2 = epochPeriod) not true")
 		// see if the voting round and epoch coincides
-		epochID, _, err := r.Autonity.EpochID(nil)
+		epochID, _, err := r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		targetEpochID := new(big.Int).Add(epochID, common.Big1)
 		votingRound := getRound(r)
@@ -854,7 +854,7 @@ func TestVotersUpdate(t *testing.T) {
 
 		for epochID.Cmp(targetEpochID) == -1 && votingRound.Cmp(targetVotingRound) == -1 {
 			r.WaitNBlocks(1)
-			epochID, _, err = r.Autonity.EpochID(nil)
+			epochID, _, err = r.Autonity.GetEpochID(nil)
 			require.NoError(r.T, err)
 			votingRound = getRound(r)
 		}
@@ -926,7 +926,7 @@ func TestAllOutliersAreNotSlashed(t *testing.T) {
 		nextRound(r)
 		vote()
 		for _, v := range oracles {
-			info, _, err := r.Oracle.VoterInfo(nil, v)
+			info, _, err := r.Oracle.GetVoterInfo(nil, v)
 			require.NoError(r.T, err)
 			require.True(r.T, info.ReportAvailable)
 			require.True(r.T, info.IsVoter)
@@ -942,7 +942,7 @@ func TestAllOutliersAreNotSlashed(t *testing.T) {
 				require.True(r.T, valInfo.BondedStake.Cmp(stakes[i]) == 0, "got slashed")
 			}
 
-			voterInfo, _, err := r.Oracle.VoterInfo(nil, oracles[i])
+			voterInfo, _, err := r.Oracle.GetVoterInfo(nil, oracles[i])
 			require.NoError(r.T, err)
 			require.True(r.T, voterInfo.IsVoter)
 			if outliers[i] {
@@ -1101,7 +1101,7 @@ func TestSymbolUpdate(t *testing.T) {
 
 	voterCheck := func(r *Runner, reportAvailable bool) {
 		for _, v := range r.Committee.Validators {
-			info, _, err := r.Oracle.VoterInfo(nil, v.OracleAddress)
+			info, _, err := r.Oracle.GetVoterInfo(nil, v.OracleAddress)
 			require.NoError(r.T, err)
 			require.True(r.T, info.IsVoter)
 			require.Equal(r.T, reportAvailable, info.ReportAvailable)
@@ -1287,7 +1287,7 @@ func TestEveryoneIsOutlier(t *testing.T) {
 		}
 		// all should be outliers, but no one gets penalized
 		for _, v := range voters {
-			voterInfo, _, err := r.Oracle.VoterInfo(nil, v)
+			voterInfo, _, err := r.Oracle.GetVoterInfo(nil, v)
 			require.NoError(r.T, err)
 			require.True(r.T, voterInfo.ReportAvailable)
 		}
@@ -1312,7 +1312,7 @@ func TestConfigRequirement(t *testing.T) {
 	}
 
 	RunWithSetup("nonRevealThreshold < revealResetInterval", setup, func(r *Runner) {
-		config, _, err := r.Oracle.Config(nil)
+		config, _, err := r.Oracle.GetConfig(nil)
 		require.NoError(r.T, err)
 
 		fmt.Printf("confg %v %v\n", config.NonRevealThreshold, config.RevealResetInterval)
@@ -1389,7 +1389,7 @@ func TestMissedReveal(t *testing.T) {
 				r.Oracle.GetRound(nil),
 			).(*big.Int),
 		)
-		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		info, _, err := r.Oracle.GetVoterInfo(nil, voter)
 		require.NoError(r.T, err)
 		require.True(r.T, info.NonRevealCount.Cmp(common.Big0) == 0)
 
@@ -1399,7 +1399,7 @@ func TestMissedReveal(t *testing.T) {
 				r.Oracle.GetRound(nil),
 			).(*big.Int),
 		)
-		info, _, err = r.Oracle.VoterInfo(nil, voter)
+		info, _, err = r.Oracle.GetVoterInfo(nil, voter)
 		require.NoError(r.T, err)
 		require.True(r.T, info.NonRevealCount.Cmp(common.Big0) == 0)
 	})
@@ -1433,7 +1433,7 @@ func TestMissedReveal(t *testing.T) {
 				r.Oracle.GetRound(nil),
 			).(*big.Int),
 		)
-		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		info, _, err := r.Oracle.GetVoterInfo(nil, voter)
 		require.NoError(r.T, err)
 		require.True(r.T, info.NonRevealCount.Cmp(common.Big0) == 0)
 
@@ -1443,7 +1443,7 @@ func TestMissedReveal(t *testing.T) {
 				r.Oracle.GetRound(nil),
 			).(*big.Int),
 		)
-		info, _, err = r.Oracle.VoterInfo(nil, voter)
+		info, _, err = r.Oracle.GetVoterInfo(nil, voter)
 		require.NoError(r.T, err)
 
 		// first vote after a gap
@@ -1458,7 +1458,7 @@ func TestMissedReveal(t *testing.T) {
 				r.Oracle.GetRound(nil),
 			).(*big.Int),
 		)
-		newInfo, _, err := r.Oracle.VoterInfo(nil, voter)
+		newInfo, _, err := r.Oracle.GetVoterInfo(nil, voter)
 		require.NoError(r.T, err)
 		require.Equal(r.T, info.NonRevealCount, newInfo.NonRevealCount)
 	})
@@ -1484,7 +1484,7 @@ func TestMissedReveal(t *testing.T) {
 				r.Oracle.GetRound(nil),
 			).(*big.Int),
 		)
-		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		info, _, err := r.Oracle.GetVoterInfo(nil, voter)
 		require.NoError(r.T, err)
 		require.Equal(r.T, common.Big1, info.NonRevealCount)
 	})
@@ -1501,7 +1501,7 @@ func TestMissedReveal(t *testing.T) {
 				r.Oracle.GetRound(nil),
 			).(*big.Int),
 		)
-		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		info, _, err := r.Oracle.GetVoterInfo(nil, voter)
 		require.NoError(r.T, err)
 		require.Equal(r.T, int64(missedReveal), info.NonRevealCount.Int64())
 	}
@@ -1567,7 +1567,7 @@ func TestMissedReveal(t *testing.T) {
 				r.Oracle.GetRound(nil),
 			).(*big.Int),
 		)
-		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		info, _, err := r.Oracle.GetVoterInfo(nil, voter)
 		require.NoError(r.T, err)
 		require.Equal(r.T, int64(1), info.NonRevealCount.Int64())
 		progressRound(
@@ -1576,7 +1576,7 @@ func TestMissedReveal(t *testing.T) {
 				r.Oracle.GetRound(nil),
 			).(*big.Int),
 		)
-		info, _, err = r.Oracle.VoterInfo(nil, voter)
+		info, _, err = r.Oracle.GetVoterInfo(nil, voter)
 		require.NoError(r.T, err)
 		require.Equal(r.T, int64(1), info.NonRevealCount.Int64())
 	})
@@ -1654,7 +1654,7 @@ func TestMissedReveal(t *testing.T) {
 		)
 
 		// also counter is reset
-		info, _, err := r.Oracle.VoterInfo(nil, voter)
+		info, _, err := r.Oracle.GetVoterInfo(nil, voter)
 		require.NoError(r.T, err)
 		require.Equal(r.T, int64(0), info.NonRevealCount.Int64())
 	})
@@ -1765,7 +1765,7 @@ func TestRevealReset(t *testing.T) {
 			)
 		}
 
-		voterInfo, _, err := r.Oracle.VoterInfo(nil, voter)
+		voterInfo, _, err := r.Oracle.GetVoterInfo(nil, voter)
 		require.NoError(r.T, err)
 		require.Equal(r.T, int64(0), voterInfo.NonRevealCount.Int64())
 	})

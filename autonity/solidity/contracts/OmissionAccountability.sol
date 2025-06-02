@@ -7,8 +7,9 @@ import {Precompiled} from "./lib/Precompiled.sol";
 import {IOmissionAccountability} from "./interfaces/IOmissionAccountability.sol";
 import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
+import {ReentrancyGuard} from "./ReentrancyGuard.sol";
 
-contract OmissionAccountability is IOmissionAccountability, IConfigEvents {
+contract OmissionAccountability is IOmissionAccountability, IConfigEvents, ReentrancyGuard {
     // Used for fixed-point arithmetic during computation of inactivity score
     uint256 public constant SCALE_FACTOR = 10_000;
 
@@ -33,31 +34,31 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents {
     uint256 internal newDelta;          // applied at epoch end
     address internal operator;
 
-    mapping(uint256 => bool) public faultyProposers;                         // marks height where proposer is faulty
-    uint256 public faultyProposersInWindow;                                  // number of faulty proposers in the current lookback window
+    mapping(uint256 => bool) internal faultyProposers;                         // marks height where proposer is faulty
+    uint256 internal faultyProposersInWindow;                                  // number of faulty proposers in the current lookback window
 
-    mapping(uint256 => mapping(address => bool)) public inactiveValidators;  // inactive validators for each height
+    mapping(uint256 => mapping(address => bool)) internal inactiveValidators;  // inactive validators for each height
     address[] internal absenteesLastHeight;                                    // absentees of previous height
     // last active block in the epoch for a validator. default value of -1 means they are not on a offline blocks streak. It gets reset at epoch rotation when the new committee is set.
-    mapping(address => int256) public lastActive;
+    mapping(address => int256) internal lastActive;
 
     // counter of inactive blocks for each validator (considering lookback window). It is reset at the end of the epoch.
-    mapping(address => uint256) public inactivityCounter;
+    mapping(address => uint256) internal inactivityCounter;
 
     // net (total - quorum) proposer effort included in the activity proof. Reset at epoch end.
-    uint256 public totalEffort;
+    uint256 internal totalEffort;
 
-    mapping(address => uint256) public proposerEffort;
+    mapping(address => uint256) internal proposerEffort;
 
     // epoch inactivity score for each committee member. Updated at every epoch.
-    mapping(address => uint256) public inactivityScores;
+    mapping(address => uint256) internal inactivityScores;
 
-    mapping(address => uint256) public probationPeriods; // in epochs
-    mapping(address => uint256) public repeatedOffences; // reset as soon as an entire probation period is completed without offences.
+    mapping(address => uint256) internal probationPeriods; // in epochs
+    mapping(address => uint256) internal repeatedOffences; // reset as soon as an entire probation period is completed without offences.
 
-    uint256[] public epochCollusionDegree; // maps epoch number to the collusion degree
+    uint256[] internal epochCollusionDegree; // maps epoch number to the collusion degree
 
-    Config public config;
+    Config internal config;
     Autonity internal autonity; // for access control in setters function.
 
     event InactivitySlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound);
@@ -98,7 +99,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents {
     * @param _epochEnded, true if this is the last block of the epoch
     * @return the current delta value
     */
-    function finalize(bool _epochEnded) external virtual onlyAutonity returns (uint256) {
+    function finalize(bool _epochEnded) external virtual nonReentrant onlyAutonity returns (uint256) {
         // if we are at the first delta blocks of the epoch, the activity proof should be empty
         bool _mustBeEmpty = block.number <= epochBlock + config.delta;
 
@@ -307,7 +308,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents {
     * @notice called by the Autonity contract at epoch finalization, to redistribute the proposer rewards based on the effort
     * @param _ntnRewards, amount of NTN reserved for proposer rewards
     */
-    function distributeProposerRewards(uint256 _ntnReward) external payable virtual onlyAutonity {
+    function distributeProposerRewards(uint256 _ntnReward) external payable virtual nonReentrant onlyAutonity {
         uint256 _atnReward = address(this).balance;
 
         for (uint256 i = 0; i < committee.length; i++) {
@@ -321,7 +322,11 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents {
                     (bool _ok,) = treasuries[i].call{value: _atnProposerReward, gas: 2300}("");
                     // well, too bad, it goes to the autonity global treasury.
                     if (!_ok) {
-                        autonity.getTreasuryAccount().call{value: _atnProposerReward}("");
+                        address autonityTreasury = autonity.getTreasuryAccount();
+                        (bool _sent, bytes memory _returnData) = autonityTreasury.call{value: _atnProposerReward}("");
+                        if (!_sent) {
+                            emit IAutonity.CallFailed(autonityTreasury, "", _returnData);
+                        }
                     }
                 }
 
@@ -343,7 +348,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents {
     * @param node address for the validator
     * @return the inactivity score of the validator in the last finalized epoch
     */
-    function getInactivityScore(address _validator) external view virtual returns (uint256) {
+    function getInactivityScore(address _validator) external view virtual nonReentrantView returns (uint256) {
         return inactivityScores[_validator];
     }
 
@@ -377,7 +382,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents {
     * @notice gets the total proposer effort accumulated up to this block
     * @return the total proposer effort accumulated up to this block
     */
-    function getTotalEffort() external view virtual returns (uint256) {
+    function getTotalEffort() external view virtual nonReentrantView returns (uint256) {
         return totalEffort;
     }
 
@@ -385,8 +390,52 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents {
     * @notice get the absentees of last height
     * @return the absentees of last height
     */
-    function getAbsenteesLastHeight() external view virtual returns (address[] memory){
+    function getAbsenteesLastHeight() external view virtual nonReentrantView returns (address[] memory){
         return absenteesLastHeight;
+    }
+
+    function getFaultyProposers(uint256 _height) external view virtual nonReentrantView returns (bool){
+        return faultyProposers[_height];
+    }
+
+    function getFaultyProposersInWindow() external view virtual nonReentrantView returns (uint256){
+        return faultyProposersInWindow;
+    }
+
+    function getInactiveValidators(uint256 _height, address _validator) external view virtual nonReentrantView returns (bool){
+        return inactiveValidators[_height][_validator];
+    }
+
+    function getLastActive(address _validator) external view virtual nonReentrantView returns (int256){
+        return lastActive[_validator];
+    }
+
+    function getInactivityCounter(address _validator) external view virtual nonReentrantView returns (uint256){
+        return inactivityCounter[_validator];
+    }
+
+    function getProbationPeriods(address _validator) external view virtual nonReentrantView returns (uint256){
+        return probationPeriods[_validator];
+    }
+
+    function getRepeatedOffences(address _validator) external view virtual nonReentrantView returns (uint256){
+        return repeatedOffences[_validator];
+    }
+
+    function getEpochCollusionDegree() external view virtual nonReentrantView returns (uint256[] memory){
+        return epochCollusionDegree;
+    }
+
+    function getEpochCollusionDegree(uint256 _epochID) external view virtual nonReentrantView returns (uint256){
+        return epochCollusionDegree[_epochID];
+    }
+
+    function getConfig() external view virtual nonReentrantView returns (Config memory){
+        return config;
+    }
+
+    function getProposerEffort(address _nodeAddress) external view virtual nonReentrantView returns (uint256) {
+        return proposerEffort[_nodeAddress];
     }
 
     /*

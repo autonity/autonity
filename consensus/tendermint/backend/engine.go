@@ -641,7 +641,7 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	if err != nil {
 		sb.logger.Crit("Could not retrieve state at head block", "err", err)
 	}
-	lastEpochIDBig, err := sb.blockchain.ProtocolContracts().AutonityContract.CallEpochID(state, currentHeader)
+	lastEpochIDBig, err := sb.blockchain.ProtocolContracts().AutonityContract.CallGetEpochID(state, currentHeader)
 	if err != nil {
 		sb.logger.Crit("Could not retrieve epoch id", "err", err)
 	}
@@ -673,7 +673,7 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 			// a fault proof against our own node has been finalized on-chain
 			// we cannot do anything about it now, let's just write a summary for the validator operator
 			if ev.Offender == sb.address {
-				event, err := sb.blockchain.ProtocolContracts().Events(nil, ev.Id)
+				event, err := sb.blockchain.ProtocolContracts().GetEvent(nil, ev.Id)
 				if err != nil {
 					// this should never happen
 					sb.logger.Crit("Can't retrieve accountability event", "id", ev.Id)

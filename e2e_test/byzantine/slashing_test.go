@@ -290,7 +290,7 @@ func TestHistoryFactor(t *testing.T) {
 
 	// check if slashing amount is calculated properly
 
-	accountabilityConfig, err := accountabilityContract.Config(nil)
+	accountabilityConfig, err := accountabilityContract.GetConfig(nil)
 	require.NoError(t, err)
 
 	baseRate := accountabilityConfig.BaseSlashingRates.High

@@ -93,7 +93,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 
 	fmt.Println("total rewards", totalRewards)
 	balanceGlobalTreasury, _ := n.WsClient.BalanceAt(context.Background(), common.Address{120}, nil)
-	cfg, _ := autonityContract.Config(nil)
+	cfg, _ := autonityContract.GetConfig(nil)
 	fmt.Println(cfg)
 	require.Equal(t, treasuryRewards, balanceGlobalTreasury)
 

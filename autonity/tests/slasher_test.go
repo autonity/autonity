@@ -1,40 +1,54 @@
 package tests
 
 import (
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSlashingAccessControl(t *testing.T) {
-	t.Run("slasher contract itself", func(t *testing.T) {
+	t.Run("slasher contract itself - anyone can call but no changes to the AC contract", func(t *testing.T) {
 		r := Setup(t, nil)
 		slasher := r.slasherContract()
 
 		victim := r.Committee.Validators[1]
+		blockNumber := new(big.Int).Set(r.Evm.Context.BlockNumber)
 
-		// only autonity can call slasher functions
-		_, err := slasher.Jail(r.Operator, victim, new(big.Int), jailed)
-		t.Log(err)
-		require.Error(t, err)
-		_, err = slasher.Jailbound(r.Operator, victim, jailbound)
-		t.Log(err)
-		require.Error(t, err)
-		_, err = slasher.Slash(r.Operator, victim, new(big.Int))
-		t.Log(err)
-		require.Error(t, err)
-		_, err = slasher.SlashAndJail(r.Operator, victim, new(big.Int), new(big.Int), jailed, jailbound)
-		t.Log(err)
-		require.Error(t, err)
+		_, _, err := slasher.Jail(r.Operator, victim, blockNumber, new(big.Int).SetUint64(1000), jailed)
+		require.NoError(t, err)
 
-		_, err = slasher.Jail(FromAutonity, victim, new(big.Int), jailed)
+		require.Equal(t, uint64(0), getValidator(r, victim.NodeAddress).JailReleaseBlock.Uint64())
+		require.Equal(t, active, getValidator(r, victim.NodeAddress).State)
+
+		_, _, err = slasher.Jailbound(r.Operator, victim, jailbound)
 		require.NoError(t, err)
-		_, err = slasher.Jailbound(FromAutonity, victim, jailbound)
+		require.Equal(t, active, getValidator(r, victim.NodeAddress).State)
+
+		_, _, _, err = slasher.Slash(r.Operator, victim, new(big.Int).SetUint64(2000)) // 20%
 		require.NoError(t, err)
-		_, err = slasher.Slash(FromAutonity, victim, new(big.Int))
+		_, _, _, _, err = slasher.SlashAndJail(r.Operator, victim, new(big.Int).SetUint64(2000), blockNumber, new(big.Int).SetUint64(1000), jailed, jailbound)
 		require.NoError(t, err)
-		_, err = slasher.SlashAndJail(FromAutonity, victim, new(big.Int), new(big.Int), jailed, jailbound)
+
+		require.Equal(t, active, getValidator(r, victim.NodeAddress).State)
+		require.Equal(t, uint64(0), getValidator(r, victim.NodeAddress).TotalSlashed.Uint64())
+
+		// autonity can call, but still no state change if directly calling the slasher
+		_, _, err = slasher.Jail(FromAutonity, victim, blockNumber, new(big.Int).SetUint64(1000), jailed)
 		require.NoError(t, err)
+		_, _, err = slasher.Jailbound(FromAutonity, victim, jailbound)
+		require.NoError(t, err)
+		_, _, _, err = slasher.Slash(FromAutonity, victim, new(big.Int).SetUint64(2000))
+		require.NoError(t, err)
+		slashedVal, _, _, _, err := slasher.SlashAndJail(FromAutonity, victim, new(big.Int).SetUint64(2000), blockNumber, new(big.Int).SetUint64(1000), jailed, jailbound)
+		require.NoError(t, err)
+
+		// returned validator has the changes
+		require.Equal(t, jailed, slashedVal.State)
+		require.Less(t, uint64(0), slashedVal.TotalSlashed.Uint64())
+
+		require.Equal(t, active, getValidator(r, victim.NodeAddress).State)
+		require.Equal(t, uint64(0), getValidator(r, victim.NodeAddress).TotalSlashed.Uint64())
 	})
 	t.Run("proxy slashing function in AC", func(t *testing.T) {
 		r := Setup(t, nil)

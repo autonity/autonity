@@ -31,10 +31,10 @@ interface ISupplyControl {
     function availableSupply() external view returns (uint);
 
     /// The account that is authorized to mint and burn.
-    function stabilizer() external view returns (address);
+    function getStabilizer() external view returns (address);
 
     /// The total supply of Auton under management.
-    function totalSupply() external view returns (uint256);
+    function getTotalSupply() external view returns (uint256);
 
     /// Set the Governance Operator account address.
     /// @param operator Address of the new Governance Operator
