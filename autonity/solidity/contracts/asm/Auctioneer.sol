@@ -178,12 +178,19 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     // reentrancy is expected and allowed when liquidating a position.
     function paidInterest() external payable onlyStabilization {
         _pendingAllocatedInterest += msg.value;
-        if (_pendingAllocatedInterest >= config.interestAuctionThreshold) {
-            uint256 startRound = _oracle.getRound() - 1;
-            uint256 auction = auctions.push(_pendingAllocatedInterest, startRound, block.timestamp);
-            emit NewInterestAuction(auction, _pendingAllocatedInterest, block.timestamp);
-            _pendingAllocatedInterest = 0;
+        if (_pendingAllocatedInterest < config.interestAuctionThreshold) {
+            return; // not enough interest to start an auction
         }
+        // check if the NTN_SYMBOL is included in the current oracle round
+        uint256 startRound = _oracle.getRound() - 1;
+        IOracle.RoundData memory latestRound = _oracle.getRoundData(startRound, StabilizationMath.NTN_SYMBOL);
+        if (latestRound.price == 0 || latestRound.timestamp == 0) {
+            // no NTN_SYMBOL in the latest round, so we won't start an interest auction until the next repayment
+            return;
+        }
+        uint256 auction = auctions.push(_pendingAllocatedInterest, startRound, block.timestamp);
+        emit NewInterestAuction(auction, _pendingAllocatedInterest, block.timestamp);
+        _pendingAllocatedInterest = 0;
     }
 
     /*

@@ -20,6 +20,7 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 		decimals, _, err := r.Oracle.GetDecimals(nil)
 		require.NoError(t, err)
 		oracleScaleFactor = new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
+		primePrices(r, newtonAutonPrice, newtonUSDPrice)
 		return r
 	}
 
