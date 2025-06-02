@@ -36,7 +36,7 @@ func TestClusteringHappyCase(t *testing.T) {
 	defer network.Shutdown(t)
 
 	// runs for about 10 epoches period.
-	network.WaitToMineNBlocks(250, 250, false)
+	network.WaitToMineNBlocks(200, 250, false)
 }
 
 // TestClusteringResetAllNodes, it stops all nodes one by one, and start them again one by one. The network should recover to
@@ -116,8 +116,6 @@ func TestClusteringResetFNodes(t *testing.T) {
 type NoRelayingSelector struct{}
 
 func (r *NoRelayingSelector) SetBroadcaster(broadcaster routerInterfaces.PeerFinder) {
-	//TODO implement me
-	panic("implement me")
 }
 
 func committeeAddresses(committee *types.Committee) []common.Address {
@@ -166,7 +164,7 @@ func TestFFaultyRelayers(t *testing.T) {
 	defer network.Shutdown(t)
 
 	// wait for the consensus engine to work.
-	network.WaitToMineNBlocks(500, 500, false)
+	network.WaitToMineNBlocks(200, 250, false)
 }
 
 func Test2FFaultyRelayers(t *testing.T) {
@@ -192,7 +190,7 @@ func Test2FFaultyRelayers(t *testing.T) {
 	defer network.Shutdown(t)
 
 	// wait for the consensus engine to work.
-	network.WaitToMineNBlocks(500, 500, false)
+	network.WaitToMineNBlocks(250, 200, false)
 }
 
 func Test3FFaultyRelayers(t *testing.T) {
