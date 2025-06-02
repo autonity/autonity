@@ -5,10 +5,11 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/autonity/bindings"
 
 	"github.com/autonity/autonity/params"
 
@@ -195,7 +196,17 @@ func (t *transactor) completeContractUpgrade() (*types.Transaction, error) {
 
 func (t *transactor) setMinBaseFee(fee *big.Int) (*types.Transaction, error) {
 	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
-		return instance.SetMinimumBaseFee(opts, fee)
+		config, err := instance.GetConfig(nil)
+		if err != nil {
+			return nil, err
+		}
+
+		return instance.SetEip1559Params(opts, bindings.IAutonityEip1559{
+			MinBaseFee:               fee, // modify only the min base fee
+			BaseFeeChangeDenominator: config.Policy.BaseFeeChangeDenominator,
+			ElasticityMultiplier:     config.Policy.ElasticityMultiplier,
+			GasLimitBoundDivisor:     config.Protocol.GasLimitBoundDivisor,
+		})
 	})
 }
 

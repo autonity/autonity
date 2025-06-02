@@ -194,5 +194,6 @@
   "3ada86ec": "slashAndJail((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,bytes,uint8),uint256,uint256,uint256,uint8,uint8)",
   "7c8ccebe": "getAutonity()",
   "80af1799": "getStabilizer()",
-  "c4e41b22": "getTotalSupply()"
+  "c4e41b22": "getTotalSupply()",
+  "56176bc4": "setEip1559Params((uint256,uint256,uint256,uint256))"
 }

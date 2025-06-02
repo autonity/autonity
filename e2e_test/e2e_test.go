@@ -155,6 +155,22 @@ func fetchGasLimitBoundDivisor(t *testing.T, chain *ccore.BlockChain, number *ui
 	return eip1559Params.GasLimitBoundDivisor
 }
 
+// wrapper function that facilitates setting one or more eip1559 params while leaving the other ones unchanged
+func setEip1559Params(t *testing.T, autonity *bindings.Autonity, transactOpts *bind.TransactOpts, customizeFn func(eip1559 *bindings.IAutonityEip1559)) (*types.Transaction, error) {
+	config, err := autonity.GetConfig(nil)
+	require.NoError(t, err)
+
+	eip1559Params := &bindings.IAutonityEip1559{
+		MinBaseFee:               config.Policy.MinBaseFee,
+		BaseFeeChangeDenominator: config.Policy.BaseFeeChangeDenominator,
+		ElasticityMultiplier:     config.Policy.ElasticityMultiplier,
+		GasLimitBoundDivisor:     config.Protocol.GasLimitBoundDivisor,
+	}
+	customizeFn(eip1559Params)
+
+	return autonity.SetEip1559Params(transactOpts, *eip1559Params)
+}
+
 func TestCachedProtocolParameterChange(t *testing.T) {
 	t.Run("If minimum base fee is updated, at epoch end cached value is updated as well", func(t *testing.T) {
 		network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
@@ -171,7 +187,9 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		updatedMinBaseFee, _ := new(big.Int).SetString("30000000000", 10)
 		autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 		transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
-		tx, err := autonityContract.SetMinimumBaseFee(transactOpts, updatedMinBaseFee)
+		tx, err := setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.MinBaseFee = updatedMinBaseFee
+		})
 		require.NoError(t, err)
 		err = network.AwaitTransactions(ctx, tx)
 		require.NoError(t, err)
@@ -273,7 +291,9 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		// now change the gas limit bound divisor, the gas limit should start increasing faster
 		updatedGasLimitBoundDivisor := new(big.Int).SetUint64(params.DefaultGasLimitBoundDivisor / 10)
 		t.Logf("updated gas limit bound divisor %s (from %d)", updatedGasLimitBoundDivisor.String(), params.DefaultGasLimitBoundDivisor)
-		tx, err = autonityContract.SetGasLimitBoundDivisor(transactOpts, updatedGasLimitBoundDivisor)
+		tx, err = setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.GasLimitBoundDivisor = updatedGasLimitBoundDivisor
+		})
 		require.NoError(t, err)
 		ctx, cancel2 := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel2()
@@ -324,7 +344,9 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		previousGasLimitBoundDivisor := new(big.Int).Set(updatedGasLimitBoundDivisor)
 		updatedGasLimitBoundDivisor = new(big.Int).SetUint64(updatedGasLimit.Uint64() * 10)
 		t.Logf("updated gas limit bound divisor %s (from %s)", updatedGasLimitBoundDivisor.String(), previousGasLimitBoundDivisor.String())
-		tx, err = autonityContract.SetGasLimitBoundDivisor(transactOpts, updatedGasLimitBoundDivisor)
+		tx, err = setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.GasLimitBoundDivisor = updatedGasLimitBoundDivisor
+		})
 		require.NoError(t, err)
 		ctx, cancel4 := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel4()
@@ -467,7 +489,9 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		t.Logf("updated base fee change denominator %s (from 32)", updatedBaseFeeChangeDenominator.String())
 		autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 		transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
-		tx, err := autonityContract.SetBaseFeeChangeDenominator(transactOpts, updatedBaseFeeChangeDenominator)
+		tx, err := setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.BaseFeeChangeDenominator = updatedBaseFeeChangeDenominator
+		})
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
@@ -505,7 +529,9 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		// increase the value of denominator, base fee should drop slower
 		updatedBaseFeeChangeDenominator = new(big.Int).SetUint64(64)
 		t.Logf("updated base fee change denominator %s (from 16)", updatedBaseFeeChangeDenominator.String())
-		tx, err = autonityContract.SetBaseFeeChangeDenominator(transactOpts, updatedBaseFeeChangeDenominator)
+		tx, err = setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.BaseFeeChangeDenominator = updatedBaseFeeChangeDenominator
+		})
 		require.NoError(t, err)
 		ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
@@ -630,7 +656,9 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		t.Logf("updated elasticity multiplier %s (from 4)", updatedElasticityMultiplier.String())
 		autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 		transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
-		tx, err := autonityContract.SetElasticityMultiplier(transactOpts, updatedElasticityMultiplier)
+		tx, err := setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.ElasticityMultiplier = updatedElasticityMultiplier
+		})
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
@@ -672,7 +700,9 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 
 		updatedElasticityMultiplier = new(big.Int).SetUint64(2)
 		t.Logf("updated elasticity multiplier %s (from 8)", updatedElasticityMultiplier.String())
-		tx, err = autonityContract.SetElasticityMultiplier(transactOpts, updatedElasticityMultiplier)
+		tx, err = setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.ElasticityMultiplier = updatedElasticityMultiplier
+		})
 		require.NoError(t, err)
 		ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
