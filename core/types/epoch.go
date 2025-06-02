@@ -257,6 +257,7 @@ type Committee struct {
 	lock sync.RWMutex `json:"-" rlp:"-"`
 	// cached total voting power.
 	totalVotingPower *big.Int `json:"-" rlp:"-"`
+	votingPowerOnce  sync.Once `json:"-" rlp:"-"`
 	// cached indexing of committee for member lookup
 	membersMap map[common.Address]*CommitteeMember `json:"-" rlp:"-"`
 }
@@ -359,48 +360,17 @@ func (c *Committee) MemberByAddress(address common.Address) *CommitteeMember {
 	return c.membersMap[address]
 }
 
-/*
-func (c *Committee) MemberByAddress(address common.Address) *CommitteeMember {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.membersMap == nil {
-		c.membersMap = make(map[common.Address]*CommitteeMember)
-		for _, member := range c.Members {
-			m := member
-			c.membersMap[member.Address] = &m
-		}
-	}
-	return c.membersMap[address]
-}*/
-
 func (c *Committee) TotalVotingPower() *big.Int {
-	total := new(big.Int)
-	for _, m := range c.Members {
-		total.Add(total, m.VotingPower)
-	}
-	c.totalVotingPower = total
+	c.votingPowerOnce.Do(func() {
+		total := new(big.Int)
+		for _, m := range c.Members {
+			if m.VotingPower != nil {
+				total.Add(total, m.VotingPower)
+			}
+		}
+		c.totalVotingPower = total
+	})
 	return new(big.Int).Set(c.totalVotingPower)
-
-	//c.lock.RLock() // Acquire read lock
-	//if c.totalVotingPower != nil {
-	//	defer c.lock.RUnlock()                      // Release read lock
-	//	return new(big.Int).Set(c.totalVotingPower) // Return a copy of the cached value
-	//}
-	//c.lock.RUnlock() // Release read lock before acquiring write lock
-	//c.lock.Lock()    // Acquire write lock
-	//defer c.lock.Unlock()
-	//
-	//// Double-check if the value was initialized while waiting for the lock
-	//if c.totalVotingPower == nil {
-	//	total := new(big.Int)
-	//	for _, m := range c.Members {
-	//		total.Add(total, m.VotingPower)
-	//	}
-	//	c.totalVotingPower = total
-	//}
-	//
-	//// Return a copy of the cached value
-	//return new(big.Int).Set(c.totalVotingPower)
 }
 
 func (c *Committee) Quorum() *big.Int {

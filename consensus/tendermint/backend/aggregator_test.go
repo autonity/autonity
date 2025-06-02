@@ -35,9 +35,8 @@ var (
 		Members: []types.CommitteeMember{*makeBogusMember(0), *makeBogusMember(1), *makeBogusMember(2), *makeBogusMember(3), *makeBogusMember(4), *makeBogusMember(5), *makeBogusMember(6)},
 	}
 
-	totalPower = committee.TotalVotingPower()
-	quorum     = bft.Quorum(totalPower)
-	csize      = committee.Len()
+	quorum = bft.Quorum(committee.TotalVotingPower())
+	csize  = committee.Len()
 )
 
 func makePropose(chain *core.BlockChain, backend *Backend, r int64, h uint64) *message.Propose {
