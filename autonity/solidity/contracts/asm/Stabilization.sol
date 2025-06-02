@@ -532,8 +532,8 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     }
 
     /**
-    * @notice Set the default NTN-USD price for use when fixed prices are enabled.
-    * @param defaultNTNATNPrice The new default NTN-USD price
+    * @notice Set the default NTN-ATN price for use when fixed prices are enabled.
+    * @param defaultNTNATNPrice The new default NTN-ATN price
     * @dev Restricted to the operator.
     */
     function setDefaultNTNATNPrice(uint256 defaultNTNATNPrice) external onlyOperator {
@@ -552,8 +552,8 @@ contract Stabilization is IStabilization, ReentrancyGuard {
     }
 
     /**
-    * @notice Set the default ACU price for use when fixed prices are enabled.
-    * @param defaultACUUSDPrice The new default ACU price
+    * @notice Set the default ACU-USD price for use when fixed prices are enabled.
+    * @param defaultACUUSDPrice The new default ACU-USD price
     * @dev Restricted to the operator.
     */
     function setDefaultACUUSDPrice(uint256 defaultACUUSDPrice) external onlyOperator {
