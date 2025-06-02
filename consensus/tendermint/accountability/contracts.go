@@ -2,10 +2,11 @@ package accountability
 
 import (
 	"errors"
-	"github.com/autonity/autonity/autonity/bindings"
 	"math"
 	"math/big"
 	"strconv"
+
+	"github.com/autonity/autonity/autonity/bindings"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/params/generated"

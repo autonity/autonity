@@ -1,11 +1,12 @@
 package autonity
 
 import (
-	"github.com/autonity/autonity/autonity/bindings"
 	"math"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/autonity/bindings"
 
 	"github.com/stretchr/testify/require"
 

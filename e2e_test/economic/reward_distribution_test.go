@@ -3,10 +3,11 @@ package economic
 import (
 	"context"
 	"fmt"
-	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/autonity/bindings"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"

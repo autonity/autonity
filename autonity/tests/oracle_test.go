@@ -1589,7 +1589,7 @@ func TestMissedReveal(t *testing.T) {
 		validator := r.Committee.Validators[0].NodeAddress
 		stake := r.CheckErrorAndGetData(
 			r.Autonity.GetValidator(nil, validator),
-		).(AutonityValidator).BondedStake
+		).(IAutonityValidator).BondedStake
 
 		symbolCount := 10 // doesn't need to be right for first vote
 		vote(
@@ -1612,7 +1612,7 @@ func TestMissedReveal(t *testing.T) {
 			stake,
 			r.CheckErrorAndGetData(
 				r.Autonity.GetValidator(nil, validator),
-			).(AutonityValidator).BondedStake,
+			).(IAutonityValidator).BondedStake,
 		)
 	})
 
@@ -1621,7 +1621,7 @@ func TestMissedReveal(t *testing.T) {
 		validator := r.Committee.Validators[0].NodeAddress
 		stake := r.CheckErrorAndGetData(
 			r.Autonity.GetValidator(nil, validator),
-		).(AutonityValidator).BondedStake
+		).(IAutonityValidator).BondedStake
 
 		symbolCount := 10 // doesn't need to be right for first vote
 		vote(
@@ -1653,7 +1653,7 @@ func TestMissedReveal(t *testing.T) {
 			),
 			r.CheckErrorAndGetData(
 				r.Autonity.GetValidator(nil, validator),
-			).(AutonityValidator).BondedStake,
+			).(IAutonityValidator).BondedStake,
 		)
 
 		// also counter is reset
@@ -1667,7 +1667,7 @@ func TestMissedReveal(t *testing.T) {
 		validator := r.Committee.Validators[0].NodeAddress
 		stake := r.CheckErrorAndGetData(
 			r.Autonity.GetValidator(nil, validator),
-		).(AutonityValidator).BondedStake
+		).(IAutonityValidator).BondedStake
 
 		symbolCount := 10 // doesn't need to be right for first vote
 		vote(
@@ -1695,7 +1695,7 @@ func TestMissedReveal(t *testing.T) {
 			),
 			r.CheckErrorAndGetData(
 				r.Autonity.GetValidator(nil, validator),
-			).(AutonityValidator).BondedStake,
+			).(IAutonityValidator).BondedStake,
 		)
 	})
 }
@@ -1774,7 +1774,7 @@ func TestRevealReset(t *testing.T) {
 	})
 }
 
-func getValidator(r *Runner, addr common.Address) AutonityValidator {
+func getValidator(r *Runner, addr common.Address) IAutonityValidator {
 	valInfo, _, err := r.Autonity.GetValidator(nil, addr)
 	require.NoError(r.T, err)
 	return valInfo
