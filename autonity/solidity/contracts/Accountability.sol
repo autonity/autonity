@@ -193,11 +193,19 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
     ============================================================
     */
 
+    /**
+    * @param _val, the validator address
+    * @return the current accusation event against _val (if any)
+    */
     function getValidatorAccusation(address _val) external virtual view nonReentrantView returns (Event memory) {
         require(validatorAccusation[_val] > 0 , "no accusation");
         return events[validatorAccusation[_val] - 1];
     }
 
+    /**
+    * @param _val, the validator address
+    * @return the history of faults of this validator
+    */
     function getValidatorFaults(address _val) external virtual view nonReentrantView returns (Event[] memory) {
         Event[] memory _events = new Event[](validatorFaults[_val].length);
         for(uint256 i = 0; i < validatorFaults[_val].length; i++) {
@@ -206,10 +214,17 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
         return _events;
     }
 
-    function getEvents() external virtual view nonReentrantView returns (Event[] memory) {
-        return events;
+    /**
+    * @return the number of accountability events
+    */
+    function getEventsLength() external virtual view nonReentrantView returns (Event[] memory) {
+        return events.length;
     }
 
+    /**
+    * @param _id, the event id
+    * @return the relative accountability event
+    */
     function getEvent(uint256 _id) external virtual view nonReentrantView returns (Event memory) {
         return events[_id];
     }
@@ -221,14 +236,27 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
         return config;
     }
 
+    /**
+    * @param _offender, the validator address of the offender
+    * @return the relative beneficiary which is going to receive the rewards of the offender
+    */
     function getBeneficiary(address _offender) external virtual view nonReentrantView returns (address) {
         return beneficiaries[_offender];
     }
 
+    /**
+    * @param _offender, the validator address of the offender
+    * @return the number of times the validator has been punished in the past
+    */
     function getHistory(address _validator) external virtual view nonReentrantView returns (uint256) {
         return history[_validator];
     }
 
+    /**
+    * @param _validator, the validator address
+    * @param _epoch, the epoch id
+    * @return the severity at which the validator was punished in that epoch
+    */
     function getSlashingHistory(address _validator, uint256 _epoch) external virtual view nonReentrantView returns (uint256) {
         return slashingHistory[_validator][_epoch];
     }
