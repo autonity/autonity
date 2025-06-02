@@ -1664,7 +1664,7 @@ func TestFixedGenesisPrices(t *testing.T) {
 		or.increment(r)
 		or.increment(r)
 
-		acuDecimals, _, err := r.Acu.Scale(nil)
+		acuDecimals, _, err := r.Acu.GetScale(nil)
 		require.NoError(t, err)
 
 		acuPrice, _, err := r.Acu.Value(nil)
