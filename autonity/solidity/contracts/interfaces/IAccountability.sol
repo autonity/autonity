@@ -126,7 +126,7 @@ interface IAccountability {
     event SlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound, uint256 eventId);
 
     /**
-    * @notice Event emitted after accountability factors namely collusion, history and jail.
+    * @notice Event emitted after accountability factors (collusion, history and jail) are updated
     */
     event AccountabilityFactorsUpdate(Factors oldFactors, Factors newFactors);
 

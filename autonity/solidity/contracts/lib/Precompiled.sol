@@ -110,9 +110,10 @@ library Precompiled {
     *  - the current values of range and delta
     * returns (result, offenderAddress, ruleId, msgHeight, msgHash)
     */
-    function verifyAccountabilityAccusation(address _to, bytes memory _proof, uint256 _range, uint256 _delta, uint256 _gracePeriod) internal view returns
+    function verifyAccountabilityAccusation(bytes memory _proof, uint256 _range, uint256 _delta, uint256 _gracePeriod) internal view returns
     (bool _success, address _offender, uint256 _ruleId, uint256 _block, uint256 _msgHash) {
 
+        address _to = ACCUSATION_CONTRACT;
         bytes memory input = abi.encodePacked(_range, _delta, _gracePeriod ,_proof);
         uint256[5] memory _returnData;
         assembly {

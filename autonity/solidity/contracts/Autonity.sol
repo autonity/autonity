@@ -546,7 +546,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Sets the gas limit bound divisor. Restricted to the operator account.
     * @param _divisor Positive integer.
     */
-    function setGasLimitBoundDivisor(uint256 _divisor) public virtual onlyOperator {
+    function setGasLimitBoundDivisor(uint256 _divisor) external virtual onlyOperator {
         require(_divisor > 0, "gas limit bound divisor needs to be greater than 0");
         emit ConfigUpdateUint("gasLimitBoundDivisor", config.protocol.gasLimitBoundDivisor, _divisor, epochInfos[epochID].nextEpochBlock);
         newGasLimitBoundDivisor = _divisor;
@@ -556,7 +556,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Sets the EIP-1559 base fee change denominator. Restricted to the operator account.
     * @param _baseFeeChangeDenominator Positive integer.
     */
-    function setBaseFeeChangeDenominator(uint256 _baseFeeChangeDenominator) public virtual onlyOperator {
+    function setBaseFeeChangeDenominator(uint256 _baseFeeChangeDenominator) external virtual onlyOperator {
         require(_baseFeeChangeDenominator > 0, "base fee change denominator needs to be greater than 0");
         emit ConfigUpdateUint("baseFeeChangeDenominator", config.policy.baseFeeChangeDenominator, _baseFeeChangeDenominator, epochInfos[epochID].nextEpochBlock);
         newBaseFeeChangeDenominator = _baseFeeChangeDenominator;
@@ -566,7 +566,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Sets the EIP-1559 elasticity multiplier. Restricted to the operator account.
     * @param _elasticityMultiplier Positive integer.
     */
-    function setElasticityMultiplier(uint256 _elasticityMultiplier) public virtual onlyOperator {
+    function setElasticityMultiplier(uint256 _elasticityMultiplier) external virtual onlyOperator {
         require(_elasticityMultiplier > 0, "elasticity multiplier needs to be greater than 0");
         emit ConfigUpdateUint("elasticityMultiplier", config.policy.elasticityMultiplier, _elasticityMultiplier, epochInfos[epochID].nextEpochBlock);
         newElasticityMultiplier = _elasticityMultiplier;
