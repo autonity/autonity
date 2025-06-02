@@ -376,7 +376,7 @@ contract('Autonity', function (accounts) {
       let initConfig = await autonity.getConfig({from: operator});
 
       await truffleAssert.fails(
-          await autonity.setEip1559Params({
+          autonity.setEip1559Params({
             minBaseFee: 50000,
             baseFeeChangeDenominator: 13,
             elasticityMultiplier: 3,
