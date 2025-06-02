@@ -878,7 +878,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
         try IACU(_acu).value() returns (uint256 acuValue) {
             return StabilizationMath.toScaleFactor(
                 acuValue,
-                IACU(_acu).scaleFactor()
+                IACU(_acu).getScaleFactor()
             );
         } catch {
             revert PriceUnavailable("ACU-USD");
@@ -894,7 +894,7 @@ contract Stabilization is IStabilization, ReentrancyGuard {
             if (data.price <= 0) revert InvalidPrice();
             ntnUsdPrice = data.price;
         }
-        uint256 acuUsd = acuPrice();
+        uint256 acuUsd = _acuPrice();
         return ntnUsdPrice * StabilizationMath.SCALE_FACTOR / acuUsd;
     }
 
