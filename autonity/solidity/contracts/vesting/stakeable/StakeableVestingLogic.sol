@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+import "../../interfaces/IConfigEvents.sol";
 import "../../interfaces/IStakeableVesting.sol";
 import {PendingStakingRequest, QueueLib} from "./QueueLib.sol";
 import "./StakeableVestingStorage.sol";
@@ -17,7 +18,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
 
     event BeneficiaryChanged(address indexed newBeneficiary, address indexed oldBeneficiary, address indexed contractAddress);
 
-    constructor(address payable _autonity) AccessAutonity(_autonity) {
+    constructor(IAutonity _autonity) AccessAutonity(_autonity) {
         managerContract = IStakeableVestingManager(payable(msg.sender));
     }
 
@@ -247,7 +248,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         if (_amount == 0) {
             return 0;
         }
-        Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
+        IAutonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
         return _amount * (_validatorInfo.bondedStake - _validatorInfo.selfBondedStake) / _validatorInfo.liquidSupply;
     }
 
@@ -260,7 +261,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         if (_amount == 0) {
             return 0;
         }
-        Autonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
+        IAutonity.Validator memory _validatorInfo = autonity.getValidator(_validator);
         return _amount * _validatorInfo.liquidSupply / (_validatorInfo.bondedStake - _validatorInfo.selfBondedStake);
     }
 
@@ -462,7 +463,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
         uint256 _unbondingNTN;
         uint256 _unbondingShare;
         PendingStakingRequest storage _unbondingRequest;
-        Autonity.Validator memory _validator;
+        IAutonity.Validator memory _validator;
         uint256 _currentEpochID = _getEpochID();
         PendingStakingRequest[] storage _queue = unbondingQueue.array;
         uint256 _length = _queue.length;

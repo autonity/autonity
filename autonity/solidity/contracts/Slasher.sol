@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import {Autonity} from "./Autonity.sol";
-import "./interfaces/IAutonity.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
+import "./interfaces/IAutonity.sol";
 
 contract Slasher {
 
@@ -16,19 +15,19 @@ contract Slasher {
     * @return the modified validator
     */
     function jail(
-        Autonity.Validator memory _val,
+        IAutonity.Validator memory _val,
         uint256 _blockNumber,
         uint256 _jailtime,
         IAutonity.ValidatorState _newJailedState
     ) external virtual pure returns (
-        Autonity.Validator memory
+        IAutonity.Validator memory
     ){
         _jail(_val, _blockNumber, _jailtime, _newJailedState);
         return _val;
     }
 
     function _jail(
-        Autonity.Validator memory _val,
+        IAutonity.Validator memory _val,
         uint256 _blockNumber,
         uint256 _jailtime,
         IAutonity.ValidatorState _newJailedState
@@ -44,17 +43,17 @@ contract Slasher {
     * @return the modified validator
     */
     function jailbound(
-        Autonity.Validator memory _val,
+        IAutonity.Validator memory _val,
         IAutonity.ValidatorState _newJailboundState
     ) external virtual pure returns (
-        Autonity.Validator memory
+        IAutonity.Validator memory
     ){
         _jailbound(_val, _newJailboundState);
         return _val;
     }
 
     function _jailbound(
-        Autonity.Validator memory _val,
+        IAutonity.Validator memory _val,
         IAutonity.ValidatorState _newJailboundState
     ) internal virtual pure {
         _val.jailReleaseBlock = 0;
@@ -70,10 +69,10 @@ contract Slasher {
     * @return the slashing amount
     */
     function slash(
-        Autonity.Validator memory _val,
+        IAutonity.Validator memory _val,
         uint256 _slashingRate
     ) external virtual pure returns (
-        Autonity.Validator memory,
+        IAutonity.Validator memory,
         uint256
     ){
         uint256 _slashingAmount = _slash(_val, _slashingRate);
@@ -81,7 +80,7 @@ contract Slasher {
     }
 
     function _slash(
-        Autonity.Validator memory _val,
+        IAutonity.Validator memory _val,
         uint256 _slashingRate
     ) internal virtual pure returns (
         uint256 // slashingAmount
@@ -156,14 +155,14 @@ contract Slasher {
       * @return a flag that signals if the validator has been permanently jailed
       */
     function slashAndJail(
-        Autonity.Validator memory _val,
+        IAutonity.Validator memory _val,
         uint256 _slashingRate,
         uint256 _blockNumber,
         uint256 _jailtime,
         IAutonity.ValidatorState _newJailedState,
         IAutonity.ValidatorState _newJailboundState
     ) external virtual pure returns (
-        Autonity.Validator memory,  // slashedVal
+        IAutonity.Validator memory,  // slashedVal
         uint256,                    // slashingAmount
         bool                        // isJailbound
     ){

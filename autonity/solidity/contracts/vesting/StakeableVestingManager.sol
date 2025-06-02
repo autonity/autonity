@@ -20,7 +20,7 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
 
     event NewStakeableContract(address indexed contractAddress, address indexed beneficiary, uint256 amount);
 
-    constructor(address payable _autonity) AccessAutonity(_autonity) {
+    constructor(IAutonity _autonity) AccessAutonity(_autonity) {
         stakeableVestingLogicContract = address(new StakeableVestingLogic(_autonity));
     }
 
@@ -51,7 +51,7 @@ contract StakeableVestingManager is BeneficiaryHandler, IStakeableVestingManager
         uint256 _contractID = _newContractCreated(_beneficiary);
         require(_contractID == contracts.length, "invalid contract id");
         IStakeableVesting _stakeableVestingContract = IStakeableVesting(
-            address(new StakeableVestingState(payable(autonity)))
+            address(new StakeableVestingState(autonity))
         );
         _stakeableVestingContract.createContract(
             _beneficiary,

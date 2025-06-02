@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "./lib/Precompiled.sol";
 import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
+import {IUpgradeManager} from "./interfaces/IUpgradeManager.sol";
+import "./lib/Precompiled.sol";
 
-contract UpgradeManager is IConfigEvents {
+contract UpgradeManager is IConfigEvents, IUpgradeManager {
     address internal autonity;
     address internal operator;
 

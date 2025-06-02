@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 pragma solidity ^0.8.3;
-import "../Autonity.sol";
+
+import "../interfaces/IAutonity.sol";
 import {ReentrancyGuard} from "../ReentrancyGuard.sol";
 
 contract LiquidStorage is ReentrancyGuard {
@@ -24,5 +25,5 @@ contract LiquidStorage is ReentrancyGuard {
 
     uint256 internal treasuryUnclaimedATN;
 
-    Autonity internal autonityContract; //not hardcoded for testing purposes
+    IAutonity internal autonityContract; //not hardcoded for testing purposes
 }

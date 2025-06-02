@@ -1,44 +1,43 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import "../Autonity.sol";
 import "./IAutonity.sol";
 
 interface ISlasher {
 
     function jail(
-        Autonity.Validator memory _val,
+        IAutonity.Validator memory _val,
         uint256 _blockNumber,
         uint256 _jailtime,
         IAutonity.ValidatorState _newJailedState
     ) external returns (
-        Autonity.Validator memory
+        IAutonity.Validator memory
     );
 
     function jailbound(
-        Autonity.Validator memory _val,
+        IAutonity.Validator memory _val,
         IAutonity.ValidatorState _newJailboundState
     ) external returns (
-        Autonity.Validator memory
+        IAutonity.Validator memory
     );
 
     function slash(
-        Autonity.Validator memory _val,
+        IAutonity.Validator memory _val,
         uint256 _slashingRate
     ) external returns (
-        Autonity.Validator memory,
+        IAutonity.Validator memory,
         uint256 // slashingAmount
     );
 
     function slashAndJail(
-        Autonity.Validator memory _val,
+        IAutonity.Validator memory _val,
         uint256 _slashingRate,
         uint256 _blockNumber,
         uint256 _jailtime,
         IAutonity.ValidatorState _newJailedState,
         IAutonity.ValidatorState _newJailboundState
     ) external returns (
-        Autonity.Validator memory,  // slashedVal
+        IAutonity.Validator memory,  // slashedVal
         uint256,                    // slashingAmount
         bool                        // isJailbound
     );

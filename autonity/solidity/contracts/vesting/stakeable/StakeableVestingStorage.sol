@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+import "../../ReentrancyGuard.sol";
 import "../../interfaces/IStakeableVestingManager.sol";
 import "../ContractBase.sol";
 import {StakingRequestQueue} from "./QueueLib.sol";

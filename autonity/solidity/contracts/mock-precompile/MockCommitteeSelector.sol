@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
-import "../Autonity.sol";
 import "../interfaces/IAutonity.sol";
 
 contract MockCommitteeSelector {
@@ -59,7 +58,7 @@ contract MockCommitteeSelector {
             }
         }
 
-        Autonity.CommitteeMember[] memory validators = new Autonity.CommitteeMember[](count);
+        IAutonity.CommitteeMember[] memory validators = new IAutonity.CommitteeMember[](count);
         {
             uint256 j = 0;
             for (uint256 i = 0; i < validatorCount; i++) {
@@ -119,7 +118,7 @@ contract MockCommitteeSelector {
                             }
                         }
                     }
-                    validators[j] = Autonity.CommitteeMember(nodeAddress, bondedStake, consensusKey);
+                    validators[j] = IAutonity.CommitteeMember(nodeAddress, bondedStake, consensusKey);
                     j++;
                 }
             }
@@ -190,14 +189,14 @@ contract MockCommitteeSelector {
         return ret;
     }
 
-    function _sortByStake(Autonity.CommitteeMember[] memory _validators) internal pure {
+    function _sortByStake(IAutonity.CommitteeMember[] memory _validators) internal pure {
         _structQuickSort(_validators, int(0), int(_validators.length - 1));
     }
 
     /**
     * @dev QuickSort algorithm sorting in ascending order by stake.
     */
-    function _structQuickSort(Autonity.CommitteeMember[] memory _users, int _low, int _high) internal pure {
+    function _structQuickSort(IAutonity.CommitteeMember[] memory _users, int _low, int _high) internal pure {
 
         int _i = _low;
         int _j = _high;

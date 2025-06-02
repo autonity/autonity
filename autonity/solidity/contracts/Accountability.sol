@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
+import {AccessAutonity} from "./AccessAutonity.sol";
+import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
+import {ReentrancyGuard} from "./ReentrancyGuard.sol";
 import "./interfaces/IAccountability.sol";
 import "./interfaces/IAutonity.sol";
-import "./Autonity.sol";
-import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
-import {AccessAutonity} from "./AccessAutonity.sol";
+import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
+import {Precompiled} from "./lib/Precompiled.sol";
 
 contract Accountability is IAccountability, AccessAutonity, IConfigEvents, ReentrancyGuard {
 
@@ -44,12 +46,12 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
     uint256[] private accusationsQueue;
     uint256 internal accusationsQueueFirst = 0;
 
-    constructor(address payable _autonity, Config memory _config) AccessAutonity(_autonity) {
+    constructor(IAutonity _autonity, Config memory _config) AccessAutonity(_autonity) {
         _ratesSanityCheck(_config.baseSlashingRates);
         _factorsSanityCheck(_config.factors);
         require(_config.range > _config.delta,"height range needs to be greater than delta");
 
-        Autonity.CommitteeMember[] memory committee = autonity.getCommittee();
+        IAutonity.CommitteeMember[] memory committee = autonity.getCommittee();
         for (uint256 i=0; i < committee.length; i++) {
             curCommittee.push(committee[i].addr);
             allowedReporters[committee[i].addr] = true;
@@ -107,7 +109,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
         // There is an edge-case scenario where slashing events for the
         // same accused validator are created during the same epoch.
         // In this case we only reward the last reporter.
-        Autonity.Validator memory _reporter = autonity.getValidator(beneficiary);
+        IAutonity.Validator memory _reporter = autonity.getValidator(beneficiary);
 
         if(_ntnReward > 0) {
             autonity.autobond(_reporter.nodeAddress, _ntnReward, 0);
