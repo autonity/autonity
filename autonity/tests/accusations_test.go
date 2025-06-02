@@ -161,7 +161,7 @@ func TestCrossEpochAccusation(t *testing.T) {
 
 	r.WaitNBlocks(int(epochPeriod.Uint64() + config.Delta.Uint64() - 2))
 
-	epochID, _, err := r.Autonity.EpochID(nil)
+	epochID, _, err := r.Autonity.GetEpochID(nil)
 	require.NoError(t, err)
 
 	require.Equal(t, uint64(1), epochID.Uint64())

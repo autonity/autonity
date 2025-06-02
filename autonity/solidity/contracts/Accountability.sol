@@ -217,7 +217,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
     /**
     * @return the number of accountability events
     */
-    function getEventsLength() external virtual view nonReentrantView returns (Event[] memory) {
+    function getEventsLength() external virtual view nonReentrantView returns (uint256) {
         return events.length;
     }
 
@@ -245,7 +245,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
     }
 
     /**
-    * @param _offender, the validator address of the offender
+    * @param _validator, the validator address
     * @return the number of times the validator has been punished in the past
     */
     function getHistory(address _validator) external virtual view nonReentrantView returns (uint256) {

@@ -235,7 +235,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		t.Logf("gas limit update tx mined at block: %d", changeBlockNumber)
 
 		// contract should be updated
-		config, err := autonityContract.Config(new(bind.CallOpts))
+		config, err := autonityContract.GetConfig(new(bind.CallOpts))
 		require.NoError(t, err)
 		require.Equal(t, updatedGasLimit.String(), config.Protocol.GasLimit.String())
 

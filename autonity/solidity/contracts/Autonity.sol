@@ -537,7 +537,7 @@ contract Autonity is IAutonity, IERC20, ReentrancyGuard, ScheduleController, Upg
     * @notice Sets the gas limit. Restricted to the operator account.
     * @param _gasLimit Positive integer.
     */
-    function setGasLimit(uint256 _gasLimit) public virtual onlyOperator {
+    function setGasLimit(uint256 _gasLimit) external virtual onlyOperator {
         require(_gasLimit > 0, "gas limit needs to be greater than 0");
         newGasLimit = _gasLimit;
     }
