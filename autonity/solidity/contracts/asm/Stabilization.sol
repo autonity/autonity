@@ -470,7 +470,8 @@ contract Stabilization is IStabilization, ReentrancyGuard {
         emit CDPRestrictionsRemoved();
     }
 
-    /// Transition out of the fixed genesis price state.
+    /// Toggle the use of the fixed genesis price state.
+    /// @param useFixed Whether to use fixed genesis prices
     /// @dev Restricted to the operator.
     function useFixedGenesisPrices(bool useFixed) external onlyOperator {
         emit IConfigEvents.ConfigUpdateBool("fixedGenesisPrices", _fixedGenesisPrices, useFixed, block.number);
