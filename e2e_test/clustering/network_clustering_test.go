@@ -115,7 +115,7 @@ func TestClusteringResetFNodes(t *testing.T) {
 // NoRelayingSelector is used for not to relay proposal in the network for Faulty nodes.
 type NoRelayingSelector struct{}
 
-func (r *NoRelayingSelector) SetBroadcaster(broadcaster routerInterfaces.PeerFinder) {
+func (r *NoRelayingSelector) SetBroadcaster(_ routerInterfaces.PeerFinder) {
 }
 
 func committeeAddresses(committee *types.Committee) []common.Address {

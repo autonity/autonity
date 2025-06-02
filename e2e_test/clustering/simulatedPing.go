@@ -15,7 +15,7 @@ func NewSimulatedPinger() ping.Pinger {
 	return &simulatedPinger{}
 }
 
-func (*simulatedPinger) Ping(_ context.Context, target ping.Target) ping.Result {
+func (*simulatedPinger) Ping(_ context.Context, _ ping.Target) ping.Result {
 	// Generate random latency between 10ms and 500ms
 	latency := time.Duration(10+rand.Int63n(491)) * time.Millisecond
 	return ping.Result{Latency: latency}
