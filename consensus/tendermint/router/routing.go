@@ -266,11 +266,9 @@ func (m *Router) retryLatency() error {
 func (m *Router) loop(ctx context.Context) {
 	defer m.wg.Done()
 
-	ticker := time.NewTicker(constants.LatencyDataExpiry)
 	retryTicker := time.NewTicker(constants.RetryLatencyTimeout)
 	cleanupTicker := time.NewTicker(constants.CacheCleanupInterval)
 	defer func() {
-		ticker.Stop()
 		retryTicker.Stop()
 		cleanupTicker.Stop()
 	}()
@@ -285,12 +283,11 @@ func (m *Router) loop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-time.After(constants.LatencyDataExpiry +
+			time.Duration(rand.Intn(constants.LatencyMeasurementDelayCap))*time.Millisecond):
 			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < m.clusteringThreshold {
 				continue
 			}
-			delay := time.Duration(rand.Intn(constants.LatencyMeasurementDelayCap)) * time.Millisecond
-			time.Sleep(delay)
 			if err := m.measureLatency(); err != nil {
 				log.Warn("measureToReport failed", "err", err)
 			}
