@@ -63,7 +63,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 	// drop peer if it sent duplicated accusation event.
 	msgHash := crypto.Hash(payload)
-	err = fd.accusationRateLimiter.duplicateCheck.Allow(sender, msgHash)
+	err = fd.accusationRateLimiter.duplicateLimiter.Allow(sender, msgHash)
 	if err != nil {
 		fd.logger.Error("duplicated accusation from peer", "err", err)
 		return err

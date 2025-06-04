@@ -17,36 +17,33 @@ const AskSyncInterval = 5 // the interval in seconds to check the liveness and r
 // handleAskSyncEvent handles the ask sync request from a lost sync validator or from a rebooting validator.
 // Any error return from this function will drop the remote peer.
 func (fd *FaultDetector) handleAskSyncEvent(payload []byte, sender common.Address) error {
-
-	if err := fd.askSyncRateLimiter.Allow(sender); err != nil {
-		return err
-	}
-
-	lostSync := new(message.AskSyncMsg)
-	if err := rlp.DecodeBytes(payload, lostSync); err != nil {
-		return fmt.Errorf("cannot decode ask sync msg: %w", err)
-	}
-
-	if err := lostSync.Validate(); err != nil {
-		return fmt.Errorf("ask sync msg sanity check failed: %w", err)
-	}
-
-	// fetch remote's peer missing messages
-	proposals := fd.missingProposals(lostSync)
-	prevotes := fd.missingPrevotes(lostSync)
-	precommits := fd.missingPrecommits(lostSync)
-
-	// broadcast them to the missing peer
 	if fd.broadcaster == nil {
 		fd.logger.Warn("p2p protocol handler is not ready yet")
 		return nil
 	}
-
 	peer, ok := fd.broadcaster.FindPeer(sender)
 	if !ok {
 		fd.logger.Debug("no peer connection for sender", "peer", sender)
 		return nil
 	}
+
+	if err := fd.askSyncRateLimiter.Allow(sender); err != nil {
+		return err
+	}
+
+	askSync := new(message.AskSyncMsg)
+	if err := rlp.DecodeBytes(payload, askSync); err != nil {
+		return fmt.Errorf("cannot decode ask sync msg: %w", err)
+	}
+
+	if err := askSync.Validate(); err != nil {
+		return fmt.Errorf("ask sync msg sanity check failed: %w", err)
+	}
+
+	// fetch remote's peer missing messages
+	proposals := fd.missingProposals(askSync)
+	prevotes := fd.missingPrevotes(askSync)
+	precommits := fd.missingPrecommits(askSync)
 
 	// prioritize the sending of missing proposals.
 	for _, m := range proposals {

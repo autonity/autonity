@@ -14,7 +14,7 @@ var (
 )
 
 type TimeWindowLimiter struct {
-	rwMutex    sync.RWMutex
+	mutex      sync.Mutex
 	limits     map[common.Address]*rateRecord
 	timeWindow time.Duration
 	maxBurst   uint64
@@ -34,8 +34,8 @@ func NewTimeWindowLimiter(window time.Duration, maxBurst uint64) *TimeWindowLimi
 }
 
 func (l *TimeWindowLimiter) Allow(sender common.Address) error {
-	l.rwMutex.Lock()
-	defer l.rwMutex.Unlock()
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 
 	now := time.Now()
 	record, exists := l.limits[sender]
@@ -57,8 +57,8 @@ func (l *TimeWindowLimiter) Allow(sender common.Address) error {
 }
 
 func (l *TimeWindowLimiter) Cleanup() {
-	l.rwMutex.Lock()
-	defer l.rwMutex.Unlock()
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 
 	now := time.Now()
 	for addr, record := range l.limits {
@@ -69,7 +69,7 @@ func (l *TimeWindowLimiter) Cleanup() {
 }
 
 type HeightBasedLimiter struct {
-	rwMutex      sync.RWMutex
+	mutex        sync.Mutex
 	records      map[common.Address]map[uint64]uint64
 	maxPerHeight uint64
 	btl          uint64
@@ -84,8 +84,8 @@ func NewHeightBasedLimiter(maxPerHeight uint64, btl uint64) *HeightBasedLimiter 
 }
 
 func (l *HeightBasedLimiter) Allow(sender common.Address, height uint64) error {
-	l.rwMutex.Lock()
-	defer l.rwMutex.Unlock()
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 
 	if _, exists := l.records[sender]; !exists {
 		l.records[sender] = make(map[uint64]uint64)
@@ -100,8 +100,8 @@ func (l *HeightBasedLimiter) Allow(sender common.Address, height uint64) error {
 }
 
 func (l *HeightBasedLimiter) Cleanup(head uint64) {
-	l.rwMutex.Lock()
-	defer l.rwMutex.Unlock()
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 
 	staled := head - l.btl
 	for addr, heights := range l.records {
@@ -116,31 +116,28 @@ func (l *HeightBasedLimiter) Cleanup(head uint64) {
 	}
 }
 
-type DuplicateTracker struct {
-	rwMutex sync.RWMutex
+type DuplicateLimiter struct {
+	mutex   sync.Mutex
 	records map[common.Address]map[common.Hash]time.Time
 	ttl     time.Duration
 }
 
-func NewDuplicateTracker(ttl time.Duration) *DuplicateTracker {
-	return &DuplicateTracker{
+func NewDuplicateTracker(ttl time.Duration) *DuplicateLimiter {
+	return &DuplicateLimiter{
 		records: make(map[common.Address]map[common.Hash]time.Time),
 		ttl:     ttl,
 	}
 }
 
-func (t *DuplicateTracker) Allow(sender common.Address, hash common.Hash) error {
-	t.rwMutex.RLock()
+func (t *DuplicateLimiter) Allow(sender common.Address, hash common.Hash) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
 	if hashes, exists := t.records[sender]; exists {
 		if _, duplicate := hashes[hash]; duplicate {
-			t.rwMutex.RUnlock()
 			return ErrDuplicateMessage
 		}
 	}
-	t.rwMutex.RUnlock()
-
-	t.rwMutex.Lock()
-	defer t.rwMutex.Unlock()
 
 	if _, exists := t.records[sender]; !exists {
 		t.records[sender] = make(map[common.Hash]time.Time)
@@ -150,9 +147,9 @@ func (t *DuplicateTracker) Allow(sender common.Address, hash common.Hash) error 
 	return nil
 }
 
-func (t *DuplicateTracker) Cleanup() {
-	t.rwMutex.Lock()
-	defer t.rwMutex.Unlock()
+func (t *DuplicateLimiter) Cleanup() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	cutoff := time.Now().Add(-t.ttl)
 	for addr, hashes := range t.records {
@@ -168,9 +165,9 @@ func (t *DuplicateTracker) Cleanup() {
 }
 
 type AFDRateLimiter struct {
-	timeLimiter    *TimeWindowLimiter
-	heightLimiter  *HeightBasedLimiter
-	duplicateCheck *DuplicateTracker
+	timeLimiter      *TimeWindowLimiter
+	heightLimiter    *HeightBasedLimiter
+	duplicateLimiter *DuplicateLimiter
 }
 
 func NewAFDRateLimiter() *AFDRateLimiter {
@@ -184,7 +181,7 @@ func NewAFDRateLimiter() *AFDRateLimiter {
 		// 4 accusations per height for per client.
 		heightLimiter: NewHeightBasedLimiter(maxAccusationPerHeight, HeightRange),
 		// duplicated accusation checker, reset per 5 minutes.
-		duplicateCheck: NewDuplicateTracker(time.Minute * 5),
+		duplicateLimiter: NewDuplicateTracker(time.Minute * 5),
 	}
 
 	return limiter
@@ -193,5 +190,5 @@ func NewAFDRateLimiter() *AFDRateLimiter {
 func (l *AFDRateLimiter) Cleanup(height uint64) {
 	l.timeLimiter.Cleanup()
 	l.heightLimiter.Cleanup(height)
-	l.duplicateCheck.Cleanup()
+	l.duplicateLimiter.Cleanup()
 }
