@@ -292,19 +292,19 @@ func (fd *FaultDetector) checkMsgStoreGC(coreHeight uint64) {
 	}
 }
 
-func (fd *FaultDetector) computeScanRange(number *big.Int) (*big.Int, *big.Int, error) {
+func (fd *FaultDetector) computeScanRange(number *big.Int) (uint64, uint64, error) {
 	// we want to fetch the delta that will apply to the new blocks mined after `number`
 	accountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(number.Uint64() + 1)
 	if err != nil {
 		// this shouldn't happen unless the node has some aggressive state pruning in place
 		fd.logger.Error("Cannot fetch accountability params", "block", number.Uint64()+1, "err", err)
-		return nil, nil, fmt.Errorf("cannot fetch accountability delta for block %d: %w", number.Uint64()+1, err)
+		return 0, 0, fmt.Errorf("cannot fetch accountability delta for block %d: %w", number.Uint64()+1, err)
 	}
 	previousAccountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(number.Uint64())
 	if err != nil {
 		// this shouldn't happen unless the node has some aggressive state pruning in place
 		fd.logger.Error("Cannot fetch previous accountability params", "block", number.Uint64(), "err", err)
-		return nil, nil, fmt.Errorf("cannot fetch accountability delta for block %d: %w", number.Uint64(), err)
+		return 0, 0, fmt.Errorf("cannot fetch accountability delta for block %d: %w", number.Uint64(), err)
 	}
 
 	// if no changes in delta, we scan a single height
@@ -328,7 +328,7 @@ func (fd *FaultDetector) computeScanRange(number *big.Int) (*big.Int, *big.Int, 
 	if endH.Cmp(common.Big0) < 0 {
 		endH = common.Big0
 	}
-	return startH, endH, nil
+	return startH.Uint64(), endH.Uint64(), nil
 }
 
 func (fd *FaultDetector) ruleEngine() {
@@ -353,7 +353,7 @@ loop:
 			}
 
 			// run rule engine over heights
-			for h := startH.Uint64(); h <= endH.Uint64(); h++ {
+			for h := startH; h <= endH; h++ {
 				_, alreadyScanned := fd.scanned[h]
 				if alreadyScanned {
 					continue

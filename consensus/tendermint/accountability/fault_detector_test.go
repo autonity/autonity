@@ -225,8 +225,8 @@ func TestComputeScanRange(t *testing.T) {
 	startH, endH, err := fd.computeScanRange(minedblockNumber)
 	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
 	require.NoError(t, err)
-	require.Equal(t, minedblockNumber.Uint64()-initialDelta.Uint64(), startH.Uint64())
-	require.Equal(t, minedblockNumber.Uint64()-initialDelta.Uint64(), endH.Uint64())
+	require.Equal(t, minedblockNumber.Uint64()-initialDelta.Uint64(), startH)
+	require.Equal(t, minedblockNumber.Uint64()-initialDelta.Uint64(), endH)
 
 	// delta decrease
 	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()+1).Return(&types.AccountabilityParams{
@@ -238,8 +238,8 @@ func TestComputeScanRange(t *testing.T) {
 	startH, endH, err = fd.computeScanRange(minedblockNumber)
 	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
 	require.NoError(t, err)
-	require.Equal(t, minedblockNumber.Uint64()-initialDelta.Uint64(), startH.Uint64())
-	require.Equal(t, minedblockNumber.Uint64()-lowerDelta.Uint64(), endH.Uint64())
+	require.Equal(t, minedblockNumber.Uint64()-initialDelta.Uint64(), startH)
+	require.Equal(t, minedblockNumber.Uint64()-lowerDelta.Uint64(), endH)
 
 	// delta increase
 	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()+1).Return(&types.AccountabilityParams{
@@ -251,8 +251,8 @@ func TestComputeScanRange(t *testing.T) {
 	startH, endH, err = fd.computeScanRange(minedblockNumber)
 	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
 	require.NoError(t, err)
-	require.Equal(t, minedblockNumber.Uint64()-biggerDelta.Uint64(), startH.Uint64())
-	require.Equal(t, minedblockNumber.Uint64()-biggerDelta.Uint64(), endH.Uint64())
+	require.Equal(t, minedblockNumber.Uint64()-biggerDelta.Uint64(), startH)
+	require.Equal(t, minedblockNumber.Uint64()-biggerDelta.Uint64(), endH)
 
 	// network start situation (delta > minedBlock)
 	minedblockNumber = new(big.Int).SetUint64(5)
@@ -265,8 +265,8 @@ func TestComputeScanRange(t *testing.T) {
 	startH, endH, err = fd.computeScanRange(minedblockNumber)
 	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
 	require.NoError(t, err)
-	require.Equal(t, common.Big0.Uint64(), startH.Uint64())
-	require.Equal(t, common.Big0.Uint64(), endH.Uint64())
+	require.Equal(t, common.Big0.Uint64(), startH)
+	require.Equal(t, common.Big0.Uint64(), endH)
 
 	// delta decrease at network start (edge case)
 	minedblockNumber = new(big.Int).SetUint64(60)
@@ -281,8 +281,8 @@ func TestComputeScanRange(t *testing.T) {
 	startH, endH, err = fd.computeScanRange(minedblockNumber)
 	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
 	require.NoError(t, err)
-	require.Equal(t, common.Big0.Uint64(), startH.Uint64())
-	require.Equal(t, minedblockNumber.Uint64()-lowerDelta.Uint64(), endH.Uint64())
+	require.Equal(t, common.Big0.Uint64(), startH)
+	require.Equal(t, minedblockNumber.Uint64()-lowerDelta.Uint64(), endH)
 
 	// decrease of 1 in delta (edge case)
 	minedblockNumber = new(big.Int).SetUint64(20)
@@ -297,8 +297,8 @@ func TestComputeScanRange(t *testing.T) {
 	startH, endH, err = fd.computeScanRange(minedblockNumber)
 	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
 	require.NoError(t, err)
-	require.Equal(t, minedblockNumber.Uint64()-initialDelta.Uint64(), startH.Uint64())
-	require.Equal(t, minedblockNumber.Uint64()-lowerDelta.Uint64(), endH.Uint64())
+	require.Equal(t, minedblockNumber.Uint64()-initialDelta.Uint64(), startH)
+	require.Equal(t, minedblockNumber.Uint64()-lowerDelta.Uint64(), endH)
 
 	// increase of 1 in delta (edge case)
 	minedblockNumber = new(big.Int).SetUint64(20)
@@ -313,8 +313,8 @@ func TestComputeScanRange(t *testing.T) {
 	startH, endH, err = fd.computeScanRange(minedblockNumber)
 	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
 	require.NoError(t, err)
-	require.Equal(t, minedblockNumber.Uint64()-biggerDelta.Uint64(), startH.Uint64())
-	require.Equal(t, minedblockNumber.Uint64()-biggerDelta.Uint64(), endH.Uint64())
+	require.Equal(t, minedblockNumber.Uint64()-biggerDelta.Uint64(), startH)
+	require.Equal(t, minedblockNumber.Uint64()-biggerDelta.Uint64(), endH)
 
 }
 
