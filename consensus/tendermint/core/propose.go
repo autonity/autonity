@@ -158,12 +158,13 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			// do not to accept another proposal in current round
 			c.SetStep(ctx, Prevote)
 		}
-		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
+		c.logger.Error("Failed to verify proposal", "validator", c.Address(), "proposer", proposal.Signer(), "err", err, "duration", duration)
 		return err
 	}
 
+	// disable the optimistic block mining
 	// notify miner
-	go c.Backend().ProposalVerified(proposal.Block())
+	// go c.Backend().ProposalVerified(proposal.Block())
 	// Set the proposal for the current round
 	c.curRoundMessages.SetProposal(proposal, true)
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal)

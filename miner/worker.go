@@ -688,8 +688,10 @@ func (w *worker) makeEnv(parent *types.Header, header *types.Header, coinbase co
 		hash  common.Hash
 	)
 	if optimisticCandidate {
+		// panic("no optimistic block!")
 		// Making environment by coping cached optimistic parent block's state also copies the receipt logs.
 		if parent.Coinbase == w.coinbase { // we were the proposer for the parent
+			w.eth.Logger().Info("optimistic block, proposed block cache state", "worker", w.coinbase, "height", header.Number.Uint64(), "cache height", parent.Number.Uint64(), "cache root", parent.Root)
 			sealHash := w.engine.SealHash(parent)
 			w.pendingMu.Lock()
 			task, exist := w.pendingTasks[sealHash]
@@ -705,6 +707,7 @@ func (w *worker) makeEnv(parent *types.Header, header *types.Header, coinbase co
 			if parent.Hash() != hash {
 				return nil, fmt.Errorf("no state cache available for optimistic block")
 			}
+			w.eth.Logger().Info("optimistic block, proposal cache state", "worker", w.coinbase, "height", header.Number.Uint64(), "cache height", parent.Number.Uint64(), "cache root", parent.Root)
 		}
 	} else {
 		state, err = w.chain.StateAt(parent.Root)

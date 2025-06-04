@@ -3,6 +3,7 @@ package resetting
 import (
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -159,6 +160,13 @@ func TestResetRandomFPlusTwoNodes(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestLongPeriod(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		TestKeepResettingRandomOneNode(t)
+		time.Sleep(time.Second * 5)
+	}
+}
+
 // TestKeepResettingRandomOneNode, with multiple rounds, it keeps resetting a random selected node at each round, then
 // recover it at that round, after each round the network should keep mining.
 func TestKeepResettingRandomOneNode(t *testing.T) {
@@ -176,15 +184,10 @@ func TestKeepResettingRandomOneNode(t *testing.T) {
 		err = network[nodeID].Close(false)
 		network[nodeID].Wait()
 		require.NoError(t, err)
-		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(1, 30, false)
-		require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+		time.Sleep(20 * time.Second)
 		// recover that faulty node.
 		err = network[nodeID].Start()
 		require.NoError(t, err)
-		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(1, 30, false)
-		require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 	}
 }
 

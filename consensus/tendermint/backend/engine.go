@@ -440,6 +440,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	*receipts = append(*receipts, receipt)
 	// No block rewards in BFT, so the state remains as is and uncles are dropped
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	sb.Logger().Info("FinalizeAndAssemble block state", "client", sb.Address(), "height", header.Number.Uint64(), "root", header.Root.String())
 	header.UncleHash = nilUncleHash
 	header.Epoch = epochInfo
 	return types.NewBlock(header, body, *receipts, trie.NewStackTrie(nil)), nil

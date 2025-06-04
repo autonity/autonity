@@ -329,7 +329,8 @@ func (sb *Backend) VerifyProposal(proposalBlock *types.Block) (time.Duration, er
 		}
 
 		// cache verified proposal state
-		sb.blockchain.CacheProposalState(proposalBlock.Hash(), res.Receipts, res.GasUsed, state)
+		// disable the cache of verified proposal state.
+		// sb.blockchain.CacheProposalState(proposalBlock.Hash(), res.Receipts, res.GasUsed, state)
 
 		return 0, nil
 	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {
