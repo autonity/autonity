@@ -658,7 +658,8 @@ func (s *Ethereum) validatorController() {
 						return
 					}
 				case <-timeout:
-					s.log.Warn("miner waiting for required peer count", "current peer count", s.consensusServer.PeerCount(), "required", committee.Len())
+					s.log.Warn("miner waited for one minute to reach required peer count", "current peer count", s.consensusServer.PeerCount(), "required", committee.Len())
+					return
 				}
 			}
 		}()
