@@ -64,8 +64,8 @@ func TestHeightBasedLimiter_CleanupLogic(t *testing.T) {
 	// clean up
 	limiter.Cleanup(105)
 
-	limiter.rwMutex.Lock()
-	defer limiter.rwMutex.Unlock()
+	limiter.mutex.Lock()
+	defer limiter.mutex.Unlock()
 	require.Empty(t, limiter.records[addr])
 }
 
