@@ -33,6 +33,7 @@ import (
 var (
 	// NOTE: this prefix are not used for prefixing keys, but
 	// rather for prefixing data. See WriteContractsConfig
+	// the code assumes these prefixes will remain of 1 byte of length
 	contractsConfigDataPrefix = []byte("c")
 	blockNumberDataPrefix     = []byte("b")
 )
@@ -93,17 +94,11 @@ func WriteChainConfig(db ethdb.KeyValueWriter, hash common.Hash, cfg *params.Cha
 }
 
 func isRlpEncodedUint64(b byte) bool {
-	if b == blockNumberDataPrefix[0] {
-		return true
-	}
-	return false
+	return b == blockNumberDataPrefix[0]
 }
 
 func isRlpEncodedConfig(b byte) bool {
-	if b == contractsConfigDataPrefix[0] {
-		return true
-	}
-	return false
+	return b == contractsConfigDataPrefix[0]
 }
 
 func rlpEncodeUint64WithPrefix(number uint64) []byte {
@@ -115,10 +110,11 @@ func rlpEncodeUint64WithPrefix(number uint64) []byte {
 }
 
 func rlpDecodeUint64WithPrefix(encoded []byte) (uint64, error) {
-	if encoded[0] != blockNumberDataPrefix[0] {
+	if !isRlpEncodedUint64(encoded[0]) {
 		panic("unexpected prefix")
 	}
 	var number uint64
+	// discarding the first byte of encoded since it contains the prefix
 	if err := rlp.DecodeBytes(encoded[1:], &number); err != nil {
 		return 0, fmt.Errorf("failed to decode RLP encoded number: %w", err)
 	}
@@ -152,6 +148,7 @@ func ReadContractsConfig(db ethdb.KeyValueReader, number uint64) (*types.Contrac
 	}
 
 	config := &types.ContractsConfig{}
+	// discarding the first byte of data since it contains the prefix
 	err := rlp.DecodeBytes(data[1:], config)
 	if err != nil {
 		log.Error("Detected corrupted contracts config db", "requestedNumber", requestedNumber, "number", number, "data", data, "err", err)
