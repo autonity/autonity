@@ -53,13 +53,23 @@ func TestEpoch_Equal(t *testing.T) {
 				PreviousEpochBlock: big.NewInt(1),
 				NextEpochBlock:     big.NewInt(2),
 				Committee:          &Committee{Members: []CommitteeMember{{Address: common.Address{1}, VotingPower: big.NewInt(10), ConsensusKey: consensusPubKey1, ConsensusKeyBytes: consensusPubKey1Bytes}}},
-				Eip1559:            &Eip1559Params{},
+				Eip1559: &Eip1559Params{
+					MinBaseFee:               big.NewInt(5000),
+					BaseFeeChangeDenominator: big.NewInt(10),
+					ElasticityMultiplier:     big.NewInt(2),
+					GasLimitBoundDivisor:     big.NewInt(1024),
+				},
 			},
 			epoch2: &Epoch{
 				PreviousEpochBlock: big.NewInt(1),
 				NextEpochBlock:     big.NewInt(2),
 				Committee:          &Committee{Members: []CommitteeMember{{Address: common.Address{1}, VotingPower: big.NewInt(10), ConsensusKey: consensusPubKey1, ConsensusKeyBytes: consensusPubKey1Bytes}}},
-				Eip1559:            &Eip1559Params{},
+				Eip1559: &Eip1559Params{
+					MinBaseFee:               big.NewInt(5000),
+					BaseFeeChangeDenominator: big.NewInt(10),
+					ElasticityMultiplier:     big.NewInt(2),
+					GasLimitBoundDivisor:     big.NewInt(1024),
+				},
 			},
 			expect: true,
 		},
@@ -108,6 +118,32 @@ func TestEpoch_Equal(t *testing.T) {
 				NextEpochBlock:     big.NewInt(2),
 				Committee:          &Committee{Members: []CommitteeMember{{Address: common.Address{2}, VotingPower: big.NewInt(10)}}},
 				Eip1559:            &Eip1559Params{},
+			},
+			expect: false,
+		},
+		{
+			name: "unequal epochs - different eip1559 params",
+			epoch1: &Epoch{
+				PreviousEpochBlock: big.NewInt(1),
+				NextEpochBlock:     big.NewInt(2),
+				Committee:          &Committee{Members: []CommitteeMember{{Address: common.Address{1}, VotingPower: big.NewInt(10), ConsensusKey: consensusPubKey1, ConsensusKeyBytes: consensusPubKey1Bytes}}},
+				Eip1559: &Eip1559Params{
+					MinBaseFee:               big.NewInt(5000),
+					BaseFeeChangeDenominator: big.NewInt(11), // different
+					ElasticityMultiplier:     big.NewInt(2),
+					GasLimitBoundDivisor:     big.NewInt(1024),
+				},
+			},
+			epoch2: &Epoch{
+				PreviousEpochBlock: big.NewInt(1),
+				NextEpochBlock:     big.NewInt(2),
+				Committee:          &Committee{Members: []CommitteeMember{{Address: common.Address{1}, VotingPower: big.NewInt(10), ConsensusKey: consensusPubKey1, ConsensusKeyBytes: consensusPubKey1Bytes}}},
+				Eip1559: &Eip1559Params{
+					MinBaseFee:               big.NewInt(5000),
+					BaseFeeChangeDenominator: big.NewInt(10),
+					ElasticityMultiplier:     big.NewInt(2),
+					GasLimitBoundDivisor:     big.NewInt(1024),
+				},
 			},
 			expect: false,
 		},
