@@ -33,6 +33,22 @@ type Eip1559Params struct {
 	GasLimitBoundDivisor     *big.Int `rlp:"nil" json:"gasLimitBoundDivisor" gencodec:"required"`
 }
 
+func (ep Eip1559Params) Equal(other Eip1559Params) bool {
+	if ep.MinBaseFee.Cmp(other.MinBaseFee) != 0 {
+		return false
+	}
+	if ep.BaseFeeChangeDenominator.Cmp(other.BaseFeeChangeDenominator) != 0 {
+		return false
+	}
+	if ep.ElasticityMultiplier.Cmp(other.ElasticityMultiplier) != 0 {
+		return false
+	}
+	if ep.GasLimitBoundDivisor.Cmp(other.GasLimitBoundDivisor) != 0 {
+		return false
+	}
+	return true
+}
+
 // Epoch contains the previous epoch block, next epoch block and its committee of the current epoch.
 // It is saved in the block header if current block is an epoch block. The epoch block number is not saved
 // here since it is duplicated than the block number in the block header.
@@ -201,22 +217,9 @@ func (e *Epoch) Equal(other *Epoch) bool {
 		return false
 	}
 
-	if e.Eip1559.MinBaseFee.Cmp(other.Eip1559.MinBaseFee) != 0 {
+	if !e.Eip1559.Equal(*other.Eip1559) {
 		return false
 	}
-
-	if e.Eip1559.BaseFeeChangeDenominator.Cmp(other.Eip1559.BaseFeeChangeDenominator) != 0 {
-		return false
-	}
-
-	if e.Eip1559.ElasticityMultiplier.Cmp(other.Eip1559.ElasticityMultiplier) != 0 {
-		return false
-	}
-
-	if e.Eip1559.GasLimitBoundDivisor.Cmp(other.Eip1559.GasLimitBoundDivisor) != 0 {
-		return false
-	}
-
 	return true
 }
 

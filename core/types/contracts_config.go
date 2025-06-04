@@ -8,6 +8,19 @@ type AccountabilityParams struct {
 	GracePeriod *big.Int
 }
 
+func (ap AccountabilityParams) Equal(other AccountabilityParams) bool {
+	if ap.Range.Cmp(other.Range) != 0 {
+		return false
+	}
+	if ap.Delta.Cmp(other.Delta) != 0 {
+		return false
+	}
+	if ap.GracePeriod.Cmp(other.GracePeriod) != 0 {
+		return false
+	}
+	return true
+}
+
 type ContractsConfig struct {
 	EpochPeriod    *big.Int
 	BlockPeriod    *big.Int
@@ -50,27 +63,12 @@ func (cc *ContractsConfig) Equal(cc2 *ContractsConfig) bool {
 	}
 
 	// accountability params
-	if cc.Accountability.Range.Cmp(cc2.Accountability.Range) != 0 {
-		return false
-	}
-	if cc.Accountability.Delta.Cmp(cc2.Accountability.Delta) != 0 {
-		return false
-	}
-	if cc.Accountability.GracePeriod.Cmp(cc2.Accountability.GracePeriod) != 0 {
+	if !cc.Accountability.Equal(cc2.Accountability) {
 		return false
 	}
 
 	// eip1559 params
-	if cc.Eip1559.MinBaseFee.Cmp(cc2.Eip1559.MinBaseFee) != 0 {
-		return false
-	}
-	if cc.Eip1559.BaseFeeChangeDenominator.Cmp(cc2.Eip1559.BaseFeeChangeDenominator) != 0 {
-		return false
-	}
-	if cc.Eip1559.ElasticityMultiplier.Cmp(cc2.Eip1559.ElasticityMultiplier) != 0 {
-		return false
-	}
-	if cc.Eip1559.GasLimitBoundDivisor.Cmp(cc2.Eip1559.GasLimitBoundDivisor) != 0 {
+	if !cc.Eip1559.Equal(cc2.Eip1559) {
 		return false
 	}
 	return true
