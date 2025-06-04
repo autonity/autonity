@@ -35,7 +35,7 @@ func tamperCache(t *testing.T, db ethdb.Database, number uint64, tamperedData []
 	enc := make([]byte, 8)
 	binary.BigEndian.PutUint64(enc, number)
 
-	contractsConfigPrefix := []byte("C")
+	contractsConfigPrefix := []byte("CC")
 	err := db.Put(append(contractsConfigPrefix, enc...), tamperedData)
 	require.NoError(t, err)
 }

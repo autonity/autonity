@@ -20,6 +20,7 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
+
 	"github.com/autonity/autonity/metrics"
 
 	"github.com/autonity/autonity/common"
@@ -105,7 +106,7 @@ var (
 	jailedValidatorCountPrefix   = []byte("JailedCount")
 	jailedValidatorAddressPrefix = []byte("JailedAddress")
 
-	contractsConfigPrefix = []byte("C")
+	contractsConfigPrefix = []byte("CC")
 
 	preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
 	preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
