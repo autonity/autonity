@@ -17,7 +17,6 @@
 package misc
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/autonity/autonity/params"
@@ -46,7 +45,7 @@ func VerifyGaslimit(parentGasLimit, headerGasLimit, gasLimitBoundDivisor uint64)
 
 	// sanity check
 	if headerGasLimit < params.MinGasLimit {
-		return errors.New("invalid gas limit below 5000")
+		return fmt.Errorf("invalid gas limit below %d", params.MinGasLimit)
 	}
 	return nil
 }
