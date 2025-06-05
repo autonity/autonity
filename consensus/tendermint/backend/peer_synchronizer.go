@@ -7,8 +7,7 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
-const AskSyncInterval = 5          // the interval in seconds to check the liveness and rise AskSync request.
-const RateLimiterGCThreshold = 256 // try to GC out of updated records if the total record of rate limiter is over 256.
+const AskSyncInterval = 5 // the interval in seconds to check the liveness and rise AskSync request.
 
 // Peer synchronizer process the ask sync msg from a lost liveness node. As the msg store in the backend module saves
 // recent 256 blocks consensus messages, thus it provides extensive msg views for those chain head synced or un-synced nodes,
@@ -25,8 +24,17 @@ func (sb *Backend) syncPeer(payload []byte, sender common.Address, errCh chan<- 
 		default: // do nothing
 		}
 	}
-	// check to GC out of updated records.
-	if sb.askSyncRateLimiter.TotalRecords() > RateLimiterGCThreshold {
+
+	// check to GC out of updated records, if the num of records is over committee size, then we clean
+	// those out of updated records.
+	head := sb.BlockChain().CurrentHeader()
+	epoch, err := sb.EpochByHeight(head.Number.Uint64())
+	if err != nil {
+		sb.logger.Warn("skip to gc askSyncRateLimiter", "height", head.Number.Uint64(), "err", err)
+		return
+	}
+
+	if sb.askSyncRateLimiter.TotalRecords() >= epoch.Committee.Len() {
 		sb.askSyncRateLimiter.Cleanup()
 	}
 }
