@@ -1,4 +1,4 @@
-package accountability
+package backend
 
 import (
 	"fmt"
@@ -7,27 +7,44 @@ import (
 	"github.com/autonity/autonity/rlp"
 )
 
-const AskSyncInterval = 5 // the interval in seconds to check the liveness and rise AskSync request.
+const AskSyncInterval = 5          // the interval in seconds to check the liveness and rise AskSync request.
+const RateLimiterGCThreshold = 256 // try to GC out of updated records if the total record of rate limiter is over 256.
 
-// lost sync handler, process the ask sync msg from a lost liveness node. As the msg store in the AFD module saves recent
-// 256 blocks consensus messages, thus it provides extensive msg views for those chain head synced or un-synced nodes,
+// Peer synchronizer process the ask sync msg from a lost liveness node. As the msg store in the backend module saves
+// recent 256 blocks consensus messages, thus it provides extensive msg views for those chain head synced or un-synced nodes,
 // more over that, future round messages can be synced now and the handling of AskSync msg does not block the consensus
 // engine anymore.
 
+func (sb *Backend) syncPeer(payload []byte, sender common.Address, errCh chan<- error) {
+	err := sb.handleAskSyncEvent(payload, sender)
+	if err != nil {
+		sb.logger.Error("syncPeer", "error", err, "sender", sender)
+		// the errors return from handler could freeze the peer connection for 30 seconds by according to dev p2p protocol.
+		select {
+		case errCh <- err:
+		default: // do nothing
+		}
+	}
+	// check to GC out of updated records.
+	if sb.askSyncRateLimiter.TotalRecords() > RateLimiterGCThreshold {
+		sb.askSyncRateLimiter.Cleanup()
+	}
+}
+
 // handleAskSyncEvent handles the ask sync request from a lost sync validator or from a rebooting validator.
 // Any error return from this function will drop the remote peer.
-func (fd *FaultDetector) handleAskSyncEvent(payload []byte, sender common.Address) error {
-	if fd.broadcaster == nil {
-		fd.logger.Warn("p2p protocol handler is not ready yet")
+func (sb *Backend) handleAskSyncEvent(payload []byte, sender common.Address) error {
+	if sb.Broadcaster == nil {
+		sb.logger.Warn("p2p protocol handler is not ready yet")
 		return nil
 	}
-	peer, ok := fd.broadcaster.FindPeer(sender)
+	peer, ok := sb.Broadcaster.FindPeer(sender)
 	if !ok {
-		fd.logger.Debug("no peer connection for sender", "peer", sender)
+		sb.logger.Debug("no peer connection for sender", "peer", sender)
 		return nil
 	}
 
-	if err := fd.askSyncRateLimiter.Allow(sender); err != nil {
+	if err := sb.askSyncRateLimiter.Allow(sender); err != nil {
 		return err
 	}
 
@@ -41,24 +58,24 @@ func (fd *FaultDetector) handleAskSyncEvent(payload []byte, sender common.Addres
 	}
 
 	// fetch remote's peer missing messages
-	proposals := fd.missingProposals(askSync)
-	prevotes := fd.missingPrevotes(askSync)
-	precommits := fd.missingPrecommits(askSync)
+	proposals := sb.missingProposals(askSync)
+	prevotes := sb.missingPrevotes(askSync)
+	precommits := sb.missingPrecommits(askSync)
 
 	// prioritize the sending of missing proposals.
 	for _, m := range proposals {
-		fd.logger.Debug("sending missing proposal to remote peer", "value", m.Value(), "H", m.H(), "R", m.R(), "VR", m.ValidRound(), "from", fd.address, "to", sender)
+		sb.logger.Debug("sending missing proposal to remote peer", "value", m.Value(), "H", m.H(), "R", m.R(), "VR", m.ValidRound(), "from", sb.address, "to", sender)
 		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 	}
 
 	// then sends the missing precommits, as precommits could trigger round rotation or a commitment of a value.
 	for _, m := range precommits {
-		fd.logger.Debug("sending missing precommits to remote peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", fd.address, "to", sender)
+		sb.logger.Debug("sending missing precommits to remote peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", sb.address, "to", sender)
 		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 	}
 
 	for _, m := range prevotes {
-		fd.logger.Debug("sending missing prevotes to remote peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", fd.address, "to", sender)
+		sb.logger.Debug("sending missing prevotes to remote peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", sb.address, "to", sender)
 		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 	}
 
@@ -66,10 +83,10 @@ func (fd *FaultDetector) handleAskSyncEvent(payload []byte, sender common.Addres
 }
 
 // missingProposals collects all the missing proposals of a consensus instance base on the asker's view.
-func (fd *FaultDetector) missingProposals(lostSync *message.AskSyncMsg) []*message.Propose {
+func (sb *Backend) missingProposals(lostSync *message.AskSyncMsg) []*message.Propose {
 	rounds := lostSync.Rounds()
 	nilProposal := lostSync.NilProposal()
-	missingProposals := fd.msgStore.GetProposals(lostSync.Height, func(m *message.Propose) bool {
+	missingProposals := sb.MsgStore.GetProposals(lostSync.Height, func(m *message.Propose) bool {
 		_, knownRound := rounds[uint64(m.R())]
 		_, unknownProposal := nilProposal[uint64(m.R())]
 		return !knownRound || unknownProposal
@@ -79,12 +96,12 @@ func (fd *FaultDetector) missingProposals(lostSync *message.AskSyncMsg) []*messa
 }
 
 // missingPrevotes collects all the missing prevotes of a consensus instance base on the asker's view.
-func (fd *FaultDetector) missingPrevotes(lostSync *message.AskSyncMsg) []*message.Prevote {
+func (sb *Backend) missingPrevotes(lostSync *message.AskSyncMsg) []*message.Prevote {
 
 	rounds := lostSync.Rounds()
 	prevoteSigners := lostSync.Prevotes()
 
-	missingPrevotes := fd.msgStore.GetPrevotes(lostSync.Height, func(m *message.Prevote) bool {
+	missingPrevotes := sb.MsgStore.GetPrevotes(lostSync.Height, func(m *message.Prevote) bool {
 		// return all prevotes if the remote node doesn't know this round
 		msgRound := uint64(m.R())
 		_, knownRound := rounds[msgRound]
@@ -110,12 +127,12 @@ func (fd *FaultDetector) missingPrevotes(lostSync *message.AskSyncMsg) []*messag
 }
 
 // missingPrecommits collects all the missing precommits of a consensus instance base on the asker's view.
-func (fd *FaultDetector) missingPrecommits(lostSync *message.AskSyncMsg) []*message.Precommit {
+func (sb *Backend) missingPrecommits(lostSync *message.AskSyncMsg) []*message.Precommit {
 
 	rounds := lostSync.Rounds()
 	precommitSigners := lostSync.Precommits()
 
-	missingPrecommits := fd.msgStore.GetPrecommits(lostSync.Height, func(m *message.Precommit) bool {
+	missingPrecommits := sb.MsgStore.GetPrecommits(lostSync.Height, func(m *message.Precommit) bool {
 		// return all precommits if the remote node doesn't know this round
 		msgRound := uint64(m.R())
 		_, knownRound := rounds[msgRound]

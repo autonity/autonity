@@ -84,12 +84,9 @@ func TestTendermintMessage(t *testing.T) {
 }
 func TestSynchronisationMessage(t *testing.T) {
 	t.Run("engine not running, ignored", func(t *testing.T) {
-		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
-		sub := eventMux.Subscribe(events.SyncRequestEvent{})
 		b := &Backend{
 			database: rawdb.NewMemoryDatabase(),
 			logger:   log.New("backend", "test", "id", 0),
-			eventMux: eventMux,
 		}
 		msg := makeMsg(message.SyncNetworkMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
@@ -99,33 +96,31 @@ func TestSynchronisationMessage(t *testing.T) {
 		}
 		timer := time.NewTimer(2 * time.Second)
 		select {
-		case <-sub.Chan():
+		case <-errCh:
 			t.Fatalf("not expected message")
 		case <-timer.C:
 		}
 	})
 
-	t.Run("engine running, sync returned", func(t *testing.T) {
-		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
-		sub := eventMux.Subscribe(events.SyncRequestEvent{})
-		b := &Backend{
-			database: rawdb.NewMemoryDatabase(),
-			logger:   log.New("backend", "test", "id", 0),
-			eventMux: eventMux,
-		}
+	t.Run("engine running, msg cannot be decoded", func(t *testing.T) {
+		_, b := newBlockChain(1)
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockedPeer := consensus.NewMockPeer(ctrl)
+		broadcaster := consensus.NewMockBroadcaster(ctrl)
+		broadcaster.EXPECT().FindPeer(testAddress).Return(mockedPeer, true).AnyTimes()
+		b.SetBroadcaster(broadcaster)
+
 		b.coreStarting.Store(true)
 		b.coreRunning.Store(true)
 		msg := makeMsg(message.SyncNetworkMsg, []byte{})
-		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)
-		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
+		if res, err := b.HandleMsg(testAddress, msg, errCh); !res || err != nil {
 			t.Fatalf("HandleMsg unexpected return")
 		}
-		timer := time.NewTimer(2 * time.Second)
 		select {
-		case <-timer.C:
-			t.Fatalf("sync message not posted")
-		case <-sub.Chan():
+		case err := <-errCh:
+			require.NotNil(t, err)
 		}
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math"
 	"math/big"
 	"sort"
@@ -71,7 +72,6 @@ type FaultDetector struct {
 	innocenceProofBuff    *InnocenceProofBuffer
 	protocolContracts     *autonity.ProtocolContracts
 	accusationRateLimiter *AFDRateLimiter
-	askSyncRateLimiter    *TimeWindowLimiter
 
 	wg               sync.WaitGroup
 	tendermintMsgSub *event.TypeMuxSubscription
@@ -131,8 +131,6 @@ func NewFaultDetector(
 		innocenceProofBuff:    NewInnocenceProofBuffer(),
 		protocolContracts:     protocolContracts,
 		accusationRateLimiter: NewAFDRateLimiter(),
-		// 2 ask sync per 5s, as in some edge case node can send 2 within 5s: A node ask sync then followed with a restart.
-		askSyncRateLimiter:    NewTimeWindowLimiter(AskSyncInterval*time.Second, 2),
 		txPool:                txPool,
 		ethBackend:            ethBackend,
 		txOpts:                txOpts,
@@ -233,19 +231,6 @@ tendermintMsgLoop:
 					}
 					continue tendermintMsgLoop
 				}
-			case events.SyncRequestEvent:
-				// process liveness fault from msg store context to release the consensus core locking in large scale network
-				// in which the processing of huge num of AskSyncs would lock the core for a long period.
-				err := fd.handleAskSyncEvent(e.Payload, e.Sender)
-				if err != nil {
-					fd.logger.Error("Accountability: lost sync recovery", "error", err, "sender", e.Sender)
-					// the errors return from handler could freeze the peer connection for 30 seconds by according to dev p2p protocol.
-					select {
-					case e.ErrCh <- err:
-					default: // do nothing
-					}
-					continue tendermintMsgLoop
-				}
 			}
 		case e, ok := <-fd.chainEventCh:
 			if !ok {
@@ -254,7 +239,6 @@ tendermintMsgLoop:
 
 			// on every 60 blocks, reset Peer Justified Accusations and height accusations counters.
 			if e.Block.NumberU64()%msgGCInterval == 0 {
-				fd.askSyncRateLimiter.Cleanup()
 				fd.accusationRateLimiter.Cleanup(e.Block.NumberU64())
 			}
 		case err, ok := <-fd.chainEventSub.Err():
@@ -1405,4 +1389,33 @@ func isProposerValid(chain ChainContext, m message.Msg) bool {
 	proposer := chain.ProtocolContracts().Proposer(committee, nil, m.H()-1, m.R())
 	signer := m.(*message.Propose).Signer()
 	return signer == proposer
+}
+
+type AFDRateLimiter struct {
+	timeLimiter      *helpers.TimeWindowLimiter
+	heightLimiter    *helpers.HeightBasedLimiter
+	duplicateLimiter *helpers.DuplicateLimiter
+}
+
+func NewAFDRateLimiter() *AFDRateLimiter {
+	limiter := &AFDRateLimiter{
+		// since communication channel is asynchronous, those pending write of off chain accusation msgs from a sender
+		// could potentially be received once the peer connection get established from a disaster recovery, thus it
+		// could exceed the number of accusation that could be produced by rule engine over a height, so we set higher
+		// rate limit during 1 second to be tolerant for such case.
+		// 8 accusations per 1s window for per client, rate limit reset per 1s.
+		timeLimiter: helpers.NewTimeWindowLimiter(time.Second, maxAccusationPerHeight*2),
+		// 4 accusations per height for per client.
+		heightLimiter: helpers.NewHeightBasedLimiter(maxAccusationPerHeight, HeightRange),
+		// duplicated accusation checker, reset per 5 minutes.
+		duplicateLimiter: helpers.NewDuplicateTracker(time.Minute * 5),
+	}
+
+	return limiter
+}
+
+func (l *AFDRateLimiter) Cleanup(height uint64) {
+	l.timeLimiter.Cleanup()
+	l.heightLimiter.Cleanup(height)
+	l.duplicateLimiter.Cleanup()
 }

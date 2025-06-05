@@ -1,4 +1,4 @@
-package accountability
+package helpers
 
 import (
 	"errors"
@@ -14,7 +14,7 @@ var (
 )
 
 type TimeWindowLimiter struct {
-	mutex      sync.Mutex
+	rwMutex    sync.RWMutex
 	limits     map[common.Address]*rateRecord
 	timeWindow time.Duration
 	maxBurst   uint64
@@ -33,9 +33,15 @@ func NewTimeWindowLimiter(window time.Duration, maxBurst uint64) *TimeWindowLimi
 	}
 }
 
+func (l *TimeWindowLimiter) TotalRecords() int {
+	l.rwMutex.RLock()
+	defer l.rwMutex.RUnlock()
+	return len(l.limits)
+}
+
 func (l *TimeWindowLimiter) Allow(sender common.Address) error {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
+	l.rwMutex.Lock()
+	defer l.rwMutex.Unlock()
 
 	now := time.Now()
 	record, exists := l.limits[sender]
@@ -57,8 +63,8 @@ func (l *TimeWindowLimiter) Allow(sender common.Address) error {
 }
 
 func (l *TimeWindowLimiter) Cleanup() {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
+	l.rwMutex.Lock()
+	defer l.rwMutex.Unlock()
 
 	now := time.Now()
 	for addr, record := range l.limits {
@@ -162,33 +168,4 @@ func (t *DuplicateLimiter) Cleanup() {
 			delete(t.records, addr)
 		}
 	}
-}
-
-type AFDRateLimiter struct {
-	timeLimiter      *TimeWindowLimiter
-	heightLimiter    *HeightBasedLimiter
-	duplicateLimiter *DuplicateLimiter
-}
-
-func NewAFDRateLimiter() *AFDRateLimiter {
-	limiter := &AFDRateLimiter{
-		// since communication channel is asynchronous, those pending write of off chain accusation msgs from a sender
-		// could potentially be received once the peer connection get established from a disaster recovery, thus it
-		// could exceed the number of accusation that could be produced by rule engine over a height, so we set higher
-		// rate limit during 1 second to be tolerant for such case.
-		// 8 accusations per 1s window for per client, rate limit reset per 1s.
-		timeLimiter: NewTimeWindowLimiter(time.Second, maxAccusationPerHeight*2),
-		// 4 accusations per height for per client.
-		heightLimiter: NewHeightBasedLimiter(maxAccusationPerHeight, HeightRange),
-		// duplicated accusation checker, reset per 5 minutes.
-		duplicateLimiter: NewDuplicateTracker(time.Minute * 5),
-	}
-
-	return limiter
-}
-
-func (l *AFDRateLimiter) Cleanup(height uint64) {
-	l.timeLimiter.Cleanup()
-	l.heightLimiter.Cleanup(height)
-	l.duplicateLimiter.Cleanup()
 }

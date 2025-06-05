@@ -309,7 +309,6 @@ eventLoop:
 			round = currentRound
 			height = currentHeight
 			timer = time.NewTimer(syncTimeOut)
-
 		case <-ctx.Done():
 			c.logger.Debug("livenessTrackerLoop is stopped", "event", ctx.Err())
 			break eventLoop

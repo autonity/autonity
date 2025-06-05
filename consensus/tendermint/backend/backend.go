@@ -3,6 +3,7 @@ package backend
 import (
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -65,17 +66,19 @@ func New(
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
 	backend := &Backend{
-		database:        database,
-		eventMux:        event.NewTypeMuxSilent(evMux, log),
-		nodeKey:         nodeKey,
-		consensusKey:    consensusKey,
-		address:         crypto.PubkeyToAddress(nodeKey.PublicKey),
-		logger:          log,
-		knownMessages:   knownMessages,
-		vmConfig:        vmConfig,
-		MsgStore:        ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
-		messageCh:       make(chan events.UnverifiedMessageEvent, 5000),
-		isHeightExpired: isHeightExpired,
+		database:      database,
+		eventMux:      event.NewTypeMuxSilent(evMux, log),
+		nodeKey:       nodeKey,
+		consensusKey:  consensusKey,
+		address:       crypto.PubkeyToAddress(nodeKey.PublicKey),
+		logger:        log,
+		knownMessages: knownMessages,
+		vmConfig:      vmConfig,
+		MsgStore:      ms,
+		// 2 ask sync per 5s, as in some edge case node can send 2 within 5s: A node ask sync then followed with a restart.
+		askSyncRateLimiter: helpers.NewTimeWindowLimiter(AskSyncInterval*time.Second, 2),
+		messageCh:          make(chan events.UnverifiedMessageEvent, 5000),
+		isHeightExpired:    isHeightExpired,
 		jailed: jailed{
 			validators: make(map[common.Address]uint64),
 		},
@@ -136,9 +139,13 @@ type Backend struct {
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
 
-	knownMessages   *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
-	vmConfig        *vm.Config
-	MsgStore        *tendermintCore.MsgStore //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
+	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
+	vmConfig      *vm.Config
+
+	// MsgStore contains recent consensus messages for accountability and peer state recovery.
+	MsgStore           *tendermintCore.MsgStore
+	askSyncRateLimiter *helpers.TimeWindowLimiter
+
 	aggregator      *aggregator
 	isHeightExpired func(headHeight uint64, height uint64) bool // pass a function to avoid import loops
 

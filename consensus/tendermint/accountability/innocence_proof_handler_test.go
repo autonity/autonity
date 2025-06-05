@@ -1,6 +1,7 @@
 package accountability
 
 import (
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math/big"
 	"testing"
 	"time"
@@ -326,7 +327,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 			}
 		}
 		require.Equal(t, 1, len(fd.innocenceProofBuff.accusationList))
-		require.Equal(t, ErrDuplicateMessage, err)
+		require.Equal(t, helpers.ErrDuplicateMessage, err)
 	})
 
 	t.Run("accusation is not from committee member", func(t *testing.T) {
