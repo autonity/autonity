@@ -142,102 +142,39 @@ func (s *Selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 	return selected, nil
 }
 
-func (s *Selector) selectNodesByLatencySpread() []network.Node {
-
+func (s *Selector) selectRemoteNodesByLatencySpread() []network.Node {
 	recipients := make([]network.Node, 0)
 	usedClusters := make(map[int]bool)
 
 	clusters := s.networkProvider.Clusters()
-	// Select one node from each remote cluster
-	for clusterID := range clusters.Base() {
+
+	// Select one connected node from each remote cluster
+	for _, nodes := range clusters.BucketNodes() {
+		for _, node := range nodes {
+			if usedClusters[node.ClusterID] || node.ClusterID == clusters.ID() {
+				continue
+			}
+			if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
+				recipients = append(recipients, node)
+				usedClusters[node.ClusterID] = true
+				break // Take the first connected node (primary or fallback)
+			}
+		}
+	}
+
+	// fallback, optimal node by latency spread was not found pick another
+	for clusterID, nodes := range clusters.Base() {
 		if clusterID == clusters.ID() || usedClusters[clusterID] {
-			continue
+			continue // Skip local cluster and already selected clusters
 		}
-		var selectedNode *network.Node
-		// Try primary nodes from this cluster
-		for _, primary := range clusters.BucketNodes() {
-			if primary.ClusterID == clusterID && !usedClusters[clusterID] {
-				if _, ok := s.peerFinder.FindPeer(primary.Addr); ok {
-					selectedNode = &primary
-					break
-				}
-			}
-		}
-		// Try fallback nodes from this cluster
-		if selectedNode == nil {
-			for _, fallbacks := range clusters.BucketFallBacks() {
-				for _, node := range fallbacks {
-					if node.ClusterID == clusterID && !usedClusters[clusterID] {
-						if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
-							selectedNode = &node
-							break
-						}
-					}
-				}
-				if selectedNode != nil {
-					break
-				}
-			}
-		}
-		// Try any node from the cluster
-		if selectedNode == nil {
-			for _, node := range clusters.MembersByID(clusterID) {
-				if usedClusters[node.ClusterID] {
-					continue
-				}
-				if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
-					selectedNode = &node
-					break
-				}
-			}
-		}
-		if selectedNode != nil {
-			recipients = append(recipients, network.Node{Addr: selectedNode.Addr, Lat: selectedNode.Lat, ClusterID: selectedNode.ClusterID})
-			usedClusters[clusterID] = true
-		}
-	}
-
-	// Select local cluster nodes (up to sqrt(n))
-	if clusters.ID() != -1 && !usedClusters[clusters.ID()] {
-		localTarget := int(math.Sqrt(float64(len(clusters.MembersByID(clusters.ID())))))
-		localSelected := 0
-		// Try local primary nodes
-		for _, node := range clusters.LocalBucketNodes() {
-			if localSelected >= localTarget || usedClusters[node.ClusterID] {
-				continue
-			}
+		for _, node := range nodes {
 			if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
 				recipients = append(recipients, node)
 				usedClusters[node.ClusterID] = true
-				localSelected++
-			}
-		}
-		// Try local fallback nodes
-		for _, node := range clusters.LocalBucketFallBacks() {
-			if localSelected >= localTarget || usedClusters[node.ClusterID] {
-				continue
-			}
-			if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
-				recipients = append(recipients, node)
-				usedClusters[node.ClusterID] = true
-				localSelected++
-			}
-		}
-		// Try any node from local cluster
-		if localSelected < localTarget {
-			for _, node := range clusters.MembersByID(clusters.ID()) {
-				if localSelected >= localTarget || usedClusters[node.ClusterID] {
-					continue
-				}
-				if _, ok := s.peerFinder.FindPeer(node.Addr); ok {
-					recipients = append(recipients, node)
-					usedClusters[node.ClusterID] = true
-					localSelected++
-				}
+				break // Take the first connected node
 			}
 		}
 	}
-
 	return recipients
 }
 
@@ -264,18 +201,24 @@ func (s *Selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 
 	switch senderType {
 	case originator:
-		recipients = s.selectNodesByLatencySpread()
+		recipients = s.selectRemoteNodesByLatencySpread()
 		// additional nodes
+		targetLocalNodes  := len(clusters.Base()[ownClusterID])
 		if isProposal {
 			minNodes = 1
 			lowLatencyNodes = 0
+			targetLocalNodes = int(math.Sqrt(float64(targetLocalNodes)))
 		} else {
 			minNodes = 2
 			lowLatencyNodes = 6
 		}
 		// 1 closest node from each cluster
 		for clusterID := range clusters.Base() {
-			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{from})...)
+			if clusterID == ownClusterID {
+				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, targetLocalNodes, lowLatencyNodes, []common.Address{from})...)
+			} else {
+				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{from})...)
+			}
 		}
 
 	case firstRelayerOriginCluster:
