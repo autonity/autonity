@@ -203,16 +203,14 @@ func (s *Selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 	case originator:
 		recipients = s.selectRemoteNodesByLatencySpread()
 		// additional nodes
-		targetLocalNodes  := len(clusters.Base()[ownClusterID])
+		targetLocalNodes := len(clusters.Base()[ownClusterID])
+		minNodes = 2
+		lowLatencyNodes = 4
 		if isProposal {
 			minNodes = 1
 			lowLatencyNodes = 0
 			targetLocalNodes = int(math.Sqrt(float64(targetLocalNodes)))
-		} else {
-			minNodes = 2
-			lowLatencyNodes = 6
 		}
-		// 1 closest node from each cluster
 		for clusterID := range clusters.Base() {
 			if clusterID == ownClusterID {
 				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, targetLocalNodes, lowLatencyNodes, []common.Address{from})...)
