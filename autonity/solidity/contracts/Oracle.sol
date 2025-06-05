@@ -53,6 +53,11 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
     mapping(string => mapping(address => Report)) internal reports;
 
     // ==== Private state variables ====
+    /**
+    * @dev Note that the oracle DECIMALS cannot be changed without having an effect on the
+    * Stabilization computations
+    */
+    uint8 private constant ORACLE_DECIMALS = 18;
     string[] private symbols;
     string[] private newSymbols;
     uint private newVotePeriod;
@@ -542,11 +547,9 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
     /**
     * @notice Decimal places to be used with price reports
     * @dev IOracle interface method implementation.
-    * Note that the oracle DECIMALS cannot be changed without having an effect on the
-    * Stabilization computations
     */
     function getDecimals() external pure returns (uint8) {
-        return DECIMALS;
+        return ORACLE_DECIMALS;
     }
 
     /**

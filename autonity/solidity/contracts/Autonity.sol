@@ -237,7 +237,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     * @dev ERC-20 Optional.
     */
     function decimals() external virtual pure returns (uint8) {
-        return DECIMALS;
+        return NTN_DECIMALS;
     }
 
     /**

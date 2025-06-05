@@ -14,7 +14,7 @@ import {IOracle} from "./IOracle.sol";
 import {IScheduleController} from "./IScheduleController.sol";
 import {IUpgradeManager} from "./IUpgradeManager.sol";
 
-uint8 constant DECIMALS = 18;
+uint8 constant NTN_DECIMALS = 18;
 
 /**
  * @dev Interface of the Autonity Contract.
