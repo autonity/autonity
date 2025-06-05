@@ -22,8 +22,7 @@ type Clusters struct {
 	minLatency           uint
 	maxLatency           uint
 	bucketSize           float64
-	clusterToBucket      map[int][]int  // clusterID -> list of bucket indices it can fill
-	bucketNodes          map[int]Node   // bucketIdx -> preselected node (remote clusters)
+	bucketNodes          map[int][]Node // bucketIdx -> preselected node (remote clusters)
 	bucketFallbacks      map[int][]Node // bucketIdx -> fallback nodes (remote clusters)
 	localBucketNodes     []Node         // preselected nodes for local cluster
 	localBucketFallbacks []Node         // fallback nodes for local cluster
@@ -45,14 +44,19 @@ func createClusters(
 		addressToCluster: make(map[common.Address]int),
 		minLatency:       uint(math.MaxUint),
 		maxLatency:       uint(0),
-		clusterToBucket:  make(map[int][]int),
-		bucketNodes:      make(map[int]Node),
+		bucketNodes:      make(map[int][]Node),
 		bucketFallbacks:  make(map[int][]Node),
 		ownClusterID:     -1,
 	}
 
 	for i, addr := range committee {
 		clusterID := i % numClusters
+		if addr == self {
+			c.self = addr
+			c.ownClusterID = clusterID
+			c.addressToCluster[addr] = clusterID
+			continue // Skip adding self to base
+		}
 		latency := constants.DefaultLatency
 		if lat, ok := latencyMap[addr]; ok {
 			latency = lat
@@ -65,10 +69,6 @@ func createClusters(
 		}
 		c.base[clusterID] = append(c.base[clusterID], Node{Addr: addr, Lat: latency, ClusterID: clusterID})
 		c.addressToCluster[addr] = clusterID
-		if addr == self {
-			c.self = addr
-			c.ownClusterID = clusterID
-		}
 	}
 	if c.ownClusterID == -1 {
 		return Clusters{}, errors.New("self address not in committee")
@@ -76,6 +76,13 @@ func createClusters(
 	c.maxLatency = uint(float64(c.maxLatency) * constants.MaxLatencyCapFactor)
 	if c.maxLatency < c.minLatency {
 		c.maxLatency = c.minLatency
+	}
+
+	// Sort each cluster by latency
+	for clusterID := range c.base {
+		sort.Slice(c.base[clusterID], func(i, j int) bool {
+			return c.base[clusterID][i].Lat < c.base[clusterID][j].Lat
+		})
 	}
 	return c, nil
 }
@@ -85,203 +92,92 @@ func (c *Clusters) Base() [][]Node {
 	return c.base
 }
 
-func (c *Clusters) ComputeLatencyBuckets() (remoteBuckets, localBuckets [][]Node) {
+// getBucketIndex calculates the bucket index for a given latency
+func (c *Clusters) getBucketIndex(latency uint) int {
+	if c.bucketSize < 1 {
+		return 0
+	}
+	bucketIdx := int(float64(latency-c.minLatency) / c.bucketSize)
+	if bucketIdx >= len(c.base) {
+		bucketIdx = len(c.base) - 1
+	}
+	return bucketIdx
+}
+
+func (c *Clusters) ComputeLatencyBuckets() [][]Node {
 	BucketCount := len(c.base)
 	c.bucketSize = float64(c.maxLatency-c.minLatency) / float64(BucketCount)
 	if c.bucketSize < 1 {
 		c.bucketSize = 1
 	}
-	// latency buckets are used to group nodes by latency ranges, we create two sets:
-	// one for remote nodes and one for the local nodes
-	remoteBuckets = make([][]Node, BucketCount)
-	localBuckets = make([][]Node, BucketCount)
+	buckets := make([][]Node, BucketCount)
 
 	for clusterID, cluster := range c.base {
+		if clusterID == c.ownClusterID {
+			continue
+		}
 		bucketSet := make(map[int]bool)
-		isLocal := clusterID == c.ownClusterID
-		targetBuckets := remoteBuckets
-		if isLocal {
-			targetBuckets = localBuckets
-		} else {
-			c.clusterToBucket[clusterID] = []int{}
-		}
 		for _, node := range cluster {
-			bucketIdx := int(float64(node.Lat-c.minLatency) / c.bucketSize)
-			if bucketIdx >= BucketCount {
-				bucketIdx = BucketCount - 1
-			}
-			if !isLocal {
-				bucketSet[bucketIdx] = true
-			}
-			targetBuckets[bucketIdx] = append(targetBuckets[bucketIdx], node)
-		}
-		if !isLocal {
-			for bucketIdx := range bucketSet {
-				c.clusterToBucket[clusterID] = append(c.clusterToBucket[clusterID], bucketIdx)
-			}
+			bucketIdx := c.getBucketIndex(node.Lat)
+			buckets[bucketIdx] = append(buckets[bucketIdx], node)
+			bucketSet[bucketIdx] = true
 		}
 	}
 
-	return remoteBuckets, localBuckets
+	return buckets
 }
 
+// AssignRemoteNodes assigns one primary node and up to 2 fallback nodes per remote cluster to buckets
 func (c *Clusters) AssignRemoteNodes(buckets [][]Node, numClusters int) {
-	BucketCount := len(c.base)
+	BucketCount := len(buckets)
 	filledBuckets := make([]bool, BucketCount)
 	clusterAssigned := make(map[int]bool)
 
-	// except own cluster
 	for len(c.bucketNodes) < numClusters-1 && len(c.bucketNodes) < BucketCount {
-		// count cluster candidates for each bucket
-		clusterCandidatesForBucket := make([][]int, BucketCount)
-		for clusterID, bucketIndices := range c.clusterToBucket {
-			if clusterID == c.ownClusterID || clusterAssigned[clusterID] {
+		// Find bucket with lowest-latency unassigned node
+		bestBucket := -1
+		lowestLatency := uint(math.MaxUint)
+		var bestNode *Node
+		var bestNodeIndex int
+		for bucketIdx, nodes := range buckets {
+			if filledBuckets[bucketIdx] || len(nodes) == 0 {
 				continue
 			}
-			for _, bucketIdx := range bucketIndices {
-				if !filledBuckets[bucketIdx] {
-					clusterCandidatesForBucket[bucketIdx] = append(clusterCandidatesForBucket[bucketIdx], clusterID)
-				}
-			}
-		}
-
-		// Find the bucket with the fewest candidates (but at least one)
-		// we want to prioritize the buckets with lowest candidates
-		minCandidates := math.MaxInt32
-		bestBucket := -1
-		for i, clusterIDs := range clusterCandidatesForBucket {
-			count := len(clusterIDs)
-			if count > 0 && count < minCandidates && !filledBuckets[i] {
-				minCandidates = count
-				bestBucket = i
-			}
-		}
-		// there was no cluster available for this bucket (latency range)
-		if bestBucket == -1 {
-			break
-		}
-
-		var bestNode *Node
-		for _, clusterID := range clusterCandidatesForBucket[bestBucket] {
-			for _, node := range buckets[bestBucket] {
-				if node.ClusterID == clusterID {
+			for _, node := range nodes {
+				if node.Lat < lowestLatency && !clusterAssigned[node.ClusterID] {
+					lowestLatency = node.Lat
+					bestBucket = bucketIdx
 					bestNode = &node
-					clusterAssigned[clusterID] = true
-					break
-				}
-			}
-			if bestNode != nil {
-				break
-			}
-		}
-
-		if bestNode != nil {
-			c.bucketNodes[bestBucket] = *bestNode
-			filledBuckets[bestBucket] = true
-		} else {
-			break
-		}
-	}
-
-}
-
-func (c *Clusters) AssignRemoteFallbacks() {
-	BucketCount := len(c.base)
-	for i := 0; i < BucketCount; i++ {
-		targetLat := uint(float64(i)*c.bucketSize + c.bucketSize/2 + float64(c.minLatency))
-		var clusterID int
-		// For buckets with a primary node, use the same cluster
-		if primary, exists := c.bucketNodes[i]; exists {
-			clusterID = primary.ClusterID
-			if clusterID == c.ownClusterID {
-				continue // Skip local cluster
-			}
-			// Select fallback nodes from the same cluster, excluding the primary
-			for _, node := range c.base[clusterID] {
-				if node.Addr == primary.Addr {
-					continue // Skip the primary node
-				}
-				diff := uint(math.Abs(float64(node.Lat - targetLat)))
-				if diff < uint(math.MaxUint32) { // Arbitrary threshold to include close nodes
-					c.bucketFallbacks[i] = append(c.bucketFallbacks[i], node)
-				}
-			}
-		} else {
-			// For buckets without a primary, use unassigned clusters
-			usedClusters := make(map[int]bool)
-			for _, node := range c.bucketNodes {
-				usedClusters[node.ClusterID] = true
-			}
-			for clusterID = range c.base {
-				if clusterID == c.ownClusterID || usedClusters[clusterID] {
-					continue
-				}
-				// Select the closest node from this cluster
-				var closest *Node
-				minDiff := uint(math.MaxUint32)
-				for _, node := range c.base[clusterID] {
-					diff := uint(math.Abs(float64(node.Lat - targetLat)))
-					if diff < minDiff {
-						minDiff = diff
-						closest = &node
+					// Find index of this node in c.base[clusterID]
+					for i, n := range c.base[node.ClusterID] {
+						if n.Addr == node.Addr {
+							bestNodeIndex = i
+							break
+						}
 					}
 				}
-				if closest != nil {
-					c.bucketFallbacks[i] = append(c.bucketFallbacks[i], *closest)
-					usedClusters[clusterID] = true
-				}
 			}
 		}
-	}
-}
-
-// PreselectLocalNodes preselects sqrt(n) nodes and fallbacks for the local cluster
-func (c *Clusters) PreselectLocalNodes(localNodes []Node, localBuckets [][]Node) {
-	BucketCount := len(c.base)
-	targetLocalNodes := int(math.Sqrt(float64(len(localNodes))))
-	if targetLocalNodes == 0 {
-		return
-	}
-
-	// Select up to sqrt(n) nodes, prioritizing bucket coverage
-	usedNodes := make(map[common.Address]bool)
-	for i := 0; i < BucketCount && len(c.localBucketNodes) < targetLocalNodes; i++ {
-		for _, node := range localBuckets[i] {
-			if !usedNodes[node.Addr] && len(c.localBucketNodes) < targetLocalNodes {
-				c.localBucketNodes = append(c.localBucketNodes, node)
-				usedNodes[node.Addr] = true
-				break
-			}
+		if bestBucket == -1 || bestNode == nil {
+			break
 		}
-	}
 
-	// Add fallback nodes for local cluster
-	for i := 0; i < BucketCount && len(c.localBucketFallbacks) < targetLocalNodes; i++ {
-		for _, node := range localBuckets[i] {
-			if !usedNodes[node.Addr] && len(c.localBucketFallbacks) < targetLocalNodes {
-				c.localBucketFallbacks = append(c.localBucketFallbacks, node)
-				usedNodes[node.Addr] = true
-			}
-		}
-	}
-}
+		// Assign primary node
+		c.bucketNodes[bestBucket] = append(c.bucketNodes[bestBucket], *bestNode)
+		filledBuckets[bestBucket] = true
+		clusterAssigned[bestNode.ClusterID] = true
 
-// Prepare filters self from clusters and sorts members by latency
-func (c *Clusters) Prepare(self common.Address) {
-	for clusterID := range c.base {
-		var peers []Node
-		for _, node := range c.base[clusterID] {
-			if node.Addr == self {
-				continue
-			}
-			peers = append(peers, node)
+		// Assign up to 2 fallback nodes from the same cluster, using subsequent indices
+		clusterNodes := c.base[bestNode.ClusterID]
+		if bestNodeIndex > 0 {
+			// Add previous node as fallback if it exists
+			c.bucketFallbacks[bestBucket] = append(c.bucketFallbacks[bestBucket], clusterNodes[bestNodeIndex-1])
 		}
-		if len(peers) == 0 {
-			c.base[clusterID] = []Node{}
-			continue
+		if bestNodeIndex < len(clusterNodes)-1 {
+			// add next node as fallback if it exists
+			c.bucketFallbacks[bestBucket] = append(c.bucketFallbacks[bestBucket], clusterNodes[bestNodeIndex+1])
 		}
-		sort.Slice(peers, func(i, j int) bool { return peers[i].Lat < peers[j].Lat })
-		c.base[clusterID] = peers
+
 	}
 }
 
@@ -327,18 +223,6 @@ func (c *Clusters) Self() common.Address {
 	return c.self
 }
 
-func (c *Clusters) BucketNodes() map[int]Node {
+func (c *Clusters) BucketNodes() map[int][]Node {
 	return c.bucketNodes
-}
-
-func (c *Clusters) BucketFallBacks() map[int][]Node {
-	return c.bucketFallbacks
-}
-
-func (c *Clusters) LocalBucketNodes() []Node {
-	return c.localBucketNodes
-}
-
-func (c *Clusters) LocalBucketFallBacks() []Node {
-	return c.localBucketFallbacks
 }

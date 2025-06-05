@@ -26,17 +26,11 @@ func New(
 		return Clusters{}, err
 	}
 
-	c.Prepare(self)
+	remoteBuckets := c.ComputeLatencyBuckets()
 
-	remoteBuckets, localBuckets := c.ComputeLatencyBuckets()
-
-	PrintLatencyBuckets(remoteBuckets, localBuckets, c.ownClusterID, c.bucketSize, c.minLatency)
+	PrintLatencyBuckets(remoteBuckets, c.ownClusterID, c.bucketSize, c.minLatency)
 
 	c.AssignRemoteNodes(remoteBuckets, numClusters)
-
-	c.AssignRemoteFallbacks()
-
-	c.PreselectLocalNodes(c.base[c.ownClusterID], localBuckets)
 
 	return c, nil
 }
@@ -71,28 +65,13 @@ func (n *Network) UpdateClusters(clusters Clusters) {
 	n.clusters = clusters
 }
 
-func PrintLatencyBuckets(remoteBuckets, localBuckets [][]Node, ownClusterID int, bucketSize float64, minLatency uint) {
+func PrintLatencyBuckets(remoteBuckets [][]Node, ownClusterID int, bucketSize float64, minLatency uint) {
 	var sb strings.Builder
 	sb.WriteString("\nLatency Buckets for Clusters:\n")
 
 	// Log remote buckets
 	sb.WriteString("Remote Buckets:\n")
 	for bucketIdx, nodes := range remoteBuckets {
-		lowerLat := uint(float64(bucketIdx)*bucketSize) + minLatency
-		upperLat := uint(float64(bucketIdx+1)*bucketSize) + minLatency
-		sb.WriteString(fmt.Sprintf("  Bucket #%d (Latency %d-%d ms): %d nodes\n", bucketIdx, lowerLat, upperLat, len(nodes)))
-		if len(nodes) == 0 {
-			sb.WriteString("    [Empty]\n")
-			continue
-		}
-		for _, node := range nodes {
-			sb.WriteString(fmt.Sprintf("    Node: %s, Latency: %d ms, ClusterID: %d\n", node.Addr.Hex(), node.Lat, node.ClusterID))
-		}
-	}
-
-	// Log local buckets
-	sb.WriteString(fmt.Sprintf("Local Buckets (Cluster #%d):\n", ownClusterID))
-	for bucketIdx, nodes := range localBuckets {
 		lowerLat := uint(float64(bucketIdx)*bucketSize) + minLatency
 		upperLat := uint(float64(bucketIdx+1)*bucketSize) + minLatency
 		sb.WriteString(fmt.Sprintf("  Bucket #%d (Latency %d-%d ms): %d nodes\n", bucketIdx, lowerLat, upperLat, len(nodes)))
