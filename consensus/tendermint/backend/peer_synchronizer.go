@@ -34,7 +34,7 @@ func (sb *Backend) syncPeer(payload []byte, sender common.Address, errCh chan<- 
 		return
 	}
 
-	if sb.askSyncRateLimiter.TotalRecords() >= epoch.Committee.Len() {
+	if sb.askSyncRateLimiter.TotalRecords() > epoch.Committee.Len() {
 		sb.askSyncRateLimiter.Cleanup()
 	}
 }
