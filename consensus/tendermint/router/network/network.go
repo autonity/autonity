@@ -28,7 +28,7 @@ func New(
 
 	remoteBuckets := c.ComputeLatencyBuckets()
 
-	PrintLatencyBuckets(remoteBuckets, c.ownClusterID, c.bucketSize, c.minLatency)
+	PrintLatencyBuckets(remoteBuckets, c.bucketSize, c.minLatency)
 
 	c.AssignRemoteNodes(remoteBuckets, numClusters)
 
@@ -65,7 +65,7 @@ func (n *Network) UpdateClusters(clusters Clusters) {
 	n.clusters = clusters
 }
 
-func PrintLatencyBuckets(remoteBuckets [][]Node, ownClusterID int, bucketSize float64, minLatency uint) {
+func PrintLatencyBuckets(remoteBuckets [][]Node, bucketSize float64, minLatency uint) {
 	var sb strings.Builder
 	sb.WriteString("\nLatency Buckets for Clusters:\n")
 

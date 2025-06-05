@@ -16,17 +16,15 @@ type Node struct {
 }
 
 type Clusters struct {
-	base                 [][]Node
-	ownClusterID         int
-	self                 common.Address
-	minLatency           uint
-	maxLatency           uint
-	bucketSize           float64
-	bucketNodes          map[int][]Node // bucketIdx -> preselected node (remote clusters)
-	bucketFallbacks      map[int][]Node // bucketIdx -> fallback nodes (remote clusters)
-	localBucketNodes     []Node         // preselected nodes for local cluster
-	localBucketFallbacks []Node         // fallback nodes for local cluster
-	addressToCluster     map[common.Address]int
+	base             [][]Node
+	ownClusterID     int
+	self             common.Address
+	minLatency       uint
+	maxLatency       uint
+	bucketSize       float64
+	bucketNodes      map[int][]Node // bucketIdx -> preselected node (remote clusters)
+	bucketFallbacks  map[int][]Node // bucketIdx -> fallback nodes (remote clusters)
+	addressToCluster map[common.Address]int
 }
 
 // createClusters initializes the Clusters struct with committee members and latency data
