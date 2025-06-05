@@ -93,14 +93,15 @@ var (
 )
 
 const (
-	bodyCacheLimit      = 256
-	blockCacheLimit     = 256
-	receiptsCacheLimit  = 32
-	txLookupCacheLimit  = 1024
-	maxFutureBlocks     = 256
-	maxTimeFutureBlocks = 30
-	TriesInMemory       = 128
-	epochCacheLimit     = 1024
+	bodyCacheLimit            = 256
+	blockCacheLimit           = 256
+	receiptsCacheLimit        = 32
+	txLookupCacheLimit        = 1024
+	maxFutureBlocks           = 256
+	maxTimeFutureBlocks       = 30
+	TriesInMemory             = 128
+	epochCacheLimit           = 512
+	contractsConfigCacheLimit = 512
 
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	//
@@ -210,14 +211,15 @@ type BlockChain struct {
 	currentBlock     atomic.Value // Current head of the blockchain
 	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 
-	stateCache    state.Database // State database to reuse between imports (contains state cache)
-	bodyCache     *lru.Cache     // Cache for the most recent block bodies
-	bodyRLPCache  *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
-	receiptsCache *lru.Cache     // Cache for the most recent receipts per block
-	blockCache    *lru.Cache     // Cache for the most recent entire blocks
-	epochCache    *lru.Cache     // Cache for the most recent height's epoch
-	txLookupCache *lru.Cache     // Cache for the most recent transaction lookup data.
-	futureBlocks  *lru.Cache     // future blocks are blocks added for later processing
+	stateCache           state.Database // State database to reuse between imports (contains state cache)
+	bodyCache            *lru.Cache     // Cache for the most recent block bodies
+	bodyRLPCache         *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
+	receiptsCache        *lru.Cache     // Cache for the most recent receipts per block
+	blockCache           *lru.Cache     // Cache for the most recent entire blocks
+	epochCache           *lru.Cache     // Cache for the most recent height's epoch
+	txLookupCache        *lru.Cache     // Cache for the most recent transaction lookup data.
+	futureBlocks         *lru.Cache     // future blocks are blocks added for later processing
+	contractsConfigCache *lru.Cache     // Cache for the contracts config
 
 	wg            sync.WaitGroup
 	quit          chan struct{} // shutdown signal, closed in Stop.
@@ -262,6 +264,7 @@ func NewBlockChain(db ethdb.Database,
 	txLookupCache, _ := lru.New(txLookupCacheLimit)
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 	epochCache, _ := lru.New(epochCacheLimit)
+	contractsConfigCache, _ := lru.New(contractsConfigCacheLimit)
 
 	bc := &BlockChain{
 		chainConfig: chainConfig,
@@ -273,19 +276,20 @@ func NewBlockChain(db ethdb.Database,
 			Journal:   cacheConfig.TrieCleanJournal,
 			Preimages: cacheConfig.Preimages,
 		}),
-		quit:          make(chan struct{}),
-		chainmu:       syncx.NewClosableMutex(),
-		bodyCache:     bodyCache,
-		bodyRLPCache:  bodyRLPCache,
-		receiptsCache: receiptsCache,
-		blockCache:    blockCache,
-		txLookupCache: txLookupCache,
-		epochCache:    epochCache,
-		futureBlocks:  futureBlocks,
-		engine:        engine,
-		vmConfig:      vmConfig,
-		senderCacher:  senderCacher,
-		log:           log,
+		quit:                 make(chan struct{}),
+		chainmu:              syncx.NewClosableMutex(),
+		bodyCache:            bodyCache,
+		bodyRLPCache:         bodyRLPCache,
+		receiptsCache:        receiptsCache,
+		blockCache:           blockCache,
+		txLookupCache:        txLookupCache,
+		epochCache:           epochCache,
+		futureBlocks:         futureBlocks,
+		contractsConfigCache: contractsConfigCache,
+		engine:               engine,
+		vmConfig:             vmConfig,
+		senderCacher:         senderCacher,
+		log:                  log,
 	}
 	bc.forker = NewForkChoice(bc, shouldPreserve)
 	bc.validator = NewBlockValidator(chainConfig, bc, engine)
@@ -692,6 +696,7 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, root common.Hash, repair bo
 	bc.epochCache.Purge()
 	bc.txLookupCache.Purge()
 	bc.futureBlocks.Purge()
+	bc.contractsConfigCache.Purge()
 
 	// load last state from DB after chain rewind.
 	return rootNumber, bc.loadLastState()

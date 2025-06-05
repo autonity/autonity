@@ -9,6 +9,8 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
+// NOTE: callers should not modify the returned values and instead treat them as read-only
+
 func (bc *BlockChain) EpochPeriodByHeight(height uint64) (*big.Int, error) {
 	config, err := bc.readContractsConfigByHeight(height)
 	if err != nil {
@@ -50,6 +52,11 @@ func (bc *BlockChain) readContractsConfigByHeight(height uint64) (*types.Contrac
 }
 
 func (bc *BlockChain) readContractsConfigAt(height uint64) (*types.ContractsConfig, error) {
+	// check the in-memory cache first
+	if config, isCached := bc.contractsConfigCache.Get(height); isCached {
+		return config.(*types.ContractsConfig), nil
+	}
+
 	config, _ := rawdb.ReadContractsConfig(bc.db, height)
 	// try to restore config from state if not cached
 	if config == nil {
@@ -60,6 +67,7 @@ func (bc *BlockChain) readContractsConfigAt(height uint64) (*types.ContractsConf
 			return nil, fmt.Errorf("failed to restore contract config for %d : %w", height, err)
 		}
 	}
+	bc.contractsConfigCache.Add(height, config)
 	return config, nil
 }
 
