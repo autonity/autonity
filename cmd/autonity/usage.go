@@ -153,7 +153,6 @@ var AppHelpFlagGroups = []flags.FlagGroup{
 			utils.MinerNotifyFlag,
 			utils.MinerNotifyFullFlag,
 			utils.MinerGasPriceFlag,
-			utils.MinerGasLimitFlag,
 			utils.MinerExtraDataFlag,
 			utils.MinerRecommitIntervalFlag,
 			utils.MinerNoVerifyFlag,

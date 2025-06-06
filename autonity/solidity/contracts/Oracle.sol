@@ -5,7 +5,6 @@ import "./interfaces/IOracle.sol";
 import "./interfaces/IAutonity.sol";
 import {Autonity} from "./Autonity.sol";
 import {EnumerableSet} from "./utils/Set.sol";
-import {ORACLE_SLASHING_RATE_CAP} from "./ProtocolConstants.sol";
 import {ReentrancyGuard} from "./ReentrancyGuard.sol";
 import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
 
@@ -44,6 +43,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
         uint256 baseSlashingRate; // Base rate for slashing
         uint256 nonRevealThreshold; // Threshold for missed reveals
         uint256 revealResetInterval; // Number of rounds after the missed reveal counter is reset
+        uint256 slashingRateCap; // maximum slashing rate for oracle penalties
     }
 
     // ==== Public state variables ====
@@ -609,7 +609,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
     function setVotePeriod(uint _votePeriod) external virtual onlyOperator {
         _checkVotePeriod(_votePeriod);
         newVotePeriod = _votePeriod;
-        emit ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod);
+        emit ConfigUpdateUint("votePeriod", config.votePeriod, _votePeriod, lastRoundBlock + config.votePeriod);
     }
 
     /**
@@ -620,9 +620,9 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
             _threshold < _resetInterval && _resetInterval > 0,
             "invalid config"
         );
-        emit ConfigUpdateUint("revealResetInterval", config.revealResetInterval, _resetInterval);
+        emit ConfigUpdateUint("revealResetInterval", config.revealResetInterval, _resetInterval, block.number);
         config.revealResetInterval = _resetInterval;
-        emit ConfigUpdateUint("nonRevealThreshold", config.nonRevealThreshold, _threshold);
+        emit ConfigUpdateUint("nonRevealThreshold", config.nonRevealThreshold, _threshold, block.number);
         config.nonRevealThreshold = _threshold;
     }
 
@@ -632,14 +632,17 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
     function setSlashingConfig(
         int256 _outlierSlashingThreshold,
         int256 _outlierDetectionThreshold,
-        uint256 _baseSlashingRate
+        uint256 _baseSlashingRate,
+        uint256 _slashingRateCap
     ) external virtual onlyOperator {
-        emit ConfigUpdateInt("outlierSlashingThreshold", config.outlierSlashingThreshold, _outlierSlashingThreshold);
+        emit ConfigUpdateInt("outlierSlashingThreshold", config.outlierSlashingThreshold, _outlierSlashingThreshold, block.number);
         config.outlierSlashingThreshold = _outlierSlashingThreshold;
-        emit ConfigUpdateInt("outlierDetectionThreshold", config.outlierDetectionThreshold, _outlierDetectionThreshold);
+        emit ConfigUpdateInt("outlierDetectionThreshold", config.outlierDetectionThreshold, _outlierDetectionThreshold, block.number);
         config.outlierDetectionThreshold = _outlierDetectionThreshold;
-        emit ConfigUpdateUint("baseSlashingRate", config.baseSlashingRate, _baseSlashingRate);
+        emit ConfigUpdateUint("baseSlashingRate", config.baseSlashingRate, _baseSlashingRate, block.number);
         config.baseSlashingRate = _baseSlashingRate;
+        emit ConfigUpdateUint("slashingRateCap", config.slashingRateCap, _slashingRateCap, block.number);
+        config.slashingRateCap = _slashingRateCap;
     }
 
     function _checkVotePeriod(uint _votePeriod) internal virtual view {
@@ -826,8 +829,8 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
                                config.baseSlashingRate) / 10_000;
 
         // Capped the oracle slashing rate
-        if (_slashingRate > ORACLE_SLASHING_RATE_CAP) {
-            _slashingRate = ORACLE_SLASHING_RATE_CAP;
+        if (_slashingRate > config.slashingRateCap) {
+            _slashingRate = config.slashingRateCap;
         }
 
         return config.autonity.slash(voterValidators[_outlier], _slashingRate);
@@ -856,7 +859,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
                 emit NoRevealPenalty(_voter, round, _voterInfo.nonRevealCount);
                 _voterInfo.nonRevealCount = 0;
                 // penalize with highest
-                config.autonity.slash(_voter, ORACLE_SLASHING_RATE_CAP);
+                config.autonity.slash(_voter, config.slashingRateCap);
             }
         }
         return penalizedVoters;

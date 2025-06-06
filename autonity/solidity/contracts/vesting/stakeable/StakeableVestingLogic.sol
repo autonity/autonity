@@ -48,7 +48,7 @@ contract StakeableVestingLogic is StakeableVestingStorage, ContractBase, Validat
      * @custom:restricted-to operator account
      */
     function setManagerContract(address _managerContract) virtual external onlyOperator {
-        emit IConfigEvents.ConfigUpdateAddress("managerContract", address(managerContract), _managerContract);
+        emit IConfigEvents.ConfigUpdateAddress("managerContract", address(managerContract), _managerContract, block.number);
         managerContract = IStakeableVestingManager(payable(_managerContract));
     }
 

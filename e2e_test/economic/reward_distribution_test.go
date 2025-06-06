@@ -3,12 +3,12 @@ package economic
 import (
 	"context"
 	"fmt"
+	"github.com/autonity/autonity/autonity/bindings"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
-	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/params"
@@ -43,13 +43,13 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// redeem fees
 
 	// Setup Bindings
-	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, n.WsClient)
+	autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, n.WsClient)
 	valAddrs, _ := autonityContract.GetValidators(nil)
-	liquidStateContracts := make([]*autonity.ILiquid, len(valAddrs))
-	validators := make([]autonity.AutonityValidator, len(valAddrs))
+	liquidStateContracts := make([]*bindings.ILiquid, len(valAddrs))
+	validators := make([]bindings.AutonityValidator, len(valAddrs))
 	for i, valAddr := range valAddrs {
 		validators[i], _ = autonityContract.GetValidator(nil, valAddr)
-		liquidStateContracts[i], _ = autonity.NewILiquid(validators[i].LiquidStateContract, n.WsClient)
+		liquidStateContracts[i], _ = bindings.NewILiquid(validators[i].LiquidStateContract, n.WsClient)
 	}
 	transactor, _ := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, big.NewInt(1234))
 	tx, err := liquidStateContracts[0].Transfer(

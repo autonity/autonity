@@ -74,8 +74,13 @@ type testBlockChain struct {
 	chainHeadFeed *event.Feed
 }
 
-func (bc *testBlockChain) MinBaseFee() *big.Int {
-	return new(big.Int)
+func (bc *testBlockChain) Eip1559ParamsByHeight(_ uint64) (*types.Eip1559Params, error) {
+	return &types.Eip1559Params{
+		MinBaseFee:               new(big.Int).SetUint64(params.TestMinBaseFee),
+		BaseFeeChangeDenominator: new(big.Int).SetUint64(params.DefaultBaseFeeChangeDenominator),
+		ElasticityMultiplier:     new(big.Int).SetUint64(params.DefaultElasticityMultiplier),
+		GasLimitBoundDivisor:     new(big.Int).SetUint64(params.DefaultGasLimitBoundDivisor),
+	}, nil
 }
 
 func (bc *testBlockChain) Config() *params.ChainConfig {

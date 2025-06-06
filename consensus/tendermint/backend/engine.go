@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/autonity/autonity/autonity/bindings"
+
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -116,9 +118,17 @@ func (sb *Backend) verifyHeader(config *params.ChainConfig, header *types.Header
 		return errInvalidRound
 	}
 	// Don't waste time checking blocks from the future
-
 	if header.Time > uint64(now().Unix()+allowedFutureBlockTimeSeconds) {
 		return consensus.ErrFutureTimestampBlock
+	}
+
+	// check the chain is coherent
+	if parent.Number.Uint64() != header.Number.Uint64()-1 || parent.Hash() != header.ParentHash {
+		return consensus.ErrUnknownAncestor
+	}
+	// Ensure that the block's timestamp isn't too close to it's parent
+	if parent.Time+1 > header.Time { // Todo : fetch block period from contract
+		return errInvalidTimestamp
 	}
 
 	// Ensure that the coinbase is valid
@@ -145,18 +155,18 @@ func (sb *Backend) verifyHeader(config *params.ChainConfig, header *types.Header
 	if header.GasUsed > header.GasLimit {
 		return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
 	}
-	// Verify London hard fork attributes
-	// minbasefee is only checked when processing a proposal
-	if err := misc.VerifyEip1559Header(config, nil, parent, header); err != nil {
-		// Verify the header's EIP-1559 attributes.
-		return err
-	}
 
 	// header number should pass the corresponding epoch boundary check.
 	if header.Number.Uint64() <= epoch.EpochBlock.Uint64() || header.Number.Uint64() > epoch.NextEpochBlock.Uint64() {
 		sb.logger.Error("header is out of epoch range",
 			"height", header.Number.Uint64(), "epochBlock", epoch.EpochBlock.Uint64(), "nextEpochBlock", epoch.NextEpochBlock.Uint64())
 		return consensus.ErrOutOfEpochRange
+	}
+
+	// Verify London hard fork attributes
+	if err := misc.VerifyEip1559Header(config, epoch.Eip1559, parent, header); err != nil {
+		// Verify the header's EIP-1559 attributes.
+		return err
 	}
 
 	// epoch bi-direction link check for epoch header and its parent epoch header.
@@ -166,14 +176,6 @@ func (sb *Backend) verifyHeader(config *params.ChainConfig, header *types.Header
 				"height", header.Number.Uint64(), "epochBlock", epoch.EpochBlock.Uint64(), "nextEpochBlock", epoch.NextEpochBlock.Uint64(), "previousEpochBlock", header.Epoch.PreviousEpochBlock.Uint64())
 			return consensus.ErrInvalidEpochBoundary
 		}
-	}
-
-	if parent.Number.Uint64() != header.Number.Uint64()-1 || parent.Hash() != header.ParentHash {
-		return consensus.ErrUnknownAncestor
-	}
-	// Ensure that the block's timestamp isn't too close to it's parent
-	if parent.Time+1 > header.Time { // Todo : fetch block period from contract
-		return errInvalidTimestamp
 	}
 
 	// check proposer seal, quorum certificate and activity proof
@@ -195,14 +197,14 @@ func (sb *Backend) verifyHeaderSignatures(header *types.Header, epoch *types.Epo
 
 // verify activity proof during header verification
 func (sb *Backend) verifyActivityProof(header *types.Header, epoch *types.EpochInfo, hash HashGetter) error {
-	mustBeEmpty := header.Number.Uint64() <= epoch.EpochBlock.Uint64()+epoch.Delta.Uint64()
+	mustBeEmpty := header.Number.Uint64() <= epoch.EpochBlock.Uint64()+epoch.OmissionDelta.Uint64()
 
 	if mustBeEmpty && header.ActivityProof != nil {
 		return errNotEmptyActivityProof
 	}
 
 	if header.ActivityProof != nil {
-		targetHeight := header.Number.Uint64() - epoch.Delta.Uint64()
+		targetHeight := header.Number.Uint64() - epoch.OmissionDelta.Uint64()
 		targetHash, err := hash(targetHeight)
 		if err != nil {
 			return err
@@ -375,7 +377,7 @@ func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *
 // If the proposer does not have to OR cannot provide a valid activity proof, it should leave the proof empty (internal pointers set to nil)
 func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (*types.AggregateSignature, uint64, error) {
 	epochBlock := epochInfo.EpochBlock.Uint64()
-	delta := epochInfo.Delta.Uint64()
+	delta := epochInfo.OmissionDelta.Uint64()
 
 	// for the 1st delta blocks of the epoch, the proposer does not have to provide an activity proof
 	if h <= epochBlock+delta {
@@ -421,25 +423,25 @@ func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (
 // Finalize runs any post-transaction state modifications (e.g. block rewards)
 // Finalize doesn't modify the passed header.
 func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	_ []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
+	_ []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
 
-	receipt, epochInfo, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
+	receipt, epochInfo, contractsConfig, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return receipt, epochInfo, nil
+	return receipt, epochInfo, contractsConfig, nil
 }
 
 // FinalizeAndAssemble call Finalize to compute post transaction state modifications
 // and assembles the final block.
 func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
+	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
 
 	statedb.Prepare(common.ACHash(header.Number), len(txs))
-	receipt, epochInfo, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
+	receipt, epochInfo, contractsConfig, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	*receipts = append(*receipts, receipt)
 	// No block rewards in BFT, so the state remains as is and uncles are dropped
@@ -447,7 +449,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	header.UncleHash = nilUncleHash
 	header.Epoch = epochInfo
 
-	return types.NewBlock(header, txs, nil, *receipts, new(trie.Trie)), nil
+	return types.NewBlock(header, txs, nil, *receipts, new(trie.Trie)), contractsConfig, nil
 }
 
 // AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
@@ -458,15 +460,15 @@ func (sb *Backend) AutonityContractFinalize(
 	state *state.StateDB,
 	_ []*types.Transaction,
 	_ []*types.Receipt,
-) (*types.Receipt, *types.Epoch, error) {
+) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
 
-	receipt, epochInfo, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
+	receipt, epochInfo, contractsConfig, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize", "err", err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return receipt, epochInfo, nil
+	return receipt, epochInfo, contractsConfig, nil
 }
 
 // Seal generates a new block for the given input block with the local miner's
@@ -624,8 +626,8 @@ func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
 func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	// subscribe to relevant events
 	var subscriptions event.SubscriptionScope
-	newEpochEventCh := make(chan *autonity.AutonityNewEpoch)
-	newFaultProofCh := make(chan *autonity.AccountabilityNewFaultProof)
+	newEpochEventCh := make(chan *bindings.AutonityNewEpoch)
+	newFaultProofCh := make(chan *bindings.AccountabilityNewFaultProof)
 	subNewEpochEvent, _ := sb.blockchain.ProtocolContracts().WatchNewEpoch(nil, newEpochEventCh)
 	subNewFaultProofs, _ := sb.blockchain.ProtocolContracts().WatchNewFaultProof(nil, newFaultProofCh, nil)
 	subscriptions.Track(subNewEpochEvent)

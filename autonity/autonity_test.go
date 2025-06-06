@@ -11,6 +11,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/autonity/autonity/autonity/bindings"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -86,7 +88,7 @@ func TestUpdateEnode(t *testing.T) {
 		require.NoError(t, err)
 		av, err := contractAbi.Unpack("getValidator", res)
 		require.NoError(t, err)
-		out := abi.ConvertType(av[0], new(AutonityValidator)).(*AutonityValidator)
+		out := abi.ConvertType(av[0], new(bindings.AutonityValidator)).(*bindings.AutonityValidator)
 		require.Equal(t, tempNode.String(), out.Enode)
 	})
 
@@ -173,7 +175,7 @@ func TestUpdateEnode(t *testing.T) {
 		require.NoError(t, err)
 		av, err := contractAbi.Unpack("getValidator", res)
 		require.NoError(t, err)
-		out := abi.ConvertType(av[0], new(AutonityValidator)).(*AutonityValidator)
+		out := abi.ConvertType(av[0], new(bindings.AutonityValidator)).(*bindings.AutonityValidator)
 		require.Equal(t, node.String(), out.Enode)
 	})
 }
@@ -206,7 +208,11 @@ func TestGetters(t *testing.T) {
 
 		require.Equal(t, uint64(0), info.EpochBlock.Uint64())
 		require.Equal(t, uint64(50), info.NextEpochBlock.Uint64())
-		require.Equal(t, uint64(5), info.Delta.Uint64())
+		require.Equal(t, uint64(5), info.OmissionDelta.Uint64())
+		require.Equal(t, params.TestAutonityContractConfig.MinBaseFee, info.Eip1559.MinBaseFee.Uint64())
+		require.Equal(t, uint64(8), info.Eip1559.BaseFeeChangeDenominator.Uint64())
+		require.Equal(t, uint64(2), info.Eip1559.ElasticityMultiplier.Uint64())
+		require.Equal(t, uint64(1024), info.Eip1559.GasLimitBoundDivisor.Uint64())
 		require.Len(t, info.Committee.Members, 10)
 	})
 
@@ -375,40 +381,13 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, erro
 	return validatorList, nil
 }
 
-func autonityTestConfig() AutonityConfig {
-	config := AutonityConfig{
-		Policy: AutonityPolicy{
-			TreasuryFee:             new(big.Int).SetUint64(params.TestAutonityContractConfig.TreasuryFee),
-			MinBaseFee:              new(big.Int).SetUint64(params.TestAutonityContractConfig.MinBaseFee),
-			DelegationRate:          new(big.Int).SetUint64(params.TestAutonityContractConfig.DelegationRate),
-			UnbondingPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.UnbondingPeriod),
-			InitialInflationReserve: (*big.Int)(params.TestAutonityContractConfig.InitialInflationReserve),
-			WithholdingThreshold:    new(big.Int).SetUint64(params.TestAutonityContractConfig.WithholdingThreshold),
-			ProposerRewardRate:      new(big.Int).SetUint64(params.TestAutonityContractConfig.ProposerRewardRate),
-			OracleRewardRate:        new(big.Int).SetUint64(params.TestAutonityContractConfig.OracleRewardRate),
-			WithheldRewardsPool:     params.TestAutonityContractConfig.Operator,
-			TreasuryAccount:         params.TestAutonityContractConfig.Operator,
-		},
-		Contracts: AutonityContracts{
-			AccountabilityContract:         params.AccountabilityContractAddress,
-			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
-			OracleContract:                 params.OracleContractAddress,
-			AcuContract:                    params.ACUContractAddress,
-			SupplyControlContract:          params.SupplyControlContractAddress,
-			StabilizationContract:          params.StabilizationContractAddress,
-			UpgradeManagerContract:         params.UpgradeManagerContractAddress,
-			InflationControllerContract:    params.InflationControllerContractAddress,
-		},
-		Protocol: AutonityProtocol{
-			OperatorAccount:     params.TestAutonityContractConfig.Operator,
-			EpochPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.EpochPeriod),
-			BlockPeriod:         new(big.Int).SetUint64(params.TestAutonityContractConfig.BlockPeriod),
-			CommitteeSize:       new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxCommitteeSize),
-			MaxScheduleDuration: new(big.Int).SetUint64(params.TestAutonityContractConfig.MaxScheduleDuration),
-		},
-		ContractVersion: big.NewInt(1),
-	}
-	return config
+func autonityTestConfig() bindings.AutonityConfig {
+	var testConfigCopy params.AutonityContractGenesis
+	// shallow copy is enough for this modifications
+	testConfigCopy = *params.TestAutonityContractConfig
+	testConfigCopy.WithheldRewardsPool = params.TestAutonityContractConfig.Operator
+	testConfigCopy.Treasury = params.TestAutonityContractConfig.Operator
+	return toContractConfig(&testConfigCopy)
 }
 
 func createTestVM(state vm.StateDB) *vm.EVM {

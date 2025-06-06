@@ -299,10 +299,10 @@ func (r *Runner) setupActivityProofAndCoinbase(proposer common.Address, absentee
 	epochInfo, _, err := r.Autonity.GetEpochInfo(nil)
 	require.NoError(r.T, err)
 
-	mustBeEmpty := r.Evm.Context.BlockNumber.Uint64() <= epochInfo.EpochBlock.Uint64()+epochInfo.Delta.Uint64()
+	mustBeEmpty := r.Evm.Context.BlockNumber.Uint64() <= epochInfo.EpochBlock.Uint64()+epochInfo.OmissionDelta.Uint64()
 	if !mustBeEmpty {
 		r.Evm.Context.Coinbase = proposer
-		targetHeight := r.Evm.Context.BlockNumber.Uint64() - epochInfo.Delta.Uint64()
+		targetHeight := r.Evm.Context.BlockNumber.Uint64() - epochInfo.OmissionDelta.Uint64()
 
 		r.Evm.Context.ActivityProofRound = 0
 		r.Evm.Context.ActivityProof = activityProof(r.Committee.Validators, sealFaker(targetHeight, r.Evm.Context.ActivityProofRound), absentees)
@@ -680,27 +680,31 @@ func FromSender(sender common.Address, value *big.Int) *runOptions {
 	return &runOptions{origin: sender, value: value}
 }
 
-func NewAccusationEvent(height uint64, value common.Hash, reporter common.Address) AccountabilityEvent {
-	offenderNodeKey, _ := crypto.HexToECDSA(params.TestNodeKeys[0])
+func NewAccusationEvent(height uint64, value common.Hash, reporter common.Address, offenderIndex int) IAccountabilityEvent {
+	if offenderIndex >= len(params.TestNodeKeys) {
+		panic("offenderIndex out of range")
+	}
+	offenderNodeKey, _ := crypto.HexToECDSA(params.TestNodeKeys[offenderIndex])
 	offender := crypto.PubkeyToAddress(offenderNodeKey.PublicKey)
-	offenderConsensusKey, _ := blst.SecretKeyFromHex(params.TestConsensusKeys[0])
-	cm := types.CommitteeMember{Address: offender, VotingPower: common.Big1, ConsensusKey: offenderConsensusKey.PublicKey(), ConsensusKeyBytes: offenderConsensusKey.PublicKey().Marshal(), Index: 0}
+	offenderConsensusKey, _ := blst.SecretKeyFromHex(params.TestConsensusKeys[offenderIndex])
+	cm := types.CommitteeMember{Address: offender, VotingPower: common.Big1, ConsensusKey: offenderConsensusKey.PublicKey(), ConsensusKeyBytes: offenderConsensusKey.PublicKey().Marshal(), Index: uint64(offenderIndex)}
 	signer := func(hash common.Hash) blst.Signature {
 		return offenderConsensusKey.Sign(hash[:])
 	}
-	prevote := message.NewPrevote(0, height, value, signer, &cm, 1)
+	prevote := message.NewPrevote(0, height, value, signer, &cm, len(params.TestNodeKeys))
 
 	p := &accountability.Proof{
-		Type:    autonity.Accusation,
-		Rule:    autonity.PVN,
-		Message: prevote,
+		Type:          autonity.Accusation,
+		Rule:          autonity.PVN,
+		Message:       prevote,
+		OffenderIndex: offenderIndex,
 	}
 	rawProof, err := rlp.EncodeToBytes(p)
 	if err != nil {
 		panic(err)
 	}
 
-	return AccountabilityEvent{
+	return IAccountabilityEvent{
 		EventType:      uint8(p.Type),
 		Rule:           uint8(p.Rule),
 		Reporter:       reporter,

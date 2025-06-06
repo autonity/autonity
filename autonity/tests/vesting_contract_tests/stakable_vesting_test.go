@@ -1284,7 +1284,7 @@ func TestSlashingAffect(t *testing.T) {
 		r.NoError(
 			accountabilityContract.Slash(
 				nil,
-				tests.AccountabilityEvent{
+				tests.IAccountabilityEvent{
 					Reporter:       reporter,
 					Offender:       offender,
 					Id:             common.Big0,
@@ -1353,7 +1353,7 @@ func TestSlashingAffect(t *testing.T) {
 		r.NoError(
 			accountabilityContract.Slash(
 				nil,
-				tests.AccountabilityEvent{
+				tests.IAccountabilityEvent{
 					Reporter:       reporter,
 					Offender:       offender,
 					Id:             common.Big0,

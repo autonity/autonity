@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"math/rand"
 	"os"
@@ -15,15 +16,15 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
-
+	"github.com/autonity/autonity/rlp"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
-	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -56,7 +57,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// Autonity Contract
-	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+	autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 	autonityConfig, err := autonityContract.GetConfig(nil)
 	require.NoError(t, err)
 
@@ -67,6 +68,10 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.Equal(t, validators[0], autonityConfig.Protocol.OperatorAccount)
 	require.Equal(t, params.TestAutonityContractConfig.BlockPeriod, autonityConfig.Protocol.BlockPeriod.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.EpochPeriod, autonityConfig.Protocol.EpochPeriod.Uint64())
+	require.Equal(t, params.TestAutonityContractConfig.GasLimit, autonityConfig.Protocol.GasLimit.Uint64())
+	require.Equal(t, params.TestAutonityContractConfig.GasLimitBoundDivisor, autonityConfig.Protocol.GasLimitBoundDivisor.Uint64())
+	require.Equal(t, params.TestAutonityContractConfig.BaseFeeChangeDenominator, autonityConfig.Policy.BaseFeeChangeDenominator.Uint64())
+	require.Equal(t, params.TestAutonityContractConfig.ElasticityMultiplier, autonityConfig.Policy.ElasticityMultiplier.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.MaxCommitteeSize, autonityConfig.Protocol.CommitteeSize.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.DelegationRate, autonityConfig.Policy.DelegationRate.Uint64())
 	require.Equal(t, params.TestAutonityContractConfig.MinBaseFee, autonityConfig.Policy.MinBaseFee.Uint64())
@@ -82,7 +87,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.Equal(t, params.OracleContractAddress, autonityConfig.Contracts.OracleContract)
 	require.Equal(t, params.SupplyControlContractAddress, autonityConfig.Contracts.SupplyControlContract)
 	// Accountability Contract
-	accountabilityContract, _ := autonity.NewAccountability(params.AccountabilityContractAddress, network[0].WsClient)
+	accountabilityContract, _ := bindings.NewAccountability(params.AccountabilityContractAddress, network[0].WsClient)
 	accountabilityConfig, err := accountabilityContract.GetConfig(nil)
 	require.NoError(t, err)
 	require.Equal(t, params.TestAccountabilityConfig.HistoryFactor, accountabilityConfig.Factors.History.Uint64())
@@ -98,7 +103,7 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	// Stabilization Contract -- todo
 	// Omission Contract -- todo
 	// Upgrade Manager Contract
-	upgradeManagerContract, _ := autonity.NewUpgradeManager(params.UpgradeManagerContractAddress, network[0].WsClient)
+	upgradeManagerContract, _ := bindings.NewUpgradeManager(params.UpgradeManagerContractAddress, network[0].WsClient)
 	upgradeManagerAutonityAddress, err := upgradeManagerContract.GetAutonity(nil)
 	require.NoError(t, err)
 	require.Equal(t, params.AutonityContractAddress, upgradeManagerAutonityAddress)
@@ -106,36 +111,696 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestProtocolContractCache(t *testing.T) {
-	t.Run("If minimum base fee is updated, cached value is updated as well", func(t *testing.T) {
+func fetchMinimumBaseFee(t *testing.T, chain *ccore.BlockChain, number *uint64) *big.Int {
+	// if number is nil, take the latest core height as number
+	if number == nil {
+		number = new(uint64)
+		*number = chain.CurrentBlock().NumberU64() + 1
+	}
+	eip1559Params, err := chain.Eip1559ParamsByHeight(*number)
+	require.NoError(t, err)
+	return eip1559Params.MinBaseFee
+}
+
+func fetchGasLimit(t *testing.T, chain *ccore.BlockChain, number *uint64) *big.Int {
+	// if number is nil, take the latest core height as number
+	if number == nil {
+		number = new(uint64)
+		*number = chain.CurrentBlock().NumberU64() + 1
+	}
+	gasLimit, err := chain.GasLimitByHeight(*number)
+	require.NoError(t, err)
+	return gasLimit
+}
+
+func fetchElasticityMultiplier(t *testing.T, chain *ccore.BlockChain, number *uint64) *big.Int {
+	// if number is nil, take the latest core height as number
+	if number == nil {
+		number = new(uint64)
+		*number = chain.CurrentBlock().NumberU64() + 1
+	}
+	eip1559Params, err := chain.Eip1559ParamsByHeight(*number)
+	require.NoError(t, err)
+	return eip1559Params.ElasticityMultiplier
+}
+
+func fetchGasLimitBoundDivisor(t *testing.T, chain *ccore.BlockChain, number *uint64) *big.Int {
+	// if number is nil, take the latest core height as number
+	if number == nil {
+		number = new(uint64)
+		*number = chain.CurrentBlock().NumberU64() + 1
+	}
+	eip1559Params, err := chain.Eip1559ParamsByHeight(*number)
+	require.NoError(t, err)
+	return eip1559Params.GasLimitBoundDivisor
+}
+
+// wrapper function that facilitates setting one or more eip1559 params while leaving the other ones unchanged
+func setEip1559Params(t *testing.T, autonity *bindings.Autonity, transactOpts *bind.TransactOpts, customizeFn func(eip1559 *bindings.IAutonityEip1559)) (*types.Transaction, error) {
+	config, err := autonity.GetConfig(nil)
+	require.NoError(t, err)
+
+	eip1559Params := &bindings.IAutonityEip1559{
+		MinBaseFee:               config.Policy.MinBaseFee,
+		BaseFeeChangeDenominator: config.Policy.BaseFeeChangeDenominator,
+		ElasticityMultiplier:     config.Policy.ElasticityMultiplier,
+		GasLimitBoundDivisor:     config.Protocol.GasLimitBoundDivisor,
+	}
+	customizeFn(eip1559Params)
+
+	return autonity.SetEip1559Params(transactOpts, *eip1559Params)
+}
+
+func TestCachedProtocolParameterChange(t *testing.T) {
+	t.Run("If minimum base fee is updated, at epoch end cached value is updated as well", func(t *testing.T) {
 		network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 		require.NoError(t, err)
 		defer network.Shutdown(t)
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 
-		initialMinBaseFee := new(big.Int).SetUint64(uint64(params.InitialBaseFee))
-		require.Equal(t, initialMinBaseFee.Bytes(), network[0].Eth.BlockChain().MinBaseFee().Bytes())
-		require.Equal(t, initialMinBaseFee.Bytes(), network[1].Eth.BlockChain().MinBaseFee().Bytes())
+		initialMinBaseFee := new(big.Int).SetUint64(params.TestMinBaseFee)
+		require.Equal(t, initialMinBaseFee.String(), fetchMinimumBaseFee(t, network[0].Eth.BlockChain(), nil).String())
+		require.Equal(t, initialMinBaseFee.String(), fetchMinimumBaseFee(t, network[1].Eth.BlockChain(), nil).String())
 
 		// update min base fee
 		updatedMinBaseFee, _ := new(big.Int).SetString("30000000000", 10)
-		autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+		autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 		transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
-		tx, err := autonityContract.SetMinimumBaseFee(transactOpts, updatedMinBaseFee)
+		tx, err := setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.MinBaseFee = updatedMinBaseFee
+		})
 		require.NoError(t, err)
 		err = network.AwaitTransactions(ctx, tx)
+		require.NoError(t, err)
+
+		// close epoch
+		epochPeriod := params.TestAutonityContractConfig.EpochPeriod
+		err = network.WaitForHeight(epochPeriod, int(epochPeriod))
 		require.NoError(t, err)
 
 		// contract should be updated
 		minBaseFee, err := autonityContract.GetMinimumBaseFee(new(bind.CallOpts))
 		require.NoError(t, err)
-		require.Equal(t, updatedMinBaseFee.Bytes(), minBaseFee.Bytes())
+		require.Equal(t, updatedMinBaseFee.String(), minBaseFee.String())
 
-		// caches should be updated too
-		require.Equal(t, updatedMinBaseFee.Bytes(), network[0].Eth.BlockChain().MinBaseFee().Bytes())
-		require.Equal(t, updatedMinBaseFee.Bytes(), network[1].Eth.BlockChain().MinBaseFee().Bytes())
+		// caches should be updated from the new epoch start
+		require.Equal(t, initialMinBaseFee.String(), fetchMinimumBaseFee(t, network[0].Eth.BlockChain(), &epochPeriod).String())
+		require.Equal(t, initialMinBaseFee.String(), fetchMinimumBaseFee(t, network[1].Eth.BlockChain(), &epochPeriod).String())
+		firstBlockOfNewEpoch := epochPeriod + 1
+		require.Equal(t, updatedMinBaseFee.String(), fetchMinimumBaseFee(t, network[0].Eth.BlockChain(), &firstBlockOfNewEpoch).String())
+		require.Equal(t, updatedMinBaseFee.String(), fetchMinimumBaseFee(t, network[1].Eth.BlockChain(), &firstBlockOfNewEpoch).String())
 	})
+	t.Run("gas limit parameters update", func(t *testing.T) {
+		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		require.NoError(t, err)
+		// set genesis gas limit to the target to ease future computations
+		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
+			genesis.GasLimit = params.TestChainConfig.AutonityContractConfig.GasLimit
+		})
+		require.NoError(t, err)
+		defer network.Shutdown(t)
+
+		initialGasLimit := new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.GasLimit)
+		t.Logf("initial gas limit %s", initialGasLimit.String())
+		require.Equal(t, initialGasLimit.String(), fetchGasLimit(t, network[0].Eth.BlockChain(), nil).String())
+		require.Equal(t, initialGasLimit.String(), fetchGasLimit(t, network[1].Eth.BlockChain(), nil).String())
+
+		// mine a couple blocks
+		require.NoError(t, network.WaitToMineNBlocks(5, 20, false))
+
+		startBlock := network[0].Eth.BlockChain().CurrentBlock()
+		startGasLimit := startBlock.GasLimit()
+		startNumber := startBlock.NumberU64()
+		t.Logf("at block %d, gasLimit: %d", startNumber, startGasLimit)
+
+		// update gas limit
+		updatedGasLimit := new(big.Int).SetUint64(initialGasLimit.Uint64() * 10)
+		t.Logf("updated gas limit %s", updatedGasLimit.String())
+		autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+		transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
+		tx, err := autonityContract.SetGasLimit(transactOpts, updatedGasLimit)
+		require.NoError(t, err)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		err = network.AwaitTransactions(ctx, tx)
+		require.NoError(t, err)
+
+		// check in which block the transaction was mined
+		receipt, err := network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		require.NoError(t, err)
+		changeBlockNumber := receipt.BlockNumber.Uint64()
+		t.Logf("gas limit update tx mined at block: %d", changeBlockNumber)
+
+		// contract should be updated
+		config, err := autonityContract.GetConfig(new(bind.CallOpts))
+		require.NoError(t, err)
+		require.Equal(t, updatedGasLimit.String(), config.Protocol.GasLimit.String())
+
+		// caches should be updated only from the block after the change tx was mined
+		require.Equal(t, initialGasLimit.String(), fetchGasLimit(t, network[0].Eth.BlockChain(), &changeBlockNumber).String())
+		require.Equal(t, initialGasLimit.String(), fetchGasLimit(t, network[1].Eth.BlockChain(), &changeBlockNumber).String())
+		firstBlockAfterChange := changeBlockNumber + 1
+		require.Equal(t, updatedGasLimit.String(), fetchGasLimit(t, network[0].Eth.BlockChain(), &firstBlockAfterChange).String())
+		require.Equal(t, updatedGasLimit.String(), fetchGasLimit(t, network[1].Eth.BlockChain(), &firstBlockAfterChange).String())
+
+		// mined block gas limit should start to increase towards the new limit
+		err = network.WaitToMineNBlocks(20, 30, false)
+		require.NoError(t, err)
+
+		endBlock := network[0].Eth.BlockChain().CurrentBlock()
+		endGasLimit := endBlock.GasLimit()
+		endNumber := endBlock.NumberU64()
+
+		t.Logf("at block %d, gasLimit: %d", endNumber, endGasLimit)
+
+		diff := endNumber - startNumber
+		t.Logf("diff: %d, gasLimit now: %d, gasLimit before: %d", diff, endGasLimit, startGasLimit)
+		require.True(t, endGasLimit > startGasLimit)
+
+		// verify that the increase is correct
+		numBlocks := endNumber - changeBlockNumber
+
+		expectedIncrease := uint64(0)
+		for i := 0; i < int(numBlocks); i++ {
+			expectedIncrease += (startGasLimit+expectedIncrease)/params.DefaultGasLimitBoundDivisor - 1
+		}
+		t.Logf("expected increase: %d, actual increase: %d", expectedIncrease, endGasLimit-startGasLimit)
+		require.Equal(t, expectedIncrease, endGasLimit-startGasLimit)
+
+		// now change the gas limit bound divisor, the gas limit should start increasing faster
+		updatedGasLimitBoundDivisor := new(big.Int).SetUint64(params.DefaultGasLimitBoundDivisor / 10)
+		t.Logf("updated gas limit bound divisor %s (from %d)", updatedGasLimitBoundDivisor.String(), params.DefaultGasLimitBoundDivisor)
+		tx, err = setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.GasLimitBoundDivisor = updatedGasLimitBoundDivisor
+		})
+		require.NoError(t, err)
+		ctx, cancel2 := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel2()
+		err = network.AwaitTransactions(ctx, tx)
+		require.NoError(t, err)
+
+		ctx, cancel3 := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel3()
+		receipt, err = network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		t.Logf("gas limit bound divisor change tx mined at block %d", receipt.BlockNumber.Uint64())
+
+		require.NoError(t, network.WaitToMineNBlocks(2, 10, false))
+
+		// cache should be on the old value still
+		require.Equal(t, params.DefaultGasLimitBoundDivisor, fetchGasLimitBoundDivisor(t, network[0].Eth.BlockChain(), nil).Uint64())
+
+		// close the epoch so change is applied
+		epochPeriod := params.TestChainConfig.AutonityContractConfig.EpochPeriod
+		require.True(t, network[0].Eth.BlockChain().CurrentBlock().NumberU64() < epochPeriod)
+		require.NoError(t, network.WaitForHeight(epochPeriod+5, int(epochPeriod*2)))
+
+		require.Equal(t, params.DefaultGasLimitBoundDivisor, fetchGasLimitBoundDivisor(t, network[0].Eth.BlockChain(), &epochPeriod).Uint64())
+		firstBlock := epochPeriod + 1
+		require.Equal(t, params.DefaultGasLimitBoundDivisor/10, fetchGasLimitBoundDivisor(t, network[0].Eth.BlockChain(), &firstBlock).Uint64())
+
+		startBlock = network[0].Eth.BlockChain().CurrentBlock()
+		startNumber = startBlock.NumberU64()
+		startGasLimit = startBlock.GasLimit()
+
+		require.NoError(t, network.WaitToMineNBlocks(20, 30, false))
+
+		endBlock = network[0].Eth.BlockChain().CurrentBlock()
+		endNumber = endBlock.NumberU64()
+		endGasLimit = endBlock.GasLimit()
+
+		t.Logf("startNumber: %d, gasLimit: %d", startNumber, startGasLimit)
+		t.Logf("endNumber: %d, gasLimit: %d", endNumber, endGasLimit)
+		t.Logf("number diff: %d, gas diff: %d", endNumber-startNumber, endGasLimit-startGasLimit)
+
+		expectedIncrease = uint64(0)
+		for i := 0; i < int(endNumber-startNumber); i++ {
+			expectedIncrease += (startGasLimit+expectedIncrease)/updatedGasLimitBoundDivisor.Uint64() - 1
+		}
+		t.Logf("expected increase: %d, actual increase: %d", expectedIncrease, endGasLimit-startGasLimit)
+		require.Equal(t, expectedIncrease, endGasLimit-startGasLimit)
+
+		// now increase the gasLimit bound divisor to a very high amount > gasLimit
+		previousGasLimitBoundDivisor := new(big.Int).Set(updatedGasLimitBoundDivisor)
+		updatedGasLimitBoundDivisor = new(big.Int).SetUint64(updatedGasLimit.Uint64() * 10)
+		t.Logf("updated gas limit bound divisor %s (from %s)", updatedGasLimitBoundDivisor.String(), previousGasLimitBoundDivisor.String())
+		tx, err = setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.GasLimitBoundDivisor = updatedGasLimitBoundDivisor
+		})
+		require.NoError(t, err)
+		ctx, cancel4 := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel4()
+		err = network.AwaitTransactions(ctx, tx)
+		require.NoError(t, err)
+
+		ctx, cancel5 := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel5()
+		receipt, err = network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		t.Logf("gas limit bound divisor change tx mined at block %d", receipt.BlockNumber.Uint64())
+
+		// close the epoch so change is applied
+		require.True(t, network[0].Eth.BlockChain().CurrentBlock().NumberU64() < epochPeriod*2)
+		require.NoError(t, network.WaitForHeight(epochPeriod*2+5, int(epochPeriod*2)))
+
+		// mine some blocks with the new params
+		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+	})
+	t.Run("gas limit == gas limit bound divisor doesn't cause issues", func(t *testing.T) {
+		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		require.NoError(t, err)
+		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
+			genesis.GasLimit = params.MinGasLimit
+			genesis.Config.AutonityContractConfig.GasLimit = params.MinGasLimit
+			genesis.Config.AutonityContractConfig.GasLimitBoundDivisor = params.MinGasLimit
+		})
+		require.NoError(t, err)
+		defer network.Shutdown(t)
+
+		require.NoError(t, network.WaitToMineNBlocks(20, 30, false))
+	})
+	t.Run("gas limit < min gas limit doesn't cause issues", func(t *testing.T) {
+		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		require.NoError(t, err)
+		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
+			genesis.Config.AutonityContractConfig.GasLimit = 1
+		})
+		require.NoError(t, err)
+		defer network.Shutdown(t)
+
+		require.NoError(t, network.WaitToMineNBlocks(20, 30, false))
+	})
+	t.Run("minbasefee == 0 does not cause issues", func(t *testing.T) {
+		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		require.NoError(t, err)
+		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
+			genesis.Config.AutonityContractConfig.MinBaseFee = 0
+			// we want the base fee to stay to 0
+			genesis.BaseFee = new(big.Int)
+		})
+		require.NoError(t, err)
+		defer network.Shutdown(t)
+
+		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+
+		// send tx with gasprice 0, should be mined
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		rawTx := types.NewTransaction(0, network[1].Address, new(big.Int).SetUint64(10), 30_000, new(big.Int).SetUint64(0), nil)
+		signedTx, err := types.SignTx(rawTx, types.LatestSigner(network[0].EthConfig.Genesis.Config), network[0].Key)
+		require.NoError(t, err)
+		require.Equal(t, common.Big0.String(), signedTx.GasPrice().String())
+
+		err = network[0].WsClient.SendTransaction(ctx, signedTx)
+		require.NoError(t, err)
+
+		err = network.AwaitTransactions(ctx, signedTx)
+		require.NoError(t, err)
+
+		// check that it was mined
+		receipt, err := network[0].WsClient.TransactionReceipt(ctx, signedTx.Hash())
+		require.NoError(t, err)
+
+		t.Logf("tx mined at block %d", receipt.BlockNumber.Uint64())
+		require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
+
+		// same with dynamic tx
+		ctx, cancel2 := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel2()
+		rawTx = types.NewTx(&types.DynamicFeeTx{
+			ChainID:   params.TestChainConfig.ChainID,
+			Nonce:     uint64(1),
+			GasTipCap: new(big.Int),
+			GasFeeCap: new(big.Int),
+			Gas:       30_000,
+			To:        &network[1].Address,
+			Value:     new(big.Int).SetUint64(10),
+			Data:      nil,
+		})
+		signedTx, err = types.SignTx(rawTx, types.LatestSigner(network[0].EthConfig.Genesis.Config), network[0].Key)
+		require.NoError(t, err)
+		require.Equal(t, common.Big0.String(), signedTx.GasPrice().String())
+
+		err = network[0].WsClient.SendTransaction(ctx, signedTx)
+		require.NoError(t, err)
+
+		err = network.AwaitTransactions(ctx, signedTx)
+		require.NoError(t, err)
+
+		// check that it was mined
+		receipt, err = network[0].WsClient.TransactionReceipt(ctx, signedTx.Hash())
+		require.NoError(t, err)
+
+		t.Logf("dynamic tx mined at block %d", receipt.BlockNumber.Uint64())
+		require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
+	})
+	t.Run("testing changes of baseFeeChangeDenominator", func(t *testing.T) {
+		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		require.NoError(t, err)
+		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
+			// set a high gas limit, base fee should decrease
+			// faster with lower denominator
+			// slower with higher
+			genesis.BaseFee = new(big.Int).SetUint64(100_000_000_000_00)
+			genesis.GasLimit = 100_000_000
+			genesis.Config.AutonityContractConfig.GasLimit = genesis.GasLimit * 10
+			genesis.Config.AutonityContractConfig.BaseFeeChangeDenominator = 32
+		})
+		require.NoError(t, err)
+		defer network.Shutdown(t)
+
+		startBlock := network[0].Eth.BlockChain().CurrentBlock()
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+
+		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+
+		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
+
+		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+
+		diffBaseFee := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFeeFloat, _ := diffBaseFee.Float64()
+		startBaseFeeFloat, _ := startBlock.BaseFee().Float64()
+		diffBaseFeePerc := diffBaseFeeFloat * 100 / startBaseFeeFloat
+		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee.String(), diffBaseFeePerc)
+
+		// decrease the value of denominator, base fee should drop faster
+		updatedBaseFeeChangeDenominator := new(big.Int).SetUint64(16)
+		t.Logf("updated base fee change denominator %s (from 32)", updatedBaseFeeChangeDenominator.String())
+		autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+		transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
+		tx, err := setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.BaseFeeChangeDenominator = updatedBaseFeeChangeDenominator
+		})
+		require.NoError(t, err)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		err = network.AwaitTransactions(ctx, tx)
+		require.NoError(t, err)
+
+		receipt, err := network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		t.Logf("basefee change denominator change tx mined at block %d", receipt.BlockNumber.Uint64())
+
+		// close the epoch so change is applied
+		epochPeriod := params.TestChainConfig.AutonityContractConfig.EpochPeriod
+		require.True(t, network[0].Eth.BlockChain().CurrentBlock().NumberU64() < epochPeriod)
+		require.NoError(t, network.WaitForHeight(epochPeriod+5, int(epochPeriod*2)))
+
+		startBlock = network[0].Eth.BlockChain().CurrentBlock()
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+
+		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+
+		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
+
+		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+
+		diffBaseFee2 := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFee2Float, _ := diffBaseFee2.Float64()
+		startBaseFeeFloat, _ = startBlock.BaseFee().Float64()
+		diffBaseFee2Perc := diffBaseFee2Float * 100 / startBaseFeeFloat
+		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee2.String(), diffBaseFee2Perc)
+
+		// basefee should have gone down faster with a lower denominator
+		t.Logf("phase 1 decrease: %.2f, phase 2 decrease: %.2f", diffBaseFeePerc, diffBaseFee2Perc)
+		require.True(t, diffBaseFee2Perc > diffBaseFeePerc)
+
+		// increase the value of denominator, base fee should drop slower
+		updatedBaseFeeChangeDenominator = new(big.Int).SetUint64(64)
+		t.Logf("updated base fee change denominator %s (from 16)", updatedBaseFeeChangeDenominator.String())
+		tx, err = setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.BaseFeeChangeDenominator = updatedBaseFeeChangeDenominator
+		})
+		require.NoError(t, err)
+		ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		err = network.AwaitTransactions(ctx, tx)
+		require.NoError(t, err)
+
+		receipt, err = network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		t.Logf("base fee change denominator change tx mined at block %d", receipt.BlockNumber.Uint64())
+
+		// close the epoch so change is applied
+		epochPeriod = params.TestChainConfig.AutonityContractConfig.EpochPeriod
+		require.True(t, network[0].Eth.BlockChain().CurrentBlock().NumberU64() < epochPeriod*2)
+		require.NoError(t, network.WaitForHeight(epochPeriod*2+5, int(epochPeriod*2)))
+
+		startBlock = network[0].Eth.BlockChain().CurrentBlock()
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+
+		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+
+		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
+
+		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+
+		diffBaseFee3 := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFee3Float, _ := diffBaseFee3.Float64()
+		startBaseFeeFloat, _ = startBlock.BaseFee().Float64()
+		diffBaseFee3Perc := diffBaseFee3Float * 100 / startBaseFeeFloat
+		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee3.String(), diffBaseFee3Perc)
+
+		// basefee should have gone down slower with a higher denominator
+		t.Logf("phase 1 decrease: %.2f, phase 2 decrease: %.2f, phase 3 decrease: %.2f", diffBaseFeePerc, diffBaseFee2Perc, diffBaseFee3Perc)
+		require.True(t, diffBaseFee3Perc < diffBaseFeePerc)
+	})
+	t.Run("test very big base fee change denominator", func(t *testing.T) {
+		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		require.NoError(t, err)
+		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
+			genesis.BaseFee = new(big.Int).SetUint64(100_000_000_000_00)
+			genesis.GasLimit = 100_000_000
+			genesis.Config.AutonityContractConfig.GasLimit = genesis.GasLimit * 10
+			genesis.Config.AutonityContractConfig.BaseFeeChangeDenominator = math.MaxUint64
+		})
+		require.NoError(t, err)
+		defer network.Shutdown(t)
+
+		startBlock := network[0].Eth.BlockChain().CurrentBlock()
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+
+		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+
+		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
+
+		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+
+		diffBaseFee := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFeeFloat, _ := diffBaseFee.Float64()
+		startBaseFeeFloat, _ := startBlock.BaseFee().Float64()
+		diffBaseFeePerc := diffBaseFeeFloat * 100 / startBaseFeeFloat
+		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee.String(), diffBaseFeePerc)
+	})
+	t.Run("test very big elasticity multiplier", func(t *testing.T) {
+		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		require.NoError(t, err)
+		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
+			genesis.BaseFee = new(big.Int).SetUint64(100_000_000_000_00)
+			genesis.GasLimit = 100_000_000
+			genesis.Config.AutonityContractConfig.GasLimit = genesis.GasLimit * 10
+			genesis.Config.AutonityContractConfig.ElasticityMultiplier = math.MaxUint64
+			genesis.GasUsed = 100
+		})
+		require.NoError(t, err)
+		defer network.Shutdown(t)
+
+		startBlock := network[0].Eth.BlockChain().CurrentBlock()
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+
+		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+
+		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
+
+		require.True(t, startBlock.BaseFee().Uint64() < endBlock.BaseFee().Uint64())
+
+		diffBaseFee := new(big.Int).Sub(endBlock.BaseFee(), startBlock.BaseFee())
+		diffBaseFeeFloat, _ := diffBaseFee.Float64()
+		startBaseFeeFloat, _ := startBlock.BaseFee().Float64()
+		diffBaseFeePerc := diffBaseFeeFloat * 100 / startBaseFeeFloat
+		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee.String(), diffBaseFeePerc)
+	})
+	t.Run("testing changes of elasticityMultiplier", func(t *testing.T) {
+		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		require.NoError(t, err)
+		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
+			genesis.BaseFee = new(big.Int).SetUint64(100_000_000_000_00)
+			genesis.GasLimit = 100_000_000
+			genesis.Config.AutonityContractConfig.GasLimit = genesis.GasLimit * 10
+			genesis.Config.AutonityContractConfig.ElasticityMultiplier = 4
+			genesis.Config.AutonityContractConfig.BaseFeeChangeDenominator = 64
+		})
+		require.NoError(t, err)
+		defer network.Shutdown(t)
+
+		startBlock := network[0].Eth.BlockChain().CurrentBlock()
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+
+		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+
+		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
+
+		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+
+		diffBaseFee := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFeeFloat, _ := diffBaseFee.Float64()
+		startBaseFeeFloat, _ := startBlock.BaseFee().Float64()
+		diffBaseFeePerc := diffBaseFeeFloat * 100 / startBaseFeeFloat
+		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee.String(), diffBaseFeePerc)
+
+		updatedElasticityMultiplier := new(big.Int).SetUint64(8)
+		t.Logf("updated elasticity multiplier %s (from 4)", updatedElasticityMultiplier.String())
+		autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+		transactOpts, _ := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
+		tx, err := setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.ElasticityMultiplier = updatedElasticityMultiplier
+		})
+		require.NoError(t, err)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		err = network.AwaitTransactions(ctx, tx)
+		require.NoError(t, err)
+
+		receipt, err := network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		t.Logf("elasticity multiplier change tx mined at block %d", receipt.BlockNumber.Uint64())
+
+		// close the epoch so change is applied
+		epochPeriod := params.TestChainConfig.AutonityContractConfig.EpochPeriod
+		require.True(t, network[0].Eth.BlockChain().CurrentBlock().NumberU64() < epochPeriod)
+		require.NoError(t, network.WaitForHeight(epochPeriod+5, int(epochPeriod*2)))
+
+		// check if cache has changed
+		require.Equal(t, uint64(4), fetchElasticityMultiplier(t, network[0].Eth.BlockChain(), &epochPeriod).Uint64())
+		require.Equal(t, uint64(4), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &epochPeriod).Uint64())
+		firstBlock := epochPeriod + 1
+		require.Equal(t, uint64(8), fetchElasticityMultiplier(t, network[0].Eth.BlockChain(), &firstBlock).Uint64())
+		require.Equal(t, uint64(8), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &firstBlock).Uint64())
+
+		startBlock = network[0].Eth.BlockChain().CurrentBlock()
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+
+		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+
+		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
+
+		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+
+		diffBaseFee2 := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFee2Float, _ := diffBaseFee2.Float64()
+		startBaseFeeFloat, _ = startBlock.BaseFee().Float64()
+		diffBaseFee2Perc := diffBaseFee2Float * 100 / startBaseFeeFloat
+		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee2.String(), diffBaseFee2Perc)
+
+		t.Logf("phase 1 decrease: %.2f, phase 2 decrease: %.2f", diffBaseFeePerc, diffBaseFee2Perc)
+
+		updatedElasticityMultiplier = new(big.Int).SetUint64(2)
+		t.Logf("updated elasticity multiplier %s (from 8)", updatedElasticityMultiplier.String())
+		tx, err = setEip1559Params(t, autonityContract, transactOpts, func(params *bindings.IAutonityEip1559) {
+			params.ElasticityMultiplier = updatedElasticityMultiplier
+		})
+		require.NoError(t, err)
+		ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		err = network.AwaitTransactions(ctx, tx)
+		require.NoError(t, err)
+
+		receipt, err = network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		t.Logf("gas limit bound divisor change tx mined at block %d", receipt.BlockNumber.Uint64())
+
+		// close the epoch so change is applied
+		epochPeriod = params.TestChainConfig.AutonityContractConfig.EpochPeriod
+		require.True(t, network[0].Eth.BlockChain().CurrentBlock().NumberU64() < epochPeriod*2)
+		require.NoError(t, network.WaitForHeight(epochPeriod*2+5, int(epochPeriod*2)))
+
+		// check if cache has changed
+		lastBlockOfEpoch := epochPeriod * 2
+		require.Equal(t, uint64(8), fetchElasticityMultiplier(t, network[0].Eth.BlockChain(), &lastBlockOfEpoch).Uint64())
+		require.Equal(t, uint64(8), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &lastBlockOfEpoch).Uint64())
+		firstBlock = lastBlockOfEpoch + 1
+		require.Equal(t, uint64(2), fetchElasticityMultiplier(t, network[0].Eth.BlockChain(), &firstBlock).Uint64())
+		require.Equal(t, uint64(2), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &firstBlock).Uint64())
+
+		startBlock = network[0].Eth.BlockChain().CurrentBlock()
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+
+		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+
+		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
+
+		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+
+		diffBaseFee3 := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFee3Float, _ := diffBaseFee3.Float64()
+		startBaseFeeFloat, _ = startBlock.BaseFee().Float64()
+		diffBaseFee3Perc := diffBaseFee3Float * 100 / startBaseFeeFloat
+		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee3.String(), diffBaseFee3Perc)
+
+		t.Logf("phase 1 decrease: %.2f, phase 2 decrease: %.2f, phase 3 decrease: %.2f", diffBaseFeePerc, diffBaseFee2Perc, diffBaseFee3Perc)
+	})
+}
+
+func assembleClientConfig(t *testing.T, node *Node, target uint64) *types.ContractsConfig {
+	eip1559Params, err := node.Eth.BlockChain().Eip1559ParamsByHeight(target)
+	require.NoError(t, err)
+	accountabilityParams, err := node.Eth.BlockChain().AccountabilityParamsByHeight(target)
+	require.NoError(t, err)
+	epochPeriod, err := node.Eth.BlockChain().EpochPeriodByHeight(target)
+	require.NoError(t, err)
+	gasLimit, err := node.Eth.BlockChain().GasLimitByHeight(target)
+	require.NoError(t, err)
+	return &types.ContractsConfig{
+		EpochPeriod:    epochPeriod,
+		BlockPeriod:    new(big.Int).SetUint64(1), // for now block period is hardcoded to 1s always
+		GasLimit:       gasLimit,
+		Accountability: *accountabilityParams,
+		Eip1559:        *eip1559Params,
+	}
+}
+
+func fetchClientConfig(t *testing.T, node *Node, target uint64) *types.ContractsConfig {
+	header := node.Eth.BlockChain().GetHeaderByNumber(target)
+	state, err := node.Eth.BlockChain().StateAt(header.Root)
+	require.NoError(t, err)
+	config, err := node.Eth.BlockChain().ProtocolContracts().CallGetClientConfig(state, header)
+	require.NoError(t, err)
+	return config
+}
+
+func rlpEncodeConfig(config *types.ContractsConfig) []byte {
+	data, err := rlp.EncodeToBytes(config)
+	if err != nil {
+		panic("Failed to RLP encode contracts config: " + err.Error())
+	}
+	return data
+}
+
+func TestCacheCoherentWithState(t *testing.T) {
+	users, err := Validators(t, 2, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	network, err := NewNetworkFromValidators(t, users, true)
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	err = network.WaitToMineNBlocks(5, 20, false)
+	require.NoError(t, err)
+
+	// cached config and state config should always be coherent
+	require.Equal(t,
+		rlpEncodeConfig(fetchClientConfig(t, network[0], 0)),
+		rlpEncodeConfig(assembleClientConfig(t, network[0], 0)),
+	)
+
+	require.Equal(t,
+		rlpEncodeConfig(fetchClientConfig(t, network[0], 3)),
+		rlpEncodeConfig(assembleClientConfig(t, network[0], 3)),
+	)
+
 }
 
 // a change in the delta parameter should be applied at epoch end
@@ -144,9 +809,9 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 
-	omissionContract, err := autonity.NewOmissionAccountability(params.OmissionAccountabilityContractAddress, network[0].WsClient)
+	omissionContract, err := bindings.NewOmissionAccountability(params.OmissionAccountabilityContractAddress, network[0].WsClient)
 	require.NoError(t, err)
-	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+	autonityContract, err := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 	require.NoError(t, err)
 
 	sendAndWait := func(tx *types.Transaction) {
@@ -195,10 +860,10 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 	require.NotEqual(t, uint64(1), initialDelta)
 	epoch0, err := network[0].Eth.BlockChain().LatestEpoch()
 	require.NoError(t, err)
-	delta0 := epoch0.Delta.Uint64()
+	delta0 := epoch0.OmissionDelta.Uint64()
 	epoch1, err := network[1].Eth.BlockChain().LatestEpoch()
 	require.NoError(t, err)
-	delta1 := epoch1.Delta.Uint64()
+	delta1 := epoch1.OmissionDelta.Uint64()
 	require.Equal(t, initialDelta, delta0)
 	require.Equal(t, initialDelta, delta1)
 	t.Log(initialDelta)
@@ -292,13 +957,13 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	// redeem fees
 
 	// Setup Bindings
-	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, n.WsClient)
+	autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, n.WsClient)
 	valAddrs, _ := autonityContract.GetValidators(nil)
-	liquidStateContracts := make([]*autonity.ILiquid, len(valAddrs))
-	validators := make([]autonity.AutonityValidator, len(valAddrs))
+	liquidStateContracts := make([]*bindings.ILiquid, len(valAddrs))
+	validators := make([]bindings.AutonityValidator, len(valAddrs))
 	for i, valAddr := range valAddrs {
 		validators[i], _ = autonityContract.GetValidator(nil, valAddr)
-		liquidStateContracts[i], _ = autonity.NewILiquid(validators[i].LiquidStateContract, n.WsClient)
+		liquidStateContracts[i], _ = bindings.NewILiquid(validators[i].LiquidStateContract, n.WsClient)
 	}
 	transactor, _ := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, big.NewInt(1234))
 	tx, err := liquidStateContracts[0].Transfer(
@@ -402,7 +1067,7 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 	ethDb := rawdb.NewMemoryDatabase()
 	db := state.NewDatabase(ethDb)
 	stateDB, _ := state.New(common.Hash{}, db, nil)
-	node0Core.Backend().BlockChain().CacheProposalState(common.Hash{}, nil, 0, stateDB)
+	node0Core.Backend().BlockChain().CacheProposalState(common.Hash{}, nil, 0, stateDB, &types.ContractsConfig{})
 
 	// handle the proposal
 	err = proposer.HandleProposal(context.TODO(), proposal)
@@ -814,7 +1479,7 @@ func TestValidatorMigration(t *testing.T) {
 	// ensure all validators are connected in full mesh with new ip
 
 	// Setup Bindings
-	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[1].WsClient)
+	autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[1].WsClient)
 
 	transactor, err := bind.NewKeyedTransactorWithChainID(vals[0].TreasuryKey, params.TestChainConfig.ChainID)
 	require.NoError(t, err)
@@ -953,7 +1618,7 @@ func TestCommitteeSizeChangeMidEpoch(t *testing.T) {
 	// update the committee Size to increase proposer rewards
 
 	// Setup Bindings
-	autonityContract, _ := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+	autonityContract, _ := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 
 	transactor, err := bind.NewKeyedTransactorWithChainID(vals[0].NodeKey, params.TestChainConfig.ChainID)
 	require.NoError(t, err)
@@ -1004,7 +1669,7 @@ func TestLargeNetwork(t *testing.T) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
+	autonityContract, err := bindings.NewAutonity(params.AutonityContractAddress, network[0].WsClient)
 	require.NoError(t, err)
 	transactOpts, err := bind.NewKeyedTransactorWithChainID(network[0].Key, params.TestChainConfig.ChainID)
 	require.NoError(t, err)

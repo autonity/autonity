@@ -18,11 +18,12 @@ package types
 
 import (
 	"bytes"
-	"github.com/autonity/autonity/common/hexutil"
 	"hash"
 	"math/big"
 	"reflect"
 	"testing"
+
+	"github.com/autonity/autonity/common/hexutil"
 
 	"golang.org/x/crypto/sha3"
 
@@ -99,7 +100,18 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		}},
 	}
 
-	epoch := &Epoch{PreviousEpochBlock: common.Big1, NextEpochBlock: common.Big256, Committee: c, Delta: common.Big5}
+	epoch := &Epoch{
+		PreviousEpochBlock: common.Big1,
+		NextEpochBlock:     common.Big256,
+		Committee:          c,
+		OmissionDelta:      common.Big5,
+		Eip1559: &Eip1559Params{
+			MinBaseFee:               new(big.Int).SetUint64(params.TestMinBaseFee),
+			BaseFeeChangeDenominator: new(big.Int).SetUint64(8),
+			ElasticityMultiplier:     common.Big2,
+			GasLimitBoundDivisor:     new(big.Int).SetUint64(1024),
+		},
+	}
 
 	t.Run("encode / decode with not nil epoch in block header", func(t *testing.T) {
 		header := &Header{
@@ -586,7 +598,18 @@ func TestEpochDeserialization(t *testing.T) {
 	require.Equal(t, header, headerDecoded)
 
 	// valid epoch information
-	validEpoch := &Epoch{Committee: committee.Copy(), PreviousEpochBlock: common.Big0, NextEpochBlock: common.Big256, Delta: common.Big5}
+	validEpoch := &Epoch{
+		Committee:          committee.Copy(),
+		PreviousEpochBlock: common.Big0,
+		NextEpochBlock:     common.Big256,
+		OmissionDelta:      common.Big5,
+		Eip1559: &Eip1559Params{
+			MinBaseFee:               new(big.Int).SetUint64(params.TestMinBaseFee),
+			BaseFeeChangeDenominator: new(big.Int).SetUint64(8),
+			ElasticityMultiplier:     new(big.Int).SetUint64(2),
+			GasLimitBoundDivisor:     new(big.Int).SetUint64(1024),
+		},
+	}
 	require.NoError(t, validEpoch.Committee.Enrich())
 	header = headerWithEpoch(validEpoch)
 	b, err = rlp.EncodeToBytes(header)
@@ -635,7 +658,7 @@ func TestEpochDeserialization(t *testing.T) {
 
 	// delta should not be 0
 	epoch = validEpoch.Copy()
-	epoch.Delta = common.Big0
+	epoch.OmissionDelta = common.Big0
 	header = headerWithEpoch(epoch)
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
@@ -645,6 +668,41 @@ func TestEpochDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
+	// base fee change denominator should not be 0
+	epoch = validEpoch.Copy()
+	epoch.Eip1559.BaseFeeChangeDenominator = common.Big0
+	header = headerWithEpoch(epoch)
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+	require.Equal(t, &Header{}, headerDecoded)
+
+	// elasticity multiplier should not be 0
+	epoch = validEpoch.Copy()
+	epoch.Eip1559.ElasticityMultiplier = common.Big0
+	header = headerWithEpoch(epoch)
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+	require.Equal(t, &Header{}, headerDecoded)
+
+	// gasLimitBoundDivisor should not be 0
+	epoch = validEpoch.Copy()
+	epoch.Eip1559.GasLimitBoundDivisor = common.Big0
+	header = headerWithEpoch(epoch)
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+	require.Equal(t, &Header{}, headerDecoded)
 }
 
 var benchBuffer = bytes.NewBuffer(make([]byte, 0, 32000))

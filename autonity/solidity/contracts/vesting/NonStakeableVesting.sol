@@ -229,10 +229,19 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
         return expiredFundsFromContract[_getUniqueContractID(_beneficiary, _id)];
     }
 
+    /**
+     * @notice Returns the beneficiary contract with the specified id
+     * @param _beneficiary beneficiary account address
+     * @param _id contract id
+     */
     function getContract(address _beneficiary, uint256 _id) virtual external view returns (ContractBase.Contract memory) {
         return contracts[_getUniqueContractID(_beneficiary, _id)];
     }
 
+    /**
+     * @notice Returns all the contracts of the beneficiary
+     * @param _beneficiary beneficiary account address
+     */
     function getContracts(address _beneficiary) virtual external view returns (ContractBase.Contract[] memory) {
         uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
         ContractBase.Contract[] memory _res = new ContractBase.Contract[] (_contractIDs.length);

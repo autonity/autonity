@@ -79,7 +79,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
 
         // fetch committee and make sure that delta is set correctly in the autonity contract
         Autonity.EpochInfo memory epochInfo = autonity.getEpochInfo();
-        require(epochInfo.delta == _config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
+        require(epochInfo.omissionDelta == _config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
 
         operator = _operator;
         config = _config;
@@ -394,46 +394,91 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
         return absenteesLastHeight;
     }
 
+    /**
+    * @param _height, height number
+    * @return whether the proposer of that height was faulty or not
+    */
     function getFaultyProposers(uint256 _height) external view virtual nonReentrantView returns (bool){
         return faultyProposers[_height];
     }
 
+    /**
+    * @return the number of faulty proposers in the current window
+    */
     function getFaultyProposersInWindow() external view virtual nonReentrantView returns (uint256){
         return faultyProposersInWindow;
     }
 
+    /**
+    * @notice the result of this getter does not take into account the lookback window logic.
+    *         It just signals whether the validator was included in the activity proof or not.
+    * @param _height, height number
+    * @param _validator, validator node address
+    * @return whether the specified validator was inactive at the specified height
+    */
     function getInactiveValidators(uint256 _height, address _validator) external view virtual nonReentrantView returns (bool){
         return inactiveValidators[_height][_validator];
     }
 
+    /**
+    * @param _validator, node address of the validator
+    * @return the last block at which the validator was recorded as active.
+    *         -1 means that they are not on an inactivity streak
+    */
     function getLastActive(address _validator) external view virtual nonReentrantView returns (int256){
         return lastActive[_validator];
     }
 
+    /**
+    * @param _validator, node address of the validator
+    * @return the current inactivity counter of the validator
+    */
     function getInactivityCounter(address _validator) external view virtual nonReentrantView returns (uint256){
         return inactivityCounter[_validator];
     }
 
+    /**
+    * @param _validator, node address of the validator
+    * @return the current probation period of the validator
+    */
     function getProbationPeriods(address _validator) external view virtual nonReentrantView returns (uint256){
         return probationPeriods[_validator];
     }
 
+    /**
+    * @param _validator, node address of the validator
+    * @return the current number of repeated offences of the validator
+    */
     function getRepeatedOffences(address _validator) external view virtual nonReentrantView returns (uint256){
         return repeatedOffences[_validator];
     }
 
-    function getEpochCollusionDegree() external view virtual nonReentrantView returns (uint256[] memory){
-        return epochCollusionDegree;
+    /**
+    * @return length of the collusion degree array
+    */
+    function getEpochCollusionDegreeLength() external view virtual nonReentrantView returns (uint256){
+        return epochCollusionDegree.length;
     }
 
+    /**
+    * @param _epochID, the epoch id
+    * @return the collusion degree (number of punished validators) in that epoch
+    */
     function getEpochCollusionDegree(uint256 _epochID) external view virtual nonReentrantView returns (uint256){
         return epochCollusionDegree[_epochID];
     }
 
+    /**
+    * @return the current config
+    */
     function getConfig() external view virtual nonReentrantView returns (Config memory){
         return config;
     }
 
+    /**
+    * @param _nodeAddress, the validator node address
+    * @return the proposer effort accumulated by the validator up to now
+    */
     function getProposerEffort(address _nodeAddress) external view virtual nonReentrantView returns (uint256) {
         return proposerEffort[_nodeAddress];
     }
@@ -478,7 +523,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     function setInactivityThreshold(uint256 _inactivityThreshold) external virtual onlyOperator {
         require(_inactivityThreshold <= SCALE_FACTOR, "cannot exceed scale factor");
         require(_inactivityThreshold >= config.pastPerformanceWeight, "inactivityThreshold needs to be greater or equal to pastPerformanceWeight");
-        emit ConfigUpdateUint("inactivityThreshold", config.inactivityThreshold, _inactivityThreshold);
+        emit ConfigUpdateUint("inactivityThreshold", config.inactivityThreshold, _inactivityThreshold, block.number);
         config.inactivityThreshold = _inactivityThreshold;
     }
 
@@ -489,7 +534,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     function setPastPerformanceWeight(uint256 _pastPerformanceWeight) external virtual onlyOperator {
         require(_pastPerformanceWeight <= SCALE_FACTOR, "cannot exceed scale factor");
         require(_pastPerformanceWeight <= config.inactivityThreshold, "pastPerformanceWeight cannot be greater than inactivityThreshold");
-        emit ConfigUpdateUint("pastPerformanceWeight", config.pastPerformanceWeight, _pastPerformanceWeight);
+        emit ConfigUpdateUint("pastPerformanceWeight", config.pastPerformanceWeight, _pastPerformanceWeight, block.number);
         config.pastPerformanceWeight = _pastPerformanceWeight;
     }
 
@@ -498,7 +543,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @param _initialJailingPeriod, the new value for the initial jailing period
     */
     function setInitialJailingPeriod(uint256 _initialJailingPeriod) external virtual onlyOperator {
-        emit ConfigUpdateUint("initialJailingPeriod", config.initialJailingPeriod, _initialJailingPeriod);
+        emit ConfigUpdateUint("initialJailingPeriod", config.initialJailingPeriod, _initialJailingPeriod, block.number);
         config.initialJailingPeriod = _initialJailingPeriod;
     }
 
@@ -507,7 +552,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @param _initialProbationPeriod, the new value for the initial probation period
     */
     function setInitialProbationPeriod(uint256 _initialProbationPeriod) external virtual onlyOperator {
-        emit ConfigUpdateUint("initialProbationPeriod", config.initialProbationPeriod, _initialProbationPeriod);
+        emit ConfigUpdateUint("initialProbationPeriod", config.initialProbationPeriod, _initialProbationPeriod, block.number);
         config.initialProbationPeriod = _initialProbationPeriod;
     }
 
@@ -517,7 +562,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     */
     function setInitialSlashingRate(uint256 _initialSlashingRate) external virtual onlyOperator {
         require(_initialSlashingRate <= SLASHING_RATE_SCALE_FACTOR, "cannot exceed slashing rate scale factor");
-        emit ConfigUpdateUint("initialSlashingRate", config.initialSlashingRate, _initialSlashingRate);
+        emit ConfigUpdateUint("initialSlashingRate", config.initialSlashingRate, _initialSlashingRate, block.number);
         config.initialSlashingRate = _initialSlashingRate;
     }
 
@@ -531,7 +576,8 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
 
         // utilize newDelta for comparison, so that if delta is also being changed in this epoch we take the new value
         require(_epochPeriod > newDelta + _lookbackWindow - 1, "epoch period needs to be greater than delta+lookbackWindow-1");
-        emit ConfigUpdateUint("newLookbackWindow", newLookbackWindow, _lookbackWindow);
+        uint256 _currentEpochPeriod = autonity.getCurrentEpochPeriod(); // for logging purposes
+        emit ConfigUpdateUint("lookbackWindow", config.lookbackWindow, _lookbackWindow, epochBlock + _currentEpochPeriod);
         newLookbackWindow = _lookbackWindow;
     }
 
@@ -545,7 +591,8 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
 
         // utilize newLookbackWindow for comparison, so that if delta is also being changed in this epoch we take the new value
         require(_epochPeriod > _delta + newLookbackWindow - 1, "epoch period needs to be greater than delta+lookbackWindow-1");
-        emit ConfigUpdateUint("newOmissionDelta", newDelta, _delta);
+        uint256 _currentEpochPeriod = autonity.getCurrentEpochPeriod(); // for logging purposes
+        emit ConfigUpdateUint("delta", config.delta, _delta, epochBlock + _currentEpochPeriod);
         newDelta = _delta;
     }
 

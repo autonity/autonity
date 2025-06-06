@@ -90,7 +90,12 @@ func (oracle *Oracle) processBlock(bf *blockFees, percentiles []float64) {
 		bf.results.baseFee = new(big.Int)
 	}
 	if chainconfig.IsLondon(big.NewInt(int64(bf.blockNumber + 1))) {
-		bf.results.nextBaseFee = misc.CalcBaseFee(chainconfig, bf.header, oracle.backend)
+		eip1559Params, err := oracle.backend.Eip1559ParamsByHeight(bf.header.Number.Uint64() + 1)
+		if err != nil {
+			bf.results.nextBaseFee, bf.err = nil, err
+		} else {
+			bf.results.nextBaseFee, bf.err = misc.CalcBaseFee(chainconfig, bf.header, eip1559Params), nil
+		}
 	} else {
 		bf.results.nextBaseFee = new(big.Int)
 	}

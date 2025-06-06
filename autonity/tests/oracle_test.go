@@ -888,6 +888,7 @@ func TestAllOutliersAreNotSlashed(t *testing.T) {
 				big.NewInt(int64(params.DefaultGenesisOracleConfig.OutlierSlashingThreshold)),  // 10%
 				big.NewInt(int64(params.DefaultGenesisOracleConfig.OutlierDetectionThreshold)), // 15%
 				big.NewInt(int64(params.DefaultGenesisOracleConfig.BaseSlashingRate)),
+				big.NewInt(int64(params.DefaultGenesisOracleConfig.SlashingRateCap)),
 			),
 		)
 		return r
@@ -980,6 +981,7 @@ func TestSlashingPercentage(t *testing.T) {
 				big.NewInt(int64(params.DefaultGenesisOracleConfig.OutlierSlashingThreshold)),  // 10%
 				big.NewInt(int64(params.DefaultGenesisOracleConfig.OutlierDetectionThreshold)), // 15%
 				big.NewInt(int64(params.DefaultGenesisOracleConfig.BaseSlashingRate)),
+				big.NewInt(int64(params.DefaultGenesisOracleConfig.SlashingRateCap)),
 			),
 		)
 		return r
@@ -1150,6 +1152,7 @@ func TestSymbolUpdate(t *testing.T) {
 				big.NewInt(10),
 				big.NewInt(10), // all outliers will be slashed
 				big.NewInt(10),
+				big.NewInt(1000),
 			),
 		)
 		symbols, _, err := r.Oracle.GetSymbols(nil)

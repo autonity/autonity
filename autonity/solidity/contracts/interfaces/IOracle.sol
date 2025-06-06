@@ -103,7 +103,8 @@ interface IOracle {
     function setSlashingConfig(
         int256 _outlierSlashingThreshold,
         int256 _outlierDetectionThreshold,
-        uint256 _baseSlashingRate
+        uint256 _baseSlashingRate,
+        uint256 _slashingRateCap
     ) external;
 
     /**

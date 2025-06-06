@@ -65,7 +65,7 @@ contract UpgradeManager is IConfigEvents {
     * @param _account the new operator account.
     */
     function setOperator(address _account) external virtual onlyAutonity {
-        emit IConfigEvents.ConfigUpdateAddress("operator", operator, _account);
+        emit IConfigEvents.ConfigUpdateAddress("operator", operator, _account, block.number);
         operator = _account;
     }
 

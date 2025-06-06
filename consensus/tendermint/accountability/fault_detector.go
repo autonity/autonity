@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/autonity/autonity/autonity/bindings"
+
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
@@ -37,6 +39,7 @@ type ChainContext interface {
 	HasBadBlock(hash common.Hash) bool
 	Validator() core.Validator
 	CommitteeByHeight(height uint64) (*types.Committee, error)
+	AccountabilityParamsByHeight(height uint64) (*types.AccountabilityParams, error)
 }
 
 const (
@@ -45,9 +48,6 @@ const (
 	maxAccusationPerHeight        = 4                            // max number of accusation allowed to be produced by rule engine over a height against a validator.
 	maxNumOfInnocenceProofCached  = 120 * maxAccusationPerHeight // 120 blocks with 4 on each height that rule engine can produce totally over a height.
 	reportingSlotPeriod           = 20                           // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
-	//NOTE: update to below constants might require a chain fork to upgrade clients, since they impact the Accountability Event execution result. They should be turned into protocol parameters https://github.com/autonity/autonity/issues/949
-	HeightRange = 256 // Default msg buffer range for AFD.
-	DeltaBlocks = 10  // Wait until the GST + delta blocks to start accounting
 )
 
 var (
@@ -81,14 +81,14 @@ type FaultDetector struct {
 	ethBackend ethapi.Backend
 	txOpts     *bind.TransactOpts // transactor options for accountability events
 
-	eventReporterCh chan *autonity.AccountabilityEvent
+	eventReporterCh chan *bindings.IAccountabilityEvent
 	stopRetry       chan struct{}
 	// chain event subscriber for rule engine.
 	ruleEngineBlockCh  chan core.ChainEvent
 	ruleEngineBlockSub event.Subscription
 
 	// on-chain accountability event
-	accountabilityEventCh  chan *autonity.AccountabilityNewAccusation
+	accountabilityEventCh  chan *bindings.AccountabilityNewAccusation
 	accountabilityEventSub event.Subscription
 
 	blockchain ChainContext
@@ -98,14 +98,16 @@ type FaultDetector struct {
 	chainEventCh  chan core.ChainEvent
 	chainEventSub event.Subscription
 
-	misbehaviourProofCh chan *autonity.AccountabilityEvent
-	pendingEvents       []*autonity.AccountabilityEvent // accountability event buffer.
+	misbehaviourProofCh chan *bindings.IAccountabilityEvent
+	pendingEvents       []*bindings.IAccountabilityEvent // accountability event buffer.
 
 	offChainAccusationsMu sync.RWMutex
 	offChainAccusations   []*Proof // off chain accusations list, ordered in chain height from low to high.
 	broadcaster           consensus.Broadcaster
 
 	logger log.Logger
+
+	scanned map[uint64]struct{}
 }
 
 // NewFaultDetector call by ethereum object to create fd instance.
@@ -136,15 +138,16 @@ func NewFaultDetector(
 		txOpts:                txOpts,
 		tendermintMsgSub:      sub,
 		ruleEngineBlockCh:     make(chan core.ChainEvent, 300),
-		accountabilityEventCh: make(chan *autonity.AccountabilityNewAccusation),
+		accountabilityEventCh: make(chan *bindings.AccountabilityNewAccusation),
 		blockchain:            chain,
 		address:               nodeAddress,
 		msgStore:              ms,
 		chainEventCh:          make(chan core.ChainEvent, 300),
-		eventReporterCh:       make(chan *autonity.AccountabilityEvent, 10),
+		eventReporterCh:       make(chan *bindings.IAccountabilityEvent, 10),
 		stopRetry:             make(chan struct{}),
-		misbehaviourProofCh:   make(chan *autonity.AccountabilityEvent, 100),
+		misbehaviourProofCh:   make(chan *bindings.IAccountabilityEvent, 100),
 		logger:                logger, // Todo(youssef): remove context
+		scanned:               make(map[uint64]struct{}),
 	}
 	// use ChainEvent instead of ChainHeadEvent as we want the relative select cases to ran at every single block.
 	// ChainHeadEvent might be fired a single time for a batch of inserted blocks.
@@ -156,6 +159,9 @@ func NewFaultDetector(
 		fd.accountabilityEventCh,
 		[]common.Address{nodeAddress},
 	)
+
+	// no need to scan genesis
+	fd.scanned[0] = struct{}{}
 	return fd
 }
 
@@ -169,8 +175,8 @@ func (fd *FaultDetector) Start() {
 	go fd.consensusMsgHandlerLoop()
 }
 
-func IsHeightExpired(headHeight uint64, height uint64) bool {
-	return headHeight > HeightRange && height < headHeight-HeightRange
+func IsHeightExpired(coreHeight uint64, height uint64, heightRange uint64) bool {
+	return coreHeight > heightRange && height < coreHeight-heightRange
 }
 
 func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
@@ -187,11 +193,17 @@ tendermintMsgLoop:
 			if !ok {
 				break tendermintMsgLoop
 			}
-			currentHeight := fd.blockchain.CurrentBlock().NumberU64()
+			currentCoreHeight := fd.blockchain.CurrentBlock().NumberU64() + 1
+			accountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(currentCoreHeight)
+			if err != nil {
+				fd.logger.Error("cannot fetch accountability params", "block", currentCoreHeight, "err", err)
+				continue tendermintMsgLoop
+			}
+			currentHeightRange := accountabilityParams.Range.Uint64() //nolint:typecheck
 			// handle consensus message or innocence proof messages
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				if IsHeightExpired(currentHeight, e.Message.H()) {
+				if IsHeightExpired(currentCoreHeight, e.Message.H(), currentHeightRange) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
@@ -207,7 +219,7 @@ tendermintMsgLoop:
 					continue tendermintMsgLoop
 				}
 			case events.OldMessageEvent:
-				if IsHeightExpired(currentHeight, e.Message.H()) {
+				if IsHeightExpired(currentCoreHeight, e.Message.H(), currentHeightRange) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
@@ -259,11 +271,64 @@ tendermintMsgLoop:
 }
 
 // check to GC msg store for those msgs out of buffering window on every 60 blocks.
-func (fd *FaultDetector) checkMsgStoreGC(height uint64) {
-	if height > HeightRange && height%msgGCInterval == 0 {
-		threshold := height - HeightRange
-		fd.msgStore.DeleteOlds(threshold)
+// it also cleans up the scanned map
+func (fd *FaultDetector) checkMsgStoreGC(coreHeight uint64) {
+	accountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(coreHeight)
+	if err != nil {
+		fd.logger.Error("cannot fetch accountability params", "block", coreHeight, "err", err)
+		return
 	}
+	heightRange := accountabilityParams.Range.Uint64()
+	if coreHeight > heightRange && coreHeight%msgGCInterval == 0 {
+		threshold := coreHeight - heightRange
+		fd.msgStore.DeleteOlds(threshold)
+		// clean up scanned map
+		for h := range fd.scanned {
+			if h < threshold {
+				delete(fd.scanned, h)
+			}
+		}
+
+	}
+}
+
+func (fd *FaultDetector) computeScanRange(number *big.Int) (uint64, uint64, error) {
+	// we want to fetch the delta that will apply to the new blocks mined after `number`
+	accountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(number.Uint64() + 1)
+	if err != nil {
+		// this shouldn't happen unless the node has some aggressive state pruning in place
+		fd.logger.Error("Cannot fetch accountability params", "block", number.Uint64()+1, "err", err)
+		return 0, 0, fmt.Errorf("cannot fetch accountability delta for block %d: %w", number.Uint64()+1, err)
+	}
+	previousAccountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(number.Uint64())
+	if err != nil {
+		// this shouldn't happen unless the node has some aggressive state pruning in place
+		fd.logger.Error("Cannot fetch previous accountability params", "block", number.Uint64(), "err", err)
+		return 0, 0, fmt.Errorf("cannot fetch accountability delta for block %d: %w", number.Uint64(), err)
+	}
+
+	// if no changes in delta, we scan a single height
+	endH := new(big.Int).Sub(number, accountabilityParams.Delta)
+	startH := new(big.Int).Set(endH)
+
+	// account for change in deltas, we might need to:
+	// - skip some height to avoid re-scanning them (if delta increased)
+	// - scan some additional height to avoid skipping them (if delta decreased)
+	deltaDiff := new(big.Int).Sub(previousAccountabilityParams.Delta, accountabilityParams.Delta)
+
+	// deltaDiff > 0 means the delta decreased --> we need to scan more than a single height
+	if deltaDiff.Cmp(common.Big0) > 0 {
+		startH = new(big.Int).Sub(endH, deltaDiff)
+	}
+
+	// do not scan negative heights, can happen at network start
+	if startH.Cmp(common.Big0) < 0 {
+		startH = common.Big0
+	}
+	if endH.Cmp(common.Big0) < 0 {
+		endH = common.Big0
+	}
+	return startH.Uint64(), endH.Uint64(), nil
 }
 
 func (fd *FaultDetector) ruleEngine() {
@@ -276,21 +341,34 @@ loop:
 				break loop
 			}
 
-			// try to escalate expired off chain accusation on chain.
-			fd.escalateExpiredAccusations(ev.Block.NumberU64())
+			number := ev.Block.Number()
 
-			// run rule engine over a specific height.
-			if ev.Block.NumberU64() > uint64(DeltaBlocks) {
-				checkpoint := ev.Block.NumberU64() - uint64(DeltaBlocks)
-				if events := fd.runRuleEngine(checkpoint); len(events) > 0 {
+			// try to escalate expired off chain accusation on chain.
+			fd.escalateExpiredAccusations(number.Uint64() + 1)
+
+			startH, endH, err := fd.computeScanRange(number)
+			if err != nil {
+				fd.logger.Error("Cannot scan range", "block", number.Uint64(), "err", err)
+				break
+			}
+
+			// run rule engine over heights
+			for h := startH; h <= endH; h++ {
+				_, alreadyScanned := fd.scanned[h]
+				if alreadyScanned {
+					continue
+				}
+				if events := fd.runRuleEngine(h); len(events) > 0 {
 					fd.pendingEvents = append(fd.pendingEvents, events...)
 				}
-				if len(fd.pendingEvents) != 0 && fd.canReport(checkpoint) {
+				if len(fd.pendingEvents) != 0 && fd.canReport(h) {
 					fd.pendingEvents = fd.reportEvents(fd.pendingEvents)
 				}
+				fd.scanned[h] = struct{}{}
 			}
+
 			// msg store delete msgs out of buffering window on every 60 blocks.
-			fd.checkMsgStoreGC(ev.Block.NumberU64())
+			fd.checkMsgStoreGC(number.Uint64() + 1)
 		case accusation := <-fd.accountabilityEventCh:
 			fd.logger.Warn("Local node byzantine accusation!")
 			accusationEvent, err := fd.protocolContracts.GetEvent(nil, accusation.Id)
@@ -381,8 +459,8 @@ func (fd *FaultDetector) Stop() {
 }
 
 // convert the raw proofs into on-chain Proof which contains raw bytes of messages.
-func (fd *FaultDetector) eventFromProof(p *Proof, offender common.Address) *autonity.AccountabilityEvent {
-	var ev = &autonity.AccountabilityEvent{
+func (fd *FaultDetector) eventFromProof(p *Proof, offender common.Address) *bindings.IAccountabilityEvent {
+	var ev = &bindings.IAccountabilityEvent{
 		EventType: uint8(p.Type),
 		Rule:      uint8(p.Rule),
 		Reporter:  fd.address,
@@ -405,7 +483,7 @@ func (fd *FaultDetector) eventFromProof(p *Proof, offender common.Address) *auto
 
 // getInnocentProof is called by client who is on a challenge with a certain accusation, to get innocent proof from msg
 // store.
-func (fd *FaultDetector) innocenceProof(p *Proof, committee *types.Committee) (*autonity.AccountabilityEvent, error) {
+func (fd *FaultDetector) innocenceProof(p *Proof, committee *types.Committee) (*bindings.IAccountabilityEvent, error) {
 	// the protocol contains below provable accusations.
 	switch p.Rule {
 	case autonity.PO:
@@ -424,7 +502,7 @@ func (fd *FaultDetector) innocenceProof(p *Proof, committee *types.Committee) (*
 }
 
 // get innocent proof of accusation of rule C1 from msg store.
-func (fd *FaultDetector) innocenceProofC1(c *Proof, committee *types.Committee) (*autonity.AccountabilityEvent, error) {
+func (fd *FaultDetector) innocenceProofC1(c *Proof, committee *types.Committee) (*bindings.IAccountabilityEvent, error) {
 	precommit := c.Message
 	height := precommit.H()
 
@@ -465,7 +543,7 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof, committee *types.Committee) 
 }
 
 // get innocent proof of accusation of rule PO from msg store.
-func (fd *FaultDetector) innocenceProofPO(c *Proof, committee *types.Committee) (*autonity.AccountabilityEvent, error) {
+func (fd *FaultDetector) innocenceProofPO(c *Proof, committee *types.Committee) (*bindings.IAccountabilityEvent, error) {
 	// PO: node propose an old value with an validRound, innocent onChainProof of it should be:
 	// there are quorum voting power prevotes for that value at the validRound.
 	liteProposal := c.Message
@@ -510,7 +588,7 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof, committee *types.Committee) 
 }
 
 // get innocent proof of accusation of rule PVN from msg store.
-func (fd *FaultDetector) innocenceProofPVN(c *Proof, committee *types.Committee) (*autonity.AccountabilityEvent, error) {
+func (fd *FaultDetector) innocenceProofPVN(c *Proof, committee *types.Committee) (*bindings.IAccountabilityEvent, error) {
 	// get innocent proofs for PVN, for a prevote that vote for a new value,
 	// then there must be a proposal for this new value.
 	prevote := c.Message
@@ -538,7 +616,7 @@ func (fd *FaultDetector) innocenceProofPVN(c *Proof, committee *types.Committee)
 }
 
 // get innocent proof of accusation of rule PVO from msg store, it collects quorum preVotes for the value voted at a valid round.
-func (fd *FaultDetector) innocenceProofPVO(c *Proof, committee *types.Committee) (*autonity.AccountabilityEvent, error) {
+func (fd *FaultDetector) innocenceProofPVO(c *Proof, committee *types.Committee) (*bindings.IAccountabilityEvent, error) {
 	// get innocent proofs for PVO, collect quorum preVotes at the valid round of the old proposal.
 	oldProposal := c.Evidences[0]
 	height := oldProposal.H()
@@ -604,7 +682,7 @@ func (fd *FaultDetector) processMsg(m message.Msg) error {
 }
 
 // run rule engine over the specific height of consensus msgs, return the accountable events in proofs.
-func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.AccountabilityEvent {
+func (fd *FaultDetector) runRuleEngine(height uint64) []*bindings.IAccountabilityEvent {
 	// To avoid unnecessary accusations, we wait for delta blocks to start scanning.
 	// always skip the heights before first buffered height after the node start up, since it will rise lots of
 	// nonsense accusations due to the missing of messages during the startup phase, thus causing un-necessary payments
@@ -619,7 +697,7 @@ func (fd *FaultDetector) runRuleEngine(height uint64) []*autonity.Accountability
 	}
 	quorum := bft.Quorum(committee.TotalVotingPower())
 	proofs := fd.runRulesOverHeight(height, quorum, committee)
-	events := make([]*autonity.AccountabilityEvent, 0, len(proofs))
+	events := make([]*bindings.IAccountabilityEvent, 0, len(proofs))
 
 	// used to enforce max accusation per committee member per height
 	accused := make(map[common.Address]uint64)

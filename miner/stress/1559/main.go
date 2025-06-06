@@ -252,7 +252,6 @@ func makeMiner(genesis *core.Genesis) (*node.Node, *eth.Ethereum, error) {
 		Ethash:          ethconfig.Defaults.Ethash,
 		Miner: miner.Config{
 			Etherbase: common.Address{1},
-			GasCeil:   genesis.GasLimit * 11 / 10,
 			GasPrice:  big.NewInt(1),
 			Recommit:  time.Second,
 		},

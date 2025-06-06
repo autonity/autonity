@@ -100,6 +100,9 @@ contract InflationController is IInflationController {
         ));
     }
 
+    /**
+    * @return the current parameters of the inflation controller
+    */
     function getParams() external virtual view returns (Params memory) {
         return params;
     }

@@ -26,20 +26,18 @@ import (
 	"github.com/autonity/autonity/params"
 )
 
-type BaseFeeGetter interface {
-	MinBaseFee() *big.Int
-}
-
 // VerifyEip1559Header verifies some header attributes which were changed in EIP-1559,
 // - gas limit check
 // - basefee check
-func VerifyEip1559Header(config *params.ChainConfig, feeGetter BaseFeeGetter, parent, header *types.Header) error {
+func VerifyEip1559Header(config *params.ChainConfig, eip1559Params *types.Eip1559Params, parent, header *types.Header) error {
 	// Verify that the gas limit remains within allowed bounds
 	parentGasLimit := parent.GasLimit
 	if !config.IsLondon(parent.Number) {
-		parentGasLimit = parent.GasLimit * params.ElasticityMultiplier
+		// take the genesis elasticity multiplier, however this
+		// should never happen on Autonity, since EIP1559 is activated from genesis
+		parentGasLimit = parent.GasLimit * params.DefaultElasticityMultiplier
 	}
-	if err := VerifyGaslimit(parentGasLimit, header.GasLimit); err != nil {
+	if err := VerifyGaslimit(parentGasLimit, header.GasLimit, eip1559Params.GasLimitBoundDivisor.Uint64()); err != nil {
 		return err
 	}
 	// Verify the header is not malformed
@@ -47,28 +45,32 @@ func VerifyEip1559Header(config *params.ChainConfig, feeGetter BaseFeeGetter, pa
 		return fmt.Errorf("header is missing baseFee")
 	}
 	// Verify the baseFee is correct based on the parent header.
-	if feeGetter != nil {
-		expectedBaseFee := CalcBaseFee(config, parent, feeGetter)
-		if header.BaseFee.Cmp(expectedBaseFee) != 0 {
-			return fmt.Errorf("invalid baseFee: have %s, want %s, parentBaseFee %s, parentGasUsed %d",
-				expectedBaseFee, header.BaseFee, parent.BaseFee, parent.GasUsed)
-		}
+	expectedBaseFee := CalcBaseFee(config, parent, eip1559Params)
+	if header.BaseFee.Cmp(expectedBaseFee) != 0 {
+		return fmt.Errorf("invalid baseFee: have %s, want %s, parentBaseFee %s, parentGasUsed %d",
+			header.BaseFee, expectedBaseFee, parent.BaseFee, parent.GasUsed)
 	}
 	return nil
 }
 
 // CalcBaseFee calculates the basefee of the header.
-func CalcBaseFee(config *params.ChainConfig, parent *types.Header, feeGetter BaseFeeGetter) *big.Int {
+func CalcBaseFee(config *params.ChainConfig, parent *types.Header, eip1559Params *types.Eip1559Params) *big.Int {
 	// If the current block is the first EIP-1559 block, return the InitialBaseFee.
 	if !config.IsLondon(parent.Number) {
 		return new(big.Int).SetUint64(params.InitialBaseFee)
 	}
 
-	var (
-		parentGasTarget          = parent.GasLimit / params.ElasticityMultiplier
-		parentGasTargetBig       = new(big.Int).SetUint64(parentGasTarget)
-		baseFeeChangeDenominator = new(big.Int).SetUint64(params.BaseFeeChangeDenominator)
-	)
+	// compute the correct gas target
+	var parentGasTarget uint64
+	if parent.GasLimit >= eip1559Params.ElasticityMultiplier.Uint64() {
+		// standard case
+		parentGasTarget = parent.GasLimit / eip1559Params.ElasticityMultiplier.Uint64()
+	} else {
+		// extreme edge case, let's handle it gracefully
+		parentGasTarget = 1 // avoid targetting 0, which would cause division by 0 later on
+	}
+	parentGasTargetBig := new(big.Int).SetUint64(parentGasTarget)
+
 	// If the parent gasUsed is the same as the target, the baseFee remains unchanged.
 	if parent.GasUsed == parentGasTarget {
 		return new(big.Int).Set(parent.BaseFee)
@@ -79,7 +81,7 @@ func CalcBaseFee(config *params.ChainConfig, parent *types.Header, feeGetter Bas
 		x := new(big.Int).Mul(parent.BaseFee, gasUsedDelta)
 		y := x.Div(x, parentGasTargetBig)
 		baseFeeDelta := math.BigMax(
-			x.Div(y, baseFeeChangeDenominator),
+			x.Div(y, eip1559Params.BaseFeeChangeDenominator),
 			common.Big1,
 		)
 		return x.Add(parent.BaseFee, baseFeeDelta)
@@ -88,15 +90,17 @@ func CalcBaseFee(config *params.ChainConfig, parent *types.Header, feeGetter Bas
 		gasUsedDelta := new(big.Int).SetUint64(parentGasTarget - parent.GasUsed)
 		x := new(big.Int).Mul(parent.BaseFee, gasUsedDelta)
 		y := x.Div(x, parentGasTargetBig)
-		baseFeeDelta := x.Div(y, baseFeeChangeDenominator)
+		baseFeeDelta := x.Div(y, eip1559Params.BaseFeeChangeDenominator)
 
-		minBaseFee := big.NewInt(0)
-		if feeGetter != nil {
-			minBaseFee = feeGetter.MinBaseFee()
+		// if the baseFeeDelta is 0  due to a very high baseFeeChangeDenominator (and not due to parent.BaseFee == 0),
+		// bump it to 1, as we want the basefee to decrease if we are below target
+		if parent.BaseFee.Uint64() > 0 && baseFeeDelta.Uint64() == 0 {
+			baseFeeDelta = common.Big1
 		}
+
 		return math.BigMax(
 			x.Sub(parent.BaseFee, baseFeeDelta),
-			minBaseFee,
+			new(big.Int).Set(eip1559Params.MinBaseFee),
 		)
 	}
 }

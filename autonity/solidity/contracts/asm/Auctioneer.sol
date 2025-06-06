@@ -199,7 +199,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         if (operator_ == address(0)) {
             revert InvalidParameter("operator_");
         }
-        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator_);
+        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator_, block.number);
         _operator = operator_;
     }
 
@@ -210,7 +210,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         if (stabilization_ == address(0)) {
             revert InvalidParameter("stabilization_");
         }
-        emit IConfigEvents.ConfigUpdateAddress("stabilization", address(_stabilization), stabilization_);
+        emit IConfigEvents.ConfigUpdateAddress("stabilization", address(_stabilization), stabilization_, block.number);
         _stabilization = IStabilization(stabilization_);
     }
 
@@ -221,7 +221,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         if (oracle_ == address(0)) {
             revert InvalidParameter("oracle_");
         }
-        emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle_);
+        emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle_, block.number);
         _oracle = IOracle(oracle_);
     }
 
@@ -240,7 +240,8 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         emit IConfigEvents.ConfigUpdateUint(
             "liquidationAuctionDuration",
             config.liquidationAuctionDuration,
-            duration
+            duration,
+            block.number
         );
         config.liquidationAuctionDuration = duration;
     }
@@ -254,7 +255,8 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         emit IConfigEvents.ConfigUpdateUint(
             "interestAuctionDuration",
             config.interestAuctionDuration,
-            duration
+            duration,
+            block.number
         );
         config.interestAuctionDuration = duration;
     }
@@ -269,7 +271,8 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         emit IConfigEvents.ConfigUpdateUint(
             "interestAuctionDiscount",
             config.interestAuctionDiscount,
-            discount
+            discount,
+            block.number
         );
         config.interestAuctionDiscount = discount;
     }
@@ -283,7 +286,8 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         emit IConfigEvents.ConfigUpdateUint(
             "interestAuctionThreshold",
             config.interestAuctionThreshold,
-            threshold
+            threshold,
+            block.number
         );
         config.interestAuctionThreshold = threshold;
     }
@@ -291,7 +295,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     // @notice Set the proceeds address
     // @param proceedAddress_ The address to send proceeds to
     function setProceedAddress(address proceedAddress_) external onlyOperator {
-        emit IConfigEvents.ConfigUpdateAddress("proceedAddress", proceedAddress, proceedAddress_);
+        emit IConfigEvents.ConfigUpdateAddress("proceedAddress", proceedAddress, proceedAddress_, block.number);
         proceedAddress = proceedAddress_;
     }
 
@@ -327,14 +331,20 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         return _minInterestPayment(auction);
     }
 
+    // @notice Get the current Auctioneer configuration
+    // @return the current configuration
     function getConfig() external view returns (Config memory) {
         return config;
     }
 
+    // @notice Get the address of the collateral token
+    // @return the address of the collateral token
     function getCollateralToken() external view returns (address) {
         return address(collateralToken);
     }
 
+    // @notice Get the proceed address
+    // @return the proceed address
     function getProceedAddress() external view returns (address) {
         return proceedAddress;
     }

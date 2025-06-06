@@ -658,6 +658,7 @@ func (s *StateDB) Copy() *StateDB {
 		journal:             newJournal(),
 		hasher:              crypto.NewKeccakState(),
 	}
+
 	// Copy the dirty states, logs, and preimages
 	for addr := range s.journal.dirties {
 		// As documented [here](https://github.com/autonity/autonity/pull/16485#issuecomment-380438527),

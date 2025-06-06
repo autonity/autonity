@@ -378,22 +378,37 @@ contract LiquidLogic is ILiquid, LiquidStorage {
         return allowances[_owner][_spender];
     }
 
+    /**
+     * @notice Returns the name of this liquid contract token
+     */
     function name() external virtual view returns (string memory) {
         return liquidName;
     }
 
+    /**
+     * @notice Returns the symbol of this liquid contract token
+     */
     function symbol() external virtual view returns (string memory) {
         return liquidSymbol;
     }
 
+    /**
+     * @notice Returns the validator associated with this liquid contract
+     */
     function getValidator() external virtual view returns (address) {
         return validator;
     }
 
+    /**
+     * @notice Returns the treasury of the validator associated with this liquid contract
+     */
     function getTreasury() external virtual view returns (address) {
         return treasury;
     }
 
+    /**
+     * @notice Returns the current commission rate
+     */
     function getCommissionRate() external virtual view nonReentrantView returns (uint256) {
         return commissionRate;
     }

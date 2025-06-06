@@ -60,8 +60,8 @@ func (b *LesApiBackend) SetHead(number uint64) {
 	b.eth.blockchain.SetHead(number)
 }
 
-func (b *LesApiBackend) MinBaseFee() *big.Int {
-	return big.NewInt(0)
+func (b *LesApiBackend) Eip1559ParamsByHeight(height uint64) (*types.Eip1559Params, error) {
+	return b.eth.blockchain.HeaderChain().Eip1559ParamsByHeight(height)
 }
 
 func (b *LesApiBackend) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
