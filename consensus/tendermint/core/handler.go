@@ -229,6 +229,10 @@ eventLoop:
 					continue
 				}
 
+				// valid message, reset sync timeout
+				c.syncState.SetLastValidMsgTime(time.Now())
+				c.syncState.SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
+
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
@@ -286,7 +290,6 @@ func (c *Core) syncEventLoop(ctx context.Context) {
 		this method is responsible for asking the network to send us the current consensus state
 		and to process sync queries events.
 	*/
-	timer := time.NewTimer(syncTimeOut)
 
 	round := c.Round()
 	height := c.Height()
@@ -298,7 +301,14 @@ func (c *Core) syncEventLoop(ctx context.Context) {
 eventLoop:
 	for {
 		select {
-		case <-timer.C:
+		case <-time.After(time.Second * constants.AskSyncInterval): //check for sync every 5 seconds
+
+			if time.Since(c.syncState.GetLastValidMsgTime()) < c.syncState.GetSyncTimeOut() {
+				c.logger.Debug("Sync timeout not reached yet", "last valid message received", c.syncState.GetLastValidMsgTime(), "sync timeout", c.syncState.GetSyncTimeOut())
+				round = c.Round()
+				height = c.Height()
+				continue
+			}
 			currentRound := c.Round()
 			currentHeight := c.Height()
 
@@ -307,11 +317,11 @@ eventLoop:
 				c.logger.Warn("⚠️ Consensus liveliness lost", "node", c.Address(), "height", height, "round", round, "step", c.Step())
 				syncMsg = c.createSyncMsg()
 				c.backend.AskSync(c.committee.Committee(), syncMsg)
+				c.syncState.SetOutOfSync(true)
 			}
 			round = currentRound
 			height = currentHeight
 			c.askSyncRateLimiter.Cleanup()
-			timer = time.NewTimer(syncTimeOut)
 		case ev, ok := <-c.syncEventSub.Chan():
 			if !ok {
 				break eventLoop
