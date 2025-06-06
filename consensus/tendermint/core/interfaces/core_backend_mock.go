@@ -92,6 +92,18 @@ func (mr *MockBackendMockRecorder) AskSync(committee, syncMsg any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockBackend)(nil).AskSync), committee, syncMsg)
 }
 
+// SyncPeer mocks base method.
+func (m *MockBackend) SyncPeer(syncMsg *message.AskSyncMsg, address common.Address) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SyncPeer", syncMsg, address)
+}
+
+// SyncPeer indicates an expected call of SyncPeer.
+func (mr *MockBackendMockRecorder) SyncPeer(syncMsg, address any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncPeer", reflect.TypeOf((*MockBackend)(nil).SyncPeer), syncMsg, address)
+}
+
 // BlockChain mocks base method.
 func (m *MockBackend) BlockChain() *core.BlockChain {
 	m.ctrl.T.Helper()

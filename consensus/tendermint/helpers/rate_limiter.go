@@ -14,7 +14,7 @@ var (
 )
 
 type TimeWindowLimiter struct {
-	rwMutex    sync.RWMutex
+	mutex      sync.Mutex
 	limits     map[common.Address]*rateRecord
 	timeWindow time.Duration
 	maxBurst   uint64
@@ -33,15 +33,9 @@ func NewTimeWindowLimiter(window time.Duration, maxBurst uint64) *TimeWindowLimi
 	}
 }
 
-func (l *TimeWindowLimiter) TotalRecords() int {
-	l.rwMutex.RLock()
-	defer l.rwMutex.RUnlock()
-	return len(l.limits)
-}
-
 func (l *TimeWindowLimiter) Allow(sender common.Address) error {
-	l.rwMutex.Lock()
-	defer l.rwMutex.Unlock()
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 
 	now := time.Now()
 	record, exists := l.limits[sender]
@@ -63,8 +57,8 @@ func (l *TimeWindowLimiter) Allow(sender common.Address) error {
 }
 
 func (l *TimeWindowLimiter) Cleanup() {
-	l.rwMutex.Lock()
-	defer l.rwMutex.Unlock()
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 
 	now := time.Now()
 	for addr, record := range l.limits {

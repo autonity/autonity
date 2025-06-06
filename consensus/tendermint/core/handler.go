@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/rlp"
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -63,12 +64,14 @@ func (c *Core) subscribeEvents() {
 	c.candidateBlockCh = make(chan events.NewCandidateBlockEvent, 1)
 	c.committedCh = make(chan events.CommitEvent, 1)
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
+	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 }
 
 // Unsubscribe all
 func (c *Core) unsubscribeEvents() {
 	c.messageSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
+	c.syncEventSub.Unsubscribe()
 }
 
 func shouldDisconnectSender(err error) bool {
@@ -146,7 +149,7 @@ func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash
 }
 
 func (c *Core) mainEventLoop(ctx context.Context) {
-	go c.livenessTrackerLoop(ctx)
+	go c.syncEventLoop(ctx)
 
 eventLoop:
 	for {
@@ -278,7 +281,7 @@ eventLoop:
 	c.stopped <- struct{}{}
 }
 
-func (c *Core) livenessTrackerLoop(ctx context.Context) {
+func (c *Core) syncEventLoop(ctx context.Context) {
 	/*
 		this method is responsible for asking the network to send us the current consensus state
 		and to process sync queries events.
@@ -302,15 +305,41 @@ eventLoop:
 			// we only ask for sync if the current view stayed the same for the past 30 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
 				c.logger.Warn("⚠️ Consensus liveliness lost", "node", c.Address(), "height", height, "round", round, "step", c.Step())
-				c.logger.Warn("Broadcasting sync request..", "node", c.Address(), "height", height, "round", round, "step", c.Step())
 				syncMsg = c.createSyncMsg()
 				c.backend.AskSync(c.committee.Committee(), syncMsg)
 			}
 			round = currentRound
 			height = currentHeight
+			c.askSyncRateLimiter.Cleanup()
 			timer = time.NewTimer(syncTimeOut)
+		case ev, ok := <-c.syncEventSub.Chan():
+			if !ok {
+				break eventLoop
+			}
+			if c.Broadcaster() == nil {
+				c.logger.Warn("acn network is not ready yet")
+				continue
+			}
+			event := ev.Data.(events.SyncEvent)
+			c.logger.Debug("Processing sync message", "from", event.Sender)
+			if err := c.askSyncRateLimiter.Allow(event.Sender); err != nil {
+				tryDisconnect(event.ErrCh, err)
+				continue
+			}
+
+			askSync := new(message.AskSyncMsg)
+			if err := rlp.DecodeBytes(event.Payload, askSync); err != nil {
+				tryDisconnect(event.ErrCh, err)
+				continue
+			}
+
+			if err := askSync.Validate(); err != nil {
+				tryDisconnect(event.ErrCh, err)
+				continue
+			}
+			c.Backend().SyncPeer(askSync, event.Sender)
 		case <-ctx.Done():
-			c.logger.Debug("livenessTrackerLoop is stopped", "event", ctx.Err())
+			c.logger.Debug("syncEventLoop is stopped", "event", ctx.Err())
 			break eventLoop
 
 		}

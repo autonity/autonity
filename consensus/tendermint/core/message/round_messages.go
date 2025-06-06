@@ -282,9 +282,9 @@ type AskSyncMsg struct {
 	nilProposal      map[uint64]struct{}                 `rlp:"-"` // marks round where remote node doesn't have a proposal
 }
 
-func (lsm *AskSyncMsg) Validate() error {
+func (m *AskSyncMsg) Validate() error {
 	// cannot have more than `MaxRound` distinct rounds
-	if len(lsm.KnownMessages) > constants.MaxRound {
+	if len(m.KnownMessages) > constants.MaxRound {
 		return errInvalidLostSyncMsg
 	}
 
@@ -292,7 +292,7 @@ func (lsm *AskSyncMsg) Validate() error {
 	prevoteSigners := make(map[uint64]map[common.Hash]*big.Int)
 	precommitSigners := make(map[uint64]map[common.Hash]*big.Int)
 	nilProposal := make(map[uint64]struct{})
-	for _, v := range lsm.KnownMessages {
+	for _, v := range m.KnownMessages {
 		// view cannot be nil
 		if v == nil {
 			return errInvalidLostSyncMsg
@@ -329,11 +329,11 @@ func (lsm *AskSyncMsg) Validate() error {
 	}
 
 	// populate local fields if valid
-	lsm.validated = true
-	lsm.rounds = rounds
-	lsm.prevoteSigners = prevoteSigners
-	lsm.precommitSigners = precommitSigners
-	lsm.nilProposal = nilProposal
+	m.validated = true
+	m.rounds = rounds
+	m.prevoteSigners = prevoteSigners
+	m.precommitSigners = precommitSigners
+	m.nilProposal = nilProposal
 	return nil
 }
 
@@ -358,30 +358,30 @@ func validateVotes(values []common.Hash, signers []*big.Int) (map[common.Hash]*b
 	return voteSigners, nil
 }
 
-func (lsm *AskSyncMsg) Rounds() map[uint64]struct{} {
-	if !lsm.validated {
+func (m *AskSyncMsg) Rounds() map[uint64]struct{} {
+	if !m.validated {
 		panic("AskSyncMsg.Rounds() called before validated")
 	}
-	return lsm.rounds
+	return m.rounds
 }
 
-func (lsm *AskSyncMsg) NilProposal() map[uint64]struct{} {
-	if !lsm.validated {
+func (m *AskSyncMsg) NilProposal() map[uint64]struct{} {
+	if !m.validated {
 		panic("AskSyncMsg.NilProposal() called before validated")
 	}
-	return lsm.nilProposal
+	return m.nilProposal
 }
 
-func (lsm *AskSyncMsg) Prevotes() map[uint64]map[common.Hash]*big.Int {
-	if !lsm.validated {
+func (m *AskSyncMsg) Prevotes() map[uint64]map[common.Hash]*big.Int {
+	if !m.validated {
 		panic("AskSyncMsg.Prevotes() called before validated")
 	}
-	return lsm.prevoteSigners
+	return m.prevoteSigners
 }
 
-func (lsm *AskSyncMsg) Precommits() map[uint64]map[common.Hash]*big.Int {
-	if !lsm.validated {
+func (m *AskSyncMsg) Precommits() map[uint64]map[common.Hash]*big.Int {
+	if !m.validated {
 		panic("AskSyncMsg.Precommits() called before validated")
 	}
-	return lsm.precommitSigners
+	return m.precommitSigners
 }

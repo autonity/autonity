@@ -66,19 +66,17 @@ func New(
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
 	backend := &Backend{
-		database:      database,
-		eventMux:      event.NewTypeMuxSilent(evMux, log),
-		nodeKey:       nodeKey,
-		consensusKey:  consensusKey,
-		address:       crypto.PubkeyToAddress(nodeKey.PublicKey),
-		logger:        log,
-		knownMessages: knownMessages,
-		vmConfig:      vmConfig,
-		MsgStore:      ms,
-		// 2 ask sync per 5s, as in some edge case node can send 2 within 5s: A node ask sync then followed with a restart.
-		askSyncRateLimiter: helpers.NewTimeWindowLimiter(AskSyncInterval*time.Second, 2),
-		messageCh:          make(chan events.UnverifiedMessageEvent, 5000),
-		isHeightExpired:    isHeightExpired,
+		database:        database,
+		eventMux:        event.NewTypeMuxSilent(evMux, log),
+		nodeKey:         nodeKey,
+		consensusKey:    consensusKey,
+		address:         crypto.PubkeyToAddress(nodeKey.PublicKey),
+		logger:          log,
+		knownMessages:   knownMessages,
+		vmConfig:        vmConfig,
+		MsgStore:        ms,
+		messageCh:       make(chan events.UnverifiedMessageEvent, 5000),
+		isHeightExpired: isHeightExpired,
 		jailed: jailed{
 			validators: make(map[common.Address]uint64),
 		},

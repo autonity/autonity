@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math/big"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
+const AskSyncInterval = 5 // the interval in seconds to check the liveness and rise AskSync request.
 const EventQueueSize = 100
 
 // New creates a Tendermint consensus Core
@@ -46,7 +48,9 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
 		noGossip:               noGossip,
-		eventCh:                make(chan events.CoreEvent, EventQueueSize),
+		// 2 ask sync per 5s, as in some edge case node can send 2 within 5s: A node ask sync then followed with a restart.
+		askSyncRateLimiter: helpers.NewTimeWindowLimiter(AskSyncInterval*time.Second, 2),
+		eventCh:            make(chan events.CoreEvent, EventQueueSize),
 	}
 	c.SetDefaultHandlers()
 	if services != nil {
@@ -77,6 +81,7 @@ type Core struct {
 	candidateBlockCh    chan events.NewCandidateBlockEvent
 	committedCh         chan events.CommitEvent
 	timeoutEventSub     *event.TypeMuxSubscription
+	syncEventSub        *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
 
@@ -138,8 +143,8 @@ type Core struct {
 	newRound           time.Time
 	currBlockTimeStamp time.Time
 	noGossip           bool
-
-	eventCh chan events.CoreEvent // channel to communicate events from core to other modules (aggregator)
+	askSyncRateLimiter *helpers.TimeWindowLimiter
+	eventCh            chan events.CoreEvent // channel to communicate events from core to other modules (aggregator)
 }
 
 func (c *Core) EventCh() <-chan events.CoreEvent {

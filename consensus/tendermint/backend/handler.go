@@ -101,8 +101,7 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 			return true, errDecodeFailed
 		}
 		sb.logger.Debug("Received sync message", "from", sender)
-		// handle the msg in an individual go routine, the rate limiter will handle DoS attack vectors.
-		go sb.syncPeer(data, sender, errCh)
+		go sb.Post(events.SyncEvent{ErrCh: errCh, Payload: data, Sender: sender})
 
 	case message.AccountabilityNetworkMsg:
 		if !sb.coreRunning.Load() {

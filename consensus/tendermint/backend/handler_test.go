@@ -3,7 +3,6 @@ package backend
 import (
 	"bytes"
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"io"
 	"testing"
 	"time"
@@ -104,27 +103,18 @@ func TestSynchronisationMessage(t *testing.T) {
 	})
 
 	t.Run("engine running, msg cannot be decoded", func(t *testing.T) {
+		_, backend := newBlockChain(1)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		broadcaster := consensus.NewMockBroadcaster(ctrl)
-		gossiper := interfaces.NewMockGossiper(ctrl)
-		gossiper.EXPECT().SetBroadcaster(broadcaster)
-		b := &Backend{
-			database:           rawdb.NewMemoryDatabase(),
-			gossiper:           gossiper,
-			askSyncRateLimiter: helpers.NewTimeWindowLimiter(AskSyncInterval*time.Second, 2),
-			logger:             log.New("backend", "test", "id", 0),
-		}
-		b.SetBroadcaster(broadcaster)
-
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		broadcaster.EXPECT().FindPeer(testAddress).Return(mockedPeer, true).AnyTimes()
 
-		b.coreStarting.Store(true)
-		b.coreRunning.Store(true)
+		backend.coreStarting.Store(true)
+		backend.coreRunning.Store(true)
 		msg := makeMsg(message.SyncNetworkMsg, []byte{})
 		errCh := make(chan error, 1)
-		if res, err := b.HandleMsg(testAddress, msg, errCh); !res || err != nil {
+		if res, err := backend.HandleMsg(testAddress, msg, errCh); !res || err != nil {
 			t.Fatalf("HandleMsg unexpected return")
 		}
 		select {
