@@ -39,7 +39,7 @@ func TestTimeWindowLimiter_Expiration(t *testing.T) {
 
 // HeightBasedLimiter Tests
 func TestHeightBasedLimiter_HeightQuota(t *testing.T) {
-	limiter := NewHeightBasedLimiter(2, 10)
+	limiter := NewHeightBasedLimiter(2)
 	addr := common.HexToAddress("0x3")
 	height := uint64(100)
 
@@ -55,14 +55,14 @@ func TestHeightBasedLimiter_HeightQuota(t *testing.T) {
 }
 
 func TestHeightBasedLimiter_CleanupLogic(t *testing.T) {
-	limiter := NewHeightBasedLimiter(1, 5)
+	limiter := NewHeightBasedLimiter(1)
 	addr := common.HexToAddress("0x4")
 
 	require.NoError(t, limiter.Allow(addr, 99))
 	require.NoError(t, limiter.Allow(addr, 100))
 
 	// clean up
-	limiter.Cleanup(105)
+	limiter.Cleanup(105, 5)
 
 	limiter.mutex.Lock()
 	defer limiter.mutex.Unlock()

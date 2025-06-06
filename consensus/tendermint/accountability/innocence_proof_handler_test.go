@@ -34,69 +34,6 @@ func testAccountabilityParams() *types.AccountabilityParams {
 	}
 }
 
-func TestNewOffChainAccusationRateLimiter(t *testing.T) {
-	msgSender := common.Address{}
-	msgHash1 := common.Hash{0x1}
-	msgHash2 := common.Hash{0x2}
-	t.Run("test rate limit with a 1st accusation", func(t *testing.T) {
-		rl := NewAccusationRateLimiter()
-		err := rl.validAccusationRate(msgSender)
-		require.NoError(t, err)
-		require.Equal(t, 1, rl.accusationRates[msgSender])
-
-		rl.resetRateLimiter()
-		require.Equal(t, 0, len(rl.accusationRates))
-	})
-
-	t.Run("test rate limit with limited rate", func(t *testing.T) {
-		rl := NewAccusationRateLimiter()
-		for i := 0; i < maxAccusationPerHeight*2; i++ {
-			err := rl.validAccusationRate(msgSender)
-			require.NoError(t, err)
-		}
-		err := rl.validAccusationRate(msgSender)
-		require.Error(t, errAccusationRateMalicious, err)
-
-		rl.resetRateLimiter()
-		require.Equal(t, 0, len(rl.accusationRates))
-	})
-
-	t.Run("test duplicated accusation", func(t *testing.T) {
-		rl := NewAccusationRateLimiter()
-		err := rl.checkPeerDuplicatedAccusation(msgSender, msgHash1)
-		require.NoError(t, err)
-		_, ok := rl.peerProcessedAccusations[msgSender][msgHash1]
-		require.Equal(t, true, ok)
-		err = rl.checkPeerDuplicatedAccusation(msgSender, msgHash1)
-		require.Error(t, errPeerDuplicatedAccusation, err)
-		err = rl.checkPeerDuplicatedAccusation(msgSender, msgHash2)
-		require.NoError(t, err)
-
-		rl.resetPeerJustifiedAccusations()
-		_, ok = rl.peerProcessedAccusations[msgSender][msgHash1]
-		require.Equal(t, false, ok)
-		_, ok = rl.peerProcessedAccusations[msgSender][msgHash2]
-		require.Equal(t, false, ok)
-	})
-
-	t.Run("test accusation rate limit over a height", func(t *testing.T) {
-		rl := NewAccusationRateLimiter()
-
-		for h := uint64(0); h < uint64(99); h++ {
-			for i := 0; i < maxAccusationPerHeight; i++ {
-				err := rl.checkHeightAccusationRate(msgSender, h)
-				require.NoError(t, err)
-			}
-			err := rl.checkHeightAccusationRate(msgSender, h)
-			require.Error(t, errAccusationRateMalicious, err)
-
-			rl.resetHeightRateLimiter()
-			err = rl.checkHeightAccusationRate(msgSender, h)
-			require.NoError(t, err)
-		}
-	})
-}
-
 func TestNewInnocenceProofBuffer(t *testing.T) {
 	t.Run("cache and get innocence proof", func(t *testing.T) {
 		c := NewInnocenceProofBuffer()

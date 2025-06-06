@@ -1574,7 +1574,7 @@ func computeGracePeriod(oldRange uint64, newRange uint64) uint64 {
 }
 
 func msgForHeight(height uint64) message.Msg {
-	return newValidatedPrecommit(0, height, nilValue, signer, self, cSize)
+	return newValidatedPrecommit(0, height, common.NilValue, signer, self, cSize)
 }
 
 func effectiveRange(accountabilityRange uint64, gracePeriod uint64) uint64 {

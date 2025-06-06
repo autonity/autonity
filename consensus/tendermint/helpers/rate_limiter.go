@@ -72,14 +72,12 @@ type HeightBasedLimiter struct {
 	mutex        sync.Mutex
 	records      map[common.Address]map[uint64]uint64
 	maxPerHeight uint64
-	btl          uint64
 }
 
-func NewHeightBasedLimiter(maxPerHeight uint64, btl uint64) *HeightBasedLimiter {
+func NewHeightBasedLimiter(maxPerHeight uint64) *HeightBasedLimiter {
 	return &HeightBasedLimiter{
 		records:      make(map[common.Address]map[uint64]uint64),
 		maxPerHeight: maxPerHeight,
-		btl:          btl,
 	}
 }
 
@@ -99,11 +97,11 @@ func (l *HeightBasedLimiter) Allow(sender common.Address, height uint64) error {
 	return nil
 }
 
-func (l *HeightBasedLimiter) Cleanup(head uint64) {
+func (l *HeightBasedLimiter) Cleanup(head, btl uint64) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	staled := head - l.btl
+	staled := head - btl
 	for addr, heights := range l.records {
 		for h := range heights {
 			if h <= staled {

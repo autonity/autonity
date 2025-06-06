@@ -251,7 +251,14 @@ tendermintMsgLoop:
 
 			// on every 60 blocks, reset Peer Justified Accusations and height accusations counters.
 			if e.Block.NumberU64()%msgGCInterval == 0 {
-				fd.accusationRateLimiter.Cleanup(e.Block.NumberU64())
+				currentCoreHeight := fd.blockchain.CurrentBlock().NumberU64() + 1
+				accountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(currentCoreHeight)
+				if err != nil {
+					fd.logger.Error("cannot fetch accountability params", "block", currentCoreHeight, "err", err)
+					continue tendermintMsgLoop
+				}
+				btl := accountabilityParams.Range.Uint64() //nolint:typecheck
+				fd.accusationRateLimiter.Cleanup(e.Block.NumberU64(), btl)
 			}
 		case err, ok := <-fd.chainEventSub.Err():
 			if ok {
@@ -1484,7 +1491,7 @@ func NewAFDRateLimiter() *AFDRateLimiter {
 		// 8 accusations per 1s window for per client, rate limit reset per 1s.
 		timeLimiter: helpers.NewTimeWindowLimiter(time.Second, maxAccusationPerHeight*2),
 		// 4 accusations per height for per client.
-		heightLimiter: helpers.NewHeightBasedLimiter(maxAccusationPerHeight, HeightRange),
+		heightLimiter: helpers.NewHeightBasedLimiter(maxAccusationPerHeight),
 		// duplicated accusation checker, reset per 5 minutes.
 		duplicateLimiter: helpers.NewDuplicateTracker(time.Minute * 5),
 	}
@@ -1492,8 +1499,8 @@ func NewAFDRateLimiter() *AFDRateLimiter {
 	return limiter
 }
 
-func (l *AFDRateLimiter) Cleanup(height uint64) {
+func (l *AFDRateLimiter) Cleanup(height, btl uint64) {
 	l.timeLimiter.Cleanup()
-	l.heightLimiter.Cleanup(height)
+	l.heightLimiter.Cleanup(height, btl)
 	l.duplicateLimiter.Cleanup()
 }
