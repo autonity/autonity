@@ -613,7 +613,7 @@ type AutonityContractAPI struct {
 	server *p2p.Server
 }
 
-func (a *AutonityContractAPI) Config() (*bindings.AutonityConfig, error) {
+func (a *AutonityContractAPI) Config() (*bindings.IAutonityConfig, error) {
 	cb := a.bc.CurrentBlock()
 	st, err := a.bc.StateAt(cb.Root())
 	if err != nil {

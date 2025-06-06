@@ -88,7 +88,7 @@ func TestUpdateEnode(t *testing.T) {
 		require.NoError(t, err)
 		av, err := contractAbi.Unpack("getValidator", res)
 		require.NoError(t, err)
-		out := abi.ConvertType(av[0], new(bindings.AutonityValidator)).(*bindings.AutonityValidator)
+		out := abi.ConvertType(av[0], new(bindings.IAutonityValidator)).(*bindings.IAutonityValidator)
 		require.Equal(t, tempNode.String(), out.Enode)
 	})
 
@@ -175,7 +175,7 @@ func TestUpdateEnode(t *testing.T) {
 		require.NoError(t, err)
 		av, err := contractAbi.Unpack("getValidator", res)
 		require.NoError(t, err)
-		out := abi.ConvertType(av[0], new(bindings.AutonityValidator)).(*bindings.AutonityValidator)
+		out := abi.ConvertType(av[0], new(bindings.IAutonityValidator)).(*bindings.IAutonityValidator)
 		require.Equal(t, node.String(), out.Enode)
 	})
 }
@@ -381,7 +381,7 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, erro
 	return validatorList, nil
 }
 
-func autonityTestConfig() bindings.AutonityConfig {
+func autonityTestConfig() bindings.IAutonityConfig {
 	var testConfigCopy params.AutonityContractGenesis
 	// shallow copy is enough for this modifications
 	testConfigCopy = *params.TestAutonityContractConfig

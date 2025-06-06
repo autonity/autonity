@@ -120,7 +120,7 @@ func TestGenesisSteps(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		schedule := new(bindings.ScheduleControllerSchedule)
+		schedule := new(bindings.IScheduleControllerSchedule)
 		_, err = AutonityContractCall(
 			&generated.AutonityAbi,
 			evm,

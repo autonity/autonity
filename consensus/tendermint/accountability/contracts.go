@@ -1011,7 +1011,7 @@ func committeeByHeight(height uint64, evm *vm.EVM, caller common.Address) (*type
 		return nil, err
 	}
 
-	info := *abi.ConvertType(data[0], new(bindings.AutonityEpochInfo)).(*bindings.AutonityEpochInfo)
+	info := *abi.ConvertType(data[0], new(bindings.IAutonityEpochInfo)).(*bindings.IAutonityEpochInfo)
 
 	if len(info.Committee) == 0 {
 		panic("get empty committee set for height: " + strconv.FormatUint(height, 10))
