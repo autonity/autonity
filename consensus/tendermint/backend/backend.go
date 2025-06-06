@@ -249,6 +249,8 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate 
 
 func (sb *Backend) Post(ev any) {
 	switch ev := ev.(type) {
+	case events.SyncEvent:
+		sb.evDispatcher.Post(ev)
 	case events.CommitEvent:
 		sb.evDispatcher.Post(ev)
 	case events.NewCandidateBlockEvent:
