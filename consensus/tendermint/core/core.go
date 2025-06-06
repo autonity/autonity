@@ -5,7 +5,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math/big"
 	"sync"
-	"sync/atomic"
+	"sync/atomic" //nolint
 	"time"
 
 	"github.com/autonity/autonity/autonity"
