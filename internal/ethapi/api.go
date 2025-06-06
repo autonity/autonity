@@ -1332,7 +1332,11 @@ func newRPCPendingTransaction(tx *types.Transaction, current *types.Header, conf
 	var baseFee *big.Int
 	blockNumber := uint64(0)
 	if current != nil {
-		baseFee = misc.CalcBaseFee(config, current, backend)
+		eip1559Params, err := backend.Eip1559ParamsByHeight(current.Number.Uint64() + 1)
+		if err == nil {
+			baseFee = misc.CalcBaseFee(config, current, eip1559Params)
+		}
+
 		blockNumber = current.Number.Uint64()
 	}
 	return newRPCTransaction(tx, common.Hash{}, blockNumber, 0, baseFee, config)

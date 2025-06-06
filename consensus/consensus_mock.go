@@ -197,6 +197,21 @@ func (mr *MockChainReaderMockRecorder) CurrentHeader() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentHeader", reflect.TypeOf((*MockChainReader)(nil).CurrentHeader))
 }
 
+// Eip1559ParamsByHeight mocks base method.
+func (m *MockChainReader) Eip1559ParamsByHeight(height uint64) (*types.Eip1559Params, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Eip1559ParamsByHeight", height)
+	ret0, _ := ret[0].(*types.Eip1559Params)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Eip1559ParamsByHeight indicates an expected call of Eip1559ParamsByHeight.
+func (mr *MockChainReaderMockRecorder) Eip1559ParamsByHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Eip1559ParamsByHeight", reflect.TypeOf((*MockChainReader)(nil).Eip1559ParamsByHeight), height)
+}
+
 // Engine mocks base method.
 func (m *MockChainReader) Engine() Engine {
 	m.ctrl.T.Helper()
@@ -296,20 +311,6 @@ func (mr *MockChainReaderMockRecorder) GetTd(hash, number any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTd", reflect.TypeOf((*MockChainReader)(nil).GetTd), hash, number)
 }
 
-// MinBaseFee mocks base method.
-func (m *MockChainReader) MinBaseFee() *big.Int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MinBaseFee")
-	ret0, _ := ret[0].(*big.Int)
-	return ret0
-}
-
-// MinBaseFee indicates an expected call of MinBaseFee.
-func (mr *MockChainReaderMockRecorder) MinBaseFee() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MinBaseFee", reflect.TypeOf((*MockChainReader)(nil).MinBaseFee))
-}
-
 // MockEngine is a mock of Engine interface.
 type MockEngine struct {
 	ctrl     *gomock.Controller
@@ -391,13 +392,14 @@ func (mr *MockEngineMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
+func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Receipt)
 	ret1, _ := ret[1].(*types.Epoch)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(*types.ContractsConfig)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // Finalize indicates an expected call of Finalize.
@@ -407,12 +409,13 @@ func (mr *MockEngineMockRecorder) Finalize(chain, header, state, txs, uncles, re
 }
 
 // FinalizeAndAssemble mocks base method.
-func (m *MockEngine) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
+func (m *MockEngine) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, state, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*types.ContractsConfig)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // FinalizeAndAssemble indicates an expected call of FinalizeAndAssemble.
@@ -687,13 +690,14 @@ func (mr *MockPoWMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
+func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Receipt)
 	ret1, _ := ret[1].(*types.Epoch)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(*types.ContractsConfig)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // Finalize indicates an expected call of Finalize.
@@ -703,12 +707,13 @@ func (mr *MockPoWMockRecorder) Finalize(chain, header, state, txs, uncles, recei
 }
 
 // FinalizeAndAssemble mocks base method.
-func (m *MockPoW) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
+func (m *MockPoW) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, state, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*types.ContractsConfig)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // FinalizeAndAssemble indicates an expected call of FinalizeAndAssemble.
@@ -921,13 +926,14 @@ func (mr *MockBFTMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
+func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Receipt)
 	ret1, _ := ret[1].(*types.Epoch)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(*types.ContractsConfig)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // Finalize indicates an expected call of Finalize.
@@ -937,12 +943,13 @@ func (mr *MockBFTMockRecorder) Finalize(chain, header, state, txs, uncles, recei
 }
 
 // FinalizeAndAssemble mocks base method.
-func (m *MockBFT) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
+func (m *MockBFT) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, state, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*types.ContractsConfig)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // FinalizeAndAssemble indicates an expected call of FinalizeAndAssemble.

@@ -8,6 +8,7 @@ interface ISlasher {
 
     function jail(
         Autonity.Validator memory _val,
+        uint256 _blockNumber,
         uint256 _jailtime,
         IAutonity.ValidatorState _newJailedState
     ) external returns (
@@ -32,6 +33,7 @@ interface ISlasher {
     function slashAndJail(
         Autonity.Validator memory _val,
         uint256 _slashingRate,
+        uint256 _blockNumber,
         uint256 _jailtime,
         IAutonity.ValidatorState _newJailedState,
         IAutonity.ValidatorState _newJailboundState

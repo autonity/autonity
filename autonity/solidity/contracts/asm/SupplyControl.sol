@@ -15,17 +15,18 @@ o88o     o8888o 8""88888P'  o8o        o888o
 
 import {ISupplyControl} from "./interfaces/ISupplyControl.sol";
 import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
+import {ReentrancyGuard} from "../ReentrancyGuard.sol";
 
 /// @title ASM Supply Control Contract Implementation
 /// @notice Controls the supply of Auton on the network.
 /// @dev Intended to be deployed by the protocol at genesis. The stabilizer is
 /// expected to be the Stabilization Contract.
-contract SupplyControl is ISupplyControl, IConfigEvents {
+contract SupplyControl is ISupplyControl, IConfigEvents, ReentrancyGuard {
     /// The account that is authorized to mint and burn.
-    address public stabilizer;
+    address internal stabilizer;
 
     /// The total supply of Auton under management.
-    uint256 public totalSupply;
+    uint256 internal totalSupply;
 
     /// The Autonity Contract address.
     address private _autonity;
@@ -74,7 +75,7 @@ contract SupplyControl is ISupplyControl, IConfigEvents {
     /// @param amount Amount of Auton to mint (non-zero)
     /// @dev Only the stabilizer is authorized to mint Auton. The recipient
     /// cannot be the stabilizer or the zero address.
-    function mint(address recipient, uint amount) external onlyStabilizer {
+    function mint(address recipient, uint amount) external onlyStabilizer nonReentrant {
         if (recipient == address(0) || recipient == stabilizer)
             revert InvalidRecipient();
         if (amount == 0 || amount > address(this).balance)
@@ -85,7 +86,7 @@ contract SupplyControl is ISupplyControl, IConfigEvents {
 
     /// Burn Auton by taking it out of circulation.
     /// @dev Only the stabilizer is authorized to burn Auton.
-    function burn() external payable nonZeroValue onlyStabilizer {
+    function burn() external payable nonZeroValue onlyStabilizer nonReentrant {
         emit Burn(msg.value);
     }
 
@@ -94,7 +95,7 @@ contract SupplyControl is ISupplyControl, IConfigEvents {
     /// @dev Only the Autonity Contract is authorized to set the Governance
     /// Operator account address.
     function setOperator(address operator) external onlyAutonity {
-        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
+        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator, block.number);
         _operator = operator;
     }
 
@@ -102,12 +103,22 @@ contract SupplyControl is ISupplyControl, IConfigEvents {
     /// @param stabilizer_ The new stabilizer account
     /// @dev Only the autonity contract can update the stabilizer address.
     function setStabilizer(address stabilizer_) external onlyAutonity {
-        emit IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, stabilizer_);
+        emit IConfigEvents.ConfigUpdateAddress("stabilizer", stabilizer, stabilizer_, block.number);
         stabilizer = stabilizer_;
     }
 
-    /// The supply of Auton available for minting.
-    function availableSupply() external view returns (uint) {
+    /// @return The supply of Auton available for minting.
+    function availableSupply() external view nonReentrantView returns (uint) {
         return address(this).balance;
+    }
+
+    /// @return The initial total supply of Auton
+    function getTotalSupply() external view nonReentrantView returns (uint256) {
+        return totalSupply;
+    }
+
+    /// @return The address of the stabilizer contract
+    function getStabilizer() external view returns (address) {
+        return stabilizer;
     }
 }

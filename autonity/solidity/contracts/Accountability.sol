@@ -7,89 +7,26 @@ import "./Autonity.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 import {AccessAutonity} from "./AccessAutonity.sol";
 
-contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
-
-    struct BaseSlashingRates {
-        uint256 low;
-        uint256 mid;
-        uint256 high;
-    }
-
-    struct Factors {
-        uint256 collusion;
-        uint256 history;
-        uint256 jail;
-    }
-
-    struct Config {
-        uint256 innocenceProofSubmissionWindow;
-        BaseSlashingRates baseSlashingRates;
-        Factors factors;
-    }
-
-    enum EventType {
-        FaultProof,
-        Accusation,
-        InnocenceProof
-    }
-
-    // Must match autonity/types.go
-    enum Rule {
-        PN,
-        PO,
-        PVN,
-        PVO,
-        PVO12,
-        C,
-        C1,
-
-        InvalidProposal, // The value proposed by proposer cannot pass the blockchain's validation.
-        InvalidProposer, // A proposal sent from none proposer nodes of the committee.
-        Equivocation    // Multiple distinguish votes(proposal, prevote, precommit) sent by validator.
-    }
-
-    enum Severity {
-        Reserved, // artificially bump the starting severity value to 1
-        Low,
-        Mid,
-        High
-    }
-
-    struct Event {
-        EventType eventType; // Accountability event types: Misbehaviour, Accusation, Innocence.
-        Rule rule;           // Rule ID defined in AFD rule engine.
-        address reporter;    // The node address of the validator who report this event, for incentive protocol.
-        address offender;    // The corresponding node address of this accountability event.
-        bytes rawProof;      // rlp encoded bytes of Proof object.
-
-        uint256 id;             // index of the event in the Events array. Will be populated internally.
-        uint256 block;          // block when the event occurred. Will be populated internally.
-        uint256 epoch;          // epoch when the event occurred. Will be populated internally.
-        uint256 reportingBlock; // block when the event got reported. Will be populated internally.
-        uint256 messageHash;    // hash of the main evidence. Will be populated internally.
-    }
-
-    /**
-    * @notice Event emitted after accountability factors namely collusion, history and jail.
-    */
-    event AccountabilityFactorsUpdate(Factors oldFactors, Factors newFactors);
-
-    /**
-    * @notice Event emitted after base slashing rates are updated
-    */
-    event BaseSlashingRateUpdate(BaseSlashingRates oldRates, BaseSlashingRates newRates);
+contract Accountability is IAccountability, AccessAutonity, IConfigEvents, ReentrancyGuard {
 
     //Todo(youssef): consider another structure purely for internal events
-    Event[] public events;
-    Config public config;
+    Event[] internal events;
+    Config internal config;
+
+    // changes to delta and range are applied at block finalization,
+    // to avoid inconsistencies when processing multiple accusations in
+    // a block
+    uint256 internal newRange;
+    uint256 internal newDelta;
+    uint256 internal gracePeriod;
 
     // slashing rewards beneficiaries: validator => reporter
-    mapping(address => address) public beneficiaries;
+    mapping(address => address) internal beneficiaries;
 
     mapping(address => uint256[]) private validatorFaults;
 
     // number of times a validator has been slashed in the past
-    mapping(address => uint256) public history;
+    mapping(address => uint256) internal history;
 
     // validatorAccusation maps a validator with an accusation
     // the id is incremented by one to handle the special case id = 0.
@@ -100,7 +37,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
     mapping(address => bool) private allowedReporters;
 
     // mapping address => epoch => severity
-    mapping (address =>  mapping(uint256 => uint256)) public slashingHistory;
+    mapping (address =>  mapping(uint256 => uint256)) internal slashingHistory;
 
     // pending slashing and accusations tasks for this epoch
     uint256[] private slashingQueue;
@@ -110,6 +47,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
     constructor(address payable _autonity, Config memory _config) AccessAutonity(_autonity) {
         _ratesSanityCheck(_config.baseSlashingRates);
         _factorsSanityCheck(_config.factors);
+        require(_config.range > _config.delta,"height range needs to be greater than delta");
 
         Autonity.CommitteeMember[] memory committee = autonity.getCommittee();
         for (uint256 i=0; i < committee.length; i++) {
@@ -117,54 +55,85 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
             allowedReporters[committee[i].addr] = true;
         }
         config = _config;
+        newRange = config.range;
+        newDelta = config.delta;
+        gracePeriod = 0;
     }
 
     /**
     * @notice called by the Autonity Contract at block finalization, before
     * processing reward redistribution.
     * @param _epochEnd whether or not the current block is the last one from the epoch.
+    * @return range, the height range for the provable fault detector. It is used for garbage
+    *         collection of messages and to establish height boundaries for accusation validity.
+    * @return delta, the delta for the provable fault detector. It is the number of blocks that must
+              elapse before running the fault detector on a certain height (e.g height x gets scanned at block x+delta)
+    * @return gracePeriod, the current gracePeriod value. it is used to prevent the possibility of
+              raising undefendable accusation in case of `range` increase.
     */
-    function finalize(bool _epochEnd) external virtual onlyAutonity {
+    function finalize(bool _epochEnd) external virtual nonReentrant onlyAutonity returns (uint256,uint256,uint256) {
         // on each block, try to promote accusations without proof of innocence into misconducts.
         _promoteGuiltyAccusations();
         if (_epochEnd) {
             _performSlashingTasks();
         }
+
+        // reduce grace period if it was previously setup due to a range change
+        if(gracePeriod > 0){
+            gracePeriod--;
+        }
+        // if increasing range, set up a grace period to avoid undefendable accusations
+        if (newRange > config.range) {
+            uint256 diff = newRange - config.range;
+            gracePeriod = diff - diff/4;
+        }
+        config.range = newRange;
+        config.delta = newDelta;
+        return (config.range, config.delta, gracePeriod);
     }
 
    /**
     * @notice called by the Autonity Contract at block finalization, to reward the reporter of
     * a valid proof.
     * @param _offender validator account which got slashed.
-    * @param _ntnReward total amount of ntn to be transferred to the repoter. MUST BE AVAILABLE
+    * @param _ntnReward total amount of ntn to be transferred to the reporter. MUST BE AVAILABLE
     * in the accountability contract balance.
     */
-    function distributeRewards(address _offender, uint256 _ntnReward) payable external virtual onlyAutonity {
+    function distributeRewards(address _offender, uint256 _ntnReward) payable external virtual nonReentrant onlyAutonity {
+        uint256 _atnReward = msg.value;
+        address beneficiary = beneficiaries[_offender];
+        delete beneficiaries[_offender];
+
         // There is an edge-case scenario where slashing events for the
         // same accused validator are created during the same epoch.
         // In this case we only reward the last reporter.
-        Autonity.Validator memory _reporter = autonity.getValidator(beneficiaries[_offender]);
+        Autonity.Validator memory _reporter = autonity.getValidator(beneficiary);
 
-        autonity.autobond(_reporter.nodeAddress, _ntnReward, 0);
-
-        // if for some reasons, funds can't be transferred to the reporter treasury (sneaky contract)
-        (bool ok, ) = _reporter.treasury.call{value:msg.value, gas: 2300}("");
-        // well, too bad, it goes to the autonity global treasury.
-        if(!ok) {
-            autonity.getTreasuryAccount().call{value:msg.value}("");
-            // 0 atn rewards for reporter
-            emit ReporterRewarded(_reporter.nodeAddress, _offender, _ntnReward, 0);
-        } else {
-            emit ReporterRewarded(_reporter.nodeAddress, _offender, _ntnReward, msg.value);
+        if(_ntnReward > 0) {
+            autonity.autobond(_reporter.nodeAddress, _ntnReward, 0);
         }
-        delete beneficiaries[_offender];
+
+        if(_atnReward > 0) {
+            // if for some reasons, funds can't be transferred to the reporter treasury (sneaky contract)
+            (bool ok, ) = _reporter.treasury.call{value: _atnReward, gas: 2300}("");
+            // well, too bad, it goes to the autonity global treasury.
+            if(!ok) {
+                address autonityTreasury = autonity.getTreasuryAccount();
+                (bool _sent, bytes memory _returnData) = autonityTreasury.call{value: _atnReward}("");
+                if (!_sent) {
+                    emit IAutonity.CallFailed(autonityTreasury, "", _returnData);
+                }
+                _atnReward = 0; // set to 0 for logging event correctly
+            }
+        }
+        emit ReporterRewarded(_reporter.nodeAddress, _offender, _ntnReward, _atnReward);
     }
 
     /**
     * @notice Handle a misbehaviour event. Need to be called by a registered validator account
     * as the treasury-linked account will be used in case of a successful slashing event.
     */
-    function handleMisbehaviour(Event memory _event) public virtual onlyAFDReporter {
+    function handleMisbehaviour(Event memory _event) external virtual nonReentrant onlyAFDReporter {
         require(_event.reporter == msg.sender, "event reporter must be caller");
         require(_event.eventType == EventType.FaultProof, "wrong event type for misbehaviour");
         _handleFaultProof(_event);
@@ -174,7 +143,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
     * @notice Handle an accusation event. Need to be called by a registered validator account
     * as the treasury-linked account will be used in case of a successful slashing event.
     */
-    function handleAccusation(Event memory _event) public virtual onlyAFDReporter {
+    function handleAccusation(Event memory _event) external virtual nonReentrant onlyAFDReporter {
         require(_event.reporter == msg.sender, "event reporter must be caller");
         require(_event.eventType == EventType.Accusation, "wrong event type for accusation");
         _handleAccusation(_event);
@@ -184,14 +153,14 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
     * @notice Handle an innocence proof. Need to be called by a registered validator account
     * as the treasury-linked account will be used in case of a successful slashing event.
     */
-    function handleInnocenceProof(Event memory _event) public virtual onlyAFDReporter {
+    function handleInnocenceProof(Event memory _event) external virtual nonReentrant onlyAFDReporter {
         require(_event.reporter == msg.sender, "event reporter must be caller");
         require(_event.eventType == EventType.InnocenceProof, "wrong event type for innocence proof");
         _handleInnocenceProof(_event);
     }
 
     // @dev return true if sending the event can lead to slashing
-    function canSlash(address _offender, Rule _rule, uint256 _block) public virtual view returns (bool) {
+    function canSlash(address _offender, Rule _rule, uint256 _block) external virtual view nonReentrantView returns (bool) {
         require(_rule >= Rule.PN && _rule <= Rule.Equivocation, "rule id must be valid");
         uint256 _severity = _ruleSeverity(_rule);
         uint256 _epoch = autonity.getEpochFromBlock(_block);
@@ -200,7 +169,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
     }
 
     // @dev return true sender can accuse, can cover the cost for accusation
-    function canAccuse(address _offender, Rule _rule, uint256 _block) public virtual view
+    function canAccuse(address _offender, Rule _rule, uint256 _block) external virtual view nonReentrantView
     returns (bool _result, uint256 _deadline) {
         require(_rule >= Rule.PN && _rule <= Rule.Equivocation, "rule id must be valid");
         uint256 _severity = _ruleSeverity(_rule);
@@ -218,18 +187,92 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
         }
     }
 
-    function getValidatorAccusation(address _val) public virtual view returns (Event memory) {
+    /*
+    ============================================================
+        Getters
+    ============================================================
+    */
+
+    /**
+    * @param _val, the validator address
+    * @return the current accusation event against _val (if any)
+    */
+    function getValidatorAccusation(address _val) external virtual view nonReentrantView returns (Event memory) {
         require(validatorAccusation[_val] > 0 , "no accusation");
         return events[validatorAccusation[_val] - 1];
     }
 
-    function getValidatorFaults(address _val) public virtual view returns (Event[] memory) {
+    /**
+    * @param _val, the validator address
+    * @return the history of faults of this validator
+    */
+    function getValidatorFaults(address _val) external virtual view nonReentrantView returns (Event[] memory) {
         Event[] memory _events = new Event[](validatorFaults[_val].length);
         for(uint256 i = 0; i < validatorFaults[_val].length; i++) {
             _events[i] = events[validatorFaults[_val][i]];
         }
         return _events;
     }
+
+    /**
+    * @return the number of accountability events
+    */
+    function getEventsLength() external virtual view nonReentrantView returns (uint256) {
+        return events.length;
+    }
+
+    /**
+    * @param _id, the event id
+    * @return the relative accountability event
+    */
+    function getEvent(uint256 _id) external virtual view nonReentrantView returns (Event memory) {
+        return events[_id];
+    }
+
+    /**
+    * @return config, the config of the accountability contract
+    */
+    function getConfig() external virtual view nonReentrantView returns (Config memory) {
+        return config;
+    }
+
+    /**
+    * @param _offender, the validator address of the offender
+    * @return the relative beneficiary which is going to receive the rewards of the offender
+    */
+    function getBeneficiary(address _offender) external virtual view nonReentrantView returns (address) {
+        return beneficiaries[_offender];
+    }
+
+    /**
+    * @param _validator, the validator address
+    * @return the number of times the validator has been punished in the past
+    */
+    function getHistory(address _validator) external virtual view nonReentrantView returns (uint256) {
+        return history[_validator];
+    }
+
+    /**
+    * @param _validator, the validator address
+    * @param _epoch, the epoch id
+    * @return the severity at which the validator was punished in that epoch
+    */
+    function getSlashingHistory(address _validator, uint256 _epoch) external virtual view nonReentrantView returns (uint256) {
+        return slashingHistory[_validator][_epoch];
+    }
+
+    /**
+    * @return gracePeriod, the current grace period in accountability
+    */
+    function getGracePeriod() external virtual view nonReentrantView returns (uint256) {
+        return gracePeriod;
+    }
+
+    /*
+    ============================================================
+        Internal
+    ============================================================
+    */
 
     function _handleFaultProof(Event memory _ev) internal virtual {
         // Validate the misbehaviour proof
@@ -263,13 +306,13 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
         slashingQueue.push(_ev.id);
         slashingHistory[_ev.offender][_ev.epoch] = _severity;
 
-        emit NewFaultProof(_ev.offender, _severity, _ev.id, autonity.epochID());
+        emit NewFaultProof(_ev.offender, _severity, _ev.id, autonity.getEpochID());
     }
 
     function _handleAccusation(Event memory _ev) internal virtual {
         // Validate the accusation proof. It also does height related checks
         (bool _success, address _offender, uint256 _ruleId, uint256 _block, uint256 _messageHash) =
-            Precompiled.verifyAccountabilityEvent(Precompiled.ACCUSATION_CONTRACT, _ev.rawProof);
+            Precompiled.verifyAccountabilityAccusation(_ev.rawProof, config.range, config.delta, gracePeriod);
         require(_success, "failed accusation verification");
         require(_offender == _ev.offender, "offender mismatch");
         require(_ruleId == uint256(_ev.rule), "rule id mismatch");
@@ -378,18 +421,18 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
     function _performSlashingTasks() internal virtual {
         // Find the total number of offences submitted during the current epoch
         // as the slashing rate depends on it.
-        uint256 _offensesCount;
-        uint256 _currentEpoch = autonity.epochID();
+        uint256 _offencesCount = 0;
+        uint256 _currentEpoch = autonity.getEpochID();
         for (uint256 i = 0; i < slashingQueue.length; i++) {
             if(events[slashingQueue[i]].epoch == _currentEpoch){
-                _offensesCount += 1;
+                _offencesCount += 1;
             }
         }
 
         uint256 _epochPeriod = autonity.getCurrentEpochPeriod();
 
         for (uint256 i = 0; i < slashingQueue.length; i++) {
-            _slash(events[slashingQueue[i]], _offensesCount, _epochPeriod);
+            _slash(events[slashingQueue[i]], _offencesCount, _epochPeriod);
         }
         // reset pending slashing task queue for next epoch.
         delete slashingQueue;
@@ -401,7 +444,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
     */
     function _promoteGuiltyAccusations() internal virtual {
         uint256 i = accusationsQueueFirst;
-        uint256 _epochID = autonity.epochID();
+        uint256 _epochID = autonity.getEpochID();
         for(; i < accusationsQueue.length; i++){
             uint256 _id = accusationsQueue[i];
             if (_id == 0) {
@@ -475,7 +518,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
         revert("unknown severity");
     }
 
-    function _grantReportAccess(address[] memory _members) internal virtual onlyAutonity {
+    function _grantReportAccess(address[] memory _members) internal virtual {
         for (uint256 i=0; i < _members.length; i++) {
             if (allowedReporters[_members[i]] == true) {
                 continue;
@@ -484,7 +527,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
         }
     }
 
-    function _revokeReportAccess(address[] memory _members) internal virtual onlyAutonity {
+    function _revokeReportAccess(address[] memory _members) internal virtual {
         for (uint256 i=0; i < _members.length; i++) {
             if (allowedReporters[_members[i]] == false) {
                 continue;
@@ -518,7 +561,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
     * @dev restricted to the autonity contract
     * @param _newCommittee, the committee for the new epoch
     */
-    function setCommittee(address[] memory _newCommittee) external virtual onlyAutonity {
+    function setCommittee(address[] memory _newCommittee) external virtual nonReentrant onlyAutonity {
         // revoke report access for stale committee.
         _revokeReportAccess(lastCommittee);
 
@@ -539,8 +582,32 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents {
     * @param _window, the new value for the window (in blocks)
     */
     function setInnocenceProofSubmissionWindow(uint256 _window) external virtual onlyOperator {
-        emit ConfigUpdateUint("innocenceProofSubmissionWindow", config.innocenceProofSubmissionWindow, _window);
+        emit ConfigUpdateUint("innocenceProofSubmissionWindow", config.innocenceProofSubmissionWindow, _window, block.number);
         config.innocenceProofSubmissionWindow = _window;
+    }
+
+    /*
+    * @notice sets the delta for the provable fault detection
+    * @dev restricted to the operator
+    * @param _delta, the new value for the delta (in blocks)
+    */
+    function setDelta(uint256 _delta) external virtual onlyOperator {
+        require(_delta < newRange,"delta needs to be smaller than range");
+        emit ConfigUpdateUint("delta", config.delta, _delta, block.number);
+        newDelta = _delta;
+    }
+
+    /*
+    * @notice sets the height range for the provable fault detection
+    * @dev restricted to the operator
+    * @param _range, the new value for the height range (in blocks)
+    */
+    function setRange(uint256 _range) external virtual onlyOperator {
+        require(gracePeriod == 0, "height range change is already in progress");
+        require(_range % 4 == 0, "height range must be a multiple of 4");
+        require(_range > newDelta,"height range needs to be greater than delta");
+        emit ConfigUpdateUint("range", config.range, _range, block.number);
+        newRange = _range;
     }
 
     /*

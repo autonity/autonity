@@ -357,23 +357,38 @@ contract('Autonity', function (accounts) {
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, false);
     });
 
-    it('test set min base fee by operator', async function () {
-      await autonity.setMinimumBaseFee(50000, {from: operator});
-      let mGP = await autonity.getMinimumBaseFee({from: operator});
-      assert(50000 == mGP, "min gas price is not expected");
+    it('test set eip1559 parameters by operator', async function () {
+      await autonity.setEip1559Params({
+        minBaseFee: 50000,
+        baseFeeChangeDenominator: 13,
+        elasticityMultiplier: 3,
+        gasLimitBoundDivisor: 1117,
+      }, {from: operator});
+      await utils.endEpoch(autonity,operator,deployer)
+      let config = await autonity.getConfig({from: operator});
+      assert(50000 == config.policy.minBaseFee, "min base fee is not expected");
+      assert(13 == config.policy.baseFeeChangeDenominator, "base fee change denominator is not expected");
+      assert(3 == config.policy.elasticityMultiplier, "elasticity multiplier is not expected");
+      assert(1117 == config.protocol.gasLimitBoundDivisor, "gas limit bound divisor is not expected");
     });
 
-    it('test regular validator cannot set min base fee', async function () {
-      let initMGP = await autonity.getMinimumBaseFee({from: operator});
+    it('test regular validator cannot set eip1559 parameters', async function () {
+      let initConfig = await autonity.getConfig({from: operator});
 
       await truffleAssert.fails(
-        autonity.setMinimumBaseFee(50000, {from: accounts[9]}),
+          autonity.setEip1559Params({
+            minBaseFee: 50000,
+            baseFeeChangeDenominator: 13,
+            elasticityMultiplier: 3,
+            gasLimitBoundDivisor: 1117,
+          }, {from: accounts[9]}),
         truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
+      await utils.endEpoch(autonity,operator,deployer)
 
-      let minGP = await autonity.getMinimumBaseFee({from: operator});
-      assert.deepEqual(initMGP, minGP);
+      let newConfig = await autonity.getConfig({from: operator});
+      assert.deepEqual(initConfig,newConfig);
     });
 
     it('test set committee size by operator', async function () {

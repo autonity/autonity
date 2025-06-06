@@ -672,10 +672,13 @@ type spongeDb struct {
 	journal []string
 }
 
-func (s *spongeDb) Has(key []byte) (bool, error)             { panic("implement me") }
-func (s *spongeDb) Get(key []byte) ([]byte, error)           { return nil, errors.New("no such elem") }
-func (s *spongeDb) Delete(key []byte) error                  { panic("implement me") }
-func (s *spongeDb) NewBatch() ethdb.Batch                    { return &spongeBatch{s} }
+func (s *spongeDb) Has(_ []byte) (bool, error)   { panic("implement me") }
+func (s *spongeDb) Get(_ []byte) ([]byte, error) { return nil, errors.New("no such elem") }
+func (s *spongeDb) Delete(_ []byte) error        { panic("implement me") }
+func (s *spongeDb) NewBatch() ethdb.Batch        { return &spongeBatch{s} }
+func (s *spongeDb) NewBatchWithReader() ethdb.BatchWithReader {
+	return &spongeBatchWithReader{spongeBatch{s}}
+}
 func (s *spongeDb) Stat(property string) (string, error)     { panic("implement me") }
 func (s *spongeDb) Compact(start []byte, limit []byte) error { panic("implement me") }
 func (s *spongeDb) Close() error                             { return nil }
@@ -691,6 +694,18 @@ func (s *spongeDb) Put(key []byte, value []byte) error {
 }
 func (s *spongeDb) NewIterator(prefix []byte, start []byte) ethdb.Iterator { panic("implement me") }
 
+type spongeBatchWithReader struct {
+	spongeBatch
+}
+
+func (b *spongeBatchWithReader) Has(key []byte) (bool, error) {
+	return b.db.Has(key)
+}
+
+func (b *spongeBatchWithReader) Get(key []byte) ([]byte, error) {
+	return b.db.Get(key)
+}
+
 // spongeBatch is a dummy batch which immediately writes to the underlying spongedb
 type spongeBatch struct {
 	db *spongeDb
@@ -700,11 +715,11 @@ func (b *spongeBatch) Put(key, value []byte) error {
 	b.db.Put(key, value)
 	return nil
 }
-func (b *spongeBatch) Delete(key []byte) error             { panic("implement me") }
+func (b *spongeBatch) Delete(_ []byte) error               { panic("implement me") }
 func (b *spongeBatch) ValueSize() int                      { return 100 }
 func (b *spongeBatch) Write() error                        { return nil }
 func (b *spongeBatch) Reset()                              {}
-func (b *spongeBatch) Replay(w ethdb.KeyValueWriter) error { return nil }
+func (b *spongeBatch) Replay(_ ethdb.KeyValueWriter) error { return nil }
 
 // TestCommitSequence tests that the trie.Commit operation writes the elements of the trie
 // in the expected order, and calls the callbacks in the expected order.

@@ -70,6 +70,9 @@ contract("Oracle", accounts => {
         outlierDetectionThreshold: 100,
         outlierSlashingThreshold: 100,
         baseSlashingRate: 10,
+        nonRevealThreshold: 3,
+        revealResetInterval: 10,
+        slashingRateCap: 1000,
       },
     );
 

@@ -18,13 +18,24 @@ package rawdb
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
+
+	"github.com/autonity/autonity/core/types"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
+)
+
+var (
+	// NOTE: this prefix are not used for prefixing keys, but
+	// rather for prefixing data. See WriteContractsConfig
+	// the code assumes these prefixes will remain of 1 byte of length
+	contractsConfigDataPrefix = []byte("c")
+	blockNumberDataPrefix     = []byte("b")
 )
 
 // ReadDatabaseVersion retrieves the version number of the database.
@@ -79,6 +90,108 @@ func WriteChainConfig(db ethdb.KeyValueWriter, hash common.Hash, cfg *params.Cha
 	log.Warn("Storing chain config", "hash", hash.String(), "genesis", cfg)
 	if err := db.Put(configKey(hash), data); err != nil {
 		log.Crit("Failed to store chain config", "err", err)
+	}
+}
+
+func isRlpEncodedUint64(b byte) bool {
+	return b == blockNumberDataPrefix[0]
+}
+
+func isRlpEncodedConfig(b byte) bool {
+	return b == contractsConfigDataPrefix[0]
+}
+
+func rlpEncodeUint64WithPrefix(number uint64) []byte {
+	encoded, err := rlp.EncodeToBytes(number)
+	if err != nil {
+		panic("failed to encode RLP encoded number, err: " + err.Error())
+	}
+	return append(blockNumberDataPrefix, encoded...)
+}
+
+func rlpDecodeUint64WithPrefix(encoded []byte) (uint64, error) {
+	if !isRlpEncodedUint64(encoded[0]) {
+		panic("unexpected prefix")
+	}
+	var number uint64
+	// discarding the first byte of encoded since it contains the prefix
+	if err := rlp.DecodeBytes(encoded[1:], &number); err != nil {
+		return 0, fmt.Errorf("failed to decode RLP encoded number: %w", err)
+	}
+	return number, nil
+}
+
+// returns the config at block `number` and the number at which it was stored in statedb
+func ReadContractsConfig(db ethdb.KeyValueReader, number uint64) (*types.ContractsConfig, uint64) {
+	requestedNumber := number
+	data, _ := db.Get(contractsConfigKey(number))
+	// NOTE: this case can happen for the blocks before the pivot block
+	// when snap syncing. Those will have no configuration attached.
+	if len(data) == 0 {
+		return nil, 0
+	}
+
+	// if result is a block number, find the config in the respective block
+	if isRlpEncodedUint64(data[0]) {
+		var err error
+		number, err = rlpDecodeUint64WithPrefix(data)
+		if err != nil {
+			log.Error("Detected corrupted contracts config db", "requestedNumber", requestedNumber, "data", data)
+			return nil, 0
+		}
+		data, _ = db.Get(contractsConfigKey(number))
+	}
+
+	if len(data) == 0 || !isRlpEncodedConfig(data[0]) {
+		log.Error("Detected corrupted contracts config db", "requestedNumber", requestedNumber, "number", number, "data", data)
+		return nil, 0
+	}
+
+	config := &types.ContractsConfig{}
+	// discarding the first byte of data since it contains the prefix
+	err := rlp.DecodeBytes(data[1:], config)
+	if err != nil {
+		log.Error("Detected corrupted contracts config db", "requestedNumber", requestedNumber, "number", number, "data", data, "err", err)
+		return nil, 0
+	}
+	return config, number
+}
+
+func WriteContractsConfig(db ethdb.KeyValueReaderWriter, targetNumber uint64, cfg *types.ContractsConfig) {
+	// if writing genesis contracts config
+	// no need to check previous ones.
+	if targetNumber == 0 {
+		writeContractsConfig(db, targetNumber, cfg)
+		return
+	}
+
+	// check if something changed wrt to previous config.
+	// previous config can be nil if:
+	// - we are committing the config of the snap synced head
+	// - db corruption of some sort
+	previousConfig, number := ReadContractsConfig(db, targetNumber-1)
+	if previousConfig != nil && previousConfig.Equal(cfg) {
+		// nothing changed, just point to the previous config
+		if err := db.Put(contractsConfigKey(targetNumber), rlpEncodeUint64WithPrefix(number)); err != nil {
+			panic("Failed to store contracts config: " + err.Error()) //nolint:goconst
+		}
+	} else {
+		// if we end up here because we failed to fetch the new config, notify operator
+		if previousConfig == nil {
+			log.Warn("failed to fetch contract config for target number, de-duplication not possible", "number", targetNumber-1)
+		}
+		// in any case, write the new config at the right spot
+		writeContractsConfig(db, targetNumber, cfg)
+	}
+}
+
+func writeContractsConfig(db ethdb.KeyValueWriter, number uint64, cfg *types.ContractsConfig) {
+	data, err := rlp.EncodeToBytes(cfg)
+	if err != nil {
+		panic("Failed to RLP encode contracts config: " + err.Error())
+	}
+	if err := db.Put(contractsConfigKey(number), append(contractsConfigDataPrefix, data...)); err != nil {
+		panic("Failed to store contracts config: " + err.Error()) //nolint:goconst
 	}
 }
 

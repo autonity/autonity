@@ -7,22 +7,25 @@ interface IConfigEvents {
     * @param name configuration name
     * @param oldValue old value of configuration
     * @param newValue new value of configuration
+    * @param appliesAtHeight block at which the change will apply
     */
-    event ConfigUpdateUint(string name, uint256 oldValue, uint256 newValue);
+    event ConfigUpdateUint(string name, uint256 oldValue, uint256 newValue, uint256 appliesAtHeight);
 
     /**
     * @notice Emitted after updating config parameter of type int
     * @param name configuration name
     * @param oldValue old value of configuration
     * @param newValue new value of configuration
+    * @param appliesAtHeight block at which the change will apply
     */
-    event ConfigUpdateInt(string name, int256 oldValue, int256 newValue);
+    event ConfigUpdateInt(string name, int256 oldValue, int256 newValue, uint256 appliesAtHeight);
 
     /**
     * @notice Emitted after updating config parameter of type address
     * @param name configuration name
     * @param oldValue old value of configuration
     * @param newValue new value of configuration
+    * @param appliesAtHeight block at which the change will apply
     */
-    event ConfigUpdateAddress(string name, address oldValue, address newValue);
+    event ConfigUpdateAddress(string name, address oldValue, address newValue, uint256 appliesAtHeight);
 }

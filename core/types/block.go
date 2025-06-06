@@ -27,6 +27,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/autonity/autonity/log"
+
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/crypto"
 
@@ -80,8 +82,8 @@ const (
 	*  ============
 	 */
 
-	// we have the Epoch struct in addition, which contains 3 *big.Int + the Committee (address, power and bls pubkey)
-	maximumEpochHeaderExtraSize = maximumHeaderExtraSize + 3*uint256Length + 1000*100
+	// we have the Epoch struct in addition, which contains 5 *big.Int + the Committee (address, power and bls pubkey)
+	maximumEpochHeaderExtraSize = maximumHeaderExtraSize + 5*uint256Length + 1000*100
 	maximumEpochHeaderSize      = maximumOriginalHeaderSize + maximumEpochHeaderExtraSize //nolint
 
 	/* ===========
@@ -101,7 +103,7 @@ const (
 	*  ============
 	 */
 
-	sensibleEpochHeaderExtraSize = sensibleHeaderSize + 3*uint256Length + 100*100           //nolint
+	sensibleEpochHeaderExtraSize = sensibleHeaderSize + 5*uint256Length + 100*100           //nolint
 	sensibleEpochHeaderSize      = maximumOriginalHeaderSize + sensibleEpochHeaderExtraSize //nolint
 )
 
@@ -205,7 +207,10 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 	if err != nil {
 		return nil, nil, errors.Join(ErrNonAggregatablePublicKeys, err)
 	}
-	valid := a.Signature.Verify(aggregatedKey, message[:])
+	if !aggregatedKey.Validate() {
+		log.Warn("aggregated public key from committee is zero! Please report the issue!", "signers", a.Signers.String())
+	}
+	valid := a.Signature.Verify(aggregatedKey, message[:], blst.DefaultAssumeZeroValid)
 	if !valid {
 		return nil, nil, errInvalidSignature
 	}
@@ -418,12 +423,12 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 				return fmt.Errorf("invalid epoch boundary")
 			}
 
-			if hExtra.Epoch.Delta == nil {
-				return fmt.Errorf("invalid epoch delta")
+			if hExtra.Epoch.OmissionDelta == nil {
+				return fmt.Errorf("invalid omission epoch delta")
 			}
 
-			if hExtra.Epoch.Delta.Cmp(common.Big0) == 0 {
-				return fmt.Errorf("epoch delta is zero")
+			if hExtra.Epoch.OmissionDelta.Cmp(common.Big0) == 0 {
+				return fmt.Errorf("epoch omission delta is zero")
 			}
 
 			if !hExtra.Epoch.PreviousEpochBlock.IsUint64() {
@@ -434,8 +439,8 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 				return fmt.Errorf("too large next epoch block number: bitlen %d", hExtra.Epoch.NextEpochBlock.BitLen())
 			}
 
-			if !hExtra.Epoch.Delta.IsUint64() {
-				return fmt.Errorf("too large next epoch delta: bitlen %d", hExtra.Epoch.Delta.BitLen())
+			if !hExtra.Epoch.OmissionDelta.IsUint64() {
+				return fmt.Errorf("too large omission delta: bitlen %d", hExtra.Epoch.OmissionDelta.BitLen())
 			}
 
 			if hExtra.Epoch.PreviousEpochBlock.Cmp(origin.Number) > 0 {
@@ -449,6 +454,55 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 			if origin.Number.Cmp(hExtra.Epoch.NextEpochBlock) >= 0 {
 				return fmt.Errorf("current epoch block number %d is larger or equal than next epoch block number %d", origin.Number.Uint64(), hExtra.Epoch.NextEpochBlock.Uint64())
 			}
+
+			if hExtra.Epoch.Eip1559 == nil {
+				return fmt.Errorf("invalid eip1559 params")
+			}
+
+			if hExtra.Epoch.Eip1559.BaseFeeChangeDenominator == nil {
+				return fmt.Errorf("invalid base fee change denominator")
+			}
+
+			if hExtra.Epoch.Eip1559.BaseFeeChangeDenominator.Cmp(common.Big0) == 0 {
+				return fmt.Errorf("base fee change denominator is zero")
+			}
+
+			if !hExtra.Epoch.Eip1559.BaseFeeChangeDenominator.IsUint64() {
+				return fmt.Errorf("too large base fee change denominator: bitlen %d", hExtra.Epoch.Eip1559.BaseFeeChangeDenominator.BitLen())
+			}
+
+			if hExtra.Epoch.Eip1559.ElasticityMultiplier == nil {
+				return fmt.Errorf("invalid elasticity multiplier")
+			}
+
+			if hExtra.Epoch.Eip1559.ElasticityMultiplier.Cmp(common.Big0) == 0 {
+				return fmt.Errorf("elasticity multiplier is zero")
+			}
+
+			if !hExtra.Epoch.Eip1559.ElasticityMultiplier.IsUint64() {
+				return fmt.Errorf("too large elasticity multiplier: bitlen %d", hExtra.Epoch.Eip1559.ElasticityMultiplier.BitLen())
+			}
+
+			if hExtra.Epoch.Eip1559.MinBaseFee == nil {
+				return fmt.Errorf("invalid minimum base fee")
+			}
+
+			if hExtra.Epoch.Eip1559.MinBaseFee.Cmp(common.Big0) < 0 {
+				return fmt.Errorf("minimum base fee cannot be negative: %s", hExtra.Epoch.Eip1559.MinBaseFee.String())
+			}
+
+			if hExtra.Epoch.Eip1559.GasLimitBoundDivisor == nil {
+				return fmt.Errorf("invalid gas limit bound divisor")
+			}
+
+			if hExtra.Epoch.Eip1559.GasLimitBoundDivisor.Cmp(common.Big0) == 0 {
+				return fmt.Errorf("gas limit bound divisor is zero")
+			}
+
+			if !hExtra.Epoch.Eip1559.GasLimitBoundDivisor.IsUint64() {
+				return fmt.Errorf("too large gas limit bound divisor: bitlen %d", hExtra.Epoch.Eip1559.GasLimitBoundDivisor.BitLen())
+			}
+
 		}
 
 		h.QuorumCertificate = hExtra.QuorumCertificate

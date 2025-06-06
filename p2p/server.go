@@ -471,7 +471,7 @@ func (srv *Server) inCommittee(id enode.ID) bool {
 	return false
 }
 
-func (srv *Server) isConsensusEndpointReachable(id enode.ID) bool {
+func (srv *Server) ConsensusEndpoint(id enode.ID) (string, error) {
 	var (
 		ip   net.IP
 		port int
@@ -487,17 +487,9 @@ func (srv *Server) isConsensusEndpointReachable(id enode.ID) bool {
 	}
 	srv.enodeMu.RUnlock()
 	if ip == nil || port == 0 {
-		return false
+		return "", errors.New("ip or port is nil")
 	}
-
-	srv.log.Info("verifying connectivity towards consensus endpoint", "ip", ip, "port", port)
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), defaultDialTimeout)
-	if err != nil {
-		srv.log.Warn("unable to reach peer consensus endpoint", "error", err, "ip", ip, "port", port)
-		return false
-	}
-	_ = conn.Close()
-	return true
+	return fmt.Sprintf("%s:%d", ip, port), nil
 }
 
 func (srv *Server) SetCurrentBlockNumber(num uint64) {
@@ -986,8 +978,6 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 		return DiscPeerNotInCommittee
 	case srv.Net == Execution && srv.inCommittee(c.node.ID()) && !srv.inCommitteeSubset(c.node.ID()):
 		return DiscPeerOutsideTopology
-	case srv.Net == Consensus && !srv.isConsensusEndpointReachable(c.node.ID()):
-		return DiscACNPeerNotReachable
 	default:
 		return nil
 	}

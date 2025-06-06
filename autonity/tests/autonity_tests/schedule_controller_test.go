@@ -121,14 +121,14 @@ func TestScheduleOperation(t *testing.T) {
 		require.NoError(r.T, err)
 		require.Equal(r.T, big.NewInt(unlocked), schedule.UnlockedAmount, "unlocking mechanism not linear")
 
-		epochID, _, err := r.Autonity.EpochID(nil)
+		epochID, _, err := r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		info, _, err := r.Autonity.GetEpochInfo(nil)
 		require.NoError(r.T, err)
 		// don't go to next epoch, but produce enough blocks that will unlock new tokens if unlocking is not epoch based
 		produceBlocks := new(big.Int).Sub(info.NextEpochBlock, info.EpochBlock).Int64() - 1
 		r.WaitNBlocks(int(produceBlocks))
-		newEpochID, _, err := r.Autonity.EpochID(nil)
+		newEpochID, _, err := r.Autonity.GetEpochID(nil)
 		require.NoError(r.T, err)
 		require.Equal(r.T, epochID, newEpochID, "epoch progressed, cannot test")
 

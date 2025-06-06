@@ -5,7 +5,6 @@ import log
 from conf import conf
 from testcase.testcase import TestCase
 from planner.networkplanner import NetworkPlanner
-from client.client import Client
 import time
 
 LG = log.get_logger()
@@ -13,113 +12,65 @@ LG = log.get_logger()
 
 if __name__ == '__main__':
     LG.debug("##########################################")
-    LG.debug("")
-    LG.debug("")
-    LG.debug("Test Engine start.")
+    LG.debug("\n\nTest Engine start.")
 
     parser = argparse.ArgumentParser()
     parser.add_argument("autonity", help='Autonity Binary Path')
-    parser.add_argument("-d", help='Start deploy remote network with brand new configurations.', type=bool, default=True)
-    parser.add_argument("-t", help='Start test remote network.', type=bool, default=True)
-    # Adding two new integer parameters to set the testcase range for the testing.
-    parser.add_argument("-start", help='Start testcase index', type=int, required=True, default=0)
-    parser.add_argument("-end", help='End testcase index', type=int, required=True, default=26)
+    parser.add_argument("-id", help='Starting testcase index', type=int, required=True, default=0)
 
     args = parser.parse_args()
-
-    is_deploy = args.d
-    is_testing = args.t
     autonity_path = args.autonity
-    start = args.start
-    end = args.end
+    start_id = args.id
 
-    LG.debug(f"First testcase index: {start}")
-    LG.debug(f"End testcase index: {end}")
+    # Generate 3 consecutive test IDs
+    batch_size = 3
+    test_ids = range(start_id, start_id + batch_size)
+    LG.debug(f"Running tests: {list(test_ids)}")
 
     conf.load_project_conf()
-    network_planner = None
-    passed_testcases = []
-    failed_testcases = []
+    network_planner = NetworkPlanner(autonity_path)
+    network_planner.plan()
+    network_planner.deploy_all_nodes()
+    network_planner.start_all_nodes()
+    clients = network_planner.get_clients()
 
-    exit_code = 0
-    num_of_cases = 0
+    all_passed = True
+    test_set = conf.get_test_case_conf()
 
-    # Deploy will create brand new configurations then bootstrap entire network from genesis block.
-    if is_deploy:
-        network_planner = NetworkPlanner(autonity_path)
-        network_planner.plan()
-        network_planner.deploy()
-        network_planner.start_all_nodes()
-
-    if is_testing:
-        clients = None
-        if network_planner:
-            clients = network_planner.get_clients()
-        else:
-            # load network view from generated testbed.conf
-            clients = []
-            test_bed = conf.get_test_bed_conf()
-            try:
-                for node in test_bed["targetNetwork"]["nodes"]:
-                    client = Client(host=node["name"], p2p_port=node["p2pPort"], rpc_port=node["rpcPort"], ws_port=node["wsPort"],
-                                    net_interface=node["ethernetInterfaceID"], coin_base=node["coinBase"][2:],
-                                    ssh_user=node["sshCredential"]["sshUser"], ssh_pass=node["sshCredential"]["sshPass"],
-                                    ssh_key=node["sshCredential"]["sshKey"], sudo_pass=node["sshCredential"]["sudoPass"],
-                                    role=node["role"], index=node["index"])
-                    clients.append(client)
-            except Exception as e:
-                LG.error("Process exit with cannot conf from test bed conf.", e)
-                exit_code = 1
-
+    for test_id in test_ids:
         try:
-            # load test case view, and start testing one by one.
-            test_set = conf.get_test_case_conf()
-            num_of_cases = end - start
-            for index, test_case in enumerate(test_set["playbook"]["testcases"]):
-                if not (start <= index < end):
-                    continue
-                playbook = conf.get_test_case_conf()
-                if playbook["playbook"]["stop"] is True:
-                    LG.info("Playbook is stopped by user configuration: testcaseconf.yml/playbook/stop: true.")
-                    break
-                test = TestCase(test_case, clients)
-                LG.debug("")
-                LG.debug("")
-                LG.info("start test case: %s", test_case)
-                LG.debug("")
-                LG.debug("")
-                result = test.start_test()
-                if result is True:
-                    LG.info('TEST CASE PASSED: %s', test_case)
-                    passed_testcases.append(test_case)
-                if result is False:
-                    LG.error('TEST CASE FAILED: %s', test_case)
-                    failed_testcases.append(test_case)
+            if test_id >= len(test_set["playbook"]["testcases"]):
+                break
 
-        except (KeyError, TypeError) as e:
-            LG.error("Wrong configuration. %s", e)
-            exit_code = 1
+            LG.debug("\n" + "="*50)
+            LG.debug(f"Starting Test ID: {test_id}")
+
+            test_case = test_set["playbook"]["testcases"][test_id]
+            test = TestCase(test_case, clients)
+
+            LG.info("Starting test case: %s", test_case)
+            result = test.start_test()
+
+            if result:
+                LG.info(f"[TEST {test_id} PASSED]")
+            else:
+                LG.error(f"[TEST {test_id} FAILED]")
+                all_passed = False
+
+            network_planner.re_genesis_network()
+
+        except (KeyError, TypeError, IndexError) as e:
+            LG.error(f"Invalid test ID {test_id}: {e}")
+            all_passed = False
         except Exception as e:
-            LG.error("Get error: %s", e)
-            exit_code = 1
+            LG.error(f"Error in test ID {test_id}: {e}")
+            all_passed = False
 
-    # generate an overview of the test report.
-    if len(passed_testcases) == num_of_cases:
+    if all_passed:
         LG.info("[TEST PASSED]")
-
-    LG.info("[PASS] %d/%d cases were passed.", len(passed_testcases), num_of_cases)
-    for case in passed_testcases:
-        LG.info("[PASS] %s", case["name"])
-
-    if len(failed_testcases) > 0:
-        exit_code = 1
+        exit(0)
+    else:
         LG.info("[TEST FAILED]")
-        LG.info("[FAILED] %d/%d cases were failed.", len(failed_testcases), num_of_cases)
-        for case in failed_testcases:
-            LG.info("[ERROR] %s", case["name"])
-
-        for i in range(0, len(failed_testcases)):
-            LG.info("Log collecting...")
-            time.sleep(180)
-
-    exit(exit_code)
+        LG.info("Log collecting for failed tests...")
+        time.sleep(180)
+        exit(1)

@@ -43,7 +43,7 @@ contract StakeableVestingState is StakeableVestingStorage {
      * @dev Fetch stakeable vesting logic contract address from autonity
      */
     function _stakeableVestingLogicContract() internal view returns (address) {
-        address _address = managerContract.stakeableVestingLogicContract();
+        address _address = managerContract.getStakeableVestingLogicContract();
         require(_address != address(0), "stakeable vesting logic contract not set");
         return _address;
     }

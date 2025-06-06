@@ -128,8 +128,15 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 		return errInvalidAccusation
 	}
 
-	// last param represent the current height for which we are doing consensus (lastBlock + 1)
-	if err := preVerifyAccusation(accusation.Message, fd.blockchain.CurrentBlock().NumberU64()+1); err != nil {
+	currentCoreHeight := fd.blockchain.CurrentBlock().NumberU64() + 1
+	accountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(currentCoreHeight)
+	if err != nil {
+		// this shouldn't happen unless the node has some aggressive state pruning in place
+		fd.logger.Error("cannot fetch accountability params", "block", currentCoreHeight, "err", err)
+		return nil // do not drop
+	}
+
+	if err := preVerifyAccusation(accusation.Message, currentCoreHeight, accountabilityParams.Range.Uint64(), accountabilityParams.Delta.Uint64(), accountabilityParams.GracePeriod.Uint64()); err != nil {
 		// such error could be due to the timing and delay, thus we don't drop the remote peer connection.
 		return nil
 	}
@@ -210,14 +217,21 @@ func (fd *FaultDetector) removeOffChainAccusation(innocenceProof *Proof) {
 	}
 }
 
-func (fd *FaultDetector) getExpiredOffChainAccusation(currentChainHeight uint64) []*Proof {
+func (fd *FaultDetector) getExpiredOffChainAccusation(currentCoreHeight uint64) []*Proof {
 	fd.offChainAccusationsMu.RLock()
 	defer fd.offChainAccusationsMu.RUnlock()
 	var expiredOnes []*Proof
+
+	currentAccountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(currentCoreHeight)
+	if err != nil {
+		fd.logger.Error("Cannot fetch accountability params", "block", currentCoreHeight, "err", err)
+		return expiredOnes
+	}
+
 	for _, proof := range fd.offChainAccusations {
 		// NOTE: accusations for message at height h is generated at height h + delta by the fault detector
 		// then we have up to h + delta + offchainWindow to resolve it offchain
-		if currentChainHeight-proof.Message.H() > (DeltaBlocks + offChainAccusationProofWindow) {
+		if currentCoreHeight-proof.Message.H() > (currentAccountabilityParams.Delta.Uint64() + offChainAccusationProofWindow) {
 			expiredOnes = append(expiredOnes, proof)
 		}
 	}
@@ -225,8 +239,8 @@ func (fd *FaultDetector) getExpiredOffChainAccusation(currentChainHeight uint64)
 }
 
 // if those off chain challenge have no innocence proof within the proof window, then escalate them on-chain.
-func (fd *FaultDetector) escalateExpiredAccusations(currentChainHeight uint64) {
-	escalatedOnes := fd.getExpiredOffChainAccusation(currentChainHeight)
+func (fd *FaultDetector) escalateExpiredAccusations(currentCoreHeight uint64) {
+	escalatedOnes := fd.getExpiredOffChainAccusation(currentCoreHeight)
 	for _, accusation := range escalatedOnes {
 		committee, err := fd.blockchain.CommitteeByHeight(accusation.Message.H())
 		if err != nil {

@@ -62,13 +62,16 @@ type spongeDb struct {
 	debug  bool
 }
 
-func (s *spongeDb) Has(key []byte) (bool, error)             { panic("implement me") }
-func (s *spongeDb) Get(key []byte) ([]byte, error)           { return nil, errors.New("no such elem") }
-func (s *spongeDb) Delete(key []byte) error                  { panic("implement me") }
-func (s *spongeDb) NewBatch() ethdb.Batch                    { return &spongeBatch{s} }
-func (s *spongeDb) Stat(property string) (string, error)     { panic("implement me") }
-func (s *spongeDb) Compact(start []byte, limit []byte) error { panic("implement me") }
-func (s *spongeDb) Close() error                             { return nil }
+func (s *spongeDb) Has(_ []byte) (bool, error)   { panic("implement me") }
+func (s *spongeDb) Get(_ []byte) ([]byte, error) { return nil, errors.New("no such elem") }
+func (s *spongeDb) Delete(_ []byte) error        { panic("implement me") }
+func (s *spongeDb) NewBatch() ethdb.Batch        { return &spongeBatch{s} }
+func (s *spongeDb) NewBatchWithReader() ethdb.BatchWithReader {
+	return &spongeBatchWithReader{spongeBatch{s}}
+}
+func (s *spongeDb) Stat(_ string) (string, error)    { panic("implement me") }
+func (s *spongeDb) Compact(_ []byte, _ []byte) error { panic("implement me") }
+func (s *spongeDb) Close() error                     { return nil }
 
 func (s *spongeDb) Put(key []byte, value []byte) error {
 	if s.debug {
@@ -79,6 +82,18 @@ func (s *spongeDb) Put(key []byte, value []byte) error {
 	return nil
 }
 func (s *spongeDb) NewIterator(prefix []byte, start []byte) ethdb.Iterator { panic("implement me") }
+
+type spongeBatchWithReader struct {
+	spongeBatch
+}
+
+func (b *spongeBatchWithReader) Has(key []byte) (bool, error) {
+	return b.db.Has(key)
+}
+
+func (b *spongeBatchWithReader) Get(key []byte) ([]byte, error) {
+	return b.db.Get(key)
+}
 
 // spongeBatch is a dummy batch which immediately writes to the underlying spongedb
 type spongeBatch struct {
@@ -114,8 +129,10 @@ func (k kvs) Swap(i, j int) {
 
 // The function must return
 // 1 if the fuzzer should increase priority of the
-//    given input during subsequent fuzzing (for example, the input is lexically
-//    correct and was parsed successfully);
+//
+//	given input during subsequent fuzzing (for example, the input is lexically
+//	correct and was parsed successfully);
+//
 // -1 if the input must not be added to corpus even if gives new coverage; and
 // 0  otherwise
 // other values are reserved for future use.

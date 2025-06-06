@@ -84,7 +84,6 @@ var (
 		Etherbase: testUserAddress,
 		Recommit:  time.Second,
 		GasFloor:  params.GenesisGasLimit,
-		GasCeil:   params.GenesisGasLimit,
 	}
 )
 

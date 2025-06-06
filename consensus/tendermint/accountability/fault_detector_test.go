@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/autonity/autonity/autonity/bindings"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -127,7 +129,7 @@ func TestSubmitMisbehaviour(t *testing.T) {
 	proofs = append(proofs, proposal2)
 
 	fd := &FaultDetector{
-		misbehaviourProofCh: make(chan *autonity.AccountabilityEvent, 100),
+		misbehaviourProofCh: make(chan *bindings.IAccountabilityEvent, 100),
 		logger:              log.New("FaultDetector", nil),
 	}
 
@@ -142,7 +144,7 @@ func TestRunRuleEngine(t *testing.T) {
 	round := int64(3)
 	t.Run("test run rules with malicious behaviour should be detected", func(t *testing.T) {
 		chainHead := uint64(100)
-		checkPointHeight := chainHead - uint64(DeltaBlocks)
+		checkPointHeight := chainHead - params.TestAccountabilityConfig.Delta
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)
@@ -151,7 +153,11 @@ func TestRunRuleEngine(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		fdAddr := committee.Members[1].Address
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{fdAddr: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountability, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{
+			fdAddr: ccore.GenesisAccount{
+				Balance: big.NewInt(params.Ether),
+			},
+		}, 10000000))
 
 		fd := NewFaultDetector(chainMock, fdAddr, nil, core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 		// store a msg before check point height in case of node is start from reset.
@@ -186,6 +192,130 @@ func TestRunRuleEngine(t *testing.T) {
 		require.Equal(t, expected.R(), proof.Message.R())
 		require.Equal(t, expected.H(), proof.Message.H())
 	})
+}
+
+func TestComputeScanRange(t *testing.T) {
+	// setup chain mock and fault detector
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	chainMock := NewMockChainContext(ctrl)
+	chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
+	var blockSub event.Subscription
+	chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
+	fdAddr := committee.Members[1].Address
+	accountability, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{
+		fdAddr: ccore.GenesisAccount{
+			Balance: big.NewInt(params.Ether),
+		},
+	}, 10000000))
+	fd := NewFaultDetector(chainMock, fdAddr, nil, core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
+
+	initialDelta := new(big.Int).SetUint64(10)
+	lowerDelta := new(big.Int).SetUint64(5)
+	biggerDelta := new(big.Int).SetUint64(20)
+
+	// no delta change
+	minedblockNumber := new(big.Int).SetUint64(100)
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()+1).Return(&types.AccountabilityParams{
+		Delta: initialDelta, // fine to populate only this field since the others are not accessed in this particular scenario
+	}, nil)
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()).Return(&types.AccountabilityParams{
+		Delta: initialDelta,
+	}, nil)
+	startH, endH, err := fd.computeScanRange(minedblockNumber)
+	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
+	require.NoError(t, err)
+	require.Equal(t, minedblockNumber.Uint64()-initialDelta.Uint64(), startH)
+	require.Equal(t, minedblockNumber.Uint64()-initialDelta.Uint64(), endH)
+
+	// delta decrease
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()+1).Return(&types.AccountabilityParams{
+		Delta: lowerDelta,
+	}, nil)
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()).Return(&types.AccountabilityParams{
+		Delta: initialDelta,
+	}, nil)
+	startH, endH, err = fd.computeScanRange(minedblockNumber)
+	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
+	require.NoError(t, err)
+	require.Equal(t, minedblockNumber.Uint64()-initialDelta.Uint64(), startH)
+	require.Equal(t, minedblockNumber.Uint64()-lowerDelta.Uint64(), endH)
+
+	// delta increase
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()+1).Return(&types.AccountabilityParams{
+		Delta: biggerDelta,
+	}, nil)
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()).Return(&types.AccountabilityParams{
+		Delta: initialDelta,
+	}, nil)
+	startH, endH, err = fd.computeScanRange(minedblockNumber)
+	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
+	require.NoError(t, err)
+	require.Equal(t, minedblockNumber.Uint64()-biggerDelta.Uint64(), startH)
+	require.Equal(t, minedblockNumber.Uint64()-biggerDelta.Uint64(), endH)
+
+	// network start situation (delta > minedBlock)
+	minedblockNumber = new(big.Int).SetUint64(5)
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()+1).Return(&types.AccountabilityParams{
+		Delta: initialDelta,
+	}, nil)
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()).Return(&types.AccountabilityParams{
+		Delta: initialDelta,
+	}, nil)
+	startH, endH, err = fd.computeScanRange(minedblockNumber)
+	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
+	require.NoError(t, err)
+	require.Equal(t, common.Big0.Uint64(), startH)
+	require.Equal(t, common.Big0.Uint64(), endH)
+
+	// delta decrease at network start (edge case)
+	minedblockNumber = new(big.Int).SetUint64(60)
+	lowerDelta = new(big.Int).SetUint64(50)
+	initialDelta = new(big.Int).SetUint64(100)
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()+1).Return(&types.AccountabilityParams{
+		Delta: lowerDelta,
+	}, nil)
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()).Return(&types.AccountabilityParams{
+		Delta: initialDelta,
+	}, nil)
+	startH, endH, err = fd.computeScanRange(minedblockNumber)
+	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
+	require.NoError(t, err)
+	require.Equal(t, common.Big0.Uint64(), startH)
+	require.Equal(t, minedblockNumber.Uint64()-lowerDelta.Uint64(), endH)
+
+	// decrease of 1 in delta (edge case)
+	minedblockNumber = new(big.Int).SetUint64(20)
+	lowerDelta = new(big.Int).SetUint64(9)
+	initialDelta = new(big.Int).SetUint64(10)
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()+1).Return(&types.AccountabilityParams{
+		Delta: lowerDelta,
+	}, nil)
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()).Return(&types.AccountabilityParams{
+		Delta: initialDelta,
+	}, nil)
+	startH, endH, err = fd.computeScanRange(minedblockNumber)
+	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
+	require.NoError(t, err)
+	require.Equal(t, minedblockNumber.Uint64()-initialDelta.Uint64(), startH)
+	require.Equal(t, minedblockNumber.Uint64()-lowerDelta.Uint64(), endH)
+
+	// increase of 1 in delta (edge case)
+	minedblockNumber = new(big.Int).SetUint64(20)
+	biggerDelta = new(big.Int).SetUint64(11)
+	initialDelta = new(big.Int).SetUint64(10)
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()+1).Return(&types.AccountabilityParams{
+		Delta: biggerDelta,
+	}, nil)
+	chainMock.EXPECT().AccountabilityParamsByHeight(minedblockNumber.Uint64()).Return(&types.AccountabilityParams{
+		Delta: initialDelta,
+	}, nil)
+	startH, endH, err = fd.computeScanRange(minedblockNumber)
+	t.Logf("startH: %v, endH: %v, err: %v", startH, endH, err)
+	require.NoError(t, err)
+	require.Equal(t, minedblockNumber.Uint64()-biggerDelta.Uint64(), startH)
+	require.Equal(t, minedblockNumber.Uint64()-biggerDelta.Uint64(), endH)
+
 }
 
 func TestGenerateOnChainProof(t *testing.T) {
@@ -253,9 +383,13 @@ func TestAccusationProvers(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		bindings, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountabilityBindings, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{
+			proposer: ccore.GenesisAccount{
+				Balance: big.NewInt(params.Ether),
+			},
+		}, 10000000))
 
-		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: bindings}, log.Root())
+		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountabilityBindings}, log.Root())
 		// simulate a proposal message with an old value and a valid round.
 		proposal := newValidatedProposalMessage(height, round, validRound, signer, committee, nil, proposerIdx)
 		fd.msgStore.Save(proposal)
@@ -286,7 +420,11 @@ func TestAccusationProvers(t *testing.T) {
 		defer ctrl.Finish()
 		chainMock := NewMockChainContext(ctrl)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountability, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{
+			proposer: ccore.GenesisAccount{
+				Balance: big.NewInt(params.Ether),
+			},
+		}, 10000000))
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
@@ -374,7 +512,7 @@ func TestAccusationProvers(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountability, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: ccore.GenesisAccount{Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 
@@ -397,7 +535,7 @@ func TestAccusationProvers(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountability, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: ccore.GenesisAccount{Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 		var p Proof
@@ -427,7 +565,7 @@ func TestAccusationProvers(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountability, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: ccore.GenesisAccount{Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		// C1: node preCommit at a none nil value, there must be quorum corresponding preVotes with same value and round.
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
@@ -462,7 +600,7 @@ func TestAccusationProvers(t *testing.T) {
 		var blockSub event.Subscription
 		chainMock.EXPECT().SubscribeChainEvent(gomock.Any()).AnyTimes().Return(blockSub)
 		chainMock.EXPECT().Config().AnyTimes().Return(&params.ChainConfig{ChainID: common.Big1})
-		accountability, _ := autonity.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: {Balance: big.NewInt(params.Ether)}}, 10000000))
+		accountability, _ := bindings.NewAccountability(proposer, backends.NewSimulatedBackend(ccore.GenesisAlloc{proposer: ccore.GenesisAccount{Balance: big.NewInt(params.Ether)}}, 10000000))
 
 		fd := NewFaultDetector(chainMock, proposer, new(event.TypeMux).Subscribe(events.MessageEvent{}), core.NewMsgStore(), nil, nil, proposerNodeKey, &autonity.ProtocolContracts{Accountability: accountability}, log.Root())
 

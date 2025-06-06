@@ -7,6 +7,13 @@ pragma solidity ^0.8.19;
  */
 interface IAutonity {
 
+    struct Eip1559 {
+        uint256 minBaseFee;
+        uint256 baseFeeChangeDenominator;
+        uint256 elasticityMultiplier;
+        uint256 gasLimitBoundDivisor;
+    }
+
     enum ValidatorState {active, paused, jailed, jailbound, jailedForInactivity, jailboundForInactivity}
     /**
     * @notice Returns the current operator account.
@@ -132,5 +139,10 @@ interface IAutonity {
      * @param returnData low level return data
      */
     event CallFailed(address to, string methodSignature, bytes returnData);
+
+    /**
+    * @notice Event emitted after EIP-1559 parameters are updated
+    */
+    event Eip1559ParamsUpdate(Eip1559 oldParams, Eip1559 newParams);
 
 }

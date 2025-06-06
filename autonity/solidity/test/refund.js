@@ -41,10 +41,10 @@ contract("Oracle", accounts => {
       await autonity.bond(nodeAddr, 10, {from: accounts[8]});
 
       // wait for epoch to end so that accounts[8] becomes a committee member
-      let currentEpoch = (await autonity.epochID()).toNumber()
+      let currentEpoch = (await autonity.getEpochID()).toNumber()
       for (;;){
         await utils.timeout(5000)
-        let epoch = (await autonity.epochID()).toNumber()
+        let epoch = (await autonity.getEpochID()).toNumber()
         if(epoch > currentEpoch){
           break;
         }
@@ -90,7 +90,7 @@ contract("Oracle", accounts => {
       assert.equal(await web3.eth.getBalance(autonity.address), autonityInitBalance.toString(), "autonity balance changed");
     });
     it('double vote, only first is refunded', async function () {
-      let currentEpoch = (await autonity.epochID()).toNumber()
+      let currentEpoch = (await autonity.getEpochID()).toNumber()
       const proposer = accounts[2];
       let proposerInitBalance = toBN(await web3.eth.getBalance(proposer));
       let autonityInitBalance = toBN(await web3.eth.getBalance(autonity.address));
@@ -136,7 +136,7 @@ contract("Oracle", accounts => {
       assert.equal(gasCost.toString(),baseCost.add(tip).toString())
 
       // make sure that we are still in the same epoch --> no fee redistribution has happened
-      let epoch = (await autonity.epochID()).toNumber()
+      let epoch = (await autonity.getEpochID()).toNumber()
       assert.equal(epoch,currentEpoch)
 
       // gasCost should have been spent

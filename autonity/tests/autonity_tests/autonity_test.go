@@ -71,7 +71,7 @@ func TestDuplicateOracleAddress(t *testing.T) {
 	}
 
 	tests.RunWithSetup("no duplicate oracle address in autonity deployment", setup, func(r *tests.Runner) {
-		config, _, err := r.Autonity.Config(nil)
+		config, _, err := r.Autonity.GetConfig(nil)
 		require.NoError(r.T, err)
 		validators := r.Committee.Validators
 		for i := 0; i < len(validators); i++ {

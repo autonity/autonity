@@ -165,16 +165,17 @@ func (b *BlockGen) AddUncle(h *types.Header) {
 			break
 		}
 	}
-	chainreader := &fakeChainReader{config: b.config}
-	h.Difficulty = b.engine.CalcDifficulty(chainreader, b.header.Time, parent)
+	chainReader := &fakeChainReader{config: b.config}
+	h.Difficulty = b.engine.CalcDifficulty(chainReader, b.header.Time, parent)
 
 	// The gas limit and price should be derived from the parent
 	h.GasLimit = parent.GasLimit
 	if b.config.IsLondon(h.Number) {
-		h.BaseFee = misc.CalcBaseFee(b.config, parent, nil)
+		eip1559Params, _ := chainReader.Eip1559ParamsByHeight(h.Number.Uint64())
+		h.BaseFee = misc.CalcBaseFee(b.config, parent, eip1559Params)
 		if !b.config.IsLondon(parent.Number) {
-			parentGasLimit := parent.GasLimit * params.ElasticityMultiplier
-			h.GasLimit = CalcGasLimit(parentGasLimit, parentGasLimit)
+			parentGasLimit := parent.GasLimit * params.DefaultElasticityMultiplier
+			h.GasLimit = CalcGasLimit(parentGasLimit, parentGasLimit, params.DefaultGasLimitBoundDivisor)
 		}
 	}
 	b.uncles = append(b.uncles, h)
@@ -281,7 +282,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 		if b.engine != nil {
 			// Finalize and seal the block
-			block, _ := b.engine.FinalizeAndAssemble(chainreader, b.header, statedb, b.txs, b.uncles, &b.receipts)
+			block, _, _ := b.engine.FinalizeAndAssemble(chainreader, b.header, statedb, b.txs, b.uncles, &b.receipts)
 
 			// Write state changes to db
 			root, err := statedb.Commit(config.IsEIP158(b.header.Number))
@@ -331,10 +332,11 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 		Time:     time,
 	}
 	if chain.Config().IsLondon(header.Number) {
-		header.BaseFee = misc.CalcBaseFee(chain.Config(), parent.Header(), chain)
+		eip1559Params, _ := chain.Eip1559ParamsByHeight(header.Number.Uint64())
+		header.BaseFee = misc.CalcBaseFee(chain.Config(), parent.Header(), eip1559Params)
 		if !chain.Config().IsLondon(parent.Number()) {
-			parentGasLimit := parent.GasLimit() * params.ElasticityMultiplier
-			header.GasLimit = CalcGasLimit(parentGasLimit, parentGasLimit)
+			parentGasLimit := parent.GasLimit() * params.DefaultElasticityMultiplier
+			header.GasLimit = CalcGasLimit(parentGasLimit, parentGasLimit, params.DefaultGasLimitBoundDivisor)
 		}
 	}
 	return header
@@ -378,7 +380,13 @@ func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header {
 	epoch.Committee = cr.committee.Copy()
 	epoch.PreviousEpochBlock = common.Big0
 	epoch.NextEpochBlock = new(big.Int).SetUint64(number + 30)
-	epoch.Delta = new(big.Int).SetUint64(10)
+	epoch.OmissionDelta = new(big.Int).SetUint64(10)
+	epoch.Eip1559 = &types.Eip1559Params{
+		MinBaseFee:               new(big.Int).SetUint64(params.TestMinBaseFee),
+		BaseFeeChangeDenominator: new(big.Int).SetUint64(8),
+		ElasticityMultiplier:     new(big.Int).SetUint64(2),
+		GasLimitBoundDivisor:     new(big.Int).SetUint64(1024),
+	}
 	header.Epoch = &epoch
 	return header
 }
@@ -387,9 +395,14 @@ func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Hea
 func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *types.Block   { return nil }
 func (cr *fakeChainReader) Engine() consensus.Engine                                { return nil }
 func (cr *fakeChainReader) GetTd(hash common.Hash, number uint64) *big.Int          { return nil }
-func (cr *fakeChainReader) MinBaseFee() *big.Int {
-	return big.NewInt(0)
-}
 func (cr *fakeChainReader) EpochByHeight(_ uint64) (*types.EpochInfo, error) {
 	return nil, nil
+}
+func (cr *fakeChainReader) Eip1559ParamsByHeight(_ uint64) (*types.Eip1559Params, error) {
+	return &types.Eip1559Params{
+		MinBaseFee:               new(big.Int).SetUint64(params.TestMinBaseFee),
+		BaseFeeChangeDenominator: new(big.Int).SetUint64(params.DefaultBaseFeeChangeDenominator),
+		ElasticityMultiplier:     new(big.Int).SetUint64(params.DefaultElasticityMultiplier),
+		GasLimitBoundDivisor:     new(big.Int).SetUint64(params.DefaultGasLimitBoundDivisor),
+	}, nil
 }

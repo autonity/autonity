@@ -1563,6 +1563,133 @@ func TestCheckEquivocation(t *testing.T) {
 	})
 }
 
+// mirrors what happens in Accountability.sol when range changes
+func computeGracePeriod(oldRange uint64, newRange uint64) uint64 {
+	gracePeriod := uint64(0)
+	if newRange > oldRange {
+		diff := newRange - oldRange
+		gracePeriod = diff - diff/4
+	}
+	return gracePeriod
+}
+
+func msgForHeight(height uint64) message.Msg {
+	return newValidatedPrecommit(0, height, nilValue, signer, self, cSize)
+}
+
+func effectiveRange(accountabilityRange uint64, gracePeriod uint64) uint64 {
+	return accountabilityRange - accountabilityRange/4 - gracePeriod
+}
+
+func TestPreverifyAccusationWithRangeChange(t *testing.T) {
+	lastMinedBlock := uint64(1000)
+	currentCoreHeight := lastMinedBlock + 1
+	accountabilityRange := uint64(256)
+	accountabilityDelta := uint64(10)
+	gracePeriod := uint64(0)
+	offset := uint64(100)
+
+	// standard case, accusation should be allowed in the window
+	// (lastMinedBlock - effectiveRange,lastMinedBlock-delta]
+	leftBoundary := lastMinedBlock - effectiveRange(accountabilityRange, gracePeriod)
+	rightBoundary := lastMinedBlock - accountabilityDelta
+	t.Logf("lastMinedBlock: %d, leftBoundary: %d, right boundary: %d", lastMinedBlock, leftBoundary, rightBoundary)
+	for accusationHeight := leftBoundary - offset; accusationHeight <= rightBoundary+offset; accusationHeight++ {
+		err := preVerifyAccusation(msgForHeight(accusationHeight), currentCoreHeight, accountabilityRange, accountabilityDelta, gracePeriod)
+		switch {
+		case accusationHeight <= leftBoundary:
+			t.Logf("height %d, before left boundary, expecting err: %v", accusationHeight, err)
+			require.Error(t, err)
+		case accusationHeight > leftBoundary && accusationHeight <= rightBoundary:
+			t.Logf("height %d, inside boundary, err should be nil: %v", accusationHeight, err)
+			require.NoError(t, err)
+		case accusationHeight > rightBoundary:
+			t.Logf("height %d, after right boundary, expecting err: %v", accusationHeight, err)
+			require.Error(t, err)
+		default:
+			t.Fatalf("should not happen")
+		}
+	}
+
+	// range decrease, shouldn't affect
+	newAccountabilityRange := accountabilityRange - 20
+	t.Logf("decreasing range from %d to %d", accountabilityRange, newAccountabilityRange)
+	gracePeriod = computeGracePeriod(accountabilityRange, newAccountabilityRange)
+	t.Logf("oldRange: %d, newRange: %d, gracePeriod: %d", accountabilityRange, newAccountabilityRange, gracePeriod)
+	// (lastMinedBlock - effectiveRange,lastMinedBlock-delta]
+	leftBoundary = lastMinedBlock - effectiveRange(newAccountabilityRange, gracePeriod)
+	rightBoundary = lastMinedBlock - accountabilityDelta
+	t.Logf("lastMinedBlock: %d, leftBoundary: %d, right boundary: %d", lastMinedBlock, leftBoundary, rightBoundary)
+	for accusationHeight := leftBoundary - offset; accusationHeight <= rightBoundary+offset; accusationHeight++ {
+		err := preVerifyAccusation(msgForHeight(accusationHeight), currentCoreHeight, newAccountabilityRange, accountabilityDelta, gracePeriod)
+		switch {
+		case accusationHeight <= leftBoundary:
+			t.Logf("height %d, before left boundary, expecting err: %v", accusationHeight, err)
+			require.Error(t, err)
+		case accusationHeight > leftBoundary && accusationHeight <= rightBoundary:
+			t.Logf("height %d, inside boundary, err should be nil: %v", accusationHeight, err)
+			require.NoError(t, err)
+		case accusationHeight > rightBoundary:
+			t.Logf("height %d, after right boundary, expecting err: %v", accusationHeight, err)
+			require.Error(t, err)
+		default:
+			t.Fatalf("should not happen")
+		}
+	}
+
+	// range increase, grace period should come into play
+	newAccountabilityRange = accountabilityRange + 20
+	t.Logf("increasing range from %d to %d", accountabilityRange, newAccountabilityRange)
+	gracePeriod = computeGracePeriod(accountabilityRange, newAccountabilityRange)
+	t.Logf("oldRange: %d, newRange: %d, gracePeriod: %d", accountabilityRange, newAccountabilityRange, gracePeriod)
+	// (lastMinedBlock - effectiveRange,lastMinedBlock-delta]
+	leftBoundary = lastMinedBlock - effectiveRange(newAccountabilityRange, gracePeriod)
+	rightBoundary = lastMinedBlock - accountabilityDelta
+	t.Logf("lastMinedBlock: %d, leftBoundary: %d, right boundary: %d", lastMinedBlock, leftBoundary, rightBoundary)
+	for accusationHeight := leftBoundary - offset; accusationHeight <= rightBoundary+offset; accusationHeight++ {
+		err := preVerifyAccusation(msgForHeight(accusationHeight), currentCoreHeight, newAccountabilityRange, accountabilityDelta, gracePeriod)
+		switch {
+		case accusationHeight <= leftBoundary:
+			t.Logf("height %d, before left boundary, expecting err: %v", accusationHeight, err)
+			require.Error(t, err)
+		case accusationHeight > leftBoundary && accusationHeight <= rightBoundary:
+			t.Logf("height %d, inside boundary, err should be nil: %v", accusationHeight, err)
+			require.NoError(t, err)
+		case accusationHeight > rightBoundary:
+			t.Logf("height %d, after right boundary, expecting err: %v", accusationHeight, err)
+			require.Error(t, err)
+		default:
+			t.Fatalf("should not happen")
+		}
+	}
+
+	// simulate the mining of 1 block, grace period decreases
+	lastMinedBlock++
+	currentCoreHeight = lastMinedBlock + 1
+	t.Logf("mining one block. last mined block %d, current core height %d", lastMinedBlock, currentCoreHeight)
+	gracePeriod--
+	// (lastMinedBlock - effectiveRange,lastMinedBlock-delta]
+	leftBoundary = lastMinedBlock - effectiveRange(newAccountabilityRange, gracePeriod)
+	rightBoundary = lastMinedBlock - accountabilityDelta
+	t.Logf("lastMinedBlock: %d, leftBoundary: %d, right boundary: %d", lastMinedBlock, leftBoundary, rightBoundary)
+	for accusationHeight := leftBoundary - offset; accusationHeight <= rightBoundary+offset; accusationHeight++ {
+		err := preVerifyAccusation(msgForHeight(accusationHeight), currentCoreHeight, newAccountabilityRange, accountabilityDelta, gracePeriod)
+		switch {
+		case accusationHeight <= leftBoundary:
+			t.Logf("height %d, before left boundary, expecting err: %v", accusationHeight, err)
+			require.Error(t, err)
+		case accusationHeight > leftBoundary && accusationHeight <= rightBoundary:
+			t.Logf("height %d, inside boundary, err should be nil: %v", accusationHeight, err)
+			require.NoError(t, err)
+		case accusationHeight > rightBoundary:
+			t.Logf("height %d, after right boundary, expecting err: %v", accusationHeight, err)
+			require.Error(t, err)
+		default:
+			t.Fatalf("should not happen")
+		}
+	}
+}
+
 func makeSigner(key blst.SecretKey) message.Signer {
 	return func(hash common.Hash) blst.Signature {
 		signature := key.Sign(hash[:])

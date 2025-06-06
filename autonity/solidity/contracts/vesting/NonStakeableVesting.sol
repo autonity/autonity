@@ -9,7 +9,7 @@ import "./ContractBase.sol";
  * @notice Vesting contracts are created under existing schedules.
  * Schedules are stored in Autonity contract under the address of this smart contract.
  */
-contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
+contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuard {
 
     struct ScheduleTracker {
         uint256 unsubscribedAmount;
@@ -46,7 +46,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
         uint256 _amount,
         uint256 _scheduleID,
         uint256 _cliffDuration
-    ) virtual onlyOperator public {
+    ) virtual onlyOperator external {
         ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
@@ -119,7 +119,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
     function changeContractBeneficiary(
         address _beneficiary, uint256 _id, address _recipient
     ) virtual external onlyOperator {
-        uint256 _contractID = getUniqueContractID(_beneficiary, _id);
+        uint256 _contractID = _getUniqueContractID(_beneficiary, _id);
         _changeContractBeneficiary(_beneficiary, _contractID, _recipient);
     }
 
@@ -129,8 +129,8 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
      * the beneficiary (excluding canceled ones). So any beneficiary can number their contracts
      * from 0 to (n-1). Beneficiary does not need to know the unique global contract id.
      */
-    function releaseAllNTN(uint256 _id) virtual external {
-        uint256 _contractID = getUniqueContractID(msg.sender, _id);
+    function releaseAllNTN(uint256 _id) virtual external nonReentrant {
+        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         _releaseNTN(contracts[_contractID], _withdrawableVestedFunds(_contractID));
     }
 
@@ -142,8 +142,8 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
      * the beneficiary (excluding canceled ones). So any beneficiary can number their contracts
      * from 0 to (n-1). Beneficiary does not need to know the unique global contract id.
      */
-    function releaseNTN(uint256 _id, uint256 _amount) virtual external {
-        uint256 _contractID = getUniqueContractID(msg.sender, _id);
+    function releaseNTN(uint256 _id, uint256 _amount) virtual external nonReentrant {
+        uint256 _contractID = _getUniqueContractID(msg.sender, _id);
         require(_amount <= _withdrawableVestedFunds(_contractID), "not enough unlocked funds");
         _releaseNTN(contracts[_contractID], _amount);
     }
@@ -170,7 +170,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
 
     function _withdrawableVestedFunds(uint256 _contractID) internal view returns (uint256) {
         ContractBase.Contract storage _contract = contracts[_contractID];
-        if (_contract.start + _contract.cliffDuration > autonity.lastEpochTime()) {
+        if (_contract.start + _contract.cliffDuration > autonity.getLastEpochTime()) {
             return 0;
         }
         return _vestedFunds(_contractID);
@@ -206,8 +206,8 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
      */
     function withdrawableVestedFunds(
         address _beneficiary, uint256 _id
-    ) virtual external view returns (uint256) {
-        return _withdrawableVestedFunds(getUniqueContractID(_beneficiary, _id));
+    ) virtual external view nonReentrantView returns (uint256) {
+        return _withdrawableVestedFunds(_getUniqueContractID(_beneficiary, _id));
     }
 
     /**
@@ -215,8 +215,8 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
      */
     function vestedFunds(
         address _beneficiary, uint256 _id
-    ) virtual external view returns (uint256) {
-        return _vestedFunds(getUniqueContractID(_beneficiary, _id));
+    ) virtual external view nonReentrantView returns (uint256) {
+        return _vestedFunds(_getUniqueContractID(_beneficiary, _id));
     }
 
     /**
@@ -225,14 +225,23 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
      * @param _beneficiary beneficiary account address
      * @param _id contract id
      */
-    function getExpiredFunds(address _beneficiary, uint256 _id) virtual external view returns (uint256) {
-        return expiredFundsFromContract[getUniqueContractID(_beneficiary, _id)];
+    function getExpiredFunds(address _beneficiary, uint256 _id) virtual external view nonReentrantView returns (uint256) {
+        return expiredFundsFromContract[_getUniqueContractID(_beneficiary, _id)];
     }
 
+    /**
+     * @notice Returns the beneficiary contract with the specified id
+     * @param _beneficiary beneficiary account address
+     * @param _id contract id
+     */
     function getContract(address _beneficiary, uint256 _id) virtual external view returns (ContractBase.Contract memory) {
-        return contracts[getUniqueContractID(_beneficiary, _id)];
+        return contracts[_getUniqueContractID(_beneficiary, _id)];
     }
 
+    /**
+     * @notice Returns all the contracts of the beneficiary
+     * @param _beneficiary beneficiary account address
+     */
     function getContracts(address _beneficiary) virtual external view returns (ContractBase.Contract[] memory) {
         uint256[] storage _contractIDs = beneficiaryContracts[_beneficiary];
         ContractBase.Contract[] memory _res = new ContractBase.Contract[] (_contractIDs.length);
@@ -248,6 +257,23 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase {
      */
     function getScheduleTracker(uint256 _id) virtual external view returns (ScheduleTracker memory) {
         return scheduleTracker[_id];
+    }
+
+    /**
+     * @notice Returns the number of contracts entitled to some beneficiary.
+     * @param _beneficiary address of the beneficiary
+     */
+    function totalContracts(address _beneficiary) virtual external view returns (uint256) {
+        return _totalContracts(_beneficiary);
+    }
+
+    /**
+     * @notice Returns a unique id for each contract.
+     * @param _beneficiary address of the contract holder
+     * @param _id contract id numbered from 0 to (n-1); n = total contracts entitled to the beneficiary (excluding canceled ones)
+     */
+    function getUniqueContractID(address _beneficiary, uint256 _id) external view returns (uint256) {
+        return _getUniqueContractID(_beneficiary, _id);
     }
 
     /*

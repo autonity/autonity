@@ -32,12 +32,12 @@ const ValidatorState = {
 
 async function endEpoch(contract,operator,deployer){
   let epochPeriod = (await contract.getEpochPeriod()).toNumber();
-  let currentEpoch = (await contract.epochID()).toNumber();
+  let currentEpoch = (await contract.getEpochID()).toNumber();
   let nextEpochBlock = (await contract.getNextEpochBlock()).toNumber();
 
     for (let i=0;i<=epochPeriod;i++) {
       contract.finalize({from: deployer})
-      let newEpochID = (await contract.epochID()).toNumber()
+      let newEpochID = (await contract.getEpochID()).toNumber()
       if (newEpochID === currentEpoch+1) {
         console.log("epoch ended successfully", "new epoch ID: ", newEpochID)
         break;
@@ -226,6 +226,9 @@ async function initialize(autonity, autonityConfig, validators, accountabilityCo
     outlierDetectionThreshold: 100,
     outlierSlashingThreshold: 100,
     baseSlashingRate: 10,
+    nonRevealThreshold: 3,
+    revealResetInterval: 10,
+    slashingRateCap: 1000,
   }, {from: deployer});
 
   // acu contract (temporary empty basket and scale = 2)

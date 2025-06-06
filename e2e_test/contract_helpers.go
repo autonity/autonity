@@ -9,12 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/autonity/bindings"
+
 	"github.com/autonity/autonity/params"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
-	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -42,7 +43,7 @@ func Interact(url string) *Interactor {
 		return i
 	}
 
-	instance, err := autonity.NewAutonity(params.AutonityContractAddress, client)
+	instance, err := bindings.NewAutonity(params.AutonityContractAddress, client)
 	if err != nil {
 		i.err = err
 		return i
@@ -60,7 +61,7 @@ func Interact(url string) *Interactor {
 // and provides functions to return objects that can handle sending
 // transactions or making contract calls.
 type Interactor struct {
-	instance *autonity.Autonity
+	instance *bindings.Autonity
 	client   *ethclient.Client
 	err      error
 }
@@ -150,7 +151,7 @@ func (t *transactor) analyze(test *testing.T) {
 }
 
 // execute calls the given callback
-func (t *transactor) execute(action func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error)) (*types.Transaction, error) {
+func (t *transactor) execute(action func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error)) (*types.Transaction, error) {
 	if t.err != nil {
 		return nil, t.err
 	}
@@ -162,106 +163,116 @@ func (t *transactor) execute(action func(instance *autonity.Autonity, opts *bind
 
 // public writers
 func (t *transactor) registerValidator(enode string, oracleAddress common.Address, consensusKey, signatures []byte) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.RegisterValidator(opts, enode, oracleAddress, consensusKey, signatures)
 	})
 }
 
 func (t *transactor) bond(validator common.Address, amount *big.Int) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.Bond(opts, validator, amount)
 	})
 }
 
 func (t *transactor) unbond(validator common.Address, amount *big.Int) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.Unbond(opts, validator, amount)
 	})
 }
 
 // system operator writers
 func (t *transactor) upgradeContract(byteCode []byte, abi string) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		opts.GasLimit = 100000000
 		return instance.UpgradeContract(opts, byteCode, abi)
 	})
 }
 
 func (t *transactor) completeContractUpgrade() (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.CompleteContractUpgrade(opts)
 	})
 }
 
 func (t *transactor) setMinBaseFee(fee *big.Int) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
-		return instance.SetMinimumBaseFee(opts, fee)
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+		config, err := instance.GetConfig(nil)
+		if err != nil {
+			return nil, err
+		}
+
+		return instance.SetEip1559Params(opts, bindings.IAutonityEip1559{
+			MinBaseFee:               fee, // modify only the min base fee
+			BaseFeeChangeDenominator: config.Policy.BaseFeeChangeDenominator,
+			ElasticityMultiplier:     config.Policy.ElasticityMultiplier,
+			GasLimitBoundDivisor:     config.Protocol.GasLimitBoundDivisor,
+		})
 	})
 }
 
 func (t *transactor) setCommitteeSize(size *big.Int) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.SetCommitteeSize(opts, size)
 	})
 }
 
 func (t *transactor) setUnBondingPeriod(period *big.Int) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.SetUnbondingPeriod(opts, period)
 	})
 }
 
 func (t *transactor) setEpochPeriod(period *big.Int) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.SetEpochPeriod(opts, period)
 	})
 }
 
 func (t *transactor) setOperator(address common.Address) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.SetOperatorAccount(opts, address)
 	})
 }
 
 func (t *transactor) setTreasuryAccount(address common.Address) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.SetTreasuryAccount(opts, address)
 	})
 }
 
 func (t *transactor) setTreasuryFee(fee *big.Int) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.SetTreasuryFee(opts, fee)
 	})
 }
 
 func (t *transactor) mint(address common.Address, amount *big.Int) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.Mint(opts, address, amount)
 	})
 }
 
 func (t *transactor) burn(address common.Address, amount *big.Int) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.Burn(opts, address, amount)
 	})
 }
 
 // ERC-20 writers
 func (t *transactor) transfer(recipient common.Address, amount *big.Int) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.Transfer(opts, recipient, amount)
 	})
 }
 
 func (t *transactor) transferFrom(sender common.Address, recipient common.Address, amount *big.Int) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.TransferFrom(opts, sender, recipient, amount)
 	})
 }
 
 func (t *transactor) approve(spender common.Address, amount *big.Int) (*types.Transaction, error) {
-	return t.execute(func(instance *autonity.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
+	return t.execute(func(instance *bindings.Autonity, opts *bind.TransactOpts) (*types.Transaction, error) {
 		return instance.Approve(opts, spender, amount)
 	})
 }
@@ -279,7 +290,7 @@ type Caller struct {
 
 // execute calls the given callback and ensures that its Interactor instance
 // is subsequently closed.
-func (c *Caller) execute(action func(instance *autonity.Autonity, opts *bind.CallOpts) error) error {
+func (c *Caller) execute(action func(instance *bindings.Autonity, opts *bind.CallOpts) error) error {
 	defer c.i.Close()
 	if c.err != nil {
 		return c.err
@@ -289,7 +300,7 @@ func (c *Caller) execute(action func(instance *autonity.Autonity, opts *bind.Cal
 
 func (c *Caller) Name() (string, error) {
 	var name string
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		n, err := instance.Name(opts)
 		name = n
 		return err
@@ -299,7 +310,7 @@ func (c *Caller) Name() (string, error) {
 
 func (c *Caller) Symbol() (string, error) {
 	var symbol string
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		s, err := instance.Symbol(opts)
 		symbol = s
 		return err
@@ -309,7 +320,7 @@ func (c *Caller) Symbol() (string, error) {
 
 func (c *Caller) BalanceOf(address common.Address) (*big.Int, error) {
 	var newton *big.Int
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		s, err := instance.BalanceOf(opts, address)
 		newton = s
 		return err
@@ -319,7 +330,7 @@ func (c *Caller) BalanceOf(address common.Address) (*big.Int, error) {
 
 func (c *Caller) Allowance(owner common.Address, spender common.Address) (*big.Int, error) {
 	var al *big.Int
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		a, err := instance.Allowance(opts, owner, spender)
 		al = a
 		return err
@@ -329,7 +340,7 @@ func (c *Caller) Allowance(owner common.Address, spender common.Address) (*big.I
 
 func (c *Caller) TotalSupply() (*big.Int, error) {
 	var total *big.Int
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		t, err := instance.TotalSupply(opts)
 		total = t
 		return err
@@ -339,7 +350,7 @@ func (c *Caller) TotalSupply() (*big.Int, error) {
 
 func (c *Caller) GetVersion() (uint64, error) {
 	var version uint64
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		v, err := instance.GetVersion(opts)
 		version = v.Uint64()
 		return err
@@ -347,9 +358,9 @@ func (c *Caller) GetVersion() (uint64, error) {
 	return version, err
 }
 
-func (c *Caller) GetCommittee() ([]autonity.AutonityCommitteeMember, error) {
-	var committee []autonity.AutonityCommitteeMember
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+func (c *Caller) GetCommittee() ([]bindings.AutonityCommitteeMember, error) {
+	var committee []bindings.AutonityCommitteeMember
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		cm, err := instance.GetCommittee(opts)
 		committee = cm
 		return err
@@ -359,7 +370,7 @@ func (c *Caller) GetCommittee() ([]autonity.AutonityCommitteeMember, error) {
 
 func (c *Caller) GetValidators() ([]common.Address, error) {
 	var validators []common.Address
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		vals, err := instance.GetValidators(opts)
 		validators = vals
 		return err
@@ -367,9 +378,9 @@ func (c *Caller) GetValidators() ([]common.Address, error) {
 	return validators, err
 }
 
-func (c *Caller) GetValidator(address common.Address) (autonity.AutonityValidator, error) {
-	var val autonity.AutonityValidator
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+func (c *Caller) GetValidator(address common.Address) (bindings.AutonityValidator, error) {
+	var val bindings.AutonityValidator
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		v, err := instance.GetValidator(opts, address)
 		val = v
 		return err
@@ -379,7 +390,7 @@ func (c *Caller) GetValidator(address common.Address) (autonity.AutonityValidato
 
 func (c *Caller) GetMaxCommitteeSize() (*big.Int, error) {
 	var size *big.Int
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		s, err := instance.GetMaxCommitteeSize(opts)
 		size = s
 		return err
@@ -389,7 +400,7 @@ func (c *Caller) GetMaxCommitteeSize() (*big.Int, error) {
 
 func (c *Caller) GetCommitteeEnodes() ([]string, error) {
 	var eNodes []string
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		es, err := instance.GetCommitteeEnodes(opts)
 		eNodes = es
 		return err
@@ -399,7 +410,7 @@ func (c *Caller) GetCommitteeEnodes() ([]string, error) {
 
 func (c *Caller) GetMinBaseFee() (*big.Int, error) {
 	var fee *big.Int
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		f, err := instance.GetMinimumBaseFee(opts)
 		fee = f
 		return err
@@ -409,7 +420,7 @@ func (c *Caller) GetMinBaseFee() (*big.Int, error) {
 
 func (c *Caller) GetUnbondingPeriod() (*big.Int, error) {
 	var period *big.Int
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		p, err := instance.GetUnbondingPeriod(opts)
 		period = p
 		return err
@@ -419,7 +430,7 @@ func (c *Caller) GetUnbondingPeriod() (*big.Int, error) {
 
 func (c *Caller) GetEpochPeriod() (*big.Int, error) {
 	var period *big.Int
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		p, err := instance.GetEpochPeriod(opts)
 		period = p
 		return err
@@ -429,7 +440,7 @@ func (c *Caller) GetEpochPeriod() (*big.Int, error) {
 
 func (c *Caller) GetTreasuryFee() (*big.Int, error) {
 	var fee *big.Int
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		f, err := instance.GetTreasuryFee(opts)
 		fee = f
 		return err
@@ -439,7 +450,7 @@ func (c *Caller) GetTreasuryFee() (*big.Int, error) {
 
 func (c *Caller) GetTreasuryAccount() (common.Address, error) {
 	var treasury common.Address
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		t, err := instance.GetTreasuryAccount(opts)
 		treasury = t
 		return err
@@ -449,7 +460,7 @@ func (c *Caller) GetTreasuryAccount() (common.Address, error) {
 
 func (c *Caller) GetOperator() (common.Address, error) {
 	var operator common.Address
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		o, err := instance.GetOperator(opts)
 		operator = o
 		return err
@@ -460,7 +471,7 @@ func (c *Caller) GetOperator() (common.Address, error) {
 func (c *Caller) GetNewContract() ([]byte, string, error) {
 	var byteCode []byte
 	var abi string
-	err := c.execute(func(instance *autonity.Autonity, opts *bind.CallOpts) error {
+	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		b, a, err := instance.GetNewContract(opts)
 		byteCode = b
 		abi = a

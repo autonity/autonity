@@ -366,6 +366,6 @@ func (b *EthAPIBackend) StateAtTransaction(ctx context.Context, block *types.Blo
 	return b.eth.stateAtTransaction(block, txIndex, reexec)
 }
 
-func (b *EthAPIBackend) MinBaseFee() *big.Int {
-	return b.eth.blockchain.MinBaseFee()
+func (b *EthAPIBackend) Eip1559ParamsByHeight(height uint64) (*types.Eip1559Params, error) {
+	return b.eth.blockchain.Eip1559ParamsByHeight(height)
 }

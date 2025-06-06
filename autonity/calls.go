@@ -2,10 +2,12 @@ package autonity
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"reflect"
 
 	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/types"
@@ -85,7 +87,7 @@ func AutonityContractCall(autonityAbi *abi.ABI, evm *vm.EVM, function string, re
 		return usedGas, nil
 	}
 	if err := autonityAbi.UnpackIntoInterface(result, function, ret); err != nil {
-		log.Error("Could not unpack returned value", "function", function)
+		log.Error("Could not unpack returned value, try the raw value method", "function", function)
 		return usedGas, err
 	}
 
@@ -114,23 +116,59 @@ func (c *AutonityContract) CallGetCommitteeEnodes(state vm.StateDB, header *type
 	return types.NewNodes(returnedEnodes, asACN), nil
 }
 
-func (c *AutonityContract) CallConfig(state vm.StateDB, header *types.Header) (*AutonityConfig, error) {
-	var config AutonityConfig
+func (c *AutonityContract) CallGetConfig(state vm.StateDB, header *types.Header) (*bindings.AutonityConfig, error) {
+	var config bindings.AutonityConfig
 	_, err := AutonityContractCall(
 		c.contractABI,
 		c.evmProvider(header, params.DeployerAddress, state),
-		"config",
+		"getConfig",
 		&config,
 	)
 	return &config, err
 }
 
-func (c *AutonityContract) CallEpochID(state vm.StateDB, header *types.Header) (*big.Int, error) {
+func (c *AutonityContract) CallGetClientConfig(state vm.StateDB, header *types.Header) (*types.ContractsConfig, error) {
+	var output raw
+	if _, err := AutonityContractCall(
+		c.contractABI,
+		c.evmProvider(header, params.DeployerAddress, state),
+		"getClientConfig",
+		&output,
+	); err != nil {
+		return nil, err
+	}
+
+	data, err := c.contractABI.Unpack("getClientConfig", output)
+	if err != nil {
+		return nil, err
+	}
+
+	result := abi.ConvertType(data[0], new(bindings.AutonityClientAwareConfig)).(*bindings.AutonityClientAwareConfig)
+
+	return &types.ContractsConfig{
+		EpochPeriod: result.EpochPeriod,
+		BlockPeriod: result.BlockPeriod,
+		GasLimit:    result.GasLimit,
+		Accountability: types.AccountabilityParams{
+			Range:       result.Accountability.Range,
+			Delta:       result.Accountability.Delta,
+			GracePeriod: result.Accountability.GracePeriod,
+		},
+		Eip1559: types.Eip1559Params{
+			MinBaseFee:               result.Eip1559.MinBaseFee,
+			BaseFeeChangeDenominator: result.Eip1559.BaseFeeChangeDenominator,
+			ElasticityMultiplier:     result.Eip1559.ElasticityMultiplier,
+			GasLimitBoundDivisor:     result.Eip1559.GasLimitBoundDivisor,
+		},
+	}, nil
+}
+
+func (c *AutonityContract) CallGetEpochID(state vm.StateDB, header *types.Header) (*big.Int, error) {
 	epochID := new(big.Int)
 	_, err := AutonityContractCall(
 		c.contractABI,
 		c.evmProvider(header, params.DeployerAddress, state),
-		"epochID",
+		"getEpochID",
 		&epochID,
 	)
 	if err != nil {
@@ -157,7 +195,7 @@ func (c *AutonityContract) CallEpochByHeight(state vm.StateDB, header *types.Hea
 		return nil, err
 	}
 
-	info := *abi.ConvertType(data[0], new(AutonityEpochInfo)).(*AutonityEpochInfo)
+	info := *abi.ConvertType(data[0], new(bindings.AutonityEpochInfo)).(*bindings.AutonityEpochInfo)
 
 	committee := &types.Committee{}
 	for _, member := range info.Committee {
@@ -176,7 +214,13 @@ func (c *AutonityContract) CallEpochByHeight(state vm.StateDB, header *types.Hea
 			Committee:          committee,
 			PreviousEpochBlock: info.PreviousEpochBlock,
 			NextEpochBlock:     info.NextEpochBlock,
-			Delta:              info.Delta,
+			OmissionDelta:      info.OmissionDelta,
+			Eip1559: &types.Eip1559Params{
+				MinBaseFee:               info.Eip1559.MinBaseFee,
+				BaseFeeChangeDenominator: info.Eip1559.BaseFeeChangeDenominator,
+				ElasticityMultiplier:     info.Eip1559.ElasticityMultiplier,
+				GasLimitBoundDivisor:     info.Eip1559.GasLimitBoundDivisor,
+			},
 		},
 		EpochBlock: info.EpochBlock,
 	}
@@ -211,43 +255,77 @@ func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.He
 	return epochPeriod, nil
 }
 
-func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, *types.Epoch, error) {
-	var updateReady bool
-	var epochEnded bool
-	var committeeMembers []types.CommitteeMember
-	previousEpochBlock := new(big.Int)
-	nextEpochBlock := new(big.Int)
-	delta := new(big.Int)
+func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, *types.Epoch, *types.ContractsConfig, error) {
+	var output raw
+
 	usedGas, err := AutonityContractCall(
 		c.contractABI,
 		c.evmProvider(header, params.DeployerAddress, state),
 		"finalize",
-		&[]any{&updateReady, &epochEnded, &committeeMembers, &previousEpochBlock, &nextEpochBlock, &delta},
+		&output,
 	)
-	recordFinalizeGasUsage(epochEnded, header.Number.Uint64(), int64(usedGas))
 	if err != nil {
-		return false, nil, err
+		return false, nil, nil, fmt.Errorf("call finalize failed: %w", err)
 	}
 
-	if !epochEnded {
-		return updateReady, nil, nil
+	unpackedOutput, err := c.contractABI.Unpack("finalize", output)
+	if err != nil {
+		return false, nil, nil, fmt.Errorf("unpacking raw finalize output failed: %w", err)
 	}
 
-	// return with epoch info
+	result := *abi.ConvertType(unpackedOutput[0], new(bindings.AutonityFinalizeResult)).(*bindings.AutonityFinalizeResult)
+
+	recordFinalizeGasUsage(result.EpochEnded, header.Number.Uint64(), int64(usedGas))
+
+	contractsConfig := &types.ContractsConfig{
+		EpochPeriod: result.Config.EpochPeriod,
+		BlockPeriod: result.Config.BlockPeriod,
+		GasLimit:    result.Config.GasLimit,
+		Accountability: types.AccountabilityParams{
+			Range:       result.Config.Accountability.Range,
+			Delta:       result.Config.Accountability.Delta,
+			GracePeriod: result.Config.Accountability.GracePeriod,
+		},
+		Eip1559: types.Eip1559Params{
+			MinBaseFee:               result.Config.Eip1559.MinBaseFee,
+			BaseFeeChangeDenominator: result.Config.Eip1559.BaseFeeChangeDenominator,
+			ElasticityMultiplier:     result.Config.Eip1559.ElasticityMultiplier,
+			GasLimitBoundDivisor:     result.Config.Eip1559.GasLimitBoundDivisor,
+		},
+	}
+
+	if !result.EpochEnded {
+		return result.ContractUpgradeReady, nil, contractsConfig, nil
+	}
+
+	// convert committee from bindings type to internal type
 	committee := &types.Committee{}
-	committee.Members = committeeMembers
+	committee.Members = make([]types.CommitteeMember, len(result.Epoch.Committee))
+	for i, member := range result.Epoch.Committee {
+		committee.Members[i] = types.CommitteeMember{
+			Address:           member.Addr,
+			VotingPower:       member.VotingPower,
+			ConsensusKeyBytes: member.ConsensusKey,
+		}
+	}
 	if err := committee.Enrich(); err != nil {
 		panic("Committee member has invalid consensus key: " + err.Error())
 	}
 
 	epoch := &types.Epoch{
-		PreviousEpochBlock: previousEpochBlock,
-		NextEpochBlock:     nextEpochBlock,
+		PreviousEpochBlock: result.Epoch.PreviousEpochBlock,
+		NextEpochBlock:     result.Epoch.NextEpochBlock,
 		Committee:          committee,
-		Delta:              delta,
+		OmissionDelta:      result.Epoch.OmissionDelta,
+		Eip1559: &types.Eip1559Params{
+			MinBaseFee:               result.Epoch.Eip1559.MinBaseFee,
+			BaseFeeChangeDenominator: result.Epoch.Eip1559.BaseFeeChangeDenominator,
+			ElasticityMultiplier:     result.Epoch.Eip1559.ElasticityMultiplier,
+			GasLimitBoundDivisor:     result.Epoch.Eip1559.GasLimitBoundDivisor,
+		},
 	}
 
-	return updateReady, epoch, nil
+	return result.ContractUpgradeReady, epoch, contractsConfig, nil
 }
 
 func (c *AutonityContract) callRetrieveContract(state vm.StateDB, header *types.Header) ([]byte, string, error) {

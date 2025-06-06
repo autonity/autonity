@@ -17,21 +17,22 @@ import {IACU} from "./interfaces/IACU.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import "./lib/ASMErrors.sol";
 import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
+import {ReentrancyGuard} from "../ReentrancyGuard.sol";
 
 /// @title ASM ACU Contract
 /// @notice Computes the value of the ACU, an optimal currency basket of
 /// 7 free-floating fiat currencies.
 /// @dev Intended to be deployed by the protocol at genesis.
-contract ACU is IACU, IConfigEvents {
+contract ACU is IACU, IConfigEvents, ReentrancyGuard {
     /// The Oracle round of the current ACU value.
-    uint256 public round;
+    uint256 internal round;
     /// The decimal places used to represent the ACU as a fixed-point integer.
     /// It is also the scale used to represent the basket quantities.
-    uint256 public scale;
+    uint256 internal scale;
     /// The multiplier for scaling numbers to the ACU scaled representation.
-    uint256 public scaleFactor;
+    uint256 internal scaleFactor;
     /// The quantity multiplier for the ACU basket.
-    uint256 public quantityMultiplier;
+    uint256 internal quantityMultiplier;
 
     string[] private _symbols;
     uint256[] private _quantities;
@@ -112,7 +113,7 @@ contract ACU is IACU, IConfigEvents {
     /// @return status Whether the ACU value was updated successfully
     /// @dev Only the Autonity Contract is authorized to trigger the
     /// computation of the ACU.
-    function update() external onlyAutonity returns (bool status) {
+    function update() external onlyAutonity nonReentrant returns (bool status) {
         uint256 latestRound = _oracle.getRound() - 1;
         if (round >= latestRound) return false;
         uint256 sumProduct = 0;
@@ -145,7 +146,7 @@ contract ACU is IACU, IConfigEvents {
     /// @dev Only the Autonity Contract is authorized to set the Governance
     /// Operator account address.
     function setOperator(address operator) external onlyAutonity {
-        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator);
+        emit IConfigEvents.ConfigUpdateAddress("operator", _operator, operator, block.number);
         _operator = operator;
     }
 
@@ -154,7 +155,7 @@ contract ACU is IACU, IConfigEvents {
     /// @dev Only the Autonity Contract is authorized to set the Oracle
     /// Contract address.
     function setOracle(address oracle) external onlyAutonity {
-        emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle);
+        emit IConfigEvents.ConfigUpdateAddress("oracle", address(_oracle), oracle, block.number);
         _oracle = IOracle(oracle);
     }
 
@@ -202,7 +203,7 @@ contract ACU is IACU, IConfigEvents {
     /// The latest ACU value that was computed.
     /// @return ACU value in fixed-point integer representation rescaled by the
     /// quantity multiplier
-    function value() external view returns (uint256) {
+    function value() external view nonReentrantView returns (uint256) {
         if (round == 0) revert NoACUValue();
         return quantityMultiplier * _value / scaleFactor;
     }
@@ -226,13 +227,28 @@ contract ACU is IACU, IConfigEvents {
         return quantityMultiplier;
     }
 
-    // The scaled quantities used to compute the ACU.
-    // @return Array of scaled quantities
+    /// The scaled quantities used to compute the ACU.
+    /// @return Array of scaled quantities
     function scaledQuantities() external view returns (uint256[] memory) {
         uint256[] memory scaled = new uint256[](_quantities.length);
         for (uint i = 0; i < _quantities.length; i++) {
             scaled[i] = _quantities[i] * quantityMultiplier / scaleFactor;
         }
         return scaled;
+    }
+
+    /// @return The multiplier for scaling numbers to the ACU scaled representation.
+    function getScaleFactor() external view returns (uint256) {
+        return scaleFactor;
+    }
+
+    /// @return The decimal places used to represent the ACU as a fixed-point integer.
+    function getScale() external view returns (uint256) {
+        return scale;
+    }
+
+    /// @return The Oracle round of the current ACU value.
+    function getRound() external view nonReentrantView returns (uint256) {
+        return round;
     }
 }

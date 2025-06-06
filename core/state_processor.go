@@ -57,13 +57,14 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessor) ProcessFromCache(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, *state.StateDB, uint64, error) {
+func (p *StateProcessor) ProcessFromCache(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, *state.StateDB, uint64, *types.ContractsConfig, error) {
 	var (
-		receipts  types.Receipts
-		usedGas   uint64
-		blockHash = block.Hash()
-		allLogs   []*types.Log
-		err       error
+		receipts        types.Receipts
+		usedGas         uint64
+		blockHash       = block.Hash()
+		allLogs         []*types.Log
+		err             error
+		contractsConfig *types.ContractsConfig
 	)
 
 	st := p.bc.cachedState.Load()
@@ -74,11 +75,12 @@ func (p *StateProcessor) ProcessFromCache(block *types.Block, statedb *state.Sta
 		}
 		usedGas = st.usedGas
 		statedb = st.stateDb.Copy()
+		contractsConfig = st.contractsConfig.Copy()
 	} else {
-		receipts, allLogs, usedGas, _, err = p.Process(block, statedb, cfg)
+		receipts, allLogs, usedGas, _, contractsConfig, err = p.Process(block, statedb, cfg)
 	}
 
-	return receipts, allLogs, statedb, usedGas, err
+	return receipts, allLogs, statedb, usedGas, contractsConfig, err
 }
 
 func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (*types.Receipt, error) {
@@ -141,7 +143,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	return applyTransaction(msg, config, bc, author, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
 }
 
-func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, *types.Epoch, error) {
+func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, *types.Epoch, *types.ContractsConfig, error) {
 
 	var (
 		receipts    types.Receipts
@@ -159,12 +161,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	for i, tx := range block.Transactions() {
 		msg, err := tx.AsMessage(types.MakeSigner(p.config, header.Number), header.BaseFee)
 		if err != nil {
-			return nil, nil, 0, nil, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
+			return nil, nil, 0, nil, nil, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
 		statedb.Prepare(tx.Hash(), i)
 		receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv)
 		if err != nil {
-			return nil, nil, 0, nil, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
+			return nil, nil, 0, nil, nil, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
@@ -172,15 +174,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	statedb.Prepare(common.ACHash(block.Number()), len(block.Transactions()))
-	receipt, epochInfo, err := p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
+	receipt, epochInfo, contractsConfig, err := p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
 	if err != nil {
 		log.Error("could not finalize block", err)
-		return nil, nil, 0, nil, err
+		return nil, nil, 0, nil, nil, err
 	}
 
 	if receipt != nil {
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
-	return receipts, allLogs, *usedGas, epochInfo, nil
+	return receipts, allLogs, *usedGas, epochInfo, contractsConfig, nil
 }

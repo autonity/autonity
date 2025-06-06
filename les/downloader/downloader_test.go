@@ -88,7 +88,7 @@ func newTester() *downloadTester {
 		ancientChainTd:  map[common.Hash]*big.Int{testGenesis.Hash(): testGenesis.Difficulty()},
 	}
 	tester.stateDb = rawdb.NewMemoryDatabase()
-	core.GenesisBlockForTesting(tester.stateDb, testAddress, big.NewInt(1000000000000000))
+	core.GenesisBlockForTesting(tester.stateDb, testAddress, big.NewInt(1000000000000000000))
 
 	tester.downloader = New(0, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer)
 	return tester

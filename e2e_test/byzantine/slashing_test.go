@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/autonity/bindings"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
-	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
@@ -44,7 +45,7 @@ import (
 
 const SlashingRatePrecision = 10_000 // needs to match precision in Slasher.sol
 
-func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPeriod, stake, selfBondedStake uint64, faultyNodes []int, offendersCount, faultsCount uint64, epochs int) (uint64, []autonity.AutonityValidator, []autonity.AutonityValidator) {
+func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPeriod, stake, selfBondedStake uint64, faultyNodes []int, offendersCount, faultsCount uint64, epochs int) (uint64, []bindings.AutonityValidator, []bindings.AutonityValidator) {
 
 	validators, err := e2e.Validators(t, nodesCount, fmt.Sprintf("10e36,v,%d,0.0.0.0:%%s,%%s,%%s,%%s", selfBondedStake))
 	require.NoError(t, err)
@@ -54,8 +55,8 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 		validators[faultyNodeIndex].TendermintServices = &interfaces.Services{Broadcaster: newInvalidProposer}
 	}
 
-	validatorsBefore := make([]autonity.AutonityValidator, len(faultyNodes))
-	validatorsAfter := make([]autonity.AutonityValidator, len(faultyNodes))
+	validatorsBefore := make([]bindings.AutonityValidator, len(faultyNodes))
+	validatorsAfter := make([]bindings.AutonityValidator, len(faultyNodes))
 
 	var baseRate uint64
 	var collusionFactor uint64
@@ -99,7 +100,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 
 	dedicatedNode := network[1].WsClient
 
-	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, dedicatedNode)
+	autonityContract, err := bindings.NewAutonity(params.AutonityContractAddress, dedicatedNode)
 	require.NoError(t, err)
 
 	treasuryAccount, err := autonityContract.GetTreasuryAccount(nil)
@@ -240,10 +241,10 @@ func TestHistoryFactor(t *testing.T) {
 
 	dedicatedNode := network[1].WsClient
 
-	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, dedicatedNode)
+	autonityContract, err := bindings.NewAutonity(params.AutonityContractAddress, dedicatedNode)
 	require.NoError(t, err)
 
-	accountabilityContract, err := autonity.NewAccountability(params.AccountabilityContractAddress, dedicatedNode)
+	accountabilityContract, err := bindings.NewAccountability(params.AccountabilityContractAddress, dedicatedNode)
 	require.NoError(t, err)
 
 	treasuryAccount, err := autonityContract.GetTreasuryAccount(nil)
@@ -290,7 +291,7 @@ func TestHistoryFactor(t *testing.T) {
 
 	// check if slashing amount is calculated properly
 
-	accountabilityConfig, err := accountabilityContract.Config(nil)
+	accountabilityConfig, err := accountabilityContract.GetConfig(nil)
 	require.NoError(t, err)
 
 	baseRate := accountabilityConfig.BaseSlashingRates.High
@@ -324,19 +325,19 @@ func TestHistoryFactor(t *testing.T) {
 }
 
 // Wait for N AccountabilitySlashingEvent to appear on all the nodes in the network
-func WaitForSlashingEvents(ctx context.Context, t *testing.T, n int, client *ethclient.Client) []*autonity.AccountabilitySlashingEvent {
+func WaitForSlashingEvents(ctx context.Context, t *testing.T, n int, client *ethclient.Client) []*bindings.AccountabilitySlashingEvent {
 
-	accountabilityContract, err := autonity.NewAccountability(params.AccountabilityContractAddress, client)
+	accountabilityContract, err := bindings.NewAccountability(params.AccountabilityContractAddress, client)
 	require.NoError(t, err)
 
 	// wait for slashing event
-	eventsSink := make(chan *autonity.AccountabilitySlashingEvent, n)
+	eventsSink := make(chan *bindings.AccountabilitySlashingEvent, n)
 	subscription, err := accountabilityContract.WatchSlashingEvent(nil, eventsSink)
 	require.NoError(t, err)
 
 	defer subscription.Unsubscribe()
 
-	events := make([]*autonity.AccountabilitySlashingEvent, 0, n)
+	events := make([]*bindings.AccountabilitySlashingEvent, 0, n)
 
 loop:
 	for {
@@ -359,7 +360,7 @@ loop:
 	return events
 }
 
-func WaitForSlashingEvent(ctx context.Context, t *testing.T, client *ethclient.Client) *autonity.AccountabilitySlashingEvent {
+func WaitForSlashingEvent(ctx context.Context, t *testing.T, client *ethclient.Client) *bindings.AccountabilitySlashingEvent {
 	e := WaitForSlashingEvents(ctx, t, 1, client)
 	return e[0]
 }

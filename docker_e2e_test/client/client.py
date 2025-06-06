@@ -3,23 +3,23 @@ import re
 import copy
 import log
 import utility
+import threading
 from web3.auto import w3
 from fabric import Connection
-from eth_rpc_client import Client as RpcClient
+from web3 import Web3
 from invoke import Responder
-
 
 AUTONITY_PATH = "/home/{}/network-data/autonity"
 GENESIS_PATH = "/home/{}/network-data/genesis.json"
+LOG_PATH = "/home/{}/{}.log"
 CHAIN_DATA_DIR = "/home/{}/network-data/{}/data/"
 BOOT_KEY_FILE = "/home/{}/network-data/{}/boot.key"
 KEY_PASSPHRASE_FILE = "/home/{}/network-data/{}/pass.txt"
 PACKAGE_NAME = "./network-data/{}.tgz"
 REMOTE_NAME = "/home/{}/{}.tgz"
-SYSTEM_SERVICE_DIR = "/etc/systemd/system/"
+SYSTEM_SERVICE_DIR = "/etc/init.d/"
 DEPLOYMENT_DIR = '/home/{}/network-data'
-SYSTEMD_START_CLIENT = 'sudo systemctl start autonity.service'
-SYSTEMD_STOP_CLIENT = 'sudo systemctl stop autonity.service'
+STOP_AUTONITY_CLIENT = 'kill -15 `pidof autonity`'
 
 # use ip tables module of linux kernel which is common for all linux distributions to control peer connection.
 CONNECT_PEER = "sudo iptables -j DROP -D INPUT -s {}"
@@ -87,6 +87,7 @@ class Client(object):
         self.up_link_delayed = False
         self.down_link_delayed = False
         self.is_local_address = False
+        self.life = None
 
     def create_work_dir(self, data_dir):
         work_dir = "{}/{}".format(data_dir, self.host)
@@ -123,66 +124,53 @@ class Client(object):
             utility.execute("{} -writeaddress -nodekey ./network-data/{}/boot.key".
                             format(self.bootnode_path, folder))[0].rstrip()
         # new patern: "enode://pubKey:host:port?discPort=30303&acnep=host:port"
-        self.e_node = "enode://{}@{}:{}?discPort={}&acnep={}:{}".format(pub_key, self.host, self.p2p_port, self.p2p_port, self.host, self.acn_port)
+        self.e_node = "enode://{}@{}:{}?discPort={}&acnep={}:{}".format(pub_key, self.host, self.p2p_port,
+                                                                        self.p2p_port, self.host, self.acn_port)
 
         # gen an autonity consensus key and append it in boot.key file for client.
         tmp_key_file = "./network-data/{}/tmp.key".format(folder)
-        _, _, consensus_pub_key, consensus_pri_key, _ = utility.gen_autonity_keys(self.autonity_path, self.key_inspector_path, tmp_key_file)
+        _, _, consensus_pub_key, consensus_pri_key, _ = utility.gen_autonity_keys(self.autonity_path,
+                                                                                  self.key_inspector_path, tmp_key_file)
         self.consensus_pub_key = consensus_pub_key
         # append a tmp consensus key at boot.key
         with open("./network-data/{}/boot.key".format(folder), "a") as bootkey:
             bootkey.write(consensus_pri_key)
         return self.e_node
 
-    def generate_system_service_file(self):
-        template_remote = "[Unit]\n" \
-                   "Description=Clearmatics Autonity Client server\n" \
-                   "After=syslog.target network.target\n" \
-                   "[Service]\n" \
-                   "Type=simple\n" \
-                   "ExecStart={} --genesis {} --datadir {} --autonitykeys {} --syncmode 'full' --port {} --consensus.port {} " \
-                   "--http.port {} --http --http.addr '0.0.0.0' --ws --ws.port {} --http.corsdomain '*' "\
-                   "--http.api 'personal,debug,db,eth,net,web3,txpool,miner,tendermint,clique' --networkid 1991  " \
-                   "--allow-insecure-unlock --graphql " \
-                   "--unlock 0x{} --password {} " \
-                   "--mine --miner.threads '1' --verbosity 4 --miner.gaslimit 10000000000 \n" \
-                   "KillMode=process\n" \
-                   "KillSignal=SIGINT\n" \
-                   "TimeoutStopSec=1\n" \
-                   "Restart=on-failure\n" \
-                   "RestartSec=1s\n" \
-                   "[Install]\n" \
-                   "Alias=autonity.service\n"\
-                   "WantedBy=multi-user.target"
-
-        folder = self.host
-
-        print("prepare autonity systemd service file for node: %s", self.host)
-        bin_path = AUTONITY_PATH.format(self.ssh_user)
-        genesis_path = GENESIS_PATH.format(self.ssh_user)
-        data_dir = CHAIN_DATA_DIR.format(self.ssh_user, folder)
-        boot_key_file = BOOT_KEY_FILE.format(self.ssh_user, folder)
-        p2p_port = self.p2p_port
-        acn_port = self.acn_port
-        rpc_port = self.rpc_port
-        ws_port = self.ws_port
-        coin_base = self.coin_base
-        password_file = KEY_PASSPHRASE_FILE.format(self.ssh_user, folder)
-
-        content = template_remote.format(bin_path, genesis_path, data_dir, boot_key_file, p2p_port, acn_port, rpc_port, ws_port,
-                                         coin_base, password_file)
-        with open("./network-data/{}/autonity.service".format(folder), 'w') as out:
-            out.write(content)
+    def cli_cmd(self):
+        cmd = "{0} --genesis {1} --datadir {2} --autonitykeys {3} --syncmode 'full' --port {4} --consensus.port {5} " \
+              "--http.port {6} --http --http.addr '0.0.0.0' --ws --ws.port {7} --http.corsdomain '*' " \
+              "--http.api 'personal,debug,eth,net,web3,txpool,miner,tendermint' --networkid 1991 --allow-insecure-unlock " \
+              "--graphql --unlock 0x{8} --password {9} --mine --miner.threads '1' " \
+              "--verbosity 3 > {10} ".format(
+                                           AUTONITY_PATH.format(self.ssh_user),
+                                           GENESIS_PATH.format(self.ssh_user),
+                                           CHAIN_DATA_DIR.format(self.ssh_user,
+                                                                 self.host),
+                                           BOOT_KEY_FILE.format(self.ssh_user,
+                                                                self.host),
+                                           self.p2p_port,
+                                           self.acn_port,
+                                           self.rpc_port,
+                                           self.ws_port,
+                                           self.coin_base,
+                                           KEY_PASSPHRASE_FILE.format(
+                                               self.ssh_user, self.host),
+                                           LOG_PATH.format(self.ssh_user, self.host)
+                                          )
+        return cmd
 
     def generate_package(self):
         folder = self.host
         utility.execute('cp {} ./network-data/'.format(self.autonity_path))
-        utility.execute('tar -zcvf ./network-data/{}.tgz ./network-data/{}/ ./network-data/genesis.json ./network-data/autonity'.format(folder, folder))
+        utility.execute(
+            'tar -zcvf ./network-data/{}.tgz ./network-data/{}/ ./network-data/genesis.json ./network-data/autonity'.format(
+                folder, folder))
 
     def deliver_package(self):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
+                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass
             }) as c:
                 sudopass = Responder(
@@ -191,8 +179,10 @@ class Client(object):
                 )
                 c.put(PACKAGE_NAME.format(self.host), REMOTE_NAME.format(self.ssh_user, self.host))
                 self.logger.info('Chain package was uploaded to %s.', self.host)
-                result = c.run('sudo tar -C /home/{} -zxvf {}'.format(self.ssh_user, REMOTE_NAME.format(self.ssh_user, self.host)), pty=True,
-                               watchers=[sudopass], warn=True, hide=True)
+                result = c.run(
+                    'tar -C /home/{} -zxvf {}'.format(self.ssh_user, REMOTE_NAME.format(self.ssh_user, self.host)),
+                    pty=True,
+                    watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('Chain package was unpacked to %s.', self.host)
                     return True
@@ -202,74 +192,51 @@ class Client(object):
             self.logger.error("cannot deliver package to host. %s, %s", self.host, e)
         return False
 
-    def load_systemd_file(self):
+    def client_life(self):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
                 "password": self.ssh_pass
             }) as c:
-                sudopass = Responder(
-                    pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
-                    response=self.sudo_pass + '\n'
-                )
-                src = '/home/{}/network-data/{}/autonity.service'.format(self.ssh_user, self.host)
-                result = c.run('sudo cp {} {}'.format(src, SYSTEM_SERVICE_DIR), pty=True, watchers=[sudopass],
-                               warn=True, hide=True)
-                if result and result.exited == 0 and result.ok:
-                    self.logger.info('system service loaded. %s', self.host)
-                else:
-                    self.logger.error('systemd file loading failed. %s', self.host)
+                c.run("touch {}".format(LOG_PATH.format(self.ssh_user, self.host)))
+                cmd = self.cli_cmd()
+                self.logger.info("*** starting autonity client cmd: %s", cmd)
+                # this run is a blocking call, it returns until the remote autonity service terminated.
+                c.run(cmd, pty=False, warn=True, hide=True)
+                self.logger.info("*** autonity client lifecycle stopped: %s ", self.host)
+                self.client_stopped = True
         except Exception as e:
-            self.logger.error("cannot load systemd file. %s, %s", self.host, e)
+            self.logger.error("cannot start client, %s, %s", self.host, e)
+        return False
 
     def start_client(self):
-        try:
-            with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
-                "password": self.ssh_pass
-            }) as c:
-                sudopass = Responder(
-                    pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
-                    response=self.sudo_pass + '\n'
-                )
-                #cmd = self.generate_start_cmd()
-                cmd = SYSTEMD_START_CLIENT
-                result = c.run(cmd, pty=True, watchers=[sudopass],
-                               warn=True, hide=True)
-                if result and result.exited == 0 and result.ok:
-                    self.logger.info('system service started. %s', self.host)
-                    self.client_stopped = False
-                    return True
-                else:
-                    self.logger.error('systemd service starting failed. %s', self.host)
-        except Exception as e:
-            self.logger.error("cannot start service. %s, %s.", self.host, e)
-        return False
+        self.life = threading.Thread(target=self.client_life, daemon=True)
+        self.life.start()
+        self.client_stopped = False
+        self.logger.info("autonity client lifecycle started: %s", self.host)
+        return True
 
     def deploy_client(self):
         self.deliver_package()
-        self.load_systemd_file()
 
     def stop_client(self):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
+                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass
             }) as c:
                 sudopass = Responder(
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                #cmd = self.generate_stop_cmd()
-                cmd = SYSTEMD_STOP_CLIENT
+                cmd = STOP_AUTONITY_CLIENT
                 result = c.run(cmd, pty=True, watchers=[sudopass],
                                warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
-                    self.logger.info('system service stopped. %s', self.host)
+                    self.logger.info('autonity client stopped at. %s', self.host)
                     self.client_stopped = True
                     return True
                 else:
-                    self.logger.error('system service stopping failed. %s', self.host)
+                    self.logger.error('autonity client stopping failed. %s', self.host)
         except Exception as e:
             self.logger.error("cannot stop client, %s, %s", self.host, e)
         return False
@@ -277,14 +244,15 @@ class Client(object):
     def clean_chain_data(self):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
+                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass
             }) as c:
                 sudopass = Responder(
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                result = c.run('sudo rm -rf {}'.format(DEPLOYMENT_DIR.format(self.ssh_user)), pty=True, watchers=[sudopass],
+                result = c.run('rm -rf {}'.format(DEPLOYMENT_DIR.format(self.ssh_user)), pty=True,
+                               watchers=[sudopass],
                                warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
                     self.logger.info('chain data cleaned. %s', self.host)
@@ -311,37 +279,30 @@ class Client(object):
         except Exception as e:
             self.logger.error('Exception happens. %s', e)
 
-    def collect_system_log(self, log_folder):
+    def download_log(self, log_folder):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
+                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass,
             }) as c:
                 sudopass = Responder(
                     pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
                     response=self.sudo_pass + '\n'
                 )
-                # dump log at remote node.
-                file_name = "./{}.log".format(self.host)
-                cmd = 'sudo journalctl -u autonity.service -b > {}'.format(file_name)
+
+                # tar logs for remote node.
+                tar_file = "./{}.log.tgz".format(self.host)
+                cmd = "tar -zcvf {} {}".format(tar_file, LOG_PATH.format(self.ssh_user, self.host))
                 result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=True)
                 if result and result.exited == 0 and result.ok:
-                    self.logger.info('log was dump on host: %s', self.host)
-                    # tar logs for remote node.
-                    tar_file = "./{}.log.tgz".format(self.host)
-                    cmd = "sudo tar -zcvf {} {}".format(tar_file, file_name)
-                    result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=True)
-                    if result and result.exited == 0 and result.ok:
-                        self.logger.info('log was zip on host: %s', self.host)
-                        # download logs.
-                        local_dir = log_folder
-                        local_file = "{}/{}.tgz".format(local_dir, self.host)
-                        c.get(tar_file, local=local_file)
-                        self.logger.info('log files was saved to %s.', local_dir)
-                    else:
-                        self.logger.error('cannot zip log file at host: %s', self.host)
+                    self.logger.info('log was zip on host: %s', self.host)
+                    # download logs.
+                    local_dir = log_folder
+                    local_file = "{}/{}.tgz".format(local_dir, self.host)
+                    c.get(tar_file, local=local_file)
+                    self.logger.info('log files was saved to %s.', local_dir)
                 else:
-                    self.logger.error('Cannot dump logs from autonity.service. %s', self.host)
+                    self.logger.error('cannot zip log file at host: %s', self.host)
 
         except (KeyError, TypeError) as e:
             self.logger.error('wrong configuration file. %s', e)
@@ -351,22 +312,37 @@ class Client(object):
     def send_transaction(self, to=None, gas=None, gas_price=None, value=0, data=None):
         try:
             if self.rpc_client is None:
-                self.rpc_client = RpcClient(host=self.host, port=self.rpc_port)
-                self.rpc_client.session.headers.update({"Content-type": "application/json"})
-            # send transaction
-            tx_hash = self.rpc_client.send_transaction(_from="0x{}".format(self.coin_base), to=to,
-                                                       gas=gas, value=value, data=data)
-            return tx_hash
+                self.rpc_client = Web3(Web3.HTTPProvider(f"http://{self.host}:{self.rpc_port}"))
+                if not self.rpc_client.isConnected():
+                    raise Exception("cannot connect to L1 node")
+
+            transaction = {
+                'from': self.rpc_client.toChecksumAddress(self.coin_base),
+                'to': to,
+                'value': self.rpc_client.toWei(value, 'ether'),
+            }
+
+            if gas:
+                transaction['gas'] = gas
+            if gas_price:
+                transaction['gasPrice'] = self.rpc_client.toWei(gas_price, 'gwei')
+            if data:
+                transaction['data'] = data
+
+            tx_hash = self.rpc_client.eth.sendTransaction(transaction)
+            return tx_hash.hex()
+
         except Exception as e:
-            self.logger.warn("send tx failed due to exception: %s", e)
+            self.logger.warn("send TXN failed: %s", e)
             return None
 
     def get_balance(self):
         try:
             if self.rpc_client is None:
-                self.rpc_client = RpcClient(host=self.host, port=self.rpc_port)
-                self.rpc_client.session.headers.update({"Content-type": "application/json"})
-            balance = self.rpc_client.get_balance("0x{}".format(self.coin_base))
+                self.rpc_client = Web3(Web3.HTTPProvider(f"http://{self.host}:{self.rpc_port}"))
+                if not self.rpc_client.isConnected():
+                    raise Exception("cannot connect to L1 node")
+            balance = self.rpc_client.eth.getBalance(self.rpc_client.toChecksumAddress(self.coin_base))
             return balance
         except Exception as e:
             self.logger.error("Cannot get balance due to exception. %s", e)
@@ -375,13 +351,17 @@ class Client(object):
     def get_block_hash_by_height(self, height):
         try:
             if self.rpc_client is None:
-                self.rpc_client = RpcClient(host=self.host, port=self.rpc_port)
-                self.rpc_client.session.headers.update({"Content-type": "application/json"})
-            block = self.rpc_client.get_block_by_number(height)
+                self.rpc_client = Web3(Web3.HTTPProvider(f"http://{self.host}:{self.rpc_port}"))
+                if not self.rpc_client.isConnected():
+                    raise Exception("Cannot connect to L1 node")
+
+            block = self.rpc_client.eth.getBlock(height)
             if block is None:
                 self.logger.error("Cannot find block with height: %d at host: %s", height, self.host)
                 return None
+
             return block["hash"]
+
         except IOError as e:
             self.logger.error("Cannot access RPC API from remote. %s", e)
             return None
@@ -389,23 +369,25 @@ class Client(object):
             self.logger.error("Exception happens: %s", e)
             return None
 
-    def get_transaction_by_hash(self, hash):
+    def get_transaction_by_hash(self, tx_hash):
         try:
             if self.rpc_client is None:
-                self.rpc_client = RpcClient(host=self.host, port=self.rpc_port)
-                self.rpc_client.session.headers.update({"Content-type": "application/json"})
-            result = self.rpc_client.get_transaction_by_hash(hash)
+                self.rpc_client = Web3(Web3.HTTPProvider(f"http://{self.host}:{self.rpc_port}"))
+                if not self.rpc_client.isConnected():
+                    raise Exception("Cannot connect to L1 node")
+            result = self.rpc_client.eth.getTransaction(tx_hash)
             return result
         except Exception as e:
-            self.logger.error("Cannot get balance due to exception. %s", e)
+            self.logger.error("Cannot get TXN due to exception. %s", e)
             return None
 
     def get_chain_height(self):
         try:
             if self.rpc_client is None:
-                self.rpc_client = RpcClient(host=self.host, port=self.rpc_port)
-                self.rpc_client.session.headers.update({"Content-type": "application/json"})
-            height = self.rpc_client.get_block_number()
+                self.rpc_client = Web3(Web3.HTTPProvider(f"http://{self.host}:{self.rpc_port}"))
+                if not self.rpc_client.isConnected():
+                    raise Exception("Cannot connect to L1 node")
+            height = self.rpc_client.eth.blockNumber
             self.logger.debug("get height: %d, %s.", height, self.host)
             return height
         except Exception as e:
@@ -416,7 +398,7 @@ class Client(object):
         self.logger.debug("ssh cmd: %s ", cmd)
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                #"key_filename": self.ssh_key,
+                # "key_filename": self.ssh_key,
                 "password": self.ssh_pass,
             }) as c:
                 sudopass = Responder(
@@ -481,13 +463,13 @@ class Client(object):
                 DEFAULT_PACKAGE_LOSS_RATE if up_link_delay_meta['lossRate'] is None else up_link_delay_meta['lossRate']
             duplicate_rate = \
                 DEFAULT_PACKAGE_DUPLICATE_RATE \
-                if up_link_delay_meta['duplicateRate'] is None else up_link_delay_meta['duplicateRate']
+                    if up_link_delay_meta['duplicateRate'] is None else up_link_delay_meta['duplicateRate']
             reorder_rate = \
                 DEFAULT_PACKAGE_REORDER_RATE \
-                if up_link_delay_meta['reorderRate'] is None else up_link_delay_meta['reorderRate']
+                    if up_link_delay_meta['reorderRate'] is None else up_link_delay_meta['reorderRate']
             corrupt_rate = \
                 DEFAULT_PACKAGE_CORRUPT_RATE \
-                if up_link_delay_meta['corruptRate'] is None else up_link_delay_meta['corruptRate']
+                    if up_link_delay_meta['corruptRate'] is None else up_link_delay_meta['corruptRate']
 
             # to do checking parameters before formatting command.
             delay = delay if isinstance(delay, (int, float)) and not isinstance(delay, bool) else DEFAULT_DELAY
@@ -495,12 +477,13 @@ class Client(object):
                 if isinstance(loss_rate, (int, float)) and not isinstance(loss_rate, bool) \
                 else DEFAULT_PACKAGE_LOSS_RATE
             duplicate_rate = duplicate_rate if isinstance(duplicate_rate, (int, float)) \
-                and not isinstance(duplicate_rate, bool) else DEFAULT_PACKAGE_DUPLICATE_RATE
+                                               and not isinstance(duplicate_rate,
+                                                                  bool) else DEFAULT_PACKAGE_DUPLICATE_RATE
             reorder_rate = reorder_rate \
-                if isinstance(reorder_rate, (int, float)) and not isinstance(reorder_rate, bool)\
+                if isinstance(reorder_rate, (int, float)) and not isinstance(reorder_rate, bool) \
                 else DEFAULT_PACKAGE_REORDER_RATE
             corrupt_rate = corrupt_rate \
-                if isinstance(corrupt_rate, (int, float)) and not isinstance(corrupt_rate, bool)\
+                if isinstance(corrupt_rate, (int, float)) and not isinstance(corrupt_rate, bool) \
                 else DEFAULT_PACKAGE_CORRUPT_RATE
 
             ether_id = self.net_interface
@@ -508,7 +491,8 @@ class Client(object):
                 self.logger.error('Cannot find host ethernet interface id.')
                 return None
             # to do formatting shell command.
-            command = SSH_DELAY_TX_COMMAND.format(ether_id, delay, loss_rate, duplicate_rate, reorder_rate, corrupt_rate)
+            command = SSH_DELAY_TX_COMMAND.format(ether_id, delay, loss_rate, duplicate_rate, reorder_rate,
+                                                  corrupt_rate)
             result = self.execute_ssh_cmd(command)
             if result is True:
                 self.up_link_delayed = True
@@ -559,16 +543,16 @@ class Client(object):
                 DEFAULT_DELAY if down_link_delay_meta['delay'] is None else down_link_delay_meta['delay']
             loss_rate = \
                 DEFAULT_PACKAGE_LOSS_RATE if down_link_delay_meta['lossRate'] \
-                is None else down_link_delay_meta['lossRate']
+                                             is None else down_link_delay_meta['lossRate']
             duplicate_rate = \
                 DEFAULT_PACKAGE_DUPLICATE_RATE \
-                if down_link_delay_meta['duplicateRate'] is None else down_link_delay_meta['duplicateRate']
+                    if down_link_delay_meta['duplicateRate'] is None else down_link_delay_meta['duplicateRate']
             reorder_rate = \
                 DEFAULT_PACKAGE_REORDER_RATE \
-                if down_link_delay_meta['reorderRate'] is None else down_link_delay_meta['reorderRate']
+                    if down_link_delay_meta['reorderRate'] is None else down_link_delay_meta['reorderRate']
             corrupt_rate = \
                 DEFAULT_PACKAGE_CORRUPT_RATE \
-                if down_link_delay_meta['corruptRate'] is None else down_link_delay_meta['corruptRate']
+                    if down_link_delay_meta['corruptRate'] is None else down_link_delay_meta['corruptRate']
 
             # to do checking parameters before formatting command.
             delay = delay if isinstance(delay, (int, float)) and not isinstance(delay, bool) else DEFAULT_DELAY
@@ -576,12 +560,13 @@ class Client(object):
                 if isinstance(loss_rate, (int, float)) and not isinstance(loss_rate, bool) \
                 else DEFAULT_PACKAGE_LOSS_RATE
             duplicate_rate = duplicate_rate if isinstance(duplicate_rate, (int, float)) \
-                and not isinstance(duplicate_rate, bool) else DEFAULT_PACKAGE_DUPLICATE_RATE
+                                               and not isinstance(duplicate_rate,
+                                                                  bool) else DEFAULT_PACKAGE_DUPLICATE_RATE
             reorder_rate = reorder_rate \
-                if isinstance(reorder_rate, (int, float)) and not isinstance(reorder_rate, bool)\
+                if isinstance(reorder_rate, (int, float)) and not isinstance(reorder_rate, bool) \
                 else DEFAULT_PACKAGE_REORDER_RATE
             corrupt_rate = corrupt_rate \
-                if isinstance(corrupt_rate, (int, float)) and not isinstance(corrupt_rate, bool)\
+                if isinstance(corrupt_rate, (int, float)) and not isinstance(corrupt_rate, bool) \
                 else DEFAULT_PACKAGE_CORRUPT_RATE
 
             # get ip from host name.

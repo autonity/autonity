@@ -105,6 +105,24 @@ func TestVerifyHeader(t *testing.T) {
 		copy(header.Nonce[:], hexutil.MustDecode("0x111111111111"))
 		err = engine.VerifyHeader(chain, header, false)
 		require.True(t, errors.Is(err, errInvalidNonce))
+
+		// invalid base fee
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		require.NoError(t, err)
+		header = block.Header()
+		header.BaseFee = new(big.Int).SetUint64(2323452345342523)
+		err = engine.VerifyHeader(chain, header, false)
+		require.Error(t, err)
+		t.Log(err.Error())
+
+		// invalid gas limit
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		require.NoError(t, err)
+		header = block.Header()
+		header.GasLimit = uint64(2323452345342523)
+		err = engine.VerifyHeader(chain, header, false)
+		require.Error(t, err)
+		t.Log(err.Error())
 	})
 	t.Run("activity proof related cases", func(t *testing.T) {
 		chain, engine := newBlockChain(1)
@@ -132,7 +150,7 @@ func TestVerifyHeader(t *testing.T) {
 		// now advance the chain of delta blocks
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
-		delta := epoch.Delta.Uint64()
+		delta := epoch.OmissionDelta.Uint64()
 		for i := uint64(0); i < delta; i++ {
 			mineOneBlock(t, chain, engine)
 		}
@@ -206,7 +224,7 @@ func TestVerifyHeader(t *testing.T) {
 		// advance the chain of delta blocks
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
-		delta := epoch.Delta.Uint64()
+		delta := epoch.OmissionDelta.Uint64()
 		for i := uint64(0); i < delta; i++ {
 			mineOneBlock(t, chain, engine)
 		}
@@ -393,10 +411,17 @@ OUT2:
 func TestVerifyErrorHeaders(t *testing.T) {
 	chain, engine := newBlockChain(1)
 
+	epochPeriodBig, errFetch := chain.EpochPeriodByHeight(0)
+	require.NoError(t, errFetch)
+	epochPeriod := epochPeriodBig.Uint64()
+	t.Logf("epoch period: %d", epochPeriod)
+
 	// success case
 	var headers []*types.Header
 	var blocks []*types.Block
 	size := 100
+
+	require.True(t, uint64(size) > epochPeriod)
 
 	var err error
 	for i := 0; i < size; i++ {
@@ -415,6 +440,7 @@ func TestVerifyErrorHeaders(t *testing.T) {
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
+		t.Logf("generated block %d", i)
 	}
 
 	// reset the chain to simulate receiving new headers
@@ -430,19 +456,24 @@ func TestVerifyErrorHeaders(t *testing.T) {
 
 	// error header cases
 	headers[2].Number = big.NewInt(100)
+	require.True(t, headers[epochPeriod-1].IsEpochHeader())
+	headers[epochPeriod-1].Epoch.NextEpochBlock = new(big.Int).SetUint64(epochPeriod + 10) // mess up the epoch boundary
 	_, results := engine.VerifyHeaders(chain, headers, nil)
 	timeout := time.NewTimer(timeoutDura)
 	index := 0
 	errorCount := 0
 	// header[2] out of epoch range | header[3] != header[2]+1 | header[12] invalid activity proof
-	expectedErrors := 3
+	// + the invalid epoch header
+	// + the header after the tampered epoch header (invalid ancestor)
+	// + all the headers after the fake boundary
+	expectedErrors := 3 + 1 + 1 + 40
 
 OUT3:
 	for {
 		select {
 		case err := <-results:
 			if err != nil {
-				t.Logf("received error: %v", err)
+				t.Logf("index %d received error: %v", index, err)
 				errorCount++
 			}
 			index++
@@ -813,7 +844,7 @@ func TestAssembleProof(t *testing.T) {
 
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
-		delta := epoch.Delta.Uint64()
+		delta := epoch.OmissionDelta.Uint64()
 
 		proof, round, err := backend.assembleActivityProof(0, epoch)
 		require.Nil(t, proof)
@@ -829,13 +860,13 @@ func TestAssembleProof(t *testing.T) {
 		require.Equal(t, uint64(0), round)
 		require.Equal(t, err, nil)
 	})
-	t.Run("from block Delta+1 of the epoch, assembling should return a valid proof", func(t *testing.T) {
+	t.Run("from block OmissionDelta+1 of the epoch, assembling should return a valid proof", func(t *testing.T) {
 		chain, backend := newBlockChain(1)
 
 		self := &chain.Genesis().Header().Epoch.Committee.Members[0]
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
-		delta := epoch.Delta.Uint64()
+		delta := epoch.OmissionDelta.Uint64()
 
 		for i := 0; i < int(delta); i++ {
 			mineOneBlock(t, chain, backend)
@@ -885,7 +916,7 @@ func TestAssembleProof(t *testing.T) {
 		self := &chain.Genesis().Header().Epoch.Committee.Members[0]
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
-		delta := epoch.Delta.Uint64()
+		delta := epoch.OmissionDelta.Uint64()
 
 		for i := 0; i < int(delta); i++ {
 			mineOneBlock(t, chain, backend)

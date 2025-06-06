@@ -76,7 +76,7 @@ func (b *base) Validate() error {
 		return nil
 	}
 
-	if valid := b.signature.Verify(b.signerKey, b.signatureInput[:]); !valid {
+	if valid := b.signature.Verify(b.signerKey, b.signatureInput[:], blst.DefaultAssumeZeroValid); !valid {
 		return ErrBadSignature
 	}
 

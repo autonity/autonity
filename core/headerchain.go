@@ -147,8 +147,12 @@ func (hc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
 	return number
 }
 
-func (hc *HeaderChain) MinBaseFee() *big.Int {
-	return big.NewInt(0)
+func (hc *HeaderChain) Eip1559ParamsByHeight(height uint64) (*types.Eip1559Params, error) {
+	epochInfo, err := hc.EpochByHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	return epochInfo.Eip1559, nil
 }
 
 type headerWriteResult struct {

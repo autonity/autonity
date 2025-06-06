@@ -1,10 +1,11 @@
 package backend
 
 import (
-	"github.com/autonity/autonity/trie"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/trie"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
@@ -48,7 +49,7 @@ func (m *ModifyCommitteeEngine) VerifyHeader(chain consensus.ChainHeaderReader, 
 
 func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
 	// create a normal block and check for errors
-	block, err := m.Backend.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
+	block, _, err := m.Backend.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
 	if err != nil {
 		m.T.Error("m.core.FinalizeAndAssemble returned error:", err, "Expected nil")
 	}

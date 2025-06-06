@@ -34,6 +34,9 @@ var (
 		OutlierDetectionThreshold: 10,  // 10%
 		OutlierSlashingThreshold:  225, // 15%
 		BaseSlashingRate:          10,
+		NonRevealThreshold:        3,
+		RevealResetInterval:       10,
+		SlashingRateCap:           1000, // 10%
 	}
 
 	// DefaultAcuContractGenesis contains the default values for the ASM ACU contract
@@ -77,6 +80,8 @@ var (
 	// all percentage parameters needs to be scaled according to SLASHING_RATE_PRECISION
 	DefaultAccountabilityConfig = &AccountabilityGenesis{
 		InnocenceProofSubmissionWindow: 100, // 100 blocks
+		Delta:                          10,  // 10 blocks
+		Range:                          256, // 256 blocks
 		BaseSlashingRateLow:            400, // 4%
 		BaseSlashingRateMid:            600, // 6%
 		BaseSlashingRateHigh:           800, // 8%
@@ -142,29 +147,35 @@ var (
 )
 
 type AutonityContractGenesis struct {
-	Bytecode                hexutil.Bytes         `json:"bytecode,omitempty" toml:",omitempty"`
-	ABI                     *abi.ABI              `json:"abi,omitempty" toml:",omitempty"`
-	MinBaseFee              uint64                `json:"minBaseFee"`
-	EpochPeriod             uint64                `json:"epochPeriod"`
-	UnbondingPeriod         uint64                `json:"unbondingPeriod"`
-	BlockPeriod             uint64                `json:"blockPeriod"`
-	MaxCommitteeSize        uint64                `json:"maxCommitteeSize"`
-	MaxScheduleDuration     uint64                `json:"maxScheduleDuration"`
-	Operator                common.Address        `json:"operator"`
-	Treasury                common.Address        `json:"treasury"`
-	WithheldRewardsPool     common.Address        `json:"withheldRewardsPool"`
-	TreasuryFee             uint64                `json:"treasuryFee"`
-	DelegationRate          uint64                `json:"delegationRate"`
-	WithholdingThreshold    uint64                `json:"withholdingThreshold"`
-	ProposerRewardRate      uint64                `json:"proposerRewardRate"`
-	OracleRewardRate        uint64                `json:"oracleRewardRate"`
-	InitialInflationReserve *math.HexOrDecimal256 `json:"initialInflationReserve"`
-	Validators              []*Validator          `json:"validators"` // todo: Can we change that to []Validator
-	Schedules               []Schedule            `json:"schedules"`
+	Bytecode                 hexutil.Bytes         `json:"bytecode,omitempty" toml:",omitempty"`
+	ABI                      *abi.ABI              `json:"abi,omitempty" toml:",omitempty"`
+	MinBaseFee               uint64                `json:"minBaseFee"`
+	EpochPeriod              uint64                `json:"epochPeriod"`
+	UnbondingPeriod          uint64                `json:"unbondingPeriod"`
+	BlockPeriod              uint64                `json:"blockPeriod"`
+	MaxCommitteeSize         uint64                `json:"maxCommitteeSize"`
+	MaxScheduleDuration      uint64                `json:"maxScheduleDuration"`
+	GasLimit                 uint64                `json:"gasLimit"`
+	GasLimitBoundDivisor     uint64                `json:"gasLimitBoundDivisor"`
+	BaseFeeChangeDenominator uint64                `json:"baseFeeChangeDenominator"`
+	ElasticityMultiplier     uint64                `json:"elasticityMultiplier"`
+	Operator                 common.Address        `json:"operator"`
+	Treasury                 common.Address        `json:"treasury"`
+	WithheldRewardsPool      common.Address        `json:"withheldRewardsPool"`
+	TreasuryFee              uint64                `json:"treasuryFee"`
+	DelegationRate           uint64                `json:"delegationRate"`
+	WithholdingThreshold     uint64                `json:"withholdingThreshold"`
+	ProposerRewardRate       uint64                `json:"proposerRewardRate"`
+	OracleRewardRate         uint64                `json:"oracleRewardRate"`
+	InitialInflationReserve  *math.HexOrDecimal256 `json:"initialInflationReserve"`
+	Validators               []*Validator          `json:"validators"` // todo: Can we change that to []Validator
+	Schedules                []Schedule            `json:"schedules"`
 }
 
 type AccountabilityGenesis struct {
 	InnocenceProofSubmissionWindow uint64 `json:"innocenceProofSubmissionWindow"`
+	Delta                          uint64 `json:"delta"`
+	Range                          uint64 `json:"range"`
 
 	// Slashing parameters
 	BaseSlashingRateLow  uint64 `json:"baseSlashingRateLow"`
@@ -396,6 +407,9 @@ type OracleContractGenesis struct {
 	OutlierDetectionThreshold uint64        `json:"outlierDetectionThreshold"`
 	OutlierSlashingThreshold  uint64        `json:"outlierSlashingThreshold"`
 	BaseSlashingRate          uint64        `json:"baseSlashingRate"`
+	NonRevealThreshold        uint64        `json:"nonRevealThreshold"`
+	RevealResetInterval       uint64        `json:"revealResetInterval"`
+	SlashingRateCap           uint64        `json:"slashingRateCap"`
 }
 
 // SetDefaults prepares the AutonityContractGenesis by filling in missing fields.
@@ -422,6 +436,16 @@ func (g *OracleContractGenesis) SetDefaults() error {
 	}
 	if g.OutlierDetectionThreshold == 0 {
 		g.OutlierDetectionThreshold = DefaultGenesisOracleConfig.OutlierDetectionThreshold
+	}
+	// at genesis, we allow some tolerance for missed reveal
+	if g.NonRevealThreshold == 0 {
+		g.NonRevealThreshold = DefaultGenesisOracleConfig.NonRevealThreshold
+	}
+	if g.RevealResetInterval == 0 {
+		g.RevealResetInterval = DefaultGenesisOracleConfig.RevealResetInterval
+	}
+	if g.SlashingRateCap == 0 {
+		g.SlashingRateCap = DefaultGenesisOracleConfig.SlashingRateCap
 	}
 	return nil
 }

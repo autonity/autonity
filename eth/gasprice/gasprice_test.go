@@ -98,8 +98,13 @@ func (b *testBackend) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) eve
 	return b.chain.SubscribeChainHeadEvent(ch)
 }
 
-func (b *testBackend) MinBaseFee() *big.Int {
-	return new(big.Int)
+func (b *testBackend) Eip1559ParamsByHeight(_ uint64) (*types.Eip1559Params, error) {
+	return &types.Eip1559Params{
+		MinBaseFee:               new(big.Int).SetUint64(params.TestMinBaseFee),
+		BaseFeeChangeDenominator: new(big.Int).SetUint64(params.DefaultBaseFeeChangeDenominator),
+		ElasticityMultiplier:     new(big.Int).SetUint64(params.DefaultElasticityMultiplier),
+		GasLimitBoundDivisor:     new(big.Int).SetUint64(params.DefaultGasLimitBoundDivisor),
+	}, nil
 }
 
 func newTestBackend(t *testing.T, londonBlock *big.Int, pending bool) *testBackend {

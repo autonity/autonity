@@ -54,8 +54,8 @@ contract LiquidState is LiquidStorage {
     /**
      * @dev Fetch liquid logic contract address from autonity
      */
-    function _liquidLogicContract() internal view returns (address) {
-        address _address = autonityContract.liquidLogicContract();
+    function _liquidLogicContract() internal virtual view returns (address) {
+        address _address = autonityContract.getLiquidLogicContract();
         require(_address != address(0), "liquid logic contract not set");
         return _address;
     }

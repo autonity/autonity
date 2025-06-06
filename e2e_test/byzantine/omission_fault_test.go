@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/autonity/bindings"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
-	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/backend"
@@ -42,89 +43,89 @@ func createNetwork(t *testing.T, nodes int, start bool, options ...gengen.Genesi
 }
 
 // returns contract bindings
-func contracts(t *testing.T, node *e2e.Node) (*autonity.Autonity, *autonity.OmissionAccountability) {
+func contracts(t *testing.T, node *e2e.Node) (*bindings.Autonity, *bindings.OmissionAccountability) {
 	endPoint := node.WsClient
-	autonityContract, err := autonity.NewAutonity(params.AutonityContractAddress, endPoint)
+	autonityContract, err := bindings.NewAutonity(params.AutonityContractAddress, endPoint)
 	require.NoError(t, err)
-	omissionContract, err := autonity.NewOmissionAccountability(params.OmissionAccountabilityContractAddress, endPoint)
+	omissionContract, err := bindings.NewOmissionAccountability(params.OmissionAccountabilityContractAddress, endPoint)
 	require.NoError(t, err)
 	return autonityContract, omissionContract
 }
 
-func epochID(t *testing.T, autonity *autonity.Autonity) uint64 {
-	epochID, err := autonity.EpochID(nil)
+func epochID(t *testing.T, autonity *bindings.Autonity) uint64 {
+	epochID, err := autonity.GetEpochID(nil)
 	require.NoError(t, err)
 	return epochID.Uint64()
 }
 
-func inactivityScore(t *testing.T, omission *autonity.OmissionAccountability, validator common.Address) uint64 {
+func inactivityScore(t *testing.T, omission *bindings.OmissionAccountability, validator common.Address) uint64 {
 	score, err := omission.GetInactivityScore(nil, validator)
 	require.NoError(t, err)
 	return score.Uint64()
 }
 
-func effort(t *testing.T, omission *autonity.OmissionAccountability, validator common.Address) *big.Int {
-	effort, err := omission.ProposerEffort(nil, validator)
+func effort(t *testing.T, omission *bindings.OmissionAccountability, validator common.Address) *big.Int {
+	effort, err := omission.GetProposerEffort(nil, validator)
 	require.NoError(t, err)
 	return effort
 }
 
-func totalEffort(t *testing.T, omission *autonity.OmissionAccountability) *big.Int {
-	effort, err := omission.TotalEffort(nil)
+func totalEffort(t *testing.T, omission *bindings.OmissionAccountability) *big.Int {
+	effort, err := omission.GetTotalEffort(nil)
 	require.NoError(t, err)
 	return effort
 }
 
-func inactivityCounter(t *testing.T, omission *autonity.OmissionAccountability, validator common.Address) uint64 {
-	score, err := omission.InactivityCounter(nil, validator)
+func inactivityCounter(t *testing.T, omission *bindings.OmissionAccountability, validator common.Address) uint64 {
+	score, err := omission.GetInactivityCounter(nil, validator)
 	require.NoError(t, err)
 	return score.Uint64()
 }
 
-func validator(t *testing.T, autonity *autonity.Autonity, validator common.Address) autonity.AutonityValidator {
+func validator(t *testing.T, autonity *bindings.Autonity, validator common.Address) bindings.AutonityValidator {
 	val, err := autonity.GetValidator(nil, validator)
 	require.NoError(t, err)
 	return val
 }
 
-func committee(t *testing.T, autonity *autonity.Autonity) []autonity.AutonityCommitteeMember {
+func committee(t *testing.T, autonity *bindings.Autonity) []bindings.AutonityCommitteeMember {
 	committee, err := autonity.GetCommittee(nil)
 	require.NoError(t, err)
 	return committee
 }
 
-func offences(t *testing.T, omission *autonity.OmissionAccountability, validator common.Address) uint64 {
-	offences, err := omission.RepeatedOffences(nil, validator)
+func offences(t *testing.T, omission *bindings.OmissionAccountability, validator common.Address) uint64 {
+	offences, err := omission.GetRepeatedOffences(nil, validator)
 	require.NoError(t, err)
 	return offences.Uint64()
 }
 
-func probation(t *testing.T, omission *autonity.OmissionAccountability, validator common.Address) uint64 {
-	probation, err := omission.ProbationPeriods(nil, validator)
+func probation(t *testing.T, omission *bindings.OmissionAccountability, validator common.Address) uint64 {
+	probation, err := omission.GetProbationPeriods(nil, validator)
 	require.NoError(t, err)
 	return probation.Uint64()
 }
 
-func collusionDegree(t *testing.T, omission *autonity.OmissionAccountability, epochID uint64) uint64 {
-	collusionDegree, err := omission.EpochCollusionDegree(nil, new(big.Int).SetUint64(epochID))
+func collusionDegree(t *testing.T, omission *bindings.OmissionAccountability, epochID uint64) uint64 {
+	collusionDegree, err := omission.GetEpochCollusionDegree(nil, new(big.Int).SetUint64(epochID))
 	require.NoError(t, err)
 	return collusionDegree.Uint64()
 }
 
-func isAbsent(t *testing.T, omission *autonity.OmissionAccountability, height uint64, validator common.Address) bool {
-	isAbsent, err := omission.InactiveValidators(nil, new(big.Int).SetUint64(height), validator)
+func isAbsent(t *testing.T, omission *bindings.OmissionAccountability, height uint64, validator common.Address) bool {
+	isAbsent, err := omission.GetInactiveValidators(nil, new(big.Int).SetUint64(height), validator)
 	require.NoError(t, err)
 	return isAbsent
 }
 
 // checks if the proposer was marked as faulty for the passed height
-func IsProposerFaulty(t *testing.T, omission *autonity.OmissionAccountability, height uint64) bool {
-	isFaulty, err := omission.FaultyProposers(nil, new(big.Int).SetUint64(height))
+func IsProposerFaulty(t *testing.T, omission *bindings.OmissionAccountability, height uint64) bool {
+	isFaulty, err := omission.GetFaultyProposers(nil, new(big.Int).SetUint64(height))
 	require.NoError(t, err)
 	return isFaulty
 }
 
-func scaleFactor(t *testing.T, omission *autonity.OmissionAccountability) uint64 {
+func scaleFactor(t *testing.T, omission *bindings.OmissionAccountability) uint64 {
 	scaleFactor, err := omission.GetScaleFactor(nil)
 	require.NoError(t, err)
 	return scaleFactor.Uint64()
@@ -152,13 +153,13 @@ func atnBalanceOf(t *testing.T, wsClient *ethclient.Client, target common.Addres
 	return balance
 }
 
-func ntnBalanceOf(t *testing.T, autonity *autonity.Autonity, target common.Address) *big.Int {
+func ntnBalanceOf(t *testing.T, autonity *bindings.Autonity, target common.Address) *big.Int {
 	balance, err := autonity.BalanceOf(nil, target)
 	require.NoError(t, err)
 	return balance
 }
 
-func ntnSelfBonded(t *testing.T, autonity *autonity.Autonity, validator common.Address) *big.Int {
+func ntnSelfBonded(t *testing.T, autonity *bindings.Autonity, validator common.Address) *big.Int {
 	val, err := autonity.GetValidator(nil, validator)
 	require.NoError(t, err)
 	return val.SelfBondedStake
@@ -185,7 +186,7 @@ func defaultGenesisOptions(genesis *core.Genesis) {
 }
 
 // assumes the usage of defaultEpochPeriod as epoch period
-func waitForEpochEnd(t *testing.T, network e2e.Network, autonity *autonity.Autonity) {
+func waitForEpochEnd(t *testing.T, network e2e.Network, autonity *bindings.Autonity) {
 	currentEpochID := epochID(t, autonity)
 
 	err := network.WaitForHeight(defaultEpochPeriod*(currentEpochID+1), defaultEpochPeriod*2)
@@ -195,7 +196,7 @@ func waitForEpochEnd(t *testing.T, network e2e.Network, autonity *autonity.Auton
 	require.Equal(t, currentEpochID+1, newEpochID)
 }
 
-func activateValidator(t *testing.T, network e2e.Network, autonity *autonity.Autonity, validatorID common.Address, treasuryKey *ecdsa.PrivateKey) {
+func activateValidator(t *testing.T, network e2e.Network, autonity *bindings.Autonity, validatorID common.Address, treasuryKey *ecdsa.PrivateKey) {
 	currentHeight := network[1].GetChainHeight()
 
 	val := validator(t, autonity, validatorID)
@@ -568,7 +569,7 @@ func (c *noActivityProposalSender) SendProposal(ctx context.Context, p *types.Bl
 		if err != nil {
 			panic("Cannot fetch parent state: " + err.Error())
 		}
-		finalizedBlock, err := backend.FinalizeAndAssemble(c.Core.Backend().BlockChain(), header, statedb, []*types.Transaction{}, []*types.Header{}, &[]*types.Receipt{})
+		finalizedBlock, _, err := backend.FinalizeAndAssemble(c.Core.Backend().BlockChain(), header, statedb, []*types.Transaction{}, []*types.Header{}, &[]*types.Receipt{})
 		if err != nil {
 			panic("cannot re-finalize block: " + err.Error())
 		}
@@ -748,7 +749,7 @@ func runRewardTest(t *testing.T, numNodes int, numOffline int) {
 
 	require.Equal(t, totalEffortTracked.String(), totalEffort(t, omissionContract).String())
 
-	mintedStakeCh := make(chan *autonity.AutonityMintedStake)
+	mintedStakeCh := make(chan *bindings.AutonityMintedStake)
 	sub, err := autonityContract.WatchMintedStake(nil, mintedStakeCh, []common.Address{params.AutonityContractAddress})
 	require.NoError(t, err)
 	defer sub.Unsubscribe()

@@ -184,8 +184,15 @@ func handleConsensusMsg[T any, PT interface {
 		}
 	}
 	// if the height is so old that it is not useful even for accountability, discard it right away. No need to waste resources on this.
-	if sb.isHeightExpired(currentHeight, msg.H()) {
-		return true, nil
+	accountabilityParams, err := sb.blockchain.AccountabilityParamsByHeight(currentHeight)
+	if err == nil {
+		if sb.isHeightExpired(currentHeight, msg.H(), accountabilityParams.Range.Uint64()) { //nolint:typecheck
+			return true, nil
+		}
+	} else {
+		// this should not happen unless the node has aggressive state pruning in place
+		sb.logger.Error("Failed to fetch accountability params", "height", currentHeight, "err", err)
+		// handle message anyways
 	}
 	return sb.handleDecodedMsg(msg, errCh, sender)
 }

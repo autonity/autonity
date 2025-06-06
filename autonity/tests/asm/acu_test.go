@@ -29,11 +29,11 @@ func TestACUConstructor(t *testing.T) {
 	}
 
 	tests.RunWithSetup("Test ACU constructor defaults", setup, func(r *tests.Runner) {
-		round, _, err := r.Acu.Round(nil)
+		round, _, err := r.Acu.GetRound(nil)
 		require.NoError(t, err)
 
 		require.Equal(t, uint64(0), round.Uint64())
-		scaleFactor, _, err := r.Acu.ScaleFactor(nil)
+		scaleFactor, _, err := r.Acu.GetScaleFactor(nil)
 		require.NoError(t, err)
 		require.Equal(t, OracleScaleFactor, scaleFactor)
 	})
@@ -102,11 +102,11 @@ func TestModifyACU(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, newQuantities, quantities)
 
-		scale, _, err := r.Acu.Scale(nil)
+		scale, _, err := r.Acu.GetScale(nil)
 		require.NoError(t, err)
 		require.Equal(t, newScale, scale)
 
-		scaleFactor, _, err := r.Acu.ScaleFactor(nil)
+		scaleFactor, _, err := r.Acu.GetScaleFactor(nil)
 		require.NoError(t, err)
 		require.Equal(t, newScaleFactor, scaleFactor)
 
@@ -206,7 +206,7 @@ func TestACUValue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, value, acuValue)
 
-		acuRound, _, err := r.Acu.Round(nil)
+		acuRound, _, err := r.Acu.GetRound(nil)
 		require.NoError(t, err)
 
 		oracleRound, _, err := r.Oracle.GetRound(nil)
@@ -230,13 +230,13 @@ func TestACUValue(t *testing.T) {
 		_, err := r.Acu.Update(tests.FromAutonity)
 		require.NoError(t, err)
 
-		roundBefore, _, err := r.Acu.Round(nil)
+		roundBefore, _, err := r.Acu.GetRound(nil)
 		require.NoError(t, err)
 
 		_, err = r.Acu.Update(tests.FromAutonity)
 		require.NoError(t, err)
 
-		roundAfter, _, err := r.Acu.Round(nil)
+		roundAfter, _, err := r.Acu.GetRound(nil)
 		require.NoError(t, err)
 		require.Equal(t, roundBefore, roundAfter)
 
@@ -245,7 +245,7 @@ func TestACUValue(t *testing.T) {
 
 	tests.RunWithSetup("Test update missing price", setup, func(r *tests.Runner) {
 		symbols := params.DefaultAcuContractGenesis.Symbols
-		oracleConfig, _, err := r.Oracle.Config(nil)
+		oracleConfig, _, err := r.Oracle.GetConfig(nil)
 		require.NoError(t, err)
 		r.WaitNBlocks(int(oracleConfig.VotePeriod.Int64()))
 		// don't submit any votes to the oracle
@@ -314,7 +314,7 @@ func TestViewFunctions(t *testing.T) {
 		}
 		require.Equal(t, expectQuantities, quantities)
 
-		scale, _, err := r.Acu.ScaleFactor(nil)
+		scale, _, err := r.Acu.GetScaleFactor(nil)
 		require.NoError(t, err)
 		require.Equal(t, new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(params.DefaultAcuContractGenesis.Scale)), nil), scale)
 	})
@@ -358,7 +358,7 @@ func primeACU(r *tests.Runner) ([]string, []*big.Int, []*big.Int, *big.Int) {
 }
 
 func primeOracle(r *tests.Runner, symbols []string, prices []*big.Int) {
-	config, _, err := r.Oracle.Config(nil)
+	config, _, err := r.Oracle.GetConfig(nil)
 	voter := r.Committee.Validators[0].OracleAddress
 	require.NoError(r.T, err)
 	_, err = r.Oracle.SetSymbols(r.Operator, symbols)

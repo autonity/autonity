@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/autonity/bindings"
 	"io"
 	"math/big"
 	"os"
@@ -132,12 +133,6 @@ func (api *PrivateMinerAPI) SetGasPrice(gasPrice hexutil.Big) bool {
 	api.e.lock.Unlock()
 
 	api.e.txPool.SetGasPrice((*big.Int)(&gasPrice))
-	return true
-}
-
-// SetGasLimit sets the gaslimit to target towards during mining.
-func (api *PrivateMinerAPI) SetGasLimit(gasLimit hexutil.Uint64) bool {
-	api.e.Miner().SetGasCeil(uint64(gasLimit))
 	return true
 }
 
@@ -617,13 +612,13 @@ type AutonityContractAPI struct {
 	server *p2p.Server
 }
 
-func (a *AutonityContractAPI) Config() (*autonity.AutonityConfig, error) {
+func (a *AutonityContractAPI) Config() (*bindings.AutonityConfig, error) {
 	cb := a.bc.CurrentBlock()
 	st, err := a.bc.StateAt(cb.Root())
 	if err != nil {
 		return nil, err
 	}
-	return a.ac.CallConfig(st, cb.Header())
+	return a.ac.CallGetConfig(st, cb.Header())
 }
 
 func (a *AutonityContractAPI) Address() common.Address {

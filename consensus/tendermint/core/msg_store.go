@@ -93,22 +93,22 @@ func (ms *MsgStore) DeleteOlds(height uint64) {
 	ms.Lock()
 	defer ms.Unlock()
 	for h := range ms.proposals {
-		if h <= height {
+		if h < height {
 			delete(ms.proposals, h)
 		}
 	}
 	for h := range ms.prevotes {
-		if h <= height {
+		if h < height {
 			delete(ms.prevotes, h)
 		}
 	}
 	for h := range ms.precommits {
-		if h <= height {
+		if h < height {
 			delete(ms.precommits, h)
 		}
 	}
 	for h := range ms.prevotesPower {
-		if h <= height {
+		if h < height {
 			delete(ms.prevotesPower, h)
 		}
 	}

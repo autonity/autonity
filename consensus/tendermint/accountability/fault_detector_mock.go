@@ -47,6 +47,21 @@ func (m *MockChainContext) EXPECT() *MockChainContextMockRecorder {
 	return m.recorder
 }
 
+// AccountabilityParamsByHeight mocks base method.
+func (m *MockChainContext) AccountabilityParamsByHeight(height uint64) (*types.AccountabilityParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AccountabilityParamsByHeight", height)
+	ret0, _ := ret[0].(*types.AccountabilityParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AccountabilityParamsByHeight indicates an expected call of AccountabilityParamsByHeight.
+func (mr *MockChainContextMockRecorder) AccountabilityParamsByHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountabilityParamsByHeight", reflect.TypeOf((*MockChainContext)(nil).AccountabilityParamsByHeight), height)
+}
+
 // CommitteeByHeight mocks base method.
 func (m *MockChainContext) CommitteeByHeight(height uint64) (*types.Committee, error) {
 	m.ctrl.T.Helper()
@@ -102,6 +117,21 @@ func (m *MockChainContext) CurrentHeader() *types.Header {
 func (mr *MockChainContextMockRecorder) CurrentHeader() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurrentHeader", reflect.TypeOf((*MockChainContext)(nil).CurrentHeader))
+}
+
+// Eip1559ParamsByHeight mocks base method.
+func (m *MockChainContext) Eip1559ParamsByHeight(height uint64) (*types.Eip1559Params, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Eip1559ParamsByHeight", height)
+	ret0, _ := ret[0].(*types.Eip1559Params)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Eip1559ParamsByHeight indicates an expected call of Eip1559ParamsByHeight.
+func (mr *MockChainContextMockRecorder) Eip1559ParamsByHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Eip1559ParamsByHeight", reflect.TypeOf((*MockChainContext)(nil).Eip1559ParamsByHeight), height)
 }
 
 // Engine mocks base method.
@@ -215,20 +245,6 @@ func (m *MockChainContext) HasBadBlock(hash common.Hash) bool {
 func (mr *MockChainContextMockRecorder) HasBadBlock(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasBadBlock", reflect.TypeOf((*MockChainContext)(nil).HasBadBlock), hash)
-}
-
-// MinBaseFee mocks base method.
-func (m *MockChainContext) MinBaseFee() *big.Int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MinBaseFee")
-	ret0, _ := ret[0].(*big.Int)
-	return ret0
-}
-
-// MinBaseFee indicates an expected call of MinBaseFee.
-func (mr *MockChainContextMockRecorder) MinBaseFee() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MinBaseFee", reflect.TypeOf((*MockChainContext)(nil).MinBaseFee))
 }
 
 // ProtocolContracts mocks base method.

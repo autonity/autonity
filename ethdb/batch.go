@@ -38,11 +38,23 @@ type Batch interface {
 	Replay(w KeyValueWriter) error
 }
 
+// Works like a normal batch, but allows for interspersing read while writing
+// to the batch. Note that the modifications done in the batch itself will not be
+// available to be read
+type BatchWithReader interface {
+	Batch
+	KeyValueReader
+}
+
 // Batcher wraps the NewBatch method of a backing data store.
 type Batcher interface {
 	// NewBatch creates a write-only database that buffers changes to its host db
 	// until a final write is called.
 	NewBatch() Batch
+
+	// NewBatchWithReader creates a standard batch, but allows for reading
+	// "pre-batch" state.
+	NewBatchWithReader() BatchWithReader
 }
 
 // HookedBatch wraps an arbitrary batch where each operation may be hooked into

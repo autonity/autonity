@@ -2,5 +2,5 @@
 pragma solidity >=0.8.2;
 
 interface IStakeableVestingManager {
-    function stakeableVestingLogicContract() external view returns (address);
+    function getStakeableVestingLogicContract() external view returns (address);
 }

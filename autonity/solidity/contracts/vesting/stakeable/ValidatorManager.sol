@@ -111,7 +111,7 @@ abstract contract ValidatorManager is ValidatorManagerStorage {
     }
 
     function _getEpochID() internal view returns (uint256) {
-        return autonity.epochID();
+        return autonity.getEpochID();
     }
 
     function _unclaimedRewards(address _validator) internal view returns (uint256) {

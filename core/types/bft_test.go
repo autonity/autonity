@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/autonity/autonity/params"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto/blst"
 )
@@ -58,12 +60,23 @@ func TestHeaderHash(t *testing.T) {
 		},
 	}
 
-	epoch := &Epoch{PreviousEpochBlock: common.Big0, NextEpochBlock: common.Big256, Committee: c, Delta: common.Big5}
+	epoch := &Epoch{
+		PreviousEpochBlock: common.Big0,
+		NextEpochBlock:     common.Big256,
+		Committee:          c,
+		OmissionDelta:      common.Big5,
+		Eip1559: &Eip1559Params{
+			MinBaseFee:               new(big.Int).SetUint64(params.TestMinBaseFee),
+			BaseFeeChangeDenominator: new(big.Int).SetUint64(8),
+			ElasticityMultiplier:     common.Big2,
+			GasLimitBoundDivisor:     new(big.Int).SetUint64(1024),
+		},
+	}
 	signature := testKey.Sign(testKey.PublicKey().Marshal())
 	proposerSeal := signature.Marshal()
 
 	epoch2 := epoch.Copy()
-	epoch2.Delta = common.Big2
+	epoch2.OmissionDelta = common.Big2
 
 	testCases := []struct {
 		header Header
@@ -98,13 +111,13 @@ func TestHeaderHash(t *testing.T) {
 			setExtra(PosHeader, headerExtra{
 				Epoch: epoch,
 			}),
-			common.HexToHash("0x4003fa038541d2ee678ed013f972109f55c9eea389dc1afedea08250e260dd41"),
+			common.HexToHash("0x2b2a4d57f7c0b8cce80df51f55972681cbc17307da92a25503658a7c99a5b86f"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
 				Epoch: epoch2,
 			}),
-			common.HexToHash("0x4e7ad6d14406b030f430e98d9b4d9950c0de2af715c3f6ffa2d5425a0262e23e"),
+			common.HexToHash("0x20a218b23a9f927d6c53d217e1a6d3ff2e26c00fa95cc1adc03946e45a071d13"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{

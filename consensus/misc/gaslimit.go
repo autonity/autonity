@@ -17,7 +17,6 @@
 package misc
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/autonity/autonity/params"
@@ -25,18 +24,28 @@ import (
 
 // VerifyGaslimit verifies the header gas limit according increase/decrease
 // in relation to the parent gas limit.
-func VerifyGaslimit(parentGasLimit, headerGasLimit uint64) error {
+func VerifyGaslimit(parentGasLimit, headerGasLimit, gasLimitBoundDivisor uint64) error {
 	// Verify that the gas limit remains within allowed bounds
 	diff := int64(parentGasLimit) - int64(headerGasLimit)
 	if diff < 0 {
 		diff *= -1
 	}
-	limit := parentGasLimit / params.GasLimitBoundDivisor
-	if uint64(diff) >= limit {
+	limit := parentGasLimit / gasLimitBoundDivisor
+
+	// standard case, make sure that the diff is not >= limit
+	if parentGasLimit >= gasLimitBoundDivisor && uint64(diff) >= limit {
 		return fmt.Errorf("invalid gas limit: have %d, want %d +-= %d", headerGasLimit, parentGasLimit, limit-1)
 	}
+
+	// extreme edge case, should not happen but let's handle it gracefully
+	// in this case we allow diff to be = limit (0)
+	if parentGasLimit < gasLimitBoundDivisor && uint64(diff) != 0 {
+		return fmt.Errorf("invalid gas limit: have %d, want %d", headerGasLimit, parentGasLimit)
+	}
+
+	// sanity check
 	if headerGasLimit < params.MinGasLimit {
-		return errors.New("invalid gas limit below 5000")
+		return fmt.Errorf("invalid gas limit (%d) below %d", headerGasLimit, params.MinGasLimit)
 	}
 	return nil
 }

@@ -129,6 +129,26 @@ func (db *Database) NewBatch() ethdb.Batch {
 	}
 }
 
+type batchWithReader struct {
+	batch
+}
+
+func (b *batchWithReader) Has(key []byte) (bool, error) {
+	return b.db.Has(key)
+}
+
+func (b *batchWithReader) Get(key []byte) ([]byte, error) {
+	return b.db.Get(key)
+}
+
+func (db *Database) NewBatchWithReader() ethdb.BatchWithReader {
+	return &batchWithReader{
+		batch{
+			db: db,
+		},
+	}
+}
+
 // NewIterator creates a binary-alphabetical iterator over a subset
 // of database content with a particular key prefix, starting at a particular
 // initial key (or after, if it does not exist).

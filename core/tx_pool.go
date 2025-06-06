@@ -147,7 +147,8 @@ type blockChain interface {
 	StateAt(root common.Hash) (*state.StateDB, error)
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
-	MinBaseFee() *big.Int
+
+	Eip1559ParamsByHeight(height uint64) (*types.Eip1559Params, error)
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -642,8 +643,17 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return err
 	}
 
-	if pool.chain.MinBaseFee().Cmp(tx.GasPrice()) > 0 {
-		return errors.New("fee cap less than Autonity minimum base fee")
+	currentCoreHeight := pool.chain.CurrentBlock().NumberU64() + 1
+	eip1559Params, err := pool.chain.Eip1559ParamsByHeight(currentCoreHeight)
+	if err == nil {
+		if eip1559Params.MinBaseFee.Cmp(tx.GasPrice()) > 0 {
+			return errors.New("fee cap less than Autonity minimum base fee")
+		}
+	} else {
+		// this shouldn't happen unless the client has aggressive state pruning in place
+		log.Error("failed to fetch minimum base fee, skipping minBaseFee check", "err", err, "number", currentCoreHeight)
+		// skip the base fee price check but still allow the tx to be added. If the fee is less than the minBaseFee,
+		// the tx will not be included in the block anyways
 	}
 
 	if tx.Gas() < intrGas {
@@ -1188,7 +1198,16 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 	if reset != nil {
 		pool.demoteUnexecutables()
 		if reset.newHead != nil && pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
-			pendingBaseFee := misc.CalcBaseFee(pool.chainconfig, reset.newHead, pool.chain)
+			var pendingBaseFee *big.Int
+
+			eip1559Params, err := pool.chain.Eip1559ParamsByHeight(reset.newHead.Number.Uint64() + 1)
+			if err != nil {
+				// just logging the error for the operator, the code handles having a nil basefee
+				// by just comparing tx gasprice without including base fee
+				log.Error("failed to calculate pending base fee", "err", err)
+			} else {
+				pendingBaseFee = misc.CalcBaseFee(pool.chainconfig, reset.newHead, eip1559Params)
+			}
 			pool.priced.SetBaseFee(pendingBaseFee)
 		}
 		// Update all accounts to the latest known pending nonce

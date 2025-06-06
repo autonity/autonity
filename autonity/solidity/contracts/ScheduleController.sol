@@ -71,7 +71,7 @@ abstract contract ScheduleController {
      * @param _vault address of the vault for the schedule
      * @param _id index of the schedule
      */
-    function getSchedule(address _vault, uint256 _id) public view returns (Schedule memory) {
+    function _getSchedule(address _vault, uint256 _id) internal view returns (Schedule memory) {
         Schedule[] storage _schedules = vaultSchedules[_vault];
         require(_schedules.length > _id, "schedule does not exist");
         return _schedules[_id];
@@ -81,7 +81,7 @@ abstract contract ScheduleController {
      * Returns total number of schedules for the vault at address `_vault`.
      * @param _vault address of the vault for the schedules
      */
-    function getTotalSchedules(address _vault) public view returns (uint256) {
+    function _getTotalSchedules(address _vault) internal view returns (uint256) {
         return vaultSchedules[_vault].length;
     }
 }

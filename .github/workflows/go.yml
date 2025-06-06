@@ -38,7 +38,16 @@ env:
     ]
 
 jobs:
-
+  # generate test case IDs for docker tests.
+  generate-ids:
+    runs-on: ubuntu-24.04
+    outputs:
+      ids: ${{ steps.set-ids.outputs.ids }}
+    steps:
+      - name: Generate test IDs
+        id: set-ids
+        run: |
+          echo "ids=[$(seq -s ',' 0 3 26)]" >> $GITHUB_OUTPUT
   # prepare-cache fills the gocache with the source code for all modules and
   # attempts to fill the build cache with as much as possible intermediately
   # compiled source. Most other jobs depend on this job and so this serves to
@@ -94,7 +103,7 @@ jobs:
                  [ slow-tests, $(go list ./p2p/... ./eth/... | grep -E -v "/p2p/simulations") -timeout 30m ],
                  [ problematic-tests, -p 1 ./p2p/simulations/... ./core ],
                  [ tendermint-tests, ./consensus/tendermint/... -timeout 20m -race ],
-                 [ new-e2e-tests, ./e2e_test -timeout 20m -v -race ]
+                 [ new-e2e-tests, ./e2e_test -timeout 30m -v -race ]
         ]
 
     name: ${{ matrix.tests[0] }}
@@ -264,7 +273,7 @@ jobs:
       - name: Run coverage
         run: |
           go test ./consensus/tendermint/... -timeout 15m -cover -covermode=atomic -test.coverprofile=coverage_tendermint_ut.out
-          go test ./e2e_test -p 1 -timeout 25m -cover -covermode=atomic -coverpkg=./consensus/tendermint/... -test.coverprofile=coverage_tendermint_integration.out
+          go test ./e2e_test -p 1 -timeout 35m -cover -covermode=atomic -coverpkg=./consensus/tendermint/... -test.coverprofile=coverage_tendermint_integration.out
 
 
       - uses: codecov/codecov-action@v1
@@ -300,15 +309,16 @@ jobs:
         run: make lint-ci
         shell: bash
 
-  # break docker-e2e-test into 6 tasks to speed up the tests.
-  docker-e2e-tests-part1:
-    needs: prepare-cache
-    runs-on: ubuntu-20.04
+  docker-e2e-batch-tests:
+    needs: [prepare-cache, generate-ids]
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        case_id: ${{ fromJson(needs.generate-ids.outputs.ids) }}
     steps:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
-        id: go
 
       - name: Install pkg-config
         run: go install github.com/influxdata/pkg-config@latest
@@ -326,145 +336,8 @@ jobs:
       - name: Build
         run: make all
 
-      - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=0 END=4
-
-  docker-e2e-tests-part2:
-    needs: prepare-cache
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-        id: go
-
-      - name: Install pkg-config
-        run: go install github.com/influxdata/pkg-config@latest
-
-      - uses: actions/checkout@v3
-
-      - name: Go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Build
-        run: make all
-
-      - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=4 END=8
-
-  docker-e2e-tests-part3:
-    needs: prepare-cache
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-        id: go
-
-      - name: Install pkg-config
-        run: go install github.com/influxdata/pkg-config@latest
-
-      - uses: actions/checkout@v3
-
-      - name: Go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Build
-        run: make all
-
-      - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=8 END=13
-
-  docker-e2e-tests-part4:
-    needs: prepare-cache
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-        id: go
-
-      - name: Install pkg-config
-        run: go install github.com/influxdata/pkg-config@latest
-
-      - uses: actions/checkout@v3
-
-      - name: Go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Build
-        run: make all
-
-      - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=13 END=17
-
-  docker-e2e-tests-part5:
-    needs: prepare-cache
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-        id: go
-
-      - name: Install pkg-config
-        run: go install github.com/influxdata/pkg-config@latest
-
-      - uses: actions/checkout@v3
-
-      - name: Go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Build
-        run: make all
-
-      - name: Run docker e2e tests
-        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=17 END=22
-
-#  docker-e2e-tests-part6:
-#    needs: prepare-cache
-#    runs-on: ubuntu-20.04
-#    steps:
-#      - uses: actions/setup-go@v4
-#        with:
-#          go-version: ${{ env.GO_VERSION }}
-#        id: go
-#
-#      - name: Install pkg-config
-#        run: go install github.com/influxdata/pkg-config@latest
-#
-#      - uses: actions/checkout@v3
-#
-#      - name: Go cache
-#        uses: actions/cache@v4
-#        with:
-#          path: |
-#            ${{ env.GO_CACHE }}
-#            ${{ env.GO_MODULES_CACHE }}
-#          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-#
-#      - name: Build
-#        run: make all
-#
-#      - name: Run docker e2e tests
-#        run: cd docker_e2e_test && make install-prerequisites-linux && make docker-e2e-tests START=22 END=26
+      - name: Run batch test
+        run: |
+          cd docker_e2e_test && \
+          make install-prerequisites-linux && \
+          make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.event.pull_request.head.sha }}

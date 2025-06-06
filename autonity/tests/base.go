@@ -143,7 +143,7 @@ func (r *Runner) LiquidStateContract(validatorAddress common.Address) *ILiquid {
 }
 
 func (r *Runner) slasherContract() *Slasher {
-	slasherAddr, _, err := r.Autonity.Slasher(nil)
+	slasherAddr, _, err := r.Autonity.GetSlasher(nil)
 	require.NoError(r.T, err)
 	abi, err := SlasherMetaData.GetAbi()
 	require.NoError(r.T, err)
@@ -299,10 +299,10 @@ func (r *Runner) setupActivityProofAndCoinbase(proposer common.Address, absentee
 	epochInfo, _, err := r.Autonity.GetEpochInfo(nil)
 	require.NoError(r.T, err)
 
-	mustBeEmpty := r.Evm.Context.BlockNumber.Uint64() <= epochInfo.EpochBlock.Uint64()+epochInfo.Delta.Uint64()
+	mustBeEmpty := r.Evm.Context.BlockNumber.Uint64() <= epochInfo.EpochBlock.Uint64()+epochInfo.OmissionDelta.Uint64()
 	if !mustBeEmpty {
 		r.Evm.Context.Coinbase = proposer
-		targetHeight := r.Evm.Context.BlockNumber.Uint64() - epochInfo.Delta.Uint64()
+		targetHeight := r.Evm.Context.BlockNumber.Uint64() - epochInfo.OmissionDelta.Uint64()
 
 		r.Evm.Context.ActivityProofRound = 0
 		r.Evm.Context.ActivityProof = activityProof(r.Committee.Validators, sealFaker(targetHeight, r.Evm.Context.ActivityProofRound), absentees)
@@ -315,7 +315,7 @@ func (r *Runner) lastMinedHeight() uint64 {
 
 // for omission
 func (r *Runner) lastTargetHeight() uint64 {
-	config, _, err := r.OmissionAccountability.Config(nil)
+	config, _, err := r.OmissionAccountability.GetConfig(nil)
 	require.NoError(r.T, err)
 	delta := config.Delta.Uint64()
 
@@ -332,7 +332,7 @@ func (r *Runner) lastTargetHeight() uint64 {
 func (r *Runner) FinalizeBlock() {
 	// Finalize is not the only block closing operation - fee redistribution is missing and prob
 	// other stuff. Left as todo.
-	epochID, _, err := r.Autonity.EpochID(nil)
+	epochID, _, err := r.Autonity.GetEpochID(nil)
 	require.NoError(r.T, err)
 	_, err = r.Autonity.Finalize(&runOptions{origin: common.Address{}})
 	// consider monitoring gas cost here and fail if it's too much
@@ -343,7 +343,7 @@ func (r *Runner) FinalizeBlock() {
 	r.Evm.Context.ActivityProof = nil
 	r.Evm.Context.ActivityProofRound = 0
 	r.Evm.Context.Coinbase = common.Address{}
-	newEpochID, _, err := r.Autonity.EpochID(nil)
+	newEpochID, _, err := r.Autonity.GetEpochID(nil)
 	require.NoError(r.T, err)
 	if newEpochID.Cmp(epochID) != 0 {
 		r.generateNewCommittee()
@@ -414,6 +414,11 @@ func (r *Runner) SendAUT(sender, recipient common.Address, value *big.Int) {
 	r.Evm.StateDB.AddBalance(recipient, value)
 }
 
+func (r *Runner) CheckErrorAndGetData(data interface{}, _ uint64, err error) interface{} {
+	require.NoError(r.T, err)
+	return data
+}
+
 type EpochReward struct {
 	RewardATN *big.Int
 	RewardNTN *big.Int
@@ -436,11 +441,11 @@ func (r *Runner) RewardsForValidatorAfterOneEpoch(validator common.Address) Epoc
 	}
 
 	reward := r.RewardsAfterOneEpoch()
-	config, _, err := r.Autonity.Config(nil)
+	config, _, err := r.Autonity.GetConfig(nil)
 	require.NoError(r.T, err)
 	treasuryReward := new(big.Int).Div(new(big.Int).Mul(reward.RewardATN, config.Policy.TreasuryFee), params.DecimalFactor)
 
-	totalStake, _, err := r.Autonity.EpochTotalBondedStake(nil)
+	totalStake, _, err := r.Autonity.GetEpochTotalBondedStake(nil)
 	require.NoError(r.T, err)
 	atnReward := new(big.Int).Sub(reward.RewardATN, treasuryReward)
 	atnReward = new(big.Int).Div(new(big.Int).Mul(atnReward, votingPower), totalStake)
@@ -452,12 +457,12 @@ func (r *Runner) RewardsAfterOneEpoch() (rewardsToDistribute EpochReward) {
 	// get supply and inflationReserve to calculate inflation reward
 	supply, _, err := r.Autonity.CirculatingSupply(nil)
 	require.NoError(r.T, err)
-	inflationReserve, _, err := r.Autonity.InflationReserve(nil)
+	inflationReserve, _, err := r.Autonity.GetInflationReserve(nil)
 	require.NoError(r.T, err)
 	info, _, err := r.Autonity.GetEpochInfo(nil)
 	require.NoError(r.T, err)
 	// get inflation reward
-	lastEpochTime, _, err := r.Autonity.LastEpochTime(nil)
+	lastEpochTime, _, err := r.Autonity.GetLastEpochTime(nil)
 	require.NoError(r.T, err)
 	currentEpochTime := new(big.Int).Add(lastEpochTime, new(big.Int).Sub(info.NextEpochBlock, info.EpochBlock))
 	inflationReward, _, err := r.InflationController.CalculateSupplyDelta(nil, supply, inflationReserve, lastEpochTime, currentEpochTime)
@@ -675,27 +680,31 @@ func FromSender(sender common.Address, value *big.Int) *runOptions {
 	return &runOptions{origin: sender, value: value}
 }
 
-func NewAccusationEvent(height uint64, value common.Hash, reporter common.Address) AccountabilityEvent {
-	offenderNodeKey, _ := crypto.HexToECDSA(params.TestNodeKeys[0])
+func NewAccusationEvent(height uint64, value common.Hash, reporter common.Address, offenderIndex int) IAccountabilityEvent {
+	if offenderIndex >= len(params.TestNodeKeys) {
+		panic("offenderIndex out of range")
+	}
+	offenderNodeKey, _ := crypto.HexToECDSA(params.TestNodeKeys[offenderIndex])
 	offender := crypto.PubkeyToAddress(offenderNodeKey.PublicKey)
-	offenderConsensusKey, _ := blst.SecretKeyFromHex(params.TestConsensusKeys[0])
-	cm := types.CommitteeMember{Address: offender, VotingPower: common.Big1, ConsensusKey: offenderConsensusKey.PublicKey(), ConsensusKeyBytes: offenderConsensusKey.PublicKey().Marshal(), Index: 0}
+	offenderConsensusKey, _ := blst.SecretKeyFromHex(params.TestConsensusKeys[offenderIndex])
+	cm := types.CommitteeMember{Address: offender, VotingPower: common.Big1, ConsensusKey: offenderConsensusKey.PublicKey(), ConsensusKeyBytes: offenderConsensusKey.PublicKey().Marshal(), Index: uint64(offenderIndex)}
 	signer := func(hash common.Hash) blst.Signature {
 		return offenderConsensusKey.Sign(hash[:])
 	}
-	prevote := message.NewPrevote(0, height, value, signer, &cm, 1)
+	prevote := message.NewPrevote(0, height, value, signer, &cm, len(params.TestNodeKeys))
 
 	p := &accountability.Proof{
-		Type:    autonity.Accusation,
-		Rule:    autonity.PVN,
-		Message: prevote,
+		Type:          autonity.Accusation,
+		Rule:          autonity.PVN,
+		Message:       prevote,
+		OffenderIndex: offenderIndex,
 	}
 	rawProof, err := rlp.EncodeToBytes(p)
 	if err != nil {
 		panic(err)
 	}
 
-	return AccountabilityEvent{
+	return IAccountabilityEvent{
 		EventType:      uint8(p.Type),
 		Rule:           uint8(p.Rule),
 		Reporter:       reporter,

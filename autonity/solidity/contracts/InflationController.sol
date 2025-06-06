@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import {SD59x18, sd, convert} from "./lib/prb-math-4.0.1/SD59x18.sol";
 import {IInflationController} from "./interfaces/IInflationController.sol";
 
-
 contract InflationController is IInflationController {
     struct Params {
         // Initial inflation rate
@@ -20,7 +19,7 @@ contract InflationController is IInflationController {
         // Note: All time related parameters MUST be denominated in seconds.
     }
 
-    Params public params;
+    Params internal params;
 
     uint256 internal genesisTime;
 
@@ -40,6 +39,7 @@ contract InflationController is IInflationController {
     )
         external
         view
+        virtual
         returns (uint256)
     {
         SD59x18 _lastTime = convert(int256(_lastEpochTime - genesisTime));
@@ -65,6 +65,7 @@ contract InflationController is IInflationController {
         SD59x18 _currentEpochTime
     )
         internal
+        virtual
         view
         returns (uint256)
     {
@@ -90,12 +91,20 @@ contract InflationController is IInflationController {
         SD59x18 _currentEpochTime
     )
         internal
+        virtual
         view
         returns (uint256)
     {
         return uint256(convert(
             convert(int256(_inflationReserve)) *  (_currentEpochTime -  _lastEpochTime) * params.inflationReserveDecayRate
         ));
+    }
+
+    /**
+    * @return the current parameters of the inflation controller
+    */
+    function getParams() external virtual view returns (Params memory) {
+        return params;
     }
 
 }

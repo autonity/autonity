@@ -2,6 +2,10 @@
 
 const MIN_BASE_FEE = 5000;
 const COMMITTEE_SIZE = 1000;
+const GAS_LIMIT = 20000000;
+const GAS_LIMIT_BOUND_DIVISOR = 1024;
+const BASE_FEE_CHANGE_DENOMINATOR = 8;
+const ELASTICITY_MULTIPLIER = 2;
 const MAX_SCHEDULE_DURATION = 3*365*24*3600; // 3 years in seconds
 const EPOCH_PERIOD = 30;
 const DELEGATION_RATE = 100;
@@ -19,6 +23,8 @@ const ORACLE_REWARD_RATE = 0; // tests for oracle rewards are outside of the Tru
 
 const ACCOUNTABILITY_CONFIG = {
         "innocenceProofSubmissionWindow": 30,
+        "delta": 10,
+        "range": 256,
         "baseSlashingRates" : {
             "low": 400,
             "mid": 600,
@@ -117,6 +123,8 @@ function autonityConfig(operator, treasuryAccount) {
             "withheldRewardsPool": treasuryAccount, //TODO(lorenzo) decide if fine
             "treasuryAccount": treasuryAccount,
             "oracleRewardRate": ORACLE_REWARD_RATE,
+            "baseFeeChangeDenominator": BASE_FEE_CHANGE_DENOMINATOR,
+            "elasticityMultiplier": ELASTICITY_MULTIPLIER,
         },
         "contracts": {
             "oracleContract" : ZERO_ADDRESS, // gets updated in deployContracts()
@@ -134,7 +142,9 @@ function autonityConfig(operator, treasuryAccount) {
             "epochPeriod": EPOCH_PERIOD,
             "blockPeriod": MIN_EPOCH_PERIOD,
             "committeeSize": COMMITTEE_SIZE,
+            "gasLimit": GAS_LIMIT,
             "maxScheduleDuration": MAX_SCHEDULE_DURATION,
+            "gasLimitBoundDivisor": GAS_LIMIT_BOUND_DIVISOR,
         },
         "contractVersion": VERSION,
     };

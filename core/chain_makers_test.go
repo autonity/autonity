@@ -46,7 +46,10 @@ func ExampleGenerateChain() {
 	gspec := &Genesis{
 		Config:  params.TestChainConfig,
 		BaseFee: big.NewInt(0),
-		Alloc:   GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
+		Alloc: GenesisAlloc{
+			addr1: {Balance: big.NewInt(1000000000000000)},
+			addr2: {Balance: big.NewInt(1000000000000000)},
+		},
 	}
 	genesis := gspec.MustCommit(db)
 
@@ -58,13 +61,13 @@ func ExampleGenerateChain() {
 		switch i {
 		case 0:
 			// In block 1, addr1 sends addr2 some ether.
-			tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(10000), params.TxGas, nil, nil), signer, key1)
+			tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(10000), params.TxGas, new(big.Int).SetUint64(params.TestMinBaseFee), nil), signer, key1)
 			gen.AddTx(tx)
 		case 1:
 			// In block 2, addr1 sends some more ether to addr2.
 			// addr2 passes it on to addr3.
-			tx1, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(1000), params.TxGas, nil, nil), signer, key1)
-			tx2, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr2), addr3, big.NewInt(1000), params.TxGas, nil, nil), signer, key2)
+			tx1, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(1000), params.TxGas, new(big.Int).SetUint64(params.TestMinBaseFee), nil), signer, key1)
+			tx2, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr2), addr3, big.NewInt(1000), params.TxGas, new(big.Int).SetUint64(params.TestMinBaseFee), nil), signer, key2)
 			gen.AddTx(tx1)
 			gen.AddTx(tx2)
 		case 2:
@@ -99,8 +102,8 @@ func ExampleGenerateChain() {
 	fmt.Println("balance of the 0 address :", state.GetBalance(common.Address{}))
 	// Output:
 	//last block: #5
-	//balance of addr1: 989000
-	//balance of addr2: 10000
+	//balance of addr1: 957999999989000
+	//balance of addr2: 979000000010000
 	//balance of addr3: 7875000000000001000
 	//balance of the 0 address : 5500000000000000000
 }

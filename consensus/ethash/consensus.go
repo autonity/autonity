@@ -90,6 +90,13 @@ var (
 	errInvalidPoW        = errors.New("invalid proof-of-work")
 )
 
+var ethashEip1559Params = &types.Eip1559Params{
+	MinBaseFee:               new(big.Int).SetUint64(params.TestMinBaseFee),
+	BaseFeeChangeDenominator: new(big.Int).SetUint64(params.DefaultBaseFeeChangeDenominator),
+	ElasticityMultiplier:     new(big.Int).SetUint64(params.DefaultElasticityMultiplier),
+	GasLimitBoundDivisor:     new(big.Int).SetUint64(params.DefaultGasLimitBoundDivisor),
+}
+
 // Author implements consensus.Engine, returning the header's coinbase as the
 // proof-of-work verified author of the block.
 func (ethash *Ethash) Author(header *types.Header) (common.Address, error) {
@@ -295,10 +302,10 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainHeaderReader, header, pa
 		if header.BaseFee != nil {
 			return fmt.Errorf("invalid baseFee before fork: have %d, expected 'nil'", header.BaseFee)
 		}
-		if err := misc.VerifyGaslimit(parent.GasLimit, header.GasLimit); err != nil {
+		if err := misc.VerifyGaslimit(parent.GasLimit, header.GasLimit, params.DefaultGasLimitBoundDivisor); err != nil {
 			return err
 		}
-	} else if err := misc.VerifyEip1559Header(chain.Config(), nil, parent, header); err != nil {
+	} else if err := misc.VerifyEip1559Header(chain.Config(), ethashEip1559Params, parent, header); err != nil {
 		// Verify the header's EIP-1559 attributes.
 		return err
 	}
@@ -591,21 +598,37 @@ func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, parent, header 
 // Finalize implements consensus.Engine, accumulating the block and uncle rewards,
 // setting the final state on the header
 func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
-	_ []*types.Transaction, uncles []*types.Header, _ []*types.Receipt) (*types.Receipt, *types.Epoch, error) {
+	_ []*types.Transaction, uncles []*types.Header, _ []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	return nil, nil, nil
+	contractsConfig := &types.ContractsConfig{
+		EpochPeriod: new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.EpochPeriod),
+		BlockPeriod: new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.BlockPeriod),
+		GasLimit:    new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.GasLimit),
+		Accountability: types.AccountabilityParams{
+			Range:       new(big.Int).SetUint64(params.TestChainConfig.AccountabilityConfig.Range),
+			Delta:       new(big.Int).SetUint64(params.TestChainConfig.AccountabilityConfig.Delta),
+			GracePeriod: new(big.Int),
+		},
+		Eip1559: types.Eip1559Params{
+			MinBaseFee:               new(big.Int).SetUint64(params.TestMinBaseFee),
+			BaseFeeChangeDenominator: new(big.Int).SetUint64(params.DefaultBaseFeeChangeDenominator),
+			ElasticityMultiplier:     new(big.Int).SetUint64(params.DefaultElasticityMultiplier),
+			GasLimitBoundDivisor:     new(big.Int).SetUint64(params.DefaultGasLimitBoundDivisor),
+		},
+	}
+	return nil, nil, contractsConfig, nil
 }
 
 // FinalizeAndAssemble implements consensus.Engine, accumulating the block and
 // uncle rewards, setting the final state and assembling the block.
-func (ethash *Ethash) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
+func (ethash *Ethash) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
 	// Finalize block
-	ethash.Finalize(chain, header, state, txs, uncles, *receipts)
+	_, _, contractsConfig, _ := ethash.Finalize(chain, header, state, txs, uncles, *receipts)
 
 	// Header seems complete, assemble into a block and return
-	return types.NewBlock(header, txs, uncles, *receipts, trie.NewStackTrie(nil)), nil
+	return types.NewBlock(header, txs, uncles, *receipts, trie.NewStackTrie(nil)), contractsConfig, nil
 }
 
 // SealHash returns the hash of a block prior to it being sealed.

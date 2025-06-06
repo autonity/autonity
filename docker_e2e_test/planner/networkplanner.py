@@ -131,16 +131,22 @@ class NetworkPlanner(object):
                     "minBaseFee": 5000,
                     "delegationRate": 1000,
                     "blockPeriod": 1,
+                    "baseFeeChangeDenominator": 8,
+                    "elasticityMultiplier": 2,
                     "maxCommitteeSize": 7,
                     "unbondingPeriod": 120,
                     "epochPeriod": 60,
                     "treasuryFee": 150000000,
+                    "gasLimit": 10000000000,
+                    "gasLimitBoundDivisor": 1024,
                     "initialInflationReserve": "0x2116545850052128000000",
                     "validators": [],
                 },
                 "oracle": {"votePeriod": 10},
                 "accountability": {
                     "innocenceProofSubmissionWindow": 30,
+                    "delta": 10,
+                    "range": 256,
                     "baseSlashingRateLow": 400,
                     "baseSlashingRateMid": 600,
                     "baseSlashingRateHigh": 800,
@@ -181,7 +187,7 @@ class NetworkPlanner(object):
             validator = {
                 "treasury": coinbase,
                 "enode": client.e_node,
-                "bondedStake": 10000  if client.role  == "validator" else 5000,
+                "bondedStake": 10000 if client.role == "validator" else 5000,
                 "oracleAddress": coinbase,
                 "consensusKey": client.consensus_pub_key,
             }
@@ -190,11 +196,6 @@ class NetworkPlanner(object):
 
         with open("./network-data/genesis.json", 'w') as out:
             out.write(json.dumps(genesis, indent=4) + '\n')
-
-    def generate_systemd_service_file(self):
-        self.logger.info("===== SYSTEMD SERVICE FILE GENERATION =====")
-        for client in self.clients:
-            client.generate_system_service_file()
 
     def generate_package(self):
         self.logger.info("===== PACKAGE GENERATION =====")
@@ -209,11 +210,10 @@ class NetworkPlanner(object):
         self.generate_testbed_conf()
         self.generate_enodes()
         self.generate_genesis()
-        self.generate_systemd_service_file()
         self.generate_package()
         self.logger.info("===== SETUP FINISHED =====")
 
-    def deploy(self):
+    def deploy_all_nodes(self):
         for client in self.clients:
             client.deploy_client()
 
@@ -226,3 +226,13 @@ class NetworkPlanner(object):
             if client.start_client() is not True:
                 return False
         return True
+
+    def clean_all_nodes_data(self):
+        for client in self.clients:
+            client.clean_chain_data()
+
+    def re_genesis_network(self):
+        self.stop_all_nodes()
+        self.clean_all_nodes_data()
+        self.deploy_all_nodes()
+        self.start_all_nodes()

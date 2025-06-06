@@ -2,6 +2,10 @@ package protocol
 
 import (
 	"errors"
+	"math/big"
+
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
 
 	backendPkg "github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -27,7 +31,14 @@ func newACNError(backend Backend, err error) *p2p.ProtocolError {
 		var suspension = uint64(acnErrorSuspensionSpan)
 		if errors.Is(err, message.ErrBadSignature) {
 			// TODO: implement more harsh exponential approach disconnection?
-			suspension = backend.Chain().ProtocolContracts().Cache.EpochPeriod().Uint64()
+			// the +1 is needed to fetch the latest epoch period finalized by the chain
+			currentCoreHeight := backend.Chain().CurrentBlock().NumberU64() + 1
+			epochPeriod, errEpochPeriod := backend.Chain().EpochPeriodByHeight(currentCoreHeight)
+			if errEpochPeriod != nil {
+				log.Error("failed to fetch epoch period, using default", "err", errEpochPeriod, "block", currentCoreHeight, "default", params.DefaultEpochPeriod)
+				epochPeriod = new(big.Int).SetUint64(params.DefaultEpochPeriod)
+			}
+			suspension = epochPeriod.Uint64()
 		}
 		if errors.Is(err, backendPkg.ErrJailed) {
 			// this one is tricky. Ideally yes, we want to disconnect the sender but we can't
