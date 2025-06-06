@@ -63,15 +63,14 @@ func (c *Core) subscribeEvents() {
 		StateRequestEvent{})
 	c.candidateBlockCh = make(chan events.NewCandidateBlockEvent, 1)
 	c.committedCh = make(chan events.CommitEvent, 1)
+	c.askSyncCh = make(chan events.SyncEvent, 1)
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
-	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 }
 
 // Unsubscribe all
 func (c *Core) unsubscribeEvents() {
 	c.messageSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
-	c.syncEventSub.Unsubscribe()
 }
 
 func shouldDisconnectSender(err error) bool {
@@ -322,7 +321,7 @@ eventLoop:
 			round = currentRound
 			height = currentHeight
 			c.askSyncRateLimiter.Cleanup()
-		case ev, ok := <-c.syncEventSub.Chan():
+		case ev, ok := <-c.askSyncCh:
 			if !ok {
 				break eventLoop
 			}
@@ -330,24 +329,23 @@ eventLoop:
 				c.logger.Warn("acn network is not ready yet")
 				continue
 			}
-			event := ev.Data.(events.SyncEvent)
-			c.logger.Debug("Processing sync message", "from", event.Sender)
-			if err := c.askSyncRateLimiter.Allow(event.Sender); err != nil {
-				tryDisconnect(event.ErrCh, err)
+			c.logger.Debug("Processing sync message", "from", ev.Sender)
+			if err := c.askSyncRateLimiter.Allow(ev.Sender); err != nil {
+				tryDisconnect(ev.ErrCh, err)
 				continue
 			}
 
 			askSync := new(message.AskSyncMsg)
-			if err := rlp.DecodeBytes(event.Payload, askSync); err != nil {
-				tryDisconnect(event.ErrCh, err)
+			if err := rlp.DecodeBytes(ev.Payload, askSync); err != nil {
+				tryDisconnect(ev.ErrCh, err)
 				continue
 			}
 
 			if err := askSync.Validate(); err != nil {
-				tryDisconnect(event.ErrCh, err)
+				tryDisconnect(ev.ErrCh, err)
 				continue
 			}
-			c.Backend().SyncPeer(askSync, event.Sender)
+			c.Backend().SyncPeer(askSync, ev.Sender)
 		case <-ctx.Done():
 			c.logger.Debug("syncEventLoop is stopped", "event", ctx.Err())
 			break eventLoop
