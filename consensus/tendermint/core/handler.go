@@ -295,9 +295,6 @@ func (c *Core) syncLoop(ctx context.Context) {
 		this method is responsible for asking the network to send us the current consensus state
 		and to process sync queries events.
 	*/
-	// syncTime out should be dynamic based on the current round timer
-	// TODO: think about sending the bitmap of messages you currently have in sync request
-
 	round := c.Round()
 	height := c.Height()
 

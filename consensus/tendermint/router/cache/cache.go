@@ -81,7 +81,7 @@ func (c *peerCache) Cleanup() {
 	now := time.Now()
 	removed := 0
 	for key, entry := range c.recipients {
-		if now.Sub(entry.LastUsed) > cacheEntryTTL {
+		if now.Sub(entry.LastUsed) > cacheEntryTTL || entry.Version < c.cacheVersion {
 			delete(c.recipients, key)
 			removed++
 		}
