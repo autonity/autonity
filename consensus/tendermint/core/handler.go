@@ -349,13 +349,6 @@ func (c *Core) SendEvent(ev any) {
 }
 
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
-	// These checks need to be repeated here due to backlogged messages being re-injected
-	if c.Height().Uint64() > msg.H() {
-		// TODO: currently old height messages are send directly to the FD, but this check is still needed due to potential TOCTOU race conditions
-		// Moreover, I am still wondering if it would be useful to gossip old height messages, as they could be useful for accountability
-		c.logger.Debug("ignoring stale consensus message", "msg", msg.String(), "height", c.Height().Uint64())
-		return constants.ErrOldHeightMessage
-	}
 
 	if c.Height().Uint64() < msg.H() {
 		panic("Processing future height message")
