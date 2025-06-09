@@ -587,11 +587,7 @@ func (sb *Backend) Start(ctx context.Context) error {
 
 	sb.wg.Add(1)
 	go sb.faultyValidatorsWatcher(ctx)
-	if sb.router != nil {
-		sb.router.Start(ctx, sb.BlockChain())
-	} else {
-		sb.logger.Warn("Latency msgRouter is not set, cannot start")
-	}
+	sb.router.Start(ctx, sb.BlockChain())
 
 	sb.startRateLimiterGCRoutine()
 
@@ -615,9 +611,7 @@ func (sb *Backend) Close() error {
 	// Stop Tendermint
 	sb.aggregator.stop()
 	sb.core.Stop()
-	if sb.router != nil {
-		sb.router.Stop()
-	}
+	sb.router.Stop()
 	sb.wg.Wait()
 	sb.coreStarting.CompareAndSwap(true, false)
 	return nil

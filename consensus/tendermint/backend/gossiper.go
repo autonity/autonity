@@ -9,6 +9,7 @@ import (
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/router/constants"
 	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
@@ -69,13 +70,10 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
 	// only gossip to very small committee
 	numTargets := len(committee.Members)
-	if numTargets > 10 { // todo: minimum nodes to start slow gossip
-		numTargets = int(math.Sqrt(float64(len(committee.Members))))
-	} else if numTargets == 0 {
-		log.Error("no target to slow gossip", "num", len(committee.Members), "numTargets", numTargets, "committee", committee.Members)
-		return
+	targetIndices := rand.Perm(numTargets) // target indices to select from the full committee
+	if numTargets > constants.ScaleThresholdForClustering {
+		numTargets = int(math.Sqrt(float64(numTargets)))
 	}
-	targetIndices := rand.Perm(numTargets)
 	recipients := make([]common.Address, numTargets)
 	for i := 0; i < numTargets; i++ {
 		recipients[i] = committee.Members[targetIndices[i]].Address

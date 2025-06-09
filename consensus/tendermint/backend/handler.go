@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"math/rand"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -148,10 +147,6 @@ func handleConsensusMsg[T any, PT interface {
 	TotalMessageReceivedBg.Mark(1)
 	if sb.knownMessages.Contains(hash) {
 		return true, nil
-	}
-	if rand.Intn(200) == 0 {
-		// we are probably hitting the cache limit
-		log.Debug("known message cache size", "size", sb.knownMessages.Size())
 	}
 
 	MessageProcessedBg.Mark(1)
