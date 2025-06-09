@@ -20,8 +20,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/consensus/tendermint/router"
-	routerInterfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
@@ -89,14 +87,7 @@ func New(
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 
-	var pinger ping.Pinger
-	var selector routerInterfaces.PeerSelector
-	if services != nil {
-		pinger = services.Pinger
-		selector = services.Selector
-	}
-
-	backend.router = router.Setup(nodeKey, backend.address, pinger, selector, backend.logger)
+	backend.router = router.Setup(nodeKey, backend.address, services, backend.logger)
 
 	backend.gossiper = NewGossiper(
 		backend.knownMessages,
@@ -412,7 +403,6 @@ func (sb *Backend) SyncPeer(address common.Address) {
 		return
 	}
 	sb.logger.Debug("Syncing", "peer", address)
-	//todo: only to selected peers
 	peer, ok := sb.Broadcaster.FindPeer(address)
 	if !ok {
 		return
