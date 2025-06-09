@@ -25,8 +25,6 @@ type Backend interface {
 
 	AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error
 
-	SyncPeer(syncMsg *message.AskSyncMsg, address common.Address)
-
 	// Broadcast sends a message to all validators (include self)
 	Broadcast(committee *types.Committee, message message.Msg)
 

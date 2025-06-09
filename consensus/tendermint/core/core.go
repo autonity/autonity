@@ -110,7 +110,6 @@ type Core struct {
 	messageSub          *event.TypeMuxSubscription
 	candidateBlockCh    chan events.NewCandidateBlockEvent
 	committedCh         chan events.CommitEvent
-	askSyncCh           chan events.SyncEvent
 	timeoutEventSub     *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
@@ -207,8 +206,6 @@ func (c *Core) Post(ev any) {
 		c.committedCh <- ev
 	case events.NewCandidateBlockEvent:
 		c.candidateBlockCh <- ev
-	case events.SyncEvent:
-		c.askSyncCh <- ev
 	}
 }
 
