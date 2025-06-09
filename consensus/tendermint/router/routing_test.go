@@ -21,7 +21,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/router/constants"
 	"github.com/autonity/autonity/consensus/tendermint/router/mocks"
 	"github.com/autonity/autonity/consensus/tendermint/router/network"
-	"github.com/autonity/autonity/consensus/tendermint/router/selector"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -42,14 +41,13 @@ func TestSetup(t *testing.T) {
 	nodeKey := newTestKey(t)
 	logger := log.New()
 
-	router := Setup(nodeKey, self, nil, nil, logger)
+	router := Setup(nodeKey, self, nil, logger)
 
 	assert.Equal(t, self, router.self, "Expected self address")
 	assert.Equal(t, nodeKey, router.nodeKey, "Expected node key")
 	assert.NotNil(t, router.recipientCache, "Expected recipient cache")
 	assert.NotNil(t, router.latencyFetcher, "Expected latency fetcher")
 	assert.NotNil(t, router.peerSelector, "Expected peer selector")
-	assert.IsType(t, &selector.Selector{}, router.peerSelector, "Expected default peer selector")
 }
 
 func TestNew(t *testing.T) {

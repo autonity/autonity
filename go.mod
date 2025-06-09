@@ -16,7 +16,6 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/cespare/cp v1.1.1
 	github.com/cloudflare/cloudflare-go v0.115.0
-	github.com/cloverstd/tcping v0.1.1
 	github.com/consensys/gnark-crypto v0.16.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/deckarep/golang-set v1.8.0
@@ -53,7 +52,6 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterh/liner v1.2.2
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus-community/pro-bing v0.6.1
 	github.com/prometheus/tsdb v0.10.0
 	github.com/rs/cors v1.11.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
