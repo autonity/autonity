@@ -1267,7 +1267,11 @@ func (srv *Server) runPeer(p *Peer) {
 }
 
 func (srv *Server) Committee() []*enode.Node {
-	return srv.committee
+	srv.enodeMu.RLock()
+	defer srv.enodeMu.RUnlock()
+	committee := make([]*enode.Node, len(srv.committee))
+	copy(committee, srv.committee)
+	return committee
 }
 
 // NodeInfo represents a short summary of the information known about the host.

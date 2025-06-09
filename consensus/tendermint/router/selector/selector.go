@@ -39,7 +39,7 @@ type Selector struct {
 	heightIndex     int
 }
 
-func New(np interfaces.NetworkProvider, cache cache.Recipients) *Selector {
+func New(np interfaces.NetworkProvider, cache cache.Recipients) interfaces.PeerSelector{
 	s := &Selector{
 		networkProvider: np,
 		recipientCache:  cache,

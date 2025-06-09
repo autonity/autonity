@@ -256,7 +256,7 @@ type Committee struct {
 	// mutex to protect internal cached fields of committee from race condition.
 	lock sync.RWMutex `json:"-" rlp:"-"`
 	// cached total voting power.
-	totalVotingPower *big.Int `json:"-" rlp:"-"`
+	totalVotingPower *big.Int  `json:"-" rlp:"-"`
 	votingPowerOnce  sync.Once `json:"-" rlp:"-"`
 	// cached indexing of committee for member lookup
 	membersMap map[common.Address]*CommitteeMember `json:"-" rlp:"-"`
@@ -295,12 +295,11 @@ func (c *Committee) Copy() *Committee {
 		}
 	}
 
+	// update the total voting power of the cloned object
+	clone.TotalVotingPower()
+
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	if c.totalVotingPower != nil {
-		clone.totalVotingPower = new(big.Int).Set(c.totalVotingPower)
-	}
-
 	if c.membersMap != nil {
 		clone.membersMap = make(map[common.Address]*CommitteeMember)
 		for _, v := range clone.Members {

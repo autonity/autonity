@@ -11,8 +11,10 @@ import (
 // this type is used for local e2e testing.
 type simulatedPinger struct{}
 
-func NewSimulatedPinger() ping.Pinger {
-	return &simulatedPinger{}
+func NewSimulatedPinger() func() ping.Pinger {
+	return func() ping.Pinger {
+		return &simulatedPinger{}
+	}
 }
 
 func (*simulatedPinger) Ping(_ context.Context, _ ping.Target) ping.Result {
