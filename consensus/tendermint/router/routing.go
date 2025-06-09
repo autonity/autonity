@@ -104,7 +104,7 @@ func (m *Router) Recipients(committee *types.Committee, msg message.Msg, from co
 	}
 	recipients, err := m.peerSelector.SelectPeers(committee, msg, from)
 	if err != nil {
-		log.Debug("Selector: no clusters, falling back to all committee members")
+		log.Debug("selector: no clusters, falling back to all committee members")
 		return m.committeeAddresses(committee), nil
 	}
 	return recipients, nil
