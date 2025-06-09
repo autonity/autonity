@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
+	coreInterfaces "github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/cache"
 	"github.com/autonity/autonity/consensus/tendermint/router/constants"
@@ -25,20 +26,20 @@ import (
 func Setup(
 	nodeKey *ecdsa.PrivateKey,
 	self common.Address,
-	pinger ping.Pinger,
-	peerSelector interfaces.PeerSelector,
+	services *coreInterfaces.Services,
 	logger log.Logger,
 ) *Router {
 	peerCache := cache.New()
 	nw := &network.Network{}
-	if pinger == nil {
-		pinger, _ = ping.NewPinger(ping.ProtocolTCP, logger)
+	pinger, _ := ping.NewPinger(ping.ProtocolTCP, logger)
+	peerSelector := selector.New(nw, peerCache)
+	if services.Pinger != nil {
+		pinger = services.Pinger()
 	}
-	if peerSelector == nil {
-		peerSelector = selector.New(nw, peerCache)
+	if services.Selector != nil {
+		peerSelector = services.Selector()
 	}
 	fetcher := latency.NewFetcher(pinger)
-
 	return New(nodeKey, self, peerCache, fetcher, peerSelector, nw)
 }
 

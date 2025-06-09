@@ -115,6 +115,12 @@ func TestClusteringResetFNodes(t *testing.T) {
 // NoRelayingSelector is used for not to relay proposal in the network for Faulty nodes.
 type NoRelayingSelector struct{}
 
+func NewNoRelayingSelector() func() routerInterfaces.PeerSelector {
+	return func() routerInterfaces.PeerSelector {
+		return &NoRelayingSelector{}
+	}
+}
+
 func (r *NoRelayingSelector) SetBroadcaster(_ routerInterfaces.PeerFinder) {
 }
 
@@ -154,7 +160,7 @@ func TestFFaultyRelayers(t *testing.T) {
 	for i, validator := range validators {
 		mockedService := &interfaces.Services{Pinger: pinger}
 		if int64(i) < f {
-			mockedService.Selector = &NoRelayingSelector{}
+			mockedService.Selector = NewNoRelayingSelector()
 		}
 		validator.TendermintServices = mockedService
 	}
@@ -180,7 +186,7 @@ func Test2FFaultyRelayers(t *testing.T) {
 	for i, validator := range validators {
 		mockedService := &interfaces.Services{Pinger: pinger}
 		if int64(i) < overF {
-			mockedService.Selector = &NoRelayingSelector{}
+			mockedService.Selector = NewNoRelayingSelector()
 		}
 		validator.TendermintServices = mockedService
 	}
@@ -206,7 +212,7 @@ func Test3FFaultyRelayers(t *testing.T) {
 	for i, validator := range validators {
 		mockedService := &interfaces.Services{Pinger: pinger}
 		if int64(i) < overF {
-			mockedService.Selector = &NoRelayingSelector{}
+			mockedService.Selector = NewNoRelayingSelector()
 		}
 		validator.TendermintServices = mockedService
 	}
