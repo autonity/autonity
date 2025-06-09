@@ -33,10 +33,10 @@ func Setup(
 	nw := &network.Network{}
 	pinger, _ := ping.NewPinger(ping.ProtocolTCP, logger)
 	peerSelector := selector.New(nw, peerCache)
-	if services.Pinger != nil {
+	if services != nil && services.Pinger != nil {
 		pinger = services.Pinger()
 	}
-	if services.Selector != nil {
+	if services != nil && services.Selector != nil {
 		peerSelector = services.Selector()
 	}
 	fetcher := latency.NewFetcher(pinger)
