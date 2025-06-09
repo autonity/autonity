@@ -29,7 +29,7 @@ const (
 	localRelayerRemoteCluster
 )
 
-type Selector struct {
+type selector struct {
 	networkProvider interfaces.NetworkProvider
 	recipientCache  cache.Recipients
 	peerFinder      interfaces.PeerFinder
@@ -39,8 +39,8 @@ type Selector struct {
 	heightIndex     int
 }
 
-func New(np interfaces.NetworkProvider, cache cache.Recipients) interfaces.PeerSelector{
-	s := &Selector{
+func New(np interfaces.NetworkProvider, cache cache.Recipients) interfaces.PeerSelector {
+	s := &selector{
 		networkProvider: np,
 		recipientCache:  cache,
 		loggedHR:        make(map[string]uint64),
@@ -50,11 +50,11 @@ func New(np interfaces.NetworkProvider, cache cache.Recipients) interfaces.PeerS
 	return s
 }
 
-func (s *Selector) SetBroadcaster(broadcaster interfaces.PeerFinder) {
+func (s *selector) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 	s.peerFinder = broadcaster
 }
 
-func (s *Selector) containsAddress(addrs []common.Address, addr common.Address) bool {
+func (s *selector) containsAddress(addrs []common.Address, addr common.Address) bool {
 	for _, a := range addrs {
 		if a == addr {
 			return true
@@ -63,7 +63,7 @@ func (s *Selector) containsAddress(addrs []common.Address, addr common.Address) 
 	return false
 }
 
-func (s *Selector) routingCandidatesFromCluster(clusterID int, exclude []common.Address, committee *types.Committee) []network.Node {
+func (s *selector) routingCandidatesFromCluster(clusterID int, exclude []common.Address, committee *types.Committee) []network.Node {
 	clusters := s.networkProvider.Clusters()
 	members := clusters.MembersByID(clusterID)
 	candidates := make([]network.Node, 0, len(members))
@@ -80,7 +80,7 @@ func (s *Selector) routingCandidatesFromCluster(clusterID int, exclude []common.
 	return candidates
 }
 
-func (s *Selector) allConnected(recipients []common.Address) bool {
+func (s *selector) allConnected(recipients []common.Address) bool {
 	for _, recipient := range recipients {
 		if _, ok := s.peerFinder.FindPeer(recipient); !ok {
 			return false
@@ -89,7 +89,7 @@ func (s *Selector) allConnected(recipients []common.Address) bool {
 	return true
 }
 
-func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
+func (s *selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
 	switch msg.Code() {
 	case message.ProposalCode:
 		return s.selectProposalPeers(committee, msg, from)
@@ -98,15 +98,15 @@ func (s *Selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	}
 }
 
-func (s *Selector) selectProposalPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
+func (s *selector) selectProposalPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
 	return s.selectPeersWithBuckets(committee, msg, from, true)
 }
 
-func (s *Selector) selectNonProposalPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
+func (s *selector) selectNonProposalPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
 	return s.selectPeersWithBuckets(committee, msg, from, false)
 }
 
-func (s *Selector) selectPeersWithBuckets(committee *types.Committee, msg message.Msg, from common.Address, isProposal bool) ([]common.Address, error) {
+func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg message.Msg, from common.Address, isProposal bool) ([]common.Address, error) {
 	clusters := s.networkProvider.Clusters()
 	if len(clusters.Base()) == 0 {
 		return []common.Address{}, errors.New("no clusters")
@@ -117,7 +117,7 @@ func (s *Selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 	ownClusterID := clusters.ID()
 
 	if senderClusterID == -1 || originClusterID == -1 || ownClusterID == -1 {
-		fmt.Println("Selector: unknown clusters", "sender", from.Hex(), "originator", msg.Originator().Hex(), "msg hash", msg.Hash().Hex(), "self", clusters.Self().Hex())
+		fmt.Println("selector: unknown clusters", "sender", from.Hex(), "originator", msg.Originator().Hex(), "msg hash", msg.Hash().Hex(), "self", clusters.Self().Hex())
 		return nil, errors.New("unknown clusters")
 	}
 
@@ -142,7 +142,7 @@ func (s *Selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 	return selected, nil
 }
 
-func (s *Selector) selectRemoteNodesByLatencySpread() []network.Node {
+func (s *selector) selectRemoteNodesByLatencySpread() []network.Node {
 	recipients := make([]network.Node, 0)
 	usedClusters := make(map[int]bool)
 
@@ -195,7 +195,7 @@ func determineSenderType(from, self common.Address, msg message.Msg, originClust
 	}
 }
 
-func (s *Selector) selectBucketBasedNodes(clusters network.Clusters, committee *types.Committee, senderType SenderType, ownClusterID int, from common.Address, isProposal bool) []network.Node {
+func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *types.Committee, senderType SenderType, ownClusterID int, from common.Address, isProposal bool) []network.Node {
 	var recipients []network.Node
 	var minNodes, lowLatencyNodes int
 
@@ -269,7 +269,7 @@ func (s *Selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 	return recipients
 }
 
-func (s *Selector) deduplicate(recipients []network.Node) []network.Node {
+func (s *selector) deduplicate(recipients []network.Node) []network.Node {
 	seen := make(map[common.Address]struct{}, len(recipients))
 	var selected []network.Node
 	for _, node := range recipients {
@@ -281,7 +281,7 @@ func (s *Selector) deduplicate(recipients []network.Node) []network.Node {
 	return selected
 }
 
-func (s *Selector) selectCloseNodes(committee *types.Committee, clusterID, minNodes, lowLatencyNodes int, exclude []common.Address) []network.Node {
+func (s *selector) selectCloseNodes(committee *types.Committee, clusterID, minNodes, lowLatencyNodes int, exclude []common.Address) []network.Node {
 	var selected, candidates []network.Node
 	candidates = s.routingCandidatesFromCluster(clusterID, exclude, committee)
 	if len(candidates) == 0 {
@@ -308,7 +308,7 @@ func (s *Selector) selectCloseNodes(committee *types.Committee, clusterID, minNo
 	return selected
 }
 
-func (s *Selector) buildResultFromRecipients(recipients []common.Address, clusters network.Clusters) []network.Node {
+func (s *selector) buildResultFromRecipients(recipients []common.Address, clusters network.Clusters) []network.Node {
 	result := make([]network.Node, 0, len(recipients))
 	for _, recipient := range recipients {
 		id := clusters.IDByAddress(recipient)
@@ -320,7 +320,7 @@ func (s *Selector) buildResultFromRecipients(recipients []common.Address, cluste
 	return result
 }
 
-func (s *Selector) clusterStatus(recipients []network.Node, msg message.Msg, from common.Address, senderType SenderType, ownClusterID int, originClusterID int) {
+func (s *selector) clusterStatus(recipients []network.Node, msg message.Msg, from common.Address, senderType SenderType, ownClusterID int, originClusterID int) {
 	logKey := fmt.Sprintf("%d-%d-%d", msg.H(), msg.R(), msg.Code())
 
 	s.heightLock.Lock()

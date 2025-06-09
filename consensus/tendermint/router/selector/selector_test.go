@@ -17,23 +17,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 )
 
-func TestSelector_New(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	np := mocks.NewMockNetworkProvider(ctrl)
-	recipients := mocks.NewMockRecipients(ctrl)
-	peerFinder := mocks.NewMockPeerFinder(ctrl)
-
-	selector := New(np, recipients)
-	selector.SetBroadcaster(peerFinder)
-
-	assert.Equal(t, np, selector.networkProvider, "Expected network provider to be set")
-	assert.Equal(t, recipients, selector.recipientCache, "Expected recipients recorder to be set")
-	assert.Equal(t, peerFinder, selector.peerFinder, "Expected peer finder to be set")
-	assert.Equal(t, int(0), selector.heightIndex, "Expected heightIndex to be 0")
-}
-
 func TestSelector_SelectPeers_Proposal_CacheHit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -216,7 +199,7 @@ func TestSelector_selectNodesByLatencySpread(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients)
+	selector := &selector{networkProvider: np, recipientCache: recipients}
 	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
@@ -249,7 +232,7 @@ func TestSelector_selectBucketBasedNodes_Originator(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients)
+	selector := &selector{networkProvider: np, recipientCache: recipients}
 	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
@@ -292,7 +275,7 @@ func TestSelector_selectBucketBasedNodes_FirstRelayerOriginCluster(t *testing.T)
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients)
+	selector := &selector{networkProvider: np, recipientCache: recipients}
 	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
@@ -329,7 +312,7 @@ func TestSelector_selectBucketBasedNodes_FirstRelayerOriginCluster(t *testing.T)
 }
 
 func TestSelector_deduplicate(t *testing.T) {
-	selector := &Selector{}
+	selector := &selector{}
 	nodes := []network.Node{
 		{Addr: common.HexToAddress("0x111"), Lat: 50, ClusterID: 0},
 		{Addr: common.HexToAddress("0x111"), Lat: 50, ClusterID: 0},
@@ -348,7 +331,7 @@ func TestSelector_selectCloseNodes(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients)
+	selector := &selector{networkProvider: np, recipientCache: recipients}
 	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
@@ -387,7 +370,7 @@ func TestSelector_routingCandidatesFromCluster(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients)
+	selector := &selector{networkProvider: np, recipientCache: recipients}
 	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
@@ -422,7 +405,7 @@ func TestSelector_allConnected(t *testing.T) {
 	np := mocks.NewMockNetworkProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := New(np, recipients)
+	selector := &selector{networkProvider: np, recipientCache: recipients}
 	selector.SetBroadcaster(peerFinder)
 
 	recipientsToTest := []common.Address{common.HexToAddress("0x111"), common.HexToAddress("0x222")}
@@ -434,7 +417,7 @@ func TestSelector_allConnected(t *testing.T) {
 }
 
 func TestSelector_containsAddress(t *testing.T) {
-	selector := &Selector{}
+	selector := &selector{}
 	addrs := []common.Address{common.HexToAddress("0x111"), common.HexToAddress("0x222")}
 	assert.True(t, selector.containsAddress(addrs, common.HexToAddress("0x111")), "Expected address to be found")
 	assert.False(t, selector.containsAddress(addrs, common.HexToAddress("0x333")), "Expected address not to be found")
