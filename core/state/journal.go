@@ -390,9 +390,12 @@ func (ch codeChange) dirtied() *common.Address {
 }
 
 func (ch codeChange) copy() journalEntry {
+	// replace the shadow copy with deep copy for the codeChange type.
+	prevCodeCopy := make([]byte, len(ch.prevCode))
+	copy(prevCodeCopy, ch.prevCode)
 	return codeChange{
 		account:  ch.account,
-		prevCode: ch.prevCode,
+		prevCode: prevCodeCopy,
 	}
 }
 
@@ -409,6 +412,7 @@ func (ch storageChange) copy() journalEntry {
 		account:   ch.account,
 		key:       ch.key,
 		prevvalue: ch.prevvalue,
+		origvalue: ch.origvalue,
 	}
 }
 
