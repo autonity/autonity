@@ -144,7 +144,6 @@ type Backend struct {
 	MsgStore           *tendermintCore.MsgStore
 	askSyncRateLimiter *helpers.TimeWindowLimiter
 	cleanupTicker      *time.Ticker
-	cleanupStopChan    chan struct{}
 
 	aggregator      *aggregator
 	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool // pass a function to avoid import loops

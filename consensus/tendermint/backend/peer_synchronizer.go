@@ -12,15 +12,8 @@ const askSyncInterval = 5 // the interval in seconds to check the liveness and r
 
 const cleanUpInterval = 60 // 60s
 
-func (b *Backend) stopRateLimiterGCRoutine() {
-	if b.cleanupStopChan != nil {
-		close(b.cleanupStopChan)
-	}
-}
-
 func (b *Backend) startRateLimiterGCRoutine() {
 	b.cleanupTicker = time.NewTicker(time.Second * cleanUpInterval)
-	b.cleanupStopChan = make(chan struct{})
 	b.wg.Add(1)
 	go func() {
 		defer b.wg.Done()
@@ -28,10 +21,11 @@ func (b *Backend) startRateLimiterGCRoutine() {
 		for {
 			select {
 			case <-b.cleanupTicker.C:
-				b.askSyncRateLimiter.Cleanup()
+				if b.askSyncRateLimiter != nil {
+					b.askSyncRateLimiter.Cleanup()
+				}
 
-			case <-b.cleanupStopChan:
-				b.cleanupStopChan = nil
+			case <-b.stopped:
 				return
 			}
 		}
