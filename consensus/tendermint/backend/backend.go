@@ -65,17 +65,18 @@ func New(
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
 	backend := &Backend{
-		database:        database,
-		eventMux:        event.NewTypeMuxSilent(evMux, log),
-		nodeKey:         nodeKey,
-		consensusKey:    consensusKey,
-		address:         crypto.PubkeyToAddress(nodeKey.PublicKey),
-		logger:          log,
-		knownMessages:   knownMessages,
-		vmConfig:        vmConfig,
-		MsgStore:        ms,
-		messageCh:       make(chan events.UnverifiedMessageEvent, 5000),
-		isHeightExpired: isHeightExpired,
+		database:           database,
+		eventMux:           event.NewTypeMuxSilent(evMux, log),
+		nodeKey:            nodeKey,
+		consensusKey:       consensusKey,
+		address:            crypto.PubkeyToAddress(nodeKey.PublicKey),
+		logger:             log,
+		knownMessages:      knownMessages,
+		vmConfig:           vmConfig,
+		MsgStore:           ms,
+		askSyncRateLimiter: helpers.NewTimeWindowLimiter(askSyncInterval*time.Second, 2),
+		messageCh:          make(chan events.UnverifiedMessageEvent, 5000),
+		isHeightExpired:    isHeightExpired,
 		jailed: jailed{
 			validators: make(map[common.Address]uint64),
 		},
@@ -142,6 +143,8 @@ type Backend struct {
 	// MsgStore contains recent consensus messages for accountability and peer state recovery.
 	MsgStore           *tendermintCore.MsgStore
 	askSyncRateLimiter *helpers.TimeWindowLimiter
+	cleanupTicker      *time.Ticker
+	cleanupStopChan    chan struct{}
 
 	aggregator      *aggregator
 	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool // pass a function to avoid import loops
@@ -249,8 +252,6 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate 
 
 func (sb *Backend) Post(ev any) {
 	switch ev := ev.(type) {
-	case events.SyncEvent:
-		sb.evDispatcher.Post(ev)
 	case events.CommitEvent:
 		sb.evDispatcher.Post(ev)
 	case events.NewCandidateBlockEvent:

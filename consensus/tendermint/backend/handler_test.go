@@ -103,18 +103,19 @@ func TestSynchronisationMessage(t *testing.T) {
 	})
 
 	t.Run("engine running, msg cannot be decoded", func(t *testing.T) {
-		_, backend := newBlockChain(1)
+		_, b := newBlockChain(1)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		broadcaster := consensus.NewMockBroadcaster(ctrl)
 		mockedPeer := consensus.NewMockPeer(ctrl)
+		broadcaster := consensus.NewMockBroadcaster(ctrl)
 		broadcaster.EXPECT().FindPeer(testAddress).Return(mockedPeer, true).AnyTimes()
+		b.SetBroadcaster(broadcaster)
 
-		backend.coreStarting.Store(true)
-		backend.coreRunning.Store(true)
+		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 		msg := makeMsg(message.SyncNetworkMsg, []byte{})
 		errCh := make(chan error, 1)
-		if res, err := backend.HandleMsg(testAddress, msg, errCh); !res || err != nil {
+		if res, err := b.HandleMsg(testAddress, msg, errCh); !res || err != nil {
 			t.Fatalf("HandleMsg unexpected return")
 		}
 		select {

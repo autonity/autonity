@@ -588,6 +588,8 @@ func (sb *Backend) Start(ctx context.Context) error {
 	sb.wg.Add(1)
 	go sb.faultyValidatorsWatcher(ctx)
 
+	sb.startRateLimiterGCRoutine()
+
 	// Start Tendermint
 	sb.core.Start(ctx, sb.blockchain.ProtocolContracts())
 	sb.aggregator.start(ctx)
@@ -600,6 +602,7 @@ func (sb *Backend) Close() error {
 	if !sb.coreRunning.CompareAndSwap(true, false) {
 		return ErrStoppedEngine
 	}
+	sb.stopRateLimiterGCRoutine()
 	// We need to make sure we close sb.stopped before calling sb.core.Stop
 	// otherwise we can end up with a deadlock where sb.core.Stop is waiting
 	// for a routine to return from calling sb.AskSync but sb.AskSync will

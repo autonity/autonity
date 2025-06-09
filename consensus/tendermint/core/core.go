@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math/big"
 	"sync"
 	"sync/atomic" //nolint
@@ -49,10 +48,8 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
 		noGossip:               noGossip,
-		// 2 ask sync per 5s, as in some edge case node can send 2 within 5s: A node ask sync then followed with a restart.
-		askSyncRateLimiter: helpers.NewTimeWindowLimiter(AskSyncInterval*time.Second, 2),
-		eventCh:            make(chan events.CoreEvent, EventQueueSize),
-		syncState:          &SyncState{},
+		eventCh:                make(chan events.CoreEvent, EventQueueSize),
+		syncState:              &SyncState{},
 	}
 	c.syncState.SetOutOfSync(false)             // initial state
 	c.syncState.SetLastValidMsgTime(time.Now()) // set initial timestamp
@@ -115,7 +112,6 @@ type Core struct {
 	messageSub          *event.TypeMuxSubscription
 	candidateBlockCh    chan events.NewCandidateBlockEvent
 	committedCh         chan events.CommitEvent
-	askSyncCh           chan events.SyncEvent
 	timeoutEventSub     *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
@@ -179,7 +175,6 @@ type Core struct {
 	newRound           time.Time
 	currBlockTimeStamp time.Time
 	noGossip           bool
-	askSyncRateLimiter *helpers.TimeWindowLimiter
 	eventCh            chan events.CoreEvent // channel to communicate events from core to other modules (aggregator)
 }
 
@@ -213,8 +208,6 @@ func (c *Core) Post(ev any) {
 		c.committedCh <- ev
 	case events.NewCandidateBlockEvent:
 		c.candidateBlockCh <- ev
-	case events.SyncEvent:
-		c.askSyncCh <- ev
 	}
 }
 

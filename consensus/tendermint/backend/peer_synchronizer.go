@@ -5,40 +5,49 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/rlp"
+	"time"
 )
 
-// SyncPeer is a backend interface to be called by core, it assumes the askSync message was checked by the core handler.
-func (sb *Backend) SyncPeer(askSync *message.AskSyncMsg, sender common.Address) {
-	if sb.Broadcaster == nil {
-		sb.logger.Warn("p2p protocol handler is not ready yet")
-		return
-	}
-	peer, ok := sb.Broadcaster.FindPeer(sender)
-	if !ok {
-		sb.logger.Debug("no peer connection for sender", "peer", sender)
-		return
-	}
+const askSyncInterval = 5 // the interval in seconds to check the liveness and rise AskSync request.
 
-	// fetch remote's peer missing messages
-	proposals := sb.missingProposals(askSync)
-	prevotes := sb.missingPrevotes(askSync)
-	precommits := sb.missingPrecommits(askSync)
+const cleanUpInterval = 60 // 60s
 
-	// prioritize the sending of missing proposals.
-	for _, m := range proposals {
-		sb.logger.Debug("sending missing proposal to remote peer", "value", m.Value(), "H", m.H(), "R", m.R(), "VR", m.ValidRound(), "from", sb.address, "to", sender)
-		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
+func (b *Backend) stopRateLimiterGCRoutine() {
+	if b.cleanupStopChan != nil {
+		close(b.cleanupStopChan)
 	}
+}
 
-	// then sends the missing precommits, as precommits could trigger round rotation or a commitment of a value.
-	for _, m := range precommits {
-		sb.logger.Debug("sending missing precommits to remote peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", sb.address, "to", sender)
-		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
-	}
+func (b *Backend) startRateLimiterGCRoutine() {
+	b.cleanupTicker = time.NewTicker(time.Second * cleanUpInterval)
+	b.cleanupStopChan = make(chan struct{})
+	b.wg.Add(1)
+	go func() {
+		defer b.wg.Done()
+		defer b.cleanupTicker.Stop()
+		for {
+			select {
+			case <-b.cleanupTicker.C:
+				b.askSyncRateLimiter.Cleanup()
 
-	for _, m := range prevotes {
-		sb.logger.Debug("sending missing prevotes to remote peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", sb.address, "to", sender)
-		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
+			case <-b.cleanupStopChan:
+				b.cleanupStopChan = nil
+				return
+			}
+		}
+	}()
+}
+
+// syncPeer process the ask sync msg from a lost liveness node.
+func (sb *Backend) syncPeer(payload []byte, sender common.Address, errCh chan<- error) {
+	err := sb.handleAskSyncEvent(payload, sender)
+	if err != nil {
+		sb.logger.Error("syncPeer", "error", err, "sender", sender)
+		// the errors return from handler could freeze the peer connection for 30 seconds by according to dev p2p protocol.
+		select {
+		case errCh <- err:
+		default: // do nothing
+		}
 	}
 }
 
