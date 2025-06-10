@@ -22,6 +22,10 @@ contract StabilizationMock is IStabilization {
         return 0;
     }
 
+    function collateralPrice() external view returns (uint256) {
+        return 0;
+    }
+
     /// Liquidate an undercollateralized CDP.
     /// @param account The address of the CDP owner.
     /// @param collateralSold The amount of collateral to sell.
