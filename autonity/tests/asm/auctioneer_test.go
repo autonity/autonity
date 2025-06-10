@@ -20,6 +20,8 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 		decimals, _, err := r.Oracle.GetDecimals(nil)
 		require.NoError(t, err)
 		oracleScaleFactor = new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
+		primePrices(r, newtonAutonPrice, newtonUSDPrice)
+		r.NoError(r.Stabilization.UseFixedGenesisPrices(r.Operator, false))
 		return r
 	}
 
@@ -82,13 +84,10 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 		// Check that the auction start info is correct
 		auction := auctions[0]
 		require.NoError(t, err)
-		require.Equal(t, round.Round.Int64(), auction.StartRound.Int64())
+		require.Equal(t, round.Price.Int64(), auction.StartPrice.Int64())
 		require.Equal(t, auction.StartTimestamp, r.Evm.Context.Time)
 		require.Equal(t, auctionAmount, auction.Amount)
-
-		oracleData, _, err := r.Oracle.GetRoundData(nil, auction.StartRound, "NTN-ATN")
-		require.NoError(t, err)
-		require.Equal(t, newtonAutonPrice, oracleData.Price)
+		require.Equal(t, newtonAutonPrice, auction.StartPrice)
 
 		ntnCost, _, err := r.Auctioneer.MinInterestPayment(nil, auction.Id)
 		require.NoError(t, err)
@@ -97,9 +96,9 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 		require.NoError(t, err)
 
 		priceDiscount := newFloat0().Sub(
-			newFloat(oracleData.Price),
+			newFloat(auction.StartPrice),
 			newFloat0().Quo(
-				newFloat0().Mul(newFloat(oracleData.Price), newFloat(config.InterestAuctionDiscount)),
+				newFloat0().Mul(newFloat(auction.StartPrice), newFloat(config.InterestAuctionDiscount)),
 				newFloat(scaleFactor),
 			),
 		)
@@ -255,8 +254,8 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 func TestAuctioneerDebtAuction(t *testing.T) {
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
-		_, err := r.Stabilization.RemoveCDPRestrictions(r.Operator)
-		require.NoError(t, err)
+		r.NoError(r.Stabilization.RemoveCDPRestrictions(r.Operator))
+		r.NoError(r.Stabilization.UseFixedGenesisPrices(r.Operator, false))
 		return r
 	}
 

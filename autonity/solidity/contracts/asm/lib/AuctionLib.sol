@@ -8,7 +8,7 @@ library AuctionLib {
     struct Auction {
         uint256 id;
         uint256 amount;
-        uint256 startRound;
+        uint256 startPrice;
         uint256 startTimestamp;
     }
 
@@ -37,13 +37,13 @@ library AuctionLib {
     function push(
         AuctionSet storage set,
         uint256 amount,
-        uint256 startRound,
+        uint256 startPrice,
         uint256 startTimestamp
     ) internal returns (uint256) {
         uint256 id = 0;
         if (set.keys.length() > 0) id = set.keys.at(set.keys.length() -1) +1;
         while(set.keys.contains(id)) id++;
-        set.auctions[id] = Auction(id, amount, startRound, startTimestamp);
+        set.auctions[id] = Auction(id, amount, startPrice, startTimestamp);
         set.keys.add(id);
         return id;
     }

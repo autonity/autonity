@@ -27,6 +27,9 @@ var basicConfig = tests.IStabilizationConfig{
 	MinCollateralizationRatio: toBase("2.5", 18),
 	MinDebtRequirement:        new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil),
 	TargetPrice:               toBase("1.0", 18),
+	DefaultNTNATNPrice:        toBase("1.0", 18),
+	DefaultNTNUSDPrice:        toBase("1.0", 18),
+	DefaultACUUSDPrice:        big.NewInt(0),
 }
 
 func TestStabilizationConstructor(t *testing.T) {
@@ -44,6 +47,9 @@ func TestStabilizationConstructor(t *testing.T) {
 				MinCollateralizationRatio: big.NewInt(0),
 				MinDebtRequirement:        basicConfig.MinDebtRequirement,
 				TargetPrice:               basicConfig.TargetPrice,
+				DefaultNTNATNPrice:        basicConfig.DefaultNTNATNPrice,
+				DefaultNTNUSDPrice:        basicConfig.DefaultNTNUSDPrice,
+				DefaultACUUSDPrice:        basicConfig.DefaultACUUSDPrice,
 			},
 			r.Autonity.Address(),
 			params.TestAutonityContractConfig.Operator,
@@ -67,6 +73,9 @@ func TestStabilizationConstructor(t *testing.T) {
 				MinCollateralizationRatio: e18,
 				MinDebtRequirement:        basicConfig.MinDebtRequirement,
 				TargetPrice:               basicConfig.TargetPrice,
+				DefaultNTNATNPrice:        basicConfig.DefaultNTNATNPrice,
+				DefaultNTNUSDPrice:        basicConfig.DefaultNTNUSDPrice,
+				DefaultACUUSDPrice:        basicConfig.DefaultACUUSDPrice,
 			},
 			r.Autonity.Address(),
 			params.TestAutonityContractConfig.Operator,
@@ -88,6 +97,9 @@ func TestStabilizationConstructor(t *testing.T) {
 				MinCollateralizationRatio: basicConfig.MinCollateralizationRatio,
 				MinDebtRequirement:        basicConfig.MinDebtRequirement,
 				TargetPrice:               basicConfig.TargetPrice,
+				DefaultNTNATNPrice:        basicConfig.DefaultNTNATNPrice,
+				DefaultNTNUSDPrice:        basicConfig.DefaultNTNUSDPrice,
+				DefaultACUUSDPrice:        basicConfig.DefaultACUUSDPrice,
 			},
 			r.Autonity.Address(),
 			params.TestAutonityContractConfig.Operator,
@@ -110,6 +122,9 @@ func TestStabilizationConstructor(t *testing.T) {
 				MinCollateralizationRatio: basicConfig.MinCollateralizationRatio,
 				MinDebtRequirement:        basicConfig.MinDebtRequirement,
 				TargetPrice:               basicConfig.TargetPrice,
+				DefaultNTNATNPrice:        basicConfig.DefaultNTNATNPrice,
+				DefaultNTNUSDPrice:        basicConfig.DefaultNTNUSDPrice,
+				DefaultACUUSDPrice:        basicConfig.DefaultACUUSDPrice,
 			},
 			common.Address{},
 			common.Address{},
@@ -129,6 +144,7 @@ func TestStabilizationDeposit(t *testing.T) {
 	fundedAmount := new(big.Int).Mul(e18, big.NewInt(100))
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.UseFixedGenesisPrices(r.Operator, false))
 		primePrices(r, newtonAutonPrice, newtonUSDPrice)
 		for _, account := range []common.Address{userAccount, secondUserAccount} {
 			r.GiveMeSomeMoney(account, new(big.Int).Mul(e18, big.NewInt(100)))
@@ -213,6 +229,7 @@ func TestStabilizationWithdraw(t *testing.T) {
 
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.UseFixedGenesisPrices(r.Operator, false))
 		setBasicConfig(r)
 		primePrices(r, newtonAutonPrice, newtonUSDPrice)
 		r.GiveMeSomeMoney(userAccount, new(big.Int).Mul(e18, big.NewInt(100)))
@@ -339,6 +356,7 @@ func TestStabilizationBorrow(t *testing.T) {
 
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.UseFixedGenesisPrices(r.Operator, false))
 		setBasicConfig(r)
 		primePrices(r, newtonAutonPrice, newtonUSDPrice)
 		r.GiveMeSomeMoney(userAccount, new(big.Int).Mul(e18, big.NewInt(100)))
@@ -510,6 +528,7 @@ func TestStabilizationRepay(t *testing.T) {
 
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.UseFixedGenesisPrices(r.Operator, false))
 		setBasicConfig(r)
 		primePrices(r, newtonAutonPrice, toBase("0.97", 18))
 		r.GiveMeSomeMoney(userAccount, new(big.Int).Mul(e18, big.NewInt(100)))
@@ -651,6 +670,7 @@ func TestStabilizationLiquidate(t *testing.T) {
 	userAccount := testrand.Address()
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.UseFixedGenesisPrices(r.Operator, false))
 		setBasicConfig(r)
 		primePrices(r, newtonAutonPrice, newtonUSDPrice)
 
@@ -769,7 +789,9 @@ func TestStabilizationLiquidate(t *testing.T) {
 
 func TestStabilizationCalculations(t *testing.T) {
 	setup := func() *tests.Runner {
-		return tests.Setup(t, nil)
+		r := tests.Setup(t, nil)
+		r.NoError(r.Stabilization.UseFixedGenesisPrices(r.Operator, false))
+		return r
 	}
 
 	tests.RunWithSetup("Test borrow limit", setup, func(r *tests.Runner) {
@@ -1535,6 +1557,20 @@ func TestRestrictedFunctionAccess(t *testing.T) {
 		_, err = r.Stabilization.RemoveCDPRestrictions(r.Operator)
 		require.NoError(t, err)
 	})
+
+	tests.RunWithSetup("removeFixedGenesisPrices restricted to operator", setup, func(r *tests.Runner) {
+		unauthorizedUsers := []common.Address{
+			testUser,
+			params.DeployerAddress,
+			testrand.Address(),
+		}
+		for _, user := range unauthorizedUsers {
+			_, err := r.Stabilization.UseFixedGenesisPrices(tests.FromSender(user, common.Big0), false)
+			require.Error(t, err)
+			require.ErrorAs(t, err, &tests.StabilizationUnauthorizedError{})
+		}
+		r.NoError(r.Stabilization.UseFixedGenesisPrices(r.Operator, false))
+	})
 }
 
 func TestInterestRate(t *testing.T) {
@@ -1607,6 +1643,82 @@ func TestUpdatableConfigParams(t *testing.T) {
 		require.Equal(t, expectedTime, lastUpdated.LiquidationRatioTimestamp.Int64())
 		require.Equal(t, expectedTime, lastUpdated.MinCollateralizationRatioTimestamp.Int64())
 		require.Equal(t, expectedTime, lastUpdated.BorrowInterestRateTimestamp.Int64())
+	})
+}
+
+func TestFixedGenesisPrices(t *testing.T) {
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
+
+	tests.RunWithSetup("Genesis prices are set at fixed rates", setup, func(r *tests.Runner) {
+		cfg, _, err := r.Stabilization.Config(nil)
+		require.NoError(t, err)
+
+		require.Equal(t, cfg.DefaultNTNATNPrice, (*big.Int)(params.DefaultStabilizationGenesis.DefaultNTNATNPrice))
+		require.Equal(t, cfg.DefaultNTNUSDPrice, (*big.Int)(params.DefaultStabilizationGenesis.DefaultNTNUSDPrice))
+
+		// initialize oracle
+		or := newOracleTestRounds([]*big.Int{toBase("3.0", 18)})
+		or.initialize(r)
+		or.increment(r)
+		or.increment(r)
+
+		acuDecimals, _, err := r.Acu.GetScale(nil)
+		require.NoError(t, err)
+
+		acuPrice, _, err := r.Acu.Value(nil)
+		require.NoError(t, err)
+
+		// acu price scaled to oracle decimals
+		scaledAcuPrice := new(big.Int).Div(
+			new(big.Int).Mul(acuPrice, e18),
+			toBase("1.0", acuDecimals.Int64()),
+		)
+
+		// $1.0193722 is the default ACU ntnAcuPrice set up by oracleTestRounds
+		// this is not dependent on the fixed genesis prices, only the FX prices
+		require.Equal(t, acuPrice, toBase("1.0193722", acuDecimals.Int64()))
+
+		acuPriceRead, _, err := r.Stabilization.AcuPrice(nil)
+		require.NoError(t, err)
+		require.Equal(t, scaledAcuPrice, acuPriceRead)
+
+		// this collateral ntnAcuPrice should be the ntnAcuPrice of NTN in ACU assuming a variable ACU ntnAcuPrice
+		ntnAcuPrice, _, err := r.Stabilization.CollateralPriceACU(nil)
+		require.NoError(t, err)
+		require.Equal(t, new(big.Int).Div(
+			new(big.Int).Mul(cfg.DefaultNTNUSDPrice, e18),
+			scaledAcuPrice,
+		), ntnAcuPrice)
+
+		ntnAtnPrice, _, err := r.Stabilization.CollateralPrice(nil)
+		require.NoError(t, err)
+		require.Equal(t, cfg.DefaultNTNATNPrice, ntnAtnPrice)
+
+		// should revert to oracle prices once fixed genesis prices are removed
+		r.NoError(r.Stabilization.UseFixedGenesisPrices(r.Operator, false))
+
+		// check that the oracle price is set
+		oracleNtnAtnPrice, _, err := r.Oracle.LatestRoundData(nil, "NTN-ATN")
+		require.NoError(t, err)
+
+		ntnAtnPrice, _, err = r.Stabilization.CollateralPrice(nil)
+		require.NoError(t, err)
+
+		require.Equal(t, oracleNtnAtnPrice.Price, ntnAtnPrice)
+
+		oracleNtnUsdPrice, _, err := r.Oracle.LatestRoundData(nil, "NTN-USD")
+		require.NoError(t, err)
+
+		ntnAcuPrice, _, err = r.Stabilization.CollateralPriceACU(nil)
+		require.NoError(t, err)
+
+		require.NotEqual(t, oracleNtnUsdPrice.Price, cfg.DefaultNTNUSDPrice)
+		require.Equal(t, new(big.Int).Div(
+			new(big.Int).Mul(oracleNtnUsdPrice.Price, e18),
+			scaledAcuPrice,
+		), ntnAcuPrice)
 	})
 }
 

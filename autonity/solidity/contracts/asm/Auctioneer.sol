@@ -26,6 +26,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     event AuctionedDebt(address indexed debtor, address indexed biddor, uint256 collateralAmount, uint256 debtAmount);
     event AuctionedInterest(address indexed biddor, uint256 interestAmount, uint256 paymentAmount);
     event NewInterestAuction(uint256 auctionId, uint256 amount, uint256 startRound);
+    event PriceUnavailable();
 
     // Public state
     Config internal config;
@@ -178,11 +179,17 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     // reentrancy is expected and allowed when liquidating a position.
     function paidInterest() external payable onlyStabilization {
         _pendingAllocatedInterest += msg.value;
-        if (_pendingAllocatedInterest >= config.interestAuctionThreshold) {
-            uint256 startRound = _oracle.getRound() - 1;
-            uint256 auction = auctions.push(_pendingAllocatedInterest, startRound, block.timestamp);
+        if (_pendingAllocatedInterest < config.interestAuctionThreshold) {
+            return; // not enough interest to start an auction
+        }
+        try _stabilization.collateralPrice() returns (uint256 startPrice) {
+            uint256 auction = auctions.push(_pendingAllocatedInterest, startPrice, block.timestamp);
             emit NewInterestAuction(auction, _pendingAllocatedInterest, block.timestamp);
             _pendingAllocatedInterest = 0;
+        } catch {
+            // If the collateral price is unavailable, we cannot start an auction
+            // a new auction will be started on the next interest repayment
+            emit PriceUnavailable();
         }
     }
 
@@ -360,12 +367,11 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         if (interestAuction.startTimestamp == 0) {
             revert InvalidAuctionId();
         }
-        IOracle.RoundData memory round = _oracle.getRoundData(interestAuction.startRound, StabilizationMath.NTN_SYMBOL);
         return StabilizationMath.linearDecreaseAuctionAmount(
             interestAuction.startTimestamp,
             block.timestamp,
             0,
-            _calculateInitialCost(interestAuction.amount, round.price),
+            _calculateInitialCost(interestAuction.amount, interestAuction.startPrice),
             config.interestAuctionDuration
         );
     }

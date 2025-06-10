@@ -32,6 +32,12 @@ interface IStabilization {
         uint256 minDebtRequirement;
         /// The ACU value of 1 unit of debt.
         uint256 targetPrice;
+        /// Default NTN-ATN price for use at genesis (with Oracle decimals precision)
+        uint256 defaultNTNATNPrice;
+        /// Default NTN-USD price for use at genesis (with Oracle decimals precision)
+        uint256 defaultNTNUSDPrice;
+        /// Default ACU-USD price for use at genesis (with Oracle decimals precision)
+        uint256 defaultACUUSDPrice;
     }
 
     /// Represents a Collateralized Debt Position (CDP)
@@ -80,6 +86,14 @@ interface IStabilization {
     /// @return The last updated timestamps for each updatable config item.
     /// @dev The timestamps are in seconds since the Unix epoch.
     function lastUpdated() external view returns (LastUpdated memory);
+
+    /// Price the Collateral Token in Auton.
+    ///
+    /// Retrieves the Collateral Token price from the Oracle Contract and
+    /// converts it to Auton.
+    /// @return price Price of Collateral Token
+    /// @dev The function reverts in case the price is invalid or unavailable.
+    function collateralPrice() external view returns (uint256 price);
 
     // permissioned functions
 

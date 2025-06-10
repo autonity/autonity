@@ -28,4 +28,12 @@ interface IConfigEvents {
     * @param appliesAtHeight block at which the change will apply
     */
     event ConfigUpdateAddress(string name, address oldValue, address newValue, uint256 appliesAtHeight);
+
+    /**
+    * @notice Emitted after updating config parameter of type boolean
+    * @param name configuration name
+    * @param oldValue old value of configuration
+    * @param newValue new value of configuration
+    */
+    event ConfigUpdateBool(string name, bool oldValue, bool newValue, uint256 appliesAtHeight);
 }

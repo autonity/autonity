@@ -195,5 +195,6 @@
   "7c8ccebe": "getAutonity()",
   "80af1799": "getStabilizer()",
   "c4e41b22": "getTotalSupply()",
-  "56176bc4": "setEip1559Params((uint256,uint256,uint256,uint256))"
+  "56176bc4": "setEip1559Params((uint256,uint256,uint256,uint256))",
+  "5891de72": "collateralPrice()"
 }

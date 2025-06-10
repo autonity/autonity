@@ -6,7 +6,7 @@ import "../asm/interfaces/IStabilization.sol";
 contract StabilizationMock is IStabilization {
     // Public state retrieval functions
     function config() external view returns (Config memory) {
-        return Config(0, 0, 0, 0, 0, 0);
+        return Config(0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     function cdps(address owner) external view returns (CDP memory) {
@@ -19,6 +19,10 @@ contract StabilizationMock is IStabilization {
     }
 
     function debtAmount(address account) external view returns (uint256) {
+        return 0;
+    }
+
+    function collateralPrice() external view returns (uint256) {
         return 0;
     }
 
