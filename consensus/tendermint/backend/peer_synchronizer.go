@@ -19,10 +19,7 @@ func (b *Backend) startRateLimiterGCRoutine() {
 		for {
 			select {
 			case <-b.cleanupTicker.C:
-				if b.askSyncRateLimiter != nil {
-					b.askSyncRateLimiter.Cleanup()
-				}
-
+				b.askSyncRateLimiter.Cleanup()
 			case <-b.stopped:
 				return
 			}

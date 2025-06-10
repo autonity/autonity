@@ -192,6 +192,10 @@ eventLoop:
 					}
 				}
 
+				// valid message, reset sync timeout
+				c.syncState.SetLastValidMsgTime(time.Now())
+				c.syncState.SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
+
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
