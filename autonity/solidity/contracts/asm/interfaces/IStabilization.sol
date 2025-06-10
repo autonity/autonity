@@ -87,6 +87,14 @@ interface IStabilization {
     /// @dev The timestamps are in seconds since the Unix epoch.
     function lastUpdated() external view returns (LastUpdated memory);
 
+    /// Price the Collateral Token in Auton.
+    ///
+    /// Retrieves the Collateral Token price from the Oracle Contract and
+    /// converts it to Auton.
+    /// @return price Price of Collateral Token
+    /// @dev The function reverts in case the price is invalid or unavailable.
+    function collateralPrice() external view returns (uint256 price);
+
     // permissioned functions
 
     /// Liquidate an undercollateralized CDP.

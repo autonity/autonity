@@ -26,6 +26,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     event AuctionedDebt(address indexed debtor, address indexed biddor, uint256 collateralAmount, uint256 debtAmount);
     event AuctionedInterest(address indexed biddor, uint256 interestAmount, uint256 paymentAmount);
     event NewInterestAuction(uint256 auctionId, uint256 amount, uint256 startRound);
+    event PriceUnavailable();
 
     // Public state
     Config internal config;
@@ -181,16 +182,15 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         if (_pendingAllocatedInterest < config.interestAuctionThreshold) {
             return; // not enough interest to start an auction
         }
-        // check if the NTN_SYMBOL is included in the current oracle round
-        uint256 startRound = _oracle.getRound() - 1;
-        IOracle.RoundData memory latestRound = _oracle.getRoundData(startRound, StabilizationMath.NTN_SYMBOL);
-        if (latestRound.price == 0 || latestRound.timestamp == 0) {
-            // no NTN_SYMBOL in the latest round, so we won't start an interest auction until the next repayment
-            return;
+        try _stabilization.collateralPrice() returns (uint256 startPrice) {
+            uint256 auction = auctions.push(_pendingAllocatedInterest, startPrice, block.timestamp);
+            emit NewInterestAuction(auction, _pendingAllocatedInterest, block.timestamp);
+            _pendingAllocatedInterest = 0;
+        } catch {
+            // If the collateral price is unavailable, we cannot start an auction
+            // a new auction will be started on the next interest repayment
+            emit PriceUnavailable();
         }
-        uint256 auction = auctions.push(_pendingAllocatedInterest, startRound, block.timestamp);
-        emit NewInterestAuction(auction, _pendingAllocatedInterest, block.timestamp);
-        _pendingAllocatedInterest = 0;
     }
 
     /*
@@ -367,12 +367,11 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         if (interestAuction.startTimestamp == 0) {
             revert InvalidAuctionId();
         }
-        IOracle.RoundData memory round = _oracle.getRoundData(interestAuction.startRound, StabilizationMath.NTN_SYMBOL);
         return StabilizationMath.linearDecreaseAuctionAmount(
             interestAuction.startTimestamp,
             block.timestamp,
             0,
-            _calculateInitialCost(interestAuction.amount, round.price),
+            _calculateInitialCost(interestAuction.amount, interestAuction.startPrice),
             config.interestAuctionDuration
         );
     }
