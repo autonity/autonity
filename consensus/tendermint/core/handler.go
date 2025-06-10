@@ -146,7 +146,7 @@ func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash
 }
 
 func (c *Core) mainEventLoop(ctx context.Context) {
-	go c.syncEventLoop(ctx)
+	go c.livenessTrackerLoop(ctx)
 
 eventLoop:
 	for {
@@ -282,7 +282,7 @@ eventLoop:
 	c.stopped <- struct{}{}
 }
 
-func (c *Core) syncEventLoop(ctx context.Context) {
+func (c *Core) livenessTrackerLoop(ctx context.Context) {
 	/*
 		this method is responsible for asking the network to send us the current consensus state
 		and to process sync queries events.
@@ -319,7 +319,7 @@ eventLoop:
 			round = currentRound
 			height = currentHeight
 		case <-ctx.Done():
-			c.logger.Debug("syncEventLoop is stopped", "event", ctx.Err())
+			c.logger.Debug("livenessTrackerLoop is stopped", "event", ctx.Err())
 			break eventLoop
 
 		}

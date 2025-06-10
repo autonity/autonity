@@ -3,6 +3,7 @@ package backend
 import (
 	"bytes"
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"io"
 	"testing"
@@ -107,7 +108,7 @@ func TestSynchronisationMessage(t *testing.T) {
 		b := &Backend{
 			database:           rawdb.NewMemoryDatabase(),
 			logger:             log.New("backend", "test", "id", 0),
-			askSyncRateLimiter: helpers.NewTimeWindowLimiter(time.Second*askSyncInterval, 2),
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(time.Second*constants.AskSyncInterval, 2),
 		}
 		b.coreStarting.Store(true)
 		b.coreRunning.Store(true)

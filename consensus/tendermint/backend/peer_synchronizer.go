@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-const askSyncInterval = 5 // the interval in seconds to check the liveness and rise AskSync request.
-
 const cleanUpInterval = 60 // 60s
 
 func (b *Backend) startRateLimiterGCRoutine() {

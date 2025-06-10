@@ -20,7 +20,6 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
-const AskSyncInterval = 5 // the interval in seconds to check the liveness and rise AskSync request.
 const EventQueueSize = 100
 
 // New creates a Tendermint consensus Core
