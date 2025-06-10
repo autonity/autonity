@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 	"sync"
-	"sync/atomic" //nolint
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -48,11 +47,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		stepChange:             time.Now(),
 		noGossip:               noGossip,
 		eventCh:                make(chan events.CoreEvent, EventQueueSize),
-		syncState:              &SyncState{},
 	}
-	c.syncState.SetOutOfSync(false)             // initial state
-	c.syncState.SetLastValidMsgTime(time.Now()) // set initial timestamp
-	c.syncState.SetSyncTimeOut(syncTimeOut)     // e.g., syncTimeOut = 10*time.Second
 	c.SetDefaultHandlers()
 	if services != nil {
 		c.broadcaster = services.Broadcaster(c)
@@ -70,36 +65,6 @@ func (c *Core) SetDefaultHandlers() {
 	c.proposer = &Proposer{c}
 }
 
-type SyncState struct {
-	outOfSync        atomic.Bool
-	lastValidMsgTime atomic.Int64
-	timeOut          atomic.Int64
-}
-
-func (s *SyncState) SetOutOfSync(val bool) {
-	s.outOfSync.Store(val)
-}
-
-func (s *SyncState) IsOutOfSync() bool {
-	return s.outOfSync.Load()
-}
-
-func (s *SyncState) SetLastValidMsgTime(t time.Time) {
-	s.lastValidMsgTime.Store(t.UnixNano())
-}
-
-func (s *SyncState) GetLastValidMsgTime() time.Time {
-	return time.Unix(0, s.lastValidMsgTime.Load())
-}
-
-func (s *SyncState) SetSyncTimeOut(d time.Duration) {
-	s.timeOut.Store(int64(d))
-}
-
-func (s *SyncState) GetSyncTimeOut() time.Duration {
-	return time.Duration(s.timeOut.Load())
-}
-
 type Core struct {
 	blockPeriod uint64
 	address     common.Address
@@ -114,7 +79,6 @@ type Core struct {
 	timeoutEventSub     *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
-	syncState           *SyncState
 
 	// map[Height]UnminedBlock
 	pendingCandidateBlocks map[uint64]*types.Block
@@ -402,16 +366,6 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 	}
 	c.processFuture(previousRound, round)
 	c.SendEvent(events.NewRoundChangeEvent(c.Height().Uint64(), round))
-}
-
-func (c *Core) updateSyncTimeout(timeout time.Duration) {
-	// if a round timer is greater than the current sync timeout, update the sync timeout
-	if timeout > c.syncState.GetSyncTimeOut() {
-		c.syncState.SetSyncTimeOut(timeout)
-	} else {
-		// otherwise reset to default
-		c.syncState.SetSyncTimeOut(syncTimeOut)
-	}
 }
 
 func (c *Core) setInitialState(r int64) {

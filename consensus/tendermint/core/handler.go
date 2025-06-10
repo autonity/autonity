@@ -192,10 +192,6 @@ eventLoop:
 					}
 				}
 
-				// valid message, reset sync timeout
-				c.syncState.SetLastValidMsgTime(time.Now())
-				c.syncState.SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
-
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
@@ -229,10 +225,6 @@ eventLoop:
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
 					continue
 				}
-
-				// valid message, reset sync timeout
-				c.syncState.SetLastValidMsgTime(time.Now())
-				c.syncState.SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
 
 				if !c.noGossip {
 					if !hadQuorum {
@@ -299,29 +291,24 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 	syncMsg := c.createSyncMsg()
 	c.backend.AskSync(c.committee.Committee(), syncMsg)
 
+	ticker := time.NewTicker(time.Second * constants.AskSyncInterval)
+	defer ticker.Stop()
+
 eventLoop:
 	for {
 		select {
-		case <-time.After(time.Second * constants.AskSyncInterval): //check for sync every 5 seconds
-
-			if time.Since(c.syncState.GetLastValidMsgTime()) < c.syncState.GetSyncTimeOut() {
-				c.logger.Debug("Sync timeout not reached yet", "last valid message received", c.syncState.GetLastValidMsgTime(), "sync timeout", c.syncState.GetSyncTimeOut())
-				round = c.Round()
-				height = c.Height()
-				continue
-			}
+		case <-ticker.C:
 			currentRound := c.Round()
 			currentHeight := c.Height()
 
-			// we only ask for sync if the current view stayed the same for the past 30 seconds
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
-				c.logger.Warn("⚠️ Consensus liveliness lost", "node", c.Address(), "height", height, "round", round, "step", c.Step())
+				c.logger.Warn("⚠️ Consensus liveliness lost")
 				syncMsg = c.createSyncMsg()
 				c.backend.AskSync(c.committee.Committee(), syncMsg)
-				c.syncState.SetOutOfSync(true)
 			}
 			round = currentRound
 			height = currentHeight
+
 		case <-ctx.Done():
 			c.logger.Debug("livenessTrackerLoop is stopped", "event", ctx.Err())
 			break eventLoop
