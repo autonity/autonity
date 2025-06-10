@@ -592,10 +592,11 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 
 func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent, eventer eventBuilder) {
 	proposal := proposalEvent.Message
-	if err := proposal.Validate(); err != nil {
-		a.handleInvalidMessage(proposalEvent.ErrCh, err, proposalEvent.Sender)
-		return
-	}
+	// review: proposal validated in backend, so we do not validate it here
+	//if err := proposal.Validate(); err != nil {
+	//	a.handleInvalidMessage(proposalEvent.ErrCh, err, proposalEvent.Sender)
+	//	return
+	//}
 	go a.backend.Post(eventer(proposal, proposalEvent.ErrCh))
 }
 

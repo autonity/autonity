@@ -91,6 +91,15 @@ func (g *Gossiper) gossip(msg message.Msg, recipients []common.Address) {
 	if msg.Originator() == g.address {
 		g.knownMessages.Add(hash, true)
 	}
+	// if it's an aggregate the originator is the representative of the signers, so check in cache first and then add
+	switch m := msg.(type) {
+	case *message.Prevote:
+	case *message.Precommit:
+		if m.Signers().Len() > 1 && !g.knownMessages.Contains(hash) {
+			g.knownMessages.Add(hash, true)
+		}
+	}
+
 	if g.broadcaster == nil {
 		return
 	}

@@ -204,6 +204,12 @@ eventLoop:
 					}
 				}
 
+				// proposals are already gossiped in backend
+				if msg.Code() == message.ProposalCode {
+					recordMessageProcessingTime(msg.Code(), start)
+					continue
+				}
+
 				// valid message, mark liveness time unless it was redundant
 				if !errors.Is(err, constants.ErrRedundantVote) {
 					c.syncState.setLastLivenessTime(time.Now())
@@ -224,6 +230,8 @@ eventLoop:
 						go func() {
 							c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 						}()
+					} else {
+						go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 					}
 				}
 				recordMessageProcessingTime(msg.Code(), start)
@@ -254,6 +262,12 @@ eventLoop:
 					c.syncState.setLastLivenessTime(time.Now())
 				}
 
+				// proposals are already gossiped in backend
+				if msg.Code() == message.ProposalCode {
+					recordMessageProcessingTime(msg.Code(), start)
+					continue
+				}
+
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
@@ -265,6 +279,13 @@ eventLoop:
 							break // do not gossip single message, only complex aggregate
 						}
 					}
+				}
+				if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
+					go func() {
+						c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
+					}()
+				} else {
+					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 				}
 				recordMessageProcessingTime(msg.Code(), start)
 			case StateRequestEvent:
@@ -294,7 +315,6 @@ eventLoop:
 			if !ok {
 				break eventLoop
 			}
-
 			c.precommiter.HandleCommit(ctx)
 		case <-ctx.Done():
 			c.logger.Debug("Tendermint core main loop stopped", "event", ctx.Err())
