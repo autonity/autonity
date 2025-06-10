@@ -295,9 +295,7 @@ func (c *Committee) Copy() *Committee {
 		}
 	}
 
-	// update the total voting power of the cloned object
-	clone.TotalVotingPower()
-
+	// total voting power should not be copied, it is computed on demand.
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	if c.membersMap != nil {
