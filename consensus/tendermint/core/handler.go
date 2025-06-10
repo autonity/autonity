@@ -291,7 +291,7 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 	syncMsg := c.createSyncMsg()
 	c.backend.AskSync(c.committee.Committee(), syncMsg)
 
-	ticker := time.NewTicker(time.Second * constants.AskSyncInterval)
+	ticker := time.NewTicker(time.Second * constants.SyncTimeout)
 	defer ticker.Stop()
 
 eventLoop:
