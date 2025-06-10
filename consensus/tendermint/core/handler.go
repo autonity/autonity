@@ -16,8 +16,6 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
-const syncTimeOut = 30 * time.Second
-
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
 	chainHead := c.backend.HeadBlock().Header()
