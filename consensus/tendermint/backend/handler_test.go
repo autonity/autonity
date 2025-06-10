@@ -3,6 +3,7 @@ package backend
 import (
 	"bytes"
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"io"
 	"testing"
 	"time"
@@ -103,13 +104,19 @@ func TestSynchronisationMessage(t *testing.T) {
 	})
 
 	t.Run("engine running, msg cannot be decoded", func(t *testing.T) {
-		_, b := newBlockChain(1)
+		b := &Backend{
+			database:           rawdb.NewMemoryDatabase(),
+			logger:             log.New("backend", "test", "id", 0),
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(time.Second*askSyncInterval, 2),
+		}
+		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		broadcaster := consensus.NewMockBroadcaster(ctrl)
 		broadcaster.EXPECT().FindPeer(testAddress).Return(mockedPeer, true).AnyTimes()
-		b.SetBroadcaster(broadcaster)
+		b.Broadcaster = broadcaster
 
 		b.coreStarting.Store(true)
 		b.coreRunning.Store(true)
