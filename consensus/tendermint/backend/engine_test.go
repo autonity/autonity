@@ -522,8 +522,7 @@ func fakeAggregator() *aggregator {
 
 func TestClose(t *testing.T) {
 	t.Run("engine is not running, error returned", func(t *testing.T) {
-		b := &Backend{
-			database: rawdb.NewMemoryDatabase()}
+		b := &Backend{ database: rawdb.NewMemoryDatabase() }
 
 		err := b.Close()
 		assertError(t, ErrStoppedEngine, err)
@@ -538,12 +537,15 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 		coreEventCh := make(chan events.CoreEvent, 10)
 		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
+		mockRouter := interfaces.NewMockRouter(ctrl)
+		mockRouter.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
 			database:   rawdb.NewMemoryDatabase(),
 			core:       tendermintC,
 			aggregator: fakeAggregator(),
 			stopped:    make(chan struct{}),
+			router: mockRouter,
 		}
 		b.coreStarting.Store(true)
 		b.coreRunning.Store(true)
@@ -646,7 +648,8 @@ func TestStart(t *testing.T) {
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
-
+		mockRouter := interfaces.NewMockRouter(ctrl)
+		mockRouter.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		b := &Backend{
 			database:   rawdb.NewMemoryDatabase(),
 			core:       tendermintC,
@@ -654,6 +657,7 @@ func TestStart(t *testing.T) {
 			blockchain: chain,
 			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
 			logger:     log.Root(),
+			router:   mockRouter,
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 
