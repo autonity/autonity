@@ -311,23 +311,13 @@ eventLoop:
 		// check for sync every 5s.
 		case <-ticker.C:
 
-			// discuss below approach to solve the two issues:
-			//  1: the unaccountable prevote nil, or precommit nil from malicious node can prevent node from asking.
-			//  2: in the clustering partition context, lost sync can be consistent even if there are consensus
-			//  messaging within a cluster.
-
-			syncTimeout := c.syncState.GetSyncTimeOut()
-			if time.Since(c.syncState.GetLastValidMsgTime()) < syncTimeout {
-				// syncTimeout is less than default timeout, do not intervene.
-				if syncTimeout < constants.DefaultSyncTimeout {
-					c.logger.Debug("Sync timeout not reached yet", "last valid message received", c.syncState.GetLastValidMsgTime(), "sync timeout", syncTimeout)
-					round = c.Round()
-					height = c.Height()
-					continue
-				}
-				// syncTimeout is over default timeout, that means there is critical liveness problem in the network,
-				// in this case, check to ask for sync for every 5s.
-				c.logger.Debug("Sync timeout is over default timeout, force to check asking for sync", "timeout", syncTimeout)
+			if time.Since(c.syncState.GetLastValidMsgTime()) < c.syncState.GetSyncTimeOut() {
+				// syncTimeout is less than the planed timeout, do not intervene.
+				c.logger.Debug("Sync timeout not reached yet", "last valid message received",
+					c.syncState.GetLastValidMsgTime(), "sync timeout", c.syncState.GetSyncTimeOut())
+				round = c.Round()
+				height = c.Height()
+				continue
 			}
 
 			currentRound := c.Round()

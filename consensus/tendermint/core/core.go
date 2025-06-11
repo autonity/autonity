@@ -406,7 +406,9 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 func (c *Core) updateSyncTimeout(timeout time.Duration) {
 	// if a round timer is greater than the current sync timeout, update the sync timeout
 	if timeout > c.syncState.GetSyncTimeOut() {
-		c.syncState.SetSyncTimeOut(timeout)
+		// as tendermint can generate nil prevote/precomit after round timeout,
+		// thus we add a few buffer to the livenessTrack to reduce the unnecessary ask-syncs.
+		c.syncState.SetSyncTimeOut(timeout + time.Second*3)
 	} else {
 		// otherwise reset to default
 		c.syncState.SetSyncTimeOut(constants.DefaultSyncTimeout)
