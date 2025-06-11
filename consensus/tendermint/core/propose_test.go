@@ -367,6 +367,7 @@ func TestHandleProposal(t *testing.T) {
 			precommitTimeout: NewTimeout(Precommit, logger),
 			committee:        committeeSet,
 			step:             Precommit,
+			syncState:        &SyncState{},
 		}
 		c.SetDefaultHandlers()
 		defer c.proposeTimeout.StopTimer()   // nolint: errcheck

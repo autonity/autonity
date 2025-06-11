@@ -303,6 +303,7 @@ func TestHandlePrevote(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, log.Root()),
 			prevoteTimeout:   NewTimeout(Prevote, log.Root()),
 			precommitTimeout: NewTimeout(Precommit, log.Root()),
+			syncState:        &SyncState{},
 		}
 		c.SetDefaultHandlers()
 
