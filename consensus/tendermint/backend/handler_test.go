@@ -164,6 +164,8 @@ func TestNewChainHead(t *testing.T) {
 		chain, _ := newBlockChain(1)
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
+		mockRouter := interfaces.NewMockRouter(ctrl)
+		mockRouter.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 
 		b := &Backend{
 			database:            rawdb.NewMemoryDatabase(),
@@ -174,6 +176,7 @@ func TestNewChainHead(t *testing.T) {
 			eventMux:            event.NewTypeMuxSilent(nil, log.Root()),
 			askSyncRateLimiter:  helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 			logger:              log.Root(),
+			router:              mockRouter,
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.Start(ctx)
