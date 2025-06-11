@@ -21,7 +21,7 @@ import (
 // is a base on an local simulator which generates [0, 500) ms delays.
 func TestClusteringHappyCase(t *testing.T) {
 	// mocked service with a local ping simulator which generates [0, 500) ms latency.
-	mockedService := &interfaces.Services{Pinger: NewSimulatedPinger()}
+	mockedService := &interfaces.Services{Pinger: newSimulatedPinger}
 
 	validators, err := e2e.Validators(t, 10, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
@@ -43,7 +43,7 @@ func TestClusteringHappyCase(t *testing.T) {
 // mining.
 func TestClusteringResetAllNodes(t *testing.T) {
 	numOfNodes := 36
-	mockedService := &interfaces.Services{Pinger: NewSimulatedPinger()}
+	mockedService := &interfaces.Services{Pinger: newSimulatedPinger}
 
 	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
@@ -72,7 +72,7 @@ func TestClusteringResetAllNodes(t *testing.T) {
 // F nodes one by one, the network should keep mining all the time.
 func TestClusteringResetFNodes(t *testing.T) {
 	numOfNodes := 36
-	mockedService := &interfaces.Services{Pinger: NewSimulatedPinger()}
+	mockedService := &interfaces.Services{Pinger: newSimulatedPinger}
 
 	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
@@ -115,11 +115,7 @@ func TestClusteringResetFNodes(t *testing.T) {
 // NoRelayingSelector is used for not to relay proposal in the network for Faulty nodes.
 type NoRelayingSelector struct{}
 
-func NewNoRelayingSelector() func() routerInterfaces.PeerSelector {
-	return func() routerInterfaces.PeerSelector {
-		return &NoRelayingSelector{}
-	}
-}
+var newNoRelayingSelector = func(_ interfaces.Router) routerInterfaces.PeerSelector { return &NoRelayingSelector{} }
 
 func (r *NoRelayingSelector) SetBroadcaster(_ routerInterfaces.PeerFinder) {
 }
@@ -150,7 +146,7 @@ func (r *NoRelayingSelector) SelectPeers(committee *types.Committee, msg message
 
 func TestFFaultyRelayers(t *testing.T) {
 	numOfNodes := 36
-	pinger := NewSimulatedPinger()
+	pinger := newSimulatedPinger
 
 	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
@@ -160,7 +156,7 @@ func TestFFaultyRelayers(t *testing.T) {
 	for i, validator := range validators {
 		mockedService := &interfaces.Services{Pinger: pinger}
 		if int64(i) < f {
-			mockedService.Selector = NewNoRelayingSelector()
+			mockedService.Selector = newNoRelayingSelector
 		}
 		validator.TendermintServices = mockedService
 	}
@@ -175,7 +171,7 @@ func TestFFaultyRelayers(t *testing.T) {
 
 func Test2FFaultyRelayers(t *testing.T) {
 	numOfNodes := 36
-	pinger := NewSimulatedPinger()
+	pinger := newSimulatedPinger
 
 	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
@@ -186,7 +182,7 @@ func Test2FFaultyRelayers(t *testing.T) {
 	for i, validator := range validators {
 		mockedService := &interfaces.Services{Pinger: pinger}
 		if int64(i) < overF {
-			mockedService.Selector = NewNoRelayingSelector()
+			mockedService.Selector = newNoRelayingSelector
 		}
 		validator.TendermintServices = mockedService
 	}
@@ -201,7 +197,7 @@ func Test2FFaultyRelayers(t *testing.T) {
 
 func Test3FFaultyRelayers(t *testing.T) {
 	numOfNodes := 36
-	pinger := NewSimulatedPinger()
+	pinger := newSimulatedPinger
 
 	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
@@ -212,7 +208,7 @@ func Test3FFaultyRelayers(t *testing.T) {
 	for i, validator := range validators {
 		mockedService := &interfaces.Services{Pinger: pinger}
 		if int64(i) < overF {
-			mockedService.Selector = NewNoRelayingSelector()
+			mockedService.Selector = newNoRelayingSelector
 		}
 		validator.TendermintServices = mockedService
 	}

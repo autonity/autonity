@@ -28,7 +28,6 @@ import (
 type MockChainContext struct {
 	ctrl     *gomock.Controller
 	recorder *MockChainContextMockRecorder
-	isgomock struct{}
 }
 
 // MockChainContextMockRecorder is the mock recorder for MockChainContext.

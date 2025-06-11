@@ -29,7 +29,6 @@ import (
 type MockChainHeaderReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockChainHeaderReaderMockRecorder
-	isgomock struct{}
 }
 
 // MockChainHeaderReaderMockRecorder is the mock recorder for MockChainHeaderReader.
@@ -152,7 +151,6 @@ func (mr *MockChainHeaderReaderMockRecorder) GetTd(hash, number any) *gomock.Cal
 type MockChainReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockChainReaderMockRecorder
-	isgomock struct{}
 }
 
 // MockChainReaderMockRecorder is the mock recorder for MockChainReader.
@@ -318,7 +316,6 @@ func (mr *MockChainReaderMockRecorder) GetTd(hash, number any) *gomock.Call {
 type MockEngine struct {
 	ctrl     *gomock.Controller
 	recorder *MockEngineMockRecorder
-	isgomock struct{}
 }
 
 // MockEngineMockRecorder is the mock recorder for MockEngine.
@@ -541,7 +538,6 @@ func (mr *MockEngineMockRecorder) VerifyUncles(chain, block any) *gomock.Call {
 type MockHandler struct {
 	ctrl     *gomock.Controller
 	recorder *MockHandlerMockRecorder
-	isgomock struct{}
 }
 
 // MockHandlerMockRecorder is the mock recorder for MockHandler.
@@ -618,7 +614,6 @@ func (mr *MockHandlerMockRecorder) SetEnqueuer(arg0 any) *gomock.Call {
 type MockPoW struct {
 	ctrl     *gomock.Controller
 	recorder *MockPoWMockRecorder
-	isgomock struct{}
 }
 
 // MockPoWMockRecorder is the mock recorder for MockPoW.
@@ -855,7 +850,6 @@ func (mr *MockPoWMockRecorder) VerifyUncles(chain, block any) *gomock.Call {
 type MockBFT struct {
 	ctrl     *gomock.Controller
 	recorder *MockBFTMockRecorder
-	isgomock struct{}
 }
 
 // MockBFTMockRecorder is the mock recorder for MockBFT.
@@ -1092,7 +1086,6 @@ func (mr *MockBFTMockRecorder) VerifyUncles(chain, block any) *gomock.Call {
 type MockSyncer struct {
 	ctrl     *gomock.Controller
 	recorder *MockSyncerMockRecorder
-	isgomock struct{}
 }
 
 // MockSyncerMockRecorder is the mock recorder for MockSyncer.
@@ -1128,7 +1121,6 @@ func (mr *MockSyncerMockRecorder) SyncPeer(address any) *gomock.Call {
 type MockEnqueuer struct {
 	ctrl     *gomock.Controller
 	recorder *MockEnqueuerMockRecorder
-	isgomock struct{}
 }
 
 // MockEnqueuerMockRecorder is the mock recorder for MockEnqueuer.
@@ -1164,7 +1156,6 @@ func (mr *MockEnqueuerMockRecorder) Enqueue(id, block any) *gomock.Call {
 type MockBroadcaster struct {
 	ctrl     *gomock.Controller
 	recorder *MockBroadcasterMockRecorder
-	isgomock struct{}
 }
 
 // MockBroadcasterMockRecorder is the mock recorder for MockBroadcaster.
@@ -1231,7 +1222,6 @@ func (mr *MockBroadcasterMockRecorder) FindPeers(arg0 any) *gomock.Call {
 type MockPeer struct {
 	ctrl     *gomock.Controller
 	recorder *MockPeerMockRecorder
-	isgomock struct{}
 }
 
 // MockPeerMockRecorder is the mock recorder for MockPeer.

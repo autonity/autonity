@@ -24,7 +24,6 @@ import (
 type MockContractCaller struct {
 	ctrl     *gomock.Controller
 	recorder *MockContractCallerMockRecorder
-	isgomock struct{}
 }
 
 // MockContractCallerMockRecorder is the mock recorder for MockContractCaller.
@@ -78,7 +77,6 @@ func (mr *MockContractCallerMockRecorder) CodeAt(ctx, contract, blockNumber any)
 type MockPendingContractCaller struct {
 	ctrl     *gomock.Controller
 	recorder *MockPendingContractCallerMockRecorder
-	isgomock struct{}
 }
 
 // MockPendingContractCallerMockRecorder is the mock recorder for MockPendingContractCaller.
@@ -132,7 +130,6 @@ func (mr *MockPendingContractCallerMockRecorder) PendingCodeAt(ctx, contract any
 type MockContractTransactor struct {
 	ctrl     *gomock.Controller
 	recorder *MockContractTransactorMockRecorder
-	isgomock struct{}
 }
 
 // MockContractTransactorMockRecorder is the mock recorder for MockContractTransactor.
@@ -260,7 +257,6 @@ func (mr *MockContractTransactorMockRecorder) SuggestGasTipCap(ctx any) *gomock.
 type MockContractFilterer struct {
 	ctrl     *gomock.Controller
 	recorder *MockContractFiltererMockRecorder
-	isgomock struct{}
 }
 
 // MockContractFiltererMockRecorder is the mock recorder for MockContractFilterer.
@@ -314,7 +310,6 @@ func (mr *MockContractFiltererMockRecorder) SubscribeFilterLogs(ctx, query, ch a
 type MockDeployBackend struct {
 	ctrl     *gomock.Controller
 	recorder *MockDeployBackendMockRecorder
-	isgomock struct{}
 }
 
 // MockDeployBackendMockRecorder is the mock recorder for MockDeployBackend.
@@ -368,7 +363,6 @@ func (mr *MockDeployBackendMockRecorder) TransactionReceipt(ctx, txHash any) *go
 type MockContractBackend struct {
 	ctrl     *gomock.Controller
 	recorder *MockContractBackendMockRecorder
-	isgomock struct{}
 }
 
 // MockContractBackendMockRecorder is the mock recorder for MockContractBackend.

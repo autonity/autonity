@@ -5,17 +5,14 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 )
 
 // this type is used for local e2e testing.
 type simulatedPinger struct{}
 
-func NewSimulatedPinger() func() ping.Pinger {
-	return func() ping.Pinger {
-		return &simulatedPinger{}
-	}
-}
+var newSimulatedPinger = func(_ interfaces.Router) ping.Pinger { return &simulatedPinger{} }
 
 func (*simulatedPinger) Ping(_ context.Context, _ ping.Target) ping.Result {
 	// Generate random latency between 10ms and 500ms

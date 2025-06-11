@@ -22,7 +22,6 @@ import (
 type MockPinger struct {
 	ctrl     *gomock.Controller
 	recorder *MockPingerMockRecorder
-	isgomock struct{}
 }
 
 // MockPingerMockRecorder is the mock recorder for MockPinger.
@@ -60,7 +59,6 @@ func (mr *MockPingerMockRecorder) Ping(ctx, target any) *gomock.Call {
 type MockDialer struct {
 	ctrl     *gomock.Controller
 	recorder *MockDialerMockRecorder
-	isgomock struct{}
 }
 
 // MockDialerMockRecorder is the mock recorder for MockDialer.

@@ -19,7 +19,6 @@ import (
 type MockSubscription struct {
 	ctrl     *gomock.Controller
 	recorder *MockSubscriptionMockRecorder
-	isgomock struct{}
 }
 
 // MockSubscriptionMockRecorder is the mock recorder for MockSubscription.
