@@ -50,7 +50,6 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		eventCh:                make(chan events.CoreEvent, EventQueueSize),
 		syncState:              &SyncState{},
 	}
-	c.syncState.SetOutOfSync(false)
 	c.syncState.SetLastValidMsgTime(time.Now())
 	c.syncState.SetSyncTimeOut(constants.DefaultSyncTimeout)
 	c.SetDefaultHandlers()
@@ -71,14 +70,8 @@ func (c *Core) SetDefaultHandlers() {
 }
 
 type SyncState struct {
-	outOfSync        atomic.Bool
 	lastValidMsgTime atomic.Int64
 	timeOut          atomic.Int64
-}
-
-// todo: remove this outOfSync state, as it was not used at all.
-func (s *SyncState) SetOutOfSync(val bool) {
-	s.outOfSync.Store(val)
 }
 
 func (s *SyncState) SetLastValidMsgTime(t time.Time) {

@@ -192,7 +192,6 @@ eventLoop:
 
 				// valid message, reset sync timeout
 				c.syncState.SetLastValidMsgTime(time.Now())
-				c.syncState.SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
 
 				if !c.noGossip {
 					if !hadQuorum {
@@ -230,7 +229,6 @@ eventLoop:
 
 				// valid message, reset sync timeout
 				c.syncState.SetLastValidMsgTime(time.Now())
-				c.syncState.SetOutOfSync(false) // consider we are in sync, since we are receiving valid messages now
 
 				if !c.noGossip {
 					if !hadQuorum {
@@ -329,7 +327,6 @@ eventLoop:
 					"round", round, "step", c.Step())
 				syncMsg = c.createSyncMsg()
 				c.backend.AskSync(c.committee.Committee(), syncMsg)
-				c.syncState.SetOutOfSync(true)
 			}
 			round = currentRound
 			height = currentHeight
