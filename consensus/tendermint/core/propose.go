@@ -163,8 +163,10 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	}
 
 	// disable the optimistic block mining
-	// notify miner
-	// go c.Backend().ProposalVerified(proposal.Block())
+	// notify miner to start optimistic block mining base on cached state.
+	// enable the cache for optimistic block mining to reproduce the issue inconsistent state root issue.
+	go c.Backend().ProposalVerified(proposal.Block())
+
 	// Set the proposal for the current round
 	c.curRoundMessages.SetProposal(proposal, true)
 	c.LogProposalMessageEvent("MessageEvent(Proposal): Received", proposal)

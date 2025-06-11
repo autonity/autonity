@@ -188,6 +188,7 @@ func TestKeepResettingRandomOneNode(t *testing.T) {
 		// recover that faulty node.
 		err = network[nodeID].Start()
 		require.NoError(t, err)
+		time.Sleep(20 * time.Second)
 	}
 }
 
