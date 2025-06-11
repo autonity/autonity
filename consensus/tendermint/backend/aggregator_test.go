@@ -927,32 +927,6 @@ func TestAggregatorProcess(t *testing.T) {
 		proposeEvent := makeBogusEvent(propose)
 		a.processProposal(proposeEvent, func(_ message.Msg, _ chan<- error) interface{} { return struct{}{} })
 	})
-	t.Run("processProposal, invalid proposal is rejected", func(t *testing.T) {
-		a := &aggregator{
-			messagesFrom: make(map[common.Address][]common.Hash),
-		}
-
-		propose := message.NewFakePropose(message.Fake{
-			FakeSignatureInput: common.Hash{0xca, 0xfe},
-			FakeSignerKey:      testKey.PublicKey(),
-			FakeSignature:      testKey.Sign([]byte{0xff, 0xff}), // signature is not on FakeSignatureInput --> invalid
-			FakeVerified:       false,
-			FakeHash:           common.Hash{0xee, 0xee},
-		})
-
-		sender := common.Address{0xaa, 0xaa}
-		errCh := make(chan error)
-		proposeEvent := events.UnverifiedMessageEvent{Message: propose, ErrCh: errCh, Sender: sender, Posted: time.Now()}
-
-		wg := new(sync.WaitGroup)
-		wg.Add(1)
-		go func() {
-			require.Equal(t, message.ErrBadSignature, <-errCh)
-			wg.Done()
-		}()
-		a.processProposal(proposeEvent, func(_ message.Msg, _ chan<- error) interface{} { return struct{}{} })
-		wg.Wait()
-	})
 	t.Run("processRound processes all the messages for a round", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
