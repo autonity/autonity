@@ -655,7 +655,7 @@ func TestStart(t *testing.T) {
 			gossiper:           g,
 			blockchain:         chain,
 			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
-			askSyncRateLimiter: helpers.NewTimeWindowLimiter(time.Second*constants.AskSyncInterval, 2),
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 
@@ -667,7 +667,7 @@ func TestStart(t *testing.T) {
 	t.Run("engine is running, error returned", func(t *testing.T) {
 		b := &Backend{
 			database:           rawdb.NewMemoryDatabase(),
-			askSyncRateLimiter: helpers.NewTimeWindowLimiter(time.Second*constants.AskSyncInterval, 2),
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		}
 		b.coreStarting.Store(true)
 		b.coreRunning.Store(true)
@@ -696,7 +696,7 @@ func TestStart(t *testing.T) {
 			core:               tendermintC,
 			gossiper:           g,
 			blockchain:         chain,
-			askSyncRateLimiter: helpers.NewTimeWindowLimiter(time.Second*constants.AskSyncInterval, 2),
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
@@ -729,7 +729,7 @@ func TestStart(t *testing.T) {
 			core:               tendermintC,
 			gossiper:           g,
 			blockchain:         chain,
-			askSyncRateLimiter: helpers.NewTimeWindowLimiter(time.Second*constants.AskSyncInterval, 2),
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
@@ -791,7 +791,7 @@ func TestMultipleRestart(t *testing.T) {
 		core:               tendermintC,
 		gossiper:           g,
 		blockchain:         chain,
-		askSyncRateLimiter: helpers.NewTimeWindowLimiter(time.Second*constants.AskSyncInterval, 2),
+		askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
 	}
 	b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}

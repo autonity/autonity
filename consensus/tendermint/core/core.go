@@ -71,18 +71,14 @@ func (c *Core) SetDefaultHandlers() {
 }
 
 type SyncState struct {
-	// todo: remove this outOfSync as it is not used.
 	outOfSync        atomic.Bool
 	lastValidMsgTime atomic.Int64
 	timeOut          atomic.Int64
 }
 
+// todo: remove this outOfSync state, as it was not used at all.
 func (s *SyncState) SetOutOfSync(val bool) {
 	s.outOfSync.Store(val)
-}
-
-func (s *SyncState) IsOutOfSync() bool {
-	return s.outOfSync.Load()
 }
 
 func (s *SyncState) SetLastValidMsgTime(t time.Time) {

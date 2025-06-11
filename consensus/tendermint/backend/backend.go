@@ -74,7 +74,7 @@ func New(
 		knownMessages:      knownMessages,
 		vmConfig:           vmConfig,
 		MsgStore:           ms,
-		askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval*time.Second, 2),
+		askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		messageCh:          make(chan events.UnverifiedMessageEvent, 5000),
 		isHeightExpired:    isHeightExpired,
 		jailed: jailed{
