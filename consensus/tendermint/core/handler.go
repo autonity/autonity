@@ -277,7 +277,7 @@ eventLoop:
 			}
 
 			// committed msg comes from a chain head updated, it could come from the syncing from execution layer,
-			// or the miner's commitment. We should markt this msg's TS.
+			// or the miner's commitment. We should mark this msg's TS.
 			c.syncState.SetLastValidMsgTime(time.Now())
 
 			c.precommiter.HandleCommit(ctx)
