@@ -34,6 +34,7 @@ import (
 type MockBackend struct {
 	ctrl     *gomock.Controller
 	recorder *MockBackendMockRecorder
+	isgomock struct{}
 }
 
 // MockBackendMockRecorder is the mock recorder for MockBackend.
@@ -109,15 +110,15 @@ func (mr *MockBackendMockRecorder) BlockChain() *gomock.Call {
 }
 
 // Broadcast mocks base method.
-func (m *MockBackend) Broadcast(committee *types.Committee, message message.Msg) {
+func (m *MockBackend) Broadcast(committee *types.Committee, arg1 message.Msg) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Broadcast", committee, message)
+	m.ctrl.Call(m, "Broadcast", committee, arg1)
 }
 
 // Broadcast indicates an expected call of Broadcast.
-func (mr *MockBackendMockRecorder) Broadcast(committee, message any) *gomock.Call {
+func (mr *MockBackendMockRecorder) Broadcast(committee, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), committee, message)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockBackend)(nil).Broadcast), committee, arg1)
 }
 
 // Commit mocks base method.
@@ -178,15 +179,15 @@ func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 }
 
 // Gossip mocks base method.
-func (m *MockBackend) Gossip(committee *types.Committee, message message.Msg) {
+func (m *MockBackend) Gossip(committee *types.Committee, arg1 message.Msg) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Gossip", committee, message)
+	m.ctrl.Call(m, "Gossip", committee, arg1)
 }
 
 // Gossip indicates an expected call of Gossip.
-func (mr *MockBackendMockRecorder) Gossip(committee, message any) *gomock.Call {
+func (mr *MockBackendMockRecorder) Gossip(committee, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), committee, message)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), committee, arg1)
 }
 
 // Gossiper mocks base method.
@@ -388,22 +389,22 @@ func (mr *MockBackendMockRecorder) Sign(hash any) *gomock.Call {
 }
 
 // SlowGossip mocks base method.
-func (m *MockBackend) SlowGossip(committee *types.Committee, message message.Msg) {
+func (m *MockBackend) SlowGossip(committee *types.Committee, arg1 message.Msg) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SlowGossip", committee, message)
+	m.ctrl.Call(m, "SlowGossip", committee, arg1)
 }
 
 // SlowGossip indicates an expected call of SlowGossip.
-func (mr *MockBackendMockRecorder) SlowGossip(committee, message any) *gomock.Call {
+func (mr *MockBackendMockRecorder) SlowGossip(committee, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlowGossip", reflect.TypeOf((*MockBackend)(nil).SlowGossip), committee, message)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlowGossip", reflect.TypeOf((*MockBackend)(nil).SlowGossip), committee, arg1)
 }
 
 // Subscribe mocks base method.
-func (m *MockBackend) Subscribe(types ...any) *event.TypeMuxSubscription {
+func (m *MockBackend) Subscribe(arg0 ...any) *event.TypeMuxSubscription {
 	m.ctrl.T.Helper()
 	varargs := []any{}
-	for _, a := range types {
+	for _, a := range arg0 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Subscribe", varargs...)
@@ -412,9 +413,9 @@ func (m *MockBackend) Subscribe(types ...any) *event.TypeMuxSubscription {
 }
 
 // Subscribe indicates an expected call of Subscribe.
-func (mr *MockBackendMockRecorder) Subscribe(types ...any) *gomock.Call {
+func (mr *MockBackendMockRecorder) Subscribe(arg0 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockBackend)(nil).Subscribe), types...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockBackend)(nil).Subscribe), arg0...)
 }
 
 // SyncPeer mocks base method.
@@ -448,6 +449,7 @@ func (mr *MockBackendMockRecorder) VerifyProposal(arg0 any) *gomock.Call {
 type MockCore struct {
 	ctrl     *gomock.Controller
 	recorder *MockCoreMockRecorder
+	isgomock struct{}
 }
 
 // MockCoreMockRecorder is the mock recorder for MockCore.
@@ -663,6 +665,7 @@ func (mr *MockCoreMockRecorder) VotesPowerFor(h, r, code, v any) *gomock.Call {
 type MockRouter struct {
 	ctrl     *gomock.Controller
 	recorder *MockRouterMockRecorder
+	isgomock struct{}
 }
 
 // MockRouterMockRecorder is the mock recorder for MockRouter.
@@ -801,6 +804,7 @@ func (mr *MockRouterMockRecorder) Stop() *gomock.Call {
 type MockEventDispatcher struct {
 	ctrl     *gomock.Controller
 	recorder *MockEventDispatcherMockRecorder
+	isgomock struct{}
 }
 
 // MockEventDispatcherMockRecorder is the mock recorder for MockEventDispatcher.

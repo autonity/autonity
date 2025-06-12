@@ -29,6 +29,7 @@ import (
 type MockNetworkProvider struct {
 	ctrl     *gomock.Controller
 	recorder *MockNetworkProviderMockRecorder
+	isgomock struct{}
 }
 
 // MockNetworkProviderMockRecorder is the mock recorder for MockNetworkProvider.
@@ -78,6 +79,7 @@ func (mr *MockNetworkProviderMockRecorder) UpdateClusters(arg0 any) *gomock.Call
 type MockLatencyProvider struct {
 	ctrl     *gomock.Controller
 	recorder *MockLatencyProviderMockRecorder
+	isgomock struct{}
 }
 
 // MockLatencyProviderMockRecorder is the mock recorder for MockLatencyProvider.
@@ -155,6 +157,7 @@ func (mr *MockLatencyProviderMockRecorder) SetPinger(arg0 any) *gomock.Call {
 type MockPeerFinder struct {
 	ctrl     *gomock.Controller
 	recorder *MockPeerFinderMockRecorder
+	isgomock struct{}
 }
 
 // MockPeerFinderMockRecorder is the mock recorder for MockPeerFinder.
@@ -221,6 +224,7 @@ func (mr *MockPeerFinderMockRecorder) FindPeers(arg0 any) *gomock.Call {
 type MockPeerSelector struct {
 	ctrl     *gomock.Controller
 	recorder *MockPeerSelectorMockRecorder
+	isgomock struct{}
 }
 
 // MockPeerSelectorMockRecorder is the mock recorder for MockPeerSelector.
@@ -271,6 +275,7 @@ func (mr *MockPeerSelectorMockRecorder) SetBroadcaster(broadcaster any) *gomock.
 type MockBlockChainProvider struct {
 	ctrl     *gomock.Controller
 	recorder *MockBlockChainProviderMockRecorder
+	isgomock struct{}
 }
 
 // MockBlockChainProviderMockRecorder is the mock recorder for MockBlockChainProvider.
