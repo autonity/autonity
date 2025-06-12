@@ -51,11 +51,15 @@ func TestSendingValue(t *testing.T) {
 }
 
 // Used to find goroutines leaks
+// todo: fix the goroutines leaks on miner's taskLoop, newWorkLoop,
+//
+//	and those autonity contract binder's watcher loop.
 func TestStartStopNode(t *testing.T) {
 	network, err := NewNetwork(t, 1, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	time.Sleep(2 * time.Second)
 	network[0].Close(false)
+	time.Sleep(10 * time.Second)
 	buf := make([]byte, 1<<20)    // 1MB buffer for stack traces
 	n := runtime.Stack(buf, true) // true = dump all goroutines
 	t.Logf("Goroutine stack traces:\n%s", string(buf[:n]))
@@ -872,7 +876,7 @@ loop:
 	// turn off validator to restart it with new port
 	network[0].Close(true)
 
-	err = network.WaitToMineNBlocks(1, 10, false)
+	err = network.WaitToMineNBlocks(5, 10, false)
 	require.NoError(t, err)
 	// verify other client only has 3 connection now
 	require.Equal(t, 3, network[1].ConsensusServer().PeerCount(), "connection with paused validator is not dropped after it got evicted from committee")
@@ -880,6 +884,10 @@ loop:
 	// start the client again
 	network[0].Config.ConsensusP2P.ListenAddr = oldEnode.Host() + ":" + strconv.Itoa(newPort)
 	network[0].Start()
+	err = network.WaitToMineNBlocks(20, 30, false)
+	require.NoError(t, err)
+	// verify other client only has 4 connection now
+	require.Equal(t, 4, network[1].ConsensusServer().PeerCount(), "connection with paused validator is not dropped after it got evicted from committee")
 
 	// re-activate validator
 	_, err = autonityContract.ActivateValidator(transactor, network[0].Address)
