@@ -68,24 +68,35 @@ func (c *Core) SetDefaultHandlers() {
 }
 
 type SyncState struct {
-	lastValidMsgTime atomic.Int64
+	lastLivenessTime atomic.Int64
 	timeOut          atomic.Int64
 }
 
-func (s *SyncState) SetLastValidMsgTime(t time.Time) {
-	s.lastValidMsgTime.Store(t.UnixNano())
+func (s *SyncState) setLastLivenessTime(t time.Time) {
+	s.lastLivenessTime.Store(t.UnixNano())
 }
 
-func (s *SyncState) GetLastValidMsgTime() time.Time {
-	return time.Unix(0, s.lastValidMsgTime.Load())
+func (s *SyncState) getLastLivenessTime() time.Time {
+	return time.Unix(0, s.lastLivenessTime.Load())
 }
 
-func (s *SyncState) SetSyncTimeOut(d time.Duration) {
+func (s *SyncState) setSyncTimeout(d time.Duration) {
 	s.timeOut.Store(int64(d))
 }
 
-func (s *SyncState) GetSyncTimeOut() time.Duration {
+func (s *SyncState) getSyncTimeout() time.Duration {
 	return time.Duration(s.timeOut.Load())
+}
+
+// updateSyncTimeout is called to adjust the sync timeout according to the dynamic timeouts of tendermint steps.
+func (s *SyncState) updateSyncTimeout(timeout time.Duration) {
+	// if a round timer is greater than the current sync timeout, update the sync timeout
+	// this ensures that if we progress of rounds ( >> 0), we won't flood the network uselessly with ask-syncs
+	if timeout > s.getSyncTimeout() {
+		// as tendermint can generate nil prevote/precomit after round timeout,
+		// thus we add a few buffer seconds to reduce unnecessary ask-syncs.
+		s.setSyncTimeout(timeout + constants.AskSyncBufferTime)
+	}
 }
 
 type Core struct {
@@ -357,6 +368,11 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		c.logger.Crit("⚠️ CONSENSUS FAILED ⚠️")
 	}
 
+	// if the node is starting a new height, reset the timeout to the default value
+	if round == 0 {
+		c.syncState.setSyncTimeout(constants.DefaultSyncTimeout)
+	}
+
 	previousRound := c.Round()
 
 	c.measureHeightRoundMetrics(round)
@@ -385,25 +401,12 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		}
 	} else {
 		timeoutDuration := c.timeoutPropose(round)
-		c.updateSyncTimeout(timeoutDuration)
+		c.syncState.updateSyncTimeout(timeoutDuration)
 		c.proposeTimeout.ScheduleTimeout(timeoutDuration, round, c.Height(), c.onTimeoutPropose)
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
 	c.processFuture(previousRound, round)
 	c.SendEvent(events.NewRoundChangeEvent(c.Height().Uint64(), round))
-}
-
-// updateSyncTimeout is called to adjust the sync timeout by according to the dynamic timeout of round and steps.
-func (c *Core) updateSyncTimeout(timeout time.Duration) {
-	// if a round timer is greater than the current sync timeout, update the sync timeout
-	if timeout > c.syncState.GetSyncTimeOut() {
-		// as tendermint can generate nil prevote/precomit after round timeout,
-		// thus we add a few buffer to the livenessTrack to reduce the unnecessary ask-syncs.
-		c.syncState.SetSyncTimeOut(timeout + time.Second*3)
-	} else {
-		// otherwise reset to default
-		c.syncState.SetSyncTimeOut(constants.DefaultSyncTimeout)
-	}
 }
 
 func (c *Core) setInitialState(r int64) {
@@ -506,6 +509,9 @@ func (c *Core) SetStep(ctx context.Context, step Step) {
 	c.logger.Debug("Step change", "from", c.step.String(), "to", step.String(), "round", c.Round())
 	c.step = step
 	c.stepChange = now
+
+	// mark liveness timestamp
+	c.syncState.setLastLivenessTime(time.Now())
 
 	// stop consensus timeouts
 	c.stopAllTimeouts()
