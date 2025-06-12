@@ -193,8 +193,8 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	})
 }
 
-func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) {
-	sb.gossiper.AskSync(committee, syncMsg)
+func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
+	return sb.gossiper.AskSync(committee, syncMsg)
 }
 
 // Gossip implements tendermint.Backend.Gossip

@@ -1,6 +1,8 @@
 package backend
 
 import (
+	"fmt"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
@@ -74,16 +76,16 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	}
 }
 
-func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) {
+func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
 	// bail out early if we don't have a broadcaster
 	if g.broadcaster == nil {
-		return
+		return fmt.Errorf("broadcaster not initialized")
 	}
 
 	encoded, err := rlp.EncodeToBytes(syncMsg)
 	if err != nil {
 		log.Error("Error encoding sync msg", "err", err)
-		return
+		panic("cannot encode sync message")
 	}
 
 	// send to everyone except ourselves
@@ -96,17 +98,18 @@ func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncM
 
 	// bail out if the local validator is the only one in the committee
 	if len(targets) == 0 {
-		return
+		return fmt.Errorf("no one to ask sync to")
 	}
 
 	ps := g.broadcaster.FindPeers(targets)
 	// bail out if we cannot find any peers
 	if len(ps) == 0 {
-		return
+		return fmt.Errorf("cannot find any peers")
 	}
 
 	for addr, p := range ps {
 		g.logger.Debug("Asking sync to", "addr", addr)
 		go p.Send(message.SyncNetworkMsg, encoded) //nolint
 	}
+	return nil
 }

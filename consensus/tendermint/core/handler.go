@@ -288,9 +288,15 @@ eventLoop:
 // - asking the network to send us the current consensus state if so
 func (c *Core) livenessTrackerLoop(ctx context.Context) {
 
-	// Ask for sync when the engine starts
-	syncMsg := c.createSyncMsg()
-	c.backend.AskSync(c.committee.Committee(), syncMsg)
+	// Ask for sync when the engine starts. Retry until sync succeeds
+	for {
+		err := c.backend.AskSync(c.committee.Committee(), c.createSyncMsg())
+		if err == nil {
+			break
+		}
+		c.logger.Warn("Failed to ask initial consensus sync, retrying...", "err", err)
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	ticker := time.NewTicker(constants.AskSyncInterval)
 	defer ticker.Stop()
@@ -309,8 +315,11 @@ eventLoop:
 
 			// no liveness for more than currentSyncTimeout --> askSync to the other nodes
 			c.logger.Warn("⚠️ Consensus liveliness lost", "node", c.Address(), "height", c.Height(), "round", c.Round(), "step", c.Step())
-			syncMsg = c.createSyncMsg()
-			c.backend.AskSync(c.committee.Committee(), syncMsg)
+			err := c.backend.AskSync(c.committee.Committee(), c.createSyncMsg())
+			if err != nil {
+				c.logger.Warn("Failed to ask consensus sync", "err", err)
+				// will automatically retry at next iteration
+			}
 
 		case <-ctx.Done():
 			c.logger.Debug("livenessTrackerLoop is stopped", "event", ctx.Err())
