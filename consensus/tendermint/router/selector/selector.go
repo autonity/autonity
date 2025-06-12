@@ -142,7 +142,7 @@ func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 	return selected, nil
 }
 
-func (s *selector) selectRemoteNodesByLatencySpread() []network.Node {
+func (s *selector) selectNodesByLatencySpread() []network.Node {
 	recipients := make([]network.Node, 0)
 	usedClusters := make(map[int]bool)
 
@@ -201,7 +201,7 @@ func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 
 	switch senderType {
 	case originator:
-		recipients = s.selectRemoteNodesByLatencySpread()
+		recipients = s.selectNodesByLatencySpread()
 		// additional nodes
 		targetLocalNodes := len(clusters.Base()[ownClusterID])
 		minNodes = 2
@@ -213,9 +213,9 @@ func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 		}
 		for clusterID := range clusters.Base() {
 			if clusterID == ownClusterID {
-				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, targetLocalNodes, lowLatencyNodes, []common.Address{from})...)
+				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, targetLocalNodes, lowLatencyNodes, []common.Address{clusters.Self(), from})...)
 			} else {
-				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{from})...)
+				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{clusters.Self(), from})...)
 			}
 		}
 
@@ -227,11 +227,11 @@ func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 			if clusterID == ownClusterID {
 				continue
 			}
-			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{from})...)
+			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{clusters.Self(), from})...)
 		}
 		// local cluster
 		minNodes = len(clusters.MembersByID(clusters.ID()))
-		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, []common.Address{from})...)
+		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, []common.Address{clusters.Self(), from})...)
 
 	case firstRelayerRemoteCluster: // now also includes messages from the first Relayer in origin cluster
 		// remote clusters
@@ -241,11 +241,11 @@ func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 			if clusterID == ownClusterID {
 				continue
 			}
-			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{from})...)
+			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{clusters.Self(), from})...)
 		}
 		// local cluster
 		minNodes = len(clusters.Base()[ownClusterID])
-		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, []common.Address{from})...)
+		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, []common.Address{clusters.Self(), from})...)
 
 	case localRelayerOriginCluster, localRelayerRemoteCluster:
 		localNodes := len(clusters.Base()[ownClusterID])
@@ -254,7 +254,7 @@ func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 			// Select sqrt(n) nodes from local cluster for proposal
 			targetLocalNodes = int(math.Sqrt(float64(localNodes)))
 		}
-		localCandidates := s.routingCandidatesFromCluster(ownClusterID, []common.Address{from}, committee)
+		localCandidates := s.routingCandidatesFromCluster(ownClusterID, []common.Address{clusters.Self(), from}, committee)
 		rand.Shuffle(len(localCandidates), func(i, j int) {
 			localCandidates[i], localCandidates[j] = localCandidates[j], localCandidates[i]
 		})

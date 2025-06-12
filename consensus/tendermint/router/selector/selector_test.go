@@ -220,7 +220,7 @@ func TestSelector_selectNodesByLatencySpread(t *testing.T) {
 	np.EXPECT().Clusters().Return(clusters).Times(1)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).Times(1)
 
-	nodes := selector.selectRemoteNodesByLatencySpread()
+	nodes := selector.selectNodesByLatencySpread()
 	assert.Len(t, nodes, 1, "Expected one node per remote cluster")
 	assert.Contains(t, nodes, network.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node 0x222")
 }
@@ -393,7 +393,7 @@ func TestSelector_routingCandidatesFromCluster(t *testing.T) {
 	np.EXPECT().Clusters().Return(clusters).Times(1)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).Times(1)
 
-	candidates := selector.routingCandidatesFromCluster(clusters.ID(), []common.Address{}, &committee)
+	candidates := selector.routingCandidatesFromCluster(clusters.ID(), []common.Address{self}, &committee)
 	assert.Len(t, candidates, 1, "Expected one candidate")
 	assert.Equal(t, common.HexToAddress("0x222"), candidates[0].Addr, "Expected node 0x222")
 }
