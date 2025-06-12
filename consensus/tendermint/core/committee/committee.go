@@ -138,7 +138,7 @@ func NewWeightedRandomSamplingCommittee(previousHeader *types.Header, committee 
 	return &WeightedRandomSamplingCommittee{
 		committee:        committee,
 		totalVotingPower: committee.TotalVotingPower(),
-		quorum:           new(big.Int).Set(bft.Quorum(committee.TotalVotingPower())),
+		quorum:           bft.Quorum(committee.TotalVotingPower()),
 		previousHeader:   previousHeader,
 		autonityContract: autonityContract,
 	}

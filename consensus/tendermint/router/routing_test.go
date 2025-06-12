@@ -41,7 +41,7 @@ func TestSetup(t *testing.T) {
 	nodeKey := newTestKey(t)
 	logger := log.New()
 
-	router := Setup(nodeKey, self, nil, logger)
+	router := Setup(nodeKey, self, logger)
 
 	assert.Equal(t, self, router.self, "Expected self address")
 	assert.Equal(t, nodeKey, router.nodeKey, "Expected node key")

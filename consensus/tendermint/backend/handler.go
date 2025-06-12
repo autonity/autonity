@@ -233,7 +233,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 			return true, err
 		}
 		// structured relaying happens after the pre-validation, only unknown msg is relayed.
-		if sb.router != nil && sb.core.Height().Uint64() == msg.H() { // same height messages early forward
+		if sb.core.Height().Uint64() == msg.H() { // same height messages early forward
 			go sb.router.Forward(committee, msg, sender)
 		}
 	case *message.Prevote, *message.Precommit:

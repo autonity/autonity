@@ -11,6 +11,6 @@ type Services struct {
 	Proposer    func(c Core) Proposer
 	Precommiter func(c Core) Precommiter
 	Gossiper    func(b Backend) Gossiper
-	Selector    func() interfaces.PeerSelector
-	Pinger      func() ping.Pinger
+	Selector    func(r Router) interfaces.PeerSelector
+	Pinger      func(r Router) ping.Pinger
 }

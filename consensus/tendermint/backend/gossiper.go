@@ -91,13 +91,10 @@ func (g *Gossiper) gossip(msg message.Msg, recipients []common.Address) {
 	if msg.Originator() == g.address {
 		g.knownMessages.Add(hash, true)
 	}
+
 	// if it's an aggregate the originator is the representative of the signers, so check in cache first and then add
-	switch m := msg.(type) {
-	case *message.Prevote:
-	case *message.Precommit:
-		if m.Signers().Len() > 1 && !g.knownMessages.Contains(hash) {
-			g.knownMessages.Add(hash, true)
-		}
+	if vote, isVote := msg.(message.Vote); isVote && vote.Signers().Len() > 1 && !g.knownMessages.Contains(hash) {
+		g.knownMessages.Add(hash, true)
 	}
 
 	if g.broadcaster == nil {
@@ -122,6 +119,7 @@ func (g *Gossiper) gossip(msg message.Msg, recipients []common.Address) {
 		}
 	}
 	if len(lostPeers) > 0 {
+		// this can happen if peers get disconnected on the ACN network
 		g.logger.Debug("peers not found", "len", len(lostPeers), "peers", lostPeers)
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
-	coreInterfaces "github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/cache"
 	"github.com/autonity/autonity/consensus/tendermint/router/constants"
@@ -26,19 +25,12 @@ import (
 func Setup(
 	nodeKey *ecdsa.PrivateKey,
 	self common.Address,
-	services *coreInterfaces.Services,
 	logger log.Logger,
 ) *Router {
 	peerCache := cache.New()
 	nw := &network.Network{}
 	pinger, _ := ping.NewPinger(ping.ProtocolTCP, logger)
 	peerSelector := selector.New(nw, peerCache)
-	if services != nil && services.Pinger != nil {
-		pinger = services.Pinger()
-	}
-	if services != nil && services.Selector != nil {
-		peerSelector = services.Selector()
-	}
 	fetcher := latency.NewFetcher(pinger)
 	return New(nodeKey, self, peerCache, fetcher, peerSelector, nw)
 }
@@ -88,6 +80,22 @@ func New(
 		clusteringThreshold: constants.ScaleThresholdForClustering,
 	}
 	return router
+}
+
+func (m *Router) Pinger() ping.Pinger {
+	return m.latencyFetcher.Pinger()
+}
+
+func (m *Router) SetPinger(pinger ping.Pinger) {
+	m.latencyFetcher.SetPinger(pinger)
+}
+
+func (m *Router) Selector() interfaces.PeerSelector {
+	return m.peerSelector
+}
+
+func (m *Router) SetSelector(selector interfaces.PeerSelector) {
+	m.peerSelector = selector
 }
 
 func (m *Router) committeeAddresses(committee *types.Committee) []common.Address {
