@@ -723,6 +723,7 @@ func (a *aggregator) oldHeightStats() {
 		}
 
 		sb := strings.Builder{}
+		sb.Grow(len(stats) * 100)
 
 		sb.WriteString("Stale message Statistics by Height and Round\n")
 		for height, rounds := range stats {
