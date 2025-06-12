@@ -50,8 +50,6 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		eventCh:                make(chan events.CoreEvent, EventQueueSize),
 		syncState:              &SyncState{},
 	}
-	c.syncState.SetLastValidMsgTime(time.Now())
-	c.syncState.SetSyncTimeOut(constants.DefaultSyncTimeout)
 	c.SetDefaultHandlers()
 	if services != nil {
 		c.broadcaster = services.Broadcaster(c)
