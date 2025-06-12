@@ -116,8 +116,8 @@ func (c *AutonityContract) CallGetCommitteeEnodes(state vm.StateDB, header *type
 	return types.NewNodes(returnedEnodes, asACN), nil
 }
 
-func (c *AutonityContract) CallGetConfig(state vm.StateDB, header *types.Header) (*bindings.AutonityConfig, error) {
-	var config bindings.AutonityConfig
+func (c *AutonityContract) CallGetConfig(state vm.StateDB, header *types.Header) (*bindings.IAutonityConfig, error) {
+	var config bindings.IAutonityConfig
 	_, err := AutonityContractCall(
 		c.contractABI,
 		c.evmProvider(header, params.DeployerAddress, state),
@@ -143,7 +143,7 @@ func (c *AutonityContract) CallGetClientConfig(state vm.StateDB, header *types.H
 		return nil, err
 	}
 
-	result := abi.ConvertType(data[0], new(bindings.AutonityClientAwareConfig)).(*bindings.AutonityClientAwareConfig)
+	result := abi.ConvertType(data[0], new(bindings.IAutonityClientAwareConfig)).(*bindings.IAutonityClientAwareConfig)
 
 	return &types.ContractsConfig{
 		EpochPeriod: result.EpochPeriod,
@@ -195,7 +195,7 @@ func (c *AutonityContract) CallEpochByHeight(state vm.StateDB, header *types.Hea
 		return nil, err
 	}
 
-	info := *abi.ConvertType(data[0], new(bindings.AutonityEpochInfo)).(*bindings.AutonityEpochInfo)
+	info := *abi.ConvertType(data[0], new(bindings.IAutonityEpochInfo)).(*bindings.IAutonityEpochInfo)
 
 	committee := &types.Committee{}
 	for _, member := range info.Committee {

@@ -143,7 +143,7 @@ func isValidatorInactive(r *Runner, targetHeight int64, validator common.Address
 	return inactive
 }
 
-func validator(r *Runner, addr common.Address) AutonityValidator {
+func validator(r *Runner, addr common.Address) IAutonityValidator {
 	val, _, err := r.Autonity.GetValidator(nil, addr)
 	require.NoError(r.T, err)
 	return val
@@ -182,9 +182,9 @@ func TestAccessControl(t *testing.T) {
 	_, err = r.OmissionAccountability.DistributeProposerRewards(FromAutonity, common.Big256)
 	require.NoError(r.T, err)
 
-	_, err = r.OmissionAccountability.SetCommittee(r.Operator, []AutonityCommitteeMember{}, []common.Address{})
+	_, err = r.OmissionAccountability.SetCommittee(r.Operator, []IAutonityCommitteeMember{}, []common.Address{})
 	require.Error(r.T, err)
-	_, err = r.OmissionAccountability.SetCommittee(FromAutonity, []AutonityCommitteeMember{}, []common.Address{})
+	_, err = r.OmissionAccountability.SetCommittee(FromAutonity, []IAutonityCommitteeMember{}, []common.Address{})
 	require.NoError(r.T, err)
 
 	_, err = r.OmissionAccountability.SetEpochBlock(r.Operator, common.Big256)
@@ -967,7 +967,7 @@ func TestRewardWithholding(t *testing.T) {
 		return config
 	})
 
-	extractNodeAddresses := func(vals []AutonityValidator) []common.Address {
+	extractNodeAddresses := func(vals []IAutonityValidator) []common.Address {
 		addresses := make([]common.Address, 0)
 		for _, val := range vals {
 			addresses = append(addresses, val.NodeAddress)

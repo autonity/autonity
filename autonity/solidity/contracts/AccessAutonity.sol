@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "./Autonity.sol";
+import "./interfaces/IAutonity.sol";
 
 contract AccessAutonity {
     
-    Autonity internal autonity;
+    IAutonity internal autonity;
 
-    constructor(address payable _autonity) {
-        autonity = Autonity(_autonity);
+    constructor(IAutonity _autonity) {
+        autonity = _autonity;
     }
 
     /*

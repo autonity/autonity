@@ -358,8 +358,8 @@ func (c *Caller) GetVersion() (uint64, error) {
 	return version, err
 }
 
-func (c *Caller) GetCommittee() ([]bindings.AutonityCommitteeMember, error) {
-	var committee []bindings.AutonityCommitteeMember
+func (c *Caller) GetCommittee() ([]bindings.IAutonityCommitteeMember, error) {
+	var committee []bindings.IAutonityCommitteeMember
 	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		cm, err := instance.GetCommittee(opts)
 		committee = cm
@@ -378,8 +378,8 @@ func (c *Caller) GetValidators() ([]common.Address, error) {
 	return validators, err
 }
 
-func (c *Caller) GetValidator(address common.Address) (bindings.AutonityValidator, error) {
-	var val bindings.AutonityValidator
+func (c *Caller) GetValidator(address common.Address) (bindings.IAutonityValidator, error) {
+	var val bindings.IAutonityValidator
 	err := c.execute(func(instance *bindings.Autonity, opts *bind.CallOpts) error {
 		v, err := instance.GetValidator(opts, address)
 		val = v

@@ -142,9 +142,9 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 // Main protocol steps
 // *
 
-func toContractConfig(acg *params.AutonityContractGenesis) bindings.AutonityConfig {
-	return bindings.AutonityConfig{
-		Policy: bindings.AutonityPolicy{
+func toContractConfig(acg *params.AutonityContractGenesis) bindings.IAutonityConfig {
+	return bindings.IAutonityConfig{
+		Policy: bindings.IAutonityPolicy{
 			TreasuryFee:              new(big.Int).SetUint64(acg.TreasuryFee),
 			MinBaseFee:               new(big.Int).SetUint64(acg.MinBaseFee),
 			DelegationRate:           new(big.Int).SetUint64(acg.DelegationRate),
@@ -158,7 +158,7 @@ func toContractConfig(acg *params.AutonityContractGenesis) bindings.AutonityConf
 			BaseFeeChangeDenominator: new(big.Int).SetUint64(acg.BaseFeeChangeDenominator),
 			ElasticityMultiplier:     new(big.Int).SetUint64(acg.ElasticityMultiplier),
 		},
-		Contracts: bindings.AutonityContracts{
+		Contracts: bindings.IAutonityContracts{
 			AccountabilityContract:         params.AccountabilityContractAddress,
 			OracleContract:                 params.OracleContractAddress,
 			AcuContract:                    params.ACUContractAddress,
@@ -169,7 +169,7 @@ func toContractConfig(acg *params.AutonityContractGenesis) bindings.AutonityConf
 			OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
 			AuctioneerContract:             params.AuctioneerContractAddress,
 		},
-		Protocol: bindings.AutonityProtocol{
+		Protocol: bindings.IAutonityProtocol{
 			OperatorAccount:      acg.Operator,
 			EpochPeriod:          new(big.Int).SetUint64(acg.EpochPeriod),
 			BlockPeriod:          new(big.Int).SetUint64(acg.BlockPeriod),

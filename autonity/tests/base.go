@@ -102,7 +102,7 @@ func (c *contract) CallMethod(methodHouse *contract, opts *runOptions, method st
 }
 
 type Committee struct {
-	Validators           []AutonityValidator
+	Validators           []IAutonityValidator
 	LiquidStateContracts []*ILiquid
 }
 
@@ -245,7 +245,7 @@ func (r *Runner) deployContract(
 // generates an activity proof signed by all committee members, `absentees` excluded
 // NOTE: if additional validators whose key is not in params.TestConsensusKey are registered in the tests,
 // then this func needs to be modified to add their signatures as well.
-func activityProof(committee []AutonityValidator, headerSeal common.Hash, absentees map[common.Address]struct{}) *types.AggregateSignature {
+func activityProof(committee []IAutonityValidator, headerSeal common.Hash, absentees map[common.Address]struct{}) *types.AggregateSignature {
 	var signatures []blst.Signature //nolint
 	signers := types.NewSigners(len(committee))
 	numSigners := 0
@@ -383,7 +383,7 @@ func (r *Runner) StakeableVestingContractObject(user common.Address, contractID 
 func (r *Runner) generateNewCommittee() {
 	committeeMembers, _, err := r.Autonity.GetCommittee(nil)
 	require.NoError(r.T, err)
-	r.Committee.Validators = make([]AutonityValidator, len(committeeMembers))
+	r.Committee.Validators = make([]IAutonityValidator, len(committeeMembers))
 	r.Committee.LiquidStateContracts = make([]*ILiquid, len(committeeMembers))
 	for i, member := range committeeMembers {
 		validator, _, err := r.Autonity.GetValidator(nil, member.Addr)
@@ -632,7 +632,7 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 
 	r.Operator = &runOptions{origin: genesisConfig.Config.AutonityContractConfig.Operator}
 
-	r.Committee.Validators = make([]AutonityValidator, 0, len(autonityGenesis.Validators))
+	r.Committee.Validators = make([]IAutonityValidator, 0, len(autonityGenesis.Validators))
 	for _, v := range autonityGenesis.Validators {
 		validator := genesisToAutonityVal(v)
 		r.Committee.Validators = append(r.Committee.Validators, validator)
@@ -652,8 +652,8 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 }
 
 // temporary until we find a better solution
-func genesisToAutonityVal(v *params.Validator) AutonityValidator {
-	return AutonityValidator{
+func genesisToAutonityVal(v *params.Validator) IAutonityValidator {
+	return IAutonityValidator{
 		Treasury:                 v.Treasury,
 		NodeAddress:              *v.NodeAddress,
 		OracleAddress:            v.OracleAddress,

@@ -3,6 +3,8 @@ pragma solidity ^0.8.0;
 
 import "./BeneficiaryHandler.sol";
 import "./ContractBase.sol";
+import "../ReentrancyGuard.sol";
+import "../interfaces/IScheduleController.sol";
 
 /**
  * @title Non-Stakeable Vesting Smart Contract for vesting funds
@@ -28,7 +30,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
 
     event NewNonStakeableContract(address indexed beneficiary, uint256 amount);
 
-    constructor(address payable _autonity) AccessAutonity(_autonity) {}
+    constructor(IAutonity _autonity) AccessAutonity(_autonity) {}
 
     /**
      * @notice Creates a new non-stakeable contract which subscribes to some schedule.
@@ -47,7 +49,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
         uint256 _scheduleID,
         uint256 _cliffDuration
     ) virtual onlyOperator external {
-        ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
+        IScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
         if (!_scheduleTracker.initialized) {
@@ -79,7 +81,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
      * @custom:restricted-to treasury account
      */
     function releaseAllFundsForTreasury(uint256 _scheduleID) virtual external onlyAutonityTreasury {
-        ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
+        IScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), _scheduleID);
         require(_schedule.lastUnlockTime >= _schedule.start + _schedule.totalDuration, "schedule total duration not expired yet");
         ScheduleTracker storage _scheduleTracker = scheduleTracker[_scheduleID];
 
@@ -181,7 +183,7 @@ contract NonStakeableVesting is BeneficiaryHandler, ContractBase, ReentrancyGuar
      * where schedule = schedule subsribed by the contract.
      */
     function _vestedFunds(uint256 _contractID) internal view returns (uint256) {
-        ScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), subscribedTo[_contractID]);
+        IScheduleController.Schedule memory _schedule = autonity.getSchedule(address(this), subscribedTo[_contractID]);
         return _calculateUnlockedFunds(
             _schedule.unlockedAmount,
             _schedule.totalAmount,

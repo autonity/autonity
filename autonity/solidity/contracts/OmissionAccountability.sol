@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.19;
 
-import {Autonity} from "./Autonity.sol";
-import "./interfaces/IAutonity.sol";
-import {Precompiled} from "./lib/Precompiled.sol";
-import {IOmissionAccountability} from "./interfaces/IOmissionAccountability.sol";
-import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";
 import {ReentrancyGuard} from "./ReentrancyGuard.sol";
+import "./interfaces/IAutonity.sol";
+import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
+import {IOmissionAccountability} from "./interfaces/IOmissionAccountability.sol";
+import {Precompiled} from "./lib/Precompiled.sol";
 
 contract OmissionAccountability is IOmissionAccountability, IConfigEvents, ReentrancyGuard {
     // Used for fixed-point arithmetic during computation of inactivity score
@@ -26,7 +25,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     }
 
     // shadow copies of variables in Autonity.sol, updated once a epoch
-    Autonity.CommitteeMember[] internal committee;
+    IAutonity.CommitteeMember[] internal committee;
     address[] internal treasuries; // treasuries of the committee members
     uint256 internal epochBlock;
 
@@ -59,7 +58,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     uint256[] internal epochCollusionDegree; // maps epoch number to the collusion degree
 
     Config internal config;
-    Autonity internal autonity; // for access control in setters function.
+    IAutonity internal autonity; // for access control in setters function.
 
     event InactivitySlashingEvent(address validator, uint256 amount, uint256 releaseBlock, bool isJailbound);
     event InactivityJailingEvent(address validator, uint256 releaseBlock);
@@ -75,10 +74,10 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
         require(_config.pastPerformanceWeight <= SCALE_FACTOR, "past performance weight cannot exceed scale factor");
         require(_config.initialSlashingRate <= SLASHING_RATE_SCALE_FACTOR, "initial slashing rate cannot exceed slashing rate scale factor");
 
-        autonity = Autonity(_autonity);
+        autonity = IAutonity(_autonity);
 
         // fetch committee and make sure that delta is set correctly in the autonity contract
-        Autonity.EpochInfo memory epochInfo = autonity.getEpochInfo();
+        IAutonity.EpochInfo memory epochInfo = autonity.getEpochInfo();
         require(epochInfo.omissionDelta == _config.delta, "mismatch between delta stored in Autonity contract and the one in Omission contract");
 
         operator = _operator;
@@ -86,7 +85,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
         for (uint256 i = 0; i < epochInfo.committee.length; i++) {
             committee.push(epochInfo.committee[i]);
             lastActive[committee[i].addr] = - 1;
-            Autonity.Validator memory _validator = autonity.getValidator(epochInfo.committee[i].addr);
+            IAutonity.Validator memory _validator = autonity.getValidator(epochInfo.committee[i].addr);
             treasuries.push(_validator.treasury);
         }
 
@@ -489,7 +488,7 @@ contract OmissionAccountability is IOmissionAccountability, IConfigEvents, Reent
     * @param _committee, committee members
     * @param _treasuries, treasuries of the new committee
     */
-    function setCommittee(Autonity.CommitteeMember[] memory _committee, address[] memory _treasuries) external virtual onlyAutonity {
+    function setCommittee(IAutonity.CommitteeMember[] memory _committee, address[] memory _treasuries) external virtual onlyAutonity {
         delete committee;
         for (uint256 i = 0; i < _committee.length; i++) {
             committee.push(_committee[i]);

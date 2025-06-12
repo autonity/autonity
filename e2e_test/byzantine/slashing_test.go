@@ -45,7 +45,7 @@ import (
 
 const SlashingRatePrecision = 10_000 // needs to match precision in Slasher.sol
 
-func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPeriod, stake, selfBondedStake uint64, faultyNodes []int, offendersCount, faultsCount uint64, epochs int) (uint64, []bindings.AutonityValidator, []bindings.AutonityValidator) {
+func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPeriod, stake, selfBondedStake uint64, faultyNodes []int, offendersCount, faultsCount uint64, epochs int) (uint64, []bindings.IAutonityValidator, []bindings.IAutonityValidator) {
 
 	validators, err := e2e.Validators(t, nodesCount, fmt.Sprintf("10e36,v,%d,0.0.0.0:%%s,%%s,%%s,%%s", selfBondedStake))
 	require.NoError(t, err)
@@ -55,8 +55,8 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 		validators[faultyNodeIndex].TendermintServices = &interfaces.Services{Broadcaster: newInvalidProposer}
 	}
 
-	validatorsBefore := make([]bindings.AutonityValidator, len(faultyNodes))
-	validatorsAfter := make([]bindings.AutonityValidator, len(faultyNodes))
+	validatorsBefore := make([]bindings.IAutonityValidator, len(faultyNodes))
+	validatorsAfter := make([]bindings.IAutonityValidator, len(faultyNodes))
 
 	var baseRate uint64
 	var collusionFactor uint64

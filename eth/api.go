@@ -21,13 +21,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/autonity/bindings"
 	"io"
 	"math/big"
 	"os"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/autonity/autonity/autonity/bindings"
 
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
@@ -612,7 +613,7 @@ type AutonityContractAPI struct {
 	server *p2p.Server
 }
 
-func (a *AutonityContractAPI) Config() (*bindings.AutonityConfig, error) {
+func (a *AutonityContractAPI) Config() (*bindings.IAutonityConfig, error) {
 	cb := a.bc.CurrentBlock()
 	st, err := a.bc.StateAt(cb.Root())
 	if err != nil {

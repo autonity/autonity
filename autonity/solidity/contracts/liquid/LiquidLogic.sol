@@ -50,7 +50,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     uint256 public constant COMMISSION_RATE_SCALE_FACTOR = 10 ** COMMISSION_RATE_DECIMALS;
 
     constructor() {
-        autonityContract = Autonity(payable(msg.sender));
+        autonityContract = IAutonity(payable(msg.sender));
     }
 
     /**
@@ -347,7 +347,7 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @dev ERC-20 Optional.
      */
     function decimals() external virtual pure returns (uint8) {
-        return DECIMALS;
+        return NTN_DECIMALS;
     }
 
     /**

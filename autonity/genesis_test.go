@@ -1,11 +1,12 @@
 package autonity
 
 import (
-	"github.com/autonity/autonity/autonity/bindings"
 	"math"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/autonity/bindings"
 
 	"github.com/stretchr/testify/require"
 
@@ -119,7 +120,7 @@ func TestGenesisSteps(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		schedule := new(bindings.ScheduleControllerSchedule)
+		schedule := new(bindings.IScheduleControllerSchedule)
 		_, err = AutonityContractCall(
 			&generated.AutonityAbi,
 			evm,

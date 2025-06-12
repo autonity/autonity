@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-abstract contract ScheduleController {
+import "./interfaces/IScheduleController.sol";
 
-    struct Schedule {
-        uint256 totalAmount;
-        uint256 unlockedAmount;
-        uint256 start;
-        uint256 totalDuration;
-        uint256 lastUnlockTime;
-    }
+abstract contract ScheduleController is IScheduleController {
 
     mapping(address => Schedule[]) private vaultSchedules;
     address[] private vaults;

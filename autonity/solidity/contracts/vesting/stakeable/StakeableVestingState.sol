@@ -11,7 +11,7 @@ import "./StakeableVestingStorage.sol";
 contract StakeableVestingState is StakeableVestingStorage {
     using DelegateCaller for address;
 
-    constructor(address payable _autonity) AccessAutonity(_autonity) {
+    constructor(IAutonity _autonity) AccessAutonity(_autonity) {
         managerContract = IStakeableVestingManager(payable(msg.sender));
     }
 

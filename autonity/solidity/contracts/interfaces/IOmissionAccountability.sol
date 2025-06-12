@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity ^0.8.0;
 
-import "../Autonity.sol";
+import "./IAutonity.sol";
 
 interface IOmissionAccountability {
     function finalize(bool _epochEnded) external returns (uint256);
-    function setCommittee(Autonity.CommitteeMember[] memory _committee, address[] memory _treasuries) external;
+    function setCommittee(IAutonity.CommitteeMember[] memory _committee, address[] memory _treasuries) external;
     function setEpochBlock(uint256 _epochBlock) external;
     function setOperator(address _operator) external;
     function getInactivityScore(address _validator) external view returns (uint256);

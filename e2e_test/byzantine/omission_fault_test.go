@@ -82,13 +82,13 @@ func inactivityCounter(t *testing.T, omission *bindings.OmissionAccountability, 
 	return score.Uint64()
 }
 
-func validator(t *testing.T, autonity *bindings.Autonity, validator common.Address) bindings.AutonityValidator {
+func validator(t *testing.T, autonity *bindings.Autonity, validator common.Address) bindings.IAutonityValidator {
 	val, err := autonity.GetValidator(nil, validator)
 	require.NoError(t, err)
 	return val
 }
 
-func committee(t *testing.T, autonity *bindings.Autonity) []bindings.AutonityCommitteeMember {
+func committee(t *testing.T, autonity *bindings.Autonity) []bindings.IAutonityCommitteeMember {
 	committee, err := autonity.GetCommittee(nil)
 	require.NoError(t, err)
 	return committee

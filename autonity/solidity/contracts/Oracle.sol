@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.8.2 < 0.9.0;
 
-import "./interfaces/IOracle.sol";
-import "./interfaces/IAutonity.sol";
-import {Autonity} from "./Autonity.sol";
-import {EnumerableSet} from "./utils/Set.sol";
 import {ReentrancyGuard} from "./ReentrancyGuard.sol";
+import "./interfaces/IAutonity.sol";
 import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
+import "./interfaces/IOracle.sol";
+import {EnumerableSet} from "./utils/Set.sol";
 
 /**
  * @title Autonity Protocol - Oracle Contract
@@ -35,7 +34,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
 
     // Configuration settings for the Oracle
     struct Config {
-        Autonity autonity; // Address of the Autonity contract
+        IAutonity autonity; // Address of the Autonity contract
         address operator; // Address of the operator
         uint votePeriod; // Duration of the voting period
         int256 outlierDetectionThreshold; // Threshold for outlier detection
@@ -54,9 +53,11 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
     mapping(string => mapping(address => Report)) internal reports;
 
     // ==== Private state variables ====
-    // @dev Note that the oracle DECIMALS cannot be changed without having an effect on the
-    // Stabilization computations
-    uint8 private constant DECIMALS = 18;
+    /**
+    * @dev Note that the oracle DECIMALS cannot be changed without having an effect on the
+    * Stabilization computations
+    */
+    uint8 private constant ORACLE_DECIMALS = 18;
     string[] private symbols;
     string[] private newSymbols;
     uint private newVotePeriod;
@@ -548,7 +549,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
     * @dev IOracle interface method implementation.
     */
     function getDecimals() external pure returns (uint8) {
-        return DECIMALS;
+        return ORACLE_DECIMALS;
     }
 
     /**
