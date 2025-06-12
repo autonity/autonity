@@ -1601,7 +1601,6 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 	committee := readCommittee(evm.StateDB, caller, committeeSlot)
 	signers, power, err := proof.Validate(headerSeal, committee, true)
 	if err != nil {
-		print("** absentees computer error", evm.Context.Coinbase.String(), " ", evm.Context.BlockNumber.Uint64(), " ", committee.String(), " targetHash", targetHash.String(), "\n")
 		// it should never happen that we cannot aggregate public keys fetched from state
 		if errors.Is(err, types.ErrNonAggregatablePublicKeys) {
 			panic("cannot aggregate keys fetched from state: " + err.Error())
@@ -1616,13 +1615,6 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 	}
 
 	absentees := deriveAbsentees(signers, committee)
-
-	print("$$ absentee computer ", evm.Context.Coinbase.String(), " ", evm.Context.BlockNumber.Uint64(), " ", committee.String(), " effort", proposerEffort.Uint64(), " len absentee", len(absentees), "\n")
-	var abs string
-	for _, a := range absentees {
-		abs += a.String() + " "
-	}
-	print("$$ absentee computer ", evm.Context.Coinbase.String(), " ", evm.Context.BlockNumber.Uint64(), " ", abs, "\n")
 	return makeReturnData(false, proposerEffort, absentees), nil
 }
 
