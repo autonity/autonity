@@ -11,6 +11,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	routerInterfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	ethcore "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
@@ -124,6 +125,10 @@ type Router interface {
 	SetBroadcaster(broadcaster routerInterfaces.PeerFinder)
 	Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
 	Forward(committee *types.Committee, m message.Msg, sender common.Address)
+	Pinger() ping.Pinger
+	Selector() routerInterfaces.PeerSelector
+	SetPinger(ping.Pinger)
+	SetSelector(routerInterfaces.PeerSelector)
 }
 
 type EventDispatcher interface {

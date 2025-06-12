@@ -236,6 +236,12 @@ eventLoop:
 
 				msg := e.msg
 
+				if c.Height().Uint64() > msg.H() {
+					// TODO: currently old height messages are send directly to the FD, but this check is still needed due to potential TOCTOU race conditions
+					c.logger.Debug("mainEventLoop: ignoring stale consensus message", "msg type", msg.Code(), "core height", c.Height().Uint64(), "msgHeight", msg.H(), "msgRound", msg.R())
+					break
+				}
+
 				var hadQuorum, hasQuorum bool
 				if !c.noGossip {
 					// check if we have quorum for message type for this round

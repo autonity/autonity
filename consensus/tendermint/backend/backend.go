@@ -87,7 +87,7 @@ func New(
 
 	backend.pendingMessages.SetCapacity(ringCapacity)
 
-	backend.router = router.Setup(nodeKey, backend.address, services, backend.logger)
+	backend.router = router.Setup(nodeKey, backend.address, backend.logger)
 
 	backend.gossiper = NewGossiper(
 		backend.knownMessages,
@@ -96,8 +96,11 @@ func New(
 		backend.stopped,
 		backend.router,
 	)
+	// apply custom services if needed (used for tests)
 	if services != nil {
 		backend.gossiper = services.Gossiper(backend)
+		backend.router.SetPinger(services.Pinger(backend.router))
+		backend.router.SetSelector(services.Selector(backend.router))
 	}
 
 	consensusCore := tendermintCore.New(backend, services, backend.address, log, noGossip)

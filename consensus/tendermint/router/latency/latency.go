@@ -101,6 +101,14 @@ func (f *Fetcher) pingPeers(ctx context.Context, targets []ping.Target) []ping.R
 	return results
 }
 
+func (f *Fetcher) Pinger() ping.Pinger {
+	return f.pinger
+}
+
+func (f *Fetcher) SetPinger(pinger ping.Pinger) {
+	f.pinger = pinger
+}
+
 func enodeByAddress(committeeEnodes []*enode.Node, addr common.Address) (*enode.Node, bool) {
 	for _, memberNode := range committeeEnodes {
 		pubKey := memberNode.Pubkey()

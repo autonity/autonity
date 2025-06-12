@@ -17,6 +17,7 @@ import (
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
 	interfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	network "github.com/autonity/autonity/consensus/tendermint/router/network"
+	ping "github.com/autonity/autonity/consensus/tendermint/router/ping"
 	core "github.com/autonity/autonity/core"
 	types "github.com/autonity/autonity/core/types"
 	event "github.com/autonity/autonity/event"
@@ -114,6 +115,20 @@ func (mr *MockLatencyProviderMockRecorder) Fetch(validators, self any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fetch", reflect.TypeOf((*MockLatencyProvider)(nil).Fetch), validators, self)
 }
 
+// Pinger mocks base method.
+func (m *MockLatencyProvider) Pinger() ping.Pinger {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Pinger")
+	ret0, _ := ret[0].(ping.Pinger)
+	return ret0
+}
+
+// Pinger indicates an expected call of Pinger.
+func (mr *MockLatencyProviderMockRecorder) Pinger() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pinger", reflect.TypeOf((*MockLatencyProvider)(nil).Pinger))
+}
+
 // SetBroadcaster mocks base method.
 func (m *MockLatencyProvider) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 	m.ctrl.T.Helper()
@@ -124,6 +139,18 @@ func (m *MockLatencyProvider) SetBroadcaster(broadcaster interfaces.PeerFinder) 
 func (mr *MockLatencyProviderMockRecorder) SetBroadcaster(broadcaster any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBroadcaster", reflect.TypeOf((*MockLatencyProvider)(nil).SetBroadcaster), broadcaster)
+}
+
+// SetPinger mocks base method.
+func (m *MockLatencyProvider) SetPinger(arg0 ping.Pinger) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetPinger", arg0)
+}
+
+// SetPinger indicates an expected call of SetPinger.
+func (mr *MockLatencyProviderMockRecorder) SetPinger(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPinger", reflect.TypeOf((*MockLatencyProvider)(nil).SetPinger), arg0)
 }
 
 // MockPeerFinder is a mock of PeerFinder interface.

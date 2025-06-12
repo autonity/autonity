@@ -21,6 +21,7 @@ import (
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
 	events "github.com/autonity/autonity/consensus/tendermint/events"
 	interfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
+	ping "github.com/autonity/autonity/consensus/tendermint/router/ping"
 	core "github.com/autonity/autonity/core"
 	types "github.com/autonity/autonity/core/types"
 	blst "github.com/autonity/autonity/crypto/blst"
@@ -696,6 +697,20 @@ func (mr *MockRouterMockRecorder) Forward(committee, m, sender any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Forward", reflect.TypeOf((*MockRouter)(nil).Forward), committee, m, sender)
 }
 
+// Pinger mocks base method.
+func (m *MockRouter) Pinger() ping.Pinger {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Pinger")
+	ret0, _ := ret[0].(ping.Pinger)
+	return ret0
+}
+
+// Pinger indicates an expected call of Pinger.
+func (mr *MockRouterMockRecorder) Pinger() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pinger", reflect.TypeOf((*MockRouter)(nil).Pinger))
+}
+
 // Recipients mocks base method.
 func (m *MockRouter) Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
 	m.ctrl.T.Helper()
@@ -711,6 +726,20 @@ func (mr *MockRouterMockRecorder) Recipients(committee, msg, from any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recipients", reflect.TypeOf((*MockRouter)(nil).Recipients), committee, msg, from)
 }
 
+// Selector mocks base method.
+func (m *MockRouter) Selector() interfaces.PeerSelector {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Selector")
+	ret0, _ := ret[0].(interfaces.PeerSelector)
+	return ret0
+}
+
+// Selector indicates an expected call of Selector.
+func (mr *MockRouterMockRecorder) Selector() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Selector", reflect.TypeOf((*MockRouter)(nil).Selector))
+}
+
 // SetBroadcaster mocks base method.
 func (m *MockRouter) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 	m.ctrl.T.Helper()
@@ -721,6 +750,30 @@ func (m *MockRouter) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 func (mr *MockRouterMockRecorder) SetBroadcaster(broadcaster any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBroadcaster", reflect.TypeOf((*MockRouter)(nil).SetBroadcaster), broadcaster)
+}
+
+// SetPinger mocks base method.
+func (m *MockRouter) SetPinger(arg0 ping.Pinger) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetPinger", arg0)
+}
+
+// SetPinger indicates an expected call of SetPinger.
+func (mr *MockRouterMockRecorder) SetPinger(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPinger", reflect.TypeOf((*MockRouter)(nil).SetPinger), arg0)
+}
+
+// SetSelector mocks base method.
+func (m *MockRouter) SetSelector(arg0 interfaces.PeerSelector) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetSelector", arg0)
+}
+
+// SetSelector indicates an expected call of SetSelector.
+func (mr *MockRouterMockRecorder) SetSelector(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSelector", reflect.TypeOf((*MockRouter)(nil).SetSelector), arg0)
 }
 
 // Start mocks base method.

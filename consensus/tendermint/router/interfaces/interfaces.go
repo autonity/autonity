@@ -5,6 +5,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/network"
+	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
@@ -19,6 +20,8 @@ type NetworkProvider interface {
 type LatencyProvider interface {
 	SetBroadcaster(broadcaster PeerFinder)
 	Fetch(validators []common.Address, self common.Address) (map[common.Address]uint, []common.Address, error)
+	Pinger() ping.Pinger
+	SetPinger(ping.Pinger)
 }
 
 type PeerFinder interface {
