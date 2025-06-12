@@ -24,6 +24,7 @@ import (
 type MockGossiper struct {
 	ctrl     *gomock.Controller
 	recorder *MockGossiperMockRecorder
+	isgomock struct{}
 }
 
 // MockGossiperMockRecorder is the mock recorder for MockGossiper.
@@ -58,15 +59,17 @@ func (mr *MockGossiperMockRecorder) Address() *gomock.Call {
 }
 
 // AskSync mocks base method.
-func (m *MockGossiper) AskSync(committee *types.Committee, askSync *message.AskSyncMsg) {
+func (m *MockGossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AskSync", committee, askSync)
+	ret := m.ctrl.Call(m, "AskSync", committee, syncMsg)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // AskSync indicates an expected call of AskSync.
-func (mr *MockGossiperMockRecorder) AskSync(committee, askSync any) *gomock.Call {
+func (mr *MockGossiperMockRecorder) AskSync(committee, syncMsg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockGossiper)(nil).AskSync), committee, askSync)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockGossiper)(nil).AskSync), committee, syncMsg)
 }
 
 // Broadcaster mocks base method.
@@ -84,15 +87,15 @@ func (mr *MockGossiperMockRecorder) Broadcaster() *gomock.Call {
 }
 
 // Gossip mocks base method.
-func (m *MockGossiper) Gossip(committee *types.Committee, message message.Msg) {
+func (m *MockGossiper) Gossip(committee *types.Committee, arg1 message.Msg) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Gossip", committee, message)
+	m.ctrl.Call(m, "Gossip", committee, arg1)
 }
 
 // Gossip indicates an expected call of Gossip.
-func (mr *MockGossiperMockRecorder) Gossip(committee, message any) *gomock.Call {
+func (mr *MockGossiperMockRecorder) Gossip(committee, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockGossiper)(nil).Gossip), committee, message)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockGossiper)(nil).Gossip), committee, arg1)
 }
 
 // KnownMessages mocks base method.
