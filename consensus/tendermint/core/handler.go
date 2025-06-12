@@ -32,10 +32,6 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
 
-	// Init the sync state at core start as core lifecycle is controlled by committee membership.
-	c.syncState.setLastLivenessTime(time.Now())
-	c.syncState.setSyncTimeout(constants.DefaultSyncTimeout)
-
 	// Start a new round from last height + 1
 	c.StartRound(ctx, 0)
 
@@ -194,7 +190,7 @@ eventLoop:
 					}
 				}
 
-				// valid message, reset sync timeout
+				// valid message, mark liveness time
 				c.syncState.setLastLivenessTime(time.Now())
 
 				if !c.noGossip {
@@ -231,7 +227,7 @@ eventLoop:
 					continue
 				}
 
-				// valid message, reset sync timeout
+				// valid message, mark liveness time
 				c.syncState.setLastLivenessTime(time.Now())
 
 				if !c.noGossip {
@@ -278,10 +274,6 @@ eventLoop:
 				break eventLoop
 			}
 
-			// committed msg comes from a chain head updated, it could come from the syncing from execution layer,
-			// or the miner's commitment. We should mark this msg's TS.
-			c.syncState.setLastLivenessTime(time.Now())
-
 			c.precommiter.HandleCommit(ctx)
 		case <-ctx.Done():
 			c.logger.Debug("Tendermint core main loop stopped", "event", ctx.Err())
@@ -291,14 +283,10 @@ eventLoop:
 	c.stopped <- struct{}{}
 }
 
+// this method is responsible for:
+// - tracking whether we are out of consensus sync
+// - asking the network to send us the current consensus state if so
 func (c *Core) livenessTrackerLoop(ctx context.Context) {
-	/*
-		this method is responsible for asking the network to send us the current consensus state
-		and to process sync queries events.
-	*/
-
-	round := c.Round()
-	height := c.Height()
 
 	// Ask for sync when the engine starts
 	syncMsg := c.createSyncMsg()
@@ -310,35 +298,24 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 eventLoop:
 	for {
 		select {
-		// check for sync every 5s.
 		case <-ticker.C:
 
-			if time.Since(c.syncState.getLastLivenessTime()) < c.syncState.getSyncTimeout() {
-				// syncTimeout is less than the planed timeout, do not intervene.
-				c.logger.Debug("Sync timeout not reached yet", "last valid message received",
-					c.syncState.getLastLivenessTime(), "sync timeout", c.syncState.getSyncTimeout())
-				round = c.Round()
-				height = c.Height()
+			lastLivenessTime := c.syncState.getLastLivenessTime()
+			currentSyncTimeout := c.syncState.getSyncTimeout()
+			elapsedTime := time.Since(lastLivenessTime)
+			if elapsedTime < currentSyncTimeout {
+				c.logger.Debug("Sync timeout not reached yet", "elapsed time", elapsedTime, "current timeout", currentSyncTimeout)
 				continue
 			}
 
-			currentRound := c.Round()
-			currentHeight := c.Height()
-			// we keep ask for sync if the current view stayed the same for the planned timeout, it does not exhaust
-			// the network as the synced msg will not be propagated.
-			if currentHeight.Cmp(height) == 0 && currentRound == round {
-				c.logger.Warn("⚠️ Consensus liveliness lost", "node", c.Address(), "height", height,
-					"round", round, "step", c.Step())
-				syncMsg = c.createSyncMsg()
-				c.backend.AskSync(c.committee.Committee(), syncMsg)
-			}
-			round = currentRound
-			height = currentHeight
+			// no liveness for more than currentSyncTimeout --> askSync to the other nodes
+			c.logger.Warn("⚠️ Consensus liveliness lost", "node", c.Address(), "height", c.Height(), "round", c.Round(), "step", c.Step())
+			syncMsg = c.createSyncMsg()
+			c.backend.AskSync(c.committee.Committee(), syncMsg)
 
 		case <-ctx.Done():
 			c.logger.Debug("livenessTrackerLoop is stopped", "event", ctx.Err())
 			break eventLoop
-
 		}
 	}
 

@@ -96,9 +96,6 @@ func (s *SyncState) updateSyncTimeout(timeout time.Duration) {
 		// as tendermint can generate nil prevote/precomit after round timeout,
 		// thus we add a few buffer seconds to reduce unnecessary ask-syncs.
 		s.setSyncTimeout(timeout + constants.AskSyncBufferTime)
-	} else {
-		// otherwise reset to default
-		s.setSyncTimeout(constants.DefaultSyncTimeout)
 	}
 }
 
@@ -371,6 +368,11 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		c.logger.Crit("⚠️ CONSENSUS FAILED ⚠️")
 	}
 
+	// if the node is starting a new height, reset the timeout to the default value
+	if round == 0 {
+		c.syncState.setSyncTimeout(constants.DefaultSyncTimeout)
+	}
+
 	previousRound := c.Round()
 
 	c.measureHeightRoundMetrics(round)
@@ -507,6 +509,9 @@ func (c *Core) SetStep(ctx context.Context, step Step) {
 	c.logger.Debug("Step change", "from", c.step.String(), "to", step.String(), "round", c.Round())
 	c.step = step
 	c.stepChange = now
+
+	// mark liveness timestamp
+	c.syncState.setLastLivenessTime(time.Now())
 
 	// stop consensus timeouts
 	c.stopAllTimeouts()
