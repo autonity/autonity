@@ -32,6 +32,10 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
 
+	// Init the sync state at core start as core lifecycle is controlled by committee membership.
+	c.syncState.SetLastValidMsgTime(time.Now())
+	c.syncState.SetSyncTimeOut(constants.DefaultSyncTimeout)
+
 	// Start a new round from last height + 1
 	c.StartRound(ctx, 0)
 
