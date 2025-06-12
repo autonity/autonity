@@ -300,9 +300,8 @@ eventLoop:
 		select {
 		case <-ticker.C:
 
-			lastLivenessTime := c.syncState.getLastLivenessTime()
+			elapsedTime := time.Since(c.syncState.getLastLivenessTime())
 			currentSyncTimeout := c.syncState.getSyncTimeout()
-			elapsedTime := time.Since(lastLivenessTime)
 			if elapsedTime < currentSyncTimeout {
 				c.logger.Debug("Sync timeout not reached yet", "elapsed time", elapsedTime, "current timeout", currentSyncTimeout)
 				continue
