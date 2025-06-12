@@ -254,11 +254,11 @@ type Committee struct {
 	Members []CommitteeMember `json:"members"`
 	// this field is ignored when rlp/json encoding/decoding, it is computed locally from the bytes
 	// mutex to protect internal cached fields of committee from race condition.
-	lock sync.RWMutex `json:"-" rlp:"-"`
 	// cached total voting power.
 	totalVotingPower *big.Int  `json:"-" rlp:"-"`
 	votingPowerOnce  sync.Once `json:"-" rlp:"-"`
 	// cached indexing of committee for member lookup
+	lock       sync.RWMutex                        `json:"-" rlp:"-"` // protects only the membersMap
 	membersMap map[common.Address]*CommitteeMember `json:"-" rlp:"-"`
 }
 
@@ -361,9 +361,7 @@ func (c *Committee) TotalVotingPower() *big.Int {
 	c.votingPowerOnce.Do(func() {
 		total := new(big.Int)
 		for _, m := range c.Members {
-			if m.VotingPower != nil {
-				total.Add(total, m.VotingPower)
-			}
+			total.Add(total, m.VotingPower)
 		}
 		c.totalVotingPower = total
 	})
@@ -371,7 +369,7 @@ func (c *Committee) TotalVotingPower() *big.Int {
 }
 
 func (c *Committee) Quorum() *big.Int {
-	return new(big.Int).Set(bft.Quorum(c.TotalVotingPower()))
+	return bft.Quorum(c.TotalVotingPower())
 }
 
 // Enrich adds some convenience information to the committee member structs

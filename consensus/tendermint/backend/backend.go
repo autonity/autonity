@@ -96,6 +96,7 @@ func New(
 		backend.stopped,
 		backend.router,
 	)
+	// apply custom services if needed (used for tests)
 	if services != nil {
 		backend.gossiper = services.Gossiper(backend)
 		backend.router.SetPinger(services.Pinger(backend.router))

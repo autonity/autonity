@@ -705,7 +705,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 
 func (a *aggregator) oldHeightStats() {
 	a.logger.Debug("Stale message statistics", "stats", log.Lazy{Fn: func() interface{} {
-		stats := make(map[uint64]map[int64][4]int)
+		stats := make(map[uint64]map[int64][3]int)
 		for _, batch := range a.staleMessages {
 			for _, event := range batch {
 				height := event.Message.H()
@@ -713,7 +713,7 @@ func (a *aggregator) oldHeightStats() {
 				code := event.Message.Code()
 
 				if stats[height] == nil {
-					stats[height] = make(map[int64][4]int)
+					stats[height] = make(map[int64][3]int)
 				}
 
 				counts := stats[height][round]
@@ -723,23 +723,19 @@ func (a *aggregator) oldHeightStats() {
 		}
 
 		sb := strings.Builder{}
-		sb.Grow(len(stats) * 100)
 
 		sb.WriteString("Stale message Statistics by Height and Round\n")
 		for height, rounds := range stats {
 			for round, counts := range rounds {
-				fmt.Fprintf(&sb, "H:%d R:%d | ", height, round)
-				if counts[0] > 0 {
-					fmt.Fprintf(&sb, "proposal:%d ", counts[0])
+				fmt.Fprintf(&sb, "H: %d R: %d | ", height, round)
+				if counts[message.ProposalCode] > 0 {
+					fmt.Fprintf(&sb, "proposals: %d ", counts[message.ProposalCode])
 				}
-				if counts[1] > 0 {
-					fmt.Fprintf(&sb, "prevote:%d ", counts[1])
+				if counts[message.PrevoteCode] > 0 {
+					fmt.Fprintf(&sb, "prevotes: %d ", counts[message.PrevoteCode])
 				}
-				if counts[2] > 0 {
-					fmt.Fprintf(&sb, "precommit:%d ", counts[2])
-				}
-				if counts[3] > 0 {
-					fmt.Fprintf(&sb, "unknown:%d ", counts[3])
+				if counts[message.PrecommitCode] > 0 {
+					fmt.Fprintf(&sb, "precommits: %d ", counts[message.PrecommitCode])
 				}
 				sb.WriteByte('\n')
 			}
