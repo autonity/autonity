@@ -262,12 +262,8 @@ eventLoop:
 					c.syncState.setLastLivenessTime(time.Now())
 				}
 
-				// proposals are already gossiped in backend
-				if msg.Code() == message.ProposalCode {
-					recordMessageProcessingTime(msg.Code(), start)
-					continue
-				}
-
+				// these are backlog messages, in the backend handler we only forward current height proposals
+				// so no need to skip proposal gossip here
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
