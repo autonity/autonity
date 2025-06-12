@@ -91,7 +91,7 @@ func (i *Interactor) TX(ctx context.Context, senderKey *ecdsa.PrivateKey) *trans
 	}
 
 	// The test framework uses 1337 as chain ID.
-	chainID := new(big.Int).SetUint64(1337)
+	chainID := new(big.Int).SetUint64(1)
 	txOpt, err := bind.NewKeyedTransactorWithChainID(senderKey, chainID)
 	if err != nil {
 		t.err = err
