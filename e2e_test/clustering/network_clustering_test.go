@@ -17,6 +17,8 @@ import (
 	e2e "github.com/autonity/autonity/e2e_test"
 )
 
+//todo: test to verify clustering view for all validators is same
+
 // TestClusteringHappyCase is a happy case to test 5 clusters with each of them contains 5 nodes. The latency measurement
 // is a base on an local simulator which generates [0, 500) ms delays.
 func TestClusteringHappyCase(t *testing.T) {

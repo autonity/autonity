@@ -2,11 +2,14 @@ package network
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"sort"
+	"strings"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/router/constants"
+	"github.com/autonity/autonity/log"
 )
 
 type Node struct {
@@ -22,8 +25,7 @@ type Clusters struct {
 	minLatency       uint
 	maxLatency       uint
 	bucketSize       float64
-	bucketNodes      map[int][]Node // bucketIdx -> preselected node (remote clusters)
-	bucketFallbacks  map[int][]Node // bucketIdx -> fallback nodes (remote clusters)
+	bucketNodes      map[int][]Node // bucketIdx -> nodes
 	addressToCluster map[common.Address]int
 }
 
@@ -43,27 +45,27 @@ func createClusters(
 		minLatency:       uint(math.MaxUint),
 		maxLatency:       uint(0),
 		bucketNodes:      make(map[int][]Node),
-		bucketFallbacks:  make(map[int][]Node),
 		ownClusterID:     -1,
 	}
 
 	for i, addr := range committee {
+		latency := constants.DefaultLatency
 		clusterID := i % numClusters
 		if addr == self {
 			c.self = addr
 			c.ownClusterID = clusterID
 			c.addressToCluster[addr] = clusterID
-			continue // Skip adding self to base
-		}
-		latency := constants.DefaultLatency
-		if lat, ok := latencyMap[addr]; ok {
-			latency = lat
-		}
-		if latency < c.minLatency {
-			c.minLatency = latency
-		}
-		if latency > c.maxLatency {
-			c.maxLatency = latency
+		} else {
+			// latency for self node is not considered
+			if lat, ok := latencyMap[addr]; ok {
+				latency = lat
+			}
+			if latency < c.minLatency {
+				c.minLatency = latency
+			}
+			if latency > c.maxLatency {
+				c.maxLatency = latency
+			}
 		}
 		c.base[clusterID] = append(c.base[clusterID], Node{Addr: addr, Lat: latency, ClusterID: clusterID})
 		c.addressToCluster[addr] = clusterID
@@ -103,79 +105,97 @@ func (c *Clusters) getBucketIndex(latency uint) int {
 }
 
 func (c *Clusters) ComputeLatencyBuckets() [][]Node {
-	BucketCount := len(c.base)
-	c.bucketSize = float64(c.maxLatency-c.minLatency) / float64(BucketCount)
+	bucketCount := len(c.base)
+	c.bucketSize = float64(c.maxLatency-c.minLatency) / float64(bucketCount)
 	if c.bucketSize < 1 {
 		c.bucketSize = 1
 	}
-	buckets := make([][]Node, BucketCount)
+	buckets := make([][]Node, bucketCount)
 
-	for clusterID, cluster := range c.base {
-		if clusterID == c.ownClusterID {
-			continue
-		}
+	for _, cluster := range c.base {
 		bucketSet := make(map[int]bool)
 		for _, node := range cluster {
+			if node.Addr == c.self {
+				continue // skip self for bucket assignment
+			}
 			bucketIdx := c.getBucketIndex(node.Lat)
 			buckets[bucketIdx] = append(buckets[bucketIdx], node)
 			bucketSet[bucketIdx] = true
 		}
 	}
 
+	// Sort each bucket by latency
+	for _, bucket := range buckets {
+		sort.Slice(bucket, func(i, j int) bool {
+			return bucket[i].Lat < bucket[j].Lat
+		})
+	}
+
+	printLatencyBuckets(buckets, c.bucketSize, c.minLatency)
+	c.assignNodesToLatencyBuckets(buckets)
 	return buckets
 }
 
-// AssignRemoteNodes assigns one primary node and up to 2 fallback nodes per remote cluster to buckets
-func (c *Clusters) AssignRemoteNodes(buckets [][]Node, numClusters int) {
-	BucketCount := len(buckets)
-	filledBuckets := make([]bool, BucketCount)
+// assignNodesToLatencyBuckets attempts to assign one primary node and up to 2 fallback nodes per  cluster to buckets
+// although there is no guarantee that all clusters with have a representation, but we make sure that all the buckets
+// will have at least one node assigned
+func (c *Clusters) assignNodesToLatencyBuckets(buckets [][]Node) {
+	bucketCount := len(buckets)
+	filledBuckets := make([]bool, bucketCount)
 	clusterAssigned := make(map[int]bool)
 
-	for len(c.bucketNodes) < numClusters-1 && len(c.bucketNodes) < BucketCount {
-		// Find bucket with lowest-latency unassigned node
-		bestBucket := -1
-		lowestLatency := uint(math.MaxUint)
-		var bestNode *Node
-		var bestNodeIndex int
-		for bucketIdx, nodes := range buckets {
-			if filledBuckets[bucketIdx] || len(nodes) == 0 {
+	// fallback attempts to select 2 more nodes from the same cluster which
+	// are adjacent to the selected node in the cluster
+	selectFallbacks := func(node Node) []Node {
+		fallbacks := make([]Node, 0, 2)
+		var selectedNodeIndex int
+		for i, n := range c.base[node.ClusterID] {
+			if n.Addr == node.Addr {
+				selectedNodeIndex = i
+				break
+			}
+		}
+		clusterNodes := c.base[node.ClusterID]
+		if selectedNodeIndex > 0 {
+			// Add previous node as fallback if it exists
+			n := clusterNodes[selectedNodeIndex-1]
+			if n.Addr != c.self {
+				fallbacks = append(fallbacks, n)
+			}
+		}
+		if selectedNodeIndex < len(clusterNodes)-1 {
+			// add next node as fallback if it exists
+			n := clusterNodes[selectedNodeIndex+1]
+			if n.Addr != c.self {
+				fallbacks = append(fallbacks, n)
+			}
+		}
+		return fallbacks
+	}
+
+	// 1st pass: maximize cluster assignment to buckets
+	for bucketIdx, bucketNodes := range buckets {
+		for _, node := range bucketNodes {
+			if clusterAssigned[node.ClusterID] {
+				// Skip if this cluster is already assigned
 				continue
 			}
-			for _, node := range nodes {
-				if node.Lat < lowestLatency && !clusterAssigned[node.ClusterID] {
-					lowestLatency = node.Lat
-					bestBucket = bucketIdx
-					bestNode = &node
-					// Find index of this node in c.base[clusterID]
-					for i, n := range c.base[node.ClusterID] {
-						if n.Addr == node.Addr {
-							bestNodeIndex = i
-							break
-						}
-					}
-				}
-			}
-		}
-		if bestBucket == -1 || bestNode == nil {
+			c.bucketNodes[bucketIdx] = append(c.bucketNodes[bucketIdx], node)
+			c.bucketNodes[bucketIdx] = append(c.bucketNodes[bucketIdx], selectFallbacks(node)...)
+			clusterAssigned[node.ClusterID] = true
+			filledBuckets[bucketIdx] = true
 			break
 		}
+	}
 
-		// Assign primary node
-		c.bucketNodes[bestBucket] = append(c.bucketNodes[bestBucket], *bestNode)
-		filledBuckets[bestBucket] = true
-		clusterAssigned[bestNode.ClusterID] = true
-
-		// Assign up to 2 fallback nodes from the same cluster, using subsequent indices
-		clusterNodes := c.base[bestNode.ClusterID]
-		if bestNodeIndex > 0 {
-			// Add previous node as fallback if it exists
-			c.bucketFallbacks[bestBucket] = append(c.bucketFallbacks[bestBucket], clusterNodes[bestNodeIndex-1])
+	// 2nd pass: Fill remaining buckets with nodes from any of the cluster
+	for bucketIdx, bucketNodes := range buckets {
+		if filledBuckets[bucketIdx] || len(bucketNodes) == 0 {
+			continue
 		}
-		if bestNodeIndex < len(clusterNodes)-1 {
-			// add next node as fallback if it exists
-			c.bucketFallbacks[bestBucket] = append(c.bucketFallbacks[bestBucket], clusterNodes[bestNodeIndex+1])
-		}
-
+		bestNode := bucketNodes[0] // pick the first node in the bucket
+		c.bucketNodes[bucketIdx] = append(c.bucketNodes[bucketIdx], bestNode)
+		c.bucketNodes[bucketIdx] = append(c.bucketNodes[bucketIdx], selectFallbacks(bestNode)...)
 	}
 }
 
@@ -223,4 +243,26 @@ func (c *Clusters) Self() common.Address {
 
 func (c *Clusters) BucketNodes() map[int][]Node {
 	return c.bucketNodes
+}
+
+func printLatencyBuckets(remoteBuckets [][]Node, bucketSize float64, minLatency uint) {
+	var sb strings.Builder
+	sb.WriteString("\nLatency Buckets for Clusters:\n")
+
+	// Log remote buckets
+	sb.WriteString("Remote Buckets:\n")
+	for bucketIdx, nodes := range remoteBuckets {
+		lowerLat := uint(float64(bucketIdx)*bucketSize) + minLatency
+		upperLat := uint(float64(bucketIdx+1)*bucketSize) + minLatency
+		sb.WriteString(fmt.Sprintf("  Bucket #%d (Latency %d-%d ms): %d nodes\n", bucketIdx, lowerLat, upperLat, len(nodes)))
+		if len(nodes) == 0 {
+			sb.WriteString("    [Empty]\n")
+			continue
+		}
+		for _, node := range nodes {
+			sb.WriteString(fmt.Sprintf("    Node: %s, Latency: %d ms, ClusterID: %d\n", node.Addr.Hex(), node.Lat, node.ClusterID))
+		}
+	}
+
+	log.Info(sb.String())
 }
