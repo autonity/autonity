@@ -33,8 +33,8 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	c.subscribeEvents()
 
 	// Init the sync state at core start as core lifecycle is controlled by committee membership.
-	c.syncState.SetLastValidMsgTime(time.Now())
-	c.syncState.SetSyncTimeOut(constants.DefaultSyncTimeout)
+	c.syncState.setLastLivenessTime(time.Now())
+	c.syncState.setSyncTimeout(constants.DefaultSyncTimeout)
 
 	// Start a new round from last height + 1
 	c.StartRound(ctx, 0)
@@ -195,7 +195,7 @@ eventLoop:
 				}
 
 				// valid message, reset sync timeout
-				c.syncState.SetLastValidMsgTime(time.Now())
+				c.syncState.setLastLivenessTime(time.Now())
 
 				if !c.noGossip {
 					if !hadQuorum {
@@ -232,7 +232,7 @@ eventLoop:
 				}
 
 				// valid message, reset sync timeout
-				c.syncState.SetLastValidMsgTime(time.Now())
+				c.syncState.setLastLivenessTime(time.Now())
 
 				if !c.noGossip {
 					if !hadQuorum {
@@ -280,7 +280,7 @@ eventLoop:
 
 			// committed msg comes from a chain head updated, it could come from the syncing from execution layer,
 			// or the miner's commitment. We should mark this msg's TS.
-			c.syncState.SetLastValidMsgTime(time.Now())
+			c.syncState.setLastLivenessTime(time.Now())
 
 			c.precommiter.HandleCommit(ctx)
 		case <-ctx.Done():
@@ -313,10 +313,10 @@ eventLoop:
 		// check for sync every 5s.
 		case <-ticker.C:
 
-			if time.Since(c.syncState.GetLastValidMsgTime()) < c.syncState.GetSyncTimeOut() {
+			if time.Since(c.syncState.getLastLivenessTime()) < c.syncState.getSyncTimeout() {
 				// syncTimeout is less than the planed timeout, do not intervene.
 				c.logger.Debug("Sync timeout not reached yet", "last valid message received",
-					c.syncState.GetLastValidMsgTime(), "sync timeout", c.syncState.GetSyncTimeOut())
+					c.syncState.getLastLivenessTime(), "sync timeout", c.syncState.getSyncTimeout())
 				round = c.Round()
 				height = c.Height()
 				continue
