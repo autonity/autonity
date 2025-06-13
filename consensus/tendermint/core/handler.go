@@ -224,7 +224,10 @@ eventLoop:
 				c.logger.Debug("Handling consensus backlog event")
 				if err := c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
-					continue
+					// we still want to gossip old round messages
+					if !errors.Is(err, constants.ErrOldRoundMessage) {
+						continue
+					}
 				}
 
 				// valid message, mark liveness time
