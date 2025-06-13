@@ -287,15 +287,24 @@ eventLoop:
 // - tracking whether we are out of consensus sync
 // - asking the network to send us the current consensus state if so
 func (c *Core) livenessTrackerLoop(ctx context.Context) {
+	defer func() {
+		c.stopped <- struct{}{}
+	}()
 
-	// Ask for sync when the engine starts. Retry until sync succeeds
+	// Ask for sync when the engine starts. Retry until sync succeeds or we are stopped
 	for {
 		err := c.backend.AskSync(c.committee.Committee(), c.createSyncMsg())
 		if err == nil {
 			break
 		}
-		c.logger.Warn("Failed to ask initial consensus sync, retrying...", "err", err)
-		time.Sleep(100 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			c.logger.Debug("livenessTrackerLoop has been stopped before initial sync", "event", ctx.Err())
+			return
+		default:
+			c.logger.Warn("Failed to ask initial consensus sync, retrying...", "err", err)
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 
 	ticker := time.NewTicker(constants.AskSyncInterval)
@@ -326,8 +335,6 @@ eventLoop:
 			break eventLoop
 		}
 	}
-
-	c.stopped <- struct{}{}
 }
 
 // SendEvent sends event to mux
