@@ -91,6 +91,8 @@ func shouldDisconnectSender(err error) bool {
 		fallthrough
 	case errors.Is(err, consensus.ErrPrunedAncestor):
 		fallthrough
+	case errors.Is(err, constants.ErrRedundantVote):
+		fallthrough
 	case errors.Is(err, constants.ErrAlreadyHaveProposal):
 		return false
 	default:
@@ -178,20 +180,23 @@ eventLoop:
 					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 				}
 
-				if err := c.handleMsg(ctx, msg); err != nil {
+				var err error
+				if err = c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err)
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
 						tryDisconnect(e.ErrCh, err)
 					}
-					// we still want to gossip old round messages
-					if !errors.Is(err, constants.ErrOldRoundMessage) {
+					// we still want to gossip old round messages and redundant votes
+					if !errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote) {
 						break
 					}
 				}
 
-				// valid message, mark liveness time
-				c.syncState.setLastLivenessTime(time.Now())
+				// valid message, mark liveness time unless it was redundant
+				if err == nil || !errors.Is(err, constants.ErrRedundantVote) {
+					c.syncState.setLastLivenessTime(time.Now())
+				}
 
 				if !c.noGossip {
 					if !hadQuorum {
@@ -222,16 +227,19 @@ eventLoop:
 				}
 
 				c.logger.Debug("Handling consensus backlog event")
-				if err := c.handleMsg(ctx, msg); err != nil {
+				var err error
+				if err = c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
-					// we still want to gossip old round messages
-					if !errors.Is(err, constants.ErrOldRoundMessage) {
+					// we still want to gossip old round messages and redundant votes
+					if !errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote) {
 						continue
 					}
 				}
 
-				// valid message, mark liveness time
-				c.syncState.setLastLivenessTime(time.Now())
+				// valid message, mark liveness time unless it was redundant
+				if err == nil || !errors.Is(err, constants.ErrRedundantVote) {
+					c.syncState.setLastLivenessTime(time.Now())
+				}
 
 				if !c.noGossip {
 					if !hadQuorum {
@@ -428,4 +436,11 @@ func tryDisconnect(errorCh chan<- error, err error) {
 	case errorCh <- err:
 	default: // do nothing
 	}
+}
+
+func isRedundant(wasUseful bool) error {
+	if wasUseful {
+		return nil
+	}
+	return constants.ErrRedundantVote
 }
