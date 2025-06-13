@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	aggregationPeriod            = 150 * time.Millisecond
+	aggregationPeriod            = 30 * time.Millisecond
 	oldMessagesAggregationPeriod = 2 * time.Second
 	oldMessagesStatsPeriod       = 1 * time.Second
 )
