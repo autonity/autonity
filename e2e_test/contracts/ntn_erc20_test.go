@@ -17,6 +17,7 @@ import (
 var (
 	mintAmount     = new(big.Int).SetUint64(100)
 	approvedAmount = new(big.Int).SetUint64(15)
+	timeout        = time.Second * 8
 )
 
 func TestACERC20Interfaces(t *testing.T) {
@@ -36,7 +37,6 @@ func TestACERC20Interfaces(t *testing.T) {
 	require.NoError(t, err)
 
 	// mint NTN for accounts
-	timeout := 10 * time.Second
 	for _, account := range accounts {
 		err = operatorNode.AwaitMintNTN(operatorKey, crypto.PubkeyToAddress(account.PublicKey), mintAmount, timeout)
 		require.NoError(t, err)

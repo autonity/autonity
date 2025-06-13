@@ -37,7 +37,6 @@ func TestValidatorManagement(t *testing.T) {
 
 	err = fundingAccounts(operatorNode, []*ecdsa.PrivateKey{validator, delegator})
 	require.NoError(t, err)
-	timeout := 8 * time.Second
 	oracleAddr := crypto.PubkeyToAddress(oracle.PublicKey)
 	enodeURL := enode.V4DNSUrl(validator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
 
