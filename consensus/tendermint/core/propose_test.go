@@ -431,6 +431,7 @@ func TestHandleProposal(t *testing.T) {
 			precommitTimeout: NewTimeout(Precommit, logger),
 			validRound:       -1,
 			committee:        committeeSet,
+			syncState:        &SyncState{},
 		}
 
 		c.SetDefaultHandlers()
@@ -483,6 +484,7 @@ func TestHandleProposal(t *testing.T) {
 			precommitTimeout: NewTimeout(Precommit, log.Root()),
 			validRound:       0,
 			committee:        committeeSet,
+			syncState:        &SyncState{},
 		}
 
 		c.SetDefaultHandlers()

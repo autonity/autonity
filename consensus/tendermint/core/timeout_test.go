@@ -89,6 +89,7 @@ func TestHandleTimeoutPrevote(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, logger),
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
+			syncState:        &SyncState{},
 		}
 		engine.SetDefaultHandlers()
 		timeoutEvent := TimeoutEvent{
