@@ -198,6 +198,11 @@ eventLoop:
 						tryDisconnect(e.ErrCh, err)
 						break
 					}
+					if errors.Is(err, constants.ErrFutureRoundMessage) && msg.Code() != message.ProposalCode {
+						// immediately gossip future round votes
+						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
+						break
+					}
 					// we still want to gossip old round messages and redundant votes
 					if !errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote) {
 						break
@@ -229,7 +234,7 @@ eventLoop:
 					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
 						go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 					} else {
-						go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
 					}
 				}
 				recordMessageProcessingTime(msg.Code(), start)
@@ -266,8 +271,11 @@ eventLoop:
 					c.syncState.setLastLivenessTime(time.Now())
 				}
 
-				// these are backlog messages, in the backend handler we only forward current height proposals
-				// so no need to skip proposal gossip here
+				//// proposals are already gossiped in backend
+				//if msg.Code() == message.ProposalCode {
+				//	recordMessageProcessingTime(msg.Code(), start)
+				//	continue
+				//}
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
@@ -280,13 +288,11 @@ eventLoop:
 						}
 					}
 				}
-				if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
-					go func() {
-						c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
-					}()
-				} else {
-					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-				}
+				//if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
+				//	go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
+				//} else {
+				//	go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
+				//}
 				recordMessageProcessingTime(msg.Code(), start)
 			case StateRequestEvent:
 				// Process Tendermint state dump request.

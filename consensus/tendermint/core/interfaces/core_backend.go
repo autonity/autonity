@@ -82,6 +82,9 @@ type Backend interface {
 	// Gossiper returns gossiper object
 	Gossiper() Gossiper
 
+	// Router returns router object
+	Router() Router
+
 	// re-injects buffered future height messages
 	ProcessFutureMsgs(height uint64)
 

@@ -46,13 +46,13 @@ func createClusters(
 		maxLatency:       uint(0),
 		bucketNodes:      make(map[int][]Node),
 		ownClusterID:     -1,
+		self:             self,
 	}
 
 	for i, addr := range committee {
 		latency := constants.DefaultLatency
 		clusterID := i % numClusters
 		if addr == self {
-			c.self = addr
 			c.ownClusterID = clusterID
 			c.addressToCluster[addr] = clusterID
 		} else {

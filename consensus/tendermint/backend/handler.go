@@ -86,10 +86,6 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 	case message.PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, sender, msg, errCh)
 	case message.SyncNetworkMsg:
-<<<<<<< HEAD
-
-=======
->>>>>>> 68c5dae14 (fix dependency wiring)
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
@@ -98,7 +94,6 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 			sb.logger.Debug("Ignoring sync message from jailed validator", "from", sender)
 			return true, ErrJailed
 		}
-<<<<<<< HEAD
 		var data []byte
 		if err := msg.Decode(&data); err != nil {
 			// this error will freeze peer for 30 seconds by according to dev p2p protocol.
@@ -107,10 +102,6 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 		// handle the msg in an individual go routine, the rate limiter will handle DoS attack vectors.
 		go sb.syncPeer(data, sender, errCh)
 
-=======
-		sb.logger.Debug("Received sync message", "from", sender)
-		go sb.Post(events.SyncEvent{Addr: sender})
->>>>>>> 68c5dae14 (fix dependency wiring)
 	case message.AccountabilityNetworkMsg:
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Accountability Msg received but core not running")

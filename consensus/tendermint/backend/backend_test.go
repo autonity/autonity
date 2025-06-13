@@ -95,7 +95,7 @@ func TestAskSync(t *testing.T) {
 
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
-	var remoteAddresses []common.Address
+	var remoteAddresses []common.Address //nolint
 	for _, val := range committee.Members[1:] {
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		mockedPeer.EXPECT().Send(message.SyncNetworkMsg, gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
@@ -108,14 +108,14 @@ func TestAskSync(t *testing.T) {
 	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, fixsizecache.HashKey[common.Hash])
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
-	broadcaster.EXPECT().FindPeers(m).Return(peers)
+	broadcaster.EXPECT().FindPeers(gomock.Any()).Return(peers)
 	rt := interfaces.NewMockRouter(ctrl)
 	rt.EXPECT().SetBroadcaster(broadcaster)
 
 	b := &Backend{
 		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
-		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{}), rt),
+		gossiper:      NewGossiper(knownMessages, localAddress, log.New(), make(chan struct{}), rt),
 		logger:        log.New("backend", "test", "id", 0),
 	}
 	b.SetBroadcaster(broadcaster)

@@ -11,7 +11,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/router/constants"
 )
 
-func Test_SameClusteringViewForValidators(t *testing.T) {
+func Test_SameClusteringViewForValidators(_ *testing.T) {
 	//todo
 }
 func TestNew_ValidCommittee(t *testing.T) {

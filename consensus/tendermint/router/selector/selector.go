@@ -90,20 +90,7 @@ func (s *selector) allConnected(recipients []common.Address) bool {
 }
 
 func (s *selector) SelectPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
-	switch msg.Code() {
-	case message.ProposalCode:
-		return s.selectProposalPeers(committee, msg, from)
-	default:
-		return s.selectNonProposalPeers(committee, msg, from)
-	}
-}
-
-func (s *selector) selectProposalPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
-	return s.selectPeersWithBuckets(committee, msg, from, true)
-}
-
-func (s *selector) selectNonProposalPeers(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
-	return s.selectPeersWithBuckets(committee, msg, from, false)
+	return s.selectPeersWithBuckets(committee, msg, from, msg.Code() == message.ProposalCode)
 }
 
 func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg message.Msg, from common.Address, isProposal bool) ([]common.Address, error) {
@@ -203,17 +190,17 @@ func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 	case originator:
 		recipients = s.selectNodesByLatencySpread()
 		// additional nodes
-		targetLocalNodes := len(clusters.Base()[ownClusterID])
+		localNodes := len(clusters.Base()[ownClusterID])
+		localNodes = int(math.Sqrt(float64(localNodes)))
 		minNodes = 2
 		lowLatencyNodes = 4
 		if isProposal {
 			minNodes = 1
 			lowLatencyNodes = 0
-			targetLocalNodes = int(math.Sqrt(float64(targetLocalNodes)))
 		}
 		for clusterID := range clusters.Base() {
 			if clusterID == ownClusterID {
-				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, targetLocalNodes, lowLatencyNodes, []common.Address{clusters.Self(), from})...)
+				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, localNodes, lowLatencyNodes, []common.Address{clusters.Self(), from})...)
 			} else {
 				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{clusters.Self(), from})...)
 			}

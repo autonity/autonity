@@ -43,12 +43,14 @@ type MessageEvent struct {
 	Message message.Msg
 	ErrCh   chan<- error
 	Posted  time.Time
+	Sender  common.Address
 }
 
 // old messages are posted only to the fault detector
 type OldMessageEvent struct {
 	Message message.Msg
 	ErrCh   chan<- error
+	Sender  common.Address
 }
 
 type Poster interface {

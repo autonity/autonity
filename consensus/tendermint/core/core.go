@@ -4,10 +4,7 @@ import (
 	"context"
 	"math/big"
 	"sync"
-<<<<<<< HEAD
 	"sync/atomic" // nolint
-=======
->>>>>>> d08648658 (revert sync changes)
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -116,6 +113,7 @@ type Core struct {
 	timeoutEventSub     *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
+	syncState           *SyncState
 
 	// map[Height]UnminedBlock
 	pendingCandidateBlocks map[uint64]*types.Block

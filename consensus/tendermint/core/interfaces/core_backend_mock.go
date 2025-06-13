@@ -20,6 +20,8 @@ import (
 	common "github.com/autonity/autonity/common"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
 	events "github.com/autonity/autonity/consensus/tendermint/events"
+	interfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
+	ping "github.com/autonity/autonity/consensus/tendermint/router/ping"
 	core "github.com/autonity/autonity/core"
 	types "github.com/autonity/autonity/core/types"
 	blst "github.com/autonity/autonity/crypto/blst"
@@ -176,18 +178,6 @@ func (m *MockBackend) GetContractABI() *abi.ABI {
 func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContractABI", reflect.TypeOf((*MockBackend)(nil).GetContractABI))
-}
-
-// SlowGossip mocks base method
-func (m *MockBackend) SlowGossip(committee *types.Committee, message message.Msg) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SlowGossip", committee, message)
-}
-
-// SlowGossip indicates an expected call of SlowGossip.
-func (mr *MockBackendMockRecorder) SlowGossip(committee, message any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlowGossip", reflect.TypeOf((*MockBackend)(nil).SlowGossip), committee, message)
 }
 
 // Gossip mocks base method.
@@ -362,6 +352,20 @@ func (mr *MockBackendMockRecorder) ProposedBlockHash() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposedBlockHash", reflect.TypeOf((*MockBackend)(nil).ProposedBlockHash))
 }
 
+// Router mocks base method.
+func (m *MockBackend) Router() Router {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Router")
+	ret0, _ := ret[0].(Router)
+	return ret0
+}
+
+// Router indicates an expected call of Router.
+func (mr *MockBackendMockRecorder) Router() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Router", reflect.TypeOf((*MockBackend)(nil).Router))
+}
+
 // SetBlockchain mocks base method.
 func (m *MockBackend) SetBlockchain(bc *core.BlockChain) {
 	m.ctrl.T.Helper()
@@ -398,6 +402,18 @@ func (m *MockBackend) Sign(hash common.Hash) blst.Signature {
 func (mr *MockBackendMockRecorder) Sign(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockBackend)(nil).Sign), hash)
+}
+
+// SlowGossip mocks base method.
+func (m *MockBackend) SlowGossip(committee *types.Committee, arg1 message.Msg) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SlowGossip", committee, arg1)
+}
+
+// SlowGossip indicates an expected call of SlowGossip.
+func (mr *MockBackendMockRecorder) SlowGossip(committee, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlowGossip", reflect.TypeOf((*MockBackend)(nil).SlowGossip), committee, arg1)
 }
 
 // Subscribe mocks base method.
@@ -633,6 +649,145 @@ func (m *MockCore) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *
 func (mr *MockCoreMockRecorder) VotesPowerFor(h, r, code, v any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VotesPowerFor", reflect.TypeOf((*MockCore)(nil).VotesPowerFor), h, r, code, v)
+}
+
+// MockRouter is a mock of Router interface.
+type MockRouter struct {
+	ctrl     *gomock.Controller
+	recorder *MockRouterMockRecorder
+	isgomock struct{}
+}
+
+// MockRouterMockRecorder is the mock recorder for MockRouter.
+type MockRouterMockRecorder struct {
+	mock *MockRouter
+}
+
+// NewMockRouter creates a new mock instance.
+func NewMockRouter(ctrl *gomock.Controller) *MockRouter {
+	mock := &MockRouter{ctrl: ctrl}
+	mock.recorder = &MockRouterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRouter) EXPECT() *MockRouterMockRecorder {
+	return m.recorder
+}
+
+// Forward mocks base method.
+func (m_2 *MockRouter) Forward(committee *types.Committee, m message.Msg, sender common.Address) {
+	m_2.ctrl.T.Helper()
+	m_2.ctrl.Call(m_2, "Forward", committee, m, sender)
+}
+
+// Forward indicates an expected call of Forward.
+func (mr *MockRouterMockRecorder) Forward(committee, m, sender any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Forward", reflect.TypeOf((*MockRouter)(nil).Forward), committee, m, sender)
+}
+
+// Pinger mocks base method.
+func (m *MockRouter) Pinger() ping.Pinger {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Pinger")
+	ret0, _ := ret[0].(ping.Pinger)
+	return ret0
+}
+
+// Pinger indicates an expected call of Pinger.
+func (mr *MockRouterMockRecorder) Pinger() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pinger", reflect.TypeOf((*MockRouter)(nil).Pinger))
+}
+
+// Recipients mocks base method.
+func (m *MockRouter) Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Recipients", committee, msg, from)
+	ret0, _ := ret[0].([]common.Address)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Recipients indicates an expected call of Recipients.
+func (mr *MockRouterMockRecorder) Recipients(committee, msg, from any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recipients", reflect.TypeOf((*MockRouter)(nil).Recipients), committee, msg, from)
+}
+
+// Selector mocks base method.
+func (m *MockRouter) Selector() interfaces.PeerSelector {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Selector")
+	ret0, _ := ret[0].(interfaces.PeerSelector)
+	return ret0
+}
+
+// Selector indicates an expected call of Selector.
+func (mr *MockRouterMockRecorder) Selector() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Selector", reflect.TypeOf((*MockRouter)(nil).Selector))
+}
+
+// SetBroadcaster mocks base method.
+func (m *MockRouter) SetBroadcaster(broadcaster interfaces.PeerFinder) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetBroadcaster", broadcaster)
+}
+
+// SetBroadcaster indicates an expected call of SetBroadcaster.
+func (mr *MockRouterMockRecorder) SetBroadcaster(broadcaster any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBroadcaster", reflect.TypeOf((*MockRouter)(nil).SetBroadcaster), broadcaster)
+}
+
+// SetPinger mocks base method.
+func (m *MockRouter) SetPinger(arg0 ping.Pinger) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetPinger", arg0)
+}
+
+// SetPinger indicates an expected call of SetPinger.
+func (mr *MockRouterMockRecorder) SetPinger(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPinger", reflect.TypeOf((*MockRouter)(nil).SetPinger), arg0)
+}
+
+// SetSelector mocks base method.
+func (m *MockRouter) SetSelector(arg0 interfaces.PeerSelector) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetSelector", arg0)
+}
+
+// SetSelector indicates an expected call of SetSelector.
+func (mr *MockRouterMockRecorder) SetSelector(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSelector", reflect.TypeOf((*MockRouter)(nil).SetSelector), arg0)
+}
+
+// Start mocks base method.
+func (m *MockRouter) Start(ctx context.Context, chain interfaces.BlockChainProvider) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Start", ctx, chain)
+}
+
+// Start indicates an expected call of Start.
+func (mr *MockRouterMockRecorder) Start(ctx, chain any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockRouter)(nil).Start), ctx, chain)
+}
+
+// Stop mocks base method.
+func (m *MockRouter) Stop() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Stop")
+}
+
+// Stop indicates an expected call of Stop.
+func (mr *MockRouterMockRecorder) Stop() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockRouter)(nil).Stop))
 }
 
 // MockEventDispatcher is a mock of EventDispatcher interface.

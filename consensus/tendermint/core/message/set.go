@@ -122,8 +122,8 @@ func (s *Set) DumpMsgView() ([]common.Hash, []*big.Int) {
 	s.RLock()         //nolint
 	defer s.RUnlock() //nolint
 
-	var values []common.Hash
-	var signers []*big.Int
+	var values []common.Hash //nolint
+	var signers []*big.Int   //nolint
 	for v, votes := range s.powers {
 		values = append(values, v)
 		signers = append(signers, new(big.Int).Set(votes.Signers()))

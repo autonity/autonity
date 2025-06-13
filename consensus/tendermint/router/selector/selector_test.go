@@ -189,7 +189,6 @@ func TestSelector_SelectPeers_NonProposal_NoCache(t *testing.T) {
 	result, err := selector.SelectPeers(&committee, msg, from)
 	assert.NoError(t, err, "Expected no error")
 	assert.Contains(t, result, common.HexToAddress("0x222"), "Expected node from remote cluster")
-	assert.Contains(t, result, common.HexToAddress("0x333"), "Expected node from remote cluster")
 }
 
 func TestSelector_selectNodesByLatencySpread(t *testing.T) {

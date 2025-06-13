@@ -39,6 +39,7 @@ func (n *Network) Clusters() Clusters {
 func (n *Network) UpdateClusters(clusters Clusters) {
 	n.Lock()
 	defer n.Unlock()
+	n.clusters = clusters
 	var sb strings.Builder
 	sb.WriteString("Updating cluster, new cluster view: [")
 	for i, cv := range n.clusters.Base() {
@@ -57,5 +58,4 @@ func (n *Network) UpdateClusters(clusters Clusters) {
 	}
 	sb.WriteString("]")
 	log.Info(sb.String())
-	n.clusters = clusters
 }

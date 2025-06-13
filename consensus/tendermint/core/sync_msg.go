@@ -25,7 +25,7 @@ func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 	c.futureRoundLock.RLock()
 	defer c.futureRoundLock.RUnlock()
 
-	var views []*message.RoundMsgView
+	views := make([]*message.RoundMsgView, 0, 32)
 
 	for r, roundMsgs := range c.futureRound {
 		roundView := &message.RoundMsgView{}

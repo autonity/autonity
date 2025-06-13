@@ -42,7 +42,7 @@ func (s *Map) GetOrCreate(round int64) *RoundMessages {
 func (s *Map) DumpMsgView() []*RoundMsgView {
 	s.RLock()         // nolint
 	defer s.RUnlock() // nolint
-	var views []*RoundMsgView
+	views := make([]*RoundMsgView, 0, 32)
 	for r, state := range s.internal {
 		views = append(views, state.DumpMsgView(r))
 	}
@@ -306,9 +306,8 @@ func (m *AskSyncMsg) Validate() error {
 		// rounds should not repeat
 		if _, ok := rounds[v.Round]; ok {
 			return errInvalidLostSyncMsg
-		} else {
-			rounds[v.Round] = struct{}{}
 		}
+		rounds[v.Round] = struct{}{}
 
 		// if the remote peer does have a proposal for this round, mark it
 		if v.HaveProposal {

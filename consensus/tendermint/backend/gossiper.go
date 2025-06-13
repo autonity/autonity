@@ -124,21 +124,6 @@ func (g *Gossiper) gossip(msg message.Msg, recipients []common.Address) {
 	}
 }
 
-func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
-	recipients, err := g.router.Route(committee, msg, g.address)
-	if err != nil {
-		log.Debug("Gossiper: No recipients for message from msgRouter, broadcast", "error", err, "height", msg.H(), "message type", msg.Code())
-		// forward future epoch proposal to all the committee members, as most of them are still in the committee.
-		recipients := make([]common.Address, 0, committee.Len())
-		for _, val := range committee.Members {
-			if val.Address != g.address {
-				recipients = append(recipients, val.Address)
-			}
-		}
-	}
-	g.gossip(msg, recipients)
-}
-
 func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
 	// bail out early if we don't have a broadcaster
 	if g.broadcaster == nil {

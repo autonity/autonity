@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	aggregationPeriod            = 150 * time.Millisecond
+	aggregationPeriod            = 30 * time.Millisecond
 	oldMessagesAggregationPeriod = 2 * time.Second
 	oldMessagesStatsPeriod       = 1 * time.Second
 )
@@ -63,22 +63,24 @@ func recordMessageProcessingTime(code uint8, start time.Time) {
 	}
 }
 
-type eventBuilder func(msg message.Msg, errCh chan<- error) interface{}
+type eventBuilder func(msg message.Msg, event events.UnverifiedMessageEvent) interface{}
 
 // function to create the event for current height messages (they get picked up by Core and by the FD)
-func currentHeightEventBuilder(msg message.Msg, errCh chan<- error) interface{} {
+func currentHeightEventBuilder(msg message.Msg, event events.UnverifiedMessageEvent) interface{} {
 	return events.MessageEvent{
 		Message: msg,
-		ErrCh:   errCh,
+		ErrCh:   event.ErrCh,
 		Posted:  time.Now(),
+		Sender:  event.Sender,
 	}
 }
 
 // function to create the event for old height messages (they get picked up only by the FD)
-func oldHeightEventBuilder(msg message.Msg, errCh chan<- error) interface{} {
+func oldHeightEventBuilder(msg message.Msg, event events.UnverifiedMessageEvent) interface{} {
 	return events.OldMessageEvent{
 		Message: msg,
-		ErrCh:   errCh,
+		ErrCh:   event.ErrCh,
+		Sender:  event.Sender,
 	}
 }
 
@@ -565,13 +567,13 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
-					go a.backend.Post(eventer(aggregateVote, nil))
+					go a.backend.Post(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
 				}
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
-					go a.backend.Post(eventer(aggregateVote, nil))
+					go a.backend.Post(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
 				}
 			default:
 				a.logger.Crit("messages being aggregated are not votes", "type", reflect.TypeOf(validVotes[0]))
@@ -592,7 +594,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 
 func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent, eventer eventBuilder) {
 	proposal := proposalEvent.Message
-	go a.backend.Post(eventer(proposal, proposalEvent.ErrCh))
+	go a.backend.Post(eventer(proposal, proposalEvent))
 }
 
 // assumes current or old round vote
@@ -617,7 +619,7 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 			a.handleInvalidMessage(errCh, err, sender)
 			return
 		}
-		go a.backend.Post(currentHeightEventBuilder(voteEvent.Message, errCh))
+		go a.backend.Post(currentHeightEventBuilder(voteEvent.Message, voteEvent))
 		return
 	}
 

@@ -15,6 +15,7 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tc "github.com/autonity/autonity/consensus/tendermint/core"
@@ -270,6 +271,14 @@ func TestAggregatorMessageHandling(t *testing.T) {
 		h := uint64(1)
 		r := int64(0)
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		br := consensus.NewMockBroadcaster(ctrl)
+		br.EXPECT().FindPeer(gomock.Any()).AnyTimes()
+		br.EXPECT().FindPeers(gomock.Any()).AnyTimes()
+
+		backend.SetBroadcaster(br)
+
 		prevote := message.NewPrevote(r, h, common.Hash{0xca, 0xfe}, backend.Sign, &genesisCommittee.Members[0], committeeSize)
 
 		errCh := make(chan error)
@@ -299,6 +308,14 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		h := uint64(1)
 		r := int64(10)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		br := consensus.NewMockBroadcaster(ctrl)
+		br.EXPECT().FindPeer(gomock.Any()).AnyTimes()
+		br.EXPECT().FindPeers(gomock.Any()).AnyTimes()
+
+		backend.SetBroadcaster(br)
 
 		// send message to the aggregator and wait for time based aggregation to send it to Core
 		value := common.Hash{0xca, 0xfe}
@@ -339,6 +356,14 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		h := uint64(1)
 		r := int64(10)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		br := consensus.NewMockBroadcaster(ctrl)
+		br.EXPECT().FindPeer(gomock.Any()).AnyTimes()
+		br.EXPECT().FindPeers(gomock.Any()).AnyTimes()
+
+		backend.SetBroadcaster(br)
 
 		value := common.Hash{0xca, 0xfe}
 		prevote := message.NewPrevote(r, h, value, backend.Sign, &genesisCommittee.Members[0], committeeSize)
@@ -925,7 +950,7 @@ func TestAggregatorProcess(t *testing.T) {
 		// signature is invalid but proposal is created with `verified`=true, so it is considered valid
 		propose := makeBogusPropose(0, 1, 0)
 		proposeEvent := makeBogusEvent(propose)
-		a.processProposal(proposeEvent, func(_ message.Msg, _ chan<- error) interface{} { return struct{}{} })
+		a.processProposal(proposeEvent, func(_ message.Msg, _ events.UnverifiedMessageEvent) interface{} { return struct{}{} })
 	})
 	t.Run("processRound processes all the messages for a round", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -1046,7 +1071,7 @@ func TestAggregatorProcess(t *testing.T) {
 			makeBogusEvent(aggregate2[0]),
 		})
 
-		a.processBatches(batches, func(_ message.Msg, _ chan<- error) interface{} { return struct{}{} })
+		a.processBatches(batches, func(_ message.Msg, _ events.UnverifiedMessageEvent) interface{} { return struct{}{} })
 	})
 	t.Run("ProcessBatch successfully detects and discard invalid signatures", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -1098,7 +1123,7 @@ func TestAggregatorProcess(t *testing.T) {
 			makeBogusEvent(message.NewPrecommit(r, h, value, testSigner, &committee.Members[5], csize)),
 		})
 
-		a.processBatches(batches, func(m message.Msg, _ chan<- error) interface{} {
+		a.processBatches(batches, func(m message.Msg, _ events.UnverifiedMessageEvent) interface{} {
 			vote, ok := m.(message.Vote)
 			require.True(t, ok)
 			if vote.Signers().Contains(3) || vote.Signers().Contains(6) {

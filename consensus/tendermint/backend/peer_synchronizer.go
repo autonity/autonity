@@ -11,17 +11,17 @@ import (
 
 const cleanUpInterval = 60 // 60s
 
-func (b *Backend) startRateLimiterGCRoutine() {
-	b.cleanupTicker = time.NewTicker(time.Second * cleanUpInterval)
-	b.wg.Add(1)
+func (sb *Backend) startRateLimiterGCRoutine() {
+	sb.cleanupTicker = time.NewTicker(time.Second * cleanUpInterval)
+	sb.wg.Add(1)
 	go func() {
-		defer b.wg.Done()
-		defer b.cleanupTicker.Stop()
+		defer sb.wg.Done()
+		defer sb.cleanupTicker.Stop()
 		for {
 			select {
-			case <-b.cleanupTicker.C:
-				b.askSyncRateLimiter.Cleanup()
-			case <-b.stopped:
+			case <-sb.cleanupTicker.C:
+				sb.askSyncRateLimiter.Cleanup()
+			case <-sb.stopped:
 				return
 			}
 		}

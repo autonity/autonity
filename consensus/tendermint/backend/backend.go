@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
+
 	ring "github.com/zfjagann/golang-ring"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -19,7 +21,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"github.com/autonity/autonity/consensus/tendermint/router"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
@@ -204,6 +205,7 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 		Message: message,
 		ErrCh:   nil,
 		Posted:  time.Now(),
+		Sender:  sb.Address(),
 	})
 }
 
@@ -236,6 +238,10 @@ func (sb *Backend) Logger() log.Logger {
 
 func (sb *Backend) Gossiper() interfaces.Gossiper {
 	return sb.gossiper
+}
+
+func (sb *Backend) Router() interfaces.Router {
+	return sb.router
 }
 
 // Commit implements tendermint.Backend.Commit
