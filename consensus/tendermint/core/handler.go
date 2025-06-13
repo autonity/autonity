@@ -194,7 +194,7 @@ eventLoop:
 				}
 
 				// valid message, mark liveness time unless it was redundant
-				if err == nil || !errors.Is(err, constants.ErrRedundantVote) {
+				if !errors.Is(err, constants.ErrRedundantVote) {
 					c.syncState.setLastLivenessTime(time.Now())
 				}
 
@@ -237,7 +237,7 @@ eventLoop:
 				}
 
 				// valid message, mark liveness time unless it was redundant
-				if err == nil || !errors.Is(err, constants.ErrRedundantVote) {
+				if !errors.Is(err, constants.ErrRedundantVote) {
 					c.syncState.setLastLivenessTime(time.Now())
 				}
 
