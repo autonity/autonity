@@ -61,28 +61,28 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 		// We are receiving a precommit for an old round. We need to check if we have now a quorum
 		// in this old round.
 		roundMessages := c.messages.GetOrCreate(precommit.R())
-		wasUseful := roundMessages.AddPrecommit(precommit)
+		precommitContributed := roundMessages.AddPrecommit(precommit)
 		c.SendEvent(events.NewPowerChangeEvent(message.PrecommitCode, c.Height().Uint64(), c.Round(), precommit.Value()))
 
 		oldRoundProposal := roundMessages.Proposal()
 		if oldRoundProposal == nil {
-			return errors.Join(constants.ErrOldRoundMessage, isRedundant(wasUseful))
+			return errors.Join(constants.ErrOldRoundMessage, redundancyError(precommitContributed))
 		}
 
 		// Line 49 in Algorithm 1 of The latest gossip on BFT consensus
 		_ = c.quorumPrecommitsCheck(ctx, oldRoundProposal, roundMessages.IsProposalVerified())
-		return errors.Join(constants.ErrOldRoundMessage, isRedundant(wasUseful))
+		return errors.Join(constants.ErrOldRoundMessage, redundancyError(precommitContributed))
 	}
 
 	// Precommit if for current round from here
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 
-	wasUseful := c.curRoundMessages.AddPrecommit(precommit)
+	precommitContributed := c.curRoundMessages.AddPrecommit(precommit)
 	c.SendEvent(events.NewPowerChangeEvent(message.PrecommitCode, c.Height().Uint64(), c.Round(), precommit.Value()))
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit)
 
 	c.currentPrecommitChecks(ctx)
-	return isRedundant(wasUseful)
+	return redundancyError(precommitContributed)
 }
 
 func (c *Precommiter) HandleCommit(ctx context.Context) {

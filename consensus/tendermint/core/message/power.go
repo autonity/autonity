@@ -15,7 +15,7 @@ func Contribution(aggregatorSigners *big.Int, coreSigners *big.Int) *big.Int {
 	return contribution
 }
 
-// returns whether the new signer increased the power or was useless
+// returns whether the new signer increased the power or was redundant
 func (p *AggregatedPower) Set(index int, power *big.Int) bool {
 	if p.signers.Bit(index) == 1 {
 		return false // no power increase, the signer was already included

@@ -148,17 +148,16 @@ func (s *RoundMessages) PrecommitsTotalAggregatedPower() *AggregatedPower {
 	return s.precommits.TotalPower()
 }
 
-// returns whether the new vote brought some power contribution or the vote was useless
+// returns whether the new vote brought some power contribution or the vote was redundant
 func (s *RoundMessages) AddPrevote(prevote *Prevote) bool {
 	s.Lock()
 	defer s.Unlock()
-	wasUseful := s.prevotes.Add(prevote)
+	voteContributed := s.prevotes.Add(prevote)
 	// update round power cache
 	for index, power := range prevote.Signers().Powers() {
-		didContribute := s.power.Set(index, power)
-		wasUseful = wasUseful || didContribute
+		s.power.Set(index, power)
 	}
-	return wasUseful
+	return voteContributed
 }
 
 func (s *RoundMessages) AllPrevotes() []Msg {
@@ -169,17 +168,16 @@ func (s *RoundMessages) AllPrecommits() []Msg {
 	return s.precommits.Messages()
 }
 
-// returns whether the new vote brought some power contribution or the vote was useless
+// returns whether the new vote brought some power contribution or the vote was redundant
 func (s *RoundMessages) AddPrecommit(precommit *Precommit) bool {
 	s.Lock()
 	defer s.Unlock()
-	wasUseful := s.precommits.Add(precommit)
+	voteContributed := s.precommits.Add(precommit)
 	// update round power cache
 	for index, power := range precommit.Signers().Powers() {
-		didContribute := s.power.Set(index, power)
-		wasUseful = wasUseful || didContribute
+		s.power.Set(index, power)
 	}
-	return wasUseful
+	return voteContributed
 }
 
 // used to gossip quorum of prevotes

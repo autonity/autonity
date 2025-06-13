@@ -438,8 +438,8 @@ func tryDisconnect(errorCh chan<- error, err error) {
 	}
 }
 
-func isRedundant(wasUseful bool) error {
-	if wasUseful {
+func redundancyError(didContribute bool) error {
+	if didContribute {
 		return nil
 	}
 	return constants.ErrRedundantVote
