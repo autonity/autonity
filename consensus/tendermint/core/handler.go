@@ -227,9 +227,7 @@ eventLoop:
 					}
 
 					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
-						go func() {
-							c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
-						}()
+						go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 					} else {
 						go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 					}

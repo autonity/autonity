@@ -11,6 +11,9 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/router/constants"
 )
 
+func Test_SameClusteringViewForValidators(t *testing.T) {
+	//todo
+}
 func TestNew_ValidCommittee(t *testing.T) {
 	committee := []common.Address{
 		common.HexToAddress("0x111"), // Cluster 0
