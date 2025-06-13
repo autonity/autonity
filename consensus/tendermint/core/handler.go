@@ -328,7 +328,7 @@ func (c *Core) syncLoop(ctx context.Context) {
 eventLoop:
 	for {
 		select {
-		case <-time.After(time.Second * 5): //check for sync every 5 seconds
+		case <-time.After(time.Second * 30): //check for sync every 5 seconds // temporary change
 
 			currentRound := c.Round()
 			currentHeight := c.Height()
