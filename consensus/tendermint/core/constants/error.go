@@ -27,4 +27,6 @@ var (
 	ErrNilPrecommitSent = errors.New("timer expired and nil precommit sent")
 	// ErrMovedToNewRound is returned when timer could not be stopped in time
 	ErrMovedToNewRound = errors.New("timer expired and new round started")
+	// ErrRedundantVote is returned when we process a vote that doesn't bring any voting power contribution to Core
+	ErrRedundantVote = errors.New("vote did not bring any power contribution to Core")
 )

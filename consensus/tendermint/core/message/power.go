@@ -15,13 +15,15 @@ func Contribution(aggregatorSigners *big.Int, coreSigners *big.Int) *big.Int {
 	return contribution
 }
 
-func (p *AggregatedPower) Set(index int, power *big.Int) {
+// returns whether the new signer increased the power or was useless
+func (p *AggregatedPower) Set(index int, power *big.Int) bool {
 	if p.signers.Bit(index) == 1 {
-		return
+		return false // no power increase, the signer was already included
 	}
 
 	p.signers.SetBit(p.signers, index, 1)
 	p.power.Add(p.power, power)
+	return true
 }
 
 func (p *AggregatedPower) Power() *big.Int {

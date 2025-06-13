@@ -230,3 +230,31 @@ func TestMessageSetValues(t *testing.T) {
 		}
 	})
 }
+
+func TestAddReturnValue(t *testing.T) {
+	r := int64(1)
+	h := uint64(1)
+	csize := testCommittee.Len()
+
+	ms := NewSet()
+
+	vote := NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize)
+	require.True(t, ms.Add(vote))
+	require.False(t, ms.Add(vote))
+
+	equivocatedVote := NewPrevote(r, h, blockHash2, defaultSigner, makeCommitteeMember(1, 0), csize)
+	require.True(t, ms.Add(equivocatedVote))
+
+	// add vote from another validator
+	vote2 := NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 1), csize)
+	require.True(t, ms.Add(vote2))
+
+	// add another aggregate
+	aggregate := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize), NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)})
+	require.True(t, ms.Add(aggregate[0]))
+
+	// redundant vote
+	vote3 := NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)
+	require.False(t, ms.Add(vote3))
+
+}
