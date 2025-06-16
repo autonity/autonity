@@ -2,10 +2,11 @@ package backend
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/rlp"
-	"time"
 )
 
 const cleanUpInterval = 60 // 60s
@@ -93,12 +94,10 @@ func (sb *Backend) handleAskSyncEvent(payload []byte, sender common.Address) err
 
 // missingProposals collects all the missing proposals of a consensus instance base on the asker's view.
 func (sb *Backend) missingProposals(askSync *message.AskSyncMsg) []*message.Propose {
-	rounds := askSync.Rounds()
-	nilProposal := askSync.NilProposal()
+	hasProposalMap := askSync.HasProposal()
 	missingProposals := sb.MsgStore.GetProposals(askSync.Height, func(m *message.Propose) bool {
-		_, knownRound := rounds[uint64(m.R())]
-		_, unknownProposal := nilProposal[uint64(m.R())]
-		return !knownRound || unknownProposal
+		_, hasProposal := hasProposalMap[uint64(m.R())]
+		return !hasProposal
 	})
 
 	return missingProposals
@@ -106,14 +105,12 @@ func (sb *Backend) missingProposals(askSync *message.AskSyncMsg) []*message.Prop
 
 // missingPrevotes collects all the missing prevotes of a consensus instance base on the asker's view.
 func (sb *Backend) missingPrevotes(askSync *message.AskSyncMsg) []*message.Prevote {
-
-	rounds := askSync.Rounds()
 	prevoteSigners := askSync.Prevotes()
 
 	missingPrevotes := sb.MsgStore.GetPrevotes(askSync.Height, func(m *message.Prevote) bool {
 		// return all prevotes if the remote node doesn't know this round
 		msgRound := uint64(m.R())
-		_, knownRound := rounds[msgRound]
+		_, knownRound := prevoteSigners[msgRound]
 		if !knownRound {
 			return true
 		}
@@ -138,13 +135,12 @@ func (sb *Backend) missingPrevotes(askSync *message.AskSyncMsg) []*message.Prevo
 // missingPrecommits collects all the missing precommits of a consensus instance base on the asker's view.
 func (sb *Backend) missingPrecommits(askSync *message.AskSyncMsg) []*message.Precommit {
 
-	rounds := askSync.Rounds()
 	precommitSigners := askSync.Precommits()
 
 	missingPrecommits := sb.MsgStore.GetPrecommits(askSync.Height, func(m *message.Precommit) bool {
 		// return all precommits if the remote node doesn't know this round
 		msgRound := uint64(m.R())
-		_, knownRound := rounds[msgRound]
+		_, knownRound := precommitSigners[msgRound]
 		if !knownRound {
 			return true
 		}

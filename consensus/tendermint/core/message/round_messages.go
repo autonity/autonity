@@ -279,10 +279,9 @@ type AskSyncMsg struct {
 	// following fields are ignored when rlp/json encoding/decoding.
 	// They are built locally when validating the message
 	validated        bool                                `rlp:"-"`
-	rounds           map[uint64]struct{}                 `rlp:"-"`
 	prevoteSigners   map[uint64]map[common.Hash]*big.Int `rlp:"-"` // maps point to the signers bitmap for that specific value
 	precommitSigners map[uint64]map[common.Hash]*big.Int `rlp:"-"` // maps point to the signers bitmap for that specific value
-	nilProposal      map[uint64]struct{}                 `rlp:"-"` // marks round where remote node doesn't have a proposal
+	hasProposal      map[uint64]struct{}                 `rlp:"-"` // marks round where remote node does have a proposal
 }
 
 func (m *AskSyncMsg) Validate() error {
@@ -294,7 +293,7 @@ func (m *AskSyncMsg) Validate() error {
 	rounds := make(map[uint64]struct{})
 	prevoteSigners := make(map[uint64]map[common.Hash]*big.Int)
 	precommitSigners := make(map[uint64]map[common.Hash]*big.Int)
-	nilProposal := make(map[uint64]struct{})
+	hasProposal := make(map[uint64]struct{})
 	for _, v := range m.KnownMessages {
 		// view cannot be nil
 		if v == nil {
@@ -311,9 +310,9 @@ func (m *AskSyncMsg) Validate() error {
 			rounds[v.Round] = struct{}{}
 		}
 
-		// if the remote peer does not have a proposal for this round, mark it
-		if !v.HaveProposal {
-			nilProposal[v.Round] = struct{}{}
+		// if the remote peer does have a proposal for this round, mark it
+		if v.HaveProposal {
+			hasProposal[v.Round] = struct{}{}
 		}
 
 		// sanity check prevotes of this round
@@ -333,10 +332,9 @@ func (m *AskSyncMsg) Validate() error {
 
 	// populate local fields if valid
 	m.validated = true
-	m.rounds = rounds
 	m.prevoteSigners = prevoteSigners
 	m.precommitSigners = precommitSigners
-	m.nilProposal = nilProposal
+	m.hasProposal = hasProposal
 	return nil
 }
 
@@ -361,18 +359,11 @@ func validateVotes(values []common.Hash, signers []*big.Int) (map[common.Hash]*b
 	return voteSigners, nil
 }
 
-func (m *AskSyncMsg) Rounds() map[uint64]struct{} {
+func (m *AskSyncMsg) HasProposal() map[uint64]struct{} {
 	if !m.validated {
-		panic("AskSyncMsg.Rounds() called before validated")
+		panic("AskSyncMsg.HasProposal() called before validated")
 	}
-	return m.rounds
-}
-
-func (m *AskSyncMsg) NilProposal() map[uint64]struct{} {
-	if !m.validated {
-		panic("AskSyncMsg.NilProposal() called before validated")
-	}
-	return m.nilProposal
+	return m.hasProposal
 }
 
 func (m *AskSyncMsg) Prevotes() map[uint64]map[common.Hash]*big.Int {
