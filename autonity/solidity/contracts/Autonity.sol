@@ -279,7 +279,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             0,                       // self unbonding stake locked
             ILiquid(address(0)), // liquid token contract
             0,                       // liquid token supply
-            0,                       // conversion ratio
+            1,                       // conversion ratio
             block.number,            // registration block
             0,                       // total slashed
             0,                       // jail release block
@@ -1543,7 +1543,11 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                 }
 
                 // update historical conversion ratio
-                _val.conversionRatio = _delegatedStake / _val.liquidSupply;
+                if(_val.liquidSupply == 0) {
+                    _val.conversionRatio = 1;
+                }else{
+                    _val.conversionRatio = _delegatedStake / _val.liquidSupply;
+                }
 
                 // TODO: This has to be reconsidered - I feel it is too expensive
                 // to emit an event per validator. But what is our recommend way to track rewards
