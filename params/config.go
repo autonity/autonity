@@ -133,6 +133,7 @@ var (
 			},
 			VerifyGenesisSequence: true,
 			TokenMint:             (*math.HexOrDecimal256)(DefautlNTNGenesisAllocation),
+			TokenBond:             (*math.HexOrDecimal256)(DefautlGenesisBonding),
 			// TODO (tariq): add default value for `TokenBond`
 		},
 		OracleContractConfig: &OracleContractGenesis{
@@ -492,6 +493,9 @@ var (
 		GasLimitBoundDivisor:     DefaultGasLimitBoundDivisor,
 		BaseFeeChangeDenominator: DefaultBaseFeeChangeDenominator,
 		ElasticityMultiplier:     DefaultElasticityMultiplier,
+		VerifyGenesisSequence:    false,
+		TokenBond:                (*math.HexOrDecimal256)(common.Big0),
+		TokenMint:                (*math.HexOrDecimal256)(common.Big0),
 	}
 
 	// all percentage parameters needs to be scaled according to SLASHING_RATE_PRECISION
