@@ -140,9 +140,9 @@ func NewFaultDetector(
 		address:               nodeAddress,
 		msgStore:              ms,
 		chainEventCh:          make(chan core.ChainEvent, 300),
-		eventReporterCh:       make(chan *autonity.AccountabilityEvent, 10),
+		eventReporterCh:       make(chan *autonity.AccountabilityEvent, 300),
 		stopRetry:             make(chan struct{}),
-		misbehaviourProofCh:   make(chan *autonity.AccountabilityEvent, 100),
+		misbehaviourProofCh:   make(chan *autonity.AccountabilityEvent, 300),
 		logger:                logger, // Todo(youssef): remove context
 	}
 	// use ChainEvent instead of ChainHeadEvent as we want the relative select cases to ran at every single block.
@@ -360,12 +360,7 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 	// each validator is assigned a reporting slot
 	reporterIndex := (height / reportingSlotPeriod) % uint64(committee.Len())
 
-	// TODO: consider allowing the validator to report for the entirety of the period
-	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
-	// slot, then it is time to report the collected events by this validator.
-	if height%reportingSlotPeriod != 0 {
-		return false
-	}
+	// allowing the validator to report for the entirety of the period
 	return committee.Members[reporterIndex].Address == fd.address
 }
 
