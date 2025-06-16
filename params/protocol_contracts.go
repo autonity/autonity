@@ -39,6 +39,9 @@ var (
 		SlashingRateCap:           1000, // 10%
 	}
 
+	DefautlNTNGenesisAllocation = new(big.Int).Mul(big.NewInt(60_000_000), NTNDecimalFactor) // 60 mil NTN
+	// TODO: add `DefautlGenesisBonding`
+
 	// DefaultAcuContractGenesis contains the default values for the ASM ACU contract
 	DefaultAcuContractGenesis = &AcuContractGenesis{
 		Symbols:    []string{"AUD-USD", "CAD-USD", "EUR-USD", "GBP-USD", "JPY-USD", "SEK-USD", "USD-USD"},
@@ -173,6 +176,9 @@ type AutonityContractGenesis struct {
 	InitialInflationReserve  *math.HexOrDecimal256 `json:"initialInflationReserve"`
 	Validators               []*Validator          `json:"validators"` // todo: Can we change that to []Validator
 	Schedules                []Schedule            `json:"schedules"`
+	VerifyGenesisSequence    bool                  `json:"verifyGenesisSequence"`
+	TokenMint                *math.HexOrDecimal256 `json:"tokenMint"`
+	TokenBond                *math.HexOrDecimal256 `json:"tokenBond"`
 }
 
 type AccountabilityGenesis struct {

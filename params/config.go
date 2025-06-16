@@ -131,6 +131,9 @@ var (
 					VaultAddress:  NonStakeableVestingContractAddress,
 				},
 			},
+			VerifyGenesisSequence: true,
+			TokenMint:             (*math.HexOrDecimal256)(DefautlNTNGenesisAllocation),
+			// TODO (tariq): add default value for `TokenBond`
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,
