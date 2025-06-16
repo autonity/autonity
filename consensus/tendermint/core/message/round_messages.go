@@ -285,8 +285,8 @@ type AskSyncMsg struct {
 }
 
 func (m *AskSyncMsg) Validate() error {
-	// cannot have more than `MaxRound` distinct rounds
-	if len(m.KnownMessages) > constants.MaxRound {
+	// cannot have more than `MaxRound` + 1 distinct rounds
+	if len(m.KnownMessages) > constants.MaxRound+1 {
 		return errInvalidLostSyncMsg
 	}
 
