@@ -1517,9 +1517,12 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                     _ntnReward -= _ntnWithheld;
                 }
 
+                uint256 _delegatedStake = _val.bondedStake - _val.selfBondedStake;
+
                 // non-jailed validators have a strict amount of bonded newton.
                 // the distribution account for the PAS ratio post-slashing.
-                uint256 _atnSelfReward = (_val.selfBondedStake * _atnReward) / _val.bondedStake;
+                uint256 _atnDelegationReward = (_delegatedStake * _atnReward) / _val.bondedStake; // round-down
+                uint256 _atnSelfReward = _atnReward - _atnDelegationReward;
                 if (_atnSelfReward > 0) {
                     (bool _sent, bytes memory _returnData) = _val.treasury.call{value: _atnSelfReward, gas: 2300}("");
                     // if transfer doesn't go through (sneaky contract), just keep the amount at the autonity contract for future redistribution
@@ -1528,12 +1531,11 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                         emit CallFailed(_val.treasury, "", _returnData);
                     }
                 }
-                uint256 _ntnSelfReward = (_val.selfBondedStake * _ntnReward) / _val.bondedStake;
+                uint256 _ntnDelegationReward = (_delegatedStake * _ntnReward) / _val.bondedStake; // round-down
+                uint256 _ntnSelfReward = _ntnReward - _ntnDelegationReward;
                 accounts[address(this)] -= _ntnSelfReward;
                 _autobond(_val.nodeAddress, _ntnSelfReward, 0);
 
-                uint256 _ntnDelegationReward = _ntnReward - _ntnSelfReward;
-                uint256 _atnDelegationReward = _atnReward - _atnSelfReward;
                 if (_atnDelegationReward > 0 || _ntnDelegationReward > 0) {
                     _transfer(address(this), address(_val.liquidStateContract), _ntnDelegationReward);
                     _val.liquidStateContract.redistribute{value: _atnDelegationReward}(accounts[address(_val.liquidStateContract)]);
