@@ -91,6 +91,8 @@ func shouldDisconnectSender(err error) bool {
 		fallthrough
 	case errors.Is(err, consensus.ErrPrunedAncestor):
 		fallthrough
+	case errors.Is(err, constants.ErrRedundantVote):
+		fallthrough
 	case errors.Is(err, constants.ErrAlreadyHaveProposal):
 		return false
 	default:
@@ -178,20 +180,23 @@ eventLoop:
 					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 				}
 
-				if err := c.handleMsg(ctx, msg); err != nil {
+				var err error
+				if err = c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err)
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
 						tryDisconnect(e.ErrCh, err)
 					}
-					// we still want to gossip old round messages
-					if !errors.Is(err, constants.ErrOldRoundMessage) {
+					// we still want to gossip old round messages and redundant votes
+					if !errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote) {
 						break
 					}
 				}
 
-				// valid message, mark liveness time
-				c.syncState.setLastLivenessTime(time.Now())
+				// valid message, mark liveness time unless it was redundant
+				if !errors.Is(err, constants.ErrRedundantVote) {
+					c.syncState.setLastLivenessTime(time.Now())
+				}
 
 				if !c.noGossip {
 					if !hadQuorum {
@@ -222,13 +227,19 @@ eventLoop:
 				}
 
 				c.logger.Debug("Handling consensus backlog event")
-				if err := c.handleMsg(ctx, msg); err != nil {
+				var err error
+				if err = c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
-					continue
+					// we still want to gossip old round messages and redundant votes
+					if !errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote) {
+						continue
+					}
 				}
 
-				// valid message, mark liveness time
-				c.syncState.setLastLivenessTime(time.Now())
+				// valid message, mark liveness time unless it was redundant
+				if !errors.Is(err, constants.ErrRedundantVote) {
+					c.syncState.setLastLivenessTime(time.Now())
+				}
 
 				if !c.noGossip {
 					if !hadQuorum {
@@ -287,10 +298,25 @@ eventLoop:
 // - tracking whether we are out of consensus sync
 // - asking the network to send us the current consensus state if so
 func (c *Core) livenessTrackerLoop(ctx context.Context) {
+	defer func() {
+		c.stopped <- struct{}{}
+	}()
 
-	// Ask for sync when the engine starts
-	syncMsg := c.createSyncMsg()
-	c.backend.AskSync(c.committee.Committee(), syncMsg)
+	// Ask for sync when the engine starts. Retry until sync succeeds or we are stopped
+	for {
+		err := c.backend.AskSync(c.committee.Committee(), c.createSyncMsg())
+		if err == nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			c.logger.Debug("livenessTrackerLoop has been stopped before initial sync", "event", ctx.Err())
+			return
+		default:
+			c.logger.Warn("Failed to ask initial consensus sync, retrying...", "err", err)
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
 
 	ticker := time.NewTicker(constants.AskSyncInterval)
 	defer ticker.Stop()
@@ -309,16 +335,17 @@ eventLoop:
 
 			// no liveness for more than currentSyncTimeout --> askSync to the other nodes
 			c.logger.Warn("⚠️ Consensus liveliness lost", "node", c.Address(), "height", c.Height(), "round", c.Round(), "step", c.Step())
-			syncMsg = c.createSyncMsg()
-			c.backend.AskSync(c.committee.Committee(), syncMsg)
+			err := c.backend.AskSync(c.committee.Committee(), c.createSyncMsg())
+			if err != nil {
+				c.logger.Warn("Failed to ask consensus sync", "err", err)
+				// will automatically retry at next iteration
+			}
 
 		case <-ctx.Done():
 			c.logger.Debug("livenessTrackerLoop is stopped", "event", ctx.Err())
 			break eventLoop
 		}
 	}
-
-	c.stopped <- struct{}{}
 }
 
 // SendEvent sends event to mux
@@ -409,4 +436,11 @@ func tryDisconnect(errorCh chan<- error, err error) {
 	case errorCh <- err:
 	default: // do nothing
 	}
+}
+
+func redundancyError(didContribute bool) error {
+	if didContribute {
+		return nil
+	}
+	return constants.ErrRedundantVote
 }

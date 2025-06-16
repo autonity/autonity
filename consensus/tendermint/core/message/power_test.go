@@ -99,3 +99,16 @@ func TestContribution(t *testing.T) {
 	require.Equal(t, uint(0), contribution.Bit(1000000001))
 	require.Equal(t, 0, contribution.Cmp(common.Big0))
 }
+
+func TestSetReturnValue(t *testing.T) {
+	p := NewAggregatedPower()
+
+	require.True(t, p.Set(0, common.Big1))
+	require.True(t, p.Set(1, common.Big4))
+
+	require.False(t, p.Set(0, common.Big5))
+	require.False(t, p.Set(1, common.Big3))
+
+	require.True(t, p.Set(3, common.Big4))
+
+}

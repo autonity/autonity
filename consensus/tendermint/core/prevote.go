@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"time"
 
@@ -54,32 +55,34 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 	if prevote.R() < c.Round() {
 		// We only process old rounds while future rounds messages are pushed on to the backlog
 		oldRoundMessages := c.messages.GetOrCreate(prevote.R())
-		oldRoundMessages.AddPrevote(prevote)
+		prevoteContributed := oldRoundMessages.AddPrevote(prevote)
+		// note even if the vote is redundant, it might still cause a power change in case of equivocation
 		c.SendEvent(events.NewPowerChangeEvent(message.PrevoteCode, c.Height().Uint64(), c.Round(), prevote.Value()))
 
 		// Proposal would be nil if node haven't received the proposal yet.
 		proposal := c.curRoundMessages.Proposal()
 		if proposal == nil {
-			return constants.ErrOldRoundMessage
+			return errors.Join(constants.ErrOldRoundMessage, redundancyError(prevoteContributed))
 		}
 
 		// Line 28 in Algorithm 1 of The latest gossip on BFT consensus.
 		// check if we have quorum prevotes on vr
 		c.oldProposalCheck(ctx, proposal)
-		return constants.ErrOldRoundMessage
+		return errors.Join(constants.ErrOldRoundMessage, redundancyError(prevoteContributed))
 	}
 
 	// After checking the message we know it is from the same height and round, so we should store it even if
 	// c.curRoundMessages.Step() < prevote. The propose Timeout which is started at the beginning of the round
 	// will update the step to at least prevote and when it handle its on preVote(nil), then it will also have
 	// votes from other nodes.
-	c.curRoundMessages.AddPrevote(prevote)
+	prevoteContributed := c.curRoundMessages.AddPrevote(prevote)
+	// note even if the vote is redundant, it might still cause a power change in case of equivocation
 	c.SendEvent(events.NewPowerChangeEvent(message.PrevoteCode, c.Height().Uint64(), c.Round(), prevote.Value()))
 
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Received", prevote)
 	// check upon conditions for current round proposal
 	c.currentPrevoteChecks(ctx)
-	return nil
+	return redundancyError(prevoteContributed)
 }
 
 func (c *Prevoter) LogPrevoteMessageEvent(message string, prevote *message.Prevote) {

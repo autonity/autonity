@@ -88,39 +88,41 @@ func makeSigner(key blst.SecretKey) message.Signer {
 func TestAskSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	// We are testing for a Quorum Q of peers to be asked for sync.
-	committee, _ := committeeAndBlsKeys(7) // N=7, F=2, Q=5
-	addresses := make([]common.Address, 0, committee.Len())
+
+	committeeSize := uint64(7)
+	committee, _ := committeeAndBlsKeys(int(committeeSize))
+	localAddress := committee.Members[0].Address
+
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
-	for _, val := range committee.Members {
-		addresses = append(addresses, val.Address)
+	var remoteAddresses []common.Address
+	for _, val := range committee.Members[1:] {
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		mockedPeer.EXPECT().Send(message.SyncNetworkMsg, gomock.Any()).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
-		}).MaxTimes(1)
+		}).Times(1)
+		remoteAddresses = append(remoteAddresses, val.Address)
 		peers[val.Address] = mockedPeer
 	}
 
-	m := make([]common.Address, 0)
-	m = append(m, addresses...)
 	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, fixsizecache.HashKey[common.Hash])
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
-	broadcaster.EXPECT().FindPeers(m).Return(peers)
+	broadcaster.EXPECT().FindPeers(remoteAddresses).Return(peers)
 	b := &Backend{
 		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
-		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{})),
+		gossiper:      NewGossiper(knownMessages, localAddress, log.New(), make(chan struct{})),
 		logger:        log.New("backend", "test", "id", 0),
 	}
 	b.SetBroadcaster(broadcaster)
 
 	askSyncMsg := &message.AskSyncMsg{}
-	b.AskSync(committee, askSyncMsg)
+	err := b.AskSync(committee, askSyncMsg)
+	require.NoError(t, err)
 	<-time.NewTimer(2 * time.Second).C
-	if atomic.LoadUint64(&counter) != 5 {
-		t.Fatalf("ask sync message transmission failure")
+	if val := atomic.LoadUint64(&counter); val != committeeSize-1 {
+		t.Fatalf("ask sync message transmission failure. wanted %d, got %d", committeeSize-1, val)
 	}
 }
 

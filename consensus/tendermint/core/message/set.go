@@ -30,9 +30,14 @@ func NewSet() *Set {
 	}
 }
 
-func (s *Set) Add(vote Vote) {
+// returns whether the new signers increased the power or the vote was redundant
+func (s *Set) Add(vote Vote) bool {
 	s.Lock()
 	defer s.Unlock()
+
+	// will be set to true if the vote brings an increase in voting power in Core
+	// equivocated votes are considered redundant
+	voteContributed := false
 
 	value := vote.Value()
 	previousVotes, ok := s.votes[value]
@@ -43,14 +48,15 @@ func (s *Set) Add(vote Vote) {
 
 	// update total power and power for value
 	for index, power := range vote.Signers().Powers() {
-		s.totalPower.Set(index, power)
+		signerContributed := s.totalPower.Set(index, power)
+		voteContributed = voteContributed || signerContributed
 		s.powers[value].Set(index, power)
 	}
 
 	// check if we are adding the first vote
 	if len(previousVotes) == 0 {
 		s.votes[value][0] = vote
-		return
+		return voteContributed
 	}
 
 	// if not first vote, aggregate previous votes and new vote
@@ -70,6 +76,7 @@ func (s *Set) Add(vote Vote) {
 	default:
 		panic("Trying to add a vote that is not Prevote nor Precommit")
 	}
+	return voteContributed
 }
 
 func (s *Set) Messages() []Msg {
