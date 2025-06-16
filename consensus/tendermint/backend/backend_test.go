@@ -96,7 +96,7 @@ func TestAskSync(t *testing.T) {
 	for _, val := range committee.Members {
 		addresses = append(addresses, val.Address)
 		mockedPeer := consensus.NewMockPeer(ctrl)
-		mockedPeer.EXPECT().Send(message.SyncNetworkMsg, gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
+		mockedPeer.EXPECT().Send(message.SyncNetworkMsg, gomock.Any()).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).MaxTimes(1)
 		peers[val.Address] = mockedPeer
@@ -118,7 +118,9 @@ func TestAskSync(t *testing.T) {
 		logger:        log.New("backend", "test", "id", 0),
 	}
 	b.SetBroadcaster(broadcaster)
-	b.AskSync(committee)
+
+	askSyncMsg := &message.AskSyncMsg{}
+	b.AskSync(committee, askSyncMsg)
 	<-time.NewTimer(2 * time.Second).C
 	if atomic.LoadUint64(&counter) != 5 {
 		t.Fatalf("ask sync message transmission failure")
@@ -387,53 +389,6 @@ func TestCommit(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected <nil>, got %v", err)
 		}
-	})
-}
-
-func TestSyncPeer(t *testing.T) {
-	t.Run("no Broadcaster set, nothing done", func(t *testing.T) {
-		b := &Backend{
-			database: rawdb.NewMemoryDatabase()}
-		b.SyncPeer(common.HexToAddress("0x0123456789"))
-	})
-
-	t.Run("valid params given, messages sent", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		peerAddr1 := common.HexToAddress("0x0123456789")
-		messages := []message.Msg{
-			message.NewPrevote(7, 8, common.HexToHash("0x1227"), testSigner, testCommitteeMember, 1),
-		}
-
-		payload := messages[0].Payload()
-
-		peer1Mock := consensus.NewMockPeer(ctrl)
-		peer1Mock.EXPECT().SendRaw(message.PrevoteNetworkMsg, payload)
-
-		peers := make(map[common.Address]consensus.Peer)
-		peers[peerAddr1] = peer1Mock
-
-		broadcaster := consensus.NewMockBroadcaster(ctrl)
-		broadcaster.EXPECT().FindPeer(peerAddr1).Return(peer1Mock, true)
-
-		tendermintC := interfaces.NewMockCore(ctrl)
-		tendermintC.EXPECT().CurrentHeightMessages().Return(messages)
-
-		gossiper := interfaces.NewMockGossiper(ctrl)
-		gossiper.EXPECT().SetBroadcaster(broadcaster).Times(1)
-		b := &Backend{
-			database: rawdb.NewMemoryDatabase(),
-			logger:   log.New("backend", "test", "id", 0),
-			gossiper: gossiper,
-			core:     tendermintC,
-		}
-		b.SetBroadcaster(broadcaster)
-
-		b.SyncPeer(peerAddr1)
-
-		wait := time.NewTimer(time.Second)
-		<-wait.C
 	})
 }
 

@@ -170,7 +170,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		errCh := make(chan error)
 
-		backend.aggregatorMessageCh <- events.UnverifiedMessageEvent{Message: propose, ErrCh: errCh, Sender: common.Address{}, Posted: time.Now()}
+		backend.messageCh <- events.UnverifiedMessageEvent{Message: propose, ErrCh: errCh, Sender: common.Address{}, Posted: time.Now()}
 
 		defer failIf(t, func() (bool, error) {
 			select {
@@ -274,7 +274,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		errCh := make(chan error)
 
-		backend.aggregatorMessageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
+		backend.messageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
 
 		// check that it is processed by the time-based aggr
 		waitFor(t, func() bool {
@@ -306,7 +306,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		errCh := make(chan error)
 
-		backend.aggregatorMessageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
+		backend.messageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
 		waitFor(t, func() bool {
 			select {
 			case ev := <-sub.Chan():
@@ -324,7 +324,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 		// now send message that will reach quorum (together with the previous msg in Core)
 		prevote = tweakPrevote(message.NewPrevote(r, h, value, backend.Sign, &genesisCommittee.Members[1], committeeSize), backend.consensusKey.PublicKey())
 
-		backend.aggregatorMessageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
+		backend.messageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
 
 		// core should switch to round 10 if message gets processed by it
 		waitFor(t, func() bool {
@@ -348,7 +348,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		errCh := make(chan error)
 
-		backend.aggregatorMessageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
+		backend.messageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
 
 		// core should switch to round 10 if message gets processed by it
 		waitFor(t, func() bool {
@@ -408,7 +408,7 @@ func TestAggregatorOldHeightMessage(t *testing.T) {
 			return false, nil
 		})()
 
-		backend.aggregatorMessageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
+		backend.messageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
 
 		// check that old message has been processed by stale messages time-based aggregation
 		waitFor(t, func() bool {

@@ -1,10 +1,13 @@
 package message
 
 import (
+	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 )
 
 type Map struct {
@@ -36,10 +39,16 @@ func (s *Map) GetOrCreate(round int64) *RoundMessages {
 	return state
 }
 
-// TODO: this function has a mutex that can be taken by:
-// 1. the core routine
-// 2. the routine that syncs other peers
-// can this be exploited by a malicious peer to slow Core down (by requesting ask sync lots of times)
+func (s *Map) DumpMsgView() []*RoundMsgView {
+	s.RLock()         // nolint
+	defer s.RUnlock() // nolint
+	var views []*RoundMsgView
+	for r, state := range s.internal {
+		views = append(views, state.DumpMsgView(r))
+	}
+	return views
+}
+
 func (s *Map) All() []Msg {
 	s.RLock()
 	defer s.RUnlock()
@@ -216,4 +225,163 @@ func (s *RoundMessages) AllMessages() []Msg {
 	result = append(result, prevotes...)
 	result = append(result, precommits...)
 	return result
+}
+
+func (s *RoundMessages) DumpMsgView(round int64) *RoundMsgView {
+	s.RLock()         // nolint
+	defer s.RUnlock() // nolint
+	view := &RoundMsgView{}
+	view.Round = uint64(round)
+
+	if s.proposal != nil {
+		view.HaveProposal = true
+	}
+
+	if s.prevotes != nil {
+		values, signers := s.prevotes.DumpMsgView()
+		view.Prevotes = values
+		view.PrevotesSigners = signers
+	}
+
+	if s.precommits != nil {
+		values, signers := s.precommits.DumpMsgView()
+		view.Precommits = values
+		view.PrecommitsSigners = signers
+	}
+	return view
+}
+
+type RoundMsgView struct {
+	Round uint64
+
+	HaveProposal bool
+
+	// prevoted values in the round
+	Prevotes []common.Hash
+	// signers for each prevoted values listed in the Prevotes slice.
+	PrevotesSigners []*big.Int
+
+	// precommitted values in the round
+	Precommits []common.Hash
+	// signders for each precommitted values listed in the Precommit slice.
+	PrecommitsSigners []*big.Int
+}
+
+var errInvalidLostSyncMsg = errors.New("invalid ask sync message")
+
+// AskSyncMsg carries all the msgs' views, include future rounds of current consensus engine for tendermint state recovery.
+type AskSyncMsg struct {
+	Height        uint64
+	KnownMessages []*RoundMsgView
+	// following fields are ignored when rlp/json encoding/decoding.
+	// They are built locally when validating the message
+	validated        bool                                `rlp:"-"`
+	rounds           map[uint64]struct{}                 `rlp:"-"`
+	prevoteSigners   map[uint64]map[common.Hash]*big.Int `rlp:"-"` // maps point to the signers bitmap for that specific value
+	precommitSigners map[uint64]map[common.Hash]*big.Int `rlp:"-"` // maps point to the signers bitmap for that specific value
+	nilProposal      map[uint64]struct{}                 `rlp:"-"` // marks round where remote node doesn't have a proposal
+}
+
+func (m *AskSyncMsg) Validate() error {
+	// cannot have more than `MaxRound` distinct rounds
+	if len(m.KnownMessages) > constants.MaxRound {
+		return errInvalidLostSyncMsg
+	}
+
+	rounds := make(map[uint64]struct{})
+	prevoteSigners := make(map[uint64]map[common.Hash]*big.Int)
+	precommitSigners := make(map[uint64]map[common.Hash]*big.Int)
+	nilProposal := make(map[uint64]struct{})
+	for _, v := range m.KnownMessages {
+		// view cannot be nil
+		if v == nil {
+			return errInvalidLostSyncMsg
+		}
+		// round number cannot be > `MaxRound`
+		if v.Round > constants.MaxRound {
+			return errInvalidLostSyncMsg
+		}
+		// rounds should not repeat
+		if _, ok := rounds[v.Round]; ok {
+			return errInvalidLostSyncMsg
+		} else {
+			rounds[v.Round] = struct{}{}
+		}
+
+		// if the remote peer does not have a proposal for this round, mark it
+		if !v.HaveProposal {
+			nilProposal[v.Round] = struct{}{}
+		}
+
+		// sanity check prevotes of this round
+		currentPrevoteSigners, err := validateVotes(v.Prevotes, v.PrevotesSigners)
+		if err != nil {
+			return fmt.Errorf("error while sanity checking prevotes: %w", err)
+		}
+
+		// sanity check precommits of this round
+		currentPrecommitSigners, err := validateVotes(v.Precommits, v.PrecommitsSigners)
+		if err != nil {
+			return fmt.Errorf("error while sanity checking precommits: %w", err)
+		}
+		prevoteSigners[v.Round] = currentPrevoteSigners
+		precommitSigners[v.Round] = currentPrecommitSigners
+	}
+
+	// populate local fields if valid
+	m.validated = true
+	m.rounds = rounds
+	m.prevoteSigners = prevoteSigners
+	m.precommitSigners = precommitSigners
+	m.nilProposal = nilProposal
+	return nil
+}
+
+func validateVotes(values []common.Hash, signers []*big.Int) (map[common.Hash]*big.Int, error) {
+	// number of values and number of signers should be coherent
+	if len(values) != len(signers) {
+		return nil, errInvalidLostSyncMsg
+	}
+
+	voteSigners := make(map[common.Hash]*big.Int)
+	for i, value := range values {
+		// values of same round votes shouldn't repeat
+		if _, ok := voteSigners[value]; ok {
+			return nil, errInvalidLostSyncMsg
+		}
+		// signers shouldn't be nil or empty
+		if signers[i] == nil || signers[i] == common.Big0 {
+			return nil, errInvalidLostSyncMsg
+		}
+		voteSigners[value] = signers[i]
+	}
+	return voteSigners, nil
+}
+
+func (m *AskSyncMsg) Rounds() map[uint64]struct{} {
+	if !m.validated {
+		panic("AskSyncMsg.Rounds() called before validated")
+	}
+	return m.rounds
+}
+
+func (m *AskSyncMsg) NilProposal() map[uint64]struct{} {
+	if !m.validated {
+		panic("AskSyncMsg.NilProposal() called before validated")
+	}
+	return m.nilProposal
+}
+
+func (m *AskSyncMsg) Prevotes() map[uint64]map[common.Hash]*big.Int {
+	if !m.validated {
+		panic("AskSyncMsg.Prevotes() called before validated")
+	}
+	return m.prevoteSigners
+}
+
+func (m *AskSyncMsg) Precommits() map[uint64]map[common.Hash]*big.Int {
+	if !m.validated {
+		panic("AskSyncMsg.Precommits() called before validated")
+	}
+	return m.precommitSigners
 }

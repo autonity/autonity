@@ -589,6 +589,8 @@ func (sb *Backend) Start(ctx context.Context) error {
 	go sb.faultyValidatorsWatcher(ctx)
 	sb.router.Start(ctx, sb.BlockChain())
 
+	sb.startRateLimiterGCRoutine()
+
 	// Start Tendermint
 	sb.core.Start(ctx, sb.blockchain.ProtocolContracts())
 	sb.aggregator.start(ctx)

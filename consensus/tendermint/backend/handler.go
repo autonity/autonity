@@ -95,7 +95,14 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 			return true, ErrJailed
 		}
 		sb.logger.Debug("Received sync message", "from", sender)
-		go sb.Post(events.SyncEvent{Addr: sender})
+		var data []byte
+		if err := msg.Decode(&data); err != nil {
+			// this error will freeze peer for 30 seconds by according to dev p2p protocol.
+			return true, errDecodeFailed
+		}
+		// handle the msg in an individual go routine, the rate limiter will handle DoS attack vectors.
+		go sb.syncPeer(data, sender, errCh)
+
 	case message.AccountabilityNetworkMsg:
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Accountability Msg received but core not running")

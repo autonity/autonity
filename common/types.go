@@ -44,6 +44,7 @@ const (
 )
 
 var (
+	NilValue = Hash{}
 	hashT    = reflect.TypeOf(Hash{})
 	addressT = reflect.TypeOf(Address{})
 )

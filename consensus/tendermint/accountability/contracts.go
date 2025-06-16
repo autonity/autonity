@@ -151,7 +151,7 @@ func verifyAccusation(p *Proof, committee *types.Committee) bool {
 		}
 
 	case autonity.PVN:
-		if p.Message.Code() != message.PrevoteCode || p.Message.Value() == nilValue {
+		if p.Message.Code() != message.PrevoteCode || p.Message.Value() == common.NilValue {
 			return false
 		}
 		prevote, ok := p.Message.(*message.Prevote)
@@ -165,7 +165,7 @@ func verifyAccusation(p *Proof, committee *types.Committee) bool {
 	case autonity.PVO:
 		// theoretically we do not need the non-nil check, since we will check later that prevote.value == proposal.value
 		// however added for simplicity of understanding
-		if p.Message.Code() != message.PrevoteCode || p.Message.Value() == nilValue {
+		if p.Message.Code() != message.PrevoteCode || p.Message.Value() == common.NilValue {
 			return false
 		}
 		prevote, ok := p.Message.(*message.Prevote)
@@ -177,7 +177,7 @@ func verifyAccusation(p *Proof, committee *types.Committee) bool {
 		}
 
 	case autonity.C1:
-		if p.Message.Code() != message.PrecommitCode || p.Message.Value() == nilValue {
+		if p.Message.Code() != message.PrecommitCode || p.Message.Value() == common.NilValue {
 			return false
 		}
 
@@ -310,7 +310,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPN(p *Proof, committee *types.
 	}
 
 	if committee.Members[p.OffenderIndex].Address == proposal.Signer() &&
-		preCommit.R() < proposal.R() && preCommit.Value() != nilValue {
+		preCommit.R() < proposal.R() && preCommit.Value() != common.NilValue {
 		return true
 	}
 	return false
@@ -335,13 +335,13 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee *types.
 	case *message.Precommit:
 		if vote.R() == proposal.ValidRound() &&
 			vote.Signers().Contains(p.OffenderIndex) && committee.Members[p.OffenderIndex].Address == proposal.Signer() &&
-			vote.Value() != nilValue && vote.Value() != proposal.Value() {
+			vote.Value() != common.NilValue && vote.Value() != proposal.Value() {
 			return true
 		}
 		if vote.R() > proposal.ValidRound() &&
 			vote.R() < proposal.R() &&
 			vote.Signers().Contains(p.OffenderIndex) && committee.Members[p.OffenderIndex].Address == proposal.Signer() &&
-			vote.Value() != nilValue {
+			vote.Value() != common.NilValue {
 			return true
 		}
 	case *message.Prevote:
@@ -381,7 +381,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 	}
 
 	present := prevote.Signers().Contains(p.OffenderIndex)
-	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue {
+	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == common.NilValue {
 		return false
 	}
 
@@ -413,7 +413,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 		if pc.Code() != message.PrecommitCode || !preC.Signers().Contains(p.OffenderIndex) || pc.R() >= prevote.R() {
 			return false
 		}
-		return pc.R()+1 == prevote.R() && pc.Value() != nilValue && pc.Value() != prevote.Value()
+		return pc.R()+1 == prevote.R() && pc.Value() != common.NilValue && pc.Value() != prevote.Value()
 	}
 
 	// Otherwise, we have to process aggregated precommits from the aggregated precommits.
@@ -428,12 +428,12 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVN(p *Proof) bool {
 
 			// preCommit at R'
 			if i == 0 {
-				if pc.Value == nilValue || pc.Value == prevote.Value() {
+				if pc.Value == common.NilValue || pc.Value == prevote.Value() {
 					return false
 				}
 			} else {
 				// preCommits at between R' and R-1, they should be nil.
-				if pc.Value != nilValue {
+				if pc.Value != common.NilValue {
 					return false
 				}
 			}
@@ -464,7 +464,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee *types
 	}
 
 	present := prevote.Signers().Contains(p.OffenderIndex)
-	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue {
+	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == common.NilValue {
 		return false
 	}
 	// check if the corresponding proposal of preVote is presented.
@@ -490,7 +490,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee *types
 			return false
 		}
 
-		if pv.Code() != message.PrevoteCode || pv.R() != validRound || pv.Value() == nilValue ||
+		if pv.Code() != message.PrevoteCode || pv.R() != validRound || pv.Value() == common.NilValue ||
 			pv.Value() == correspondingProposal.Value() || pv.Value() != votedVatVR {
 			return false
 		}
@@ -518,7 +518,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 	}
 
 	present := prevote.Signers().Contains(p.OffenderIndex)
-	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == nilValue {
+	if !present || prevote.Code() != message.PrevoteCode || prevote.Value() == common.NilValue {
 		return false
 	}
 
@@ -552,7 +552,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 			int(currentRound-validRound)-1 != len(precommits) {
 			return false
 		}
-		return preC.Value() != prevote.Value() && preC.Value() != nilValue
+		return preC.Value() != prevote.Value() && preC.Value() != common.NilValue
 	}
 
 	// we have distinct aggregated precomits
@@ -584,7 +584,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO12(p *Proof) bool {
 				lastRoundForV = pc.Round
 			}
 
-			if pc.Value != prevote.Value() && pc.Value != nilValue && pc.Round > lastRoundForNotV {
+			if pc.Value != prevote.Value() && pc.Value != common.NilValue && pc.Round > lastRoundForNotV {
 				lastRoundForNotV = pc.Round
 			}
 		}
@@ -604,7 +604,7 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee *types.C
 		return false
 	}
 	present := preCommit.Signers().Contains(p.OffenderIndex)
-	if !present || preCommit.Code() != message.PrecommitCode || preCommit.Value() == nilValue {
+	if !present || preCommit.Code() != message.PrecommitCode || preCommit.Value() == common.NilValue {
 		return false
 	}
 
@@ -724,7 +724,7 @@ func validInnocenceProofOfPVN(p *Proof) bool {
 	if !ok {
 		return false
 	}
-	if !(preVote.Code() == message.PrevoteCode && preVote.Value() != nilValue) {
+	if !(preVote.Code() == message.PrevoteCode && preVote.Value() != common.NilValue) {
 		return false
 	}
 
@@ -750,7 +750,7 @@ func validInnocenceProofOfPVO(p *Proof, committee *types.Committee) bool {
 	if !ok {
 		return false
 	}
-	if !(preVote.Code() == message.PrevoteCode && preVote.Value() != nilValue) {
+	if !(preVote.Code() == message.PrevoteCode && preVote.Value() != common.NilValue) {
 		return false
 	}
 
@@ -794,7 +794,7 @@ func validInnocenceProofOfC1(p *Proof, committee *types.Committee) bool {
 	if !ok {
 		return false
 	}
-	if preCommit.Value() == nilValue {
+	if preCommit.Value() == common.NilValue {
 		return false
 	}
 	// check quorum prevotes for V at the same round, there is no vote for other value.

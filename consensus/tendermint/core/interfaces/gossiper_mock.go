@@ -59,15 +59,15 @@ func (mr *MockGossiperMockRecorder) Address() *gomock.Call {
 }
 
 // AskSync mocks base method.
-func (m *MockGossiper) AskSync(committee *types.Committee) {
+func (m *MockGossiper) AskSync(committee *types.Committee, askSync *message.AskSyncMsg) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AskSync", committee)
+	m.ctrl.Call(m, "AskSync", committee, askSync)
 }
 
 // AskSync indicates an expected call of AskSync.
-func (mr *MockGossiperMockRecorder) AskSync(committee any) *gomock.Call {
+func (mr *MockGossiperMockRecorder) AskSync(committee, askSync any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockGossiper)(nil).AskSync), committee)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskSync", reflect.TypeOf((*MockGossiper)(nil).AskSync), committee, askSync)
 }
 
 // Broadcaster mocks base method.

@@ -1,6 +1,7 @@
 package message
 
 import (
+	"math/big"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -108,4 +109,18 @@ func (s *Set) VotesFor(blockHash common.Hash) []Vote {
 	defer s.RUnlock()
 
 	return s.votes[blockHash]
+}
+
+func (s *Set) DumpMsgView() ([]common.Hash, []*big.Int) {
+	s.RLock()         //nolint
+	defer s.RUnlock() //nolint
+
+	var values []common.Hash
+	var signers []*big.Int
+	for v, votes := range s.powers {
+		values = append(values, v)
+		signers = append(signers, new(big.Int).Set(votes.Signers()))
+	}
+
+	return values, signers
 }

@@ -16,9 +16,6 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
-// todo: resolve proper tendermint state synchronization timeout from block period.
-const syncTimeOut = 30 * time.Second
-
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
 	chainHead := c.backend.HeadBlock().Header()
@@ -64,14 +61,12 @@ func (c *Core) subscribeEvents() {
 	c.candidateBlockCh = make(chan events.NewCandidateBlockEvent, 1)
 	c.committedCh = make(chan events.CommitEvent, 1)
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
-	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 }
 
 // Unsubscribe all
 func (c *Core) unsubscribeEvents() {
 	c.messageSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
-	c.syncEventSub.Unsubscribe()
 }
 
 func shouldDisconnectSender(err error) bool {
@@ -149,7 +144,7 @@ func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash
 }
 
 func (c *Core) mainEventLoop(ctx context.Context) {
-	go c.syncLoop(ctx)
+	go c.livenessTrackerLoop(ctx)
 
 eventLoop:
 	for {
@@ -314,7 +309,7 @@ eventLoop:
 	c.stopped <- struct{}{}
 }
 
-func (c *Core) syncLoop(ctx context.Context) {
+func (c *Core) livenessTrackerLoop(ctx context.Context) {
 	/*
 		this method is responsible for asking the network to send us the current consensus state
 		and to process sync queries events.
@@ -323,34 +318,29 @@ func (c *Core) syncLoop(ctx context.Context) {
 	height := c.Height()
 
 	// Ask for sync when the engine starts
-	c.backend.AskSync(c.committee.Committee())
+	syncMsg := c.createSyncMsg()
+	c.backend.AskSync(c.committee.Committee(), syncMsg)
+
+	ticker := time.NewTicker(time.Second * constants.SyncTimeout)
+	defer ticker.Stop()
 
 eventLoop:
 	for {
 		select {
-		case <-time.After(time.Second * 30): //check for sync every 5 seconds // temporary change
-
+		case <-ticker.C:
 			currentRound := c.Round()
 			currentHeight := c.Height()
 
-			// we only ask for sync if the current view stayed the same for the interval syncTimeOut
 			if currentHeight.Cmp(height) == 0 && currentRound == round {
 				c.logger.Warn("⚠️ Consensus liveliness lost")
-				c.logger.Warn("Broadcasting sync request..")
-				c.backend.AskSync(c.committee.Committee())
+				syncMsg = c.createSyncMsg()
+				c.backend.AskSync(c.committee.Committee(), syncMsg)
 			}
 			round = currentRound
 			height = currentHeight
 
-		case ev, ok := <-c.syncEventSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			event := ev.Data.(events.SyncEvent)
-			c.logger.Debug("Processing sync message", "from", event.Addr)
-			c.backend.SyncPeer(event.Addr)
 		case <-ctx.Done():
-			c.logger.Debug("syncLoop is stopped", "event", ctx.Err())
+			c.logger.Debug("livenessTrackerLoop is stopped", "event", ctx.Err())
 			break eventLoop
 
 		}

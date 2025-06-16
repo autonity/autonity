@@ -16,111 +16,9 @@ import (
 
 var (
 	errInvalidAccusation           = errors.New("invalid accusation")
-	errPeerDuplicatedAccusation    = errors.New("remote peer is sending duplicated accusation")
 	errInvalidInnocenceProof       = errors.New("invalid proof of innocence")
-	errAccusationRateMalicious     = errors.New("malicious accusation msg rate, peer to be dropped")
 	errAccusationFromNoneValidator = errors.New("accusation from none validator node")
 )
-
-type AccusationRateLimiter struct {
-	// to track the number of accusation sent by a challenger over a specific height.
-	accusationsPerHeight map[common.Address]map[uint64]int
-	// malicious one might use out of updated accusations to DoS node, so we track those recently accusation rates.
-	accusationRates map[common.Address]int
-	// track if one send duplicated accusation.
-	peerProcessedAccusations map[common.Address]map[common.Hash]struct{}
-}
-
-func NewAccusationRateLimiter() *AccusationRateLimiter {
-	l := &AccusationRateLimiter{
-		accusationRates:          make(map[common.Address]int),
-		accusationsPerHeight:     make(map[common.Address]map[uint64]int),
-		peerProcessedAccusations: make(map[common.Address]map[common.Hash]struct{}),
-	}
-	return l
-}
-
-// although we have rate limit over per height, but since malicious node can use out of updated consensus msg to send
-// accusation to DoS node, thus we have to track the rate limit of accusation during the recently period, 1 seconds.
-func (r *AccusationRateLimiter) validAccusationRate(sender common.Address) error {
-	// get accusation counters of the last 1 seconds.
-	times, ok := r.accusationRates[sender]
-	if !ok {
-		r.accusationRates[sender] = 1
-		return nil
-	}
-
-	// since communication channel is asynchronous, those pending write of off chain accusation msgs from a sender could
-	// potentially be received once the network session get established from a disaster, thus it could exceed the number
-	// of accusation that could be produced by rule engine over a height, so we set higher rate limit during 1 second
-	// to be tolerant for such case.
-	if times > maxAccusationPerHeight*2 {
-		return errAccusationRateMalicious
-	}
-
-	r.accusationRates[sender]++
-	return nil
-}
-
-// rate limit counters are reset on each 1 seconds.
-func (r *AccusationRateLimiter) resetRateLimiter() {
-	for k := range r.accusationRates {
-		delete(r.accusationRates, k)
-	}
-}
-
-func (r *AccusationRateLimiter) checkPeerDuplicatedAccusation(sender common.Address, msgHash common.Hash) error {
-	msgMap, ok := r.peerProcessedAccusations[sender]
-	if !ok {
-		msgMap = make(map[common.Hash]struct{})
-		r.peerProcessedAccusations[sender] = msgMap
-		r.peerProcessedAccusations[sender][msgHash] = struct{}{}
-		return nil
-	}
-	_, ok = msgMap[msgHash]
-	if !ok {
-		msgMap[msgHash] = struct{}{}
-		return nil
-	}
-	return errPeerDuplicatedAccusation
-}
-
-// justified accusations are reset on every 60 blocks.
-func (r *AccusationRateLimiter) resetPeerJustifiedAccusations() {
-	for k := range r.peerProcessedAccusations {
-		delete(r.peerProcessedAccusations, k)
-	}
-}
-
-// reset rate limiter of per height on each 60 blocks.
-func (r *AccusationRateLimiter) resetHeightRateLimiter() {
-	for k := range r.accusationsPerHeight {
-		delete(r.accusationsPerHeight, k)
-	}
-}
-
-func (r *AccusationRateLimiter) checkHeightAccusationRate(sender common.Address, height uint64) error {
-	hMap, ok := r.accusationsPerHeight[sender]
-	if !ok {
-		hMap = make(map[uint64]int)
-		r.accusationsPerHeight[sender] = hMap
-		r.accusationsPerHeight[sender][height] = 1
-		return nil
-	}
-
-	times, ok := hMap[height]
-	if !ok {
-		hMap[height] = 1
-		return nil
-	}
-	hMap[height] = times + 1
-
-	if hMap[height] > maxAccusationPerHeight {
-		return errAccusationRateMalicious
-	}
-
-	return nil
-}
 
 type InnocenceProofBuffer struct {
 	accusationList []common.Hash
@@ -157,7 +55,7 @@ func (i *InnocenceProofBuffer) getInnocenceProofFromCache(challengeHash common.H
 // NOTE: sender is the p2p sender of the offchain accountability message
 func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sender common.Address) error {
 	// drop peer if the accusation exceed the rate limit during the last 1 seconds.
-	err := fd.rateLimiter.validAccusationRate(sender)
+	err := fd.accusationRateLimiter.timeLimiter.Allow(sender)
 	if err != nil {
 		fd.logger.Error("accountability abuse detected!", "err", err)
 		return err
@@ -165,7 +63,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 
 	// drop peer if it sent duplicated accusation event.
 	msgHash := crypto.Hash(payload)
-	err = fd.rateLimiter.checkPeerDuplicatedAccusation(sender, msgHash)
+	err = fd.accusationRateLimiter.duplicateLimiter.Allow(sender, msgHash)
 	if err != nil {
 		fd.logger.Error("duplicated accusation from peer", "err", err)
 		return err
@@ -199,7 +97,7 @@ func (fd *FaultDetector) handleOffChainAccountabilityEvent(payload []byte, sende
 	}
 
 	// drop peer if one send more than the number of accusations could be produced by rule engine over a height.
-	err = fd.rateLimiter.checkHeightAccusationRate(sender, msgHeight)
+	err = fd.accusationRateLimiter.heightLimiter.Allow(sender, msgHeight)
 	if err != nil {
 		fd.logger.Info("over rated accusation over a height", "error", err)
 		return err

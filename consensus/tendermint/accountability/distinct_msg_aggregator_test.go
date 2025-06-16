@@ -22,7 +22,7 @@ var (
 	randomBytes2 = make([]byte, 32)
 	_, _         = cr.Read(randomBytes1)
 	_, _         = cr.Read(randomBytes2)
-	values       = []common.Hash{crypto.Hash(randomBytes1), crypto.Hash(randomBytes2), nilValue}
+	values       = []common.Hash{crypto.Hash(randomBytes1), crypto.Hash(randomBytes2), common.NilValue}
 	parentHeader = newBlockHeader(h-1, committee)
 )
 

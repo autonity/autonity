@@ -3,6 +3,7 @@ package backend
 import (
 	"crypto/ecdsa"
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -65,17 +66,18 @@ func New(
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
 	backend := &Backend{
-		database:            database,
-		eventMux:            event.NewTypeMuxSilent(evMux, log),
-		nodeKey:             nodeKey,
-		consensusKey:        consensusKey,
-		address:             crypto.PubkeyToAddress(nodeKey.PublicKey),
-		logger:              log,
-		knownMessages:       knownMessages,
-		vmConfig:            vmConfig,
-		MsgStore:            ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
-		aggregatorMessageCh: make(chan events.UnverifiedMessageEvent, 5000),
-		isHeightExpired:     isHeightExpired,
+		database:           database,
+		eventMux:           event.NewTypeMuxSilent(evMux, log),
+		nodeKey:            nodeKey,
+		consensusKey:       consensusKey,
+		address:            crypto.PubkeyToAddress(nodeKey.PublicKey),
+		logger:             log,
+		knownMessages:      knownMessages,
+		vmConfig:           vmConfig,
+		MsgStore:           ms,
+		askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval*time.Second, 2),
+		messageCh:          make(chan events.UnverifiedMessageEvent, 5000),
+		isHeightExpired:    isHeightExpired,
 		jailed: jailed{
 			validators: make(map[common.Address]uint64),
 		},
@@ -105,7 +107,7 @@ func New(
 
 	consensusCore := tendermintCore.New(backend, services, backend.address, log, noGossip)
 	backend.core = consensusCore
-	backend.coreEventDispatcher = consensusCore
+	backend.evDispatcher = consensusCore
 
 	backend.aggregator = newAggregator(backend, consensusCore, log, backend.knownMessages)
 
@@ -126,16 +128,16 @@ type Backend struct {
 	hasBadBlock  func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
-	proposalVerifiedCh  chan<- *types.Block
-	commitCh            chan<- *types.Block
-	aggregatorMessageCh chan events.UnverifiedMessageEvent // to send events to the aggregator
-	proposedBlockHash   common.Hash
-	coreStarting        atomic.Bool
-	coreRunning         atomic.Bool
-	core                interfaces.Core
-	coreEventDispatcher interfaces.EventDispatcher
-	stopped             chan struct{}
-	wg                  sync.WaitGroup
+	proposalVerifiedCh chan<- *types.Block
+	commitCh           chan<- *types.Block
+	messageCh          chan events.UnverifiedMessageEvent // to send events to the aggregator
+	proposedBlockHash  common.Hash
+	coreStarting       atomic.Bool
+	coreRunning        atomic.Bool
+	core               interfaces.Core
+	evDispatcher       interfaces.EventDispatcher
+	stopped            chan struct{}
+	wg                 sync.WaitGroup
 
 	// used to save consensus messages while core is stopped
 	pendingMessages ring.Ring
@@ -149,9 +151,14 @@ type Backend struct {
 
 	router interfaces.Router
 
-	knownMessages   *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
-	vmConfig        *vm.Config
-	MsgStore        *tendermintCore.MsgStore //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
+	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
+	vmConfig      *vm.Config
+
+	// MsgStore contains recent consensus messages for accountability and peer state recovery.
+	MsgStore           *tendermintCore.MsgStore
+	askSyncRateLimiter *helpers.TimeWindowLimiter
+	cleanupTicker      *time.Ticker
+
 	aggregator      *aggregator
 	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool // pass a function to avoid import loops
 
@@ -182,7 +189,7 @@ func (sb *Backend) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 }
 
 func (sb *Backend) MessageCh() <-chan events.UnverifiedMessageEvent {
-	return sb.aggregatorMessageCh
+	return sb.messageCh
 }
 
 // Address implements tendermint.Backend.Address
@@ -202,8 +209,8 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	})
 }
 
-func (sb *Backend) AskSync(committee *types.Committee) {
-	sb.gossiper.AskSync(committee)
+func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) {
+	sb.gossiper.AskSync(committee, syncMsg)
 }
 
 // Gossip implements tendermint.Backend.Gossip
@@ -263,11 +270,11 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate 
 func (sb *Backend) Post(ev any) {
 	switch ev := ev.(type) {
 	case events.CommitEvent:
-		sb.coreEventDispatcher.Post(ev)
+		sb.evDispatcher.Post(ev)
 	case events.NewCandidateBlockEvent:
-		sb.coreEventDispatcher.Post(ev)
+		sb.evDispatcher.Post(ev)
 	case events.UnverifiedMessageEvent:
-		sb.aggregatorMessageCh <- ev
+		sb.messageCh <- ev
 	default:
 		sb.eventMux.Post(ev)
 	}
@@ -398,24 +405,6 @@ func (sb *Backend) CommitteeEnodes() []string {
 		return nil
 	}
 	return enodes.StrList
-}
-
-// SyncPeer Synchronize new connected peer with current height messages
-func (sb *Backend) SyncPeer(address common.Address) {
-	if sb.Broadcaster == nil {
-		return
-	}
-	sb.logger.Debug("Syncing", "peer", address)
-	peer, ok := sb.Broadcaster.FindPeer(address)
-	if !ok {
-		return
-	}
-	messages := sb.core.CurrentHeightMessages()
-	sb.logger.Debug("sent current height messages", "peer", address, "n", len(messages))
-	for _, msg := range messages {
-		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go peer.SendRaw(message.NetworkCodes[msg.Code()], msg.Payload()) //nolint
-	}
 }
 
 // called by tendermint core to dump core state

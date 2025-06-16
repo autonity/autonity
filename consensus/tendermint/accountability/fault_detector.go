@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math"
 	"math/big"
 	"sort"
@@ -61,8 +62,6 @@ var (
 	errNoEvidenceForPVN = errors.New("no proof of innocence found for rule PVN")
 	errNoEvidenceForPVO = errors.New("no proof of innocence found for rule PVO")
 	errNoEvidenceForC1  = errors.New("no proof of innocence found for rule C1")
-
-	nilValue = common.Hash{}
 )
 
 // FaultDetector it subscribe chain event to trigger rule engine to apply patterns over
@@ -70,9 +69,9 @@ var (
 // read state db on each new height to get the latest challenges from autonity contract's view,
 // and to prove its innocent if there were any challenges on the suspicious node.
 type FaultDetector struct {
-	innocenceProofBuff *InnocenceProofBuffer
-	protocolContracts  *autonity.ProtocolContracts
-	rateLimiter        *AccusationRateLimiter
+	innocenceProofBuff    *InnocenceProofBuffer
+	protocolContracts     *autonity.ProtocolContracts
+	accusationRateLimiter *AFDRateLimiter
 
 	wg               sync.WaitGroup
 	tendermintMsgSub *event.TypeMuxSubscription
@@ -83,6 +82,7 @@ type FaultDetector struct {
 
 	eventReporterCh chan *bindings.IAccountabilityEvent
 	stopRetry       chan struct{}
+
 	// chain event subscriber for rule engine.
 	ruleEngineBlockCh  chan core.ChainEvent
 	ruleEngineBlockSub event.Subscription
@@ -132,7 +132,7 @@ func NewFaultDetector(
 	fd := &FaultDetector{
 		innocenceProofBuff:    NewInnocenceProofBuffer(),
 		protocolContracts:     protocolContracts,
-		rateLimiter:           NewAccusationRateLimiter(),
+		accusationRateLimiter: NewAFDRateLimiter(),
 		txPool:                txPool,
 		ethBackend:            ethBackend,
 		txOpts:                txOpts,
@@ -184,8 +184,6 @@ func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
 }
 
 func (fd *FaultDetector) consensusMsgHandlerLoop() {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
 tendermintMsgLoop:
 	for {
 		select {
@@ -253,12 +251,15 @@ tendermintMsgLoop:
 
 			// on every 60 blocks, reset Peer Justified Accusations and height accusations counters.
 			if e.Block.NumberU64()%msgGCInterval == 0 {
-				fd.rateLimiter.resetHeightRateLimiter()
-				fd.rateLimiter.resetPeerJustifiedAccusations()
+				currentCoreHeight := fd.blockchain.CurrentBlock().NumberU64() + 1
+				accountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(currentCoreHeight)
+				if err != nil {
+					fd.logger.Error("cannot fetch accountability params", "block", currentCoreHeight, "err", err)
+					continue tendermintMsgLoop
+				}
+				btl := accountabilityParams.Range.Uint64() //nolint:typecheck
+				fd.accusationRateLimiter.Cleanup(e.Block.NumberU64(), btl)
 			}
-		case <-ticker.C:
-			// on each 1 seconds, reset the rate limiter counters.
-			fd.rateLimiter.resetRateLimiter()
 		case err, ok := <-fd.chainEventSub.Err():
 			if ok {
 				// why crit? what can happen here?
@@ -778,7 +779,7 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 
 		//check all precommits for previous rounds from this signer are nil
 		precommits := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
-			return m.R() < proposal.R() && m.Value() != nilValue && m.Signers().Contains(signerIndex)
+			return m.R() < proposal.R() && m.Value() != common.NilValue && m.Signers().Contains(signerIndex)
 		})
 
 		if len(precommits) != 0 {
@@ -826,7 +827,7 @@ oldProposalLoop:
 		// round? If there is, the proposer has proposed a value for which it is not locked on, thus a Proof of
 		// misbehaviour can be generated.
 		precommitsFromPiInVR := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
-			return m.R() == validRound && m.Value() != nilValue && m.Value() != proposal.Value() && m.Signers().Contains(signerIndex)
+			return m.R() == validRound && m.Value() != common.NilValue && m.Value() != proposal.Value() && m.Signers().Contains(signerIndex)
 		})
 		if len(precommitsFromPiInVR) > 0 {
 			proof := &Proof{
@@ -845,7 +846,7 @@ oldProposalLoop:
 		// the proposal? If there is then that implies the proposer saw 2f+1 prevotes in that round and hence it should
 		// have set that round as the valid round.
 		precommitsFromPiAfterVR := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
-			return m.R() > validRound && m.R() < proposal.R() && m.Value() != nilValue && m.Signers().Contains(signerIndex)
+			return m.R() > validRound && m.R() < proposal.R() && m.Value() != common.NilValue && m.Signers().Contains(signerIndex)
 		})
 
 		if len(precommitsFromPiAfterVR) > 0 {
@@ -917,7 +918,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 	// ------------New and Old prevotes------------
 
 	prevotes := fd.msgStore.GetPrevotes(height, func(m *message.Prevote) bool {
-		return m.Value() != nilValue
+		return m.Value() != common.NilValue
 	})
 
 	for _, prevote := range prevotes {
@@ -1047,7 +1048,7 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 		rPrime := precommitsFromPi[len(precommitsFromPi)-1].R()
 		// Check if the difference between the previous round and current round is more than 1 then exit and return nil
 		for i := len(precommitsFromPi) - 1; i >= 0 && (r-rPrime) <= 1; i-- {
-			if precommitsFromPi[i].Value() != nilValue {
+			if precommitsFromPi[i].Value() != common.NilValue {
 				// we found the latest non-nil precommit and we don't have gaps in the following ones
 				pc := precommitsFromPi[i]
 
@@ -1197,7 +1198,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 					lastRoundForV = pc.R()
 				}
 
-				if pc.Value() != prevote.Value() && pc.Value() != nilValue && pc.R() > lastRoundForNotV {
+				if pc.Value() != prevote.Value() && pc.Value() != common.NilValue && pc.R() > lastRoundForNotV {
 					lastRoundForNotV = pc.R()
 				}
 			}
@@ -1255,7 +1256,7 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 	// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
 
 	precommits := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
-		return m.Value() != nilValue
+		return m.Value() != common.NilValue
 	})
 
 	for _, precommit := range precommits {
@@ -1473,4 +1474,33 @@ func isProposerValid(chain ChainContext, m message.Msg) bool {
 	proposer := chain.ProtocolContracts().Proposer(committee, nil, m.H()-1, m.R())
 	signer := m.(*message.Propose).Signer()
 	return signer == proposer
+}
+
+type AFDRateLimiter struct {
+	timeLimiter      *helpers.TimeWindowLimiter
+	heightLimiter    *helpers.HeightBasedLimiter
+	duplicateLimiter *helpers.DuplicateLimiter
+}
+
+func NewAFDRateLimiter() *AFDRateLimiter {
+	limiter := &AFDRateLimiter{
+		// since communication channel is asynchronous, those pending write of off chain accusation msgs from a sender
+		// could potentially be received once the peer connection get established from a disaster recovery, thus it
+		// could exceed the number of accusation that could be produced by rule engine over a height, so we set higher
+		// rate limit during 1 second to be tolerant for such case.
+		// 8 accusations per 1s window for per client, rate limit reset per 1s.
+		timeLimiter: helpers.NewTimeWindowLimiter(time.Second, maxAccusationPerHeight*2),
+		// 4 accusations per height for per client.
+		heightLimiter: helpers.NewHeightBasedLimiter(maxAccusationPerHeight),
+		// duplicated accusation checker, reset per 5 minutes.
+		duplicateLimiter: helpers.NewDuplicateTracker(time.Minute * 5),
+	}
+
+	return limiter
+}
+
+func (l *AFDRateLimiter) Cleanup(height, btl uint64) {
+	l.timeLimiter.Cleanup()
+	l.heightLimiter.Cleanup(height, btl)
+	l.duplicateLimiter.Cleanup()
 }
