@@ -108,7 +108,7 @@ func TestSynchronisationMessage(t *testing.T) {
 		b := &Backend{
 			database:           rawdb.NewMemoryDatabase(),
 			logger:             log.New("backend", "test", "id", 0),
-			askSyncRateLimiter: helpers.NewTimeWindowLimiter(time.Second*constants.AskSyncInterval, 2),
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		}
 		b.coreStarting.Store(true)
 		b.coreRunning.Store(true)
@@ -165,7 +165,7 @@ func TestNewChainHead(t *testing.T) {
 			evDispatcher:       evDispathcer,
 			gossiper:           g,
 			blockchain:         chain,
-			askSyncRateLimiter: helpers.NewTimeWindowLimiter(time.Second*constants.AskSyncInterval, 2),
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}

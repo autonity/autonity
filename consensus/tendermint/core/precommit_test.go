@@ -158,6 +158,7 @@ func TestHandlePrecommit(t *testing.T) {
 			prevoteTimeout:   NewTimeout(Prevote, log.New("PrevoteTimeout")),
 			precommitTimeout: NewTimeout(Precommit, log.New("PrecommitTimeout")),
 			committee:        committeeSet,
+			syncState:        &SyncState{},
 		}
 		c.SetDefaultHandlers()
 		c.SetStep(context.Background(), Precommit)
@@ -217,6 +218,7 @@ func TestHandlePrecommit(t *testing.T) {
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
 			eventCh:          eventCh,
+			syncState:        &SyncState{},
 		}
 
 		c.SetDefaultHandlers()
@@ -257,6 +259,7 @@ func TestHandlePrecommit(t *testing.T) {
 			step:             Precommit,
 			committee:        committeeSet,
 			precommitTimeout: NewTimeout(Precommit, logger),
+			syncState:        &SyncState{},
 			eventCh:          eventCh,
 		}
 		c.SetDefaultHandlers()
@@ -314,6 +317,7 @@ func TestHandleCommit(t *testing.T) {
 		proposeTimeout:   NewTimeout(Propose, logger),
 		prevoteTimeout:   NewTimeout(Prevote, logger),
 		precommitTimeout: NewTimeout(Precommit, logger),
+		syncState:        &SyncState{},
 		committee:        committeeSet,
 		eventCh:          eventCh,
 	}

@@ -1,17 +1,15 @@
 package backend
 
 import (
-	"github.com/autonity/autonity/rlp"
-	"math/big"
-	"time"
+	"fmt"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/rlp"
 )
 
 type Gossiper struct {
@@ -78,13 +76,19 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	}
 }
 
-func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) {
+func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
+	// bail out early if we don't have a broadcaster
+	if g.broadcaster == nil {
+		return fmt.Errorf("broadcaster not initialized")
+	}
+
 	encoded, err := rlp.EncodeToBytes(syncMsg)
 	if err != nil {
 		log.Error("Error encoding sync msg", "err", err)
-		return
+		panic("cannot encode sync message")
 	}
 
+	// send to everyone except ourselves
 	targets := make([]common.Address, 0, committee.Len())
 	for _, val := range committee.Members {
 		if val.Address != g.address {
@@ -92,38 +96,20 @@ func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncM
 		}
 	}
 
-	if g.broadcaster != nil && len(targets) > 0 {
-		for {
-			ps := g.broadcaster.FindPeers(targets)
-			// If we didn't find any peers try again in 10ms or exit if we have
-			// been stopped.
-			if len(ps) == 0 {
-				t := time.NewTimer(retryPeriod * time.Millisecond)
-				select {
-				case <-t.C:
-					continue
-				case <-g.stopped:
-					return
-				}
-			}
-			count := new(big.Int)
-			for addr, p := range ps {
-				// todo: double check if quorum nodes are sufficient for state recovery?
-				// ask to a quorum nodes to sync, 1 must then be honest and updated
-				if count.Cmp(bft.Quorum(committee.TotalVotingPower())) >= 0 {
-					break
-				}
-				g.logger.Debug("Asking sync to", "addr", addr)
-				go p.Send(message.SyncNetworkMsg, encoded) //nolint
-
-				member := committee.MemberByAddress(addr)
-				if member == nil {
-					g.logger.Error("could not retrieve member from address")
-					continue
-				}
-				count.Add(count, member.VotingPower)
-			}
-			break
-		}
+	// bail out if the local validator is the only one in the committee
+	if len(targets) == 0 {
+		return fmt.Errorf("no one to ask sync to")
 	}
+
+	ps := g.broadcaster.FindPeers(targets)
+	// bail out if we cannot find any peers
+	if len(ps) == 0 {
+		return fmt.Errorf("cannot find any peers")
+	}
+
+	for addr, p := range ps {
+		g.logger.Debug("Asking sync to", "addr", addr)
+		go p.Send(message.SyncNetworkMsg, encoded) //nolint
+	}
+	return nil
 }

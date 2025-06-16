@@ -3,7 +3,6 @@ package backend
 import (
 	"crypto/ecdsa"
 	"errors"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -20,6 +19,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
@@ -37,8 +37,6 @@ const (
 	ringCapacity = 10 * 100 * 3
 	// maximum number of future height messages
 	maxFutureMsgs = 10 * 100 * 3
-	// while asking sync for consensus messages, if we do not find any peers we try again after 10 ms
-	retryPeriod = 10
 	// number of buckets to allocate in the fixed cache
 	numBuckets = 1999
 	// max number of entries in each packet
@@ -74,7 +72,7 @@ func New(
 		knownMessages:      knownMessages,
 		vmConfig:           vmConfig,
 		MsgStore:           ms,
-		askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval*time.Second, 2),
+		askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		messageCh:          make(chan events.UnverifiedMessageEvent, 5000),
 		isHeightExpired:    isHeightExpired,
 		jailed: jailed{
@@ -195,8 +193,8 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	})
 }
 
-func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) {
-	sb.gossiper.AskSync(committee, syncMsg)
+func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
+	return sb.gossiper.AskSync(committee, syncMsg)
 }
 
 // Gossip implements tendermint.Backend.Gossip

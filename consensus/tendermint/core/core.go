@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"sync"
+	"sync/atomic" // nolint
 	"time"
 
 	"github.com/autonity/autonity/autonity"
@@ -47,6 +48,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		stepChange:             time.Now(),
 		noGossip:               noGossip,
 		eventCh:                make(chan events.CoreEvent, EventQueueSize),
+		syncState:              &SyncState{},
 	}
 	c.SetDefaultHandlers()
 	if services != nil {
@@ -65,6 +67,38 @@ func (c *Core) SetDefaultHandlers() {
 	c.proposer = &Proposer{c}
 }
 
+type SyncState struct {
+	lastLivenessTime atomic.Int64
+	timeOut          atomic.Int64
+}
+
+func (s *SyncState) setLastLivenessTime(t time.Time) {
+	s.lastLivenessTime.Store(t.UnixNano())
+}
+
+func (s *SyncState) getLastLivenessTime() time.Time {
+	return time.Unix(0, s.lastLivenessTime.Load())
+}
+
+func (s *SyncState) setSyncTimeout(d time.Duration) {
+	s.timeOut.Store(int64(d))
+}
+
+func (s *SyncState) getSyncTimeout() time.Duration {
+	return time.Duration(s.timeOut.Load())
+}
+
+// updateSyncTimeout is called to adjust the sync timeout according to the dynamic timeouts of tendermint steps.
+func (s *SyncState) updateSyncTimeout(timeout time.Duration) {
+	// if a round timer is greater than the current sync timeout, update the sync timeout
+	// this ensures that if we progress of rounds ( >> 0), we won't flood the network uselessly with ask-syncs
+	if timeout > s.getSyncTimeout() {
+		// as tendermint can generate nil prevote/precomit after round timeout,
+		// thus we add a few buffer seconds to reduce unnecessary ask-syncs.
+		s.setSyncTimeout(timeout + constants.AskSyncBufferTime)
+	}
+}
+
 type Core struct {
 	blockPeriod uint64
 	address     common.Address
@@ -79,6 +113,7 @@ type Core struct {
 	timeoutEventSub     *event.TypeMuxSubscription
 	futureProposalTimer *time.Timer
 	stopped             chan struct{}
+	syncState           *SyncState
 
 	// map[Height]UnminedBlock
 	pendingCandidateBlocks map[uint64]*types.Block
@@ -333,6 +368,11 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		c.logger.Crit("⚠️ CONSENSUS FAILED ⚠️")
 	}
 
+	// if the node is starting a new height, reset the timeout to the default value
+	if round == 0 {
+		c.syncState.setSyncTimeout(constants.DefaultSyncTimeout)
+	}
+
 	previousRound := c.Round()
 
 	c.measureHeightRoundMetrics(round)
@@ -361,6 +401,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		}
 	} else {
 		timeoutDuration := c.timeoutPropose(round)
+		c.syncState.updateSyncTimeout(timeoutDuration)
 		c.proposeTimeout.ScheduleTimeout(timeoutDuration, round, c.Height(), c.onTimeoutPropose)
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
@@ -468,6 +509,9 @@ func (c *Core) SetStep(ctx context.Context, step Step) {
 	c.logger.Debug("Step change", "from", c.step.String(), "to", step.String(), "round", c.Round())
 	c.step = step
 	c.stepChange = now
+
+	// mark liveness timestamp
+	c.syncState.setLastLivenessTime(time.Now())
 
 	// stop consensus timeouts
 	c.stopAllTimeouts()
