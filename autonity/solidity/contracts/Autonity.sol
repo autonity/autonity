@@ -279,6 +279,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             0,                       // self unbonding stake locked
             ILiquid(address(0)), // liquid token contract
             0,                       // liquid token supply
+            0,                       // conversion ratio
             block.number,            // registration block
             0,                       // total slashed
             0,                       // jail release block
@@ -1540,6 +1541,10 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                     _transfer(address(this), address(_val.liquidStateContract), _ntnDelegationReward);
                     _val.liquidStateContract.redistribute{value: _atnDelegationReward}(accounts[address(_val.liquidStateContract)]);
                 }
+
+                // update historical conversion ratio
+                _val.conversionRatio = _delegatedStake / _val.liquidSupply;
+
                 // TODO: This has to be reconsidered - I feel it is too expensive
                 // to emit an event per validator. But what is our recommend way to track rewards
                 // from a user perspective then ?

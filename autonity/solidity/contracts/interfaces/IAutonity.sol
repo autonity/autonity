@@ -48,6 +48,7 @@ interface IAutonity is IERC20, IScheduleController {
         uint256 selfUnbondingStakeLocked;
         ILiquid liquidStateContract;
         uint256 liquidSupply;
+        uint256 conversionRatio;
         uint256 registrationBlock;
         uint256 totalSlashed;
         uint256 jailReleaseBlock;

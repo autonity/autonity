@@ -196,5 +196,9 @@
   "80af1799": "getStabilizer()",
   "c4e41b22": "getTotalSupply()",
   "56176bc4": "setEip1559Params((uint256,uint256,uint256,uint256))",
-  "5891de72": "collateralPrice()"
+  "5891de72": "collateralPrice()",
+  "1d894f4a": "jail((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8),uint256,uint256,uint8)",
+  "41da31f7": "jailbound((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8),uint8)",
+  "28ff0ed9": "slash((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8),uint256)",
+  "57897331": "slashAndJail((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8),uint256,uint256,uint256,uint8,uint8)"
 }
