@@ -133,7 +133,7 @@ var (
 			},
 			VerifyGenesisSequence: true,
 			TokenMint:             (*math.HexOrDecimal256)(DefautlNTNGenesisAllocation),
-			TokenBond:             (*math.HexOrDecimal256)(DefautlGenesisBonding),
+			TokenBond:             (*math.HexOrDecimal256)(DefaultGenesisBonding),
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,
