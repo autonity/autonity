@@ -269,13 +269,15 @@ func (b *InternalBackend) CallContract(ctx context.Context, call ethereum.CallMs
 		return nil, err
 	}
 	blockCtx := core.NewEVMBlockContext(header, b.blockchain, nil)
-	evm := vm.NewEVM(blockCtx, statedb, b.ChainConfig(), *b.blockchain.GetVMConfig())
 	msg, err := b.callDataToMessage(&call)
 	if err != nil {
 		return nil, err
 	}
+	// get the copy of VM, set NoBaseFee to true as this function is used for protocol readers.
+	vmConfigCopy := *b.blockchain.GetVMConfig()
+	vmConfigCopy.NoBaseFee = true
+	evm := vm.NewEVM(blockCtx, statedb, b.ChainConfig(), vmConfigCopy)
 	gp := core.GasPool(call.Gas)
-
 	res, err := core.ApplyMessage(evm, msg, &gp)
 	if err != nil {
 		return nil, err
