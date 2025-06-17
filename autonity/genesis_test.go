@@ -573,7 +573,7 @@ func TestGenesisSteps(t *testing.T) {
 
 	t.Run("Test genesis sequence verifier", func(t *testing.T) {
 		stake := validatorTotalStake(params.TestChainConfig)
-		newTestConfig, err := chainConfig(params.TestChainConfig, stake, stake)
+		newTestConfig, err := configWithVerificationParam(params.TestChainConfig, stake, stake)
 		require.NoError(t, err)
 
 		evm := newEVM()
@@ -589,6 +589,37 @@ func TestGenesisSteps(t *testing.T) {
 		)
 		require.NoError(t, err)
 	})
+
+	t.Run("Test genesis sequence verifier (minted > bonded)", func(t *testing.T) {
+		stake := validatorTotalStake(params.TestChainConfig)
+		scheduleToken := big.NewInt(100)
+		minted := new(big.Int).Add(stake, scheduleToken)
+		newTestConfig, err := configWithVerificationParam(params.TestChainConfig, minted, stake)
+		require.NoError(t, err)
+
+		newTestConfig.AutonityContractConfig.Schedules = []params.Schedule{
+			{
+				Start:         big.NewInt(time.Now().Unix() + 10),
+				TotalDuration: big.NewInt(100),
+				Amount:        scheduleToken,
+				VaultAddress:  params.NonStakeableVestingContractAddress,
+			},
+		}
+
+		evm := newEVM()
+		err = executeGenesisSequence(
+			newTestConfig,
+			[]GenesisBond{},
+			evm,
+			[]genesisStep{
+				deployAutonityContract,
+				finalizeAutonityInitialization,
+				createAutonitySchedules,
+				verifyGenesisSequence,
+			},
+		)
+		require.NoError(t, err)
+	})
 }
 
 func validatorTotalStake(config *params.ChainConfig) *big.Int {
@@ -599,7 +630,7 @@ func validatorTotalStake(config *params.ChainConfig) *big.Int {
 	return stake
 }
 
-func chainConfig(config *params.ChainConfig, genesisMint, genesisBond *big.Int) (*params.ChainConfig, error) {
+func configWithVerificationParam(config *params.ChainConfig, genesisMint, genesisBond *big.Int) (*params.ChainConfig, error) {
 	data, err := json.Marshal(config)
 	if err != nil {
 		return nil, err
@@ -609,6 +640,7 @@ func chainConfig(config *params.ChainConfig, genesisMint, genesisBond *big.Int) 
 		return nil, err
 	}
 
+	copy.AutonityContractConfig.SkipGenesisVerification = false
 	copy.AutonityContractConfig.TokenBond = (*math.HexOrDecimal256)(genesisBond)
 	copy.AutonityContractConfig.TokenMint = (*math.HexOrDecimal256)(genesisMint)
 	return copy, nil
