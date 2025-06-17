@@ -41,7 +41,7 @@ var (
 
 	DefautlNTNGenesisAllocation = new(big.Int).Mul(big.NewInt(60_000_000), NTNDecimalFactor) // 60 mil NTN
 	// TODO: update `DefautlGenesisBonding`
-	DefautlGenesisBonding = new(big.Int).Mul(big.NewInt(0), NTNDecimalFactor)
+	DefaultGenesisBonding = new(big.Int).Mul(big.NewInt(0), NTNDecimalFactor)
 
 	// DefaultAcuContractGenesis contains the default values for the ASM ACU contract
 	DefaultAcuContractGenesis = &AcuContractGenesis{
