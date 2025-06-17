@@ -132,7 +132,7 @@ var (
 				},
 			},
 			VerifyGenesisSequence: true,
-			TokenMint:             (*math.HexOrDecimal256)(DefautlNTNGenesisAllocation),
+			TokenMint:             (*math.HexOrDecimal256)(DefaultNTNGenesisAllocation),
 			TokenBond:             (*math.HexOrDecimal256)(DefaultGenesisBonding),
 		},
 		OracleContractConfig: &OracleContractGenesis{
