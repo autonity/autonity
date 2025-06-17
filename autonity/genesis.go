@@ -56,6 +56,7 @@ var (
 		createDefaultNonStakableVestingContracts,
 		deployOmissionAccountabilityContract,
 		deployAuctioneerContract,
+		verifyGenesisSequence,
 	}
 	genesisSequence = append(
 		[]genesisStep{
@@ -587,6 +588,68 @@ func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Auctioneer contract: %w", err)
+	}
+
+	return nil
+}
+
+func verifyGenesisSequence(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, caller genericCaller) error {
+	if !config.AutonityContractConfig.VerifyGenesisSequence {
+		return nil
+	}
+	// verify total allocations
+	ret, err := caller(
+		common.Address{},
+		params.AutonityContractAddress,
+		&generated.AutonityAbi,
+		"totalSupply",
+	)
+	if err != nil {
+		return fmt.Errorf("error while calling totalSupply: %w", newErrorWithRevertReason(err, ret))
+	}
+
+	data, err := generated.AutonityAbi.Unpack("totalSupply", ret)
+	if err != nil {
+		return fmt.Errorf("error while unpacking totalSupply: %w", err)
+	}
+
+	totalSupply := abi.ConvertType(data[0], new(big.Int)).(*big.Int)
+	if totalSupply.Cmp((*big.Int)(config.AutonityContractConfig.TokenMint)) != 0 {
+		return fmt.Errorf("genesis token allocation mismatch")
+	}
+
+	// verify bonded stake
+	validatorBondedStake := func(addr common.Address) (*big.Int, error) {
+		ret, err := caller(
+			common.Address{},
+			params.AutonityContractAddress,
+			&generated.AutonityAbi,
+			"getValidator",
+			addr,
+		)
+		if err != nil {
+			return nil, newErrorWithRevertReason(err, ret)
+		}
+
+		data, err := generated.AutonityAbi.Unpack("getValidator", ret)
+		if err != nil {
+			return nil, fmt.Errorf("error while unpacking getValidator: %w", err)
+		}
+
+		validator := abi.ConvertType(data[0], new(bindings.IAutonityValidator)).(*bindings.IAutonityValidator)
+		return validator.BondedStake, nil
+	}
+
+	totalBondedStake := new(big.Int)
+	for _, v := range config.AutonityContractConfig.Validators {
+		stake, err := validatorBondedStake(*v.NodeAddress)
+		if err != nil {
+			return fmt.Errorf("error while calling getValidator: %w", err)
+		}
+		totalBondedStake.Add(totalBondedStake, stake)
+	}
+	if totalBondedStake.Cmp((*big.Int)(config.AutonityContractConfig.TokenBond)) != 0 {
+		return fmt.Errorf("genesis total staking mismatch")
 	}
 
 	return nil

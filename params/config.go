@@ -134,7 +134,6 @@ var (
 			VerifyGenesisSequence: true,
 			TokenMint:             (*math.HexOrDecimal256)(DefautlNTNGenesisAllocation),
 			TokenBond:             (*math.HexOrDecimal256)(DefautlGenesisBonding),
-			// TODO (tariq): add default value for `TokenBond`
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,

@@ -1,12 +1,13 @@
 package autonity
 
 import (
-	"math"
+	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/autonity/autonity/autonity/bindings"
+	"github.com/autonity/autonity/common/math"
 
 	"github.com/stretchr/testify/require"
 
@@ -569,6 +570,49 @@ func TestGenesisSteps(t *testing.T) {
 		code := evm.StateDB.GetCode(params.OmissionAccountabilityContractAddress)
 		require.NotEmpty(t, code)
 	})
+
+	t.Run("Test genesis sequence verifier", func(t *testing.T) {
+		stake := validatorTotalStake(params.TestChainConfig)
+		newTestConfig, err := chainConfig(params.TestChainConfig, stake, stake)
+		require.NoError(t, err)
+
+		evm := newEVM()
+		err = executeGenesisSequence(
+			newTestConfig,
+			[]GenesisBond{},
+			evm,
+			[]genesisStep{
+				deployAutonityContract,
+				finalizeAutonityInitialization,
+				verifyGenesisSequence,
+			},
+		)
+		require.NoError(t, err)
+	})
+}
+
+func validatorTotalStake(config *params.ChainConfig) *big.Int {
+	stake := new(big.Int)
+	for _, v := range config.AutonityContractConfig.Validators {
+		stake.Add(stake, v.BondedStake)
+	}
+	return stake
+}
+
+func chainConfig(config *params.ChainConfig, genesisMint, genesisBond *big.Int) (*params.ChainConfig, error) {
+	data, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+	copy := new(params.ChainConfig)
+	if err = json.Unmarshal(data, &copy); err != nil {
+		return nil, err
+	}
+
+	copy.AutonityContractConfig.VerifyGenesisSequence = true
+	copy.AutonityContractConfig.TokenBond = (*math.HexOrDecimal256)(genesisBond)
+	copy.AutonityContractConfig.TokenMint = (*math.HexOrDecimal256)(genesisMint)
+	return copy, nil
 }
 
 func callContractFunc(
