@@ -17,35 +17,36 @@
 package eth
 
 import (
-	"sync/atomic"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/eth/protocols/snap"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
 )
 
 // Tests that snap sync is disabled after a successful sync cycle.
-func TestSnapSyncDisabling66(t *testing.T) { testSnapSyncDisabling(t, eth.ETH66, snap.SNAP1) }
+func TestSnapSyncDisabling66(t *testing.T) { testSnapSyncDisabling(t, eth.ETH68, snap.SNAP1) }
 
 // Tests that snap sync gets disabled as soon as a real block is successfully
 // imported into the blockchain.
 func testSnapSyncDisabling(t *testing.T, ethVer uint, snapVer uint) {
 	t.Parallel()
-
+	log.SetDefault(log.NewLogger(log.NewTerminalHandlerWithLevel(os.Stderr, log.LevelTrace, true)))
 	// Create an empty handler and ensure it's in snap sync mode
 	empty := newTestHandler()
-	if atomic.LoadUint32(&empty.handler.snapSync) == 0 {
+	if !empty.handler.snapSync.Load() {
 		t.Fatalf("snap sync disabled on pristine blockchain")
 	}
 	defer empty.close()
 
 	// Create a full handler and ensure snap sync ends up disabled
 	full := newTestHandlerWithBlocks(1024)
-	if atomic.LoadUint32(&full.handler.snapSync) == 1 {
+	if full.handler.snapSync.Load() {
 		t.Fatalf("snap sync not disabled on non-empty blockchain")
 	}
 	defer full.close()
@@ -83,14 +84,14 @@ func testSnapSyncDisabling(t *testing.T, ethVer uint, snapVer uint) {
 		return snap.Handle((*snapHandler)(full.handler), peer)
 	})
 	// Wait a bit for the above handlers to start
-	time.Sleep(250 * time.Millisecond)
+	time.Sleep(2500 * time.Millisecond)
 
 	// Check that snap sync was disabled
 	op := peerToSyncOp(downloader.SnapSync, empty.handler.peers.peerWithHighestHeight())
 	if err := empty.handler.doSync(op); err != nil {
 		t.Fatal("sync failed:", err)
 	}
-	if atomic.LoadUint32(&empty.handler.snapSync) == 1 {
+	if empty.handler.snapSync.Load() {
 		t.Fatalf("snap sync not disabled after successful synchronisation")
 	}
 }

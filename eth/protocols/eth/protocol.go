@@ -36,7 +36,7 @@ const (
 
 // ProtocolName is the official short name of the `eth` protocol used during
 // devp2p capability negotiation.
-const ProtocolName = "eth"
+const ProtocolName = "aut"
 
 // ProtocolVersions are the supported versions of the `eth` protocol (first
 // is primary).

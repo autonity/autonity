@@ -17,23 +17,25 @@
 package eth
 
 import (
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/log"
 	"math/big"
 	"sort"
 	"sync"
 
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/txpool"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
+	"github.com/holiman/uint256"
 )
 
 var (
@@ -52,6 +54,31 @@ type testTxPool struct {
 
 	txFeed event.Feed   // Notification feed to allow waiting for inclusion
 	lock   sync.RWMutex // Protects the transaction pool
+}
+
+func (p *testTxPool) GetRLP(hash common.Hash) []byte {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (p *testTxPool) GetMetadata(hash common.Hash) *txpool.TxMetadata {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (p *testTxPool) Add(txs []*types.Transaction, sync bool) []error {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	for _, tx := range txs {
+		p.pool[tx.Hash()] = tx
+	}
+	p.txFeed.Send(core.NewTxsEvent{Txs: txs})
+	return make([]error, len(txs))
+}
+
+func (p *testTxPool) SubscribeTransactions(ch chan<- core.NewTxsEvent, reorgs bool) event.Subscription {
+	return p.txFeed.Subscribe(ch)
 }
 
 // newTestTxPool creates a mock transaction pool.
@@ -93,11 +120,11 @@ func (p *testTxPool) AddRemotes(txs []*types.Transaction) []error {
 }
 
 // Pending returns all the transactions known to the pool
-func (p *testTxPool) Pending(enforceTips bool) map[common.Address]types.Transactions {
+func (p *testTxPool) Pending(filter txpool.PendingFilter) map[common.Address][]*txpool.LazyTransaction {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
-	batches := make(map[common.Address]types.Transactions)
+	batches := make(map[common.Address][]*types.Transaction)
 	for _, tx := range p.pool {
 		from, _ := types.Sender(types.HomesteadSigner{}, tx)
 		batches[from] = append(batches[from], tx)
@@ -105,7 +132,20 @@ func (p *testTxPool) Pending(enforceTips bool) map[common.Address]types.Transact
 	for _, batch := range batches {
 		sort.Sort(types.TxByNonce(batch))
 	}
-	return batches
+	pending := make(map[common.Address][]*txpool.LazyTransaction)
+	for addr, batch := range batches {
+		for _, tx := range batch {
+			pending[addr] = append(pending[addr], &txpool.LazyTransaction{
+				Hash:      tx.Hash(),
+				Tx:        tx,
+				Time:      tx.Time(),
+				GasFeeCap: uint256.MustFromBig(tx.GasFeeCap()),
+				GasTipCap: uint256.MustFromBig(tx.GasTipCap()),
+				Gas:       tx.Gas(),
+			})
+		}
+	}
+	return pending
 }
 
 // SubscribeNewTxsEvent should return an event subscription of NewTxsEvent and
@@ -134,13 +174,14 @@ func newTestHandler() *testHandler {
 func newTestHandlerWithBlocks(blocks int) *testHandler {
 	// Create a database pre-initialize with a genesis block
 	db := rawdb.NewMemoryDatabase()
-	(&core.Genesis{
-		Config: params.TestChainConfig,
-		Alloc:  core.GenesisAlloc{testAddr: {Balance: big.NewInt(1000000)}},
-	}).MustCommit(db)
+	//tdb := triedb.NewDatabase(db, triedb.VerkleDefaults)
+	genesis := &core.Genesis{
+		Config: params.TestConfigNoVerkle,
+		Alloc:  types.GenesisAlloc{testAddr: {Balance: big.NewInt(1000000)}},
+	}
 
-	chain, _ := core.NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, &core.TxSenderCacher{}, nil, backends.NewInternalBackend(nil), log.Root())
-	bs, _ := core.GenerateChain(params.TestChainConfig, chain.Genesis(), ethash.NewFaker(), db, blocks, nil)
+	chain, _ := core.NewBlockChain(db, nil, genesis, ethash.NewFaker(), vm.Config{}, nil, backends.NewInternalBackend(nil), log.Root())
+	bs, _ := core.GenerateChain(params.TestConfigNoVerkle, chain.Genesis(), ethash.NewFaker(), db, blocks, nil)
 	if _, err := chain.InsertChain(bs); err != nil {
 		panic(err)
 	}
@@ -151,9 +192,9 @@ func newTestHandlerWithBlocks(blocks int) *testHandler {
 		Chain:      chain,
 		TxPool:     txpool,
 		Network:    1,
-		Sync:       downloader.SnapSync,
+		Sync:       ethconfig.SnapSync,
 		BloomCache: 1,
-	})
+	}, log.Root())
 	handler.Start(1000)
 
 	return &testHandler{
