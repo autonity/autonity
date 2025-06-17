@@ -28,6 +28,7 @@ import (
 type MockChainHeaderReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockChainHeaderReaderMockRecorder
+	isgomock struct{}
 }
 
 // MockChainHeaderReaderMockRecorder is the mock recorder for MockChainHeaderReader.
@@ -150,6 +151,7 @@ func (mr *MockChainHeaderReaderMockRecorder) GetTd(hash, number any) *gomock.Cal
 type MockChainReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockChainReaderMockRecorder
+	isgomock struct{}
 }
 
 // MockChainReaderMockRecorder is the mock recorder for MockChainReader.
@@ -315,6 +317,7 @@ func (mr *MockChainReaderMockRecorder) GetTd(hash, number any) *gomock.Call {
 type MockEngine struct {
 	ctrl     *gomock.Controller
 	recorder *MockEngineMockRecorder
+	isgomock struct{}
 }
 
 // MockEngineMockRecorder is the mock recorder for MockEngine.
@@ -392,9 +395,9 @@ func (mr *MockEngineMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
+func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, arg2 *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
+	ret := m.ctrl.Call(m, "Finalize", chain, header, arg2, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Receipt)
 	ret1, _ := ret[1].(*types.Epoch)
 	ret2, _ := ret[2].(*types.ContractsConfig)
@@ -403,15 +406,15 @@ func (m *MockEngine) Finalize(chain ChainReader, header *types.Header, state *st
 }
 
 // Finalize indicates an expected call of Finalize.
-func (mr *MockEngineMockRecorder) Finalize(chain, header, state, txs, uncles, receipts any) *gomock.Call {
+func (mr *MockEngineMockRecorder) Finalize(chain, header, arg2, txs, uncles, receipts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockEngine)(nil).Finalize), chain, header, state, txs, uncles, receipts)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockEngine)(nil).Finalize), chain, header, arg2, txs, uncles, receipts)
 }
 
 // FinalizeAndAssemble mocks base method.
-func (m *MockEngine) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
+func (m *MockEngine) FinalizeAndAssemble(chain ChainReader, header *types.Header, arg2 *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, state, txs, uncles, receipts)
+	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, arg2, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Block)
 	ret1, _ := ret[1].(*types.ContractsConfig)
 	ret2, _ := ret[2].(error)
@@ -419,9 +422,9 @@ func (m *MockEngine) FinalizeAndAssemble(chain ChainReader, header *types.Header
 }
 
 // FinalizeAndAssemble indicates an expected call of FinalizeAndAssemble.
-func (mr *MockEngineMockRecorder) FinalizeAndAssemble(chain, header, state, txs, uncles, receipts any) *gomock.Call {
+func (mr *MockEngineMockRecorder) FinalizeAndAssemble(chain, header, arg2, txs, uncles, receipts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeAndAssemble", reflect.TypeOf((*MockEngine)(nil).FinalizeAndAssemble), chain, header, state, txs, uncles, receipts)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeAndAssemble", reflect.TypeOf((*MockEngine)(nil).FinalizeAndAssemble), chain, header, arg2, txs, uncles, receipts)
 }
 
 // Prepare mocks base method.
@@ -537,6 +540,7 @@ func (mr *MockEngineMockRecorder) VerifyUncles(chain, block any) *gomock.Call {
 type MockHandler struct {
 	ctrl     *gomock.Controller
 	recorder *MockHandlerMockRecorder
+	isgomock struct{}
 }
 
 // MockHandlerMockRecorder is the mock recorder for MockHandler.
@@ -613,6 +617,7 @@ func (mr *MockHandlerMockRecorder) SetEnqueuer(arg0 any) *gomock.Call {
 type MockPoW struct {
 	ctrl     *gomock.Controller
 	recorder *MockPoWMockRecorder
+	isgomock struct{}
 }
 
 // MockPoWMockRecorder is the mock recorder for MockPoW.
@@ -690,9 +695,9 @@ func (mr *MockPoWMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
+func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, arg2 *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
+	ret := m.ctrl.Call(m, "Finalize", chain, header, arg2, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Receipt)
 	ret1, _ := ret[1].(*types.Epoch)
 	ret2, _ := ret[2].(*types.ContractsConfig)
@@ -701,15 +706,15 @@ func (m *MockPoW) Finalize(chain ChainReader, header *types.Header, state *state
 }
 
 // Finalize indicates an expected call of Finalize.
-func (mr *MockPoWMockRecorder) Finalize(chain, header, state, txs, uncles, receipts any) *gomock.Call {
+func (mr *MockPoWMockRecorder) Finalize(chain, header, arg2, txs, uncles, receipts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockPoW)(nil).Finalize), chain, header, state, txs, uncles, receipts)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockPoW)(nil).Finalize), chain, header, arg2, txs, uncles, receipts)
 }
 
 // FinalizeAndAssemble mocks base method.
-func (m *MockPoW) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
+func (m *MockPoW) FinalizeAndAssemble(chain ChainReader, header *types.Header, arg2 *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, state, txs, uncles, receipts)
+	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, arg2, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Block)
 	ret1, _ := ret[1].(*types.ContractsConfig)
 	ret2, _ := ret[2].(error)
@@ -717,9 +722,9 @@ func (m *MockPoW) FinalizeAndAssemble(chain ChainReader, header *types.Header, s
 }
 
 // FinalizeAndAssemble indicates an expected call of FinalizeAndAssemble.
-func (mr *MockPoWMockRecorder) FinalizeAndAssemble(chain, header, state, txs, uncles, receipts any) *gomock.Call {
+func (mr *MockPoWMockRecorder) FinalizeAndAssemble(chain, header, arg2, txs, uncles, receipts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeAndAssemble", reflect.TypeOf((*MockPoW)(nil).FinalizeAndAssemble), chain, header, state, txs, uncles, receipts)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeAndAssemble", reflect.TypeOf((*MockPoW)(nil).FinalizeAndAssemble), chain, header, arg2, txs, uncles, receipts)
 }
 
 // Hashrate mocks base method.
@@ -849,6 +854,7 @@ func (mr *MockPoWMockRecorder) VerifyUncles(chain, block any) *gomock.Call {
 type MockBFT struct {
 	ctrl     *gomock.Controller
 	recorder *MockBFTMockRecorder
+	isgomock struct{}
 }
 
 // MockBFTMockRecorder is the mock recorder for MockBFT.
@@ -926,9 +932,9 @@ func (mr *MockBFTMockRecorder) Close() *gomock.Call {
 }
 
 // Finalize mocks base method.
-func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
+func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, arg2 *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Finalize", chain, header, state, txs, uncles, receipts)
+	ret := m.ctrl.Call(m, "Finalize", chain, header, arg2, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Receipt)
 	ret1, _ := ret[1].(*types.Epoch)
 	ret2, _ := ret[2].(*types.ContractsConfig)
@@ -937,15 +943,15 @@ func (m *MockBFT) Finalize(chain ChainReader, header *types.Header, state *state
 }
 
 // Finalize indicates an expected call of Finalize.
-func (mr *MockBFTMockRecorder) Finalize(chain, header, state, txs, uncles, receipts any) *gomock.Call {
+func (mr *MockBFTMockRecorder) Finalize(chain, header, arg2, txs, uncles, receipts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockBFT)(nil).Finalize), chain, header, state, txs, uncles, receipts)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockBFT)(nil).Finalize), chain, header, arg2, txs, uncles, receipts)
 }
 
 // FinalizeAndAssemble mocks base method.
-func (m *MockBFT) FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
+func (m *MockBFT) FinalizeAndAssemble(chain ChainReader, header *types.Header, arg2 *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, state, txs, uncles, receipts)
+	ret := m.ctrl.Call(m, "FinalizeAndAssemble", chain, header, arg2, txs, uncles, receipts)
 	ret0, _ := ret[0].(*types.Block)
 	ret1, _ := ret[1].(*types.ContractsConfig)
 	ret2, _ := ret[2].(error)
@@ -953,9 +959,9 @@ func (m *MockBFT) FinalizeAndAssemble(chain ChainReader, header *types.Header, s
 }
 
 // FinalizeAndAssemble indicates an expected call of FinalizeAndAssemble.
-func (mr *MockBFTMockRecorder) FinalizeAndAssemble(chain, header, state, txs, uncles, receipts any) *gomock.Call {
+func (mr *MockBFTMockRecorder) FinalizeAndAssemble(chain, header, arg2, txs, uncles, receipts any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeAndAssemble", reflect.TypeOf((*MockBFT)(nil).FinalizeAndAssemble), chain, header, state, txs, uncles, receipts)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeAndAssemble", reflect.TypeOf((*MockBFT)(nil).FinalizeAndAssemble), chain, header, arg2, txs, uncles, receipts)
 }
 
 // Prepare mocks base method.
@@ -1085,6 +1091,7 @@ func (mr *MockBFTMockRecorder) VerifyUncles(chain, block any) *gomock.Call {
 type MockSyncer struct {
 	ctrl     *gomock.Controller
 	recorder *MockSyncerMockRecorder
+	isgomock struct{}
 }
 
 // MockSyncerMockRecorder is the mock recorder for MockSyncer.
@@ -1120,6 +1127,7 @@ func (mr *MockSyncerMockRecorder) SyncPeer(address any) *gomock.Call {
 type MockEnqueuer struct {
 	ctrl     *gomock.Controller
 	recorder *MockEnqueuerMockRecorder
+	isgomock struct{}
 }
 
 // MockEnqueuerMockRecorder is the mock recorder for MockEnqueuer.
@@ -1155,6 +1163,7 @@ func (mr *MockEnqueuerMockRecorder) Enqueue(id, block any) *gomock.Call {
 type MockBroadcaster struct {
 	ctrl     *gomock.Controller
 	recorder *MockBroadcasterMockRecorder
+	isgomock struct{}
 }
 
 // MockBroadcasterMockRecorder is the mock recorder for MockBroadcaster.
@@ -1207,6 +1216,7 @@ func (mr *MockBroadcasterMockRecorder) FindPeers(arg0 any) *gomock.Call {
 type MockPeer struct {
 	ctrl     *gomock.Controller
 	recorder *MockPeerMockRecorder
+	isgomock struct{}
 }
 
 // MockPeerMockRecorder is the mock recorder for MockPeer.

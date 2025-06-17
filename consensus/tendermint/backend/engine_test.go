@@ -3,6 +3,8 @@ package backend
 import (
 	"context"
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math/big"
 	"os"
 	"sync"
@@ -648,11 +650,12 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			database:   rawdb.NewMemoryDatabase(),
-			core:       tendermintC,
-			gossiper:   g,
-			blockchain: chain,
-			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
+			database:           rawdb.NewMemoryDatabase(),
+			core:               tendermintC,
+			gossiper:           g,
+			blockchain:         chain,
+			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 
@@ -663,7 +666,9 @@ func TestStart(t *testing.T) {
 
 	t.Run("engine is running, error returned", func(t *testing.T) {
 		b := &Backend{
-			database: rawdb.NewMemoryDatabase()}
+			database:           rawdb.NewMemoryDatabase(),
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
+		}
 		b.coreStarting.Store(true)
 		b.coreRunning.Store(true)
 
@@ -687,11 +692,12 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			database:   rawdb.NewMemoryDatabase(),
-			core:       tendermintC,
-			gossiper:   g,
-			blockchain: chain,
-			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
+			database:           rawdb.NewMemoryDatabase(),
+			core:               tendermintC,
+			gossiper:           g,
+			blockchain:         chain,
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
+			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.coreStarting.Store(false)
@@ -719,11 +725,12 @@ func TestStart(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			database:   rawdb.NewMemoryDatabase(),
-			core:       tendermintC,
-			gossiper:   g,
-			blockchain: chain,
-			eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
+			database:           rawdb.NewMemoryDatabase(),
+			core:               tendermintC,
+			gossiper:           g,
+			blockchain:         chain,
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
+			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.coreStarting.Store(false)
@@ -780,11 +787,12 @@ func TestMultipleRestart(t *testing.T) {
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
 
 	b := &Backend{
-		database:   rawdb.NewMemoryDatabase(),
-		core:       tendermintC,
-		gossiper:   g,
-		blockchain: chain,
-		eventMux:   event.NewTypeMuxSilent(nil, log.Root()),
+		database:           rawdb.NewMemoryDatabase(),
+		core:               tendermintC,
+		gossiper:           g,
+		blockchain:         chain,
+		askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
+		eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
 	}
 	b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 	b.coreStarting.Store(false)

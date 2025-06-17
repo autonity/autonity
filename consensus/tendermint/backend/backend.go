@@ -19,6 +19,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
@@ -36,8 +37,6 @@ const (
 	ringCapacity = 10 * 100 * 3
 	// maximum number of future height messages
 	maxFutureMsgs = 10 * 100 * 3
-	// while asking sync for consensus messages, if we do not find any peers we try again after 10 ms
-	retryPeriod = 10
 	// number of buckets to allocate in the fixed cache
 	numBuckets = 1999
 	// max number of entries in each packet
@@ -64,17 +63,18 @@ func New(
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
 	backend := &Backend{
-		database:        database,
-		eventMux:        event.NewTypeMuxSilent(evMux, log),
-		nodeKey:         nodeKey,
-		consensusKey:    consensusKey,
-		address:         crypto.PubkeyToAddress(nodeKey.PublicKey),
-		logger:          log,
-		knownMessages:   knownMessages,
-		vmConfig:        vmConfig,
-		MsgStore:        ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
-		messageCh:       make(chan events.UnverifiedMessageEvent, 5000),
-		isHeightExpired: isHeightExpired,
+		database:           database,
+		eventMux:           event.NewTypeMuxSilent(evMux, log),
+		nodeKey:            nodeKey,
+		consensusKey:       consensusKey,
+		address:            crypto.PubkeyToAddress(nodeKey.PublicKey),
+		logger:             log,
+		knownMessages:      knownMessages,
+		vmConfig:           vmConfig,
+		MsgStore:           ms,
+		askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
+		messageCh:          make(chan events.UnverifiedMessageEvent, 5000),
+		isHeightExpired:    isHeightExpired,
 		jailed: jailed{
 			validators: make(map[common.Address]uint64),
 		},
@@ -135,9 +135,14 @@ type Backend struct {
 	// interface to gossip consensus messages
 	gossiper interfaces.Gossiper
 
-	knownMessages   *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
-	vmConfig        *vm.Config
-	MsgStore        *tendermintCore.MsgStore //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
+	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
+	vmConfig      *vm.Config
+
+	// MsgStore contains recent consensus messages for accountability and peer state recovery.
+	MsgStore           *tendermintCore.MsgStore
+	askSyncRateLimiter *helpers.TimeWindowLimiter
+	cleanupTicker      *time.Ticker
+
 	aggregator      *aggregator
 	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool // pass a function to avoid import loops
 
@@ -188,8 +193,8 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	})
 }
 
-func (sb *Backend) AskSync(committee *types.Committee) {
-	sb.gossiper.AskSync(committee)
+func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
+	return sb.gossiper.AskSync(committee, syncMsg)
 }
 
 // Gossip implements tendermint.Backend.Gossip
@@ -380,24 +385,6 @@ func (sb *Backend) CommitteeEnodes() []string {
 		return nil
 	}
 	return enodes.StrList
-}
-
-// SyncPeer Synchronize new connected peer with current height messages
-func (sb *Backend) SyncPeer(address common.Address) {
-	if sb.Broadcaster == nil {
-		return
-	}
-	sb.logger.Debug("Syncing", "peer", address)
-	peer, ok := sb.Broadcaster.FindPeer(address)
-	if !ok {
-		return
-	}
-	messages := sb.core.CurrentHeightMessages()
-	sb.logger.Debug("sent current height messages", "peer", address, "n", len(messages), "msgs", messages)
-	for _, msg := range messages {
-		//We do not save sync messages in the arc cache as recipient could not have been able to process some previous sent.
-		go peer.SendRaw(NetworkCodes[msg.Code()], msg.Payload()) //nolint
-	}
 }
 
 // called by tendermint core to dump core state

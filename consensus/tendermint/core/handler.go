@@ -16,9 +16,6 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
-// todo: resolve proper tendermint state synchronization timeout from block period.
-const syncTimeOut = 30 * time.Second
-
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
 	chainHead := c.backend.HeadBlock().Header()
@@ -64,14 +61,12 @@ func (c *Core) subscribeEvents() {
 	c.candidateBlockCh = make(chan events.NewCandidateBlockEvent, 1)
 	c.committedCh = make(chan events.CommitEvent, 1)
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
-	c.syncEventSub = c.backend.Subscribe(events.SyncEvent{})
 }
 
 // Unsubscribe all
 func (c *Core) unsubscribeEvents() {
 	c.messageSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
-	c.syncEventSub.Unsubscribe()
 }
 
 func shouldDisconnectSender(err error) bool {
@@ -95,6 +90,8 @@ func shouldDisconnectSender(err error) bool {
 	case errors.Is(err, consensus.ErrFutureTimestampBlock):
 		fallthrough
 	case errors.Is(err, consensus.ErrPrunedAncestor):
+		fallthrough
+	case errors.Is(err, constants.ErrRedundantVote):
 		fallthrough
 	case errors.Is(err, constants.ErrAlreadyHaveProposal):
 		return false
@@ -149,7 +146,7 @@ func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash
 }
 
 func (c *Core) mainEventLoop(ctx context.Context) {
-	go c.syncLoop(ctx)
+	go c.livenessTrackerLoop(ctx)
 
 eventLoop:
 	for {
@@ -183,16 +180,22 @@ eventLoop:
 					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 				}
 
-				if err := c.handleMsg(ctx, msg); err != nil {
+				var err error
+				if err = c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err)
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
 						tryDisconnect(e.ErrCh, err)
 					}
-					// we still want to gossip old round messages
-					if !errors.Is(err, constants.ErrOldRoundMessage) {
+					// we still want to gossip old round messages and redundant votes
+					if !errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote) {
 						break
 					}
+				}
+
+				// valid message, mark liveness time unless it was redundant
+				if !errors.Is(err, constants.ErrRedundantVote) {
+					c.syncState.setLastLivenessTime(time.Now())
 				}
 
 				if !c.noGossip {
@@ -224,9 +227,18 @@ eventLoop:
 				}
 
 				c.logger.Debug("Handling consensus backlog event")
-				if err := c.handleMsg(ctx, msg); err != nil {
+				var err error
+				if err = c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
-					continue
+					// we still want to gossip old round messages and redundant votes
+					if !errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote) {
+						continue
+					}
+				}
+
+				// valid message, mark liveness time unless it was redundant
+				if !errors.Is(err, constants.ErrRedundantVote) {
+					c.syncState.setLastLivenessTime(time.Now())
 				}
 
 				if !c.noGossip {
@@ -272,6 +284,7 @@ eventLoop:
 			if !ok {
 				break eventLoop
 			}
+
 			c.precommiter.HandleCommit(ctx)
 		case <-ctx.Done():
 			c.logger.Debug("Tendermint core main loop stopped", "event", ctx.Err())
@@ -281,51 +294,58 @@ eventLoop:
 	c.stopped <- struct{}{}
 }
 
-func (c *Core) syncLoop(ctx context.Context) {
-	/*
-		this method is responsible for asking the network to send us the current consensus state
-		and to process sync queries events.
-	*/
-	timer := time.NewTimer(syncTimeOut)
+// this method is responsible for:
+// - tracking whether we are out of consensus sync
+// - asking the network to send us the current consensus state if so
+func (c *Core) livenessTrackerLoop(ctx context.Context) {
+	defer func() {
+		c.stopped <- struct{}{}
+	}()
 
-	round := c.Round()
-	height := c.Height()
+	// Ask for sync when the engine starts. Retry until sync succeeds or we are stopped
+	for {
+		err := c.backend.AskSync(c.committee.Committee(), c.createSyncMsg())
+		if err == nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			c.logger.Debug("livenessTrackerLoop has been stopped before initial sync", "event", ctx.Err())
+			return
+		default:
+			c.logger.Warn("Failed to ask initial consensus sync, retrying...", "err", err)
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
 
-	// Ask for sync when the engine starts
-	c.backend.AskSync(c.committee.Committee())
+	ticker := time.NewTicker(constants.AskSyncInterval)
+	defer ticker.Stop()
 
 eventLoop:
 	for {
 		select {
-		case <-timer.C:
-			currentRound := c.Round()
-			currentHeight := c.Height()
+		case <-ticker.C:
 
-			// we only ask for sync if the current view stayed the same for the past 10 seconds
-			if currentHeight.Cmp(height) == 0 && currentRound == round {
-				c.logger.Warn("⚠️ Consensus liveliness lost")
-				c.logger.Warn("Broadcasting sync request..")
-				c.backend.AskSync(c.committee.Committee())
+			elapsedTime := time.Since(c.syncState.getLastLivenessTime())
+			currentSyncTimeout := c.syncState.getSyncTimeout()
+			if elapsedTime < currentSyncTimeout {
+				c.logger.Debug("Sync timeout not reached yet", "elapsed time", elapsedTime, "current timeout", currentSyncTimeout)
+				continue
 			}
-			round = currentRound
-			height = currentHeight
-			timer = time.NewTimer(syncTimeOut)
 
-		case ev, ok := <-c.syncEventSub.Chan():
-			if !ok {
-				break eventLoop
+			// no liveness for more than currentSyncTimeout --> askSync to the other nodes
+			c.logger.Warn("⚠️ Consensus liveliness lost", "node", c.Address(), "height", c.Height(), "round", c.Round(), "step", c.Step())
+			err := c.backend.AskSync(c.committee.Committee(), c.createSyncMsg())
+			if err != nil {
+				c.logger.Warn("Failed to ask consensus sync", "err", err)
+				// will automatically retry at next iteration
 			}
-			event := ev.Data.(events.SyncEvent)
-			c.logger.Debug("Processing sync message", "from", event.Addr)
-			c.backend.SyncPeer(event.Addr)
+
 		case <-ctx.Done():
-			c.logger.Debug("syncLoop is stopped", "event", ctx.Err())
+			c.logger.Debug("livenessTrackerLoop is stopped", "event", ctx.Err())
 			break eventLoop
-
 		}
 	}
-
-	c.stopped <- struct{}{}
 }
 
 // SendEvent sends event to mux
@@ -416,4 +436,11 @@ func tryDisconnect(errorCh chan<- error, err error) {
 	case errorCh <- err:
 	default: // do nothing
 	}
+}
+
+func redundancyError(didContribute bool) error {
+	if didContribute {
+		return nil
+	}
+	return constants.ErrRedundantVote
 }

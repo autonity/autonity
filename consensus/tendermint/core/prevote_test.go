@@ -132,6 +132,7 @@ func TestHandlePrevote(t *testing.T) {
 			prevoteTimeout:   NewTimeout(Prevote, log.Root()),
 			backend:          backendMock,
 			step:             Prevote,
+			syncState:        &SyncState{},
 		}
 
 		c.SetDefaultHandlers()
@@ -190,6 +191,7 @@ func TestHandlePrevote(t *testing.T) {
 			round:            2,
 			height:           big.NewInt(3),
 			step:             Prevote,
+			syncState:        &SyncState{},
 		}
 		c.SetDefaultHandlers()
 		for _, prevote := range prevotes {
@@ -246,6 +248,7 @@ func TestHandlePrevote(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, logger),
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
+			syncState:        &SyncState{},
 		}
 		c.SetDefaultHandlers()
 		for _, prevote := range prevotes {
@@ -303,6 +306,7 @@ func TestHandlePrevote(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, log.Root()),
 			prevoteTimeout:   NewTimeout(Prevote, log.Root()),
 			precommitTimeout: NewTimeout(Precommit, log.Root()),
+			syncState:        &SyncState{},
 		}
 		c.SetDefaultHandlers()
 

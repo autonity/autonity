@@ -3,6 +3,8 @@ package backend
 import (
 	"bytes"
 	"context"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"io"
 	"testing"
 	"time"
@@ -44,7 +46,7 @@ func TestTendermintMessage(t *testing.T) {
 	_, backend := newBlockChain(1)
 	// generate one msg
 	data := message.NewPrevote(1, 2, common.Hash{}, testSigner, testCommitteeMember, 1)
-	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -84,14 +86,11 @@ func TestTendermintMessage(t *testing.T) {
 }
 func TestSynchronisationMessage(t *testing.T) {
 	t.Run("engine not running, ignored", func(t *testing.T) {
-		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
-		sub := eventMux.Subscribe(events.SyncEvent{})
 		b := &Backend{
 			database: rawdb.NewMemoryDatabase(),
 			logger:   log.New("backend", "test", "id", 0),
-			eventMux: eventMux,
 		}
-		msg := makeMsg(SyncNetworkMsg, []byte{})
+		msg := makeMsg(message.SyncNetworkMsg, []byte{})
 		addr := common.BytesToAddress([]byte("address"))
 		errCh := make(chan error, 1)
 		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
@@ -99,33 +98,37 @@ func TestSynchronisationMessage(t *testing.T) {
 		}
 		timer := time.NewTimer(2 * time.Second)
 		select {
-		case <-sub.Chan():
+		case <-errCh:
 			t.Fatalf("not expected message")
 		case <-timer.C:
 		}
 	})
 
-	t.Run("engine running, sync returned", func(t *testing.T) {
-		eventMux := event.NewTypeMuxSilent(nil, log.New("backend", "test", "id", 0))
-		sub := eventMux.Subscribe(events.SyncEvent{})
+	t.Run("engine running, msg cannot be decoded", func(t *testing.T) {
 		b := &Backend{
-			database: rawdb.NewMemoryDatabase(),
-			logger:   log.New("backend", "test", "id", 0),
-			eventMux: eventMux,
+			database:           rawdb.NewMemoryDatabase(),
+			logger:             log.New("backend", "test", "id", 0),
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		}
 		b.coreStarting.Store(true)
 		b.coreRunning.Store(true)
-		msg := makeMsg(SyncNetworkMsg, []byte{})
-		addr := common.BytesToAddress([]byte("address"))
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockedPeer := consensus.NewMockPeer(ctrl)
+		broadcaster := consensus.NewMockBroadcaster(ctrl)
+		broadcaster.EXPECT().FindPeer(testAddress).Return(mockedPeer, true).AnyTimes()
+		b.Broadcaster = broadcaster
+
+		b.coreStarting.Store(true)
+		b.coreRunning.Store(true)
+		msg := makeMsg(message.SyncNetworkMsg, []byte{})
 		errCh := make(chan error, 1)
-		if res, err := b.HandleMsg(addr, msg, errCh); !res || err != nil {
+		if res, err := b.HandleMsg(testAddress, msg, errCh); !res || err != nil {
 			t.Fatalf("HandleMsg unexpected return")
 		}
-		timer := time.NewTimer(2 * time.Second)
 		select {
-		case <-timer.C:
-			t.Fatalf("sync message not posted")
-		case <-sub.Chan():
+		case err := <-errCh:
+			require.NotNil(t, err)
 		}
 	})
 }
@@ -157,12 +160,13 @@ func TestNewChainHead(t *testing.T) {
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 
 		b := &Backend{
-			database:     rawdb.NewMemoryDatabase(),
-			core:         tendermintC,
-			evDispatcher: evDispathcer,
-			gossiper:     g,
-			blockchain:   chain,
-			eventMux:     event.NewTypeMuxSilent(nil, log.Root()),
+			database:           rawdb.NewMemoryDatabase(),
+			core:               tendermintC,
+			evDispatcher:       evDispathcer,
+			gossiper:           g,
+			blockchain:         chain,
+			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
+			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.Start(ctx)
@@ -187,7 +191,7 @@ func TestSignerJailed(t *testing.T) {
 
 	// generate one msg
 	data := message.NewPrevote(0, 1, common.Hash{}, testSigner, &member, 1)
-	msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -205,7 +209,7 @@ func TestSignerJailed(t *testing.T) {
 
 	data = message.NewPrevote(0, 1, common.Hash{0xca, 0xfe}, testSigner, &member, 2)
 	data.Signers().Increment(makeBogusMember(1))
-	msg = p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+	msg = p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 	errCh = make(chan error, 1)
 	_, err = backend.HandleMsg(testAddress, msg, errCh)
 	require.Equal(t, ErrJailed, err)
@@ -220,7 +224,7 @@ func TestFutureHeightMessage(t *testing.T) {
 		// generate one msg
 		futureHeight := uint64(20)
 		data := message.NewPrevote(0, futureHeight, common.Hash{}, testSigner, &member, 1)
-		msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+		msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -248,7 +252,7 @@ func TestFutureHeightMessage(t *testing.T) {
 
 		for h := maxFutureMsgs + 100; h > 0; h-- {
 			data := message.NewPrevote(0, uint64(h), common.Hash{}, testSigner, &member, 1)
-			msg := p2p.Msg{Code: PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+			msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
 			errCh := make(chan error, 1)
 			_, err := backend.HandleMsg(testAddress, msg, errCh)
 			require.NoError(t, err)

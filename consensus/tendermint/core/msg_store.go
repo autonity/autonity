@@ -8,8 +8,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 )
 
-var NilValue = common.Hash{}
-
 type MsgStore struct {
 	sync.RWMutex
 	// the first height that msg are buffered from after node is start.

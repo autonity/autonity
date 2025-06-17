@@ -88,37 +88,41 @@ func makeSigner(key blst.SecretKey) message.Signer {
 func TestAskSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	// We are testing for a Quorum Q of peers to be asked for sync.
-	committee, _ := committeeAndBlsKeys(7) // N=7, F=2, Q=5
-	addresses := make([]common.Address, 0, committee.Len())
+
+	committeeSize := uint64(7)
+	committee, _ := committeeAndBlsKeys(int(committeeSize))
+	localAddress := committee.Members[0].Address
+
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
-	for _, val := range committee.Members {
-		addresses = append(addresses, val.Address)
+	var remoteAddresses []common.Address
+	for _, val := range committee.Members[1:] {
 		mockedPeer := consensus.NewMockPeer(ctrl)
-		mockedPeer.EXPECT().Send(SyncNetworkMsg, gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
+		mockedPeer.EXPECT().Send(message.SyncNetworkMsg, gomock.Any()).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
-		}).MaxTimes(1)
+		}).Times(1)
+		remoteAddresses = append(remoteAddresses, val.Address)
 		peers[val.Address] = mockedPeer
 	}
 
-	m := make([]common.Address, 0)
-	m = append(m, addresses...)
 	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, fixsizecache.HashKey[common.Hash])
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
-	broadcaster.EXPECT().FindPeers(m).Return(peers)
+	broadcaster.EXPECT().FindPeers(remoteAddresses).Return(peers)
 	b := &Backend{
 		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
-		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{})),
+		gossiper:      NewGossiper(knownMessages, localAddress, log.New(), make(chan struct{})),
 		logger:        log.New("backend", "test", "id", 0),
 	}
 	b.SetBroadcaster(broadcaster)
-	b.AskSync(committee)
+
+	askSyncMsg := &message.AskSyncMsg{}
+	err := b.AskSync(committee, askSyncMsg)
+	require.NoError(t, err)
 	<-time.NewTimer(2 * time.Second).C
-	if atomic.LoadUint64(&counter) != 5 {
-		t.Fatalf("ask sync message transmission failure")
+	if val := atomic.LoadUint64(&counter); val != committeeSize-1 {
+		t.Fatalf("ask sync message transmission failure. wanted %d, got %d", committeeSize-1, val)
 	}
 }
 
@@ -193,7 +197,7 @@ func TestGossip(t *testing.T) {
 		} else {
 			mockedPeer.EXPECT().SendRaw(gomock.Any(), gomock.Any()).Do(func(msgCode, data interface{}) {
 				// We want to make sure the payload is correct AND that no other messages is sent.
-				if msgCode == PrevoteNetworkMsg && reflect.DeepEqual(data, msg.Payload()) {
+				if msgCode == message.PrevoteNetworkMsg && reflect.DeepEqual(data, msg.Payload()) {
 					atomic.AddUint64(&counter, 1)
 				}
 			}).Times(1)
@@ -375,53 +379,6 @@ func TestCommit(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected <nil>, got %v", err)
 		}
-	})
-}
-
-func TestSyncPeer(t *testing.T) {
-	t.Run("no Broadcaster set, nothing done", func(t *testing.T) {
-		b := &Backend{
-			database: rawdb.NewMemoryDatabase()}
-		b.SyncPeer(common.HexToAddress("0x0123456789"))
-	})
-
-	t.Run("valid params given, messages sent", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		peerAddr1 := common.HexToAddress("0x0123456789")
-		messages := []message.Msg{
-			message.NewPrevote(7, 8, common.HexToHash("0x1227"), testSigner, testCommitteeMember, 1),
-		}
-
-		payload := messages[0].Payload()
-
-		peer1Mock := consensus.NewMockPeer(ctrl)
-		peer1Mock.EXPECT().SendRaw(PrevoteNetworkMsg, payload)
-
-		peers := make(map[common.Address]consensus.Peer)
-		peers[peerAddr1] = peer1Mock
-
-		broadcaster := consensus.NewMockBroadcaster(ctrl)
-		broadcaster.EXPECT().FindPeer(peerAddr1).Return(peer1Mock, true)
-
-		tendermintC := interfaces.NewMockCore(ctrl)
-		tendermintC.EXPECT().CurrentHeightMessages().Return(messages)
-
-		gossiper := interfaces.NewMockGossiper(ctrl)
-		gossiper.EXPECT().SetBroadcaster(broadcaster).Times(1)
-		b := &Backend{
-			database: rawdb.NewMemoryDatabase(),
-			logger:   log.New("backend", "test", "id", 0),
-			gossiper: gossiper,
-			core:     tendermintC,
-		}
-		b.SetBroadcaster(broadcaster)
-
-		b.SyncPeer(peerAddr1)
-
-		wait := time.NewTimer(time.Second)
-		<-wait.C
 	})
 }
 

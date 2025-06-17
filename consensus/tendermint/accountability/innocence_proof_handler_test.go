@@ -1,6 +1,7 @@
 package accountability
 
 import (
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math/big"
 	"testing"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/backend"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	ccore "github.com/autonity/autonity/core"
@@ -32,69 +32,6 @@ func testAccountabilityParams() *types.AccountabilityParams {
 		Delta:       new(big.Int).SetUint64(params.TestAccountabilityConfig.Delta),
 		GracePeriod: new(big.Int),
 	}
-}
-
-func TestNewOffChainAccusationRateLimiter(t *testing.T) {
-	msgSender := common.Address{}
-	msgHash1 := common.Hash{0x1}
-	msgHash2 := common.Hash{0x2}
-	t.Run("test rate limit with a 1st accusation", func(t *testing.T) {
-		rl := NewAccusationRateLimiter()
-		err := rl.validAccusationRate(msgSender)
-		require.NoError(t, err)
-		require.Equal(t, 1, rl.accusationRates[msgSender])
-
-		rl.resetRateLimiter()
-		require.Equal(t, 0, len(rl.accusationRates))
-	})
-
-	t.Run("test rate limit with limited rate", func(t *testing.T) {
-		rl := NewAccusationRateLimiter()
-		for i := 0; i < maxAccusationPerHeight*2; i++ {
-			err := rl.validAccusationRate(msgSender)
-			require.NoError(t, err)
-		}
-		err := rl.validAccusationRate(msgSender)
-		require.Error(t, errAccusationRateMalicious, err)
-
-		rl.resetRateLimiter()
-		require.Equal(t, 0, len(rl.accusationRates))
-	})
-
-	t.Run("test duplicated accusation", func(t *testing.T) {
-		rl := NewAccusationRateLimiter()
-		err := rl.checkPeerDuplicatedAccusation(msgSender, msgHash1)
-		require.NoError(t, err)
-		_, ok := rl.peerProcessedAccusations[msgSender][msgHash1]
-		require.Equal(t, true, ok)
-		err = rl.checkPeerDuplicatedAccusation(msgSender, msgHash1)
-		require.Error(t, errPeerDuplicatedAccusation, err)
-		err = rl.checkPeerDuplicatedAccusation(msgSender, msgHash2)
-		require.NoError(t, err)
-
-		rl.resetPeerJustifiedAccusations()
-		_, ok = rl.peerProcessedAccusations[msgSender][msgHash1]
-		require.Equal(t, false, ok)
-		_, ok = rl.peerProcessedAccusations[msgSender][msgHash2]
-		require.Equal(t, false, ok)
-	})
-
-	t.Run("test accusation rate limit over a height", func(t *testing.T) {
-		rl := NewAccusationRateLimiter()
-
-		for h := uint64(0); h < uint64(99); h++ {
-			for i := 0; i < maxAccusationPerHeight; i++ {
-				err := rl.checkHeightAccusationRate(msgSender, h)
-				require.NoError(t, err)
-			}
-			err := rl.checkHeightAccusationRate(msgSender, h)
-			require.Error(t, errAccusationRateMalicious, err)
-
-			rl.resetHeightRateLimiter()
-			err = rl.checkHeightAccusationRate(msgSender, h)
-			require.NoError(t, err)
-		}
-	})
 }
 
 func TestNewInnocenceProofBuffer(t *testing.T) {
@@ -148,7 +85,7 @@ func TestFaultDetector_sendOffChainInnocenceProof(t *testing.T) {
 	payload := make([]byte, 128)
 
 	mockedPeer := consensus.NewMockPeer(ctrl)
-	mockedPeer.EXPECT().Send(backend.AccountabilityNetworkMsg, payload).MaxTimes(1)
+	mockedPeer.EXPECT().Send(message.AccountabilityNetworkMsg, payload).MaxTimes(1)
 	peers := make(map[common.Address]consensus.Peer)
 	peers[remotePeer] = mockedPeer
 	broadcasterMock.EXPECT().FindPeer(remotePeer).Return(mockedPeer, true)
@@ -185,7 +122,7 @@ func TestFaultDetector_sendOffChainAccusationMsg(t *testing.T) {
 	require.NoError(t, err)
 
 	mockedPeer := consensus.NewMockPeer(ctrl)
-	mockedPeer.EXPECT().Send(backend.AccountabilityNetworkMsg, payload).MaxTimes(1)
+	mockedPeer.EXPECT().Send(message.AccountabilityNetworkMsg, payload).MaxTimes(1)
 	peers := make(map[common.Address]consensus.Peer)
 	peers[remotePeer] = mockedPeer
 	broadcasterMock.EXPECT().FindPeer(remotePeer).Return(mockedPeer, true)
@@ -281,7 +218,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 			Evidences:     nil,
 		}
 
-		preCommit := newValidatedPrecommit(msgRound, msgHeight, nilValue, signer, self, cSize)
+		preCommit := newValidatedPrecommit(msgRound, msgHeight, common.NilValue, signer, self, cSize)
 		var accusationC1 = Proof{
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
@@ -323,7 +260,7 @@ func TestOffChainAccusationManagement(t *testing.T) {
 			Evidences:     nil,
 		}
 
-		preCommit := newValidatedPrecommit(msgRound, msgHeight, nilValue, signer, self, cSize)
+		preCommit := newValidatedPrecommit(msgRound, msgHeight, common.NilValue, signer, self, cSize)
 		var accusationC1 = Proof{
 			OffenderIndex: proposerIdx,
 			Type:          autonity.Accusation,
@@ -403,7 +340,7 @@ func TestHandleOffChainAccountabilityEvent(t *testing.T) {
 			}
 		}
 		require.Equal(t, 1, len(fd.innocenceProofBuff.accusationList))
-		require.Equal(t, errPeerDuplicatedAccusation, err)
+		require.Equal(t, helpers.ErrDuplicateMessage, err)
 	})
 
 	t.Run("accusation is not from committee member", func(t *testing.T) {

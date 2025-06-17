@@ -144,10 +144,6 @@ func (f FuturePowerChangeEvent) Value() common.Hash {
 	panic("not implemented")
 }
 
-type SyncEvent struct {
-	Addr common.Address
-}
-
 type AccountabilityEvent struct {
 	Sender  common.Address
 	Payload []byte

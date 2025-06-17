@@ -17,14 +17,6 @@ import (
 	"github.com/autonity/autonity/p2p"
 )
 
-const (
-	ProposeNetworkMsg        uint64 = 0x11
-	PrevoteNetworkMsg        uint64 = 0x12
-	PrecommitNetworkMsg      uint64 = 0x13
-	SyncNetworkMsg           uint64 = 0x14
-	AccountabilityNetworkMsg uint64 = 0x15
-)
-
 type UnhandledMsg struct {
 	addr common.Address
 	msg  p2p.Msg
@@ -36,11 +28,7 @@ var (
 	// errJailed is returned when a consensus message is discarded because the signer is jailed
 	ErrJailed    = errors.New("signer is jailed")
 	ErrNotFuture = errors.New("message is not future height anymore")
-	NetworkCodes = map[uint8]uint64{
-		message.ProposalCode:  ProposeNetworkMsg,
-		message.PrevoteCode:   PrevoteNetworkMsg,
-		message.PrecommitCode: PrecommitNetworkMsg,
-	}
+
 	ProposalProcessBg  = metrics.NewRegisteredBufferedGauge("acn/proposal/process", nil, nil)                          // time between round start and proposal sent
 	PrevoteProcessBg   = metrics.NewRegisteredBufferedGauge("acn/prevote/process", nil, metrics.GetIntPointer(1024))   // time between round start and proposal receiv
 	PrecommitProcessBg = metrics.NewRegisteredBufferedGauge("acn/precommit/process", nil, metrics.GetIntPointer(1024)) // time to verify proposal
@@ -86,18 +74,19 @@ func (sb *Backend) HandleUnhandledMsgs(ctx context.Context) {
 
 // HandleMsg implements consensus.Handler.HandleMsg
 func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- error) (bool, error) {
-	if msg.Code < ProposeNetworkMsg || msg.Code > AccountabilityNetworkMsg {
+	if msg.Code < message.ProposeNetworkMsg || msg.Code > message.AccountabilityNetworkMsg {
 		return false, nil
 	}
 
 	switch msg.Code {
-	case ProposeNetworkMsg:
+	case message.ProposeNetworkMsg:
 		return handleConsensusMsg[message.Propose](sb, sender, msg, errCh)
-	case PrevoteNetworkMsg:
+	case message.PrevoteNetworkMsg:
 		return handleConsensusMsg[message.Prevote](sb, sender, msg, errCh)
-	case PrecommitNetworkMsg:
+	case message.PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, sender, msg, errCh)
-	case SyncNetworkMsg:
+	case message.SyncNetworkMsg:
+
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
@@ -106,9 +95,15 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 			sb.logger.Debug("Ignoring sync message from jailed validator", "from", sender)
 			return true, ErrJailed
 		}
-		sb.logger.Debug("Received sync message", "from", sender)
-		go sb.Post(events.SyncEvent{Addr: sender})
-	case AccountabilityNetworkMsg:
+		var data []byte
+		if err := msg.Decode(&data); err != nil {
+			// this error will freeze peer for 30 seconds by according to dev p2p protocol.
+			return true, errDecodeFailed
+		}
+		// handle the msg in an individual go routine, the rate limiter will handle DoS attack vectors.
+		go sb.syncPeer(data, sender, errCh)
+
+	case message.AccountabilityNetworkMsg:
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Accountability Msg received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped

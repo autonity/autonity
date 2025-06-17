@@ -1,16 +1,15 @@
 package backend
 
 import (
-	"math/big"
-	"time"
+	"fmt"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/rlp"
 )
 
 type Gossiper struct {
@@ -50,17 +49,19 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 	g.stopped = stopCh
 }
 
-func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
-	hash := message.Hash()
+func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
+	hash := msg.Hash()
 	if !g.knownMessages.Contains(hash) {
 		g.knownMessages.Add(hash, true)
 	}
 	if g.broadcaster == nil {
 		return
 	}
-	code := NetworkCodes[message.Code()]
-	payload := message.Payload()
-	for _, val := range committee.Members {
+
+	// forward future epoch proposal to all the committee members, as most of them are still in the committee.
+	recipients := committee.Members
+	code := message.NetworkCodes[msg.Code()]
+	for _, val := range recipients {
 		if val.Address == g.address {
 			continue
 		}
@@ -70,13 +71,24 @@ func (g *Gossiper) Gossip(committee *types.Committee, message message.Msg) {
 				continue
 			}
 			p.Cache().Add(hash, true)
-			go p.SendRaw(code, payload) //nolint
+			go p.SendRaw(code, msg.Payload()) //nolint
 		}
 	}
 }
 
-func (g *Gossiper) AskSync(committee *types.Committee) {
+func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
+	// bail out early if we don't have a broadcaster
+	if g.broadcaster == nil {
+		return fmt.Errorf("broadcaster not initialized")
+	}
 
+	encoded, err := rlp.EncodeToBytes(syncMsg)
+	if err != nil {
+		log.Error("Error encoding sync msg", "err", err)
+		panic("cannot encode sync message")
+	}
+
+	// send to everyone except ourselves
 	targets := make([]common.Address, 0, committee.Len())
 	for _, val := range committee.Members {
 		if val.Address != g.address {
@@ -84,37 +96,20 @@ func (g *Gossiper) AskSync(committee *types.Committee) {
 		}
 	}
 
-	if g.broadcaster != nil && len(targets) > 0 {
-		for {
-			ps := g.broadcaster.FindPeers(targets)
-			// If we didn't find any peers try again in 10ms or exit if we have
-			// been stopped.
-			if len(ps) == 0 {
-				t := time.NewTimer(retryPeriod * time.Millisecond)
-				select {
-				case <-t.C:
-					continue
-				case <-g.stopped:
-					return
-				}
-			}
-			count := new(big.Int)
-			for addr, p := range ps {
-				//ask to a quorum nodes to sync, 1 must then be honest and updated
-				if count.Cmp(bft.Quorum(committee.TotalVotingPower())) >= 0 {
-					break
-				}
-				g.logger.Debug("Asking sync to", "addr", addr)
-				go p.Send(SyncNetworkMsg, []byte{}) //nolint
-
-				member := committee.MemberByAddress(addr)
-				if member == nil {
-					g.logger.Error("could not retrieve member from address")
-					continue
-				}
-				count.Add(count, member.VotingPower)
-			}
-			break
-		}
+	// bail out if the local validator is the only one in the committee
+	if len(targets) == 0 {
+		return fmt.Errorf("no one to ask sync to")
 	}
+
+	ps := g.broadcaster.FindPeers(targets)
+	// bail out if we cannot find any peers
+	if len(ps) == 0 {
+		return fmt.Errorf("cannot find any peers")
+	}
+
+	for addr, p := range ps {
+		g.logger.Debug("Asking sync to", "addr", addr)
+		go p.Send(message.SyncNetworkMsg, encoded) //nolint
+	}
+	return nil
 }
