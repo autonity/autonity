@@ -615,7 +615,11 @@ func verifyGenesisSequence(config *params.ChainConfig, _ GenesisBonds, _ generic
 
 	totalSupply := abi.ConvertType(data[0], new(big.Int)).(*big.Int)
 	if totalSupply.Cmp((*big.Int)(config.AutonityContractConfig.TokenMint)) != 0 {
-		return fmt.Errorf("genesis token allocation mismatch")
+		return fmt.Errorf(
+			"genesis token allocation mismatch: expected: %v, minted: %v",
+			(*big.Int)(config.AutonityContractConfig.TokenMint),
+			totalSupply,
+		)
 	}
 
 	// verify bonded stake
@@ -649,7 +653,11 @@ func verifyGenesisSequence(config *params.ChainConfig, _ GenesisBonds, _ generic
 		totalBondedStake.Add(totalBondedStake, stake)
 	}
 	if totalBondedStake.Cmp((*big.Int)(config.AutonityContractConfig.TokenBond)) != 0 {
-		return fmt.Errorf("genesis total staking mismatch")
+		return fmt.Errorf(
+			"genesis total staking mismatch: expected: %v, bonded %v",
+			(*big.Int)(config.AutonityContractConfig.TokenBond),
+			totalBondedStake,
+		)
 	}
 
 	return nil
