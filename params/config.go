@@ -131,9 +131,9 @@ var (
 					VaultAddress:  NonStakeableVestingContractAddress,
 				},
 			},
-			VerifyGenesisSequence: true,
-			TokenMint:             (*math.HexOrDecimal256)(DefaultNTNGenesisAllocation),
-			TokenBond:             (*math.HexOrDecimal256)(DefaultGenesisBonding),
+			SkipGenesisVerification: false,
+			TokenMint:               (*math.HexOrDecimal256)(DefaultNTNGenesisAllocation),
+			TokenBond:               (*math.HexOrDecimal256)(DefaultGenesisBonding),
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,
@@ -492,7 +492,7 @@ var (
 		GasLimitBoundDivisor:     DefaultGasLimitBoundDivisor,
 		BaseFeeChangeDenominator: DefaultBaseFeeChangeDenominator,
 		ElasticityMultiplier:     DefaultElasticityMultiplier,
-		VerifyGenesisSequence:    false,
+		SkipGenesisVerification:  true,
 		TokenBond:                (*math.HexOrDecimal256)(common.Big0),
 		TokenMint:                (*math.HexOrDecimal256)(common.Big0),
 	}

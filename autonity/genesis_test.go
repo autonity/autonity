@@ -609,7 +609,6 @@ func chainConfig(config *params.ChainConfig, genesisMint, genesisBond *big.Int) 
 		return nil, err
 	}
 
-	copy.AutonityContractConfig.VerifyGenesisSequence = true
 	copy.AutonityContractConfig.TokenBond = (*math.HexOrDecimal256)(genesisBond)
 	copy.AutonityContractConfig.TokenMint = (*math.HexOrDecimal256)(genesisMint)
 	return copy, nil

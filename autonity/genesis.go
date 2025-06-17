@@ -594,7 +594,7 @@ func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy
 }
 
 func verifyGenesisSequence(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, caller genericCaller) error {
-	if !config.AutonityContractConfig.VerifyGenesisSequence {
+	if config.AutonityContractConfig.SkipGenesisVerification {
 		return nil
 	}
 	// verify total allocations
