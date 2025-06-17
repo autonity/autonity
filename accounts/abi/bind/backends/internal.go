@@ -252,6 +252,8 @@ func (b *InternalBackend) EstimateGas(ctx context.Context, call ethereum.CallMsg
 		Value:            call.Value,
 		GasLimit:         header.GasLimit,
 		GasPrice:         call.GasPrice,
+		GasFeeCap:        call.GasFeeCap,
+		GasTipCap:        call.GasTipCap,
 		SkipNonceChecks:  false,
 		SkipFromEOACheck: false,
 	}
