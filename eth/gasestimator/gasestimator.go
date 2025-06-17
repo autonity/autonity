@@ -194,6 +194,11 @@ func execute(ctx context.Context, call *core.Message, opts *Options, gasLimit ui
 	defer func(gas uint64) { call.GasLimit = gas }(call.GasLimit)
 	call.GasLimit = gasLimit
 
+	// Backfill the legacy gasPrice for EVM execution, otherwise the gas estimation will panic.
+	if call.GasPrice == nil {
+		call.GasPrice = new(big.Int)
+	}
+
 	// Execute the call and separate execution faults caused by a lack of gas or
 	// other non-fixable conditions
 	result, err := run(ctx, call, opts)
@@ -212,6 +217,7 @@ func run(ctx context.Context, call *core.Message, opts *Options) (*core.Executio
 	// Assemble the call and the call context
 	var (
 		evmContext = core.NewEVMBlockContext(opts.Header, opts.Chain, nil)
+		// todo: Jason, evaluate this copy for the gas estimation, as the verkle trie coping contains bugs.
 		dirtyState = opts.State.Copy()
 	)
 	if opts.BlockOverrides != nil {
