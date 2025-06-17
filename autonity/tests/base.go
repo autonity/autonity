@@ -242,14 +242,6 @@ func (r *Runner) deployContract(
 	return contractAddress, gas - leftOverGas, &contract{contractAddress, contractAbi, r}, out, err
 }
 
-func NoGenesisVerification() GenesisVerifierGenesisData {
-	return GenesisVerifierGenesisData{
-		Verify:      false,
-		TokenToBond: common.Big0,
-		TokenToMint: common.Big0,
-	}
-}
-
 // generates an activity proof signed by all committee members, `absentees` excluded
 // NOTE: if additional validators whose key is not in params.TestConsensusKey are registered in the tests,
 // then this func needs to be modified to add their signatures as well.

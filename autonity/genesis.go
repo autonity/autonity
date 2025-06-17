@@ -182,14 +182,6 @@ func toContractConfig(acg *params.AutonityContractGenesis) bindings.IAutonityCon
 	}
 }
 
-func toGenesisVerifierConfig(acg *params.AutonityContractGenesis) bindings.GenesisVerifierGenesisData {
-	return bindings.GenesisVerifierGenesisData{
-		Verify:      acg.VerifyGenesisSequence,
-		TokenToBond: (*big.Int)(acg.TokenBond),
-		TokenToMint: (*big.Int)(acg.TokenMint),
-	}
-}
-
 func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
 	validators := make([]params.Validator, 0, len(config.AutonityContractConfig.Validators))
 	for _, v := range config.AutonityContractConfig.Validators {
@@ -202,7 +194,6 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 		common.Big0,
 		validators,
 		toContractConfig(config.AutonityContractConfig),
-		toGenesisVerifierConfig(config.AutonityContractConfig),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Autonity contract: %w", err)
@@ -617,7 +608,6 @@ func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, depl
 		common.Big0,
 		validators,
 		toContractConfig(config.AutonityContractConfig),
-		toGenesisVerifierConfig(config.AutonityContractConfig),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy AutonityTest contract: %w", err)

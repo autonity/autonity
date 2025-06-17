@@ -83,7 +83,6 @@ func TestDuplicateOracleAddress(t *testing.T) {
 			nil,
 			validators,
 			config,
-			tests.NoGenesisVerification(),
 		)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: oracle server exists", err.Error())
