@@ -39,7 +39,7 @@ var (
 		SlashingRateCap:           1000, // 10%
 	}
 
-	DefautlNTNGenesisAllocation = new(big.Int).Mul(big.NewInt(60_000_000), NTNDecimalFactor) // 60 mil NTN
+	DefaultNTNGenesisAllocation = new(big.Int).Mul(big.NewInt(60_000_000), NTNDecimalFactor) // 60 mil NTN
 	// TODO: update `DefautlGenesisBonding`
 	DefaultGenesisBonding = new(big.Int).Mul(big.NewInt(0), NTNDecimalFactor)
 
