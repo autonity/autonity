@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	aggregationPeriod            = 30 * time.Millisecond
+	aggregationPeriod            = 50 * time.Millisecond
 	oldMessagesAggregationPeriod = 2 * time.Second
 	oldMessagesStatsPeriod       = 1 * time.Second
 )
@@ -766,6 +766,7 @@ loop:
 	for {
 		select {
 		case event, ok := <-messageCh:
+			start := time.Now()
 			if !ok {
 				break loop
 			}
@@ -773,6 +774,7 @@ loop:
 				BackendAggregatorTransitBg.Add(time.Since(event.Posted).Nanoseconds())
 			}
 			a.handleEvent(event)
+			log.Info("backend event processed in aggregator", "message", event.Message.Code(), "height", event.Message.H(), "round", event.Message.R(), "duration", time.Since(start))
 		case ev, ok := <-a.core.EventCh():
 			start := time.Now()
 			eventType := ""

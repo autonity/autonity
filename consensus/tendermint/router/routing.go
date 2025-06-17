@@ -281,21 +281,27 @@ func (m *Router) loop(ctx context.Context) {
 
 	retryTicker := time.NewTicker(constants.RetryLatencyTimeout)
 	cleanupTicker := time.NewTicker(constants.CacheCleanupInterval)
+	// wait for few seconds before starting the initial latency measurement
+	initialMeasurementTimer := time.NewTimer(5 * time.Second)
 	defer func() {
 		retryTicker.Stop()
 		cleanupTicker.Stop()
+		initialMeasurementTimer.Stop()
 	}()
-
-	if m.inCommittee && len(m.committee) >= m.clusteringThreshold {
-		if err := m.measureLatency(); err != nil {
-			log.Warn("Latency measurement failed", "err", err)
-		}
-	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-initialMeasurementTimer.C:
+			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < m.clusteringThreshold {
+				continue
+			}
+			log.Debug("Router: initial latency measurement started", "threshold", m.clusteringThreshold)
+			if err := m.measureLatency(); err != nil {
+				log.Warn("measureToReport failed", "err", err)
+			}
+			initialMeasurementTimer.C = nil
 		case <-time.After(constants.LatencyDataExpiry +
 			time.Duration(rand.Intn(constants.LatencyMeasurementDelayCap))*time.Millisecond):
 			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < m.clusteringThreshold {
@@ -305,6 +311,7 @@ func (m *Router) loop(ctx context.Context) {
 				log.Warn("measureToReport failed", "err", err)
 			}
 		case <-retryTicker.C:
+			retryTicker = time.NewTicker(constants.RetryLatencyTimeout)
 			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < m.clusteringThreshold {
 				continue
 			}
