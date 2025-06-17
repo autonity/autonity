@@ -742,7 +742,7 @@ func (a *aggregator) oldHeightStats() {
 				}
 				sb.WriteByte('\n')
 			}
-			sb.WriteString("-------------------------------------\n")
+			sb.WriteString("-------------------------------------")
 		}
 		return sb.String()
 	}})
@@ -775,6 +775,7 @@ loop:
 			a.handleEvent(event)
 		case ev, ok := <-a.core.EventCh():
 			start := time.Now()
+			eventType := ""
 			if !ok {
 				break loop
 			}
@@ -784,6 +785,7 @@ loop:
 			round := ev.Round()
 			switch e := ev.(type) {
 			case events.RoundChangeEvent:
+				eventType = "RoundChange"
 				/* a round change happened in Core
 				* messages that we had buffered as future round might now be current round, therefore:
 				* 1. process right away proposals
@@ -834,6 +836,7 @@ loop:
 					RoundBg.Add(time.Since(start).Nanoseconds())
 				}
 			case events.PowerChangeEvent:
+				eventType = "PowerChange"
 				// a power change happened in Core: re-do quorum checks on individual votes and simple aggregates
 				code := e.Code()
 				value := e.Value()
@@ -870,6 +873,7 @@ loop:
 					PowerBg.Add(time.Since(start).Nanoseconds())
 				}
 			case events.FuturePowerChangeEvent:
+				eventType = "FuturePowerChange"
 
 				committee, err := a.backend.BlockChain().CommitteeByHeight(height)
 				if err != nil {
@@ -887,7 +891,9 @@ loop:
 					FuturePowerBg.Add(time.Since(start).Nanoseconds())
 				}
 			}
+			log.Info("Core event processed in aggregator", "eventType", eventType, "height", height, "round", round, "duration", time.Since(start))
 		case <-ticker.C:
+			start := time.Now()
 			coreHeight := a.core.Height().Uint64()
 
 			// process all messages in the aggregator
@@ -929,7 +935,9 @@ loop:
 			// cleanup
 			a.messagesFrom = make(map[common.Address][]common.Hash)
 			a.toIgnore = make(map[common.Hash]struct{})
+			log.Info("Message aggregation finished", "height", coreHeight, "duration", time.Since(start))
 		case <-oldMessagesTicker.C:
+			start := time.Now()
 			a.logger.Trace("Processing stale messages in the aggregator")
 			var batches [][]events.UnverifiedMessageEvent
 			for _, batch := range a.staleMessages {
@@ -948,6 +956,7 @@ loop:
 			a.processBatches(batches, oldHeightEventBuilder)
 
 			a.staleMessages = make(map[common.Hash][]events.UnverifiedMessageEvent)
+			log.Info("old message processing finished", "duration", time.Since(start))
 		case <-oldMessagesStatsTicker.C:
 			a.oldHeightStats()
 		case <-ctx.Done():

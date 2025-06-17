@@ -9,6 +9,6 @@ const (
 	LatencyMeasurementDelayCap  = 2000
 	MaxLatencyCapFactor         = 0.75
 	LatencyDataExpiry           = 5 * time.Minute
-	RetryLatencyTimeout         = 30 * time.Second
+	RetryLatencyTimeout         = 50 * time.Second
 	CacheCleanupInterval        = 10 * time.Minute
 )
