@@ -37,7 +37,7 @@ func DefaultConfig() Config {
 	return Config{
 		Timeout:    3 * time.Second,
 		Interval:   1 * time.Second,
-		Count:      2,
+		Count:      1,
 		MaxRetries: 1,
 	}
 }
