@@ -1547,8 +1547,6 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                     _val.liquidStateContract.redistribute{value: _atnDelegationReward}(accounts[address(_val.liquidStateContract)]);
                 }
 
-                _updateConversionRatio(_val);
-
                 // TODO: This has to be reconsidered - I feel it is too expensive
                 // to emit an event per validator. But what is our recommend way to track rewards
                 // from a user perspective then ?
@@ -1775,6 +1773,8 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
 
         _val.selfBondedStake += _selfBond;
         _val.bondedStake += _selfBond + _delegated;
+
+        _updateConversionRatio(_val);
     }
 
     function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
