@@ -156,7 +156,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
 
             // Sanitize the validator fields for a fresh new deployment.
             _validators[i].liquidSupply = 0;
-            _validators[i].conversionRatio = 1;
+            _validators[i].conversionRatio = STANDARD_SCALE_FACTOR;
             _validators[i].liquidStateContract = ILiquid(address(0));
             _validators[i].bondedStake = 0;
             _validators[i].selfBondedStake = 0;
@@ -285,7 +285,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             0,                       // jail release block
             _consensusKey,           // validator key in bytes
             ValidatorState.active,   // state
-            1                        // conversion ratio
+            STANDARD_SCALE_FACTOR    // conversion ratio
         );
 
         _verifyAndRegisterValidator(_val, _signatures);
@@ -1751,7 +1751,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                 _liquidAmount = _bonding.amount;
                 // if bonding and the previous delegated stake was 0,
                 // the validator goes back to a conversion ratio of 1:1
-                _validator.conversionRatio = 1;
+                _validator.conversionRatio = STANDARD_SCALE_FACTOR;
             } else {
                 _liquidAmount = (_validator.liquidSupply * _bonding.amount) / _delegatedStake;
             }
@@ -1944,7 +1944,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     function _updateConversionRatio(Validator storage _val) internal virtual {
         // NOTE: in case liquidSupply = 0 (fully unbonded), the previous conversion ratio is kept.
         if(_val.liquidSupply != 0) {
-            _val.conversionRatio = (_val.bondedStake - _val.selfBondedStake) / _val.liquidSupply;
+            _val.conversionRatio = ((_val.bondedStake - _val.selfBondedStake) * STANDARD_SCALE_FACTOR) / _val.liquidSupply;
         }
     }
 }

@@ -403,9 +403,10 @@ func (v *Validator) Validate() error {
 	if _, err = blst.PublicKeyFromBytes(v.ConsensusKey); err != nil {
 		return fmt.Errorf("cant decode bls public key: %w", err)
 	}
-	// sanitize starting conversion ratio to 1
-	if v.ConversionRatio == nil || v.ConversionRatio.Cmp(common.Big1) != 0 {
-		v.ConversionRatio = new(big.Int).SetUint64(1)
+	// sanitize starting conversion ratio to STANDARD_SCALE_FACTOR
+	// needs to match the value in the contract side
+	if v.ConversionRatio == nil || v.ConversionRatio.Cmp(big.NewInt(10_000)) != 0 {
+		v.ConversionRatio = new(big.Int).SetUint64(10_000)
 	}
 	return nil
 }
