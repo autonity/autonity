@@ -222,6 +222,7 @@ type Validator struct {
 	JailReleaseBlock         *big.Int
 	ConsensusKey             []byte //ABI packing does not support hexutil.Bytes, thus we need to introduce customized JSON Marshal/UnMarshal methods.
 	State                    *uint8
+	ConversionRatio          *big.Int
 }
 
 // UnmarshalJSON and MarshalJSON are customized marshal and unmarshal methods to parse validators with validator key in
@@ -247,6 +248,7 @@ func (v *Validator) UnmarshalJSON(input []byte) error {
 		JailReleaseBlock         *big.Int        `json:"jailReleaseBlock"`
 		ConsensusKey             hexutil.Bytes   `json:"consensusKey"`
 		State                    *uint8          `json:"state"`
+		ConversionRatio          *big.Int        `json:"conversionRatio"`
 	}
 
 	var dec validator
@@ -272,6 +274,7 @@ func (v *Validator) UnmarshalJSON(input []byte) error {
 	v.JailReleaseBlock = dec.JailReleaseBlock
 	v.ConsensusKey = dec.ConsensusKey
 	v.State = dec.State
+	v.ConversionRatio = dec.ConversionRatio
 
 	return nil
 }
@@ -297,6 +300,7 @@ func (v *Validator) MarshalJSON() ([]byte, error) {
 		JailReleaseBlock         *big.Int        `json:"jailReleaseBlock"`
 		ConsensusKey             hexutil.Bytes   `json:"consensusKey"`
 		State                    *uint8          `json:"state"`
+		ConversionRatio          *big.Int        `json:"conversionRatio"`
 	}
 
 	var enc validator
@@ -319,6 +323,7 @@ func (v *Validator) MarshalJSON() ([]byte, error) {
 	enc.JailReleaseBlock = v.JailReleaseBlock
 	enc.ConsensusKey = v.ConsensusKey
 	enc.State = v.State
+	enc.ConversionRatio = v.ConversionRatio
 	return json.Marshal(&enc)
 }
 
@@ -397,6 +402,10 @@ func (v *Validator) Validate() error {
 	}
 	if _, err = blst.PublicKeyFromBytes(v.ConsensusKey); err != nil {
 		return fmt.Errorf("cant decode bls public key: %w", err)
+	}
+	// sanitize starting conversion ratio to 1
+	if v.ConversionRatio == nil || v.ConversionRatio.Cmp(common.Big1) != 0 {
+		v.ConversionRatio = new(big.Int).SetUint64(1)
 	}
 	return nil
 }
