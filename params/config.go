@@ -238,6 +238,9 @@ var (
 				Enode:         "enode://fb6f5556df35da18c1ecac878fd44a84a0cc302952e1172871dfc48c996c9940b182df374586722212ecb92a8771cafcf48b21657832316423e33f7dbc0b4e7f@3.9.98.39:30303",
 				BondedStake:   Ntn10000,
 			}},
+			SkipGenesisVerification: true,
+			TokenBond:               (*math.HexOrDecimal256)(common.Big0),
+			TokenMint:               (*math.HexOrDecimal256)(common.Big0),
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,

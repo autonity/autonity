@@ -20,6 +20,7 @@
       "abi": "",
       "minGasPrice": 5000,
       "operator": "0x0000000000000000000000000000000000000003",
+      "skipGenesisVerification": true,
       "users": [
         {
             "enode": "enode://168c5ee6c2897085756ae64e84d2cfff7f0f6cd723bd9fbc19720c57d79778a49aecad1417e89619d8fe5c4c6eedeae31e8a8f7895954596abf0f3231cd6d312@127.0.0.1:{{port}}",

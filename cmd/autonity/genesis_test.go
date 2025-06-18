@@ -59,6 +59,7 @@ var genesisTest = struct {
 					"elasticityMultiplier": 2,
 					"withholdingThreshold": 0,
 					"proposerRewardRate": 1000,
+					"skipGenesisVerification": true,
 					"validators" : [ 
 						{
 							"enode": "enode://395f3b74b236bccde1684d50a715c2349ee66741d7a69a571c0b176d129ac4ee33acbc85456f7ada3cdc87e1a56f591ba624870a1381c266d41b34c9476c5bc4@172.25.0.11:30303",
@@ -134,6 +135,7 @@ var genesisTest = struct {
 					"initialInflationReserve": "0x20000000000",
 					"withholdingThreshold": 0,
 					"proposerRewardRate": 1000,
+					"skipGenesisVerification": true,
 					"validators" : [ 
 						{
 							"enode": "enode://395f3b74b236bccde1684d50a715c2349ee66741d7a69a571c0b176d129ac4ee33acbc85456f7ada3cdc87e1a56f591ba624870a1381c266d41b34c9476c5bc4@172.25.0.11:30303",
@@ -197,6 +199,7 @@ var genesisTest = struct {
 					"initialInflationReserve": "0x20000000000",
 					"withholdingThreshold": 0,
 					"proposerRewardRate": 1000,
+					"skipGenesisVerification": true,
 					"validators" : [ 
 						{
 							"enode": "enode://395f3b74b236bccde1684d50a715c2349ee66741d7a69a571c0b176d129ac4ee33acbc85456f7ada3cdc87e1a56f591ba624870a1381c266d41b34c9476c5bc4@172.25.0.11:30303",
