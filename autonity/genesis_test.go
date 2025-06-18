@@ -2,6 +2,7 @@ package autonity
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -619,6 +620,76 @@ func TestGenesisSteps(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
+	})
+
+	t.Run("Genesis sequence fails with invalid params", func(t *testing.T) {
+
+		stake := validatorTotalStake(params.TestChainConfig)
+		scheduleToken := big.NewInt(100)
+		minted := new(big.Int).Add(stake, scheduleToken)
+		newTestConfig, err := configWithVerificationParam(params.TestChainConfig, minted, stake)
+		require.NoError(t, err)
+
+		newTestConfig.AutonityContractConfig.Schedules = []params.Schedule{
+			{
+				Start:         big.NewInt(time.Now().Unix() + 10),
+				TotalDuration: big.NewInt(100),
+				Amount:        scheduleToken,
+				VaultAddress:  params.NonStakeableVestingContractAddress,
+			},
+		}
+
+		genesisSequence := func() error {
+			evm := newEVM()
+			return executeGenesisSequence(
+				newTestConfig,
+				[]GenesisBond{},
+				evm,
+				[]genesisStep{
+					deployAutonityContract,
+					finalizeAutonityInitialization,
+					createAutonitySchedules,
+					verifyGenesisSequence,
+				},
+			)
+		}
+
+		// overwrite config with invalid params
+		newMintParam := new(big.Int).Add(minted, common.Big1)
+		newTestConfig, err = configWithVerificationParam(newTestConfig, newMintParam, stake)
+		require.NoError(t, err)
+
+		err = genesisSequence()
+		require.Error(t, err)
+		expErr := fmt.Errorf("genesis token allocation mismatch: expected: %v, minted: %v", newMintParam, minted)
+		require.Equal(t, expErr.Error(), err.Error())
+
+		newMintParam = new(big.Int).Sub(minted, common.Big1)
+		newTestConfig, err = configWithVerificationParam(newTestConfig, newMintParam, stake)
+		require.NoError(t, err)
+
+		err = genesisSequence()
+		require.Error(t, err)
+		expErr = fmt.Errorf("genesis token allocation mismatch: expected: %v, minted: %v", newMintParam, minted)
+		require.Equal(t, expErr.Error(), err.Error())
+
+		newStakeParam := new(big.Int).Add(stake, common.Big1)
+		newTestConfig, err = configWithVerificationParam(newTestConfig, minted, newStakeParam)
+		require.NoError(t, err)
+
+		err = genesisSequence()
+		require.Error(t, err)
+		expErr = fmt.Errorf("genesis total staking mismatch: expected: %v, bonded %v", newStakeParam, stake)
+		require.Equal(t, expErr.Error(), err.Error())
+
+		newStakeParam = new(big.Int).Sub(stake, common.Big1)
+		newTestConfig, err = configWithVerificationParam(newTestConfig, minted, newStakeParam)
+		require.NoError(t, err)
+
+		err = genesisSequence()
+		require.Error(t, err)
+		expErr = fmt.Errorf("genesis total staking mismatch: expected: %v, bonded %v", newStakeParam, stake)
+		require.Equal(t, expErr.Error(), err.Error())
 	})
 }
 
