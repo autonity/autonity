@@ -156,6 +156,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
 
             // Sanitize the validator fields for a fresh new deployment.
             _validators[i].liquidSupply = 0;
+            _validators[i].conversionRatio = 1;
             _validators[i].liquidStateContract = ILiquid(address(0));
             _validators[i].bondedStake = 0;
             _validators[i].selfBondedStake = 0;
@@ -279,12 +280,12 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             0,                       // self unbonding stake locked
             ILiquid(address(0)), // liquid token contract
             0,                       // liquid token supply
-            1,                       // conversion ratio
             block.number,            // registration block
             0,                       // total slashed
             0,                       // jail release block
             _consensusKey,           // validator key in bytes
-            ValidatorState.active    // state
+            ValidatorState.active,   // state
+            1                        // conversion ratio
         );
 
         _verifyAndRegisterValidator(_val, _signatures);
@@ -919,6 +920,10 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         // update the validator struct and send the slashed funds to the autonity treasury
         accounts[config.policy.treasuryAccount] += slashingAmount;
         validators[_nodeAddress] = _slashedVal;
+
+        if(validators[_nodeAddress].liquidSupply != 0) {
+            validators[_nodeAddress].conversionRatio = (validators[_nodeAddress].bondedStake-validators[_nodeAddress].selfBondedStake) / validators[_nodeAddress].liquidSupply;
+        }
     }
 
     /**
@@ -1543,16 +1548,14 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                 }
 
                 // update historical conversion ratio
-                if(_val.liquidSupply == 0) {
-                    _val.conversionRatio = 1;
-                }else{
+                if(_val.liquidSupply != 0) {
                     _val.conversionRatio = _delegatedStake / _val.liquidSupply;
                 }
 
                 // TODO: This has to be reconsidered - I feel it is too expensive
                 // to emit an event per validator. But what is our recommend way to track rewards
                 // from a user perspective then ?
-                emit Rewarded(_val.nodeAddress, _atnReward, _ntnReward);
+                emit Rewarded(_val.nodeAddress, _atnSelfReward, _atnDelegationReward, _ntnSelfReward, _ntnDelegationReward);
             }
         }
 
@@ -1751,6 +1754,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             uint256 _delegatedStake = _validator.bondedStake - _validator.selfBondedStake;
             if (_delegatedStake == 0) {
                 _liquidAmount = _bonding.amount;
+                _validator.conversionRatio=1;
             } else {
                 _liquidAmount = (_validator.liquidSupply * _bonding.amount) / _delegatedStake;
             }

@@ -200,5 +200,9 @@
   "1d894f4a": "jail((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8),uint256,uint256,uint8)",
   "41da31f7": "jailbound((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8),uint8)",
   "28ff0ed9": "slash((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8),uint256)",
-  "57897331": "slashAndJail((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8),uint256,uint256,uint256,uint8,uint8)"
+  "57897331": "slashAndJail((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,uint256,bytes,uint8),uint256,uint256,uint256,uint8,uint8)",
+  "41b6cb0f": "jail((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,bytes,uint8,uint256),uint256,uint256,uint8)",
+  "0273a3ee": "jailbound((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,bytes,uint8,uint256),uint8)",
+  "99ac2d48": "slash((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,bytes,uint8,uint256),uint256)",
+  "a00f313f": "slashAndJail((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,bytes,uint8,uint256),uint256,uint256,uint256,uint8,uint8)"
 }
