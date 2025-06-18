@@ -191,10 +191,10 @@ func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 		recipients = s.selectNodesByLatencySpread()
 		// additional nodes
 		localNodes := len(clusters.Base()[ownClusterID])
-		localNodes = int(math.Sqrt(float64(localNodes)))
 		minNodes = 2
 		lowLatencyNodes = 4
 		if isProposal {
+			localNodes = int(math.Sqrt(float64(localNodes)))
 			minNodes = 1
 			lowLatencyNodes = 0
 		}

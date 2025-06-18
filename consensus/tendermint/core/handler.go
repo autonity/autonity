@@ -201,6 +201,7 @@ eventLoop:
 					if errors.Is(err, constants.ErrFutureRoundMessage) && msg.Code() != message.ProposalCode {
 						// immediately gossip future round votes
 						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
+						recordMessageProcessingTime(msg.Code(), start)
 						break
 					}
 					// we still want to gossip old round messages and redundant votes
@@ -212,7 +213,7 @@ eventLoop:
 				// proposals are already gossiped in backend
 				if msg.Code() == message.ProposalCode {
 					recordMessageProcessingTime(msg.Code(), start)
-					continue
+					break
 				}
 
 				// valid message, mark liveness time unless it was redundant
