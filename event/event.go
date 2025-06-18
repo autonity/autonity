@@ -93,13 +93,17 @@ func (mux *TypeMux) Post(ev interface{}) error {
 	}
 	subs := mux.subm[rtyp]
 	mux.mutex.RUnlock()
-	for _, s := range subs {
-		sub := s
-		if len(subs) > 1 {
-			go sub.deliver(event) // temporary - don't block subscribers of same event
-		} else {
-			sub.deliver(event)
+	if len(subs) > 0 {
+		var wg sync.WaitGroup
+		wg.Add(len(subs))
+		for _, s := range subs {
+			sub := s // perhaps not needed as of go1.24
+			go func() {
+				defer wg.Done()
+				sub.deliver(event)
+			}()
 		}
+		wg.Wait()
 	}
 	return nil
 }
