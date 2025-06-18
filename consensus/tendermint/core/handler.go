@@ -217,9 +217,9 @@ eventLoop:
 				}
 
 				// valid message, mark liveness time unless it was redundant
-				if !errors.Is(err, constants.ErrRedundantVote) {
-					c.syncState.setLastLivenessTime(time.Now())
-				}
+				//if !errors.Is(err, constants.ErrRedundantVote) {
+				c.syncState.setLastLivenessTime(time.Now())
+				//}
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now

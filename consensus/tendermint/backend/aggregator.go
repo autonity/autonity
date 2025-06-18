@@ -24,7 +24,7 @@ import (
 const (
 	aggregationPeriod            = 50 * time.Millisecond
 	oldMessagesAggregationPeriod = 2 * time.Second
-	oldMessagesStatsPeriod       = 1 * time.Second
+	oldMessagesStatsPeriod       = 2 * time.Second
 )
 
 // aggregator metrics
@@ -761,7 +761,18 @@ func (a *aggregator) loop(ctx context.Context) {
 
 	// channel where the aggregator will receive msgs from the backend handlers
 	messageCh := a.backend.MessageCh()
+	type evMeta struct {
+		dur   time.Duration
+		count int
+	}
+	eventTracker := make(map[string]evMeta)
 
+	updateEventMeta := func(eventType string, duration time.Duration, count int) {
+		evMeta, _ := eventTracker[eventType]
+		evMeta.dur += duration
+		evMeta.count++
+		eventTracker[eventType] = evMeta
+	}
 loop:
 	for {
 		select {
@@ -774,7 +785,11 @@ loop:
 				BackendAggregatorTransitBg.Add(time.Since(event.Posted).Nanoseconds())
 			}
 			a.handleEvent(event)
-			log.Info("backend event processed in aggregator", "message", event.Message.Code(), "height", event.Message.H(), "round", event.Message.R(), "duration", time.Since(start))
+
+			//log.Info("backend event processed in aggregator", "message", event.Message.Code(), "height", event.Message.H(), "round", event.Message.R(), "duration", time.Since(start))
+
+			updateEventMeta("messageEvent", time.Since(start), 1)
+
 		case ev, ok := <-a.core.EventCh():
 			start := time.Now()
 			eventType := ""
@@ -893,7 +908,8 @@ loop:
 					FuturePowerBg.Add(time.Since(start).Nanoseconds())
 				}
 			}
-			log.Info("Core event processed in aggregator", "eventType", eventType, "height", height, "round", round, "duration", time.Since(start))
+			//log.Info("Core event processed in aggregator", "eventType", eventType, "height", height, "round", round, "duration", time.Since(start))
+			updateEventMeta(eventType, time.Since(start), 1)
 		case <-ticker.C:
 			start := time.Now()
 			coreHeight := a.core.Height().Uint64()
@@ -937,7 +953,8 @@ loop:
 			// cleanup
 			a.messagesFrom = make(map[common.Address][]common.Hash)
 			a.toIgnore = make(map[common.Hash]struct{})
-			log.Info("Message aggregation finished", "height", coreHeight, "duration", time.Since(start))
+			//log.Info("Message aggregation finished", "height", coreHeight, "duration", time.Since(start))
+			updateEventMeta("aggregation", time.Since(start), 1)
 		case <-oldMessagesTicker.C:
 			start := time.Now()
 			a.logger.Trace("Processing stale messages in the aggregator")
@@ -958,9 +975,28 @@ loop:
 			a.processBatches(batches, oldHeightEventBuilder)
 
 			a.staleMessages = make(map[common.Hash][]events.UnverifiedMessageEvent)
-			log.Info("old message processing finished", "duration", time.Since(start))
+			//log.Info("old message processing finished", "duration", time.Since(start))
+			updateEventMeta("staleMessage", time.Since(start), 1)
 		case <-oldMessagesStatsTicker.C:
-			a.oldHeightStats()
+			var sb strings.Builder
+			sb.WriteString("Event metrics: [")
+			first := true
+			for eventType, meta := range eventTracker {
+				if !first {
+					sb.WriteString(", ")
+				}
+				avgDuration := time.Duration(0)
+				if meta.count > 0 {
+					avgDuration = meta.dur / time.Duration(meta.count)
+				}
+				fmt.Fprintf(&sb, "{event_type=%s, count=%d, total_duration_ms=%d, avg_duration_ms=%d}",
+					eventType, meta.count, meta.dur.Milliseconds(), avgDuration.Milliseconds())
+				first = false
+			}
+			sb.WriteString("]")
+			log.Info("Event stats", "metrics", sb.String())
+			eventTracker = make(map[string]evMeta) // reset the tracker for the next period
+			//a.oldHeightStats()
 		case <-ctx.Done():
 			break loop
 		}
