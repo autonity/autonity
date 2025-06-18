@@ -140,6 +140,7 @@ class NetworkPlanner(object):
                     "gasLimit": 10000000000,
                     "gasLimitBoundDivisor": 1024,
                     "initialInflationReserve": "0x2116545850052128000000",
+                    "skipGenesisVerification": true,
                     "validators": [],
                 },
                 "oracle": {"votePeriod": 10},
