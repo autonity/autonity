@@ -32,10 +32,6 @@ func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) 
 	ctx, c.cancel = context.WithCancel(ctx)
 	c.subscribeEvents()
 
-	// Init the sync state at core start as core lifecycle is controlled by committee membership.
-	c.syncState.SetLastValidMsgTime(time.Now())
-	c.syncState.SetSyncTimeOut(constants.DefaultSyncTimeout)
-
 	// Start a new round from last height + 1
 	c.StartRound(ctx, 0)
 
@@ -232,7 +228,7 @@ eventLoop:
 						}
 					}
 
-					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
+					if err != nil && (errors.Is(err, constants.ErrOldRoundMessage) || errors.Is(err, constants.ErrRedundantVote)) {
 						go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 					} else {
 						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)

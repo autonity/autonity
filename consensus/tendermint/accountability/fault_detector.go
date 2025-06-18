@@ -243,19 +243,6 @@ tendermintMsgLoop:
 					}
 					continue tendermintMsgLoop
 				}
-			case events.LostSyncEvent:
-				// process liveness fault from msg store context to release the consensus core locking in large scale network
-				// in which the processing of huge num of AskSyncs would lock the core for a long period.
-				err := fd.handleLostSyncEvent(e.Payload, e.Sender)
-				if err != nil {
-					fd.logger.Error("Accountability: lost sync recovery", "error", err)
-					// the errors return from handler could freeze the peer connection for 30 seconds by according to dev p2p protocol.
-					select {
-					case e.ErrCh <- err:
-					default: // do nothing
-					}
-					continue tendermintMsgLoop
-				}
 			}
 		case e, ok := <-fd.chainEventCh:
 			if !ok {
@@ -282,22 +269,6 @@ tendermintMsgLoop:
 		}
 	}
 	close(fd.misbehaviourProofCh)
-}
-
-func (fd *FaultDetector) handleLostSyncEvent(payload []byte, sender common.Address) error {
-	var lostSync message.LostSyncMsg
-	err := rlp.DecodeBytes(payload, &lostSync)
-	if err != nil {
-		return err
-	}
-
-	// todo: consider a rate limit for the sender from DoS, double check if the msg is being relaying.
-
-	// todo: query missing msgs from msg store, with height, round, step and signers.
-
-	// todo: send the msg back to the sender.
-
-	return nil
 }
 
 // check to GC msg store for those msgs out of buffering window on every 60 blocks.
