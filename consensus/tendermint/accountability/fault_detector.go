@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/autonity/autonity/params"
 	"math"
 	"math/big"
 	"sort"
@@ -124,8 +125,10 @@ func NewFaultDetector(
 	if err != nil {
 		logger.Crit("Critical error building transactor", "err", err)
 	}
-	// tip needs to be >=1, otherwise accountability tx will not be broadcasted due to the txpool logic (validateTx function)
-	txOpts.GasTipCap = common.Big1
+
+	// prioritize the accountability events with 1 GWei, otherwise accountability tx be pending
+	// in TXN pool due to the txpool logic.
+	txOpts.GasTipCap = new(big.Int).SetUint64(params.GWei)
 
 	fd := &FaultDetector{
 		innocenceProofBuff:    NewInnocenceProofBuffer(),
@@ -359,6 +362,13 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 
 	// each validator is assigned a reporting slot
 	reporterIndex := (height / reportingSlotPeriod) % uint64(committee.Len())
+
+	// TODO: consider allowing the validator to report for the entirety of the periodAdd commentMore actions
+	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
+	// slot, then it is time to report the collected events by this validator.
+	if height%reportingSlotPeriod != 0 {
+		return false
+	}
 
 	// allowing the validator to report for the entirety of the period
 	return committee.Members[reporterIndex].Address == fd.address
