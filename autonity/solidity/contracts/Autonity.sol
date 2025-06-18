@@ -921,9 +921,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         accounts[config.policy.treasuryAccount] += slashingAmount;
         validators[_nodeAddress] = _slashedVal;
 
-        if(validators[_nodeAddress].liquidSupply != 0) {
-            validators[_nodeAddress].conversionRatio = (validators[_nodeAddress].bondedStake-validators[_nodeAddress].selfBondedStake) / validators[_nodeAddress].liquidSupply;
-        }
+        _updateConversionRatio(validators[_nodeAddress]);
     }
 
     /**
@@ -953,6 +951,8 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         // update the validator struct and send the slashed funds to the autonity treasury
         accounts[config.policy.treasuryAccount] += slashingAmount;
         validators[_nodeAddress] = _slashedVal;
+
+        _updateConversionRatio(validators[_nodeAddress]);
     }
 
     function setSlasher(address _slasher) external virtual onlyOperator {
@@ -1547,10 +1547,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                     _val.liquidStateContract.redistribute{value: _atnDelegationReward}(accounts[address(_val.liquidStateContract)]);
                 }
 
-                // update historical conversion ratio
-                if(_val.liquidSupply != 0) {
-                    _val.conversionRatio = _delegatedStake / _val.liquidSupply;
-                }
+                _updateConversionRatio(_val);
 
                 // TODO: This has to be reconsidered - I feel it is too expensive
                 // to emit an event per validator. But what is our recommend way to track rewards
@@ -1754,7 +1751,9 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             uint256 _delegatedStake = _validator.bondedStake - _validator.selfBondedStake;
             if (_delegatedStake == 0) {
                 _liquidAmount = _bonding.amount;
-                _validator.conversionRatio=1;
+                // if bonding and the previous delegated stake was 0,
+                // the validator goes back to a conversion ratio of 1:1
+                _validator.conversionRatio = 1;
             } else {
                 _liquidAmount = (_validator.liquidSupply * _bonding.amount) / _delegatedStake;
             }
@@ -1939,6 +1938,13 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         epoch.eip1559 = _epoch.eip1559;
         for (uint256 i = 0; i < _epoch.committee.length; i++) {
             epoch.committee.push(_epoch.committee[i]);
+        }
+    }
+
+    function _updateConversionRatio(Validator storage _val) internal virtual {
+        // NOTE: in case liquidSupply = 0 (fully unbonded), the previous conversion ratio is kept.
+        if(_val.liquidSupply != 0) {
+            _val.conversionRatio = (_val.bondedStake - _val.selfBondedStake) / _val.liquidSupply;
         }
     }
 }
