@@ -166,7 +166,7 @@ func TestInflationContract(t *testing.T) {
 	goP := newGoParams(p, genesisTime)
 	_, _, inflationControllerContract, err := r.DeployInflationController(nil, *p)
 	require.NoError(r.T, err)
-	circulatingSupply := new(big.Int).Mul(big.NewInt(60_000_000), params.NTNDecimalFactor) // NTN precision is 18
+	circulatingSupply := new(big.Int).Mul(big.NewInt(60_000_000), params.DecimalFactor) // NTN precision is 18
 	epochPeriod := big.NewInt(4 * 60 * 60)
 	epochCount := new(big.Int).Div(T, epochPeriod)
 	r.T.Log("total epoch", epochCount)
@@ -186,10 +186,10 @@ func TestInflationContract(t *testing.T) {
 		// Compare the go implementation with the solidity one
 		diffSolWithGoBasis := new(big.Int).Quo(new(big.Int).Mul(new(big.Int).Sub(goDeltaComputation, delta), big.NewInt(10000)), delta)
 
-		fmt.Println("y:", years, "d:", days, "b:", currentEpochTime, "supply:", circulatingSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, params.NTNDecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)
+		fmt.Println("y:", years, "d:", days, "b:", currentEpochTime, "supply:", circulatingSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, params.DecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)
 		require.True(r.T, diffSolWithGoBasis.Cmp(common.Big0) == 0, "inflation reward calculation mismatch")
 
 		circulatingSupply.Add(circulatingSupply, delta)
 	}
-	r.T.Log("final NTN supply", new(big.Int).Div(circulatingSupply, params.NTNDecimalFactor))
+	r.T.Log("final NTN supply", new(big.Int).Div(circulatingSupply, params.DecimalFactor))
 }

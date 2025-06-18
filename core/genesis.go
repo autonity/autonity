@@ -690,6 +690,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		Treasury:                 faucet.Address,
 		WithheldRewardsPool:      faucet.Address,
 		InitialInflationReserve:  params.TestAutonityContractConfig.InitialInflationReserve,
+		SkipGenesisVerification:  true,
 		Validators: []*params.Validator{
 			{
 				Treasury:      faucet.Address,

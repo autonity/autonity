@@ -23,7 +23,6 @@ var (
 	SecondsInYear    = int64(365 * 24 * 60 * 60)
 	SecondsInDay     = int64(24 * 60 * 60)
 	DecimalFactor    = new(big.Int).Exp(big.NewInt(10), big.NewInt(DecimalPrecision), nil)
-	NTNDecimalFactor = new(big.Int).SetUint64(Ether)
 
 	//Oracle Contract defaults
 	OracleVotePeriod           = uint64(30)
@@ -38,6 +37,10 @@ var (
 		RevealResetInterval:       10,
 		SlashingRateCap:           1000, // 10%
 	}
+
+	DefaultNTNGenesisAllocation = new(big.Int).Mul(big.NewInt(60_000_000), DecimalFactor) // 60 mil NTN
+	// TODO: update `DefautlGenesisBonding`
+	DefaultGenesisBonding = new(big.Int).Mul(big.NewInt(0), DecimalFactor)
 
 	// DefaultAcuContractGenesis contains the default values for the ASM ACU contract
 	DefaultAcuContractGenesis = &AcuContractGenesis{
@@ -173,6 +176,9 @@ type AutonityContractGenesis struct {
 	InitialInflationReserve  *math.HexOrDecimal256 `json:"initialInflationReserve"`
 	Validators               []*Validator          `json:"validators"` // todo: Can we change that to []Validator
 	Schedules                []Schedule            `json:"schedules"`
+	SkipGenesisVerification  bool                  `json:"skipGenesisVerification"`
+	TokenMint                *math.HexOrDecimal256 `json:"tokenMint"`
+	TokenBond                *math.HexOrDecimal256 `json:"tokenBond"`
 }
 
 type AccountabilityGenesis struct {
