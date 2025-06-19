@@ -328,8 +328,7 @@ func (sb *Backend) VerifyProposal(proposalBlock *types.Block) (time.Duration, er
 			return 0, consensus.ErrInconsistentEpochInfo
 		}
 
-		// disable the cached block state.
-		// sb.blockchain.CacheProposalState(proposalBlock.Hash(), res.Receipts, res.GasUsed, state)
+		sb.blockchain.CacheProposalState(proposalBlock.Hash(), res.Receipts, res.GasUsed, state)
 
 		return 0, nil
 	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {

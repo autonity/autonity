@@ -363,7 +363,7 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 	// each validator is assigned a reporting slot
 	reporterIndex := (height / reportingSlotPeriod) % uint64(committee.Len())
 
-	// TODO: consider allowing the validator to report for the entirety of the periodAdd commentMore actions
+	// TODO: consider allowing the validator to report for the entirety of the period
 	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
 	// slot, then it is time to report the collected events by this validator.
 	if height%reportingSlotPeriod != 0 {
