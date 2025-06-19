@@ -198,7 +198,17 @@ eventLoop:
 					}
 					if errors.Is(err, constants.ErrFutureRoundMessage) && msg.Code() != message.ProposalCode {
 						// immediately gossip future round votes
-						//go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
+						g := c.backend.Gossiper()
+						hash := msg.Hash()
+						if msg.Originator() == c.backend.Address() {
+							g.KnownMessages().Add(msg.Hash(), true)
+						}
+
+						// if it's an aggregate the originator is the representative of the signers, so check in cache first and then add
+						if vote, isVote := msg.(message.Vote); isVote && vote.Signers().Len() > 1 && !g.KnownMessages().Contains(hash) {
+							g.KnownMessages().Add(hash, true)
+						}
+						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
 						recordMessageProcessingTime(msg.Code(), start)
 						break
 					}
@@ -230,7 +240,7 @@ eventLoop:
 						}
 					}
 
-					if err != nil && (errors.Is(err, constants.ErrOldRoundMessage) || errors.Is(err, constants.ErrRedundantVote)) {
+					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
 						go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 					} else {
 						// todo: refactor
