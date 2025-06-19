@@ -950,8 +950,8 @@ loop:
 				}
 			}
 			// cleanup
-			a.messagesFrom = make(map[common.Address][]common.Hash)
-			a.toIgnore = make(map[common.Hash]struct{})
+			clear(a.messagesFrom)
+			clear(a.toIgnore)
 			//log.Info("Message aggregation finished", "height", coreHeight, "duration", time.Since(start))
 			updateEventMeta("aggregation", time.Since(start), 1)
 		case <-oldMessagesTicker.C:
@@ -973,7 +973,8 @@ loop:
 			}
 			a.processBatches(batches, oldHeightEventBuilder)
 
-			a.staleMessages = make(map[common.Hash][]events.UnverifiedMessageEvent)
+			//a.staleMessages = make(map[common.Hash][]events.UnverifiedMessageEvent)
+			clear(a.staleMessages)
 			//log.Info("old message processing finished", "duration", time.Since(start))
 			updateEventMeta("staleMessage", time.Since(start), 1)
 		case <-oldMessagesStatsTicker.C:
@@ -994,7 +995,7 @@ loop:
 			}
 			sb.WriteString("]")
 			log.Debug("Event stats", "metrics", sb.String())
-			eventTracker = make(map[string]evMeta) // reset the tracker for the next period
+			clear(eventTracker)
 			//a.oldHeightStats()
 		case <-ctx.Done():
 			break loop
