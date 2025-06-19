@@ -20,7 +20,7 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
-const EventQueueSize = 100
+const EventQueueSize = 1000
 
 // New creates a Tendermint consensus Core
 func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger, noGossip bool) *Core {

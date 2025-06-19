@@ -950,8 +950,8 @@ loop:
 				}
 			}
 			// cleanup
-			clear(a.messagesFrom)
-			clear(a.toIgnore)
+			a.messagesFrom = make(map[common.Address][]common.Hash)
+			a.toIgnore = make(map[common.Hash]struct{})
 			//log.Info("Message aggregation finished", "height", coreHeight, "duration", time.Since(start))
 			updateEventMeta("aggregation", time.Since(start), 1)
 		case <-oldMessagesTicker.C:
