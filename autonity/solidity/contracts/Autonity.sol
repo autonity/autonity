@@ -921,6 +921,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         accounts[config.policy.treasuryAccount] += slashingAmount;
         validators[_nodeAddress] = _slashedVal;
 
+        // slashing affects the NTN:LNTN conversion ratio
         _updateConversionRatio(validators[_nodeAddress]);
     }
 
@@ -952,6 +953,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         accounts[config.policy.treasuryAccount] += slashingAmount;
         validators[_nodeAddress] = _slashedVal;
 
+        // slashing affects the NTN:LNTN conversion ratio
         _updateConversionRatio(validators[_nodeAddress]);
     }
 
@@ -1774,6 +1776,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         _val.selfBondedStake += _selfBond;
         _val.bondedStake += _selfBond + _delegated;
 
+        // autobond affects the NTN:LNTN conversion ratio
         _updateConversionRatio(_val);
     }
 
@@ -1942,7 +1945,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     }
 
     function _updateConversionRatio(Validator storage _val) internal virtual {
-        // NOTE: in case liquidSupply = 0 (fully unbonded), the previous conversion ratio is kept.
+        // NOTE: in case liquidSupply = 0 (all delegated stake is unbonded), the previous conversion ratio is kept.
         if(_val.liquidSupply != 0) {
             _val.conversionRatio = ((_val.bondedStake - _val.selfBondedStake) * STANDARD_SCALE_FACTOR) / _val.liquidSupply;
         }

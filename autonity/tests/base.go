@@ -673,6 +673,7 @@ func genesisToAutonityVal(v *params.Validator) IAutonityValidator {
 		JailReleaseBlock:         v.JailReleaseBlock,
 		ConsensusKey:             v.ConsensusKey,
 		State:                    *v.State,
+		ConversionRatio:          v.ConversionRatio,
 	}
 }
 
