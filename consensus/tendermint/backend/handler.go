@@ -246,6 +246,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		sb.logger.Crit("Tendermint backend processing unknown message")
 	}
 
+	//todo: proposal is already verified, post directly to the core
 	sb.Post(events.UnverifiedMessageEvent{
 		Message: msg,
 		ErrCh:   errCh,

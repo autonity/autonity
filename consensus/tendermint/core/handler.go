@@ -123,16 +123,18 @@ func (c *Core) quorumFor(code uint8, round int64, value common.Hash) bool {
 	case message.ProposalCode:
 		break
 	case message.PrevoteCode:
-		quorum = (c.messages.GetOrCreate(round).PrevotesPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0)
+		quorum = c.messages.GetOrCreate(round).PrevotesPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0
 	case message.PrecommitCode:
-		quorum = (c.messages.GetOrCreate(round).PrecommitsPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0)
+		quorum = c.messages.GetOrCreate(round).PrecommitsPower(value).Cmp(c.CommitteeSet().Quorum()) >= 0
 	}
 	return quorum
 }
 
 func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash) {
-	// We re-add the complex aggregate to the prevote set. If we would substitute the entire set with the complex aggregate, there is a possibility of message loss (if we had multiple un-mergeable complex aggregates in the `messages`). This loss would not harm consensus (we would still have quorum voting power), however it is better to keep all messages in case we have to sync another peer.
-	// We can consider changing it only if it considerably harms performance.
+	// We re-add the complex aggregate to the prevote set. If we would substitute the entire set with the complex aggregate,
+	// there is a possibility of message loss (if we had multiple un-mergeable complex aggregates in the `messages`).
+	// This loss would not harm consensus (we would still have quorum voting power), however it is better to keep all messages
+	// in case we have to sync another peer. We can consider changing it only if it considerably harms performance.
 	switch code {
 	case message.PrevoteCode:
 		aggregatePrevote := c.messages.GetOrCreate(round).PrevoteFor(value)

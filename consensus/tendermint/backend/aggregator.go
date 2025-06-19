@@ -232,7 +232,6 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 			roundInfo.precommitsPowerFor[v].Set(index, power)
 		}
 	}
-
 }
 
 func (a *aggregator) empty(h uint64, r int64) bool {
@@ -767,7 +766,7 @@ func (a *aggregator) loop(ctx context.Context) {
 	}
 	eventTracker := make(map[string]evMeta)
 
-	updateEventMeta := func(eventType string, duration time.Duration, count int) {
+	updateEventMeta := func(eventType string, duration time.Duration, _ int) {
 		evMeta, _ := eventTracker[eventType]
 		evMeta.dur += duration
 		evMeta.count++
@@ -994,7 +993,7 @@ loop:
 				first = false
 			}
 			sb.WriteString("]")
-			log.Info("Event stats", "metrics", sb.String())
+			log.Debug("Event stats", "metrics", sb.String())
 			eventTracker = make(map[string]evMeta) // reset the tracker for the next period
 			//a.oldHeightStats()
 		case <-ctx.Done():
