@@ -1239,7 +1239,7 @@ contract('Autonity', function (accounts) {
       let afterBalanceV0 = toBN(await web3.eth.getBalance(validators[0].treasury));
       let expectedRewardV0 = toBN(val0.bondedStake).mul(validatorRewards).div(totalStake);
       let delegatedStakeV0 = toBN(val0.bondedStake).sub(toBN(val0.selfBondedStake))
-      let delegatorRewardV0 = expectedRewardV0.mul(delegatedStakeV0).div(totalStake)
+      let delegatorRewardV0 = expectedRewardV0.mul(delegatedStakeV0).div(toBN(val0.bondedStake))
       let selfRewardV0 = expectedRewardV0.sub(delegatorRewardV0)
       let commissionIncomeV0 = delegatorRewardV0.mul(toBN(val0.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
       assert.equal(afterBalanceV0.sub(initBalanceV0).toString(), selfRewardV0.add(commissionIncomeV0).toString())
@@ -1248,7 +1248,7 @@ contract('Autonity', function (accounts) {
       let afterBalanceV1 = toBN(await web3.eth.getBalance(validators[1].treasury));
       let expectedRewardV1 = toBN(val1.bondedStake).mul(validatorRewards).div(totalStake);
       let delegatedStakeV1 = toBN(val1.bondedStake).sub(toBN(val1.selfBondedStake))
-      let delegatorRewardV1 = expectedRewardV1.mul(delegatedStakeV1).div(totalStake)
+      let delegatorRewardV1 = expectedRewardV1.mul(delegatedStakeV1).div(toBN(val1.bondedStake))
       let selfRewardV1 = expectedRewardV1.sub(delegatorRewardV1)
       let commissionIncomeV1 = delegatorRewardV1.mul(toBN(val1.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
       assert.equal(afterBalanceV1.sub(initBalanceV1).toString(), selfRewardV1.add(commissionIncomeV1).toString())
@@ -1257,7 +1257,7 @@ contract('Autonity', function (accounts) {
       let afterBalanceV2 = toBN(await web3.eth.getBalance(validators[2].treasury));
       let expectedRewardV2 = toBN(val2.bondedStake).mul(validatorRewards).div(totalStake);
       let delegatedStakeV2 = toBN(val2.bondedStake).sub(toBN(val2.selfBondedStake))
-      let delegatorRewardV2 = expectedRewardV2.mul(delegatedStakeV2).div(totalStake)
+      let delegatorRewardV2 = expectedRewardV2.mul(delegatedStakeV2).div(toBN(val2.bondedStake))
       let selfRewardV2 = expectedRewardV2.sub(delegatorRewardV2)
       let commissionIncomeV2 = delegatorRewardV2.mul(toBN(val2.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
       assert.equal(afterBalanceV2.sub(initBalanceV2).toString(), selfRewardV2.add(commissionIncomeV2).toString())
@@ -1266,7 +1266,7 @@ contract('Autonity', function (accounts) {
       let afterBalanceV3 = toBN(await web3.eth.getBalance(validators[3].treasury));
       let expectedRewardV3 = toBN(val3.bondedStake).mul(validatorRewards).div(totalStake);
       let delegatedStakeV3 = toBN(val3.bondedStake).sub(toBN(val3.selfBondedStake))
-      let delegatorRewardV3 = expectedRewardV3.mul(delegatedStakeV3).div(totalStake)
+      let delegatorRewardV3 = expectedRewardV3.mul(delegatedStakeV3).div(toBN(val3.bondedStake))
       let selfRewardV3 = expectedRewardV3.sub(delegatorRewardV3)
       let commissionIncomeV3 = delegatorRewardV3.mul(toBN(val3.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
       assert.equal(afterBalanceV3.sub(initBalanceV3).toString(), selfRewardV3.add(commissionIncomeV3).toString())
@@ -1277,12 +1277,10 @@ contract('Autonity', function (accounts) {
 
       let val0Liquid = await liquidStateContract.at(val0.liquidStateContract)
       let unclaimedRewardsV0 = await val0Liquid.unclaimedRewards(alice)
-      // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
-      assert.equal(unclaimedRewardsV0.toString(), delegatorRewardV0.sub(commissionIncomeV0).sub(toBN(1)).toString())
-      // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
-      totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV0).add(toBN(1))
+      assert.equal(unclaimedRewardsV0.toString(), delegatorRewardV0.sub(commissionIncomeV0).toString())
+      totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV0)
 
-      // check that if we mirror the computation done in Liquid.sol, we don't need the sub(toBN(1))
+      // check that if we mirror the computation done in Liquid.sol, things still look fine
       let supplyV0 = toBN(await val0Liquid.totalSupply())
       let _rewardV0 = delegatorRewardV0.sub(commissionIncomeV0)
       let _unclaimedRewardsV0 = _rewardV0.mul(fee_factor_unit_recip).div(supplyV0).mul(toBN(120)).div(fee_factor_unit_recip)
@@ -1290,12 +1288,10 @@ contract('Autonity', function (accounts) {
 
       let val1Liquid = await liquidStateContract.at(val1.liquidStateContract)
       let unclaimedRewardsV1 = await val1Liquid.unclaimedRewards(bob)
-      // note(lorenzo) I added the .sub(toBN(1)) because the unclaimedRewards are sometimes 1 wei lower than what we expect due to rounding in Liquid.sol
-      assert.equal(unclaimedRewardsV1.toString(), delegatorRewardV1.sub(commissionIncomeV1).sub(toBN(1)).toString())
-      // the 1 wei was sent to the liquid contract, but the delegator cannot claim it due to rounding
-      totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV1).add(toBN(1))
+      assert.equal(unclaimedRewardsV1.toString(), delegatorRewardV1.sub(commissionIncomeV1).toString())
+      totalRewardsDistributed = totalRewardsDistributed.add(unclaimedRewardsV1)
 
-      // check that if we mirror the computation done in Liquid.sol, we don't need the sub(toBN(1))
+      // check that if we mirror the computation done in Liquid.sol, things still look fine
       let supplyV1 = toBN(await val1Liquid.totalSupply())
       let _rewardV1 = delegatorRewardV1.sub(commissionIncomeV1)
       let _unclaimedRewardsV1 = _rewardV1.mul(fee_factor_unit_recip).div(supplyV1).mul(toBN(150)).div(fee_factor_unit_recip)
