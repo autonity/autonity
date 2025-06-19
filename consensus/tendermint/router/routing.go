@@ -123,6 +123,7 @@ func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender com
 		log.Info("Router: peer finder not set")
 		return
 	}
+
 	recipients, _ := m.Recipients(committee, msg, sender)
 	lostPeers := make([]common.Address, 0)
 	for _, recipient := range recipients {
