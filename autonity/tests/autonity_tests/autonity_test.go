@@ -1,6 +1,7 @@
 package autonitytests
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
 
@@ -185,4 +186,110 @@ func TestAutonityBalance(t *testing.T) {
 
 	r.WaitNextEpoch()
 	isBalanceZero()
+}
+func TestConversionRatio(t *testing.T) {
+	r := tests.Setup(t, nil)
+
+	// initial conversion ratio should be 10_000 for everyone
+	for _, member := range r.Committee.Validators {
+		val, _, err := r.Autonity.GetValidator(nil, member.NodeAddress)
+		require.NoError(t, err)
+		require.Equal(t, uint64(10_000), val.ConversionRatio.Uint64())
+	}
+
+	var (
+		staker1    = common.HexToAddress("0x1000000000000000000000000000000000000000")
+		staker2    = common.HexToAddress("0x2000000000000000000000000000000000000000")
+		staker3    = common.HexToAddress("0x3000000000000000000000000000000000000000")
+		validator0 = r.Committee.Validators[0].NodeAddress
+		validator1 = r.Committee.Validators[1].NodeAddress
+	)
+
+	// bond some delegated stake
+	_, err := r.Autonity.Mint(r.Operator, staker1, params.Ntn10000)
+	require.NoError(t, err)
+	_, err = r.Autonity.Mint(r.Operator, staker2, params.Ntn10000)
+	require.NoError(t, err)
+	_, err = r.Autonity.Mint(r.Operator, staker3, params.Ntn40000)
+	require.NoError(t, err)
+	_, err = r.Autonity.Bond(tests.FromSender(staker1, nil), validator0, params.Ntn10000)
+	require.NoError(t, err)
+	_, err = r.Autonity.Bond(tests.FromSender(staker2, nil), validator1, params.Ntn10000)
+	require.NoError(t, err)
+	_, err = r.Autonity.Bond(tests.FromSender(staker3, nil), validator1, new(big.Int).Mul(common.Big2, params.Ntn10000))
+	require.NoError(t, err)
+
+	// let delegations apply
+	r.WaitNextEpoch()
+
+	// increase a bit the rewards
+	// TODO: might need to increase decimals actually
+	_, err = r.Autonity.Mint(r.Operator, r.Autonity.Address(), params.Ntn40000)
+
+	// autobond at epoch end should increase the ratio
+	r.WaitNextEpoch()
+
+	for _, member := range r.Committee.Validators {
+		// check only vals with delegated stake
+		if bytes.Equal(member.NodeAddress.Bytes(), validator0.Bytes()) || bytes.Equal(member.NodeAddress.Bytes(), validator1.Bytes()) {
+			val, _, err := r.Autonity.GetValidator(nil, member.NodeAddress)
+			require.NoError(t, err)
+			t.Logf("conversion ratio: %s", val.ConversionRatio.String())
+			require.Greater(t, val.ConversionRatio.Uint64(), uint64(10_000))
+		}
+	}
+
+	// slashing lowers conversion ratio
+	_, err = r.Autonity.Slash(tests.FromSender(r.Accountability.Address(), nil), validator1, big.NewInt(9000))
+	require.NoError(t, err)
+
+	val, _, err := r.Autonity.GetValidator(nil, validator1)
+	require.NoError(t, err)
+	t.Logf("conversion ratio: %s", val.ConversionRatio.String())
+	t.Logf("liquid supply: %s", val.LiquidSupply.String())
+	require.Less(t, val.ConversionRatio.Uint64(), uint64(10_000))
+	ratioBeforeUnbond := val.ConversionRatio.Uint64()
+
+	// unbond everything - ratio should remain the same
+	liquidContract := r.LiquidStateContract(validator1)
+	staker2LiquidBalance, _, err := liquidContract.BalanceOf(nil, staker2)
+	t.Log(staker2LiquidBalance)
+	require.NoError(t, err)
+	staker3LiquidBalance, _, err := liquidContract.BalanceOf(nil, staker3)
+	t.Log(staker3LiquidBalance)
+	require.NoError(t, err)
+
+	_, err = r.Autonity.Unbond(tests.FromSender(staker2, nil), validator1, staker2LiquidBalance)
+	require.NoError(t, err)
+	_, err = r.Autonity.Unbond(tests.FromSender(staker3, nil), validator1, staker3LiquidBalance)
+	require.NoError(t, err)
+
+	r.WaitNextEpoch()
+
+	val, _, err = r.Autonity.GetValidator(nil, validator1)
+	require.NoError(t, err)
+	t.Logf("conversion ratio: %s", val.ConversionRatio.String())
+	require.Equal(t, ratioBeforeUnbond, val.ConversionRatio.Uint64())
+
+	r.WaitNextEpoch()
+	r.WaitNextEpoch()
+	r.WaitNextEpoch()
+	r.WaitNextEpoch()
+
+	val, _, err = r.Autonity.GetValidator(nil, validator1)
+	require.NoError(t, err)
+	t.Logf("conversion ratio: %s", val.ConversionRatio.String())
+	require.Equal(t, ratioBeforeUnbond, val.ConversionRatio.Uint64())
+
+	// bonding restores the ratio to 1:1
+	_, err = r.Autonity.Bond(tests.FromSender(staker3, nil), validator1, params.Ntn10000)
+	require.NoError(t, err)
+
+	r.WaitNextEpoch()
+
+	val, _, err = r.Autonity.GetValidator(nil, validator1)
+	require.NoError(t, err)
+	t.Logf("conversion ratio: %s", val.ConversionRatio.String())
+	require.Equal(t, uint64(10_000), val.ConversionRatio.Uint64())
+
 }

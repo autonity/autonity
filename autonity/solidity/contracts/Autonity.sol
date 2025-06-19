@@ -921,7 +921,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         accounts[config.policy.treasuryAccount] += slashingAmount;
         validators[_nodeAddress] = _slashedVal;
 
-        // slashing affects the NTN:LNTN conversion ratio
+        // slashing decreases the LNTN:NTN conversion ratio
         _updateConversionRatio(validators[_nodeAddress]);
     }
 
@@ -953,7 +953,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         accounts[config.policy.treasuryAccount] += slashingAmount;
         validators[_nodeAddress] = _slashedVal;
 
-        // slashing affects the NTN:LNTN conversion ratio
+        // slashing decreases the LNTN:NTN conversion ratio
         _updateConversionRatio(validators[_nodeAddress]);
     }
 
@@ -1776,7 +1776,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         _val.selfBondedStake += _selfBond;
         _val.bondedStake += _selfBond + _delegated;
 
-        // autobond affects the NTN:LNTN conversion ratio
+        // autobond increases the LNTN:NTN conversion ratio
         _updateConversionRatio(_val);
     }
 
