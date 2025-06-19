@@ -183,7 +183,7 @@ func TestValidate(t *testing.T) {
 
 		// if aggregate with a valid signature, resulting signature is still invalid
 		msg2 := NewPrevote(1, 25, header.Hash(), signer2, member2, csize)
-		aggregatedVote := AggregatePrevotes([]Vote{msg, msg2})
+		aggregatedVote := AggregatePrevotes([]Vote{msg, msg2}, common.Address{})
 
 		// unverify the aggregated vote
 		unverifiedPrevote := &Prevote{}
@@ -207,7 +207,7 @@ func TestValidate(t *testing.T) {
 
 		// if aggregated with a valid signature, resulting signature is still valid
 		msg2 := NewPrevote(1, 25, header.Hash(), signer2, member2, csize)
-		aggregatedVote := AggregatePrevotes([]Vote{msg, msg2})
+		aggregatedVote := AggregatePrevotes([]Vote{msg, msg2}, common.Address{})
 
 		// unverify the aggregated vote
 		unverifiedPrevote := &Prevote{}
@@ -372,9 +372,9 @@ func TestMessageHash(t *testing.T) {
 		vote2 := NewPrevote(r, h, v, makeSigner(key2), &testCommittee.Members[1], csize)
 		vote3 := NewPrevote(r, h, v, makeSigner(key3), &testCommittee.Members[2], csize)
 
-		aggregates1 := AggregatePrevotesSimple([]Vote{vote1, vote2, vote3})
-		aggregates2 := AggregatePrevotesSimple([]Vote{vote2, vote1, vote3})
-		aggregates3 := AggregatePrevotesSimple([]Vote{vote3, vote1, vote2})
+		aggregates1 := AggregatePrevotesSimple([]Vote{vote1, vote2, vote3}, common.Address{})
+		aggregates2 := AggregatePrevotesSimple([]Vote{vote2, vote1, vote3}, common.Address{})
+		aggregates3 := AggregatePrevotesSimple([]Vote{vote3, vote1, vote2}, common.Address{})
 
 		require.Equal(t, 1, len(aggregates1))
 		require.Equal(t, 1, len(aggregates2))
@@ -421,13 +421,12 @@ func TestMessageHash(t *testing.T) {
 		signers.AssignPower(tamperedPower, big.NewInt(223423))
 
 		payload, _ := rlp.EncodeToBytes(extVote{
-			Code:       PrecommitCode,
-			Round:      uint64(r), // #nosec
-			Height:     h,
-			Value:      v,
-			Signers:    signers,
-			Originator: testCommittee.Members[0].Address,
-			Signature:  vote2.Signature().(*blst.BlsSignature),
+			Code:      PrecommitCode,
+			Round:     uint64(r), // #nosec
+			Height:    h,
+			Value:     v,
+			Signers:   signers,
+			Signature: vote2.Signature().(*blst.BlsSignature),
 		})
 		vote2.hash = crypto.Hash(payload)
 
@@ -456,16 +455,16 @@ func TestComplexAggregation(t *testing.T) {
 		var votes1 []Vote
 		votes1 = append(votes1, NewPrevote(r, h, v1, defaultSigner, &testCommittee.Members[0], csize))
 		votes1 = append(votes1, NewPrevote(r, h, v1, defaultSigner, &testCommittee.Members[1], csize))
-		aggregate1 := AggregatePrevotes(votes1)
+		aggregate1 := AggregatePrevotes(votes1, common.Address{})
 		require.Equal(t, 2, len(aggregate1.Signers().Flatten()))
 
 		var votes2 []Vote
 		votes2 = append(votes2, NewPrevote(r, h, v1, defaultSigner, &testCommittee.Members[0], csize))
 		votes2 = append(votes2, NewPrevote(r, h, v1, defaultSigner, &testCommittee.Members[2], csize))
-		aggregate2 := AggregatePrevotes(votes2)
+		aggregate2 := AggregatePrevotes(votes2, common.Address{})
 		require.Equal(t, 2, len(aggregate2.Signers().Flatten()))
 
-		aggregate3 := AggregatePrevotes([]Vote{aggregate1, aggregate2})
+		aggregate3 := AggregatePrevotes([]Vote{aggregate1, aggregate2}, common.Address{})
 		require.Equal(t, 4, len(aggregate3.signers.Flatten()))
 	})
 }
@@ -486,55 +485,55 @@ func TestAggregateVotes(t *testing.T) {
 	//NOTE: we can use whatever signer, the aggregation functions do not verify the signature
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize))
-	aggregate := AggregatePrevotes(votes)
+	aggregate := AggregatePrevotes(votes, common.Address{})
 	t.Log(aggregate.Signers().String())
 	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01000000")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize))
-	aggregate = AggregatePrevotes(votes)
+	aggregate = AggregatePrevotes(votes, common.Address{})
 	t.Log(aggregate.Signers().String())
 	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01000000")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize))
-	aggregate = AggregatePrevotes(votes)
+	aggregate = AggregatePrevotes(votes, common.Address{})
 	t.Log(aggregate.Signers().String())
 	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01010000")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize))
-	aggregate = AggregatePrevotes(votes)
+	aggregate = AggregatePrevotes(votes, common.Address{})
 	t.Log(aggregate.Signers().String())
 	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01010100")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize))
-	aggregate = AggregatePrevotes(votes)
+	aggregate = AggregatePrevotes(votes, common.Address{})
 	t.Log(aggregate.Signers().String())
 	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01010101")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
-	aggregate2 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
-	aggregate3 := AggregatePrevotes([]Vote{aggregate, aggregate2})
+	aggregate2 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)}, common.Address{})
+	aggregate3 := AggregatePrevotes([]Vote{aggregate, aggregate2}, common.Address{})
 	t.Log(aggregate3.Signers().String())
 	require.Equal(t, fmt.Sprintf("%08b", aggregate3.Signers().Bits[0]), "01010101")
 	require.NoError(t, aggregate3.Signers().Validate(csize))
 
-	aggregate4 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize)})
-	aggregate5 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
-	aggregate6 := AggregatePrevotes([]Vote{aggregate4, aggregate5})
+	aggregate4 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize)}, common.Address{})
+	aggregate5 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)}, common.Address{})
+	aggregate6 := AggregatePrevotes([]Vote{aggregate4, aggregate5}, common.Address{})
 	t.Log(aggregate6.Signers().String())
 	require.Equal(t, fmt.Sprintf("%08b", aggregate6.Signers().Bits[0]), "10010100")
 	require.NoError(t, aggregate6.Signers().Validate(csize))
 
-	aggregate7 := AggregatePrevotes([]Vote{aggregate6, aggregate3})
+	aggregate7 := AggregatePrevotes([]Vote{aggregate6, aggregate3}, common.Address{})
 	t.Log(aggregate7.Signers().String())
 	require.Equal(t, fmt.Sprintf("%08b", aggregate7.Signers().Bits[0]), "01010101")
 	require.NoError(t, aggregate7.Signers().Validate(csize))
 
 	// aggregate with artificially inflated contribution from index = 0. validator 0 has already the maximum coefficient.
-	inflatedAggregate := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize)})
+	inflatedAggregate := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize)}, common.Address{})
 	inflatedAggregate.Signers().Increment(&testCommittee.Members[0])
 	inflatedAggregate.Signers().Increment(&testCommittee.Members[0])
 	inflatedAggregate.Signers().Increment(&testCommittee.Members[0])
@@ -544,29 +543,29 @@ func TestAggregateVotes(t *testing.T) {
 	// inflatedAggregate has quorum
 	require.True(t, inflatedAggregate.Power().Cmp(bft.Quorum(testCommittee.TotalVotingPower())) >= 0)
 
-	aggregate8 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize)})
+	aggregate8 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize)}, common.Address{})
 
-	aggregate9 := AggregatePrevotes([]Vote{aggregate8, inflatedAggregate})
+	aggregate9 := AggregatePrevotes([]Vote{aggregate8, inflatedAggregate}, common.Address{})
 	t.Log(aggregate9.Signers().String())
 	// inflated aggregate is privileged because it carries higher voting power
 	require.Equal(t, fmt.Sprintf("%08b", aggregate9.Signers().Bits[0]), "11010000")
 	require.NoError(t, aggregate9.Signers().Validate(csize))
 
-	aggregate10 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
-	aggregate11 := AggregatePrevotes([]Vote{aggregate10, inflatedAggregate})
+	aggregate10 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)}, common.Address{})
+	aggregate11 := AggregatePrevotes([]Vote{aggregate10, inflatedAggregate}, common.Address{})
 	t.Log(aggregate11.Signers().String())
 	// inflated aggregate is privileged because it carries higher voting power
 	require.Equal(t, fmt.Sprintf("%08b", aggregate11.Signers().Bits[0]), "11010000")
 	require.NoError(t, aggregate11.Signers().Validate(csize))
-	aggregate12 := AggregatePrevotes([]Vote{inflatedAggregate, aggregate10})
+	aggregate12 := AggregatePrevotes([]Vote{inflatedAggregate, aggregate10}, common.Address{})
 	t.Log(aggregate12.Signers().String())
 	// inflated aggregate is privileged because it carries higher voting power
 	require.Equal(t, fmt.Sprintf("%08b", aggregate12.Signers().Bits[0]), "11010000")
 	require.NoError(t, aggregate12.Signers().Validate(csize))
 
-	aggregate13 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
+	aggregate13 := AggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)}, common.Address{})
 	// aggregate13 is privileged because it carries higher voting power
-	aggregate14 := AggregatePrevotes([]Vote{inflatedAggregate, aggregate13})
+	aggregate14 := AggregatePrevotes([]Vote{inflatedAggregate, aggregate13}, common.Address{})
 	t.Log(aggregate14.Signers().String())
 	require.Equal(t, fmt.Sprintf("%08b", aggregate14.Signers().Bits[0]), "01010100")
 	require.NoError(t, aggregate14.Signers().Validate(csize))
@@ -587,7 +586,7 @@ func TestAggregateVotesSimple(t *testing.T) {
 	var votes []Vote
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize))
-	aggregates := AggregatePrevotesSimple(votes)
+	aggregates := AggregatePrevotesSimple(votes, common.Address{})
 	for _, aggregate := range aggregates {
 		t.Log(aggregate.Signers().String())
 	}
@@ -596,7 +595,7 @@ func TestAggregateVotesSimple(t *testing.T) {
 	require.NoError(t, aggregates[0].Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize))
-	aggregates = AggregatePrevotesSimple(votes)
+	aggregates = AggregatePrevotesSimple(votes, common.Address{})
 	for _, aggregate := range aggregates {
 		t.Log(aggregate.Signers().String())
 	}
@@ -605,7 +604,7 @@ func TestAggregateVotesSimple(t *testing.T) {
 	require.NoError(t, aggregates[0].Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize))
-	aggregates = AggregatePrevotesSimple(votes)
+	aggregates = AggregatePrevotesSimple(votes, common.Address{})
 	for _, aggregate := range aggregates {
 		t.Log(aggregate.Signers().String())
 	}
@@ -614,7 +613,7 @@ func TestAggregateVotesSimple(t *testing.T) {
 	require.NoError(t, aggregates[0].Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize))
-	aggregates = AggregatePrevotesSimple(votes)
+	aggregates = AggregatePrevotesSimple(votes, common.Address{})
 	for _, aggregate := range aggregates {
 		t.Log(aggregate.Signers().String())
 	}
@@ -623,7 +622,7 @@ func TestAggregateVotesSimple(t *testing.T) {
 	require.NoError(t, aggregates[0].Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize))
-	aggregates = AggregatePrevotesSimple(votes)
+	aggregates = AggregatePrevotesSimple(votes, common.Address{})
 	for _, aggregate := range aggregates {
 		t.Log(aggregate.Signers().String())
 	}
@@ -633,9 +632,9 @@ func TestAggregateVotesSimple(t *testing.T) {
 
 	// aggregate overlaps, should not get merged
 
-	aggregates2 := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize)})
-	aggregates3 := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
-	aggregates4 := AggregatePrevotesSimple([]Vote{aggregates2[0], aggregates3[0]})
+	aggregates2 := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize)}, common.Address{})
+	aggregates3 := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)}, common.Address{})
+	aggregates4 := AggregatePrevotesSimple([]Vote{aggregates2[0], aggregates3[0]}, common.Address{})
 	for _, aggregate := range aggregates4 {
 		t.Log(aggregate.Signers().String())
 	}
@@ -646,7 +645,7 @@ func TestAggregateVotesSimple(t *testing.T) {
 	require.NoError(t, aggregates4[1].Signers().Validate(csize))
 
 	vote := NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize)
-	aggregates5 := AggregatePrevotesSimple([]Vote{aggregates2[0], aggregates3[0], vote})
+	aggregates5 := AggregatePrevotesSimple([]Vote{aggregates2[0], aggregates3[0], vote}, common.Address{})
 	for _, aggregate := range aggregates5 {
 		t.Log(aggregate.Signers().String())
 	}
@@ -677,7 +676,7 @@ func TestAggregateVotesSimple(t *testing.T) {
 	vote2 := NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize)
 	vote3 := NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize)
 
-	aggregates6 := AggregatePrevotesSimple([]Vote{vote, vote2, vote3})
+	aggregates6 := AggregatePrevotesSimple([]Vote{vote, vote2, vote3}, common.Address{})
 	for _, aggregate := range aggregates6 {
 		t.Log(aggregate.Signers().String())
 	}
@@ -686,10 +685,10 @@ func TestAggregateVotesSimple(t *testing.T) {
 	require.NoError(t, aggregates6[0].Signers().Validate(csize))
 
 	// throw some complex aggregates into the mix
-	complexAggregate := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
+	complexAggregate := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)}, common.Address{})
 	complexAggregate[0].Signers().Increment(&testCommittee.Members[0])
 
-	aggregates7 := AggregatePrevotesSimple([]Vote{complexAggregate[0]})
+	aggregates7 := AggregatePrevotesSimple([]Vote{complexAggregate[0]}, common.Address{})
 	for _, aggregate := range aggregates7 {
 		t.Log(aggregate.Signers().String())
 	}
@@ -700,7 +699,7 @@ func TestAggregateVotesSimple(t *testing.T) {
 	vote = NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize)
 	vote2 = NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize)
 
-	aggregates8 := AggregatePrevotesSimple([]Vote{vote, vote2, complexAggregate[0]})
+	aggregates8 := AggregatePrevotesSimple([]Vote{vote, vote2, complexAggregate[0]}, common.Address{})
 	for _, aggregate := range aggregates8 {
 		t.Log(aggregate.Signers().String())
 	}

@@ -21,6 +21,12 @@ type base struct {
 
 	// populated at PreValidate() phase
 	signerKey blst.PublicKey
+
+	originator common.Address
+}
+
+func (b *base) Originator() common.Address {
+	return b.originator
 }
 
 func (b *base) Verified() bool {

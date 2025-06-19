@@ -2,6 +2,8 @@ package accountability
 
 import (
 	"errors"
+	"io"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -9,7 +11,6 @@ import (
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
-	"io"
 )
 
 var (
@@ -264,10 +265,10 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregat
 }
 
 // AggregateSamePrevotes assumes the votes are for the same msg, it does a BLS fast aggregate for the input signatures.
-func AggregateSamePrevotes(prevotes []*message.Prevote) *message.Prevote {
+func AggregateSamePrevotes(prevotes []*message.Prevote, self common.Address) *message.Prevote {
 	votes := make([]message.Vote, len(prevotes))
 	for i, prevote := range prevotes {
 		votes[i] = prevote
 	}
-	return message.AggregatePrevotes(votes)
+	return message.AggregatePrevotes(votes, self)
 }

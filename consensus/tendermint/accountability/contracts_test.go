@@ -37,21 +37,21 @@ var (
 
 	prevoteForOldProposal1 = newValidatedPrevote(newRound, height, defOldProposal.Value(), signer, self, cSize)
 	prevoteForOldProposal2 = newValidatedPrevote(newRound, height, defOldProposal.Value(), makeSigner(keys[1]), &committee.Members[1], cSize)
-	aggPrevoteForOld       = message.AggregatePrevotes([]message.Vote{prevoteForOldProposal1, prevoteForOldProposal2})
+	aggPrevoteForOld       = message.AggregatePrevotes([]message.Vote{prevoteForOldProposal1, prevoteForOldProposal2}, common.Address{})
 
 	nilPrevote1     = newValidatedPrevote(defRound, height, common.NilValue, signer, self, cSize)
 	nilPrevote2     = newValidatedPrevote(defRound, height, common.NilValue, makeSigner(keys[1]), &committee.Members[1], cSize)
-	aggNilPrevote   = message.AggregatePrevotes([]message.Vote{nilPrevote1, nilPrevote2})
+	aggNilPrevote   = message.AggregatePrevotes([]message.Vote{nilPrevote1, nilPrevote2}, common.Address{})
 	nilPrecommit1   = newValidatedPrecommit(defRound, height, common.NilValue, signer, self, cSize)
 	nilPrecommit2   = newValidatedPrecommit(defRound, height, common.NilValue, makeSigner(keys[1]), &committee.Members[1], cSize)
-	aggNilPrecommit = message.AggregatePrecommits([]message.Vote{nilPrecommit1, nilPrecommit2})
+	aggNilPrecommit = message.AggregatePrecommits([]message.Vote{nilPrecommit1, nilPrecommit2}, common.Address{})
 
 	prevote1     = newValidatedPrevote(defRound, height, defNewProposal.Value(), signer, self, cSize)
 	prevote2     = newValidatedPrevote(defRound, height, defNewProposal.Value(), makeSigner(keys[1]), &committee.Members[1], cSize)
-	aggPrevote   = message.AggregatePrevotes([]message.Vote{prevote1, prevote2})
+	aggPrevote   = message.AggregatePrevotes([]message.Vote{prevote1, prevote2}, common.Address{})
 	precommit1   = newValidatedPrecommit(defRound, height, defNewProposal.Value(), signer, self, cSize)
 	precommit2   = newValidatedPrecommit(defRound, height, defNewProposal.Value(), makeSigner(keys[1]), &committee.Members[1], cSize)
-	aggPrecommit = message.AggregatePrecommits([]message.Vote{precommit1, precommit2})
+	aggPrecommit = message.AggregatePrecommits([]message.Vote{precommit1, precommit2}, common.Address{})
 
 	futureVote = newValidatedPrecommit(defRound, futureHeight, defNewProposal.Value(), signer, self, cSize)
 
@@ -416,8 +416,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	for i := range committee.Members {
 		prevotes[i] = newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee.Members[i], cSize)
 	}
-	aggVote := message.AggregatePrevotes(prevotes)
-	aggVoteNoQuorum := message.AggregatePrevotes(prevotes[1:2])
+	aggVote := message.AggregatePrevotes(prevotes, common.Address{})
+	aggVoteNoQuorum := message.AggregatePrevotes(prevotes[1:2], common.Address{})
 	fakedVote1 := newValidatedPrevote(1, height, noneNilValue, signer, self, cSize)
 	fakedVote2 := newValidatedPrevote(0, height, liteOldP.Value(), signer, self, cSize)
 	fakedVote3 := newValidatedPrevote(0, height, common.NilValue, signer, self, cSize)
@@ -426,13 +426,13 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	commit3 := newValidatedPrecommit(0, height, noneNilValue, makeSigner(keys[2]), &committee.Members[2], cSize)
 	commit4 := newValidatedPrecommit(0, height, common.NilValue, signer, self, cSize)
 	commit5 := newValidatedPrecommit(2, height, noneNilValue, signer, self, cSize)
-	aggCommit := message.AggregatePrecommits([]message.Vote{commit1, commit2})
+	aggCommit := message.AggregatePrecommits([]message.Vote{commit1, commit2}, common.Address{})
 
 	// node locked at V1 at round 0.
 	preCommitPVN := newValidatedPrecommit(0, height, noneNilValue, signer, self, cSize)
 	preCommitR1PVN := newValidatedPrecommit(1, height, common.NilValue, signer, self, cSize)
 	preCommitR1PVN2 := newValidatedPrecommit(1, height, common.NilValue, makeSigner(keys[1]), &committee.Members[1], cSize)
-	aggPrecomitR1PVN := message.AggregatePrecommits([]message.Vote{preCommitR1PVN, preCommitR1PVN2})
+	aggPrecomitR1PVN := message.AggregatePrecommits([]message.Vote{preCommitR1PVN, preCommitR1PVN2}, common.Address{})
 
 	preCommitR2PVN := newValidatedPrecommit(2, height, common.NilValue, signer, self, cSize)
 	proposalPVN := newValidatedLightProposal(height, 3, -1, signer, committee, nil, proposerIdx)
@@ -448,8 +448,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	for i := range committee.Members {
 		votesPVO[i] = newValidatedPrevote(0, height, noneNilValue, makeSigner(keys[i]), &committee.Members[i], cSize)
 	}
-	aggVotePVO := message.AggregatePrevotes(votesPVO)
-	aggVotePVONoQuorum := message.AggregatePrevotes(votesPVO[2:3])
+	aggVotePVO := message.AggregatePrevotes(votesPVO, common.Address{})
+	aggVotePVONoQuorum := message.AggregatePrevotes(votesPVO[2:3], common.Address{})
 
 	// PVO12 settings.
 	// a precommit at round 1, with value v.
@@ -480,8 +480,8 @@ func TestMisbehaviourVerifier(t *testing.T) {
 	for i := range committee.Members {
 		votesC[i] = newValidatedPrevote(0, height, common.Hash{0x2}, makeSigner(keys[i]), &committee.Members[i], cSize)
 	}
-	aggVoteC := message.AggregatePrevotes(votesC)
-	aggVoteCNoQuorum := message.AggregatePrevotes(votesC[2:3])
+	aggVoteC := message.AggregatePrevotes(votesC, common.Address{})
+	aggVoteCNoQuorum := message.AggregatePrevotes(votesC[2:3], common.Address{})
 
 	highlyAggPrecommitPVN := AggregateDistinctPrecommits([]*message.Precommit{preCommitPVN, aggPrecomitR1PVN, preCommitR2PVN})
 	err = highlyAggPrecommitPVN.PreValidate(parent.Epoch.Committee, height)
@@ -1182,8 +1182,8 @@ func TestInnocenceVerifier(t *testing.T) {
 	for i := range committee.Members {
 		votesPO[i] = newValidatedPrevote(0, height, proposalPO.Value(), makeSigner(keys[i]), &committee.Members[i], cSize)
 	}
-	aggVotesPO := message.AggregatePrevotes(votesPO)
-	aggVotesPONoQuorum := message.AggregatePrevotes(votesPO[2:3])
+	aggVotesPO := message.AggregatePrevotes(votesPO, common.Address{})
+	aggVotesPONoQuorum := message.AggregatePrevotes(votesPO[2:3], common.Address{})
 	votesForOtherValue := newValidatedPrevote(0, height, noneNilValue, signer, self, cSize)
 
 	nilPrevote := newValidatedPrevote(1, height, common.NilValue, signer, self, cSize)
@@ -1200,8 +1200,8 @@ func TestInnocenceVerifier(t *testing.T) {
 	for i := range committee.Members {
 		votesPVO[i] = newValidatedPrevote(0, height, proposalPVO.Value(), makeSigner(keys[i]), &committee.Members[i], cSize)
 	}
-	aggVotePVO := message.AggregatePrevotes(votesPVO)
-	aggVotePVONoQuorum := message.AggregatePrevotes(votesPVO[2:3])
+	aggVotePVO := message.AggregatePrevotes(votesPVO, common.Address{})
+	aggVotePVONoQuorum := message.AggregatePrevotes(votesPVO[2:3], common.Address{})
 
 	// C1 settings
 	preCommitC1 := newValidatedPrecommit(1, height, noneNilValue, signer, self, cSize)
@@ -1210,9 +1210,9 @@ func TestInnocenceVerifier(t *testing.T) {
 	for i := range committee.Members {
 		votesC1[i] = newValidatedPrevote(1, height, noneNilValue, makeSigner(keys[i]), &committee.Members[i], cSize)
 	}
-	aggVoteC1 := message.AggregatePrevotes(votesC1)
+	aggVoteC1 := message.AggregatePrevotes(votesC1, common.Address{})
 	preVoteC1ForOtherV := newValidatedPrevote(1, height, proposalPO.Value(), signer, self, cSize)
-	aggVoteC1NoQuorum := message.AggregatePrevotes(votesC1[2:3])
+	aggVoteC1NoQuorum := message.AggregatePrevotes(votesC1[2:3], common.Address{})
 
 	t.Run("Test innocence verifier required gas", func(t *testing.T) {
 		iv := InnocenceVerifier{}

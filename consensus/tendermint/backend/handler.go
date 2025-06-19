@@ -130,11 +130,28 @@ func handleConsensusMsg[T any, PT interface {
 	// we type cast it to byte.Reader because that's the only reader
 	// type we expect here
 	bReader := p2pMsg.Payload.(*bytes.Reader)
-	hash, err := crypto.HashFromReader(bReader)
+	var hash common.Hash
+
+	// temporary solution
+	payloadBytes := make([]byte, bReader.Size())
+	n, err := bReader.Read(payloadBytes)
 	if err != nil {
-		log.Error("Failed to hash payload", "error", err)
-		return true, err
+		panic("todo")
 	}
+	if n != len(payloadBytes) {
+		panic("todo")
+	}
+	if p2pMsg.Code == message.PrevoteNetworkMsg || p2pMsg.Code == message.PrecommitNetworkMsg {
+		hash = crypto.Hash(payloadBytes[:len(payloadBytes)-20])
+	} else {
+		hash = crypto.Hash(payloadBytes)
+	}
+	/*
+		hash, err := crypto.HashFromReader(bReader)
+		if err != nil {
+			log.Error("Failed to hash payload", "error", err)
+			return true, err
+		}*/
 	TotalMessageReceivedBg.Mark(1)
 	if sb.knownMessages.Contains(hash) {
 		return true, nil

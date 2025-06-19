@@ -61,7 +61,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 		// We are receiving a precommit for an old round. We need to check if we have now a quorum
 		// in this old round.
 		roundMessages := c.messages.GetOrCreate(precommit.R())
-		precommitContributed := roundMessages.AddPrecommit(precommit)
+		precommitContributed := roundMessages.AddPrecommit(precommit, c.address)
 		// note even if the vote is redundant, it might still cause a power change in case of equivocation
 		c.SendEvent(events.NewPowerChangeEvent(message.PrecommitCode, c.Height().Uint64(), c.Round(), precommit.Value()))
 
@@ -78,7 +78,7 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 	// Precommit if for current round from here
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 
-	precommitContributed := c.curRoundMessages.AddPrecommit(precommit)
+	precommitContributed := c.curRoundMessages.AddPrecommit(precommit, c.address)
 	// note even if the vote is redundant, it might still cause a power change in case of equivocation
 	c.SendEvent(events.NewPowerChangeEvent(message.PrecommitCode, c.Height().Uint64(), c.Round(), precommit.Value()))
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit)

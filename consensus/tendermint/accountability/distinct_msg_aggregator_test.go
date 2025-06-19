@@ -2,6 +2,10 @@ package accountability
 
 import (
 	cr "crypto/rand"
+	"math/big"
+	"math/rand"
+	"testing"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -10,9 +14,6 @@ import (
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"math/rand"
-	"testing"
 )
 
 var (
@@ -159,7 +160,7 @@ func aggregatedPrecommit(h uint64, r int64, v common.Hash, signers []int, commit
 	for i, s := range signers {
 		precommits[i] = newValidatedPrecommit(r, h, v, makeSigner(keys[s]), &committee.Members[s], committee.Len())
 	}
-	return message.AggregatePrecommits(precommits)
+	return message.AggregatePrecommits(precommits, common.Address{})
 }
 
 // randomSigners generate a set of signer's index, it could have duplicated index.

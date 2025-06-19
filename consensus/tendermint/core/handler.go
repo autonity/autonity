@@ -135,12 +135,12 @@ func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash
 	// in case we have to sync another peer. We can consider changing it only if it considerably harms performance.
 	switch code {
 	case message.PrevoteCode:
-		aggregatePrevote := c.messages.GetOrCreate(round).PrevoteFor(value)
-		c.messages.GetOrCreate(round).AddPrevote(aggregatePrevote)
+		aggregatePrevote := c.messages.GetOrCreate(round).PrevoteFor(value, c.address)
+		c.messages.GetOrCreate(round).AddPrevote(aggregatePrevote, c.address)
 		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrevote)
 	case message.PrecommitCode:
-		aggregatePrecommit := c.messages.GetOrCreate(round).PrecommitFor(value)
-		c.messages.GetOrCreate(round).AddPrecommit(aggregatePrecommit)
+		aggregatePrecommit := c.messages.GetOrCreate(round).PrecommitFor(value, c.address)
+		c.messages.GetOrCreate(round).AddPrecommit(aggregatePrecommit, c.address)
 		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrecommit)
 	}
 }

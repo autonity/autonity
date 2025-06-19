@@ -170,8 +170,8 @@ func prepareRoundMsgs(c *Core, r int64, h *big.Int) (*message.Propose, common.Ad
 	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey), testCommitteeMember, 1)
 	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey), testCommitteeMember, 1)
 	c.messages.GetOrCreate(r).SetProposal(proposal, true)
-	c.messages.GetOrCreate(r).AddPrevote(prevoteMsg)
-	c.messages.GetOrCreate(r).AddPrecommit(precommitMsg)
+	c.messages.GetOrCreate(r).AddPrevote(prevoteMsg, common.Address{})
+	c.messages.GetOrCreate(r).AddPrecommit(precommitMsg, common.Address{})
 	return proposal, proposal.Signer()
 }
 

@@ -456,7 +456,7 @@ func TestHandleProposal(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			val, _ := committeeSet.MemberByIndex(i)
 			prevote := message.NewPrevote(round-1, height, proposal.Block().Hash(), makeSigner(keys[val.Address].consensus), val, csize)
-			messages.GetOrCreate(round - 1).AddPrevote(prevote)
+			messages.GetOrCreate(round-1).AddPrevote(prevote, common.Address{})
 		}
 
 		wg := sync.WaitGroup{}

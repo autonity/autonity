@@ -404,7 +404,7 @@ func TestOldProposal(t *testing.T) {
 			FakeValue:   e.curProposal.Block().Hash(),
 			FakeSigners: signersWithPower(0, e.committeeSize, e.core.CommitteeSet().Quorum()),
 		}
-		e.core.messages.GetOrCreate(e.curProposal.ValidRound()).AddPrevote(message.NewFakePrevote(fakePrevote))
+		e.core.messages.GetOrCreate(e.curProposal.ValidRound()).AddPrevote(message.NewFakePrevote(fakePrevote), common.Address{})
 
 		err := e.core.handleMsg(context.Background(), e.curProposal)
 		wg.Wait()
@@ -451,7 +451,7 @@ func TestOldProposal(t *testing.T) {
 			FakeValue:   e.curProposal.Block().Hash(),
 			FakeSigners: signersWithPower(0, e.committeeSize, e.core.CommitteeSet().Quorum()),
 		}
-		e.core.messages.GetOrCreate(e.curProposal.ValidRound()).AddPrevote(message.NewFakePrevote(fakePrevote))
+		e.core.messages.GetOrCreate(e.curProposal.ValidRound()).AddPrevote(message.NewFakePrevote(fakePrevote), common.Address{})
 
 		err := e.core.handleMsg(context.Background(), e.curProposal)
 		wg.Wait()
@@ -487,7 +487,7 @@ func TestOldProposal(t *testing.T) {
 		e.core.curRoundMessages = e.core.messages.GetOrCreate(e.curRound)
 
 		fakePrevote := message.NewFakePrevote(message.Fake{FakeSigners: signersWithPower(0, e.committeeSize, e.core.CommitteeSet().Quorum()), FakeValue: e.curProposal.Block().Hash()})
-		e.core.messages.GetOrCreate(e.curProposal.ValidRound()).AddPrevote(fakePrevote)
+		e.core.messages.GetOrCreate(e.curProposal.ValidRound()).AddPrevote(fakePrevote, common.Address{})
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 
@@ -616,7 +616,7 @@ func TestOldProposal(t *testing.T) {
 			FakeSignature: testSignature,                // whatever signature is fine
 			FakeValue:     e.curProposal.Block().Hash(),
 		}
-		e.core.messages.GetOrCreate(e.curProposal.ValidRound()).AddPrevote(message.NewFakePrevote(fakePrevote))
+		e.core.messages.GetOrCreate(e.curProposal.ValidRound()).AddPrevote(message.NewFakePrevote(fakePrevote), common.Address{})
 
 		//schedule the proposer Timeout since the client is not the proposer for this round
 		e.core.proposeTimeout.ScheduleTimeout(1*time.Second, e.core.Round(), e.core.Height(), e.core.onTimeoutPropose)
@@ -709,12 +709,12 @@ func TestPrevoteTimeout(t *testing.T) {
 			FakeValue:   common.Hash{},
 			FakeSigners: signersWithPower(2, e.committeeSize, new(big.Int).Sub(e.core.CommitteeSet().Quorum(), common.Big2)),
 		}
-		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(prevote1))
+		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(prevote1), common.Address{})
 		prevote2 := message.Fake{
 			FakeValue:   generateBlock(e.curHeight, lastHeader).Hash(),
 			FakeSigners: signersWithPower(3, e.committeeSize, common.Big1),
 		}
-		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(prevote2))
+		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(prevote2), common.Address{})
 
 		assert.False(t, e.core.prevoteTimeout.TimerStarted())
 		err := e.core.handleMsg(context.Background(), prevoteMsg)
@@ -746,13 +746,13 @@ func TestPrevoteTimeout(t *testing.T) {
 			FakeValue:   common.Hash{},
 			FakeSigners: signersWithPower(3, e.committeeSize, new(big.Int).Sub(e.core.CommitteeSet().Quorum(), common.Big2)),
 		}
-		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(prevote1))
+		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(prevote1), common.Address{})
 
 		prevote2 := message.Fake{
 			FakeValue:   generateBlock(e.curHeight, lastHeader).Hash(),
 			FakeSigners: signersWithPower(0, e.committeeSize, common.Big1),
 		}
-		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(prevote2))
+		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(prevote2), common.Address{})
 
 		assert.False(t, e.core.prevoteTimeout.TimerStarted())
 
@@ -843,7 +843,7 @@ func TestQuorumPrevote(t *testing.T) {
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
 		}
-		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(fakePrevote))
+		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(fakePrevote), common.Address{})
 
 		if e.step == Prevote {
 			backendMock.EXPECT().Broadcast(e.committee.Committee(), precommitMsg)
@@ -887,7 +887,7 @@ func TestQuorumPrevote(t *testing.T) {
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
 		}
-		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(fakePrevote))
+		e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(fakePrevote), common.Address{})
 
 		// receive first prevote to increase the total to quorum
 		if e.step == Prevote {
@@ -942,7 +942,7 @@ func TestQuorumPrevoteNil(t *testing.T) {
 		FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 		FakeSignature: testSignature,                // whatever signature is fine
 	}
-	e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(fakePrevote))
+	e.core.curRoundMessages.AddPrevote(message.NewFakePrevote(fakePrevote), common.Address{})
 	backendMock.EXPECT().Broadcast(e.committee.Committee(), precommitMsg)
 
 	err := e.core.handleMsg(context.Background(), prevoteMsg)
@@ -974,14 +974,14 @@ func TestPrecommitTimeout(t *testing.T) {
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
 		}
-		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit1))
+		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit1), common.Address{})
 		fakePrecommit2 := message.Fake{
 			FakeValue:     generateBlock(e.curHeight, lastHeader).Hash(),
 			FakeSigners:   signersWithPower(3, e.committeeSize, common.Big1),
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
 		}
-		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit2))
+		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit2), common.Address{})
 
 		assert.False(t, e.core.precommitTimeout.TimerStarted())
 		err := e.core.handleMsg(context.Background(), precommit)
@@ -1015,14 +1015,14 @@ func TestPrecommitTimeout(t *testing.T) {
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
 		}
-		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit1))
+		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit1), common.Address{})
 		fakePrecommit2 := message.Fake{
 			FakeValue:     generateBlock(e.curHeight, lastHeader).Hash(),
 			FakeSigners:   signersWithPower(3, e.committeeSize, common.Big1),
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
 		}
-		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit2))
+		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit2), common.Address{})
 
 		assert.False(t, e.core.precommitTimeout.TimerStarted())
 		err := e.core.handleMsg(context.Background(), precommit)
@@ -1059,14 +1059,14 @@ func TestPrecommitTimeout(t *testing.T) {
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
 		}
-		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit1))
+		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit1), common.Address{})
 		fakePrecommit2 := message.Fake{
 			FakeValue:     generateBlock(e.curHeight, lastHeader).Hash(),
 			FakeSigners:   signersWithPower(0, e.committeeSize, common.Big1),
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
 		}
-		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit2))
+		e.core.curRoundMessages.AddPrecommit(message.NewFakePrecommit(fakePrecommit2), common.Address{})
 
 		assert.False(t, e.core.precommitTimeout.TimerStarted())
 
@@ -1162,7 +1162,7 @@ func TestQuorumPrecommit(t *testing.T) {
 		FakeSignature: testSignature,                // whatever signature is fine
 	}
 	quorumPrecommitMsg := message.NewFakePrecommit(quorumPrecommitMsgFake)
-	e.core.curRoundMessages.AddPrecommit(quorumPrecommitMsg)
+	e.core.curRoundMessages.AddPrecommit(quorumPrecommitMsg, common.Address{})
 
 	quorumCertificateSigners := quorumPrecommitMsg.Signers().Copy()
 	quorumCertificateSigners.Merge(precommit.Signers())

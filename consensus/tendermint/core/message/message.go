@@ -171,6 +171,7 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, 
 			verified:       true,
 			preverified:    true,
 			signerKey:      self.ConsensusKey,
+			originator:     validator,
 		},
 	}
 }
@@ -226,6 +227,7 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	p.height = ext.Height
 	p.block = ext.ProposalBlock
 	p.signer = ext.Signer
+	p.originator = ext.Signer
 	p.signature = ext.Signature
 	p.payload = payload
 	// precompute hash and signature hash
@@ -235,10 +237,6 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	p.verified = false
 	p.preverified = false
 	return nil
-}
-
-func (p *Propose) Originator() common.Address {
-	return p.signer
 }
 
 func (p *Propose) Signer() common.Address {
@@ -349,6 +347,7 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 			verified:       true,
 			preverified:    true,
 			signerKey:      proposal.signerKey,
+			originator:     proposal.originator, //TODO: double check
 		},
 	}
 }
@@ -396,6 +395,7 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 	p.height = ext.Height
 	p.blockHash = ext.ProposalBlock
 	p.signer = ext.Signer
+	p.originator = ext.Signer // TODO: double check
 	p.signature = ext.Signature
 	p.payload = payload
 	// precompute hash and signature hash
@@ -408,10 +408,6 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 }
 
 func (p *LightProposal) Signer() common.Address {
-	return p.signer
-}
-
-func (p *LightProposal) Originator() common.Address {
 	return p.signer
 }
 
@@ -441,28 +437,22 @@ type extVote struct {
 	// Code is redundant with the p2p.msg code however it is required
 	// because we don't want to re-serialize the message again in order
 	// to compute the hash value.
-	Code       uint8
-	Round      uint64
-	Height     uint64
-	Value      common.Hash
-	Signers    *types.Signers
-	Signature  *blst.BlsSignature
-	Originator common.Address
+	Code      uint8
+	Round     uint64
+	Height    uint64
+	Value     common.Hash
+	Signers   *types.Signers
+	Signature *blst.BlsSignature
 }
 
 // TODO: would be good to do the same thing for proposal and lightproposal (to avoid code repetition)
 type vote struct {
-	signers    *types.Signers
-	originator common.Address
+	signers *types.Signers
 	base
 }
 
 func (v *vote) Signers() *types.Signers {
 	return v.signers
-}
-
-func (v *vote) Originator() common.Address {
-	return v.originator
 }
 
 func (v *vote) Power() *big.Int {
@@ -573,19 +563,25 @@ func newVote[
 	signers.Increment(self)
 
 	payload, _ := rlp.EncodeToBytes(extVote{
-		Code:       code,
-		Round:      uint64(r), // #nosec
-		Height:     h,
-		Value:      value,
-		Signers:    signers,
-		Originator: self.Address,
-		Signature:  signature.(*blst.BlsSignature),
+		Code:      code,
+		Round:     uint64(r), // #nosec
+		Height:    h,
+		Value:     value,
+		Signers:   signers,
+		Signature: signature.(*blst.BlsSignature),
 	})
+
+	// append the originator as the last 20 bytes of the payload
+	var err error
+	payload, err = rlp.AppendToEncodedList(payload, self.Address.Bytes())
+	if err != nil {
+		panic("todo")
+	}
+
 	vote := E{
 		value: value,
 		vote: vote{
-			signers:    signers,
-			originator: self.Address,
+			signers: signers,
 			base: base{
 				round:          r,
 				height:         h,
@@ -596,6 +592,7 @@ func newVote[
 				verified:       true,
 				preverified:    true,
 				signerKey:      self.ConsensusKey,
+				originator:     self.Address,
 			},
 		},
 	}
@@ -611,38 +608,24 @@ func NewPrecommit(r int64, h uint64, value common.Hash, signer Signer, self *typ
 }
 
 // NOTE: these functions allow for the creation of complex aggregates
-func AggregatePrevotes(votes []Vote) *Prevote {
-	return AggregateVotes[Prevote](votes)
+func AggregatePrevotes(votes []Vote, self common.Address) *Prevote {
+	return AggregateVotes[Prevote](votes, self)
 }
-func AggregatePrecommits(votes []Vote) *Precommit {
-	return AggregateVotes[Precommit](votes)
-}
-
-func deterministicRepresentative(votes []Vote) Vote {
-	minVote := votes[0]
-	minHash := minVote.Originator().Hash().Big()
-	for _, vote := range votes[1:] {
-		hash := vote.Originator().Hash().Big()
-		if hash.Cmp(minHash) < 0 {
-			minVote = vote
-			minHash = hash
-		}
-	}
-	return minVote
+func AggregatePrecommits(votes []Vote, self common.Address) *Precommit {
+	return AggregateVotes[Precommit](votes, self)
 }
 
 // NOTE: this function assumes that:
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been preverified and cryptographically verified
-func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
+func AggregateVotes[E Prevote | Precommit](votes []Vote, self common.Address) *E {
 	// length safety checks
 	if len(votes) == 0 {
 		panic("Trying to aggregate empty set of votes")
 	}
 
 	// use votes[0] as a set representative
-
-	representative := deterministicRepresentative(votes)
+	representative := votes[0]
 	// signers of the aggregate
 	signers := types.NewSigners(representative.Signers().CommitteeSize())
 
@@ -684,20 +667,24 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 	signatureInput := representative.SignatureInput()
 
 	payload, _ := rlp.EncodeToBytes(extVote{
-		Code:       c,
-		Round:      uint64(r), // #nosec
-		Height:     h,
-		Value:      value,
-		Signers:    signers,
-		Originator: representative.Originator(), //todo: review
-		Signature:  aggregatedSignature.(*blst.BlsSignature),
+		Code:      c,
+		Round:     uint64(r), // #nosec
+		Height:    h,
+		Value:     value,
+		Signers:   signers,
+		Signature: aggregatedSignature.(*blst.BlsSignature),
 	})
+
+	// append the originator as the last 20 bytes of the payload
+	payload, err = rlp.AppendToEncodedList(payload, self.Bytes())
+	if err != nil {
+		panic("todo")
+	}
 
 	aggregateVote := E{
 		value: value,
 		vote: vote{
-			signers:    signers,
-			originator: representative.Originator(), // todo: review
+			signers: signers,
 			base: base{
 				height:         h,
 				round:          r,
@@ -715,12 +702,12 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 }
 
 // NOTE: these functions will aggregate votes as much as possible without creating complex aggregates
-func AggregatePrevotesSimple(votes []Vote) []*Prevote {
-	return AggregateVotesSimple[Prevote](votes)
+func AggregatePrevotesSimple(votes []Vote, self common.Address) []*Prevote {
+	return AggregateVotesSimple[Prevote](votes, self)
 }
 
-func AggregatePrecommitsSimple(votes []Vote) []*Precommit {
-	return AggregateVotesSimple[Precommit](votes)
+func AggregatePrecommitsSimple(votes []Vote, self common.Address) []*Precommit {
+	return AggregateVotesSimple[Precommit](votes, self)
 }
 
 // NOTE: this function assumes that:
@@ -731,7 +718,7 @@ func AggregateVotesSimple[
 	PE interface {
 		*E
 		Msg
-	}](votes []Vote) []*E {
+	}](votes []Vote, self common.Address) []*E {
 	// length safety checks
 	if len(votes) == 0 {
 		panic("Trying to aggregate empty set of votes")
@@ -785,7 +772,7 @@ func AggregateVotesSimple[
 	}
 
 	// build aggregates
-	representative := deterministicRepresentative(votes)
+	representative := votes[0]
 	h := representative.H()
 	r := representative.R()
 	value := representative.Value()
@@ -809,20 +796,24 @@ func AggregateVotesSimple[
 		}
 
 		payload, _ := rlp.EncodeToBytes(extVote{
-			Code:       code,
-			Round:      uint64(r), // #nosec
-			Height:     h,
-			Value:      value,
-			Signers:    signersList[i],
-			Originator: representative.Originator(),
-			Signature:  aggregatedSignature.(*blst.BlsSignature),
+			Code:      code,
+			Round:     uint64(r), // #nosec
+			Height:    h,
+			Value:     value,
+			Signers:   signersList[i],
+			Signature: aggregatedSignature.(*blst.BlsSignature),
 		})
+
+		// append the originator as the last 20 bytes of the payload
+		payload, err = rlp.AppendToEncodedList(payload, self.Bytes())
+		if err != nil {
+			panic("todo")
+		}
 
 		aggregateVote := E{
 			value: value,
 			vote: vote{
-				signers:    signersList[i],
-				originator: representative.Originator(),
+				signers: signersList[i],
 				base: base{
 					height:         h,
 					round:          r,
@@ -846,6 +837,13 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	if err != nil {
 		return err
 	}
+
+	// extract the originator.
+	if len(payload) < 20 {
+		return errors.New("todo")
+	}
+	originator := common.BytesToAddress(payload[len(payload)-20:])
+	payload = payload[:len(payload)-20]
 
 	encoded := &extVote{}
 	if err := rlp.DecodeBytes(payload, encoded); err != nil {
@@ -874,7 +872,7 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	p.value = encoded.Value
 	p.signature = encoded.Signature
 	p.signers = encoded.Signers
-	p.originator = encoded.Originator
+	p.originator = originator
 	p.payload = payload
 	// precompute hash and signature hash
 	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrevoteCode, encoded.Value)
@@ -889,6 +887,14 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	if err != nil {
 		return err
 	}
+
+	// extract the originator.
+	if len(payload) < 20 {
+		return errors.New("todo")
+	}
+	originator := common.BytesToAddress(payload[len(payload)-20:])
+	payload = payload[:len(payload)-20]
+
 	encoded := &extVote{}
 	if err := rlp.DecodeBytes(payload, encoded); err != nil {
 		return err
@@ -916,7 +922,7 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	p.value = encoded.Value
 	p.signature = encoded.Signature
 	p.signers = encoded.Signers
-	p.originator = encoded.Originator
+	p.originator = originator
 	p.payload = payload
 	// precompute hash and signature hash
 	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrecommitCode, encoded.Value)
@@ -1028,6 +1034,7 @@ func NewFakePropose(f Fake) *Propose {
 			payload:        f.FakePayload,
 			hash:           f.FakeHash,
 			signerKey:      f.FakeSignerKey,
+			originator:     f.FakeSigner,
 			preverified:    true,
 			verified:       f.FakeVerified,
 		},
@@ -1038,8 +1045,7 @@ func NewFakePrevote(f Fake) *Prevote {
 	return &Prevote{
 		value: f.FakeValue,
 		vote: vote{
-			signers:    f.FakeSigners,
-			originator: f.FakeSigner,
+			signers: f.FakeSigners,
 			base: base{
 				round:          int64(f.FakeRound),
 				height:         f.FakeHeight,
@@ -1048,6 +1054,7 @@ func NewFakePrevote(f Fake) *Prevote {
 				payload:        f.FakePayload,
 				hash:           f.FakeHash,
 				signerKey:      f.FakeSignerKey,
+				originator:     f.FakeSigner,
 				preverified:    true,
 				verified:       true,
 			},
@@ -1068,6 +1075,7 @@ func NewFakePrecommit(f Fake) *Precommit {
 				payload:        f.FakePayload,
 				hash:           f.FakeHash,
 				signerKey:      f.FakeSignerKey,
+				originator:     f.FakeSigner,
 				preverified:    true,
 				verified:       true,
 			},

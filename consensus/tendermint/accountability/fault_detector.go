@@ -532,7 +532,7 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof, committee *types.Committee) 
 	evidences := make([]message.Msg, 1)
 	evidences[0] = prevotesForV[0]
 	if len(prevotesForV) > 1 {
-		evidences[0] = AggregateSamePrevotes(prevotesForV)
+		evidences[0] = AggregateSamePrevotes(prevotesForV, fd.address)
 	}
 	p := fd.eventFromProof(&Proof{
 		Type:          autonity.Innocence,
@@ -576,7 +576,7 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof, committee *types.Committee) 
 	evidences := make([]message.Msg, 1)
 	evidences[0] = prevotes[0]
 	if len(prevotes) > 1 {
-		evidences[0] = AggregateSamePrevotes(prevotes)
+		evidences[0] = AggregateSamePrevotes(prevotes, fd.address)
 	}
 
 	p := fd.eventFromProof(&Proof{
@@ -648,7 +648,7 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof, committee *types.Committee)
 	evidences := make([]message.Msg, 1)
 	evidences[0] = prevotes[0]
 	if len(prevotes) > 1 {
-		evidences[0] = AggregateSamePrevotes(prevotes)
+		evidences[0] = AggregateSamePrevotes(prevotes, fd.address)
 	}
 
 	p := fd.eventFromProof(&Proof{
@@ -872,7 +872,7 @@ oldProposalLoop:
 			evidences := make([]message.Msg, 1)
 			evidences[0] = alternativeQuorum[0]
 			if len(alternativeQuorum) > 1 {
-				evidences[0] = AggregateSamePrevotes(alternativeQuorum)
+				evidences[0] = AggregateSamePrevotes(alternativeQuorum, fd.address)
 			}
 
 			proof := &Proof{
@@ -1125,7 +1125,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		evidences := make([]message.Msg, 1)
 		evidences[0] = alternativeQuorum[0]
 		if len(alternativeQuorum) > 1 {
-			evidences[0] = AggregateSamePrevotes(alternativeQuorum)
+			evidences[0] = AggregateSamePrevotes(alternativeQuorum, fd.address)
 		}
 
 		proof := &Proof{
@@ -1282,7 +1282,7 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 				evidences := make([]message.Msg, 1)
 				evidences[0] = alternativeQuorum[0]
 				if len(alternativeQuorum) > 1 {
-					evidences[0] = AggregateSamePrevotes(alternativeQuorum)
+					evidences[0] = AggregateSamePrevotes(alternativeQuorum, fd.address)
 				}
 
 				proof := &Proof{

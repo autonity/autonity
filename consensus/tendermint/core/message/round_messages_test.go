@@ -12,8 +12,8 @@ import (
 
 func TestMapReset(t *testing.T) {
 	messages := NewMap()
-	messages.GetOrCreate(0).AddPrevote(NewPrevote(1, 2, common.Hash{}, defaultSigner, testCommitteeMember, 1))
-	messages.GetOrCreate(1).AddPrecommit(NewPrecommit(1, 2, common.Hash{}, defaultSigner, testCommitteeMember, 1))
+	messages.GetOrCreate(0).AddPrevote(NewPrevote(1, 2, common.Hash{}, defaultSigner, testCommitteeMember, 1), common.Address{})
+	messages.GetOrCreate(1).AddPrecommit(NewPrecommit(1, 2, common.Hash{}, defaultSigner, testCommitteeMember, 1), common.Address{})
 	messages.Reset()
 	require.Equal(t, 0, len(messages.All()))
 }
@@ -22,7 +22,7 @@ func TestGetOrCreate(t *testing.T) {
 	messages := NewMap()
 	rm0 := messages.GetOrCreate(0)
 	rm1 := messages.GetOrCreate(1)
-	rm1.AddPrevote(NewPrevote(1, 2, common.Hash{}, defaultSigner, testCommitteeMember, 1))
+	rm1.AddPrevote(NewPrevote(1, 2, common.Hash{}, defaultSigner, testCommitteeMember, 1), common.Address{})
 	require.Equal(t, rm0, messages.GetOrCreate(0))
 	require.Equal(t, rm1, messages.GetOrCreate(1))
 }
@@ -47,16 +47,16 @@ func TestGetMessages(t *testing.T) {
 	precommit := NewPrecommit(1, 2, precommitHash, defaultSigner, testCommitteeMember, 1)
 
 	rm0.SetProposal(proposal, false)
-	rm0.AddPrevote(prevote)
-	rm0.AddPrecommit(precommit)
+	rm0.AddPrevote(prevote, common.Address{})
+	rm0.AddPrecommit(precommit, common.Address{})
 
 	rm1.SetProposal(proposal, false)
-	rm1.AddPrevote(prevote)
-	rm1.AddPrecommit(precommit)
+	rm1.AddPrevote(prevote, common.Address{})
+	rm1.AddPrecommit(precommit, common.Address{})
 
 	rm2.SetProposal(proposal, false)
-	rm2.AddPrevote(prevote)
-	rm2.AddPrecommit(precommit)
+	rm2.AddPrevote(prevote, common.Address{})
+	rm2.AddPrecommit(precommit, common.Address{})
 
 	allMessages := messages.All()
 	require.Equal(t, 9, len(allMessages))

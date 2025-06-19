@@ -1066,8 +1066,8 @@ func TestAggregatorProcess(t *testing.T) {
 			makeBogusEvent(message.NewPrecommit(r, h, otherValue, testSigner, &committee.Members[5], csize)),
 		})
 		// NOTE: this will trigger two calls to Post because the votes cannot be merged in a simple aggregate
-		aggregate1 := message.AggregatePrecommitsSimple([]message.Vote{message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize), message.NewPrecommit(r, h, value, testSigner, &committee.Members[3], csize)})
-		aggregate2 := message.AggregatePrecommitsSimple([]message.Vote{message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize), message.NewPrecommit(r, h, value, testSigner, &committee.Members[4], csize)})
+		aggregate1 := message.AggregatePrecommitsSimple([]message.Vote{message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize), message.NewPrecommit(r, h, value, testSigner, &committee.Members[3], csize)}, common.Address{})
+		aggregate2 := message.AggregatePrecommitsSimple([]message.Vote{message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize), message.NewPrecommit(r, h, value, testSigner, &committee.Members[4], csize)}, common.Address{})
 		batches = append(batches, []events.UnverifiedMessageEvent{
 			makeBogusEvent(aggregate1[0]),
 			makeBogusEvent(aggregate2[0]),
@@ -1118,8 +1118,8 @@ func TestAggregatorProcess(t *testing.T) {
 			makeBogusEvent(message.NewPrecommit(r, h, otherValue, testInvalidSigner, &committee.Members[6], csize)), //INVALID
 		})
 		// NOTE: this will trigger two calls to Post because the votes cannot be merged in a simple aggregate
-		aggregate1 := message.AggregatePrecommitsSimple([]message.Vote{message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize), message.NewPrecommit(r, h, value, testSigner, &committee.Members[4], csize)})
-		aggregate2 := message.AggregatePrecommitsSimple([]message.Vote{message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize), message.NewPrecommit(r, h, value, testInvalidSigner, &committee.Members[3], csize)}) // INVALID
+		aggregate1 := message.AggregatePrecommitsSimple([]message.Vote{message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize), message.NewPrecommit(r, h, value, testSigner, &committee.Members[4], csize)}, common.Address{})
+		aggregate2 := message.AggregatePrecommitsSimple([]message.Vote{message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize), message.NewPrecommit(r, h, value, testInvalidSigner, &committee.Members[3], csize)}, common.Address{}) // INVALID
 		batches = append(batches, []events.UnverifiedMessageEvent{
 			makeBogusEvent(aggregate1[0]),
 			makeBogusEvent(aggregate2[0]), //INVALID

@@ -55,7 +55,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 	if prevote.R() < c.Round() {
 		// We only process old rounds while future rounds messages are pushed on to the backlog
 		oldRoundMessages := c.messages.GetOrCreate(prevote.R())
-		prevoteContributed := oldRoundMessages.AddPrevote(prevote)
+		prevoteContributed := oldRoundMessages.AddPrevote(prevote, c.address)
 		// note even if the vote is redundant, it might still cause a power change in case of equivocation
 		c.SendEvent(events.NewPowerChangeEvent(message.PrevoteCode, c.Height().Uint64(), c.Round(), prevote.Value()))
 
@@ -75,7 +75,7 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 	// c.curRoundMessages.Step() < prevote. The propose Timeout which is started at the beginning of the round
 	// will update the step to at least prevote and when it handle its on preVote(nil), then it will also have
 	// votes from other nodes.
-	prevoteContributed := c.curRoundMessages.AddPrevote(prevote)
+	prevoteContributed := c.curRoundMessages.AddPrevote(prevote, c.address)
 	// note even if the vote is redundant, it might still cause a power change in case of equivocation
 	c.SendEvent(events.NewPowerChangeEvent(message.PrevoteCode, c.Height().Uint64(), c.Round(), prevote.Value()))
 

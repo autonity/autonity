@@ -558,14 +558,14 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			// repetitive code but I didn't find a way to declare aggregateVotes so that it works both with prevote and precommit
 			switch validVotes[0].(type) {
 			case *message.Prevote:
-				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
+				aggregateVotes := message.AggregatePrevotesSimple(validVotes, a.backend.Address())
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					a.backend.MessageToCore(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
 					go a.backend.Post(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
 				}
 			case *message.Precommit:
-				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
+				aggregateVotes := message.AggregatePrecommitsSimple(validVotes, a.backend.Address())
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					a.backend.MessageToCore(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))

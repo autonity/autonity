@@ -149,10 +149,10 @@ func (s *RoundMessages) PrecommitsTotalAggregatedPower() *AggregatedPower {
 }
 
 // returns whether the new vote brought some power contribution or the vote was redundant
-func (s *RoundMessages) AddPrevote(prevote *Prevote) bool {
+func (s *RoundMessages) AddPrevote(prevote *Prevote, self common.Address) bool {
 	s.Lock()
 	defer s.Unlock()
-	voteContributed := s.prevotes.Add(prevote)
+	voteContributed := s.prevotes.Add(prevote, self)
 	// update round power cache
 	for index, power := range prevote.Signers().Powers() {
 		s.power.Set(index, power)
@@ -169,10 +169,10 @@ func (s *RoundMessages) AllPrecommits() []Msg {
 }
 
 // returns whether the new vote brought some power contribution or the vote was redundant
-func (s *RoundMessages) AddPrecommit(precommit *Precommit) bool {
+func (s *RoundMessages) AddPrecommit(precommit *Precommit, self common.Address) bool {
 	s.Lock()
 	defer s.Unlock()
-	voteContributed := s.precommits.Add(precommit)
+	voteContributed := s.precommits.Add(precommit, self)
 	// update round power cache
 	for index, power := range precommit.Signers().Powers() {
 		s.power.Set(index, power)
@@ -181,15 +181,15 @@ func (s *RoundMessages) AddPrecommit(precommit *Precommit) bool {
 }
 
 // used to gossip quorum of prevotes
-func (s *RoundMessages) PrevoteFor(hash common.Hash) *Prevote {
+func (s *RoundMessages) PrevoteFor(hash common.Hash, self common.Address) *Prevote {
 	prevotes := s.prevotes.VotesFor(hash)
-	return AggregatePrevotes(prevotes) // we allow complex aggregate here
+	return AggregatePrevotes(prevotes, self) // we allow complex aggregate here
 }
 
 // used to create the quorum certificate when we managed to finalize a block and to gossip quorum of precommits
-func (s *RoundMessages) PrecommitFor(hash common.Hash) *Precommit {
+func (s *RoundMessages) PrecommitFor(hash common.Hash, self common.Address) *Precommit {
 	precommits := s.precommits.VotesFor(hash)
-	return AggregatePrecommits(precommits) // we allow complex aggregate here
+	return AggregatePrecommits(precommits, self) // we allow complex aggregate here
 }
 
 func (s *RoundMessages) Proposal() *Propose {

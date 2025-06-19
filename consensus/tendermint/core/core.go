@@ -314,7 +314,7 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	proposalHash := proposal.Block().Header().Hash()
 	c.logger.Debug("Committing a block", "hash", proposalHash)
 
-	precommitWithQuorum := messages.PrecommitFor(proposalHash)
+	precommitWithQuorum := messages.PrecommitFor(proposalHash, c.address)
 	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
 
 	if err := c.backend.Commit(proposal.Block(), round, quorumCertificate); err != nil {

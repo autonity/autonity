@@ -23,7 +23,7 @@ type malPrevoter struct {
 // HandlePrevote overrides core.HandlePrevote, It accepts a vote and sends a precommit without checking
 // for 2f+1 vote count
 func (c *malPrevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) error {
-	c.CurRoundMessages().AddPrevote(prevote)
+	c.CurRoundMessages().AddPrevote(prevote, c.Address())
 	// Now we can add the preVote to our current round state
 	if err := c.PrevoteTimeout().StopTimer(); err != nil {
 		return err

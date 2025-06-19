@@ -61,7 +61,7 @@ func TestMsgStore(t *testing.T) {
 			prevotes = append(prevotes, preVoteNil)
 		}
 
-		aggVote := message.AggregatePrevotes(prevotes)
+		aggVote := message.AggregatePrevotes(prevotes, common.Address{})
 		ms.Save(aggVote)
 
 		// for every account, they have the prevote saved.
