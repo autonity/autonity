@@ -237,6 +237,9 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 				break
 			}
 		}
+		if sb.core.Height().Uint64() == msg.H() && sb.core.Round() == msg.R() { // same height messages early forward
+			go sb.router.Forward(committee, msg, sender)
+		}
 		// unless all signers are jailed, we still process aggregates
 		if allJailed {
 			sb.logger.Debug("Vote message contains only signatures from jailed validators, ignoring message", "signers", vote.Signers().String())

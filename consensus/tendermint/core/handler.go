@@ -198,7 +198,7 @@ eventLoop:
 					}
 					if errors.Is(err, constants.ErrFutureRoundMessage) && msg.Code() != message.ProposalCode {
 						// immediately gossip future round votes
-						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
+						//go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
 						recordMessageProcessingTime(msg.Code(), start)
 						break
 					}
@@ -233,7 +233,7 @@ eventLoop:
 					if err != nil && (errors.Is(err, constants.ErrOldRoundMessage) || errors.Is(err, constants.ErrRedundantVote)) {
 						go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 					} else {
-						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
+						//go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
 					}
 				}
 				recordMessageProcessingTime(msg.Code(), start)
