@@ -1238,32 +1238,36 @@ contract('Autonity', function (accounts) {
 
       let afterBalanceV0 = toBN(await web3.eth.getBalance(validators[0].treasury));
       let expectedRewardV0 = toBN(val0.bondedStake).mul(validatorRewards).div(totalStake);
-      let selfRewardV0 = expectedRewardV0.mul(toBN(val0.selfBondedStake)).div(toBN(val0.bondedStake))
-      let delegatorRewardV0 = expectedRewardV0.sub(selfRewardV0)
+      let delegatedStakeV0 = toBN(val0.bondedStake).sub(toBN(val0.selfBondedStake))
+      let delegatorRewardV0 = expectedRewardV0.mul(delegatedStakeV0).div(totalStake)
+      let selfRewardV0 = expectedRewardV0.sub(delegatorRewardV0)
       let commissionIncomeV0 = delegatorRewardV0.mul(toBN(val0.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
       assert.equal(afterBalanceV0.sub(initBalanceV0).toString(), selfRewardV0.add(commissionIncomeV0).toString())
       totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV0).add(commissionIncomeV0)
 
       let afterBalanceV1 = toBN(await web3.eth.getBalance(validators[1].treasury));
       let expectedRewardV1 = toBN(val1.bondedStake).mul(validatorRewards).div(totalStake);
-      let selfRewardV1 = expectedRewardV1.mul(toBN(val1.selfBondedStake)).div(toBN(val1.bondedStake))
-      let delegatorRewardV1 = expectedRewardV1.sub(selfRewardV1)
+      let delegatedStakeV1 = toBN(val1.bondedStake).sub(toBN(val1.selfBondedStake))
+      let delegatorRewardV1 = expectedRewardV1.mul(delegatedStakeV1).div(totalStake)
+      let selfRewardV1 = expectedRewardV1.sub(delegatorRewardV1)
       let commissionIncomeV1 = delegatorRewardV1.mul(toBN(val1.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
       assert.equal(afterBalanceV1.sub(initBalanceV1).toString(), selfRewardV1.add(commissionIncomeV1).toString())
       totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV1).add(commissionIncomeV1)
 
       let afterBalanceV2 = toBN(await web3.eth.getBalance(validators[2].treasury));
       let expectedRewardV2 = toBN(val2.bondedStake).mul(validatorRewards).div(totalStake);
-      let selfRewardV2 = expectedRewardV2.mul(toBN(val2.selfBondedStake)).div(toBN(val2.bondedStake))
-      let delegatorRewardV2 = expectedRewardV2.sub(selfRewardV2)
+      let delegatedStakeV2 = toBN(val2.bondedStake).sub(toBN(val2.selfBondedStake))
+      let delegatorRewardV2 = expectedRewardV2.mul(delegatedStakeV2).div(totalStake)
+      let selfRewardV2 = expectedRewardV2.sub(delegatorRewardV2)
       let commissionIncomeV2 = delegatorRewardV2.mul(toBN(val2.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
       assert.equal(afterBalanceV2.sub(initBalanceV2).toString(), selfRewardV2.add(commissionIncomeV2).toString())
       totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV2).add(commissionIncomeV2)
 
       let afterBalanceV3 = toBN(await web3.eth.getBalance(validators[3].treasury));
       let expectedRewardV3 = toBN(val3.bondedStake).mul(validatorRewards).div(totalStake);
-      let selfRewardV3 = expectedRewardV3.mul(toBN(val3.selfBondedStake)).div(toBN(val3.bondedStake))
-      let delegatorRewardV3 = expectedRewardV3.sub(selfRewardV3)
+      let delegatedStakeV3 = toBN(val3.bondedStake).sub(toBN(val3.selfBondedStake))
+      let delegatorRewardV3 = expectedRewardV3.mul(delegatedStakeV3).div(totalStake)
+      let selfRewardV3 = expectedRewardV3.sub(delegatorRewardV3)
       let commissionIncomeV3 = delegatorRewardV3.mul(toBN(val3.commissionRate)).div(toBN(COMMISSION_RATE_PRECISION))
       assert.equal(afterBalanceV3.sub(initBalanceV3).toString(), selfRewardV3.add(commissionIncomeV3).toString())
       totalRewardsDistributed = totalRewardsDistributed.add(selfRewardV3).add(commissionIncomeV3)
