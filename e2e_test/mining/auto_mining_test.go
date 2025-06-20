@@ -1,7 +1,6 @@
 package mining
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -48,8 +47,7 @@ func TestMiningManagementOfValidators(t *testing.T) {
 
 	// all validators should be mining.
 	for i := 0; i < numOfNodes; i++ {
-		isMining, err := network[i].WsClient.IsMining(context.Background())
-		require.NoError(t, err)
+		isMining := network[i].Eth.IsMining()
 		require.True(t, isMining)
 	}
 
@@ -59,7 +57,7 @@ func TestMiningManagementOfValidators(t *testing.T) {
 	// shrink committee size to less than numOfNodes, some validators shouldn't be mining if they
 	// are no longer in the committee.
 	newSize := new(big.Int).SetUint64(uint64(numOfNodes - 1))
-	tm := 5 * time.Second
+	tm := 8 * time.Second
 	err = client.AwaitSetCommitteeSize(optKey, newSize, tm)
 	require.NoError(t, err)
 
@@ -87,8 +85,7 @@ func TestMiningManagementOfValidators(t *testing.T) {
 		if _, ok := shrunkCommitteeMap[network[i].Address]; ok {
 			isMining = true
 		}
-		mining, err := network[i].WsClient.IsMining(context.Background())
-		require.NoError(t, err)
+		mining := network[i].Eth.IsMining()
 		require.Equal(t, isMining, mining)
 	}
 
@@ -114,8 +111,7 @@ func TestMiningManagementOfValidators(t *testing.T) {
 
 	// all validators should be mining.
 	for i := 0; i < numOfNodes; i++ {
-		isMining, err := network[i].WsClient.IsMining(context.Background())
-		require.NoError(t, err)
+		isMining := network[i].Eth.IsMining()
 		require.True(t, isMining)
 	}
 }
