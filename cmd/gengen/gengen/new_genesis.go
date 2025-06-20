@@ -93,7 +93,7 @@ func NewGenesis(validators []*Validator, options ...GenesisOption) (*core.Genesi
 		return nil, fmt.Errorf("failed to construct initial user state: %v", err)
 	}
 
-	config := copyConfig(params.TestChainConfig)
+	config := copyConfig(params.TestConfigNoVerkle)
 	config.AutonityContractConfig.Operator = *operatorAddress
 	config.AutonityContractConfig.Validators = genesisValidators
 	config.Ethash = nil

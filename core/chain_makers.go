@@ -535,7 +535,7 @@ func (cm *chainMaker) makeHeader(parent *types.Block, state *state.StateDB, engi
 	header := &types.Header{
 		Root:       state.IntermediateRoot(cm.config.IsEIP158(parent.Number())),
 		ParentHash: parent.Hash(),
-		//MixDigest:  types.BFTDigest,
+		MixDigest:  parent.MixDigest(),
 		Coinbase:   parent.Coinbase(),
 		Difficulty: parent.Difficulty(),
 		GasLimit:   parent.GasLimit(),

@@ -136,7 +136,7 @@ func generateTestChain() []*types.Block {
 			g.AddTx(testTx2)
 		}
 	}
-	_, blocks, _ := core.GenerateChainWithGenesis(genesis, ethash.NewFaker(), 2, generate)
+	_, blocks, _ := core.GenerateChainWithGenesis(genesis, ethash.NewFullFaker(), 2, generate)
 	g, _ := genesis.ToBlock(nil)
 	return append([]*types.Block{g}, blocks...)
 }
