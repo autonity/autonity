@@ -12,9 +12,7 @@ import (
 )
 
 func TestSnapSyncMode(t *testing.T) {
-	// todo: snap sync is broken due to the upstream merge.
 	// the state after snap sync is wrong, it cause intended panic when decoding committee info from state.
-	t.Skip("Snap sync does not work")
 	testSyncMode(t, downloader.SnapSync)
 }
 
@@ -32,7 +30,7 @@ func testSyncMode(t *testing.T, mode downloader.SyncMode) {
 	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
 
-	_ = network.WaitToMineNBlocks(100, 100, false)
+	_ = network.WaitToMineNBlocks(200, 200, false)
 
 	// create a node which runs in the specified sync mode.
 	identities, err := e2e.Validators(t, 1, "10e18,v,10000,127.0.0.1:%s,%s,%s,%s")
@@ -43,7 +41,7 @@ func testSyncMode(t *testing.T, mode downloader.SyncMode) {
 	err = syncNode.Start()
 	require.NoError(t, err)
 	// Snap sync might take a while since it dumps and replicates entire world state.
-	_ = network.WaitToMineNBlocks(100, 100, false)
+	_ = network.WaitToMineNBlocks(200, 200, false)
 	require.Equal(t, true, syncNode.IsSyncComplete())
 	require.True(t, true, syncNode.GetChainHeight() > 0)
 	epoch, err := syncNode.Eth.BlockChain().LatestEpoch()

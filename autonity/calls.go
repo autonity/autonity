@@ -168,6 +168,8 @@ func (c *AutonityContract) CallEpochByHeight(state vm.StateDB, header *types.Hea
 			ConsensusKeyBytes: member.ConsensusKey,
 		})
 	}
+
+	// todo: (Jason) it panic here due to the bls key extract from the state db of the last two committee member are empty bytes.
 	if err := committee.Enrich(); err != nil {
 		panic("Committee member has invalid consensus key: " + err.Error()) //nolint
 	}
