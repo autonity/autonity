@@ -259,7 +259,7 @@ func TestConversionRatio(t *testing.T) {
 	_, err = r.Autonity.Unbond(tests.FromSender(staker3, nil), validator1, staker3LiquidBalance)
 	require.NoError(t, err)
 
-	// ratio will still increase a bit due to the epoch rewards
+	// ratio will still increase a bit due to the epoch rewards - they get applied before unbonding
 	r.WaitNextEpoch()
 
 	// from here on ratio should stay constant
@@ -267,6 +267,11 @@ func TestConversionRatio(t *testing.T) {
 	val, _, err = r.Autonity.GetValidator(nil, validator1)
 	require.NoError(t, err)
 	t.Logf("conversion ratio: %s", val.ConversionRatio.String())
+	t.Logf("liquid supply: %s", val.LiquidSupply.String())
+	require.Equal(t, uint64(0), val.LiquidSupply.Uint64())
+	delegatedStakeAfterUnbond := new(big.Int).Sub(val.BondedStake, val.SelfBondedStake)
+	t.Logf("delegated stake: %s", delegatedStakeAfterUnbond.String())
+	require.Equal(t, uint64(0), delegatedStakeAfterUnbond.Uint64())
 	ratioAfterUnbond := val.ConversionRatio.Uint64()
 
 	r.WaitNextEpoch()
