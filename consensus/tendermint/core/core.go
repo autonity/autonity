@@ -107,8 +107,8 @@ type Core struct {
 	backend interfaces.Backend
 	cancel  context.CancelFunc
 
-	stateEventSub  *event.TypeMuxSubscription
-	messageEventCh chan events.MessageEventer
+	stateEventSub       *event.TypeMuxSubscription
+	messageEventCh      chan events.MessageEventer
 	candidateBlockCh    chan events.NewCandidateBlockEvent
 	committedCh         chan events.CommitEvent
 	timeoutEventSub     *event.TypeMuxSubscription
@@ -372,7 +372,8 @@ func (c *Core) processFuture(previousRound int64, currentRound int64) {
 
 	for r := previousRound + 1; r <= currentRound; r++ {
 		for _, msg := range c.futureRound[r] {
-			go c.SendEvent(backlogMessageEvent{
+			// only to code, should we send to FD ??
+			c.backend.MessageToCore(backlogMessageEvent{
 				msg: msg,
 			})
 		}

@@ -590,7 +590,8 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 
 func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent, eventer eventBuilder) {
 	proposal := proposalEvent.Message
-	go a.backend.Post(eventer(proposal, proposalEvent))
+	a.backend.MessageToCore(eventer(proposal, proposalEvent)) // to core
+	go a.backend.Post(eventer(proposal, proposalEvent)) // to FD
 }
 
 // assumes current or old round vote
@@ -615,7 +616,8 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 			a.handleInvalidMessage(errCh, err, sender)
 			return
 		}
-		go a.backend.Post(currentHeightEventBuilder(voteEvent.Message, voteEvent))
+		 a.backend.MessageToCore(currentHeightEventBuilder(voteEvent.Message, voteEvent)) // to core
+		go a.backend.Post(currentHeightEventBuilder(voteEvent.Message, voteEvent)) // to FD
 		return
 	}
 
