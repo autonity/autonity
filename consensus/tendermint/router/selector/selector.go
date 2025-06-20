@@ -187,12 +187,12 @@ func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 
 	switch senderType {
 	case originator:
-		recipients = s.selectNodesByLatencySpread()
 		// additional nodes
 		localNodes := len(clusters.Base()[ownClusterID])
-		minNodes = 2
+		minNodes = math.MaxInt
 		lowLatencyNodes = 4
 		if isProposal {
+			recipients = s.selectNodesByLatencySpread()
 			localNodes = int(math.Sqrt(float64(localNodes)))
 			minNodes = 1
 			lowLatencyNodes = 0
@@ -207,13 +207,15 @@ func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 
 	case firstRelayerOriginCluster:
 		// remote clusters
-		minNodes = 1
-		lowLatencyNodes = 4
-		for clusterID := range clusters.Base() {
-			if clusterID == ownClusterID {
-				continue
+		if isProposal {
+			minNodes = 1
+			lowLatencyNodes = 4
+			for clusterID := range clusters.Base() {
+				if clusterID == ownClusterID {
+					continue
+				}
+				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{clusters.Self(), from})...)
 			}
-			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{clusters.Self(), from})...)
 		}
 		// local cluster
 		minNodes = len(clusters.MembersByID(clusters.ID()))
@@ -221,13 +223,15 @@ func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 
 	case firstRelayerRemoteCluster: // now also includes messages from the first Relayer in origin cluster
 		// remote clusters
-		minNodes = 0
-		lowLatencyNodes = 4
-		for clusterID := range clusters.Base() {
-			if clusterID == ownClusterID {
-				continue
+		if isProposal {
+			minNodes = 0
+			lowLatencyNodes = 4
+			for clusterID := range clusters.Base() {
+				if clusterID == ownClusterID {
+					continue
+				}
+				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{clusters.Self(), from})...)
 			}
-			recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, []common.Address{clusters.Self(), from})...)
 		}
 		// local cluster
 		minNodes = len(clusters.Base()[ownClusterID])
