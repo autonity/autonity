@@ -186,7 +186,7 @@ eventLoop:
 				}
 				needGossip := true
 				var err error
-				if e.Sender() == c.backend.Address() && !hasQuorum {
+				if e.Sender() == c.backend.Address() && !hadQuorum {
 					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 					needGossip = false
 				}
