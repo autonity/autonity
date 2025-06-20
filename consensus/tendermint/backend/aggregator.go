@@ -67,12 +67,7 @@ type eventBuilder func(msg message.Msg, event events.UnverifiedMessageEvent) int
 
 // function to create the event for current height messages (they get picked up by Core and by the FD)
 func currentHeightEventBuilder(msg message.Msg, event events.UnverifiedMessageEvent) interface{} {
-	return events.MessageEvent{
-		Message: msg,
-		ErrCh:   event.ErrCh,
-		Posted:  time.Now(),
-		Sender:  event.Sender,
-	}
+	return events.NewMessageEvent(msg, event.ErrCh, event.Sender, event.Posted)
 }
 
 // function to create the event for old height messages (they get picked up only by the FD)
@@ -566,12 +561,14 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
+					a.backend.MessageToCore(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
 					go a.backend.Post(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
 				}
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
+					a.backend.MessageToCore(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
 					go a.backend.Post(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
 				}
 			default:
@@ -760,23 +757,23 @@ func (a *aggregator) loop(ctx context.Context) {
 
 	// channel where the aggregator will receive msgs from the backend handlers
 	messageCh := a.backend.MessageCh()
-	type evMeta struct {
-		dur   time.Duration
-		count int
-	}
-	eventTracker := make(map[string]evMeta)
-
-	updateEventMeta := func(eventType string, duration time.Duration, _ int) {
-		evMeta, _ := eventTracker[eventType]
-		evMeta.dur += duration
-		evMeta.count++
-		eventTracker[eventType] = evMeta
-	}
+	//type evMeta struct {
+	//	dur   time.Duration
+	//	count int
+	//}
+	//eventTracker := make(map[string]evMeta)
+	//
+	//updateEventMeta := func(eventType string, duration time.Duration, _ int) {
+	//	evMeta, _ := eventTracker[eventType]
+	//	evMeta.dur += duration
+	//	evMeta.count++
+	//	eventTracker[eventType] = evMeta
+	//}
 loop:
 	for {
 		select {
 		case event, ok := <-messageCh:
-			start := time.Now()
+			//start := time.Now()
 			if !ok {
 				break loop
 			}
@@ -787,11 +784,11 @@ loop:
 
 			//log.Info("backend event processed in aggregator", "message", event.Message.Code(), "height", event.Message.H(), "round", event.Message.R(), "duration", time.Since(start))
 
-			updateEventMeta("messageEvent", time.Since(start), 1)
+			//updateEventMeta("messageEvent", time.Since(start), 1)
 
 		case ev, ok := <-a.core.EventCh():
 			start := time.Now()
-			eventType := ""
+			//eventType := ""
 			if !ok {
 				break loop
 			}
@@ -801,7 +798,7 @@ loop:
 			round := ev.Round()
 			switch e := ev.(type) {
 			case events.RoundChangeEvent:
-				eventType = "RoundChange"
+				//eventType = "RoundChange"
 				/* a round change happened in Core
 				* messages that we had buffered as future round might now be current round, therefore:
 				* 1. process right away proposals
@@ -852,7 +849,7 @@ loop:
 					RoundBg.Add(time.Since(start).Nanoseconds())
 				}
 			case events.PowerChangeEvent:
-				eventType = "PowerChange"
+				//eventType = "PowerChange"
 				// a power change happened in Core: re-do quorum checks on individual votes and simple aggregates
 				code := e.Code()
 				value := e.Value()
@@ -889,7 +886,7 @@ loop:
 					PowerBg.Add(time.Since(start).Nanoseconds())
 				}
 			case events.FuturePowerChangeEvent:
-				eventType = "FuturePowerChange"
+				//eventType = "FuturePowerChange"
 
 				committee, err := a.backend.BlockChain().CommitteeByHeight(height)
 				if err != nil {
@@ -908,9 +905,9 @@ loop:
 				}
 			}
 			//log.Info("Core event processed in aggregator", "eventType", eventType, "height", height, "round", round, "duration", time.Since(start))
-			updateEventMeta(eventType, time.Since(start), 1)
+			//updateEventMeta(eventType, time.Since(start), 1)
 		case <-ticker.C:
-			start := time.Now()
+			//start := time.Now()
 			coreHeight := a.core.Height().Uint64()
 
 			// process all messages in the aggregator
@@ -953,9 +950,9 @@ loop:
 			clear(a.messagesFrom)
 			clear(a.toIgnore)
 			//log.Info("Message aggregation finished", "height", coreHeight, "duration", time.Since(start))
-			updateEventMeta("aggregation", time.Since(start), 1)
+			//updateEventMeta("aggregation", time.Since(start), 1)
 		case <-oldMessagesTicker.C:
-			start := time.Now()
+			//start := time.Now()
 			a.logger.Trace("Processing stale messages in the aggregator")
 			var batches [][]events.UnverifiedMessageEvent
 			for _, batch := range a.staleMessages {
@@ -976,26 +973,26 @@ loop:
 			//a.staleMessages = make(map[common.Hash][]events.UnverifiedMessageEvent)
 			clear(a.staleMessages)
 			//log.Info("old message processing finished", "duration", time.Since(start))
-			updateEventMeta("staleMessage", time.Since(start), 1)
+			//updateEventMeta("staleMessage", time.Since(start), 1)
 		case <-oldMessagesStatsTicker.C:
-			var sb strings.Builder
-			sb.WriteString("Event metrics: [")
-			first := true
-			for eventType, meta := range eventTracker {
-				if !first {
-					sb.WriteString(", ")
-				}
-				avgDuration := time.Duration(0)
-				if meta.count > 0 {
-					avgDuration = meta.dur / time.Duration(meta.count)
-				}
-				fmt.Fprintf(&sb, "{event_type=%s, count=%d, total_duration_ms=%d, avg_duration_ms=%d}",
-					eventType, meta.count, meta.dur.Milliseconds(), avgDuration.Milliseconds())
-				first = false
-			}
-			sb.WriteString("]")
-			log.Debug("Event stats", "metrics", sb.String())
-			clear(eventTracker)
+			//var sb strings.Builder
+			//sb.WriteString("Event metrics: [")
+			//first := true
+			//for eventType, meta := range eventTracker {
+			//	if !first {
+			//		sb.WriteString(", ")
+			//	}
+			//	avgDuration := time.Duration(0)
+			//	if meta.count > 0 {
+			//		avgDuration = meta.dur / time.Duration(meta.count)
+			//	}
+			//	fmt.Fprintf(&sb, "{event_type=%s, count=%d, total_duration_ms=%d, avg_duration_ms=%d}",
+			//		eventType, meta.count, meta.dur.Milliseconds(), avgDuration.Milliseconds())
+			//	first = false
+			//}
+			//sb.WriteString("]")
+			//log.Debug("Event stats", "metrics", sb.String())
+			//clear(eventTracker)
 			//a.oldHeightStats()
 		case <-ctx.Done():
 			break loop

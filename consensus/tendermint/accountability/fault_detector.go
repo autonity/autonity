@@ -4,12 +4,13 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math"
 	"math/big"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 
 	"github.com/autonity/autonity/autonity/bindings"
 
@@ -201,11 +202,11 @@ tendermintMsgLoop:
 			// handle consensus message or innocence proof messages
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				if IsHeightExpired(currentCoreHeight, e.Message.H(), currentHeightRange) {
+				if IsHeightExpired(currentCoreHeight, e.Message().H(), currentHeightRange) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
-				if err := fd.processMsg(e.Message); err != nil {
+				if err := fd.processMsg(e.Message()); err != nil {
 					if !errors.Is(err, errDuplicatedMsg) {
 						fd.logger.Warn("Fault detector: Detected faulty message event", "err", err)
 					} else {

@@ -40,10 +40,35 @@ type UnverifiedMessageEvent struct {
 
 // MessageEvent is posted from the aggregator to core and the fault detector
 type MessageEvent struct {
-	Message message.Msg
-	ErrCh   chan<- error
-	Posted  time.Time
-	Sender  common.Address
+	message message.Msg
+	errCh   chan<- error
+	posted  time.Time
+	sender  common.Address
+}
+
+func NewMessageEvent(message message.Msg, errCh chan<- error, sender common.Address, posted time.Time) MessageEvent {
+	return MessageEvent{
+		message: message,
+		errCh:   errCh,
+		sender:  sender,
+		posted:  posted,
+	}
+}
+
+func (m MessageEvent) Message() message.Msg {
+	return m.message
+}
+
+func (m MessageEvent) Sender() common.Address {
+	return m.sender
+}
+
+func (m MessageEvent) Posted() time.Time {
+	return m.posted
+}
+
+func (m MessageEvent) ErrCh() chan<- error {
+	return m.errCh
 }
 
 // old messages are posted only to the fault detector
@@ -51,6 +76,13 @@ type OldMessageEvent struct {
 	Message message.Msg
 	ErrCh   chan<- error
 	Sender  common.Address
+}
+
+type MessageEventer interface {
+	Message() message.Msg
+	Sender() common.Address
+	Posted() time.Time
+	ErrCh() chan<- error
 }
 
 type Poster interface {

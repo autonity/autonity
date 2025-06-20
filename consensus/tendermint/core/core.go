@@ -108,6 +108,7 @@ type Core struct {
 	cancel  context.CancelFunc
 
 	messageSub          *event.TypeMuxSubscription
+	messageEventCh      chan events.MessageEventer
 	candidateBlockCh    chan events.NewCandidateBlockEvent
 	committedCh         chan events.CommitEvent
 	timeoutEventSub     *event.TypeMuxSubscription
@@ -206,6 +207,8 @@ func (c *Core) Post(ev any) {
 		c.committedCh <- ev
 	case events.NewCandidateBlockEvent:
 		c.candidateBlockCh <- ev
+	case events.MessageEventer:
+		c.messageEventCh <- ev
 	}
 }
 
@@ -337,6 +340,22 @@ func (c *Core) measureHeightRoundMetrics(round int64) {
 
 type backlogMessageEvent struct {
 	msg message.Msg
+}
+
+func (b backlogMessageEvent) Message() message.Msg {
+	return b.msg
+}
+
+func (b backlogMessageEvent) Sender() common.Address {
+	panic("implement me")
+}
+
+func (b backlogMessageEvent) Posted() time.Time {
+	panic("implement me")
+}
+
+func (b backlogMessageEvent) ErrCh() chan<- error {
+	panic("implement me")
 }
 
 // current round == 0 --> height change

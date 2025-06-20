@@ -302,6 +302,18 @@ func (mr *MockBackendMockRecorder) MessageCh() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MessageCh", reflect.TypeOf((*MockBackend)(nil).MessageCh))
 }
 
+// MessageToCore mocks base method.
+func (m *MockBackend) MessageToCore(ev any) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "MessageToCore", ev)
+}
+
+// MessageToCore indicates an expected call of MessageToCore.
+func (mr *MockBackendMockRecorder) MessageToCore(ev any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MessageToCore", reflect.TypeOf((*MockBackend)(nil).MessageToCore), ev)
+}
+
 // Post mocks base method.
 func (m *MockBackend) Post(ev any) {
 	m.ctrl.T.Helper()

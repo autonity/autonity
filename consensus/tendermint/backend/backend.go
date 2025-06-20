@@ -201,12 +201,8 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	// send to others
 	sb.Gossip(committee, message)
 	// send to self (directly to Core and FD, no need to verify local messages)
-	go sb.Post(events.MessageEvent{
-		Message: message,
-		ErrCh:   nil,
-		Posted:  time.Now(),
-		Sender:  sb.Address(),
-	})
+	sb.MessageToCore(events.NewMessageEvent(message, nil, sb.Address(), time.Now())) // core
+	go sb.Post(events.NewMessageEvent(message, nil, sb.Address(), time.Now()))          // FD
 }
 
 func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
@@ -282,6 +278,14 @@ func (sb *Backend) Post(ev any) {
 	default:
 		sb.eventMux.Post(ev)
 	}
+}
+
+func (sb *Backend) MessageToCore(ev any) {
+	switch ev := ev.(type) {
+	case events.MessageEventer:
+		sb.coreEventDispatcher.Post(ev)
+	}
+	return
 }
 
 func (sb *Backend) Subscribe(types ...any) *event.TypeMuxSubscription {

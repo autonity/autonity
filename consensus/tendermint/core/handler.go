@@ -54,12 +54,10 @@ func (c *Core) Stop() {
 }
 
 func (c *Core) subscribeEvents() {
-	c.messageSub = c.backend.Subscribe(
-		events.MessageEvent{},
-		backlogMessageEvent{},
-		StateRequestEvent{})
+	c.messageSub = c.backend.Subscribe(StateRequestEvent{})
 	c.candidateBlockCh = make(chan events.NewCandidateBlockEvent, 1)
 	c.committedCh = make(chan events.CommitEvent, 1)
+	c.messageEventCh = make(chan events.MessageEventer, 1000)
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
 }
 
@@ -163,18 +161,18 @@ eventLoop:
 			if metrics.Enabled && c.IsProposer() {
 				CandidateBlockDelayBg.Add(time.Since(newCandidateBlockEvent.CreatedAt).Nanoseconds())
 			}
-		case ev, ok := <-c.messageSub.Chan():
+		case ev, ok := <-c.messageEventCh:
 			if !ok {
 				break eventLoop
 			}
 			start := time.Now()
 			// An event arrived, process content
-			switch e := ev.Data.(type) {
+			switch e := ev.(type) {
 			case events.MessageEvent:
 				if metrics.Enabled {
-					AggregatorCoreTransitBg.Add(time.Since(e.Posted).Nanoseconds())
+					AggregatorCoreTransitBg.Add(time.Since(e.Posted()).Nanoseconds())
 				}
-				msg := e.Message
+				msg := e.Message()
 
 				if c.Height().Uint64() > msg.H() {
 					// TODO: currently old height messages are send directly to the FD, but this check is still needed due to potential TOCTOU race conditions
@@ -193,15 +191,15 @@ eventLoop:
 					c.logger.Debug("MessageEvent payload failed", "err", err, "current Height", c.Height().Uint64(), "msg Height", msg.H(), "msg Round", msg.R())
 					// filter errors which needs remote peer disconnection
 					if shouldDisconnectSender(err) {
-						tryDisconnect(e.ErrCh, err)
+						tryDisconnect(e.ErrCh(), err)
 						break
 					}
 					if errors.Is(err, constants.ErrFutureRoundMessage) && msg.Code() != message.ProposalCode {
 						// immediately gossip future round votes
-						if e.Sender == c.backend.Address() {
+						if e.Sender() == c.backend.Address() {
 							go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 						} else {
-							go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
+							go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender())
 						}
 						recordMessageProcessingTime(msg.Code(), start)
 						break
@@ -238,11 +236,11 @@ eventLoop:
 						go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 					} else {
 						// todo: refactor
-						if e.Sender == c.backend.Address() {
+						if e.Sender() == c.backend.Address() {
 							// gossip caches and sends out
 							go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 						} else {
-							go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
+							go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender())
 						}
 					}
 				}
@@ -251,7 +249,7 @@ eventLoop:
 				// TODO: should we check for disconnection also here for future round msgs?
 				// need probably to store the errCh? verify if possible.
 
-				msg := e.msg
+				msg := e.Message()
 
 				if c.Height().Uint64() > msg.H() {
 					// TODO: currently old height messages are send directly to the FD, but this check is still needed due to potential TOCTOU race conditions
@@ -303,10 +301,9 @@ eventLoop:
 				//	go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
 				//}
 				recordMessageProcessingTime(msg.Code(), start)
-			case StateRequestEvent:
-				// Process Tendermint state dump request.
-				c.handleStateDump(e)
 			}
+		case ev, _ := <-c.messageSub.Chan():
+			c.handleStateDump(ev.Data.(StateRequestEvent))
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
 				break eventLoop
