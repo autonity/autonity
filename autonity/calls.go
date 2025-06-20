@@ -3,6 +3,7 @@ package autonity
 import (
 	"errors"
 	"fmt"
+	"github.com/JekaMas/pretty"
 	"math/big"
 	"reflect"
 
@@ -302,9 +303,14 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 		ContractVersion: big.NewInt(1),
 	}
 	validators := make([]params.Validator, 0, len(genesisConfig.Validators))
-	for _, v := range genesisConfig.Validators {
+
+	pretty.Println("contract deployer: ", params.DeployerAddress)
+	// print the input params of the constructor of autonity contract.
+	for i, v := range genesisConfig.Validators {
 		validators = append(validators, *v)
+		pretty.Println(fmt.Sprintf("validator %d", i), v.String())
 	}
+	pretty.Println("contract config", contractConfig.String())
 	if err := evmContracts.DeployAutonityContract(genesisConfig.Bytecode, validators, contractConfig); err != nil {
 		log.Error("DeployAutonityContract failed", "err", err)
 		return fmt.Errorf("failed to deploy Autonity contract: %w", err)

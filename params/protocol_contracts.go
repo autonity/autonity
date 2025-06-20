@@ -1,10 +1,14 @@
 package params
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/influxdata/influxdb/pkg/deep"
 
@@ -197,6 +201,58 @@ type Validator struct {
 	JailReleaseBlock         *big.Int
 	ConsensusKey             []byte //ABI packing does not support hexutil.Bytes, thus we need to introduce customized JSON Marshal/UnMarshal methods.
 	State                    *uint8
+}
+
+func (v *Validator) String() string {
+	if v == nil {
+		return "nil"
+	}
+
+	var b strings.Builder
+	b.WriteString("{\n")
+
+	ptrToString := func(val interface{}) string {
+		if reflect.ValueOf(val).IsNil() {
+			return "nil"
+		}
+		switch t := val.(type) {
+		case *big.Int:
+			return t.String()
+		case *common.Address:
+			return t.Hex()
+		case *uint8:
+			return strconv.Itoa(int(*t))
+		default:
+			return ""
+		}
+	}
+
+	b.WriteString("  Treasury:          " + v.Treasury.Hex() + "\n")
+	b.WriteString("  NodeAddress:       " + ptrToString(v.NodeAddress) + "\n")
+	b.WriteString("  OracleAddress:     " + v.OracleAddress.Hex() + "\n")
+	b.WriteString("  Enode:             \"" + v.Enode + "\"\n")
+
+	b.WriteString("  CommissionRate:    " + ptrToString(v.CommissionRate) + "\n")
+	b.WriteString("  BondedStake:       " + ptrToString(v.BondedStake) + "\n")
+	b.WriteString("  UnbondingStake:    " + ptrToString(v.UnbondingStake) + "\n")
+	b.WriteString("  UnbondingShares:   " + ptrToString(v.UnbondingShares) + "\n")
+
+	b.WriteString("  SelfBondedStake:   " + ptrToString(v.SelfBondedStake) + "\n")
+	b.WriteString("  SelfUnbondingStake:" + ptrToString(v.SelfUnbondingStake) + "\n")
+	b.WriteString("  SelfUnbondingShares:" + ptrToString(v.SelfUnbondingShares) + "\n") // 修复字段错误
+	b.WriteString("  SelfUnbondingStakeLocked:" + ptrToString(v.SelfUnbondingStakeLocked) + "\n")
+
+	b.WriteString("  LiquidStateContract: " + ptrToString(v.LiquidStateContract) + "\n")
+	b.WriteString("  LiquidSupply:      " + ptrToString(v.LiquidSupply) + "\n")
+
+	b.WriteString("  RegistrationBlock: " + ptrToString(v.RegistrationBlock) + "\n")
+	b.WriteString("  TotalSlashed:      " + ptrToString(v.TotalSlashed) + "\n")
+	b.WriteString("  JailReleaseBlock:  " + ptrToString(v.JailReleaseBlock) + "\n")
+	b.WriteString("  ConsensusKey:      0x" + hex.EncodeToString(v.ConsensusKey) + "\n")
+	b.WriteString("  State:             " + ptrToString(v.State) + "\n")
+
+	b.WriteString("}")
+	return b.String()
 }
 
 // UnmarshalJSON and MarshalJSON are customized marshal and unmarshal methods to parse validators with validator key in

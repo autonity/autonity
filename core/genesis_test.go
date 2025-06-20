@@ -201,6 +201,15 @@ func TestGenesisHashes(t *testing.T) {
 	}
 }
 
+func TestDumpProtocolContractConfigs(t *testing.T) {
+	// Get the Piccadilly network genesis config.
+	piccadillyGenesis := DefaultPiccadillyGenesisBlock()
+	// Generate the genesis block by deploying those protocol contracts.
+	block, err := piccadillyGenesis.ToBlock(nil)
+	require.NoError(t, err)
+	require.NotNil(t, block)
+}
+
 func TestGenesis_Commit(t *testing.T) {
 	genesis := &Genesis{
 		BaseFee: big.NewInt(params.InitialBaseFee),

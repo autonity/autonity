@@ -78,6 +78,21 @@ type AutonityConfig struct {
 	ContractVersion *big.Int
 }
 
+func (ac *AutonityConfig) String() string {
+	var b strings.Builder
+	b.WriteString("AutonityConfig: {\n")
+	b.WriteString("  Policy: " + ac.Policy.String() + ",\n")
+	b.WriteString("  Contracts: " + ac.Contracts.String() + ",\n")
+	b.WriteString("  Protocol: " + ac.Protocol.String() + ",\n")
+	if ac.ContractVersion != nil {
+		b.WriteString("  ContractVersion: " + ac.ContractVersion.String() + ",\n")
+	} else {
+		b.WriteString("  ContractVersion: nil,\n")
+	}
+	b.WriteString("}")
+	return b.String()
+}
+
 // AutonityContracts is an auto generated low-level Go binding around an user-defined struct.
 type AutonityContracts struct {
 	AccountabilityContract         common.Address
@@ -88,6 +103,21 @@ type AutonityContracts struct {
 	UpgradeManagerContract         common.Address
 	InflationControllerContract    common.Address
 	OmissionAccountabilityContract common.Address
+}
+
+func (ac *AutonityContracts) String() string {
+	var b strings.Builder
+	b.WriteString("AutonityContracts: {\n")
+	b.WriteString("  AccountabilityContract: " + ac.AccountabilityContract.String() + ",\n")
+	b.WriteString("  OracleContract: " + ac.OracleContract.String() + ",\n")
+	b.WriteString("  AcuContract: " + ac.AcuContract.String() + ",\n")
+	b.WriteString("  SupplyControlContract: " + ac.SupplyControlContract.String() + ",\n")
+	b.WriteString("  StabilizationContract: " + ac.StabilizationContract.String() + ",\n")
+	b.WriteString("  UpgradeManagerContract: " + ac.UpgradeManagerContract.String() + ",\n")
+	b.WriteString("  InflationControllerContract: " + ac.InflationControllerContract.String() + ",\n")
+	b.WriteString("  OmissionAccountabilityContract: " + ac.OmissionAccountabilityContract.String() + ",\n")
+	b.WriteString("}")
+	return b.String()
 }
 
 // AutonityEpochInfo is an auto generated low-level Go binding around an user-defined struct.
@@ -113,6 +143,28 @@ type AutonityPolicy struct {
 	TreasuryAccount         common.Address
 }
 
+func (ap *AutonityPolicy) String() string {
+	ptrToString := func(val *big.Int) string {
+		if val == nil { return "nil" }
+		return val.String()
+	}
+
+	var b strings.Builder
+	b.WriteString("AutonityPolicy: {\n")
+	b.WriteString("  TreasuryFee: " + ptrToString(ap.TreasuryFee) + ",\n")
+	b.WriteString("  MinBaseFee: " + ptrToString(ap.MinBaseFee) + ",\n")
+	b.WriteString("  DelegationRate: " + ptrToString(ap.DelegationRate) + ",\n")
+	b.WriteString("  UnbondingPeriod: " + ptrToString(ap.UnbondingPeriod) + ",\n")
+	b.WriteString("  InitialInflationReserve: " + ptrToString(ap.InitialInflationReserve) + ",\n")
+	b.WriteString("  WithholdingThreshold: " + ptrToString(ap.WithholdingThreshold) + ",\n")
+	b.WriteString("  ProposerRewardRate: " + ptrToString(ap.ProposerRewardRate) + ",\n")
+	b.WriteString("  OracleRewardRate: " + ptrToString(ap.OracleRewardRate) + ",\n")
+	b.WriteString("  WithheldRewardsPool: " + ap.WithheldRewardsPool.String() + ",\n")
+	b.WriteString("  TreasuryAccount: " + ap.TreasuryAccount.String() + ",\n")
+	b.WriteString("}")
+	return b.String()
+}
+
 // AutonityProtocol is an auto generated low-level Go binding around an user-defined struct.
 type AutonityProtocol struct {
 	OperatorAccount     common.Address
@@ -120,6 +172,23 @@ type AutonityProtocol struct {
 	BlockPeriod         *big.Int
 	CommitteeSize       *big.Int
 	MaxScheduleDuration *big.Int
+}
+
+func (ap *AutonityProtocol) String() string {
+	ptrToString := func(val *big.Int) string {
+		if val == nil { return "nil" }
+		return val.String()
+	}
+
+	var b strings.Builder
+	b.WriteString("AutonityProtocol: {\n")
+	b.WriteString("  OperatorAccount: " + ap.OperatorAccount.String() + ",\n")
+	b.WriteString("  EpochPeriod: " + ptrToString(ap.EpochPeriod) + ",\n")
+	b.WriteString("  BlockPeriod: " + ptrToString(ap.BlockPeriod) + ",\n")
+	b.WriteString("  CommitteeSize: " + ptrToString(ap.CommitteeSize) + ",\n")
+	b.WriteString("  MaxScheduleDuration: " + ptrToString(ap.MaxScheduleDuration) + ",\n")
+	b.WriteString("}")
+	return b.String()
 }
 
 // AutonityValidator is an auto generated low-level Go binding around an user-defined struct.
