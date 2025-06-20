@@ -19,6 +19,7 @@ import "./interfaces/IOracle.sol";
 import "./lib/BytesLib.sol";
 import "./lib/Precompiled.sol";
 import "./liquid/LiquidState.sol";
+import "./ProtocolConstants.sol";
 import {ISlasher} from "./interfaces/ISlasher.sol";
 import {Slasher} from "./Slasher.sol";
 import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
@@ -156,7 +157,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
 
             // Sanitize the validator fields for a fresh new deployment.
             _validators[i].liquidSupply = 0;
-            _validators[i].conversionRatio = STANDARD_SCALE_FACTOR;
+            _validators[i].conversionRatio = CONVERSION_RATIO_SCALE_FACTOR;
             _validators[i].liquidStateContract = ILiquid(address(0));
             _validators[i].bondedStake = 0;
             _validators[i].selfBondedStake = 0;
@@ -285,7 +286,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             0,                       // jail release block
             _consensusKey,           // validator key in bytes
             ValidatorState.active,   // state
-            STANDARD_SCALE_FACTOR    // conversion ratio
+            CONVERSION_RATIO_SCALE_FACTOR    // conversion ratio
         );
 
         _verifyAndRegisterValidator(_val, _signatures);
@@ -1753,7 +1754,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                 _liquidAmount = _bonding.amount;
                 // if bonding and the previous delegated stake was 0,
                 // the validator goes back to a conversion ratio of 1:1
-                _validator.conversionRatio = STANDARD_SCALE_FACTOR;
+                _validator.conversionRatio = CONVERSION_RATIO_SCALE_FACTOR;
             } else {
                 _liquidAmount = (_validator.liquidSupply * _bonding.amount) / _delegatedStake;
             }
@@ -1947,7 +1948,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     function _updateConversionRatio(Validator storage _val) internal virtual {
         // NOTE: in case liquidSupply = 0 (all delegated stake is unbonded), the previous conversion ratio is kept.
         if(_val.liquidSupply != 0) {
-            _val.conversionRatio = ((_val.bondedStake - _val.selfBondedStake) * STANDARD_SCALE_FACTOR) / _val.liquidSupply;
+            _val.conversionRatio = ((_val.bondedStake - _val.selfBondedStake) * CONVERSION_RATIO_SCALE_FACTOR) / _val.liquidSupply;
         }
     }
 }

@@ -84,7 +84,7 @@ const BASE_VALIDATOR = {
         "unbondingStake": 0,
         "unbondingShares": 0,
         "consensusKey": "0x00",
-        "conversionRatio": 10000,
+        "conversionRatio": 10 ** 18,
     };
 
 const GENESIS_PRIVATE_KEYS = [

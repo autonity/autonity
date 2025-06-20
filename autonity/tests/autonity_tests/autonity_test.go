@@ -190,11 +190,11 @@ func TestAutonityBalance(t *testing.T) {
 func TestConversionRatio(t *testing.T) {
 	r := tests.Setup(t, nil)
 
-	// initial conversion ratio should be 10_000 for everyone
+	// initial conversion ratio should be 10 ^ 18 for everyone
 	for _, member := range r.Committee.Validators {
 		val, _, err := r.Autonity.GetValidator(nil, member.NodeAddress)
 		require.NoError(t, err)
-		require.Equal(t, uint64(10_000), val.ConversionRatio.Uint64())
+		require.Equal(t, uint64(1e18), val.ConversionRatio.Uint64())
 	}
 
 	var (
@@ -222,10 +222,6 @@ func TestConversionRatio(t *testing.T) {
 	// let delegations apply
 	r.WaitNextEpoch()
 
-	// increase a bit the rewards
-	// TODO: might need to increase decimals actually
-	_, err = r.Autonity.Mint(r.Operator, r.Autonity.Address(), params.Ntn40000)
-
 	// autobond at epoch end should increase the ratio
 	r.WaitNextEpoch()
 
@@ -235,7 +231,7 @@ func TestConversionRatio(t *testing.T) {
 			val, _, err := r.Autonity.GetValidator(nil, member.NodeAddress)
 			require.NoError(t, err)
 			t.Logf("conversion ratio: %s", val.ConversionRatio.String())
-			require.Greater(t, val.ConversionRatio.Uint64(), uint64(10_000))
+			require.Greater(t, val.ConversionRatio.Uint64(), uint64(1e18))
 		}
 	}
 
@@ -247,10 +243,9 @@ func TestConversionRatio(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("conversion ratio: %s", val.ConversionRatio.String())
 	t.Logf("liquid supply: %s", val.LiquidSupply.String())
-	require.Less(t, val.ConversionRatio.Uint64(), uint64(10_000))
-	ratioBeforeUnbond := val.ConversionRatio.Uint64()
+	require.Less(t, val.ConversionRatio.Uint64(), uint64(1e18))
 
-	// unbond everything - ratio should remain the same
+	// unbond everything
 	liquidContract := r.LiquidStateContract(validator1)
 	staker2LiquidBalance, _, err := liquidContract.BalanceOf(nil, staker2)
 	t.Log(staker2LiquidBalance)
@@ -264,22 +259,25 @@ func TestConversionRatio(t *testing.T) {
 	_, err = r.Autonity.Unbond(tests.FromSender(staker3, nil), validator1, staker3LiquidBalance)
 	require.NoError(t, err)
 
+	// ratio will still increase a bit due to the epoch rewards
+	r.WaitNextEpoch()
+
+	// from here on ratio should stay constant
+
+	val, _, err = r.Autonity.GetValidator(nil, validator1)
+	require.NoError(t, err)
+	t.Logf("conversion ratio: %s", val.ConversionRatio.String())
+	ratioAfterUnbond := val.ConversionRatio.Uint64()
+
+	r.WaitNextEpoch()
+	r.WaitNextEpoch()
+	r.WaitNextEpoch()
 	r.WaitNextEpoch()
 
 	val, _, err = r.Autonity.GetValidator(nil, validator1)
 	require.NoError(t, err)
 	t.Logf("conversion ratio: %s", val.ConversionRatio.String())
-	require.Equal(t, ratioBeforeUnbond, val.ConversionRatio.Uint64())
-
-	r.WaitNextEpoch()
-	r.WaitNextEpoch()
-	r.WaitNextEpoch()
-	r.WaitNextEpoch()
-
-	val, _, err = r.Autonity.GetValidator(nil, validator1)
-	require.NoError(t, err)
-	t.Logf("conversion ratio: %s", val.ConversionRatio.String())
-	require.Equal(t, ratioBeforeUnbond, val.ConversionRatio.Uint64())
+	require.Equal(t, ratioAfterUnbond, val.ConversionRatio.Uint64())
 
 	// bonding restores the ratio to 1:1
 	_, err = r.Autonity.Bond(tests.FromSender(staker3, nil), validator1, params.Ntn10000)
@@ -290,6 +288,6 @@ func TestConversionRatio(t *testing.T) {
 	val, _, err = r.Autonity.GetValidator(nil, validator1)
 	require.NoError(t, err)
 	t.Logf("conversion ratio: %s", val.ConversionRatio.String())
-	require.Equal(t, uint64(10_000), val.ConversionRatio.Uint64())
+	require.Equal(t, uint64(1e18), val.ConversionRatio.Uint64())
 
 }
