@@ -184,9 +184,11 @@ eventLoop:
 					// check if we have quorum for message type for this round
 					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 				}
+				needGossip := true
 				var err error
-				if e.Sender() == c.backend.Address() {
+				if e.Sender() == c.backend.Address() && !hasQuorum {
 					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+					needGossip = false
 				}
 
 				if err = c.handleMsg(ctx, msg); err != nil {
@@ -229,7 +231,7 @@ eventLoop:
 							break // do not gossip single message, only complex aggregate
 						}
 					}
-					if e.Sender() == c.backend.Address() {
+					if !needGossip {
 						// already gossiped
 						break
 					}
