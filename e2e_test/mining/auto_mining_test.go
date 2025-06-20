@@ -70,6 +70,9 @@ func TestMiningManagementOfValidators(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 
+	// wait for a while to let the nodes get synced with epoch rotation
+	network.WaitToMineNBlocks(10, 10, false)
+
 	// get new committee, and check the new size.
 	shrunkCommittee, err := client.Interactor.Call(nil).GetCommittee()
 	require.NoError(t, err)
@@ -100,6 +103,9 @@ func TestMiningManagementOfValidators(t *testing.T) {
 		}
 		time.Sleep(time.Second)
 	}
+
+	// wait for a while to let the nodes get synced with epoch rotation
+	network.WaitToMineNBlocks(10, 10, false)
 
 	// get new committee, and check the new size.
 	extendedCommittee, err := client.Interactor.Call(nil).GetCommittee()
