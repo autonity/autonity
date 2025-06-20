@@ -199,7 +199,8 @@ func (sb *Backend) Address() common.Address {
 // Broadcast implements tendermint.Backend.Broadcast
 func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	// send to others
-	sb.Gossip(committee, message)
+	//  moved to core handler
+	//sb.Gossip(committee, message)
 	// send to self (directly to Core and FD, no need to verify local messages)
 	sb.MessageToCore(events.NewMessageEvent(message, nil, sb.Address(), time.Now())) // core
 	go sb.Post(events.NewMessageEvent(message, nil, sb.Address(), time.Now()))          // FD

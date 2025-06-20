@@ -179,13 +179,15 @@ eventLoop:
 					c.logger.Debug("mainEventLoop: ignoring stale consensus message", "msg type", msg.Code(), "core height", c.Height().Uint64(), "msgHeight", msg.H(), "msgRound", msg.R())
 					break
 				}
-				// old height message should be rejected before checking quorum, because message map only stores round messages for current height
 				var hadQuorum, hasQuorum bool
 				if !c.noGossip {
 					// check if we have quorum for message type for this round
 					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 				}
 				var err error
+				if e.Sender() == c.backend.Address() {
+					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+				}
 
 				if err = c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err, "current Height", c.Height().Uint64(), "msg Height", msg.H(), "msg Round", msg.R())
@@ -194,13 +196,9 @@ eventLoop:
 						tryDisconnect(e.ErrCh(), err)
 						break
 					}
-					if errors.Is(err, constants.ErrFutureRoundMessage) && msg.Code() != message.ProposalCode {
+					if errors.Is(err, constants.ErrFutureRoundMessage) && msg.Code() != message.ProposalCode && e.Sender() != c.backend.Address() {
 						// immediately gossip future round votes
-						if e.Sender() == c.backend.Address() {
-							go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-						} else {
-							go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender())
-						}
+						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender())
 						recordMessageProcessingTime(msg.Code(), start)
 						break
 					}
@@ -231,17 +229,16 @@ eventLoop:
 							break // do not gossip single message, only complex aggregate
 						}
 					}
+					if e.Sender() == c.backend.Address() {
+						// already gossiped
+						break
+					}
 
 					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
 						go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 					} else {
 						// todo: refactor
-						if e.Sender() == c.backend.Address() {
-							// gossip caches and sends out
-							go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-						} else {
-							go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender())
-						}
+						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender())
 					}
 				}
 				recordMessageProcessingTime(msg.Code(), start)
