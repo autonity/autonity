@@ -107,8 +107,8 @@ type Core struct {
 	backend interfaces.Backend
 	cancel  context.CancelFunc
 
-	messageSub          *event.TypeMuxSubscription
-	messageEventCh      chan events.MessageEventer
+	stateEventSub  *event.TypeMuxSubscription
+	messageEventCh chan events.MessageEventer
 	candidateBlockCh    chan events.NewCandidateBlockEvent
 	committedCh         chan events.CommitEvent
 	timeoutEventSub     *event.TypeMuxSubscription

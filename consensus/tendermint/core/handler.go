@@ -54,16 +54,16 @@ func (c *Core) Stop() {
 }
 
 func (c *Core) subscribeEvents() {
-	c.messageSub = c.backend.Subscribe(StateRequestEvent{})
+	c.stateEventSub = c.backend.Subscribe(StateRequestEvent{})
 	c.candidateBlockCh = make(chan events.NewCandidateBlockEvent, 1)
 	c.committedCh = make(chan events.CommitEvent, 1)
-	c.messageEventCh = make(chan events.MessageEventer, 1000)
+	c.messageEventCh = make(chan events.MessageEventer, 1000) // todo(review) : channel size
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
 }
 
 // Unsubscribe all
 func (c *Core) unsubscribeEvents() {
-	c.messageSub.Unsubscribe()
+	c.stateEventSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
 }
 
@@ -302,7 +302,7 @@ eventLoop:
 				//}
 				recordMessageProcessingTime(msg.Code(), start)
 			}
-		case ev, _ := <-c.messageSub.Chan():
+		case ev, _ := <-c.stateEventSub.Chan():
 			c.handleStateDump(ev.Data.(StateRequestEvent))
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
