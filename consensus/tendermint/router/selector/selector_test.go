@@ -60,7 +60,7 @@ func TestSelector_SelectPeers_Proposal_CacheHit(t *testing.T) {
 	assert.NoError(t, err, "Failed to create clusters")
 	np.EXPECT().Clusters().Return(clusters).Times(1)
 
-	cacheKey := cache.GenerateKey(from, int(originator), message.ProposalCode)
+	cacheKey := cache.GenerateKey(int(originator), true)
 	cacheEntry := cache.Entry{Recipients: []common.Address{common.HexToAddress("0x222"), common.HexToAddress("0x333")}}
 	recipients.EXPECT().Get(cacheKey).Return(cacheEntry, true).Times(1)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).Times(2) // allConnected + clusterStatus
@@ -180,7 +180,7 @@ func TestSelector_SelectPeers_NonProposal_NoCache(t *testing.T) {
 	assert.NoError(t, err, "Failed to create clusters")
 	np.EXPECT().Clusters().Return(clusters).AnyTimes()
 
-	cacheKey := cache.GenerateKey(from, int(originator), message.PrevoteCode)
+	cacheKey := cache.GenerateKey(int(originator), false)
 	recipients.EXPECT().Get(cacheKey).Return(cache.Entry{}, false).Times(1)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
@@ -262,7 +262,7 @@ func TestSelector_selectBucketBasedNodes_Originator(t *testing.T) {
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x444")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 
-	nodes := selector.selectBucketBasedNodes(clusters, &committee, originator, 0, self, false)
+	nodes := selector.selectBucketBasedNodes(clusters, &committee, originator, 0, false)
 	assert.Contains(t, nodes, network.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node from cluster 1")
 	assert.Contains(t, nodes, network.Node{Addr: common.HexToAddress("0x333"), Lat: 150, ClusterID: 0}, "Expected node from cluster 0")
 }
@@ -305,9 +305,8 @@ func TestSelector_selectBucketBasedNodes_FirstRelayerOriginCluster(t *testing.T)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x444")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 
-	nodes := selector.selectBucketBasedNodes(clusters, &committee, firstRelayerOriginCluster, 0, common.HexToAddress("0x333"), true)
+	nodes := selector.selectBucketBasedNodes(clusters, &committee, firstRelayerOriginCluster, 0, true)
 	assert.Contains(t, nodes, network.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node from remote cluster")
-	assert.NotContains(t, nodes, network.Node{Addr: common.HexToAddress("0x333"), Lat: 150, ClusterID: 0}, "Expected from node excluded")
 }
 
 func TestSelector_deduplicate(t *testing.T) {
@@ -357,7 +356,7 @@ func TestSelector_selectCloseNodes(t *testing.T) {
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).Times(1)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).Times(1)
 
-	nodes := selector.selectCloseNodes(&committee, 0, 1, 2, []common.Address{self})
+	nodes := selector.selectCloseNodes(&committee, 0, 1, 2, self)
 	assert.Len(t, nodes, 2, "Expected 2 nodes (1 min, 1 low-latency)")
 	assert.Equal(t, common.HexToAddress("0x222"), nodes[0].Addr, "Expected lowest latency node first")
 }
@@ -392,7 +391,7 @@ func TestSelector_routingCandidatesFromCluster(t *testing.T) {
 	np.EXPECT().Clusters().Return(clusters).Times(1)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).Times(1)
 
-	candidates := selector.routingCandidatesFromCluster(clusters.ID(), []common.Address{self}, &committee)
+	candidates := selector.routingCandidatesFromCluster(clusters.ID(), self, &committee)
 	assert.Len(t, candidates, 1, "Expected one candidate")
 	assert.Equal(t, common.HexToAddress("0x222"), candidates[0].Addr, "Expected node 0x222")
 }
@@ -413,13 +412,6 @@ func TestSelector_allConnected(t *testing.T) {
 
 	result := selector.allConnected(recipientsToTest)
 	assert.False(t, result, "Expected false due to disconnected peer")
-}
-
-func TestSelector_containsAddress(t *testing.T) {
-	selector := &selector{}
-	addrs := []common.Address{common.HexToAddress("0x111"), common.HexToAddress("0x222")}
-	assert.True(t, selector.containsAddress(addrs, common.HexToAddress("0x111")), "Expected address to be found")
-	assert.False(t, selector.containsAddress(addrs, common.HexToAddress("0x333")), "Expected address not to be found")
 }
 
 func TestSelector_determineSenderType(t *testing.T) {

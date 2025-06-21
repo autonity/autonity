@@ -12,8 +12,7 @@ import (
 
 func TestCache_SetAndGet(t *testing.T) {
 	cache := New()
-	addr := common.HexToAddress("0x123")
-	key := GenerateKey(addr, 1, 2)
+	key := GenerateKey(1, true)
 	recipients := []common.Address{common.HexToAddress("0x456"), common.HexToAddress("0x789")}
 
 	cache.Set(key, recipients)
@@ -27,8 +26,7 @@ func TestCache_SetAndGet(t *testing.T) {
 
 func TestCache_UpdateLastUsed(t *testing.T) {
 	cache := New()
-	addr := common.HexToAddress("0x123")
-	key := GenerateKey(addr, 1, 42)
+	key := GenerateKey(1, true)
 	recipients := []common.Address{common.HexToAddress("0x456")}
 
 	// Set initial entry
@@ -49,8 +47,7 @@ func TestCache_UpdateLastUsed(t *testing.T) {
 
 func TestCache_Invalidate(t *testing.T) {
 	cache := New()
-	addr := common.HexToAddress("0x123")
-	key := GenerateKey(addr, 1, 42)
+	key := GenerateKey(1, true)
 	recipients := []common.Address{common.HexToAddress("0x456")}
 
 	// Set and verify entry
@@ -66,10 +63,8 @@ func TestCache_Invalidate(t *testing.T) {
 
 func TestCache_Cleanup(t *testing.T) {
 	cache := New()
-	addr1 := common.HexToAddress("0x123")
-	addr2 := common.HexToAddress("0x456")
-	key1 := GenerateKey(addr1, 1, 42)
-	key2 := GenerateKey(addr2, 1, 42)
+	key1 := GenerateKey(1, true)
+	key2 := GenerateKey(2, true)
 	recipients := []common.Address{common.HexToAddress("0x789")}
 
 	// Set entries with different LastUsed times
@@ -97,8 +92,7 @@ func TestCache_Cleanup(t *testing.T) {
 
 func TestCache_ConcurrentAccess(t *testing.T) {
 	cache := New()
-	addr := common.HexToAddress("0x123")
-	key := GenerateKey(addr, 1, 42)
+	key := GenerateKey(1, true)
 	recipients := []common.Address{common.HexToAddress("0x456")}
 
 	var wg sync.WaitGroup
@@ -149,11 +143,10 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 }
 
 func TestGenerateKey(t *testing.T) {
-	addr := common.HexToAddress("0x123")
 	senderType := 1
-	msgCode := uint8(42)
+	isProposal := true
 
-	key := GenerateKey(addr, senderType, msgCode)
-	expected := addr.Hex() + "-1-42"
+	key := GenerateKey(senderType, isProposal)
+	expected := "1-true"
 	assert.Equal(t, expected, key, "Generated key should match expected format")
 }
