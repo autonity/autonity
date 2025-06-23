@@ -290,6 +290,11 @@ func (m *Router) loop(ctx context.Context) {
 		initialMeasurementTimer.Stop()
 	}()
 
+	wasClustering := false
+	if m.inCommittee && len(m.committee) >= m.clusteringThreshold {
+		wasClustering = true
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -328,17 +333,20 @@ func (m *Router) loop(ctx context.Context) {
 			m.inCommittee = epoch.Committee.MemberByAddress(m.self) != nil
 			if !m.inCommittee || len(m.committee) < m.clusteringThreshold {
 				log.Info("Router: clustering not needed, skipping measurement")
+				if wasClustering {
+					// reset cluster
+					m.updateNetwork(network.Clusters{})
+					wasClustering = false
+				}
 				continue
 			}
+			wasClustering = true
 			m.updateCommittee(epoch)
-			nw, err := network.New(m.committee, m.Latencies(), m.self)
-			if err != nil {
-				log.Error("Router: failed to create network", "err", err)
-				continue
-			}
+			// we should never fail here, as we already made sure that we are in committee
+			nw, _ := network.New(m.committee, m.Latencies(), m.self)
 			m.updateNetwork(nw)
 			if err := m.measureLatency(); err != nil {
-				log.Warn("measureToReport failed", "err", err)
+				log.Warn("measureLatencies failed", "err", err)
 			}
 		}
 	}
@@ -350,15 +358,6 @@ func (m *Router) updateCommittee(epoch *types.Epoch) {
 		result[i] = member.Address
 	}
 	m.committee = result
-
-	m.retryMu.Lock()
-	m.nodesToRetry = make(map[common.Address]struct{})
-	for _, addr := range result {
-		if addr != m.self {
-			m.nodesToRetry[addr] = struct{}{}
-		}
-	}
-	m.retryMu.Unlock()
 }
 
 func (m *Router) updateNetwork(clusters network.Clusters) {

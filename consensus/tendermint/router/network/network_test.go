@@ -123,7 +123,7 @@ func TestClusters_ComputeLatencyBuckets(t *testing.T) {
 
 	clusters, err := createClusters(committee, latencyMap, self, numClusters)
 	assert.NoError(t, err, "Expected no error for create cluster")
-	clusters.ComputeLatencyBuckets()
+	clusters.computeLatencyBuckets()
 
 	var maxLatency uint = 150
 	maxLatency = uint(float64(maxLatency) * constants.MaxLatencyCapFactor)
@@ -148,7 +148,7 @@ func TestClusters_ComputeLatencyBuckets_EqualLatencies(t *testing.T) {
 
 	clusters, err := createClusters(committee, latencyMap, self, numClusters)
 	assert.NoError(t, err, "Expected no error for create cluster")
-	clusters.ComputeLatencyBuckets()
+	clusters.computeLatencyBuckets()
 
 	assert.Equal(t, 1.0, clusters.bucketSize, "Expected bucket size 1 for equal latencies")
 	assert.Contains(t, clusters.BucketNodes()[0], Node{Addr: common.HexToAddress("0x111"), Lat: 100, ClusterID: 0}, "Expected node 0x222 in bucket 0")
@@ -173,7 +173,7 @@ func TestClusters_AssignNodesToLatencyBuckets(t *testing.T) {
 		clusters, err := createClusters(committee, latencyMap, self, numClusters)
 		assert.NoError(t, err)
 
-		clusters.ComputeLatencyBuckets()
+		clusters.computeLatencyBuckets()
 
 		assert.Len(t, clusters.bucketNodes, 2, "Expected two remote clusters assigned")
 		// Find the bucket for node 0x222
@@ -204,7 +204,7 @@ func TestClusters_AssignNodesToLatencyBuckets(t *testing.T) {
 		clusters, err := createClusters(committee, latencyMap, self, numClusters)
 		assert.NoError(t, err)
 
-		clusters.ComputeLatencyBuckets()
+		clusters.computeLatencyBuckets()
 
 		assert.Len(t, clusters.bucketNodes, 2, "Expected both buckets to be filled")
 
@@ -234,7 +234,7 @@ func TestClusters_AssignNodesToLatencyBuckets(t *testing.T) {
 
 		clusters, err := createClusters(committee, latencyMap, self, numClusters)
 		assert.NoError(t, err)
-		clusters.ComputeLatencyBuckets()
+		clusters.computeLatencyBuckets()
 
 		bucketIdx := clusters.getBucketIndex(90)
 		assignedNodes := clusters.bucketNodes[bucketIdx]
@@ -265,7 +265,7 @@ func TestClusters_AssignNodesToLatencyBuckets(t *testing.T) {
 
 		clusters, err := createClusters(committee, latencyMap, self, numClusters)
 		assert.NoError(t, err)
-		clusters.ComputeLatencyBuckets()
+		clusters.computeLatencyBuckets()
 
 		assert.Len(t, clusters.bucketNodes, 3, "Expected all 3 buckets to be filled")
 
@@ -289,7 +289,7 @@ func TestClusters_AssignNodesToLatencyBuckets(t *testing.T) {
 
 		clusters, err := createClusters(committee, latencyMap, self, numClusters)
 		assert.NoError(t, err)
-		clusters.ComputeLatencyBuckets()
+		clusters.computeLatencyBuckets()
 
 		assert.Len(t, clusters.bucketNodes, 0, "Expected no buckets to be assigned")
 	})

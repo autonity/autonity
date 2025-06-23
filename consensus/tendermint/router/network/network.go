@@ -25,7 +25,7 @@ func New(
 	if err != nil {
 		return Clusters{}, err
 	}
-	c.ComputeLatencyBuckets()
+	c.computeLatencyBuckets()
 
 	return c, nil
 }

@@ -73,10 +73,8 @@ func createClusters(
 	if c.ownClusterID == -1 {
 		return Clusters{}, errors.New("self address not in committee")
 	}
-	c.maxLatency = uint(float64(c.maxLatency) * constants.MaxLatencyCapFactor)
-	if c.maxLatency < c.minLatency {
-		c.maxLatency = c.minLatency
-	}
+
+	c.maxLatency = c.minLatency + uint(float64(c.maxLatency-c.minLatency)*constants.MaxLatencyCapFactor)
 
 	// Sort each cluster by latency
 	for clusterID := range c.base {
@@ -104,7 +102,7 @@ func (c *Clusters) getBucketIndex(latency uint) int {
 	return bucketIdx
 }
 
-func (c *Clusters) ComputeLatencyBuckets() [][]Node {
+func (c *Clusters) computeLatencyBuckets() [][]Node {
 	bucketCount := len(c.base)
 	c.bucketSize = float64(c.maxLatency-c.minLatency) / float64(bucketCount)
 	if c.bucketSize < 1 {
