@@ -39,7 +39,7 @@ func TestNew_ValidCommittee(t *testing.T) {
 
 	assert.Equal(t, uint(100), clusters.minLatency, "Expected min latency 100")
 	expectedMax := uint(100) + (200-100)*maxLatencyCapFactor
-	assert.Equal(t, uint(expectedMax), clusters.maxLatency, "Expected max latency capped")
+	assert.Equal(t, expectedMax, clusters.maxLatency, "Expected max latency capped")
 	// Cluster 0: 0x111, 0x333
 	// Cluster 1: 0x222, 0x444 (sorted by latency)
 	assert.Equal(t, []Node{{Addr: common.HexToAddress("0x111"), Lat: 132, ClusterID: 0}, {Addr: common.HexToAddress("0x333"), Lat: 150, ClusterID: 0}}, clusters.base[0], "Expected cluster 0 nodes")
@@ -126,8 +126,7 @@ func TestClusters_ComputeLatencyBuckets(t *testing.T) {
 	assert.NoError(t, err, "Expected no error for create cluster")
 	clusters.computeLatencyBuckets()
 
-	var maxLatency uint = 150
-	maxLatency = clusters.minLatency + uint(float64(150.0-clusters.minLatency)*maxLatencyCapFactor)
+	maxLatency := clusters.minLatency + uint(float64(150.0-clusters.minLatency)*maxLatencyCapFactor)
 	expectedBucketSize := float64(maxLatency-100) / float64(numClusters)
 	assert.Equal(t, expectedBucketSize, clusters.bucketSize, "Expected correct bucket size")
 	assert.Equal(t, numClusters, len(clusters.bucketNodes), "Expected 2 buckets")
