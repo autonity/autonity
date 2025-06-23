@@ -10,7 +10,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/cache"
-	"github.com/autonity/autonity/consensus/tendermint/router/constants"
 	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/router/latency"
 	"github.com/autonity/autonity/consensus/tendermint/router/network"
@@ -20,6 +19,14 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+)
+
+const (
+	ScaleThresholdForClustering = 21
+	latencyDataExpiry           = 5 * time.Minute
+	retryLatencyTimeout         = 30 * time.Second
+	cacheCleanupInterval        = 10 * time.Minute
+	latencyMeasurementDelayCap  = 2000
 )
 
 func Setup(
@@ -77,7 +84,7 @@ func New(
 		self:                self,
 		peerSelector:        peerSelector,
 		network:             networkProvider,
-		clusteringThreshold: constants.ScaleThresholdForClustering,
+		clusteringThreshold: ScaleThresholdForClustering,
 	}
 	return router
 }
@@ -118,13 +125,15 @@ func (m *Router) Recipients(committee *types.Committee, msg message.Msg, from co
 	return recipients, nil
 }
 
-func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender common.Address) {
+func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender common.Address, recipients []common.Address) {
 	if m.peerFinder == nil {
 		log.Info("Router: peer finder not set")
 		return
 	}
+	if len(recipients) == 0 {
+		recipients, _ = m.Recipients(committee, msg, sender)
+	}
 
-	recipients, _ := m.Recipients(committee, msg, sender)
 	lostPeers := make([]common.Address, 0)
 	for _, recipient := range recipients {
 		if recipient == sender {
@@ -248,7 +257,7 @@ func (m *Router) retryLatency() error {
 	updated := false
 	m.latencyMu.Lock()
 	for addr, lat := range latencyMap {
-		if _, ok := m.latestLatencies[addr]; !ok || m.latestLatencies[addr] == constants.DefaultLatency {
+		if _, ok := m.latestLatencies[addr]; !ok || m.latestLatencies[addr] == network.DefaultLatency {
 			m.latestLatencies[addr] = lat
 			updated = true
 		}
@@ -280,8 +289,8 @@ func (m *Router) retryLatency() error {
 func (m *Router) loop(ctx context.Context) {
 	defer m.wg.Done()
 
-	retryTicker := time.NewTicker(constants.RetryLatencyTimeout)
-	cleanupTicker := time.NewTicker(constants.CacheCleanupInterval)
+	retryTicker := time.NewTicker(retryLatencyTimeout)
+	cleanupTicker := time.NewTicker(cacheCleanupInterval)
 	// wait for few seconds before starting the initial latency measurement
 	initialMeasurementTimer := time.NewTimer(5 * time.Second)
 	defer func() {
@@ -308,8 +317,8 @@ func (m *Router) loop(ctx context.Context) {
 				log.Warn("measureToReport failed", "err", err)
 			}
 			initialMeasurementTimer.C = nil
-		case <-time.After(constants.LatencyDataExpiry +
-			time.Duration(rand.Intn(constants.LatencyMeasurementDelayCap))*time.Millisecond):
+		case <-time.After(latencyDataExpiry +
+			time.Duration(rand.Intn(latencyMeasurementDelayCap))*time.Millisecond):
 			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < m.clusteringThreshold {
 				continue
 			}
@@ -317,7 +326,7 @@ func (m *Router) loop(ctx context.Context) {
 				log.Warn("measureToReport failed", "err", err)
 			}
 		case <-retryTicker.C:
-			retryTicker = time.NewTicker(constants.RetryLatencyTimeout)
+			retryTicker = time.NewTicker(retryLatencyTimeout)
 			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < m.clusteringThreshold {
 				continue
 			}

@@ -125,8 +125,7 @@ type Router interface {
 	Start(ctx context.Context, chain routerInterfaces.BlockChainProvider)
 	Stop()
 	SetBroadcaster(broadcaster routerInterfaces.PeerFinder)
-	Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
-	Forward(committee *types.Committee, m message.Msg, sender common.Address)
+	Forward(committee *types.Committee, m message.Msg, sender common.Address, recipients []common.Address)
 	Pinger() ping.Pinger
 	Selector() routerInterfaces.PeerSelector
 	SetPinger(ping.Pinger)

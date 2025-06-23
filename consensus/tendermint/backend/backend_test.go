@@ -155,7 +155,7 @@ func BenchmarkGossip(b *testing.B) {
 	sender := common.Address{}
 	rt := interfaces.NewMockRouter(ctrl)
 	rt.EXPECT().SetBroadcaster(broadcaster)
-	rt.EXPECT().Recipients(committee, gomock.Any(), sender).AnyTimes().Return(nil)
+	rt.EXPECT().Forward(committee, gomock.Any(), sender, nil).AnyTimes().Return(nil)
 
 	knownMessages := fixsizecache.New[common.Hash, bool](4997, 20, fixsizecache.HashKey[common.Hash])
 	bk := &Backend{
@@ -220,7 +220,7 @@ func TestGossip(t *testing.T) {
 	sender := common.Address{}
 	rt := interfaces.NewMockRouter(ctrl)
 	rt.EXPECT().SetBroadcaster(broadcaster)
-	rt.EXPECT().Recipients(committee, gomock.Any(), sender).AnyTimes().Return(addresses, nil)
+	rt.EXPECT().Forward(committee, gomock.Any(), sender, nil).AnyTimes().Return(addresses, nil)
 
 	b := &Backend{
 		database:      rawdb.NewMemoryDatabase(),

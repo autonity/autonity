@@ -203,7 +203,7 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	//sb.Gossip(committee, message)
 	// send to self (directly to Core and FD, no need to verify local messages)
 	sb.MessageToCore(events.NewMessageEvent(message, nil, sb.Address(), time.Now())) // core
-	go sb.Post(events.NewMessageEvent(message, nil, sb.Address(), time.Now()))          // FD
+	go sb.Post(events.NewMessageEvent(message, nil, sb.Address(), time.Now()))       // FD
 }
 
 func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {

@@ -11,7 +11,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/cache"
-	"github.com/autonity/autonity/consensus/tendermint/router/constants"
 	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/router/network"
 	"github.com/autonity/autonity/core/types"
@@ -27,6 +26,8 @@ const (
 	firstRelayerRemoteCluster
 	localRelayerRemoteCluster
 )
+
+const defaultNearThreshold = 50
 
 type selector struct {
 	networkProvider interfaces.NetworkProvider
@@ -287,7 +288,7 @@ func (s *selector) selectCloseNodes(committee *types.Committee, clusterID, minNo
 		}
 	}
 
-	for ; i < len(candidates) && candidates[i].Lat < uint(constants.DefaultNearThreshold) && len(selected) < lowLatencyNodes; i++ {
+	for ; i < len(candidates) && candidates[i].Lat < uint(defaultNearThreshold) && len(selected) < lowLatencyNodes; i++ {
 		c := candidates[i]
 		if _, exists := seen[c.Addr]; !exists {
 			seen[c.Addr] = struct{}{}

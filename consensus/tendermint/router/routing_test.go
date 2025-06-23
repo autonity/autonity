@@ -18,7 +18,6 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/cache"
-	"github.com/autonity/autonity/consensus/tendermint/router/constants"
 	"github.com/autonity/autonity/consensus/tendermint/router/mocks"
 	"github.com/autonity/autonity/consensus/tendermint/router/network"
 	"github.com/autonity/autonity/core"
@@ -182,8 +181,8 @@ func TestRouter_Recipients_LargeCommittee(t *testing.T) {
 	defer ctrl.Finish()
 
 	self := common.HexToAddress("0x111")
-	committeeAddrs := make([]common.Address, constants.ScaleThresholdForClustering+1)
-	for i := 0; i <= constants.ScaleThresholdForClustering; i++ {
+	committeeAddrs := make([]common.Address, ScaleThresholdForClustering+1)
+	for i := 0; i <= ScaleThresholdForClustering; i++ {
 		committeeAddrs[i] = common.HexToAddress(fmt.Sprintf("0x%03d", i+1))
 	}
 	committee := types.Committee{Members: make([]types.CommitteeMember, len(committeeAddrs))}
@@ -259,7 +258,7 @@ func TestRouter_Recipients_SelfNotInCommittee(t *testing.T) {
 	assert.Equal(t, committeeAddrs, recipients, "Expected all committee members")
 
 	// Large committee: clustering with error
-	committeeAddrs = append(committeeAddrs, make([]common.Address, constants.ScaleThresholdForClustering-1)...)
+	committeeAddrs = append(committeeAddrs, make([]common.Address, ScaleThresholdForClustering-1)...)
 	committee.Members = make([]types.CommitteeMember, len(committeeAddrs))
 	for i, addr := range committeeAddrs {
 		committee.Members[i] = types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)}
@@ -317,7 +316,7 @@ func TestRouter_Forward(t *testing.T) {
 	broadcaster.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(peer, true).Times(1)
 	broadcaster.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(nil, false).Times(1)
 
-	router.Forward(&committee, msg, self)
+	router.Forward(&committee, msg, self, nil)
 }
 
 func TestRouter_measureLatency(t *testing.T) {
@@ -474,7 +473,7 @@ func TestRouter_Loop_OverallFlow(t *testing.T) {
 	broadcaster.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(nil, false).Times(1)
 	broadcaster.EXPECT().FindPeer(common.HexToAddress("0x444")).Return(nil, false).Times(1)
 
-	router.Forward(&newCommittee, msg, self)
+	router.Forward(&newCommittee, msg, self, nil)
 
 	// Wait for goroutine to process
 	time.Sleep(500 * time.Millisecond)
@@ -628,7 +627,7 @@ func TestRouter_ConcurrentForward(t *testing.T) {
 				FakePower:  big.NewInt(1),
 			}
 			msg := message.NewFakePropose(fake)
-			router.Forward(&committee, msg, self)
+			router.Forward(&committee, msg, self, nil)
 		}(i)
 	}
 

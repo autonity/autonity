@@ -9,7 +9,7 @@ import (
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/router/constants"
+	"github.com/autonity/autonity/consensus/tendermint/router"
 	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
@@ -17,8 +17,8 @@ import (
 )
 
 type msgRouter interface {
-	Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error)
 	SetBroadcaster(broadcaster interfaces.PeerFinder)
+	Forward(committee *types.Committee, m message.Msg, sender common.Address, recipients []common.Address)
 }
 
 type Gossiper struct {
@@ -71,54 +71,25 @@ func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
 	// only gossip to very small committee
 	numTargets := len(committee.Members)
 	targetIndices := rand.Perm(numTargets) // target indices to select from the full committee
-	if numTargets > constants.ScaleThresholdForClustering {
+	if numTargets > router.ScaleThresholdForClustering {
 		numTargets = int(math.Sqrt(float64(numTargets)))
 	}
 	recipients := make([]common.Address, numTargets)
 	for i := 0; i < numTargets; i++ {
 		recipients[i] = committee.Members[targetIndices[i]].Address
 	}
-	g.gossip(msg, recipients)
+	if !g.knownMessages.Contains(msg.Hash()) {
+		g.knownMessages.Add(msg.Hash(), true)
+	}
+	g.router.Forward(committee, msg, g.address, recipients)
 }
 
 func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
-	recipients, _ := g.router.Recipients(committee, msg, g.address)
-	g.gossip(msg, recipients)
-}
-
-func (g *Gossiper) gossip(msg message.Msg, recipients []common.Address) {
-	hash := msg.Hash()
-
-	// if it's an aggregate the originator is the representative of the signers, so check in cache first and then add
-	if !g.knownMessages.Contains(hash) {
-		g.knownMessages.Add(hash, true)
+	// self message caching
+	if !g.knownMessages.Contains(msg.Hash()) {
+		g.knownMessages.Add(msg.Hash(), true)
 	}
-
-	if g.broadcaster == nil {
-		return
-	}
-	code := message.NetworkCodes[msg.Code()]
-	payload := msg.Payload()
-	lostPeers := make([]common.Address, 0)
-	for _, addr := range recipients {
-		if addr == g.address {
-			continue
-		}
-		if p, ok := g.broadcaster.FindPeer(addr); ok {
-			if p.Cache().Contains(hash) {
-				// This peer had this event, skip it
-				continue
-			}
-			p.Cache().Add(hash, true)
-			go p.SendRaw(code, payload) //nolint
-		} else {
-			lostPeers = append(lostPeers, addr)
-		}
-	}
-	if len(lostPeers) > 0 {
-		// this can happen if peers get disconnected on the ACN network
-		g.logger.Debug("peers not found", "len", len(lostPeers), "peers", lostPeers)
-	}
+	g.router.Forward(committee, msg, g.address, nil)
 }
 
 func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {

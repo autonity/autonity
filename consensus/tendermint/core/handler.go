@@ -200,7 +200,7 @@ eventLoop:
 					}
 					if errors.Is(err, constants.ErrFutureRoundMessage) && msg.Code() != message.ProposalCode && e.Sender() != c.backend.Address() {
 						// immediately gossip future round votes
-						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender())
+						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender(), nil)
 						recordMessageProcessingTime(msg.Code(), start)
 						break
 					}
@@ -239,8 +239,7 @@ eventLoop:
 					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
 						go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
 					} else {
-						// todo: refactor
-						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender())
+						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender(), nil)
 					}
 				}
 				recordMessageProcessingTime(msg.Code(), start)
@@ -294,11 +293,6 @@ eventLoop:
 						}
 					}
 				}
-				//if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
-				//	go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
-				//} else {
-				//	go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender)
-				//}
 				recordMessageProcessingTime(msg.Code(), start)
 			}
 		case ev, _ := <-c.stateEventSub.Chan():
@@ -354,7 +348,7 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 			c.logger.Debug("livenessTrackerLoop has been stopped before initial sync", "event", ctx.Err())
 			return
 		default:
-			c.logger.Warn("Failed to ask initial consensus sync, retrying...", "err", err)
+			c.logger.Trace("Failed to ask initial consensus sync, retrying...", "err", err)
 			time.Sleep(100 * time.Millisecond)
 		}
 	}

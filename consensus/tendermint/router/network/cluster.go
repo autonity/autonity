@@ -8,8 +8,12 @@ import (
 	"strings"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/router/constants"
 	"github.com/autonity/autonity/log"
+)
+
+const (
+	maxLatencyCapFactor = 0.85
+	DefaultLatency      = uint(132)
 )
 
 type Node struct {
@@ -50,7 +54,7 @@ func createClusters(
 	}
 
 	for i, addr := range committee {
-		latency := constants.DefaultLatency
+		latency := DefaultLatency
 		clusterID := i % numClusters
 		if addr == self {
 			c.ownClusterID = clusterID
@@ -74,7 +78,7 @@ func createClusters(
 		return Clusters{}, errors.New("self address not in committee")
 	}
 
-	c.maxLatency = c.minLatency + uint(float64(c.maxLatency-c.minLatency)*constants.MaxLatencyCapFactor)
+	c.maxLatency = c.minLatency + uint(float64(c.maxLatency-c.minLatency)*maxLatencyCapFactor)
 
 	// Sort each cluster by latency
 	for clusterID := range c.base {
@@ -102,7 +106,7 @@ func (c *Clusters) getBucketIndex(latency uint) int {
 	return bucketIdx
 }
 
-func (c *Clusters) computeLatencyBuckets() [][]Node {
+func (c *Clusters) computeLatencyBuckets() {
 	bucketCount := len(c.base)
 	c.bucketSize = float64(c.maxLatency-c.minLatency) / float64(bucketCount)
 	if c.bucketSize < 1 {
@@ -131,11 +135,10 @@ func (c *Clusters) computeLatencyBuckets() [][]Node {
 
 	printLatencyBuckets(buckets, c.bucketSize, c.minLatency)
 	c.assignNodesToLatencyBuckets(buckets)
-	return buckets
 }
 
-// assignNodesToLatencyBuckets attempts to assign one primary node and up to 2 fallback nodes per  cluster to buckets
-// although there is no guarantee that all clusters with have a representation, but we make sure that all the buckets
+// assignNodesToLatencyBuckets attempts to assign one primary node and up to 2 fallback nodes per cluster to the latency specific
+// buckets although there is no guarantee that all clusters w have a representation, but we make sure that all the buckets
 // will have at least one node assigned
 func (c *Clusters) assignNodesToLatencyBuckets(buckets [][]Node) {
 	bucketCount := len(buckets)
@@ -171,7 +174,7 @@ func (c *Clusters) assignNodesToLatencyBuckets(buckets [][]Node) {
 		return fallbacks
 	}
 
-	// 1st pass: maximize cluster assignment to buckets
+	// 1st pass: maximize cluster assignment to latency buckets
 	for bucketIdx, bucketNodes := range buckets {
 		for _, node := range bucketNodes {
 			if clusterAssigned[node.ClusterID] {

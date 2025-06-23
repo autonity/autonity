@@ -305,7 +305,7 @@ func TestSelector_selectBucketBasedNodes_FirstRelayerOriginCluster(t *testing.T)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x444")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 
-	nodes := selector.selectBucketBasedNodes(clusters, &committee, firstRelayerOriginCluster, 0, common.HexToAddress("0x333"), false)
+	nodes := selector.selectBucketBasedNodes(clusters, &committee, firstRelayerOriginCluster, 0, common.HexToAddress("0x333"), true)
 	assert.Contains(t, nodes, network.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node from remote cluster")
 	assert.NotContains(t, nodes, network.Node{Addr: common.HexToAddress("0x333"), Lat: 150, ClusterID: 0}, "Expected from node excluded")
 }

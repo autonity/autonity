@@ -114,7 +114,7 @@ func TestUnhandledMsgs(t *testing.T) {
 		for {
 			select {
 			case eve := <-sub.Chan():
-				message := eve.Data.(events.MessageEvent).Message
+				message := eve.Data.(events.MessageEvent).Message()
 				if message.R() != 1 || message.H() != 1 {
 					t.Fatalf("message not expected")
 				}

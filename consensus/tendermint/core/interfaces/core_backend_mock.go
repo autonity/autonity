@@ -688,15 +688,15 @@ func (m *MockRouter) EXPECT() *MockRouterMockRecorder {
 }
 
 // Forward mocks base method.
-func (m_2 *MockRouter) Forward(committee *types.Committee, m message.Msg, sender common.Address) {
+func (m_2 *MockRouter) Forward(committee *types.Committee, m message.Msg, sender common.Address, recipients []common.Address) {
 	m_2.ctrl.T.Helper()
-	m_2.ctrl.Call(m_2, "Forward", committee, m, sender)
+	m_2.ctrl.Call(m_2, "Forward", committee, m, sender, recipients)
 }
 
 // Forward indicates an expected call of Forward.
-func (mr *MockRouterMockRecorder) Forward(committee, m, sender any) *gomock.Call {
+func (mr *MockRouterMockRecorder) Forward(committee, m, sender, recipients any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Forward", reflect.TypeOf((*MockRouter)(nil).Forward), committee, m, sender)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Forward", reflect.TypeOf((*MockRouter)(nil).Forward), committee, m, sender, recipients)
 }
 
 // Pinger mocks base method.
@@ -711,21 +711,6 @@ func (m *MockRouter) Pinger() ping.Pinger {
 func (mr *MockRouterMockRecorder) Pinger() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pinger", reflect.TypeOf((*MockRouter)(nil).Pinger))
-}
-
-// Recipients mocks base method.
-func (m *MockRouter) Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Recipients", committee, msg, from)
-	ret0, _ := ret[0].([]common.Address)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Recipients indicates an expected call of Recipients.
-func (mr *MockRouterMockRecorder) Recipients(committee, msg, from any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recipients", reflect.TypeOf((*MockRouter)(nil).Recipients), committee, msg, from)
 }
 
 // Selector mocks base method.
