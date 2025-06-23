@@ -15,6 +15,7 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/rlp"
 )
 
 type UnhandledMsg struct {
@@ -142,7 +143,12 @@ func handleConsensusMsg[T any, PT interface {
 		panic("todo")
 	}
 	if p2pMsg.Code == message.PrevoteNetworkMsg || p2pMsg.Code == message.PrecommitNetworkMsg {
-		hash = crypto.Hash(payloadBytes[:len(payloadBytes)-20])
+		// TODO: worth having a func that does the hash from the `payloadBytes` directly
+		payload, _, err := rlp.ExtractAddress(payloadBytes)
+		if err != nil {
+			panic("TODO")
+		}
+		hash = crypto.Hash(payload)
 	} else {
 		hash = crypto.Hash(payloadBytes)
 	}

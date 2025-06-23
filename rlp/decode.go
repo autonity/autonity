@@ -43,6 +43,8 @@ var (
 	ErrElemTooLarge     = errors.New("rlp: element is larger than containing list")
 	ErrValueTooLarge    = errors.New("rlp: value size exceeds available input length")
 	ErrMoreThanOneValue = errors.New("rlp: input contains more than one value")
+	ErrCannotAppend     = errors.New("rlp: list is too long, cannot append address")
+	ErrCannotExtract    = errors.New("rlp: list is too short, cannot extract address")
 
 	// internal errors
 	errNotInList     = errors.New("rlp: call of ListEnd outside of any list")

@@ -18,7 +18,10 @@ package rlp
 
 import (
 	"io"
+	"math"
 	"reflect"
+
+	"github.com/autonity/autonity/common"
 )
 
 // RawValue represents an encoded RLP value and can be used to delay
@@ -258,4 +261,93 @@ func AppendUint64(b []byte, i uint64) []byte {
 			byte(i),
 		)
 	}
+}
+
+// NOTE: l needs to be a list. The list is going to be expanded and the address appended at the end
+func AppendAddress(original []byte, addr common.Address) ([]byte, error) {
+	// copy list so that original one is not partially modified
+	list := make([]byte, len(original), len(original)+common.AddressLength)
+	copy(list, original)
+
+	k, tagSize, contentSize, err := readKind(list)
+	if err != nil {
+		return nil, err
+	}
+	if k == Byte || k == String {
+		return nil, ErrExpectedList
+	}
+	// rule out extreme edge case
+	if contentSize > math.MaxUint64-common.AddressLength {
+		return nil, ErrCannotAppend
+	}
+
+	newContentSize := contentSize + common.AddressLength
+	newTagSize := uint64(headsize(newContentSize))
+
+	switch {
+	case tagSize == 1 && newTagSize == 1:
+		// remains short list, just need to update tag
+		list[0] = byte(0xC0 + newContentSize)
+	case tagSize == 1 && newTagSize > 1:
+		// becomes long list, next case will update the tag size
+		// here update only the first byte of the tag
+		list[0] = byte(0xF7)
+		fallthrough
+	default: // tagSize > 1 && newTagSize > 1 || falling through
+		// if the new tag size is bigger than the previous one need to:
+		// - update first byte
+		// - add bytes after the first one
+		if newTagSize > tagSize {
+			list = append([]byte{0xF7 + byte(newTagSize-1)}, append(make([]byte, newTagSize-1), list[tagSize:]...)...)
+		}
+		// update the new size value
+		putint(list[1:], newContentSize)
+	}
+	// append the actual address
+	list = append(list, addr[:]...)
+	return list, nil
+}
+
+func ExtractAddress(original []byte) ([]byte, common.Address, error) {
+	k, tagSize, contentSize, err := readKind(original)
+	if err != nil {
+		return nil, common.Address{}, err
+	}
+	if k == Byte || k == String {
+		return nil, common.Address{}, ErrExpectedList
+	}
+
+	if contentSize < common.AddressLength {
+		return nil, common.Address{}, ErrCannotExtract
+	}
+
+	// copy list so that original one is not partially modified
+	list := make([]byte, len(original))
+	copy(list, original)
+
+	newContentSize := contentSize - common.AddressLength
+	newTagSize := uint64(headsize(newContentSize))
+
+	switch {
+	case tagSize == 1 && newTagSize == 1:
+		// remains short list
+		list[0] = byte(0xC0 + newContentSize)
+	case tagSize > 1 && newTagSize == 1:
+		// long list becomes short list
+		list = append([]byte{0xC0 + byte(newContentSize)}, list[tagSize:]...)
+	default: // tagSize > 1 && newTagSize > 1:
+		// if the new tag size is smaller than the previous one, need to:
+		// - update first byte
+		// - remove excess bytes after the first one
+		if newTagSize < tagSize {
+			list = append([]byte{0xF7 + byte(newTagSize-1)}, list[1+tagSize-newTagSize:]...)
+		}
+
+		// update the new size value
+		putint(list[1:], newContentSize)
+	}
+	// extract address and remove it from the list
+	list = list[:len(list)-common.AddressLength]
+	address := common.BytesToAddress(list[len(list)-common.AddressLength:])
+	return list, address, nil
 }

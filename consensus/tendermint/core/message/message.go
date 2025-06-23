@@ -573,7 +573,7 @@ PE interface {
 
 	// append the originator as the last 20 bytes of the payload
 	var err error
-	payload, err = rlp.AppendToEncodedList(payload, self.Address.Bytes())
+	payload, err = rlp.AppendAddress(payload, self.Address)
 	if err != nil {
 		panic("todo")
 	}
@@ -676,7 +676,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, self common.Address) *E
 	})
 
 	// append the originator as the last 20 bytes of the payload
-	payload, err = rlp.AppendToEncodedList(payload, self.Bytes())
+	payload, err = rlp.AppendAddress(payload, self)
 	if err != nil {
 		panic("todo")
 	}
@@ -805,7 +805,7 @@ PE interface {
 		})
 
 		// append the originator as the last 20 bytes of the payload
-		payload, err = rlp.AppendToEncodedList(payload, self.Bytes())
+		payload, err = rlp.AppendAddress(payload, self)
 		if err != nil {
 			panic("todo")
 		}
@@ -833,12 +833,12 @@ PE interface {
 }
 
 func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
-	payload, err := s.Raw()
+	fullPayload, err := s.Raw()
 	if err != nil {
 		return err
 	}
 
-	payload, originator, err := rlp.ExtractAddressFromList(payload)
+	payload, originator, err := rlp.ExtractAddress(fullPayload)
 
 	encoded := &extVote{}
 	if err := rlp.DecodeBytes(payload, encoded); err != nil {
@@ -868,7 +868,7 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	p.signature = encoded.Signature
 	p.signers = encoded.Signers
 	p.originator = originator
-	p.payload = payload
+	p.payload = fullPayload
 	// precompute hash and signature hash
 	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrevoteCode, encoded.Value)
 	p.hash = crypto.Hash(payload)
@@ -878,12 +878,12 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 }
 
 func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
-	payload, err := s.Raw()
+	fullPayload, err := s.Raw()
 	if err != nil {
 		return err
 	}
 
-	payload, originator, err := rlp.ExtractAddressFromList(payload)
+	payload, originator, err := rlp.ExtractAddress(fullPayload)
 
 	encoded := &extVote{}
 	if err := rlp.DecodeBytes(payload, encoded); err != nil {
