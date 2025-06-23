@@ -1643,6 +1643,11 @@ func (bc *BlockChain) WriteBlockAndSetHead(block *types.Block, receipts []*types
 	if len(logs) > 0 {
 		bc.logsFeed.Send(logs)
 	}
+
+	if block.IsEpochHead() {
+		bc.epochHeadFeed.Send(EpochHeadEvent{block.Header()})
+	}
+
 	// In theory, we should fire a ChainHeadEvent when we inject
 	// a canonical block, but sometimes we can insert a batch of
 	// canonical blocks. Avoid firing too many ChainHeadEvents,
