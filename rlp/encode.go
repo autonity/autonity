@@ -155,6 +155,107 @@ func AppendToEncodedList(l []byte, b []byte) ([]byte, error) {
 	return list, nil
 }
 
+// TODO: not sure if copy and return is necessary + change name
+func ExtractAddressFromList(l []byte) ([]byte, common.Address, error) {
+	if len(l) == 0 {
+		return nil, common.Address{}, ErrExpectedList
+	}
+
+	list := make([]byte, len(l))
+	copy(list, l)
+	firstbyte := list[0]
+
+	isShortList := false
+	expectedSize := uint64(0)
+
+	switch {
+	case firstbyte < 0x80:
+		// For a single byte whose value is in the [0x00, 0x7F] range, that byte
+		// is its own RLP encoding.
+		return nil, common.Address{}, ErrExpectedList
+	case firstbyte < 0xB8:
+		// Otherwise, if a string is 0-55 bytes long, the RLP encoding consists
+		// of a single byte with value 0x80 plus the length of the string
+		// followed by the string. The range of the first byte is thus [0x80, 0xB7].
+		return nil, common.Address{}, ErrExpectedList
+	case firstbyte < 0xC0:
+		// If a string is more than 55 bytes long, the RLP encoding consists of a
+		// single byte with value 0xB7 plus the length of the length of the
+		// string in binary form, followed by the length of the string, followed
+		// by the string. For example, a length-1024 string would be encoded as
+		// 0xB90400 followed by the string. The range of the first byte is thus
+		// [0xB8, 0xBF].
+		return nil, common.Address{}, ErrExpectedList
+	case firstbyte < 0xF8:
+		// If the total payload of a list (i.e. the combined length of all its
+		// items) is 0-55 bytes long, the RLP encoding consists of a single byte
+		// with value 0xC0 plus the length of the list followed by the
+		// concatenation of the RLP encodings of the items. The range of the
+		// first byte is thus [0xC0, 0xF7].
+		isShortList = true
+		expectedSize = uint64(firstbyte - 0xC0)
+		// todo: edge case where it is == 20
+		if expectedSize < 20 {
+			return nil, common.Address{}, ErrExpectedList
+		}
+	default:
+		// If the total payload of a list is more than 55 bytes long, the RLP
+		// encoding consists of a single byte with value 0xF7 plus the length of
+		// the length of the payload in binary form, followed by the length of
+		// the payload, followed by the concatenation of the RLP encodings of
+		// the items. The range of the first byte is thus [0xF8, 0xFF].
+		isShortList = false
+		sizeSize := uint64(firstbyte - 0xF7)
+
+		if uint64(len(list)) < 1+sizeSize {
+			return nil, common.Address{}, ErrExpectedList
+		}
+
+		sizeBytes := list[1 : 1+sizeSize]
+		expectedSize = binary.BigEndian.Uint64(common.LeftPadBytes(sizeBytes, 8))
+		if expectedSize < 56 {
+			return nil, common.Address{}, ErrExpectedList
+		}
+
+		if uint64(len(list)) != 1+sizeSize+expectedSize {
+			return nil, common.Address{}, ErrExpectedList
+		}
+	}
+
+	newSize := expectedSize - uint64(len(common.Address{}))
+
+	switch {
+	case isShortList:
+		// remains short list
+		list[0] = byte(0xC0 + newSize)
+	case !isShortList && newSize <= 55:
+		// long list becomes short list
+		sizeSize := uint64(list[0] - 0xF7)
+		list = append([]byte{0xC0 + byte(newSize)}, list[1+sizeSize:]...)
+	case !isShortList:
+		// update the size size, but remains long list
+		sizeSize := uint64(list[0] - 0xF7)
+		newSizeBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(newSizeBytes, newSize)
+		newSizeBytes = common.TrimLeftZeroes(newSizeBytes)
+		newSizeSize := uint64(len(newSizeBytes))
+
+		// if the new size size is smaller than the previous one, need to:
+		// - update first byte
+		// - remove excess bytes after the first one
+		if newSizeSize < sizeSize {
+			list = append([]byte{0xF7 + byte(newSizeSize)}, list[1+sizeSize-newSizeSize:]...)
+		}
+
+		// update the new size value
+		copy(list[1:], newSizeBytes)
+	}
+	list = list[:len(list)-20]
+	address := common.BytesToAddress(list[len(list)-20:])
+	return list, address, nil
+
+}
+
 // Encode writes the RLP encoding of val to w. Note that Encode may
 // perform many small writes in some cases. Consider making w
 // buffered.
