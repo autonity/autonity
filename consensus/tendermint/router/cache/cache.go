@@ -91,6 +91,6 @@ func (c *peerCache) Cleanup() {
 	}
 }
 
-func GenerateKey(from common.Address, senderType int, msgCode uint8) string {
-	return fmt.Sprintf("%s-%d-%d", from.Hex(), senderType, msgCode)
+func GenerateKey(senderType int, isProposal bool) string {
+	return fmt.Sprintf("%d-%v", senderType, isProposal)
 }
