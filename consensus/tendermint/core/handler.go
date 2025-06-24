@@ -237,6 +237,8 @@ eventLoop:
 
 					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
 						go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
+					} else if e.Sender() == c.backend.Address() {
+						go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 					} else {
 						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender(), nil)
 					}
@@ -333,7 +335,7 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 
 	// Ask for sync when the engine starts. Retry until sync succeeds or we are stopped
 	for {
-		err := c.backend.AskSync(c.committee.Committee(), c.createSyncMsg())
+		err := c.backend.AskSync(c.CommitteeSet().Committee(), c.createSyncMsg())
 		if err == nil {
 			break
 		}

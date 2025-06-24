@@ -55,12 +55,6 @@ func (set *RoundRobinCommittee) Committee() *types.Committee {
 	return set.committee
 }
 
-func (set *RoundRobinCommittee) SetCommittee(committee *types.Committee) {
-	set.mu.Lock()
-	defer set.mu.Unlock()
-	set.committee = committee
-}
-
 func (set *RoundRobinCommittee) MemberByIndex(i int) (*types.CommitteeMember, error) {
 	set.mu.RLock()
 	defer set.mu.RUnlock()
