@@ -511,53 +511,92 @@ func (nw Network) WaitForNetworkToStartMining() error {
 	}
 }
 
+// LatestHead returns the latest chain head height of the network
+func (nw Network) LatestHead() uint64 {
+	var height uint64
+	for _, n := range nw {
+		if !n.isRunning {
+			continue
+		}
+		head := n.Eth.BlockChain().CurrentBlock().Number.Uint64()
+		if head > height {
+			height = head
+		}
+	}
+	return height
+}
+
+// LatestEpoch returns the latest epoch info of the network
+func (nw Network) LatestEpoch() *types.EpochInfo {
+	var epoch *types.EpochInfo
+	for _, n := range nw {
+		if !n.isRunning {
+			continue
+		}
+		latestEpoch, err := n.Eth.BlockChain().LatestEpoch()
+		if err != nil {
+			panic(err)
+		}
+		if epoch == nil {
+			epoch = latestEpoch
+		} else {
+			if epoch.EpochBlock.Cmp(latestEpoch.EpochBlock) < 0 {
+				epoch = latestEpoch
+			}
+		}
+	}
+	return epoch
+}
+
 // WaitToMineNBlocks waits for network to mine given number of
 // blocks in the given time window default value for numSec can be kept 60 seconds
 // if verifyRate == true --> we return an error if we cannot satisfy that 1 block/s rate
 func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int, verifyRate bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(numSec)*time.Second)
 	defer cancel()
-	// cache current chain height for all nodes
-	chainHeights := make([]uint64, len(nw))
-	lastHeights := make([]uint64, len(nw))
-	for i, n := range nw {
-		if n.isRunning {
-			chainHeights[i] = n.Eth.BlockChain().CurrentHeader().Number.Uint64()
-			lastHeights[i] = chainHeights[i]
-		}
-	}
+
+	startHeight := nw.LatestHead()
 	syncTicker := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case <-syncTicker.C:
-			totalRunning := 0
+
+			// As the omission accountability can kick out those faulty nodes from committee, those faulty nodes
+			// can be out of sync as the protocol disconnect them from the execution layer as well, thus, we only
+			// select committee members for liveness verification in this function.
+			latestEpoch := nw.LatestEpoch()
 			syncedNodes := 0
+			noCounts := 0
 			for i, n := range nw {
-				// skipping nodes which are not running
-				if !n.isRunning {
+				// node out of committee is no longer verified as faulty node can be disconnected from execution layer.
+				member := latestEpoch.Committee.MemberByAddress(n.Address)
+				// skipping nodes which are not running or a member of committee.
+				if !n.isRunning || member == nil {
+					noCounts++
+					fmt.Fprintf(os.Stderr, "node: %d, address: %s is not running or not a committee member \n", i, n.Address)
 					continue
 				}
+
 				currHeader := n.Eth.BlockChain().CurrentHeader()
 				currHeight := currHeader.Number.Uint64()
-				if currHeight > chainHeights[i]+numBlocks {
+				fmt.Fprintf(os.Stderr, "node: %d, address: %s, current head %d, targetHeight %d \n", i, n.Address, currHeight, startHeight+numBlocks)
+				if currHeight > startHeight+numBlocks {
 					syncedNodes++
 				}
-				totalRunning++
 
 				// verify block rate against parent if we moved forward
 				// it is not bulletproof but good enough
 				// (we could have moved 2 blocks from last iteration, with first block not respecting the rate and second yes)
-				if verifyRate && currHeight > lastHeights[i] {
+				if verifyRate && currHeight > startHeight {
 					currTime := currHeader.Time
 					parentTime := n.Eth.BlockChain().GetHeaderByHash(currHeader.ParentHash).Time
 					if currTime-parentTime != 1 {
 						return fmt.Errorf("block rate not respected. parentTime: %d, currTime: %d", parentTime, currTime)
 					}
 				}
-				lastHeights[i] = currHeight
 			}
 			// all the running nodes should reach the required chainHeight
-			if syncedNodes == totalRunning {
+			if syncedNodes >= latestEpoch.Committee.Len()-noCounts {
 				fmt.Fprintf(os.Stderr, "[ORC] All nodes synced \n")
 				return nil
 			}

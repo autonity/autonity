@@ -44,7 +44,7 @@ func testSyncMode(t *testing.T, mode downloader.SyncMode) {
 	// Snap sync might take a while since it dumps and replicates entire world state.
 	_ = network.WaitToMineNBlocks(200, 200, false)
 	require.Equal(t, true, syncNode.IsSyncComplete())
-	require.True(t, true, syncNode.GetChainHeight() > 0)
+	require.True(t, true, syncNode.GetChainHeight() > 400)
 	epoch, err := syncNode.Eth.BlockChain().LatestEpoch()
 	require.NoError(t, err)
 	require.Greater(t, epoch.PreviousEpochBlock.Uint64(), uint64(0))

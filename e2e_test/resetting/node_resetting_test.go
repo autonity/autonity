@@ -184,11 +184,14 @@ func TestKeepResettingRandomOneNode(t *testing.T) {
 		err = network[nodeID].Close(false)
 		network[nodeID].Wait()
 		require.NoError(t, err)
-		time.Sleep(20 * time.Second)
+		time.Sleep(5 * time.Second)
+		network.WaitToMineNBlocks(10, 60, false)
+
 		// recover that faulty node.
 		err = network[nodeID].Start()
 		require.NoError(t, err)
-		time.Sleep(20 * time.Second)
+		time.Sleep(5 * time.Second)
+		network.WaitToMineNBlocks(10, 60, false)
 	}
 }
 
@@ -248,9 +251,9 @@ func TestKeepResettingRandomThreeNodes(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(10, 60, false)
-		require.EqualError(t, err, "context deadline exceeded")
+		// This WaitToMineNBlocks could be timeout or be successful as the protocol kick out omission faulty nodes.
+		// Thus, we just wait until it returns.
+		network.WaitToMineNBlocks(10, 60, false)
 
 		// recover the three faulty nodes.
 		for _, n := range nodes {

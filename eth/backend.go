@@ -621,6 +621,11 @@ func (s *Ethereum) validatorController() {
 		}
 
 		index := s.topologySelector.MyIndex(committee.List, s.p2pServer.LocalNode())
+		// todo discuss: we should have DNS seed nodes to keep those validators which are out of committee can be synced
+		//  from execution layer, otherwise they might be isolated, it would cost a long period to get synced again once
+		//  they are selected as committee member again on epoch rotation, and during this long sync period,
+		//  it could be omission faulty as it cannot participate in the consensus voting.
+		// Disconnect validator candidates from execution network layer.
 		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, index), committee.List)
 	}
 	wasValidating := false
@@ -660,6 +665,11 @@ func (s *Ethereum) validatorController() {
 				if wasValidating {
 					s.log.Info("Local node no longer detected part of the consensus committee, mining stopped")
 					s.miner.Stop()
+					// todo discuss: we should have DNS seed nodes to keep those validators which are out of committee can be synced
+					//  from execution layer, otherwise they might be isolated, it would cost a long period to get synced again once
+					//  they are selected as committee member again on epoch rotation, and during this log sync period,
+					//  it could be omission faulty as it cannot participate in the consensus voting.
+					// Disconnect validator candidates from execution network layer.
 					s.p2pServer.UpdateConsensusEnodes(nil, nil)
 					wasValidating = false
 				}
