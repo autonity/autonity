@@ -148,8 +148,10 @@ func TestDecodeAndVerifyProofs(t *testing.T) {
 		require.Equal(t, tc.outCome, err)
 		if tc.outCome == nil {
 			assert.Equal(t, tc.Proof.Rule, decodeProof.Rule)
-			assert.Equal(t, tc.Proof.Message.Signature(), decodeProof.Message.Signature())
-			assert.Equal(t, tc.Proof.Evidences, decodeProof.Evidences)
+			assert.Equal(t, tc.Proof.Message.Hash(), decodeProof.Message.Hash())
+			for j, evidenceMsg := range tc.Proof.Evidences {
+				assert.Equal(t, evidenceMsg.Hash(), decodeProof.Evidences[j].Hash())
+			}
 			assert.Equal(t, tc.Proof.DistinctPrecommits.Len(), decodeProof.DistinctPrecommits.Len())
 			assert.Equal(t, true, decodeProof.DistinctPrecommits.validated)
 		}

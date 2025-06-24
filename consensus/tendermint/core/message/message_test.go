@@ -183,7 +183,7 @@ func TestValidate(t *testing.T) {
 
 		// if aggregate with a valid signature, resulting signature is still invalid
 		msg2 := NewPrevote(1, 25, header.Hash(), signer2, member2, csize)
-		aggregatedVote := AggregatePrevotes([]Vote{msg, msg2}, common.Address{})
+		aggregatedVote := AggregatePrevotes([]Vote{msg, msg2}, msg.Originator())
 
 		// unverify the aggregated vote
 		unverifiedPrevote := &Prevote{}
@@ -207,7 +207,7 @@ func TestValidate(t *testing.T) {
 
 		// if aggregated with a valid signature, resulting signature is still valid
 		msg2 := NewPrevote(1, 25, header.Hash(), signer2, member2, csize)
-		aggregatedVote := AggregatePrevotes([]Vote{msg, msg2}, common.Address{})
+		aggregatedVote := AggregatePrevotes([]Vote{msg, msg2}, msg.Originator())
 
 		// unverify the aggregated vote
 		unverifiedPrevote := &Prevote{}
