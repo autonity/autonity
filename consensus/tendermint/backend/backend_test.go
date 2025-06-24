@@ -98,7 +98,7 @@ func TestAskSync(t *testing.T) {
 	var remoteAddresses []common.Address //nolint
 	for _, val := range committee.Members[1:] {
 		mockedPeer := consensus.NewMockPeer(ctrl)
-		mockedPeer.EXPECT().Send(message.SyncNetworkMsg, gomock.Eq([]byte{})).Do(func(_, _ interface{}) {
+		mockedPeer.EXPECT().Send(message.SyncNetworkMsg, gomock.Any()).Do(func(_, _ interface{}) {
 			atomic.AddUint64(&counter, 1)
 		}).Times(1)
 		remoteAddresses = append(remoteAddresses, val.Address)

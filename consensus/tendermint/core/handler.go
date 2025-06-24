@@ -186,6 +186,7 @@ eventLoop:
 				}
 				needGossip := true
 				var err error
+				// if we are the originator of the message, gossip early
 				if e.Sender() == c.backend.Address() && !hadQuorum {
 					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 					needGossip = false
@@ -204,7 +205,7 @@ eventLoop:
 						recordMessageProcessingTime(msg.Code(), start)
 						break
 					}
-					// we still want to gossip old round messages and redundant votes
+					// we still want to gossip old round messages and redundant votes, any other error we abort
 					if !errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote) {
 						break
 					}
@@ -216,10 +217,8 @@ eventLoop:
 					break
 				}
 
-				// valid message, mark liveness time unless it was redundant
-				//if !errors.Is(err, constants.ErrRedundantVote) {
+				// valid message, mark liveness time
 				c.syncState.setLastLivenessTime(time.Now())
-				//}
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now
@@ -232,7 +231,7 @@ eventLoop:
 						}
 					}
 					if !needGossip {
-						// already gossiped
+						recordMessageProcessingTime(msg.Code(), start)
 						break
 					}
 
@@ -276,11 +275,6 @@ eventLoop:
 					c.syncState.setLastLivenessTime(time.Now())
 				}
 
-				//// proposals are already gossiped in backend
-				//if msg.Code() == message.ProposalCode {
-				//	recordMessageProcessingTime(msg.Code(), start)
-				//	continue
-				//}
 				if !c.noGossip {
 					if !hadQuorum {
 						// if we did not have quorum and we reached it now

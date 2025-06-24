@@ -15,7 +15,6 @@ import (
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
-	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tc "github.com/autonity/autonity/consensus/tendermint/core"
@@ -273,11 +272,6 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		br := consensus.NewMockBroadcaster(ctrl)
-		br.EXPECT().FindPeer(gomock.Any()).AnyTimes()
-		br.EXPECT().FindPeers(gomock.Any()).AnyTimes()
-
-		backend.SetBroadcaster(br)
 
 		prevote := message.NewPrevote(r, h, common.Hash{0xca, 0xfe}, backend.Sign, &genesisCommittee.Members[0], committeeSize)
 
@@ -311,11 +305,6 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		br := consensus.NewMockBroadcaster(ctrl)
-		br.EXPECT().FindPeer(gomock.Any()).AnyTimes()
-		br.EXPECT().FindPeers(gomock.Any()).AnyTimes()
-
-		backend.SetBroadcaster(br)
 
 		// send message to the aggregator and wait for time based aggregation to send it to Core
 		value := common.Hash{0xca, 0xfe}
@@ -359,11 +348,6 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		br := consensus.NewMockBroadcaster(ctrl)
-		br.EXPECT().FindPeer(gomock.Any()).AnyTimes()
-		br.EXPECT().FindPeers(gomock.Any()).AnyTimes()
-
-		backend.SetBroadcaster(br)
 
 		value := common.Hash{0xca, 0xfe}
 		prevote := message.NewPrevote(r, h, value, backend.Sign, &genesisCommittee.Members[0], committeeSize)
