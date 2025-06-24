@@ -1621,20 +1621,39 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	return nil
 }
 
-// writeBlockAndSetHead is the internal implementation of WriteBlockAndSetHead.
-// This function expects the chain mutex to be held.
+// WriteBlockAndSetHead writes the block and all associated state to the database, it is called from the miner's
+// result loop to commit the decision once consensus made, it needs to hold the chain chainmu before insertion.
 func (bc *BlockChain) WriteBlockAndSetHead(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
+	if !bc.chainmu.TryLock() {
+		return NonStatTy, errChainStopped
+	}
+	defer bc.chainmu.Unlock()
+
+	return bc.writeBlockAndSetHead(block, receipts, logs, state, emitHeadEvent)
+}
+
+// writeBlockAndSetHead is the internal implementation of WriteBlockAndSetHead, this function expects the chain mutex
+// to be held, it is also used by the InsertChain() context which locked the chainmu from the execution network layer
+// to insert new blocks.
+func (bc *BlockChain) writeBlockAndSetHead(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
+	currHead := bc.CurrentBlock()
+	currHeadHash := currHead.Hash()
+	newHeadHash := block.Hash()
+
+	// Autonity can commit a block from both execution channel and the consensus channel, as the legacy NeedReorg()
+	// checker was removed, thus we check if the head is duplicated (already inserted) to avoid unnecessary chain reorg.
+	// if block was already inserted, skip the rest of operations.
+	if newHeadHash == currHeadHash {
+		return CanonStatTy, nil
+	}
+
 	if err := bc.writeBlockWithState(block, receipts, state); err != nil {
 		return NonStatTy, err
 	}
-	currentBlock := bc.CurrentBlock()
 
-	// Reorganise the chain if the parent is not the head block
-	// Autonity can commit a block from both execution channel and the consensus channel,
-	// thus we check if the head is duplicated (already inserted) to avoid unnecessary chain reorg.
-	currentBlockHash := currentBlock.Hash()
-	if block.ParentHash() != currentBlockHash && block.Hash() != currentBlockHash {
-		if err := bc.reorg(currentBlock, block.Header()); err != nil {
+	// Reorganise the chain if the parent is not the head block.
+	if block.ParentHash() != currHeadHash {
+		if err := bc.reorg(currHead, block.Header()); err != nil {
 			return NonStatTy, err
 		}
 	}
@@ -2100,7 +2119,7 @@ func (bc *BlockChain) processBlockFromCache(block *types.Block, statedb *state.S
 		// Don't set the head, only insert the block
 		err = bc.writeBlockWithState(block, res.Receipts, statedb)
 	} else {
-		status, err = bc.WriteBlockAndSetHead(block, res.Receipts, res.Logs, statedb, false)
+		status, err = bc.writeBlockAndSetHead(block, res.Receipts, res.Logs, statedb, false)
 	}
 	if err != nil {
 		return nil, statedb, err
