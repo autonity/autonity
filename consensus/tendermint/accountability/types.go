@@ -1,7 +1,6 @@
 package accountability
 
 import (
-	"errors"
 	"fmt"
 	"io"
 
@@ -9,55 +8,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/rlp"
 )
-
-var (
-	errUnexpectedCode = errors.New("unexpected message code")
-	errTypeMissing    = errors.New("message code is missing")
-	errFullProposal   = errors.New("only light proposals are supported")
-)
-
-type typedMessage struct {
-	message.Msg
-}
-
-func (t *typedMessage) EncodeRLP(w io.Writer) error {
-	if t.Msg.Code() == message.ProposalCode {
-		return errFullProposal
-	}
-	return rlp.Encode(w, []any{t.Code(), t.Msg})
-}
-
-func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
-	// Getting back the original payload directly from this stream object
-	// is currently not supported.
-	if _, err := stream.List(); err != nil {
-		return err
-	}
-	b, err := stream.Bytes()
-	if err != nil {
-		return err
-	}
-	if len(b) == 0 {
-		return errTypeMissing
-	}
-	// Note that a nil element is not accepted.
-	var p message.Msg
-	switch b[0] {
-	case message.PrevoteCode:
-		p = &message.Prevote{}
-	case message.PrecommitCode:
-		p = &message.Precommit{}
-	case message.LightProposalCode:
-		p = &message.LightProposal{}
-	default:
-		return errUnexpectedCode
-	}
-	if err := stream.Decode(p); err != nil {
-		return fmt.Errorf("could not decode proof's typed message %w", err)
-	}
-	t.Msg = p
-	return stream.ListEnd()
-}
 
 type Proof struct {
 	Type               autonity.AccountabilityEventType // Accountability event types: Misbehaviour, Accusation, Innocence.
@@ -72,8 +22,8 @@ type encodedProof struct {
 	Type               autonity.AccountabilityEventType
 	Rule               autonity.Rule
 	OffenderIndex      uint
-	Message            typedMessage
-	Evidences          []typedMessage
+	Message            message.TypedMessage
+	Evidences          []message.TypedMessage
 	DistinctPrecommits HighlyAggregatedPrecommit
 }
 
@@ -84,9 +34,9 @@ func (p *Proof) EncodeRLP(w io.Writer) error {
 		OffenderIndex:      uint(p.OffenderIndex),
 		DistinctPrecommits: p.DistinctPrecommits,
 	}
-	encoded.Message = typedMessage{p.Message}
+	encoded.Message = message.TypedMessage{Msg: p.Message}
 	for _, m := range p.Evidences {
-		encoded.Evidences = append(encoded.Evidences, typedMessage{m})
+		encoded.Evidences = append(encoded.Evidences, message.TypedMessage{Msg: m})
 	}
 	return rlp.Encode(w, &encoded)
 }

@@ -19,6 +19,7 @@ package message
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"sort"
 
@@ -38,6 +39,11 @@ var (
 	ErrUnauthorizedAddress     = errors.New("unauthorized address")
 	ErrInvalidComplexAggregate = errors.New("complex aggregate does not carry quorum")
 	ErrInvalidIndividualVote   = errors.New("individual vote has 0 signature")
+
+	// accountability typed messages
+	ErrUnexpectedCode = errors.New("unexpected message code")
+	ErrTypeMissing    = errors.New("message code is missing")
+	ErrFullProposal   = errors.New("only light proposals are supported")
 
 	// messages that have been discarded from aggregation due to coefficient breaching
 	boundaryBreaching = metrics.NewRegisteredMeter("aggregation/discarded/boundary", nil)
@@ -167,6 +173,7 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, 
 			signatureInput: signatureInput,
 			signature:      signature,
 			payload:        payload,
+			p2pPayload:     payload,
 			originator:     validator,
 			hash:           crypto.Hash(payload),
 			verified:       true,
@@ -230,6 +237,7 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	p.originator = ext.Signer
 	p.signature = ext.Signature
 	p.payload = payload
+	p.p2pPayload = payload
 	// precompute hash and signature hash
 	signaturePayload, _ := rlp.EncodeToBytes([]any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.block.Hash()})
 	p.signatureInput = crypto.Hash(signaturePayload)
@@ -343,7 +351,8 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 			signature:      proposal.signature,
 			signatureInput: proposal.signatureInput,
 			payload:        payload,
-			originator:     proposal.originator, //TODO: double check
+			originator:     proposal.originator,
+			p2pPayload:     payload,
 			hash:           crypto.Hash(payload),
 			verified:       true,
 			preverified:    true,
@@ -352,11 +361,7 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 	}
 }
 
-func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
-	payload, err := s.Raw()
-	if err != nil {
-		return err
-	}
+func (p *LightProposal) decodeRLP(payload []byte) error {
 	ext := &extLightProposal{}
 	if err := rlp.DecodeBytes(payload, ext); err != nil {
 		return err
@@ -395,9 +400,10 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 	p.height = ext.Height
 	p.blockHash = ext.ProposalBlock
 	p.signer = ext.Signer
-	p.originator = ext.Signer // TODO: double check
+	p.originator = ext.Signer
 	p.signature = ext.Signature
 	p.payload = payload
+	p.p2pPayload = payload
 	// precompute hash and signature hash
 	signaturePayload, _ := rlp.EncodeToBytes([]any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.blockHash})
 	p.signatureInput = crypto.Hash(signaturePayload)
@@ -405,6 +411,14 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 	p.verified = false
 	p.preverified = false
 	return nil
+}
+
+func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
+	payload, err := s.Raw()
+	if err != nil {
+		return err
+	}
+	return p.decodeRLP(payload)
 }
 
 func (p *LightProposal) Signer() common.Address {
@@ -572,7 +586,7 @@ func newVote[
 	})
 
 	// append the originator as the last 20 bytes of the payload
-	fullPayload, err := rlp.AppendAddress(payload, self.Address)
+	p2pPayload, err := rlp.AppendAddress(payload, self.Address)
 	if err != nil {
 		panic("failed to append address to RLP payload: " + err.Error())
 	}
@@ -585,7 +599,8 @@ func newVote[
 				round:          r,
 				height:         h,
 				signature:      signature,
-				payload:        fullPayload,
+				payload:        payload,
+				p2pPayload:     p2pPayload,
 				originator:     self.Address,
 				hash:           crypto.Hash(payload),
 				signatureInput: signatureInput,
@@ -675,7 +690,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, self common.Address) *E
 	})
 
 	// append the originator as the last 20 bytes of the payload
-	fullPayload, err := rlp.AppendAddress(payload, self)
+	p2pPayload, err := rlp.AppendAddress(payload, self)
 	if err != nil {
 		panic("failed to append address to RLP payload: " + err.Error())
 	}
@@ -689,7 +704,8 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, self common.Address) *E
 				round:          r,
 				signatureInput: signatureInput,
 				signature:      aggregatedSignature,
-				payload:        fullPayload,
+				payload:        payload,
+				p2pPayload:     p2pPayload,
 				originator:     self,
 				hash:           crypto.Hash(payload),
 				verified:       true, // verified due to all votes being verified
@@ -805,7 +821,7 @@ func AggregateVotesSimple[
 		})
 
 		// append the originator as the last 20 bytes of the payload
-		fullPayload, err := rlp.AppendAddress(payload, self)
+		p2pPayload, err := rlp.AppendAddress(payload, self)
 		if err != nil {
 			panic("failed to append address to RLP payload: " + err.Error())
 		}
@@ -819,7 +835,8 @@ func AggregateVotesSimple[
 					round:          r,
 					signatureInput: signatureInput,
 					signature:      aggregatedSignature,
-					payload:        fullPayload,
+					payload:        payload,
+					p2pPayload:     p2pPayload,
 					originator:     self,
 					hash:           crypto.Hash(payload),
 					verified:       true, // verified due to all votes being verified
@@ -833,20 +850,7 @@ func AggregateVotesSimple[
 	return aggregateVotes
 }
 
-func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
-	fullPayload, err := s.Raw()
-	if err != nil {
-		return err
-	}
-
-	payload, originator, err := rlp.ExtractAddress(fullPayload)
-	if err != nil {
-		return errors.Join(constants.ErrInvalidMessage, err)
-	}
-	if originator == (common.Address{}) {
-		return constants.ErrInvalidMessage
-	}
-
+func (p *Prevote) decodeRLP(payload []byte) error {
 	encoded := &extVote{}
 	if err := rlp.DecodeBytes(payload, encoded); err != nil {
 		return err
@@ -874,8 +878,7 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	p.value = encoded.Value
 	p.signature = encoded.Signature
 	p.signers = encoded.Signers
-	p.originator = originator
-	p.payload = fullPayload
+	p.payload = payload
 	// precompute hash and signature hash
 	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrevoteCode, encoded.Value)
 	p.hash = crypto.Hash(payload)
@@ -884,20 +887,27 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
-func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
-	fullPayload, err := s.Raw()
+func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
+	p2pPayload, err := s.Raw()
 	if err != nil {
 		return err
 	}
-
-	payload, originator, err := rlp.ExtractAddress(fullPayload)
+	payload, originator, err := rlp.ExtractAddress(p2pPayload)
 	if err != nil {
 		return errors.Join(constants.ErrInvalidMessage, err)
 	}
 	if originator == (common.Address{}) {
 		return constants.ErrInvalidMessage
 	}
+	if err = p.decodeRLP(payload); err != nil {
+		return err
+	}
+	p.originator = originator
+	p.p2pPayload = p2pPayload
+	return nil
+}
 
+func (p *Precommit) decodeRLP(payload []byte) error {
 	encoded := &extVote{}
 	if err := rlp.DecodeBytes(payload, encoded); err != nil {
 		return err
@@ -925,14 +935,91 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	p.value = encoded.Value
 	p.signature = encoded.Signature
 	p.signers = encoded.Signers
-	p.originator = originator
-	p.payload = fullPayload
+	p.payload = payload
 	// precompute hash and signature hash
 	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrecommitCode, encoded.Value)
 	p.hash = crypto.Hash(payload)
 	p.verified = false
 	p.preverified = false
 	return nil
+}
+
+func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
+	p2pPayload, err := s.Raw()
+	if err != nil {
+		return err
+	}
+	payload, originator, err := rlp.ExtractAddress(p2pPayload)
+	if err != nil {
+		return errors.Join(constants.ErrInvalidMessage, err)
+	}
+	if originator == (common.Address{}) {
+		return constants.ErrInvalidMessage
+	}
+	if err = p.decodeRLP(payload); err != nil {
+		return err
+	}
+	p.originator = originator
+	p.p2pPayload = p2pPayload
+	return nil
+}
+
+// used for accountability proofs
+type TypedMessage struct {
+	Msg
+}
+
+func (t *TypedMessage) EncodeRLP(w io.Writer) error {
+	if t.Msg.Code() == ProposalCode {
+		return ErrFullProposal
+	}
+	return rlp.Encode(w, []any{t.Code(), t.Msg.Payload()})
+}
+
+func decodeTypedMessage(code byte, payload []byte) (Msg, error) {
+	switch code {
+	case PrevoteCode:
+		prevote := &Prevote{}
+		err := prevote.decodeRLP(payload)
+		return prevote, err
+	case PrecommitCode:
+		precommit := &Precommit{}
+		err := precommit.decodeRLP(payload)
+		return precommit, err
+	case LightProposalCode:
+		lp := &LightProposal{}
+		err := lp.decodeRLP(payload)
+		return lp, err
+	default:
+		return nil, ErrUnexpectedCode
+	}
+
+}
+
+func (t *TypedMessage) DecodeRLP(stream *rlp.Stream) error {
+	// Getting back the original payload directly from this stream object
+	// is currently not supported.
+	if _, err := stream.List(); err != nil {
+		return err
+	}
+	b, err := stream.Bytes()
+	if err != nil {
+		return err
+	}
+	if len(b) == 0 {
+		return ErrTypeMissing
+	}
+	payload, err := stream.Raw()
+	if err != nil {
+		return err
+	}
+
+	m, err := decodeTypedMessage(b[0], payload)
+	if err != nil {
+		return fmt.Errorf("could not decode proof's typed message %w", err)
+	}
+	t.Msg = m
+	return stream.ListEnd()
 }
 
 func VoteSignatureInput(h uint64, r uint64, code uint8, v common.Hash) common.Hash {
@@ -983,6 +1070,7 @@ type Fake struct {
 	FakeHeight         uint64
 	FakeValue          common.Hash
 	FakePayload        []byte
+	FakeP2pPayload     []byte
 	FakeHash           common.Hash
 	FakeSigners        *types.Signers
 	FakeSignature      blst.Signature
@@ -1008,6 +1096,7 @@ func (f Fake) Power() *big.Int                      { return f.FakePower }
 func (f Fake) String() string                       { return "{fake}" }
 func (f Fake) Hash() common.Hash                    { return f.FakeHash }
 func (f Fake) Payload() []byte                      { return f.FakePayload }
+func (f Fake) P2pPayload() []byte                   { return f.FakeP2pPayload }
 func (f Fake) Signature() blst.Signature            { return f.FakeSignature }
 func (f Fake) PreValidate(_ *types.Committee) error { return nil }
 func (f Fake) Validate() error                      { return nil }

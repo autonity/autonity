@@ -26,7 +26,7 @@ import (
 func newUnverifiedPrevote(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *Prevote { //nolint
 	prevote := NewPrevote(r, h, value, signer, self, csize)
 	unverifiedPrevote := &Prevote{}
-	reader := bytes.NewReader(prevote.Payload())
+	reader := bytes.NewReader(prevote.P2pPayload())
 	if err := rlp.Decode(reader, unverifiedPrevote); err != nil {
 		panic("cannot decode prevote: " + err.Error())
 	}
@@ -36,7 +36,7 @@ func newUnverifiedPrevote(r int64, h uint64, value common.Hash, signer Signer, s
 func newUnverifiedPrecommit(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *Precommit {
 	precommit := NewPrecommit(r, h, value, signer, self, csize)
 	unverifiedPrecommit := &Precommit{}
-	reader := bytes.NewReader(precommit.Payload())
+	reader := bytes.NewReader(precommit.P2pPayload())
 	if err := rlp.Decode(reader, unverifiedPrecommit); err != nil {
 		panic("cannot decode precommit: " + err.Error())
 	}
@@ -46,7 +46,7 @@ func newUnverifiedPrecommit(r int64, h uint64, value common.Hash, signer Signer,
 func newUnverifiedPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, self *types.CommitteeMember) *Propose {
 	propose := NewPropose(r, h, vr, block, signer, self)
 	unverifiedPropose := &Propose{}
-	reader := bytes.NewReader(propose.Payload())
+	reader := bytes.NewReader(propose.P2pPayload())
 	if err := rlp.Decode(reader, unverifiedPropose); err != nil {
 		panic("cannot decode propose: " + err.Error())
 	}
@@ -56,7 +56,7 @@ func newUnverifiedPropose(r int64, h uint64, vr int64, block *types.Block, signe
 func newUnverifiedLightPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, self *types.CommitteeMember) *LightProposal {
 	propose := NewPropose(r, h, vr, block, signer, self).ToLight()
 	unverifiedPropose := &LightProposal{}
-	reader := bytes.NewReader(propose.Payload())
+	reader := bytes.NewReader(propose.P2pPayload())
 	if err := rlp.Decode(reader, unverifiedPropose); err != nil {
 		panic("cannot decode light proposal: " + err.Error())
 	}
@@ -84,7 +84,7 @@ func TestMessageDecode(t *testing.T) {
 	t.Run("prevote", func(t *testing.T) {
 		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), defaultSigner, testCommitteeMember, 1)
 		decoded := &Prevote{}
-		reader := bytes.NewReader(vote.Payload())
+		reader := bytes.NewReader(vote.P2pPayload())
 		if err := rlp.Decode(reader, decoded); err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
@@ -99,7 +99,7 @@ func TestMessageDecode(t *testing.T) {
 	t.Run("precommit", func(t *testing.T) {
 		vote := newVote[Precommit](1, 2, common.HexToHash("0x1227"), defaultSigner, testCommitteeMember, 1)
 		decoded := &Precommit{}
-		reader := bytes.NewReader(vote.Payload())
+		reader := bytes.NewReader(vote.P2pPayload())
 		if err := rlp.Decode(reader, decoded); err != nil {
 			t.Fatalf("have %v, want nil", err)
 		}
@@ -116,7 +116,7 @@ func TestMessageDecode(t *testing.T) {
 		block := types.NewBlockWithHeader(header)
 		proposal := NewPropose(1, 2, -1, block, defaultSigner, testCommitteeMember)
 		decoded := &Propose{}
-		reader := bytes.NewReader(proposal.Payload())
+		reader := bytes.NewReader(proposal.P2pPayload())
 		err := rlp.Decode(reader, decoded)
 		require.NoError(t, err)
 		require.Equal(t, proposal.Code(), decoded.Code())
@@ -132,7 +132,7 @@ func TestMessageDecode(t *testing.T) {
 		block := types.NewBlockWithHeader(header)
 		proposal := NewPropose(1, 2, 57, block, defaultSigner, testCommitteeMember)
 		decoded := &Propose{}
-		reader := bytes.NewReader(proposal.Payload())
+		reader := bytes.NewReader(proposal.P2pPayload())
 		err := rlp.Decode(reader, decoded)
 		if !errors.Is(err, constants.ErrInvalidMessage) {
 			t.Error("Decoding should have failed")
@@ -143,7 +143,7 @@ func TestMessageDecode(t *testing.T) {
 		block := types.NewBlockWithHeader(header)
 		proposal := NewPropose(1, 4, 57, block, defaultSigner, testCommitteeMember)
 		decoded := &Propose{}
-		reader := bytes.NewReader(proposal.Payload())
+		reader := bytes.NewReader(proposal.P2pPayload())
 		err := rlp.Decode(reader, decoded)
 		if !errors.Is(err, constants.ErrInvalidMessage) {
 			t.Error("Decoding should have failed")
@@ -187,7 +187,7 @@ func TestValidate(t *testing.T) {
 
 		// unverify the aggregated vote
 		unverifiedPrevote := &Prevote{}
-		reader := bytes.NewReader(aggregatedVote.Payload())
+		reader := bytes.NewReader(aggregatedVote.P2pPayload())
 		if err := rlp.Decode(reader, unverifiedPrevote); err != nil {
 			panic("cannot decode prevote: " + err.Error())
 		}
@@ -211,7 +211,7 @@ func TestValidate(t *testing.T) {
 
 		// unverify the aggregated vote
 		unverifiedPrevote := &Prevote{}
-		reader := bytes.NewReader(aggregatedVote.Payload())
+		reader := bytes.NewReader(aggregatedVote.P2pPayload())
 		if err := rlp.Decode(reader, unverifiedPrevote); err != nil {
 			panic("cannot decode prevote: " + err.Error())
 		}
@@ -342,6 +342,8 @@ func TestMessageEncodeDecode(t *testing.T) {
 			decoded.Value() != messages[i].Value() ||
 			!deep.Equal(decoded.SignerKey().Marshal(), messages[i].SignerKey().Marshal()) ||
 			decoded.Hash() != messages[i].Hash() ||
+			!deep.Equal(decoded.P2pPayload(), messages[i].P2pPayload()) ||
+			decoded.Originator() != messages[i].Originator() ||
 			!deep.Equal(decoded.Payload(), messages[i].Payload()) {
 			t.Error("does not match", i)
 		}
@@ -436,7 +438,7 @@ func TestMessageHash(t *testing.T) {
 
 func FuzzFromPayload(f *testing.F) {
 	msg := NewPrevote(1, 2, common.Hash{}, defaultSigner, testCommitteeMember, 1)
-	f.Add(msg.Payload())
+	f.Add(msg.P2pPayload())
 	f.Fuzz(func(t *testing.T, seed []byte) {
 		var p Prevote
 		rlp.Decode(bytes.NewReader(seed), &p)
@@ -790,7 +792,7 @@ func BenchmarkDecodeVote(b *testing.B) {
 	prevote := NewPrevote(int64(15), uint64(123345), hash, defaultSigner, testCommitteeMember, 1)
 
 	// create p2p prevote
-	payload := prevote.Payload()
+	payload := prevote.P2pPayload()
 	r := bytes.NewReader(payload)
 	size := len(payload)
 	p2pPrevote := p2p.Msg{Code: 0x12, Size: uint32(size), Payload: r}

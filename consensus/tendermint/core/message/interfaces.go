@@ -34,7 +34,10 @@ type Msg interface {
 	// hasn't be assigned.
 	Hash() common.Hash
 
-	// Payload returns the rlp-encoded payload ready to be broadcasted.
+	// P2pPayload returns the rlp-encoded payload + originator ready to be broadcasted.
+	P2pPayload() []byte
+
+	// Payload returns the rlp-encoded message
 	Payload() []byte
 
 	// Signature returns the signature of this message

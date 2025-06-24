@@ -145,7 +145,7 @@ func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender com
 			}
 			p.Cache().Add(msg.Hash(), true)
 			go func() {
-				err := p.SendRaw(message.NetworkCodes[msg.Code()], msg.Payload())
+				err := p.SendRaw(message.NetworkCodes[msg.Code()], msg.P2pPayload())
 				if err != nil {
 					log.Error("Router: failed to send message", "recipient", recipient.Hex(), "error", err)
 					return

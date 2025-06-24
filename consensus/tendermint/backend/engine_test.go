@@ -3,13 +3,14 @@ package backend
 import (
 	"context"
 	"errors"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math/big"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -966,6 +967,7 @@ func TestAssembleProof(t *testing.T) {
 				FakeHeight:         precommit.H(),
 				FakeValue:          precommit.Value(),
 				FakePayload:        precommit.Payload(),
+				FakeP2pPayload:     precommit.P2pPayload(),
 				FakeHash:           precommit.Hash(),
 				FakeSigners:        precommit.Signers(),
 				FakeSignature:      precommit.Signature(),

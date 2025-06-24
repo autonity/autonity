@@ -312,7 +312,7 @@ func TestRouter_Forward(t *testing.T) {
 	// Mock broadcaster
 	peer := consensus.NewMockPeer(ctrl)
 	peer.EXPECT().Cache().Return(fixsizecache.New[common.Hash, bool](1, 1, fixsizecache.HashKey[common.Hash])).Times(2)
-	peer.EXPECT().SendRaw(message.NetworkCodes[msg.Code()], msg.Payload()).Return(nil).AnyTimes()
+	peer.EXPECT().SendRaw(message.NetworkCodes[msg.Code()], msg.P2pPayload()).Return(nil).AnyTimes()
 	broadcaster.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(peer, true).Times(1)
 	broadcaster.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(nil, false).Times(1)
 
@@ -468,7 +468,7 @@ func TestRouter_Loop_OverallFlow(t *testing.T) {
 	peerSelector.EXPECT().SelectPeers(&newCommittee, msg, self).Return([]common.Address{common.HexToAddress("0x222"), common.HexToAddress("0x333"), common.HexToAddress("0x444")}, nil).Times(1)
 	peer := consensus.NewMockPeer(ctrl)
 	peer.EXPECT().Cache().Return(fixsizecache.New[common.Hash, bool](1, 1, fixsizecache.HashKey[common.Hash])).Times(2)
-	peer.EXPECT().SendRaw(message.NetworkCodes[msg.Code()], msg.Payload()).Return(nil).Times(1)
+	peer.EXPECT().SendRaw(message.NetworkCodes[msg.Code()], msg.P2pPayload()).Return(nil).Times(1)
 	broadcaster.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(peer, true).Times(1)
 	broadcaster.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(nil, false).Times(1)
 	broadcaster.EXPECT().FindPeer(common.HexToAddress("0x444")).Return(nil, false).Times(1)

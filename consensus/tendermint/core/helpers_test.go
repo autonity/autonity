@@ -162,7 +162,7 @@ func generateBlock(height *big.Int, parentHeader *types.Header) *types.Block {
 func newUnverifiedPrecommit(r int64, h uint64, value common.Hash, signer message.Signer, self *types.CommitteeMember, csize int) *message.Precommit {
 	precommit := message.NewPrecommit(r, h, value, signer, self, csize)
 	unverifiedPrecommit := &message.Precommit{}
-	reader := bytes.NewReader(precommit.Payload())
+	reader := bytes.NewReader(precommit.P2pPayload())
 	if err := rlp.Decode(reader, unverifiedPrecommit); err != nil {
 		panic("cannot decode precommit: " + err.Error())
 	}
@@ -172,7 +172,7 @@ func newUnverifiedPrecommit(r int64, h uint64, value common.Hash, signer message
 func newUnverifiedPropose(r int64, h uint64, vr int64, block *types.Block, signer message.Signer, self *types.CommitteeMember) *message.Propose {
 	propose := message.NewPropose(r, h, vr, block, signer, self)
 	unverifiedPropose := &message.Propose{}
-	reader := bytes.NewReader(propose.Payload())
+	reader := bytes.NewReader(propose.P2pPayload())
 	if err := rlp.Decode(reader, unverifiedPropose); err != nil {
 		panic("cannot decode propose: " + err.Error())
 	}

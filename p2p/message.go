@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/p2p/enode"
@@ -60,19 +59,21 @@ func (msg Msg) Hash() (common.Hash, error) {
 	// rewind reader for decoding
 	defer bReader.Seek(0, io.SeekStart)
 
-	if msg.Code != message.PrevoteNetworkMsg && msg.Code != message.PrecommitNetworkMsg {
+	// TODO: properly fix import loop
+	//if msg.Code != message.PrevoteNetworkMsg && msg.Code != message.PrecommitNetworkMsg {
+	if msg.Code != 18 && msg.Code != 19 {
 		return crypto.HashFromReader(bReader)
 	}
 	// if it is a prevote or a precommit, remove the originator from the hash
-	fullPayload := make([]byte, bReader.Size())
-	n, err := bReader.Read(fullPayload)
+	p2pPayload := make([]byte, bReader.Size())
+	n, err := bReader.Read(p2pPayload)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to read message payload: %w", err)
 	}
-	if n != len(fullPayload) {
-		return common.Hash{}, fmt.Errorf("failed to read full message payload. size: %d, read: %d", len(fullPayload), n)
+	if n != len(p2pPayload) {
+		return common.Hash{}, fmt.Errorf("failed to read p2p message payload. size: %d, read: %d", len(p2pPayload), n)
 	}
-	payload, _, err := rlp.ExtractAddress(fullPayload)
+	payload, _, err := rlp.ExtractAddress(p2pPayload)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to extract originator address: %w", err)
 	}

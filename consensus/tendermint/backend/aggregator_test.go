@@ -89,6 +89,7 @@ func tweakPrevote(prevote *message.Prevote, key blst.PublicKey) *message.Prevote
 		FakeSignatureInput: prevote.SignatureInput(),
 		FakeSignature:      prevote.Signature(),
 		FakePayload:        prevote.Payload(),
+		FakeP2pPayload:     prevote.P2pPayload(),
 		FakeHash:           prevote.Hash(),
 		FakeSignerKey:      key,
 	})

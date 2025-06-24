@@ -70,7 +70,7 @@ func (cg *customGossiper) Gossip(committee *types.Committee, msg message.Msg) {
 			continue
 		}
 		p.Cache().Add(hash, true)
-		go p.SendRaw(message.NetworkCodes[msg.Code()], msg.Payload()) //nolint
+		go p.SendRaw(message.NetworkCodes[msg.Code()], msg.P2pPayload()) //nolint
 	}
 }
 

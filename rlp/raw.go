@@ -350,7 +350,7 @@ func ExtractAddress(original []byte) ([]byte, common.Address, error) {
 		putint(list[1:], newContentSize)
 	}
 	// extract address and remove it from the list
-	list = list[:len(list)-common.AddressLength]
 	address := common.BytesToAddress(list[len(list)-common.AddressLength:])
+	list = list[:len(list)-common.AddressLength]
 	return list, address, nil
 }

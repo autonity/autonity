@@ -14,7 +14,8 @@ type base struct {
 	round          int64
 	signatureInput common.Hash
 	signature      blst.Signature
-	payload        []byte
+	payload        []byte // encoded RLP message
+	p2pPayload     []byte // encoded RLP message + originator
 	originator     common.Address
 	hash           common.Hash
 	verified       bool
@@ -52,12 +53,16 @@ func (b *base) Signature() blst.Signature {
 	return b.signature
 }
 
+func (b *base) P2pPayload() []byte {
+	return b.p2pPayload
+}
+
 func (b *base) Payload() []byte {
 	return b.payload
 }
 
 func (b *base) EncodeRLP(w io.Writer) error {
-	_, err := w.Write(b.payload)
+	_, err := w.Write(b.p2pPayload)
 	return err
 }
 

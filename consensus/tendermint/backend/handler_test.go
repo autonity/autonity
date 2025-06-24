@@ -3,11 +3,12 @@ package backend
 import (
 	"bytes"
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"io"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 
 	"go.uber.org/mock/gomock"
 
@@ -52,7 +53,7 @@ func TestTendermintMessage(t *testing.T) {
 	_, backend := newBlockChain(1)
 	// generate one msg
 	data := message.NewPrevote(1, 2, common.Hash{}, testSigner, testCommitteeMember, 1)
-	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
+	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.P2pPayload())), Payload: bytes.NewReader(data.P2pPayload())} // #nosec
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -201,7 +202,7 @@ func TestSignerJailed(t *testing.T) {
 
 	// generate one msg
 	data := message.NewPrevote(0, 1, common.Hash{}, testSigner, &member, 1)
-	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
+	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.P2pPayload())), Payload: bytes.NewReader(data.P2pPayload())} // #nosec
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -219,7 +220,7 @@ func TestSignerJailed(t *testing.T) {
 
 	data = message.NewPrevote(0, 1, common.Hash{0xca, 0xfe}, testSigner, &member, 2)
 	data.Signers().Increment(makeBogusMember(1))
-	msg = p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
+	msg = p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.P2pPayload())), Payload: bytes.NewReader(data.P2pPayload())} // #nosec
 	errCh = make(chan error, 1)
 	_, err = backend.HandleMsg(testAddress, msg, errCh)
 	require.Equal(t, ErrJailed, err)
@@ -234,7 +235,7 @@ func TestFutureHeightMessage(t *testing.T) {
 		// generate one msg
 		futureHeight := uint64(20)
 		data := message.NewPrevote(0, futureHeight, common.Hash{}, testSigner, &member, 1)
-		msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
+		msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.P2pPayload())), Payload: bytes.NewReader(data.P2pPayload())} // #nosec
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -262,7 +263,7 @@ func TestFutureHeightMessage(t *testing.T) {
 
 		for h := maxFutureMsgs + 100; h > 0; h-- {
 			data := message.NewPrevote(0, uint64(h), common.Hash{}, testSigner, &member, 1)
-			msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
+			msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.P2pPayload())), Payload: bytes.NewReader(data.P2pPayload())} // #nosec
 			errCh := make(chan error, 1)
 			_, err := backend.HandleMsg(testAddress, msg, errCh)
 			require.NoError(t, err)

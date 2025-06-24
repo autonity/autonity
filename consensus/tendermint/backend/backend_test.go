@@ -206,7 +206,7 @@ func TestGossip(t *testing.T) {
 		} else {
 			mockedPeer.EXPECT().SendRaw(gomock.Any(), gomock.Any()).Do(func(msgCode, data interface{}) {
 				// We want to make sure the payload is correct AND that no other messages is sent.
-				if msgCode == message.PrevoteNetworkMsg && reflect.DeepEqual(data, msg.Payload()) {
+				if msgCode == message.PrevoteNetworkMsg && reflect.DeepEqual(data, msg.P2pPayload()) {
 					atomic.AddUint64(&counter, 1)
 				}
 			}).Times(1)

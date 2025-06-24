@@ -95,7 +95,7 @@ func TestUnhandledMsgs(t *testing.T) {
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
 			vote := message.NewPrevote(1, 1, common.BigToHash(big.NewInt(i)), backend.Sign, &blockchain.Genesis().Header().Epoch.Committee.Members[0], 1)
-			msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(vote.Payload())), Payload: bytes.NewReader(vote.Payload())} // #nosec
+			msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(vote.P2pPayload())), Payload: bytes.NewReader(vote.P2pPayload())} // #nosec
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {
 				t.Fatalf("handleMsg should have been successful")

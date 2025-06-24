@@ -54,7 +54,7 @@ func (fg *rawMSGFuzzer) Gossip(committee *types.Committee, msg message.Msg) {
 
 	ps := fg.Broadcaster().FindPeers(targets)
 	for _, p := range ps {
-		randBytes, err := e2e.GenerateRandomBytes(len(msg.Payload()))
+		randBytes, err := e2e.GenerateRandomBytes(len(msg.P2pPayload()))
 		if err != nil {
 			panic("Failed to generate random bytes ")
 		}
