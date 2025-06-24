@@ -25,6 +25,7 @@ import (
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/router"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
@@ -155,7 +156,7 @@ func BenchmarkGossip(b *testing.B) {
 	sender := common.Address{}
 	rt := interfaces.NewMockRouter(ctrl)
 	rt.EXPECT().SetBroadcaster(broadcaster)
-	rt.EXPECT().Forward(committee, gomock.Any(), sender, nil).AnyTimes().Return(nil)
+	rt.EXPECT().Forward(committee, gomock.Any(), sender, nil).AnyTimes()
 
 	knownMessages := fixsizecache.New[common.Hash, bool](4997, 20, fixsizecache.HashKey[common.Hash])
 	bk := &Backend{
@@ -217,11 +218,9 @@ func TestGossip(t *testing.T) {
 	}
 
 	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, fixsizecache.HashKey[common.Hash])
-	sender := common.Address{}
-	rt := interfaces.NewMockRouter(ctrl)
-	rt.EXPECT().SetBroadcaster(broadcaster)
-	rt.EXPECT().Forward(committee, gomock.Any(), sender, nil).AnyTimes().Return(addresses, nil)
-
+	key, _ := crypto.GenerateKey()
+	rt := router.Setup(key, testAddress, log.New())
+	rt.SetBroadcaster(broadcaster)
 	b := &Backend{
 		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
