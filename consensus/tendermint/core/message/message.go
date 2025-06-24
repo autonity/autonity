@@ -167,11 +167,11 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, 
 			signatureInput: signatureInput,
 			signature:      signature,
 			payload:        payload,
+			originator:     validator,
 			hash:           crypto.Hash(payload),
 			verified:       true,
 			preverified:    true,
 			signerKey:      self.ConsensusKey,
-			originator:     validator,
 		},
 	}
 }
@@ -343,11 +343,11 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 			signature:      proposal.signature,
 			signatureInput: proposal.signatureInput,
 			payload:        payload,
+			originator:     proposal.originator, //TODO: double check
 			hash:           crypto.Hash(payload),
 			verified:       true,
 			preverified:    true,
 			signerKey:      proposal.signerKey,
-			originator:     proposal.originator, //TODO: double check
 		},
 	}
 }
@@ -547,11 +547,11 @@ func (p *Precommit) String() string {
 }
 
 func newVote[
-E Prevote | Precommit,
-PE interface {
-	*E
-	Msg
-}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *E {
+	E Prevote | Precommit,
+	PE interface {
+		*E
+		Msg
+	}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *E {
 	code := PE(new(E)).Code()
 
 	// Pay attention that we're adding the message Code to the signature input data.
@@ -587,12 +587,12 @@ PE interface {
 				height:         h,
 				signature:      signature,
 				payload:        payload,
+				originator:     self.Address,
 				hash:           crypto.Hash(payload),
 				signatureInput: signatureInput,
 				verified:       true,
 				preverified:    true,
 				signerKey:      self.ConsensusKey,
-				originator:     self.Address,
 			},
 		},
 	}
@@ -691,6 +691,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, self common.Address) *E
 				signatureInput: signatureInput,
 				signature:      aggregatedSignature,
 				payload:        payload,
+				originator:     self,
 				hash:           crypto.Hash(payload),
 				verified:       true, // verified due to all votes being verified
 				preverified:    true,
@@ -714,11 +715,11 @@ func AggregatePrecommitsSimple(votes []Vote, self common.Address) []*Precommit {
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been cryptographically verified
 func AggregateVotesSimple[
-E Prevote | Precommit,
-PE interface {
-	*E
-	Msg
-}](votes []Vote, self common.Address) []*E {
+	E Prevote | Precommit,
+	PE interface {
+		*E
+		Msg
+	}](votes []Vote, self common.Address) []*E {
 	// length safety checks
 	if len(votes) == 0 {
 		panic("Trying to aggregate empty set of votes")
@@ -820,6 +821,7 @@ PE interface {
 					signatureInput: signatureInput,
 					signature:      aggregatedSignature,
 					payload:        payload,
+					originator:     self,
 					hash:           crypto.Hash(payload),
 					verified:       true, // verified due to all votes being verified
 					preverified:    true,

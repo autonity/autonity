@@ -15,14 +15,13 @@ type base struct {
 	signatureInput common.Hash
 	signature      blst.Signature
 	payload        []byte
+	originator     common.Address
 	hash           common.Hash
 	verified       bool
 	preverified    bool
 
 	// populated at PreValidate() phase
 	signerKey blst.PublicKey
-
-	originator common.Address
 }
 
 func (b *base) Originator() common.Address {
