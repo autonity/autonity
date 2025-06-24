@@ -1,21 +1,17 @@
 package backend
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"io"
 	"time"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
-	"github.com/autonity/autonity/rlp"
 )
 
 type UnhandledMsg struct {
@@ -128,44 +124,18 @@ func handleConsensusMsg[T any, PT interface {
 	*T
 	message.Msg
 }](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
-	// we type cast it to byte.Reader because that's the only reader
-	// type we expect here
-	bReader := p2pMsg.Payload.(*bytes.Reader)
-	var hash common.Hash
-
-	// temporary solution
-	payloadBytes := make([]byte, bReader.Size())
-	n, err := bReader.Read(payloadBytes)
+	hash, err := p2pMsg.Hash()
 	if err != nil {
-		panic("todo")
+		log.Error("Failed to hash payload", "error", err)
+		return true, err
 	}
-	if n != len(payloadBytes) {
-		panic("todo")
-	}
-	if p2pMsg.Code == message.PrevoteNetworkMsg || p2pMsg.Code == message.PrecommitNetworkMsg {
-		// TODO: worth having a func that does the hash from the `payloadBytes` directly
-		payload, _, err := rlp.ExtractAddress(payloadBytes)
-		if err != nil {
-			panic("TODO")
-		}
-		hash = crypto.Hash(payload)
-	} else {
-		hash = crypto.Hash(payloadBytes)
-	}
-	/*
-		hash, err := crypto.HashFromReader(bReader)
-		if err != nil {
-			log.Error("Failed to hash payload", "error", err)
-			return true, err
-		}*/
+
 	TotalMessageReceivedBg.Mark(1)
 	if sb.knownMessages.Contains(hash) {
 		return true, nil
 	}
 
 	MessageProcessedBg.Mark(1)
-	bReader.Seek(0, io.SeekStart)
-	p2pMsg.Payload = bReader
 	if !sb.coreRunning.Load() {
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.

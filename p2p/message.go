@@ -25,6 +25,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/rlp"
@@ -46,6 +49,34 @@ type Msg struct {
 	meterCap  Cap    // Protocol name and version for egress metering
 	meterCode uint64 // Message within protocol for egress metering
 	meterSize uint32 // Compressed message size for ingress metering
+}
+
+func (msg Msg) Hash() (common.Hash, error) {
+	bReader, ok := msg.Payload.(*bytes.Reader)
+	if !ok {
+		return common.Hash{}, errors.New("payload is not a bytes.Reader")
+	}
+
+	// rewind reader for decoding
+	defer bReader.Seek(0, io.SeekStart)
+
+	if msg.Code != message.PrevoteNetworkMsg && msg.Code != message.PrecommitNetworkMsg {
+		return crypto.HashFromReader(bReader)
+	}
+	// if it is a prevote or a precommit, remove the originator from the hash
+	fullPayload := make([]byte, bReader.Size())
+	n, err := bReader.Read(fullPayload)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to read message payload: %w", err)
+	}
+	if n != len(fullPayload) {
+		return common.Hash{}, fmt.Errorf("failed to read full message payload. size: %d, read: %d", len(fullPayload), n)
+	}
+	payload, _, err := rlp.ExtractAddress(fullPayload)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to extract originator address: %w", err)
+	}
+	return crypto.Hash(payload), nil
 }
 
 // Decode parses the RLP content of a message into
