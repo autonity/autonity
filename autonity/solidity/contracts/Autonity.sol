@@ -19,6 +19,7 @@ import "./interfaces/IOracle.sol";
 import "./lib/BytesLib.sol";
 import "./lib/Precompiled.sol";
 import "./liquid/LiquidState.sol";
+import "./ProtocolConstants.sol";
 import {ISlasher} from "./interfaces/ISlasher.sol";
 import {Slasher} from "./Slasher.sol";
 import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
@@ -156,6 +157,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
 
             // Sanitize the validator fields for a fresh new deployment.
             _validators[i].liquidSupply = 0;
+            _validators[i].conversionRatio = CONVERSION_RATIO_SCALE_FACTOR;
             _validators[i].liquidStateContract = ILiquid(address(0));
             _validators[i].bondedStake = 0;
             _validators[i].selfBondedStake = 0;
@@ -283,7 +285,8 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             0,                       // total slashed
             0,                       // jail release block
             _consensusKey,           // validator key in bytes
-            ValidatorState.active    // state
+            ValidatorState.active,   // state
+            CONVERSION_RATIO_SCALE_FACTOR    // conversion ratio
         );
 
         _verifyAndRegisterValidator(_val, _signatures);
@@ -918,6 +921,9 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         // update the validator struct and send the slashed funds to the autonity treasury
         accounts[config.policy.treasuryAccount] += slashingAmount;
         validators[_nodeAddress] = _slashedVal;
+
+        // slashing decreases the LNTN:NTN conversion ratio
+        _updateConversionRatio(validators[_nodeAddress]);
     }
 
     /**
@@ -947,6 +953,9 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         // update the validator struct and send the slashed funds to the autonity treasury
         accounts[config.policy.treasuryAccount] += slashingAmount;
         validators[_nodeAddress] = _slashedVal;
+
+        // slashing decreases the LNTN:NTN conversion ratio
+        _updateConversionRatio(validators[_nodeAddress]);
     }
 
     function setSlasher(address _slasher) external virtual onlyOperator {
@@ -1517,9 +1526,12 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                     _ntnReward -= _ntnWithheld;
                 }
 
+                uint256 _delegatedStake = _val.bondedStake - _val.selfBondedStake;
+
                 // non-jailed validators have a strict amount of bonded newton.
                 // the distribution account for the PAS ratio post-slashing.
-                uint256 _atnSelfReward = (_val.selfBondedStake * _atnReward) / _val.bondedStake;
+                uint256 _atnDelegationReward = (_delegatedStake * _atnReward) / _val.bondedStake; // round-down
+                uint256 _atnSelfReward = _atnReward - _atnDelegationReward;
                 if (_atnSelfReward > 0) {
                     (bool _sent, bytes memory _returnData) = _val.treasury.call{value: _atnSelfReward, gas: 2300}("");
                     // if transfer doesn't go through (sneaky contract), just keep the amount at the autonity contract for future redistribution
@@ -1528,20 +1540,20 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                         emit CallFailed(_val.treasury, "", _returnData);
                     }
                 }
-                uint256 _ntnSelfReward = (_val.selfBondedStake * _ntnReward) / _val.bondedStake;
+                uint256 _ntnDelegationReward = (_delegatedStake * _ntnReward) / _val.bondedStake; // round-down
+                uint256 _ntnSelfReward = _ntnReward - _ntnDelegationReward;
                 accounts[address(this)] -= _ntnSelfReward;
                 _autobond(_val.nodeAddress, _ntnSelfReward, 0);
 
-                uint256 _ntnDelegationReward = _ntnReward - _ntnSelfReward;
-                uint256 _atnDelegationReward = _atnReward - _atnSelfReward;
                 if (_atnDelegationReward > 0 || _ntnDelegationReward > 0) {
                     _transfer(address(this), address(_val.liquidStateContract), _ntnDelegationReward);
                     _val.liquidStateContract.redistribute{value: _atnDelegationReward}(accounts[address(_val.liquidStateContract)]);
                 }
+
                 // TODO: This has to be reconsidered - I feel it is too expensive
                 // to emit an event per validator. But what is our recommend way to track rewards
                 // from a user perspective then ?
-                emit Rewarded(_val.nodeAddress, _atnReward, _ntnReward);
+                emit Rewarded(_val.nodeAddress, _atnSelfReward, _atnDelegationReward, _ntnSelfReward, _ntnDelegationReward);
             }
         }
 
@@ -1740,6 +1752,9 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             uint256 _delegatedStake = _validator.bondedStake - _validator.selfBondedStake;
             if (_delegatedStake == 0) {
                 _liquidAmount = _bonding.amount;
+                // if bonding and the previous delegated stake was 0,
+                // the validator goes back to a conversion ratio of 1:1
+                _validator.conversionRatio = CONVERSION_RATIO_SCALE_FACTOR;
             } else {
                 _liquidAmount = (_validator.liquidSupply * _bonding.amount) / _delegatedStake;
             }
@@ -1761,6 +1776,9 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
 
         _val.selfBondedStake += _selfBond;
         _val.bondedStake += _selfBond + _delegated;
+
+        // autobond increases the LNTN:NTN conversion ratio
+        _updateConversionRatio(_val);
     }
 
     function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
@@ -1924,6 +1942,13 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         epoch.eip1559 = _epoch.eip1559;
         for (uint256 i = 0; i < _epoch.committee.length; i++) {
             epoch.committee.push(_epoch.committee[i]);
+        }
+    }
+
+    function _updateConversionRatio(Validator storage _val) internal virtual {
+        // NOTE: in case liquidSupply = 0 (all delegated stake is unbonded), the previous conversion ratio is kept.
+        if(_val.liquidSupply != 0) {
+            _val.conversionRatio = ((_val.bondedStake - _val.selfBondedStake) * CONVERSION_RATIO_SCALE_FACTOR) / _val.liquidSupply;
         }
     }
 }

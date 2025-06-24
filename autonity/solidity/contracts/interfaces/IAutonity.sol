@@ -53,6 +53,9 @@ interface IAutonity is IERC20, IScheduleController {
         uint256 jailReleaseBlock;
         bytes consensusKey;
         ValidatorState state;
+        // NOTE: the conversionRatio is not supposed to be used for protocol computations, but rather serves
+        // as a way to allow external clients to compute the performance of their delegated stake
+        uint256 conversionRatio;
     }
 
     /**************************************************/
@@ -552,10 +555,12 @@ interface IAutonity is IERC20, IScheduleController {
     * @notice emitted when a validator is rewarded for taking part in block consensus
     *  for committee inclusion
     * @param addr node address of validator
-    * @param atnAmount atnRewards
-    * @param ntnAmount ntnRewards
+    * @param atnSelfAmount validator's atn rewards
+    * @param atnDelegatedAmount delegator's atn rewards (includes validator commission)
+    * @param ntnSelfAmount validator's ntn rewards
+    * @param ntnDelegatedAmount delegator's ntn rewards (includes validator commission)
     */
-    event Rewarded(address indexed addr, uint256 atnAmount, uint256 ntnAmount);
+    event Rewarded(address indexed addr, uint256 atnSelfAmount, uint256 atnDelegatedAmount, uint256 ntnSelfAmount, uint256 ntnDelegatedAmount);
 
     /**
     * @notice emitted when epoch period is updated
