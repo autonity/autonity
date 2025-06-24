@@ -282,7 +282,7 @@ func AppendAddress(original []byte, addr common.Address) ([]byte, error) {
 	}
 
 	newContentSize := contentSize + common.AddressLength
-	newTagSize := uint64(headsize(newContentSize))
+	newTagSize := uint64(headsize(newContentSize)) //nolint:gosec
 
 	switch {
 	case tagSize == 1 && newTagSize == 1:
@@ -329,7 +329,7 @@ func ExtractAddress(original []byte) ([]byte, common.Address, error) {
 	copy(list, original)
 
 	newContentSize := contentSize - common.AddressLength
-	newTagSize := uint64(headsize(newContentSize))
+	newTagSize := uint64(headsize(newContentSize)) //nolint:gosec
 
 	switch {
 	case tagSize == 1 && newTagSize == 1:

@@ -561,11 +561,11 @@ func (p *Precommit) String() string {
 }
 
 func newVote[
-E Prevote | Precommit,
-PE interface {
-	*E
-	Msg
-}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *E {
+	E Prevote | Precommit,
+	PE interface {
+		*E
+		Msg
+	}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *E {
 	code := PE(new(E)).Code()
 
 	// Pay attention that we're adding the message Code to the signature input data.
@@ -730,11 +730,11 @@ func AggregatePrecommitsSimple(votes []Vote, self common.Address) []*Precommit {
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been cryptographically verified
 func AggregateVotesSimple[
-E Prevote | Precommit,
-PE interface {
-	*E
-	Msg
-}](votes []Vote, self common.Address) []*E {
+	E Prevote | Precommit,
+	PE interface {
+		*E
+		Msg
+	}](votes []Vote, self common.Address) []*E {
 	// length safety checks
 	if len(votes) == 0 {
 		panic("Trying to aggregate empty set of votes")
