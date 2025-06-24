@@ -316,6 +316,9 @@ func ExtractAddress(original []byte) ([]byte, common.Address, error) {
 	if k == Byte || k == String {
 		return nil, common.Address{}, ErrExpectedList
 	}
+	if tagSize+contentSize != uint64(len(original)) {
+		return nil, common.Address{}, ErrCanonSize
+	}
 
 	if contentSize < common.AddressLength {
 		return nil, common.Address{}, ErrCannotExtract
