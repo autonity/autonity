@@ -618,7 +618,6 @@ func (s *Ethereum) validatorController() {
 		index := s.topologySelector.MyIndex(committee.List, s.p2pServer.LocalNode())
 		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, index), committee.List)
 	}
-	mu := sync.Mutex{}
 	wasValidating := false
 
 	// read the committee base on latest state.
@@ -653,25 +652,21 @@ func (s *Ethereum) validatorController() {
 				// if the local node was part of the committee set for the previous block
 				// there is no longer the need to retain the full connections and the
 				// consensus engine enabled.
-				mu.Lock()
 				if wasValidating {
 					s.log.Info("Local node no longer detected part of the consensus committee, mining stopped")
 					s.miner.Stop()
 					s.p2pServer.UpdateConsensusEnodes(nil, nil)
 					wasValidating = false
 				}
-				mu.Unlock()
 				continue
 			}
 			updateConsensusEnodes(ev.Header)
 			// if we were not committee in the past block we need to enable the mining engine.
-			mu.Lock()
 			if !wasValidating {
 				s.log.Info("Local node detected part of the consensus committee, mining started")
 				s.miner.Start()
 			}
 			wasValidating = true
-			mu.Unlock()
 		// Err() channel will be closed when unsubscribing.
 		case <-chainHeadSub.Err():
 			return

@@ -144,12 +144,6 @@ func NewWeightedRandomSamplingCommittee(previousHeader *types.Header, committee 
 	}
 }
 
-func (w *WeightedRandomSamplingCommittee) SetCommittee(committee *types.Committee) {
-	w.committee = committee
-	w.totalVotingPower = committee.TotalVotingPower()
-	w.quorum = bft.Quorum(committee.TotalVotingPower())
-}
-
 // Return the underlying types.Committee
 func (w *WeightedRandomSamplingCommittee) Committee() *types.Committee {
 	return w.committee

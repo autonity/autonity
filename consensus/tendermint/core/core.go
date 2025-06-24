@@ -9,6 +9,7 @@ import (
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	com "github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -437,7 +438,8 @@ func (c *Core) setInitialState(r int64) {
 	if r == 0 {
 		lastBlockMined := c.backend.HeadBlock()
 		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
-		c.committee.SetLastHeader(lastBlockMined.Header())
+		lastHeader := lastBlockMined.Header()
+		c.committee.SetLastHeader(lastHeader)
 		epoch, err := c.Backend().EpochByHeight(c.Height().Uint64())
 		if err != nil {
 			panic(err)
@@ -445,7 +447,8 @@ func (c *Core) setInitialState(r int64) {
 		if c.epoch.EpochBlock.Cmp(epoch.EpochBlock) != 0 {
 			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
 			c.epoch = epoch
-			c.committee.SetCommittee(epoch.Committee)
+			committeeSet := com.NewWeightedRandomSamplingCommittee(lastHeader, epoch.Committee, c.protocolContracts)
+			c.setCommitteeSet(committeeSet)
 		}
 
 		c.lockedRound = -1
@@ -572,6 +575,7 @@ func (c *Core) setHeight(height *big.Int) {
 	defer c.stateMu.Unlock()
 	c.height = height
 }
+
 func (c *Core) setCommitteeSet(set interfaces.Committee) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()

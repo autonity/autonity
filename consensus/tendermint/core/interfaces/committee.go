@@ -1,9 +1,10 @@
 package interfaces
 
 import (
+	"math/big"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
-	"math/big"
 )
 
 type Committee interface {
@@ -21,8 +22,6 @@ type Committee interface {
 
 	// SetLastHeader Update with lastest block header
 	SetLastHeader(block *types.Header)
-
-	SetCommittee(committee *types.Committee)
 
 	// Quorum Get the optimal quorum size
 	Quorum() *big.Int
