@@ -1530,9 +1530,7 @@ func (bc *BlockChain) writeBlockWithoutState(block *types.Block) (err error) {
 // and introduces chain reorg if necessary.
 func (bc *BlockChain) writeKnownBlock(block *types.Block) error {
 	current := bc.CurrentBlock()
-	// Autonity can commit a block from both execution channel and the consensus channel, as the needReorg was removed,
-	// thus we check if the head is already inserted to remove the unnecessary chain reorg.
-	if block.ParentHash() != current.Hash() && block.Hash() != current.Hash() {
+	if block.ParentHash() != current.Hash() {
 		if err := bc.reorg(current, block.Header()); err != nil {
 			return err
 		}
@@ -1632,9 +1630,10 @@ func (bc *BlockChain) WriteBlockAndSetHead(block *types.Block, receipts []*types
 	currentBlock := bc.CurrentBlock()
 
 	// Reorganise the chain if the parent is not the head block
-	// Autonity can commit a block from both execution channel and the consensus channel, as the needReorg was removed,
-	// thus we check if the head is already inserted to remove the unnecessary chain reorg.
-	if block.ParentHash() != currentBlock.Hash() && block.Hash() != currentBlock.Hash() {
+	// Autonity can commit a block from both execution channel and the consensus channel,
+	// thus we check if the head is duplicated (already inserted) to avoid unnecessary chain reorg.
+	currentBlockHash := currentBlock.Hash()
+	if block.ParentHash() != currentBlockHash && block.Hash() != currentBlockHash {
 		if err := bc.reorg(currentBlock, block.Header()); err != nil {
 			return NonStatTy, err
 		}
@@ -2529,9 +2528,7 @@ func (bc *BlockChain) SetCanonical(head *types.Block) (common.Hash, error) {
 	}
 	// Run the reorg if necessary and set the given block as new head.
 	start := time.Now()
-	// Autonity can commit a block from both execution channel and the consensus channel, as the needReorg was removed,
-	// thus we check if the head is already inserted to remove the unnecessary chain reorg.
-	if head.ParentHash() != bc.CurrentBlock().Hash() && head.Hash() != bc.CurrentBlock().Hash() {
+	if head.ParentHash() != bc.CurrentBlock().Hash() {
 		if err := bc.reorg(bc.CurrentBlock(), head.Header()); err != nil {
 			return common.Hash{}, err
 		}
