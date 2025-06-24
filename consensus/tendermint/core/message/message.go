@@ -547,11 +547,11 @@ func (p *Precommit) String() string {
 }
 
 func newVote[
-	E Prevote | Precommit,
-	PE interface {
-		*E
-		Msg
-	}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *E {
+E Prevote | Precommit,
+PE interface {
+	*E
+	Msg
+}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *E {
 	code := PE(new(E)).Code()
 
 	// Pay attention that we're adding the message Code to the signature input data.
@@ -572,10 +572,9 @@ func newVote[
 	})
 
 	// append the originator as the last 20 bytes of the payload
-	var err error
-	payload, err = rlp.AppendAddress(payload, self.Address)
+	fullPayload, err := rlp.AppendAddress(payload, self.Address)
 	if err != nil {
-		panic("todo")
+		panic("failed to append address to RLP payload: " + err.Error())
 	}
 
 	vote := E{
@@ -586,7 +585,7 @@ func newVote[
 				round:          r,
 				height:         h,
 				signature:      signature,
-				payload:        payload,
+				payload:        fullPayload,
 				originator:     self.Address,
 				hash:           crypto.Hash(payload),
 				signatureInput: signatureInput,
@@ -676,9 +675,9 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, self common.Address) *E
 	})
 
 	// append the originator as the last 20 bytes of the payload
-	payload, err = rlp.AppendAddress(payload, self)
+	fullPayload, err := rlp.AppendAddress(payload, self)
 	if err != nil {
-		panic("todo")
+		panic("failed to append address to RLP payload: " + err.Error())
 	}
 
 	aggregateVote := E{
@@ -690,7 +689,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, self common.Address) *E
 				round:          r,
 				signatureInput: signatureInput,
 				signature:      aggregatedSignature,
-				payload:        payload,
+				payload:        fullPayload,
 				originator:     self,
 				hash:           crypto.Hash(payload),
 				verified:       true, // verified due to all votes being verified
@@ -715,11 +714,11 @@ func AggregatePrecommitsSimple(votes []Vote, self common.Address) []*Precommit {
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been cryptographically verified
 func AggregateVotesSimple[
-	E Prevote | Precommit,
-	PE interface {
-		*E
-		Msg
-	}](votes []Vote, self common.Address) []*E {
+E Prevote | Precommit,
+PE interface {
+	*E
+	Msg
+}](votes []Vote, self common.Address) []*E {
 	// length safety checks
 	if len(votes) == 0 {
 		panic("Trying to aggregate empty set of votes")
@@ -806,9 +805,9 @@ func AggregateVotesSimple[
 		})
 
 		// append the originator as the last 20 bytes of the payload
-		payload, err = rlp.AppendAddress(payload, self)
+		fullPayload, err := rlp.AppendAddress(payload, self)
 		if err != nil {
-			panic("todo")
+			panic("failed to append address to RLP payload: " + err.Error())
 		}
 
 		aggregateVote := E{
@@ -820,7 +819,7 @@ func AggregateVotesSimple[
 					round:          r,
 					signatureInput: signatureInput,
 					signature:      aggregatedSignature,
-					payload:        payload,
+					payload:        fullPayload,
 					originator:     self,
 					hash:           crypto.Hash(payload),
 					verified:       true, // verified due to all votes being verified
@@ -841,6 +840,12 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	}
 
 	payload, originator, err := rlp.ExtractAddress(fullPayload)
+	if err != nil {
+		return errors.Join(constants.ErrInvalidMessage, err)
+	}
+	if originator == (common.Address{}) {
+		return constants.ErrInvalidMessage
+	}
 
 	encoded := &extVote{}
 	if err := rlp.DecodeBytes(payload, encoded); err != nil {
@@ -886,6 +891,12 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	}
 
 	payload, originator, err := rlp.ExtractAddress(fullPayload)
+	if err != nil {
+		return errors.Join(constants.ErrInvalidMessage, err)
+	}
+	if originator == (common.Address{}) {
+		return constants.ErrInvalidMessage
+	}
 
 	encoded := &extVote{}
 	if err := rlp.DecodeBytes(payload, encoded); err != nil {
@@ -915,7 +926,7 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	p.signature = encoded.Signature
 	p.signers = encoded.Signers
 	p.originator = originator
-	p.payload = payload
+	p.payload = fullPayload
 	// precompute hash and signature hash
 	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrecommitCode, encoded.Value)
 	p.hash = crypto.Hash(payload)
