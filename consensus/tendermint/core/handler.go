@@ -291,7 +291,10 @@ eventLoop:
 				}
 				recordMessageProcessingTime(msg.Code(), start)
 			}
-		case ev, _ := <-c.stateEventSub.Chan():
+		case ev, ok := <-c.stateEventSub.Chan():
+			if !ok {
+				break eventLoop
+			}
 			c.handleStateDump(ev.Data.(StateRequestEvent))
 		case ev, ok := <-c.timeoutEventSub.Chan():
 			if !ok {
@@ -333,8 +336,8 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 		c.stopped <- struct{}{}
 	}()
 
-	// Ask for sync when the engine starts. Retry until sync succeeds or we are stopped
-	for {
+	// Ask for sync when the engine starts. Retry few times post which the sync tracker loop will take over
+	for i := 0; i < 10; i++ {
 		err := c.backend.AskSync(c.CommitteeSet().Committee(), c.createSyncMsg())
 		if err == nil {
 			break
