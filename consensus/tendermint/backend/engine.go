@@ -609,8 +609,8 @@ func (sb *Backend) Close() error {
 	// never return because we did not close sb.stopped.
 	close(sb.stopped)
 	// Stop Tendermint
-	sb.aggregator.stop()
 	sb.core.Stop()
+	sb.aggregator.stop()
 	sb.router.Stop()
 	sb.wg.Wait()
 	sb.coreStarting.CompareAndSwap(true, false)

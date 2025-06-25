@@ -763,7 +763,6 @@ loop:
 	for {
 		select {
 		case event, ok := <-messageCh:
-			//start := time.Now()
 			if !ok {
 				break loop
 			}
@@ -773,7 +772,6 @@ loop:
 			a.handleEvent(event)
 		case ev, ok := <-a.core.EventCh():
 			start := time.Now()
-			//eventType := ""
 			if !ok {
 				break loop
 			}

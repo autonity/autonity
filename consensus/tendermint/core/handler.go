@@ -65,6 +65,7 @@ func (c *Core) subscribeEvents() {
 func (c *Core) unsubscribeEvents() {
 	c.stateEventSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
+	close(c.messageEventCh)
 }
 
 func shouldDisconnectSender(err error) bool {
