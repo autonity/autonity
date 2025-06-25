@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
+	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
 	"github.com/stretchr/testify/require"
 	"math/big"
@@ -35,7 +36,7 @@ func TestOperatorOpts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, newOperator, op)
 
-	newBaseFee := new(big.Int).SetUint64(12)
+	newBaseFee := new(big.Int).SetUint64(params.InitialBaseFee / 2)
 	err = client.AwaitSetMinBaseFee(newOptKey, newBaseFee, timeout)
 	require.NoError(t, err)
 	fee, err := client.Interactor.Call(nil).GetMinBaseFee()

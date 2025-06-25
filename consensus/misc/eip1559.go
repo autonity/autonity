@@ -48,6 +48,10 @@ func VerifyEip1559Header(config *params.ChainConfig, feeGetter BaseFeeGetter, pa
 	}
 	// Verify the baseFee is correct based on the parent header.
 	if feeGetter != nil {
+		// Todo, rebase with the feature which stores eip1559 params in the Epoch object, as for current version the
+		//  cache will introduce an un-deterministic verification of the baseFee when system operator change the baseFee
+		//  from AC contract, with the latest version, we have epoch boundary for each block, thus we can determine the
+		//  corresponding eip-1559 params for each block from the epoch object.
 		expectedBaseFee := CalcBaseFee(config, parent, feeGetter)
 		if header.BaseFee.Cmp(expectedBaseFee) != 0 {
 			return fmt.Errorf("invalid baseFee: have %s, want %s, parentBaseFee %s, parentGasUsed %d",

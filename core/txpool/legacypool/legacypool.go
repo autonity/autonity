@@ -133,6 +133,11 @@ type BlockChain interface {
 
 	// StateAt returns a state database for a given root hash (generally the head).
 	StateAt(root common.Hash) (*state.StateDB, error)
+
+	// Todo: rebase with the feature which saves EIP1559 params in epoch object:
+	//  Eip1559ParamsByHeight(height uint64) (*types.Eip1559Params, error)
+	// MinBaseFee was removed from develop branch!!!
+	MinBaseFee() *big.Int
 }
 
 // Config are the configuration parameters of the transaction pool.
@@ -1283,7 +1288,12 @@ func (pool *LegacyPool) runReorg(done chan struct{}, reset *txpoolResetRequest, 
 		pool.demoteUnexecutables()
 		if reset.newHead != nil {
 			if pool.chainconfig.IsLondon(new(big.Int).Add(reset.newHead.Number, big.NewInt(1))) {
-				pendingBaseFee := misc.CalcBaseFee(pool.chainconfig, reset.newHead, nil)
+
+				// todo: rebase with the on-chain eip1559 params feature which saves eip1559 params in the Epoch object
+				//  which keep a deterministic params of eip1559 for the protocol.
+				// In this legacy version, the BaseFeeGetter shouldn't be nil, otherwise we will break EIP1559 protocol.
+				// Need to fix all the callers of this misc.CalcBaseFee() function.
+				pendingBaseFee := misc.CalcBaseFee(pool.chainconfig, reset.newHead, pool.chain)
 				pool.priced.SetBaseFee(pendingBaseFee)
 			} else {
 				pool.priced.Reheap()
