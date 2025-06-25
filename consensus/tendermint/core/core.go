@@ -373,8 +373,8 @@ func (c *Core) processFuture(previousRound int64, currentRound int64) {
 
 	for r := previousRound + 1; r <= currentRound; r++ {
 		for _, msg := range c.futureRound[r] {
-			// only to code, should we send to FD ??
-			c.backend.MessageToCore(backlogMessageEvent{
+			// only to core, should we send to FD ??
+			go c.backend.MessageToCore(backlogMessageEvent{
 				msg: msg,
 			})
 		}

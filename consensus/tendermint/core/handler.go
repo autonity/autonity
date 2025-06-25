@@ -57,7 +57,7 @@ func (c *Core) subscribeEvents() {
 	c.stateEventSub = c.backend.Subscribe(StateRequestEvent{})
 	c.candidateBlockCh = make(chan events.NewCandidateBlockEvent, 1)
 	c.committedCh = make(chan events.CommitEvent, 1)
-	c.messageEventCh = make(chan events.MessageEventer, 1000) // todo(review) : channel size
+	c.messageEventCh = make(chan events.MessageEventer, 1000)
 	c.timeoutEventSub = c.backend.Subscribe(TimeoutEvent{})
 }
 
@@ -65,7 +65,6 @@ func (c *Core) subscribeEvents() {
 func (c *Core) unsubscribeEvents() {
 	c.stateEventSub.Unsubscribe()
 	c.timeoutEventSub.Unsubscribe()
-	close(c.messageEventCh)
 }
 
 func shouldDisconnectSender(err error) bool {

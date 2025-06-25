@@ -561,14 +561,14 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
-					a.backend.MessageToCore(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
+					go a.backend.MessageToCore(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
 					go a.backend.Post(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
 				}
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
-					a.backend.MessageToCore(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
+					go a.backend.MessageToCore(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
 					go a.backend.Post(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
 				}
 			default:
@@ -590,8 +590,9 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 
 func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent, eventer eventBuilder) {
 	proposal := proposalEvent.Message
-	a.backend.MessageToCore(eventer(proposal, proposalEvent)) // to core
-	go a.backend.Post(eventer(proposal, proposalEvent))       // to FD
+	// go routine for core event dispatch as well to avoid deadlock, there is loop between core and aggregator
+	go a.backend.MessageToCore(eventer(proposal, proposalEvent)) // to core
+	go a.backend.Post(eventer(proposal, proposalEvent))          // to FD
 }
 
 // assumes current or old round vote
@@ -616,8 +617,8 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 			a.handleInvalidMessage(errCh, err, sender)
 			return
 		}
-		a.backend.MessageToCore(currentHeightEventBuilder(voteEvent.Message, voteEvent)) // to core
-		go a.backend.Post(currentHeightEventBuilder(voteEvent.Message, voteEvent))       // to FD
+		go a.backend.MessageToCore(currentHeightEventBuilder(voteEvent.Message, voteEvent)) // to core
+		go a.backend.Post(currentHeightEventBuilder(voteEvent.Message, voteEvent))          // to FD
 		return
 	}
 
