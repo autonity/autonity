@@ -29,7 +29,7 @@ func TestAggregate(t *testing.T) {
 		r     int64       = 1
 		h     uint64      = 2
 		value common.Hash = common.BigToHash(big.NewInt(1000))
-		csize int         = 4
+		csize int         = 5
 	)
 	vote := func(member *types.CommitteeMember, privateKey blst.SecretKey, ecPrivateKey *ecdsa.PrivateKey) *Prevote {
 		signer := func(hash common.Hash) blst.Signature {
@@ -43,11 +43,11 @@ func TestAggregate(t *testing.T) {
 		ecPrivateKey *ecdsa.PrivateKey
 	}
 
-	voters := make([]Voter, 4)
-	privateKeyMap := make(map[blst.SecretKey]struct{}, 4)
-	ecPrivateKeyMap := make(map[*ecdsa.PrivateKey]struct{}, 4)
-	votes := make([]*Prevote, 4)
-	members := make([]types.CommitteeMember, 4)
+	voters := make([]Voter, csize)
+	privateKeyMap := make(map[blst.SecretKey]struct{}, csize)
+	ecPrivateKeyMap := make(map[*ecdsa.PrivateKey]struct{}, csize)
+	votes := make([]*Prevote, csize)
+	members := make([]types.CommitteeMember, csize)
 	for i := range voters {
 		for {
 			privateKey, err := blst.RandKey()
@@ -96,6 +96,8 @@ func TestAggregate(t *testing.T) {
 		signatures := make([]blst.Signature, len(votes))
 		publicKeys := make([]blst.PublicKey, len(votes))
 		for i, v := range votes {
+			require.NoError(t, v.PreValidate(committee))
+			require.True(t, v.(*Prevote).preverified)
 			signatures[i] = v.Signature()
 			publicKeys[i] = v.SignerKey()
 		}
@@ -109,11 +111,21 @@ func TestAggregate(t *testing.T) {
 		return aggregate
 	}
 
+	// aggregated by B after receiving A
 	aggregateAB := verifyAndAggregate([]Vote{votes[0], votes[1]})
-
+	// aggregated by C after receiving A
 	aggregateAC := verifyAndAggregate([]Vote{votes[0], votes[2]})
+	// aggregated by D after receiving A
+	aggregateAD := verifyAndAggregate([]Vote{votes[0], votes[3]})
 
-	verifyAndAggregate([]Vote{aggregateAB, aggregateAC})
+	// aggregated by C after receiving AB from B
+	aggregateABAC := verifyAndAggregate([]Vote{aggregateAB, aggregateAC})
+
+	// aggregated by D after receiving AB from B
+	aggregateABAD := verifyAndAggregate([]Vote{aggregateAB, aggregateAD})
+
+	// aggregated by E after receiving aggregateABAC, aggregateABAD
+	verifyAndAggregate([]Vote{aggregateABAC, aggregateABAD})
 
 }
 
