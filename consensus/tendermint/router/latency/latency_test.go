@@ -12,7 +12,6 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
-	"github.com/autonity/autonity/consensus/tendermint/router/cluster"
 	"github.com/autonity/autonity/consensus/tendermint/router/mocks"
 	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	"github.com/autonity/autonity/crypto"
@@ -51,9 +50,7 @@ func TestFetcher_Fetch(t *testing.T) {
 
 	assert.NoError(t, err, "Expected no error")
 	assert.Equal(t, map[common.Address]uint{
-		self:       0,
 		validator1: 50,
-		validator2: cluster.DefaultLatency,
 	}, latency, "Latency map should match expected values")
 	assert.Equal(t, []common.Address{validator2}, failedNodes, "Failed nodes should include validator2")
 }

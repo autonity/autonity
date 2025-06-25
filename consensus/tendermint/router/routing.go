@@ -272,13 +272,7 @@ func (m *Router) retryLatency() error {
 	m.retryMu.Unlock()
 
 	if updated {
-		m.latencyMu.Lock()
-		latMap := make(map[common.Address]uint, len(m.latestLatencies))
-		for addr, lat := range m.latestLatencies {
-			latMap[addr] = lat
-		}
-		m.latencyMu.Unlock()
-		m.refreshClustersLatencies(latMap)
+		m.refreshClustersLatencies(m.Latencies())
 		log.Debug("Router: clusters updated after latency retry")
 	}
 

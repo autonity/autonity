@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/router/cluster"
 	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	"github.com/autonity/autonity/crypto"
@@ -39,14 +38,12 @@ func (f *Fetcher) Fetch(validators []common.Address, self common.Address) (map[c
 	for i, member := range validators {
 		if member == self {
 			pingTargets[i] = ping.Target{}
-			latency[member] = 0
 			continue
 		}
 		if _, ok := f.peerFinder.FindPeer(member); !ok {
 			log.Debug("Node not connected, skipping ping", "peer", member.Hex())
 			pingTargets[i] = ping.Target{}
 			failedNodes = append(failedNodes, member)
-			latency[member] = cluster.DefaultLatency
 			continue
 		}
 		if memberNode, ok := enodeByAddress(committeeEnodes, member); ok {
@@ -58,7 +55,6 @@ func (f *Fetcher) Fetch(validators []common.Address, self common.Address) (map[c
 			log.Error("Peer not found in broadcaster enodes", "peer", member.Hex())
 			pingTargets[i] = ping.Target{}
 			failedNodes = append(failedNodes, member)
-			latency[member] = cluster.DefaultLatency
 		}
 	}
 
@@ -69,7 +65,6 @@ func (f *Fetcher) Fetch(validators []common.Address, self common.Address) (map[c
 		}
 		if latencyArray[i].Err != nil {
 			failedNodes = append(failedNodes, addr)
-			latency[addr] = cluster.DefaultLatency
 			continue
 		}
 		latency[addr] = uint(latencyArray[i].Latency.Milliseconds()) // #nosec
