@@ -18,8 +18,8 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/cache"
+	"github.com/autonity/autonity/consensus/tendermint/router/cluster"
 	"github.com/autonity/autonity/consensus/tendermint/router/mocks"
-	"github.com/autonity/autonity/consensus/tendermint/router/network"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -56,7 +56,7 @@ func TestNew(t *testing.T) {
 	recipientCache := cache.New()
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	self := common.HexToAddress("0x111")
 	nodeKey := newTestKey(t)
 
@@ -90,7 +90,7 @@ func TestRouter_Start(t *testing.T) {
 	chain.EXPECT().LatestEpoch().Return(epoch, nil).Times(1)
 	sub := mocks.NewMockSubscription(ctrl)
 	chain.EXPECT().SubscribeEpochHeadEvent(gomock.Any()).Return(sub).Times(1)
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	networkProvider.EXPECT().UpdateClusters(gomock.Any()).Times(1)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
@@ -102,7 +102,7 @@ func TestRouter_Start(t *testing.T) {
 
 	// Mock network.New
 	latencyMap := map[common.Address]uint{self: 50, common.HexToAddress("0x222"): 100}
-	clusters, err := network.New(committeeAddrs, latencyMap, self)
+	clusters, err := cluster.New(committeeAddrs, latencyMap, self)
 	assert.NoError(t, err, "Failed to create clusters")
 	networkProvider.EXPECT().Clusters().Return(clusters).AnyTimes()
 
@@ -121,7 +121,7 @@ func TestRouter_Stop(t *testing.T) {
 
 	self := common.HexToAddress("0x111")
 	chain := mocks.NewMockBlockChainProvider(ctrl)
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
@@ -163,7 +163,7 @@ func TestRouter_Recipients_SmallCommittee(t *testing.T) {
 		FakePower:  big.NewInt(1),
 	}
 	msg := message.NewFakePropose(fake)
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
@@ -198,7 +198,7 @@ func TestRouter_Recipients_LargeCommittee(t *testing.T) {
 		FakePower:  big.NewInt(1),
 	}
 	msg := message.NewFakePropose(fake)
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
@@ -244,7 +244,7 @@ func TestRouter_Recipients_SelfNotInCommittee(t *testing.T) {
 		FakePower:  big.NewInt(1),
 	}
 	msg := message.NewFakePropose(fake)
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
@@ -292,7 +292,7 @@ func TestRouter_Forward(t *testing.T) {
 		FakePower:  big.NewInt(1),
 	}
 	msg := message.NewFakePropose(fake)
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	broadcaster := mocks.NewMockPeerFinder(ctrl)
@@ -325,7 +325,7 @@ func TestRouter_measureLatency(t *testing.T) {
 
 	self := common.HexToAddress("0x111")
 	committeeAddrs := []common.Address{self, common.HexToAddress("0x222")}
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
@@ -357,7 +357,7 @@ func TestRouter_retryLatency(t *testing.T) {
 
 	self := common.HexToAddress("0x111")
 	committeeAddrs := []common.Address{self, common.HexToAddress("0x222")}
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
@@ -407,7 +407,7 @@ func TestRouter_Loop_OverallFlow(t *testing.T) {
 	chain.EXPECT().LatestEpoch().Return(epoch, nil).Times(1)
 	sub := mocks.NewMockSubscription(ctrl)
 	chain.EXPECT().SubscribeEpochHeadEvent(gomock.Any()).Return(sub).Times(1)
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
@@ -423,7 +423,7 @@ func TestRouter_Loop_OverallFlow(t *testing.T) {
 
 	// Mock initial network setup
 	latencyMap := map[common.Address]uint{self: 50, common.HexToAddress("0x222"): 100, common.HexToAddress("0x333"): 150}
-	clusters, err := network.New(committeeAddrs, latencyMap, self)
+	clusters, err := cluster.New(committeeAddrs, latencyMap, self)
 	assert.NoError(t, err, "Failed to create clusters")
 	networkProvider.EXPECT().Clusters().Return(clusters).AnyTimes()
 	networkProvider.EXPECT().UpdateClusters(gomock.Any()).Times(2) // Initial + after latency
@@ -502,7 +502,7 @@ func TestRouter_Loop_Tickers(t *testing.T) {
 	chain.EXPECT().LatestEpoch().Return(epoch, nil).Times(1)
 	sub := mocks.NewMockSubscription(ctrl)
 	chain.EXPECT().SubscribeEpochHeadEvent(gomock.Any()).Return(sub).Times(1)
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
@@ -516,7 +516,7 @@ func TestRouter_Loop_Tickers(t *testing.T) {
 
 	// Mock network and latency
 	latencyMap := map[common.Address]uint{self: 50, common.HexToAddress("0x222"): 100}
-	clusters, err := network.New(committeeAddrs, latencyMap, self)
+	clusters, err := cluster.New(committeeAddrs, latencyMap, self)
 	assert.NoError(t, err, "Failed to create clusters")
 	networkProvider.EXPECT().Clusters().Return(clusters).AnyTimes()
 	networkProvider.EXPECT().UpdateClusters(gomock.Any()).AnyTimes()
@@ -537,7 +537,7 @@ func TestRouter_SetBroadcaster(t *testing.T) {
 	defer ctrl.Finish()
 
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
 	self := common.HexToAddress("0x111")
@@ -557,7 +557,7 @@ func TestRouter_Latencies(t *testing.T) {
 	defer ctrl.Finish()
 
 	self := common.HexToAddress("0x111")
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
@@ -586,7 +586,7 @@ func TestRouter_ConcurrentForward(t *testing.T) {
 			{Address: common.HexToAddress("0x333"), VotingPower: big.NewInt(1)},
 		},
 	}
-	networkProvider := mocks.NewMockNetworkProvider(ctrl)
+	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	broadcaster := consensus.NewMockBroadcaster(ctrl)

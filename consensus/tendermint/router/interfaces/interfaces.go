@@ -4,7 +4,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/router/network"
+	"github.com/autonity/autonity/consensus/tendermint/router/cluster"
 	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
@@ -12,9 +12,9 @@ import (
 	"github.com/autonity/autonity/p2p/enode"
 )
 
-type NetworkProvider interface {
-	Clusters() network.Clusters
-	UpdateClusters(network.Clusters)
+type ClustersProvider interface {
+	Clusters() cluster.Clusters
+	UpdateClusters(cluster.Clusters)
 }
 
 type LatencyProvider interface {

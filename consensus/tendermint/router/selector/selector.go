@@ -11,8 +11,8 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/cache"
+	"github.com/autonity/autonity/consensus/tendermint/router/cluster"
 	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
-	"github.com/autonity/autonity/consensus/tendermint/router/network"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 )
@@ -30,22 +30,22 @@ const (
 const defaultNearThreshold = 50
 
 type selector struct {
-	networkProvider interfaces.NetworkProvider
-	recipientCache  cache.Recipients
-	peerFinder      interfaces.PeerFinder
-	heightLock      sync.Mutex
-	loggedHR        map[string]uint64
-	recentHeights   [50]uint64
-	heightIndex     int
+	clustersProvider interfaces.ClustersProvider
+	recipientCache   cache.Recipients
+	peerFinder       interfaces.PeerFinder
+	heightLock       sync.Mutex
+	loggedHR         map[string]uint64
+	recentHeights    [50]uint64
+	heightIndex      int
 }
 
-func New(np interfaces.NetworkProvider, cache cache.Recipients) interfaces.PeerSelector {
+func New(np interfaces.ClustersProvider, cache cache.Recipients) interfaces.PeerSelector {
 	s := &selector{
-		networkProvider: np,
-		recipientCache:  cache,
-		loggedHR:        make(map[string]uint64),
-		recentHeights:   [50]uint64{},
-		heightIndex:     0,
+		clustersProvider: np,
+		recipientCache:   cache,
+		loggedHR:         make(map[string]uint64),
+		recentHeights:    [50]uint64{},
+		heightIndex:      0,
 	}
 	return s
 }
@@ -54,10 +54,10 @@ func (s *selector) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 	s.peerFinder = broadcaster
 }
 
-func (s *selector) routingCandidatesFromCluster(clusterID int, self common.Address, committee *types.Committee) []network.Node {
-	clusters := s.networkProvider.Clusters()
+func (s *selector) routingCandidatesFromCluster(clusterID int, self common.Address, committee *types.Committee) []cluster.Node {
+	clusters := s.clustersProvider.Clusters()
 	members := clusters.MembersByID(clusterID)
-	candidates := make([]network.Node, 0, len(members))
+	candidates := make([]cluster.Node, 0, len(members))
 	for _, node := range members {
 		if self == node.Addr {
 			continue
@@ -85,7 +85,7 @@ func (s *selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 }
 
 func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg message.Msg, from common.Address, isProposal bool) ([]common.Address, error) {
-	clusters := s.networkProvider.Clusters()
+	clusters := s.clustersProvider.Clusters()
 	if len(clusters.Base()) == 0 {
 		return []common.Address{}, errors.New("no clusters")
 	}
@@ -133,11 +133,11 @@ func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 	return selected, nil
 }
 
-func (s *selector) selectNodesByLatencySpread() []network.Node {
-	recipients := make([]network.Node, 0)
+func (s *selector) selectNodesByLatencySpread() []cluster.Node {
+	recipients := make([]cluster.Node, 0)
 	usedClusters := make(map[int]bool)
 
-	clusters := s.networkProvider.Clusters()
+	clusters := s.clustersProvider.Clusters()
 
 	// Select one connected node from each remote cluster
 	for _, nodes := range clusters.BucketNodes() {
@@ -186,8 +186,8 @@ func determineSenderType(from, self common.Address, msg message.Msg, originClust
 	}
 }
 
-func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *types.Committee, senderType SenderType, ownClusterID int, isProposal bool) []network.Node {
-	var recipients []network.Node
+func (s *selector) selectBucketBasedNodes(clusters cluster.Clusters, committee *types.Committee, senderType SenderType, ownClusterID int, isProposal bool) []cluster.Node {
+	var recipients []cluster.Node
 	var minNodes, lowLatencyNodes int
 
 	switch senderType {
@@ -264,9 +264,9 @@ func (s *selector) selectBucketBasedNodes(clusters network.Clusters, committee *
 	return recipients
 }
 
-func (s *selector) deduplicate(recipients []network.Node) []network.Node {
+func (s *selector) deduplicate(recipients []cluster.Node) []cluster.Node {
 	seen := make(map[common.Address]struct{}, len(recipients))
-	var selected []network.Node
+	var selected []cluster.Node
 	for _, node := range recipients {
 		if _, exists := seen[node.Addr]; !exists {
 			seen[node.Addr] = struct{}{}
@@ -276,8 +276,8 @@ func (s *selector) deduplicate(recipients []network.Node) []network.Node {
 	return selected
 }
 
-func (s *selector) selectCloseNodes(committee *types.Committee, clusterID, minNodes, lowLatencyNodes int, self common.Address) []network.Node {
-	var selected, candidates []network.Node
+func (s *selector) selectCloseNodes(committee *types.Committee, clusterID, minNodes, lowLatencyNodes int, self common.Address) []cluster.Node {
+	var selected, candidates []cluster.Node
 	candidates = s.routingCandidatesFromCluster(clusterID, self, committee)
 	if len(candidates) == 0 {
 		return nil
@@ -303,8 +303,8 @@ func (s *selector) selectCloseNodes(committee *types.Committee, clusterID, minNo
 	return selected
 }
 
-func (s *selector) buildResultFromRecipients(recipients []common.Address, clusters network.Clusters) []network.Node {
-	result := make([]network.Node, 0, len(recipients))
+func (s *selector) buildResultFromRecipients(recipients []common.Address, clusters cluster.Clusters) []cluster.Node {
+	result := make([]cluster.Node, 0, len(recipients))
 	for _, recipient := range recipients {
 		id := clusters.IDByAddress(recipient)
 		member, err := clusters.GetNode(id, recipient)
@@ -315,7 +315,7 @@ func (s *selector) buildResultFromRecipients(recipients []common.Address, cluste
 	return result
 }
 
-func (s *selector) clusterStatus(recipients []network.Node, msg message.Msg, from common.Address, senderType SenderType, ownClusterID int, originClusterID int) {
+func (s *selector) clusterStatus(recipients []cluster.Node, msg message.Msg, from common.Address, senderType SenderType, ownClusterID int, originClusterID int) {
 	logKey := fmt.Sprintf("%d-%d-%d", msg.H(), msg.R(), msg.Code())
 
 	s.heightLock.Lock()
@@ -374,7 +374,7 @@ func (s *selector) clusterStatus(recipients []network.Node, msg message.Msg, fro
 	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s MessageHash=%s SenderType=%s localCluster=%d originCluster=%d\n",
 		msg.H(), msg.R(), from.Hex(), msgType, msg.Hash().Hex(), sender, ownClusterID, originClusterID))
 
-	clusterMap := make(map[int][]network.Node)
+	clusterMap := make(map[int][]cluster.Node)
 	for _, node := range recipients {
 		clusterMap[node.ClusterID] = append(clusterMap[node.ClusterID], node)
 	}

@@ -10,9 +10,9 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/cache"
+	"github.com/autonity/autonity/consensus/tendermint/router/cluster"
 	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/router/latency"
-	"github.com/autonity/autonity/consensus/tendermint/router/network"
 	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	"github.com/autonity/autonity/consensus/tendermint/router/selector"
 	"github.com/autonity/autonity/core"
@@ -35,11 +35,11 @@ func Setup(
 	logger log.Logger,
 ) *Router {
 	peerCache := cache.New()
-	nw := &network.Network{}
+	cm := &cluster.Manager{}
 	pinger, _ := ping.NewPinger(ping.ProtocolTCP, logger)
-	peerSelector := selector.New(nw, peerCache)
+	peerSelector := selector.New(cm, peerCache)
 	fetcher := latency.NewFetcher(pinger)
-	return New(nodeKey, self, peerCache, fetcher, peerSelector, nw)
+	return New(nodeKey, self, peerCache, fetcher, peerSelector, cm)
 }
 
 type Router struct {
@@ -58,7 +58,7 @@ type Router struct {
 	nodesToRetry map[common.Address]struct{}
 	retryMu      sync.RWMutex
 
-	network             interfaces.NetworkProvider
+	network             interfaces.ClustersProvider
 	peerFinder          interfaces.PeerFinder
 	latencyFetcher      interfaces.LatencyProvider
 	peerSelector        interfaces.PeerSelector
@@ -72,7 +72,7 @@ func New(
 	recipientCache cache.Recipients,
 	latencyFetcher interfaces.LatencyProvider,
 	peerSelector interfaces.PeerSelector,
-	networkProvider interfaces.NetworkProvider,
+	networkProvider interfaces.ClustersProvider,
 ) *Router {
 	router := &Router{
 		nodeKey:             nodeKey,
@@ -176,7 +176,7 @@ func (m *Router) Start(ctx context.Context, chain interfaces.BlockChainProvider)
 	}
 	m.committee = result
 	m.inCommittee = curEpoch.Committee.MemberByAddress(m.self) != nil
-	nw, err := network.New(result, m.latestLatencies, m.self)
+	nw, err := cluster.New(result, m.latestLatencies, m.self)
 	if err != nil {
 		log.Error("Router: failed to create network", "err", err)
 	} else {
@@ -200,7 +200,7 @@ func (m *Router) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 }
 
 func (m *Router) refreshClustersLatencies(latMap map[common.Address]uint) {
-	nw, err := network.New(m.committee, latMap, m.self)
+	nw, err := cluster.New(m.committee, latMap, m.self)
 	if err != nil {
 		log.Error("Router: failed to create network", "err", err)
 		return
@@ -257,7 +257,7 @@ func (m *Router) retryLatency() error {
 	updated := false
 	m.latencyMu.Lock()
 	for addr, lat := range latencyMap {
-		if _, ok := m.latestLatencies[addr]; !ok || m.latestLatencies[addr] == network.DefaultLatency {
+		if _, ok := m.latestLatencies[addr]; !ok || m.latestLatencies[addr] == cluster.DefaultLatency {
 			m.latestLatencies[addr] = lat
 			updated = true
 		}
@@ -344,7 +344,7 @@ func (m *Router) loop(ctx context.Context) {
 				log.Info("Router: clustering not needed, skipping measurement")
 				if wasClustering {
 					// reset cluster
-					m.updateNetwork(network.Clusters{})
+					m.updateNetwork(cluster.Clusters{})
 					wasClustering = false
 				}
 				continue
@@ -352,7 +352,7 @@ func (m *Router) loop(ctx context.Context) {
 			wasClustering = true
 			m.updateCommittee(epoch)
 			// we should never fail here, as we already made sure that we are in committee
-			nw, _ := network.New(m.committee, m.Latencies(), m.self)
+			nw, _ := cluster.New(m.committee, m.Latencies(), m.self)
 			m.updateNetwork(nw)
 			if err := m.measureLatency(); err != nil {
 				log.Warn("measureLatencies failed", "err", err)
@@ -369,7 +369,7 @@ func (m *Router) updateCommittee(epoch *types.Epoch) {
 	m.committee = result
 }
 
-func (m *Router) updateNetwork(clusters network.Clusters) {
+func (m *Router) updateNetwork(clusters cluster.Clusters) {
 	m.network.UpdateClusters(clusters)
 	m.recipientCache.Invalidate()
 }

@@ -1,4 +1,4 @@
-package network
+package cluster
 
 import (
 	"fmt"
@@ -10,16 +10,12 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
-type Network struct {
+type Manager struct {
 	clusters Clusters
 	sync.RWMutex
 }
 
-func New(
-	committee []common.Address,
-	latencyMap map[common.Address]uint,
-	self common.Address,
-) (Clusters, error) {
+func New(committee []common.Address, latencyMap map[common.Address]uint, self common.Address) (Clusters, error) {
 	numClusters := int(math.Floor(math.Sqrt(float64(len(committee)))))
 	c, err := createClusters(committee, latencyMap, self, numClusters)
 	if err != nil {
@@ -30,19 +26,19 @@ func New(
 	return c, nil
 }
 
-func (n *Network) Clusters() Clusters {
-	n.RLock()
-	defer n.RUnlock()
-	return n.clusters
+func (m *Manager) Clusters() Clusters {
+	m.RLock()
+	defer m.RUnlock()
+	return m.clusters
 }
 
-func (n *Network) UpdateClusters(clusters Clusters) {
-	n.Lock()
-	defer n.Unlock()
-	n.clusters = clusters
+func (m *Manager) UpdateClusters(clusters Clusters) {
+	m.Lock()
+	defer m.Unlock()
+	m.clusters = clusters
 	var sb strings.Builder
 	sb.WriteString("Updating cluster, new cluster view: [")
-	for i, cv := range n.clusters.Base() {
+	for i, cv := range m.clusters.Base() {
 		if i > 0 {
 			sb.WriteString("; ")
 		}

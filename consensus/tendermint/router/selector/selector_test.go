@@ -12,8 +12,8 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/cache"
+	"github.com/autonity/autonity/consensus/tendermint/router/cluster"
 	"github.com/autonity/autonity/consensus/tendermint/router/mocks"
-	"github.com/autonity/autonity/consensus/tendermint/router/network"
 	"github.com/autonity/autonity/core/types"
 )
 
@@ -21,7 +21,7 @@ func TestSelector_SelectPeers_Proposal_CacheHit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	np := mocks.NewMockNetworkProvider(ctrl)
+	np := mocks.NewMockClustersProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
 	selector := New(np, recipients)
@@ -56,7 +56,7 @@ func TestSelector_SelectPeers_Proposal_CacheHit(t *testing.T) {
 	msg := message.NewFakePropose(fake)
 	from := self
 
-	clusters, err := network.New(committeeAddrs, latencyMap, self)
+	clusters, err := cluster.New(committeeAddrs, latencyMap, self)
 	assert.NoError(t, err, "Failed to create clusters")
 	np.EXPECT().Clusters().Return(clusters).Times(1)
 
@@ -76,7 +76,7 @@ func TestSelector_SelectPeers_SelfNotInCommittee(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	np := mocks.NewMockNetworkProvider(ctrl)
+	np := mocks.NewMockClustersProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
 	selector := New(np, recipients)
@@ -100,7 +100,7 @@ func TestSelector_SelectPeers_SelfNotInCommittee(t *testing.T) {
 	msg := message.NewFakePropose(fake)
 	from := self
 
-	np.EXPECT().Clusters().Return(network.Clusters{}).Times(1)
+	np.EXPECT().Clusters().Return(cluster.Clusters{}).Times(1)
 
 	_, err := selector.SelectPeers(&committee, msg, from)
 	assert.Error(t, err, "Expected error for self not in committee")
@@ -111,7 +111,7 @@ func TestSelector_SelectPeers_EmptyCommittee(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	np := mocks.NewMockNetworkProvider(ctrl)
+	np := mocks.NewMockClustersProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
 	selector := New(np, recipients)
@@ -130,7 +130,7 @@ func TestSelector_SelectPeers_EmptyCommittee(t *testing.T) {
 	msg := message.NewFakePropose(fake)
 	from := self
 
-	np.EXPECT().Clusters().Return(network.Clusters{}).Times(1)
+	np.EXPECT().Clusters().Return(cluster.Clusters{}).Times(1)
 
 	_, err := selector.SelectPeers(&committee, msg, from)
 	assert.Error(t, err, "Expected error for empty committee")
@@ -141,7 +141,7 @@ func TestSelector_SelectPeers_NonProposal_NoCache(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	np := mocks.NewMockNetworkProvider(ctrl)
+	np := mocks.NewMockClustersProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
 	selector := New(np, recipients)
@@ -176,7 +176,7 @@ func TestSelector_SelectPeers_NonProposal_NoCache(t *testing.T) {
 	msg := message.NewFakePrevote(fake)
 	from := self
 
-	clusters, err := network.New(committeeAddrs, latencyMap, self)
+	clusters, err := cluster.New(committeeAddrs, latencyMap, self)
 	assert.NoError(t, err, "Failed to create clusters")
 	np.EXPECT().Clusters().Return(clusters).AnyTimes()
 
@@ -195,10 +195,10 @@ func TestSelector_selectNodesByLatencySpread(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	np := mocks.NewMockNetworkProvider(ctrl)
+	np := mocks.NewMockClustersProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := &selector{networkProvider: np, recipientCache: recipients}
+	selector := &selector{clustersProvider: np, recipientCache: recipients}
 	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
@@ -214,24 +214,24 @@ func TestSelector_selectNodesByLatencySpread(t *testing.T) {
 		common.HexToAddress("0x333"): 150,
 		common.HexToAddress("0x444"): 200,
 	}
-	clusters, err := network.New(committeeAddrs, latencyMap, self)
+	clusters, err := cluster.New(committeeAddrs, latencyMap, self)
 	assert.NoError(t, err, "Failed to create clusters")
 	np.EXPECT().Clusters().Return(clusters).Times(1)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).Times(1)
 
 	nodes := selector.selectNodesByLatencySpread()
 	assert.Len(t, nodes, 1, "Expected one node per remote cluster")
-	assert.Contains(t, nodes, network.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node 0x222")
+	assert.Contains(t, nodes, cluster.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node 0x222")
 }
 
 func TestSelector_selectBucketBasedNodes_Originator(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	np := mocks.NewMockNetworkProvider(ctrl)
+	np := mocks.NewMockClustersProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := &selector{networkProvider: np, recipientCache: recipients}
+	selector := &selector{clustersProvider: np, recipientCache: recipients}
 	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
@@ -255,7 +255,7 @@ func TestSelector_selectBucketBasedNodes_Originator(t *testing.T) {
 		common.HexToAddress("0x333"): 150,
 		common.HexToAddress("0x444"): 200,
 	}
-	clusters, err := network.New(committeeAddrs, latencyMap, self)
+	clusters, err := cluster.New(committeeAddrs, latencyMap, self)
 	assert.NoError(t, err, "Failed to create clusters")
 	np.EXPECT().Clusters().Return(clusters).AnyTimes()
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
@@ -263,18 +263,18 @@ func TestSelector_selectBucketBasedNodes_Originator(t *testing.T) {
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x444")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 
 	nodes := selector.selectBucketBasedNodes(clusters, &committee, originator, 0, false)
-	assert.Contains(t, nodes, network.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node from cluster 1")
-	assert.Contains(t, nodes, network.Node{Addr: common.HexToAddress("0x333"), Lat: 150, ClusterID: 0}, "Expected node from cluster 0")
+	assert.Contains(t, nodes, cluster.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node from cluster 1")
+	assert.Contains(t, nodes, cluster.Node{Addr: common.HexToAddress("0x333"), Lat: 150, ClusterID: 0}, "Expected node from cluster 0")
 }
 
 func TestSelector_selectBucketBasedNodes_FirstRelayerOriginCluster(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	np := mocks.NewMockNetworkProvider(ctrl)
+	np := mocks.NewMockClustersProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := &selector{networkProvider: np, recipientCache: recipients}
+	selector := &selector{clustersProvider: np, recipientCache: recipients}
 	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
@@ -298,7 +298,7 @@ func TestSelector_selectBucketBasedNodes_FirstRelayerOriginCluster(t *testing.T)
 		common.HexToAddress("0x333"): 150,
 		common.HexToAddress("0x444"): 200,
 	}
-	clusters, err := network.New(committeeAddrs, latencyMap, self)
+	clusters, err := cluster.New(committeeAddrs, latencyMap, self)
 	assert.NoError(t, err, "Failed to create clusters")
 	np.EXPECT().Clusters().Return(clusters).AnyTimes()
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
@@ -306,30 +306,30 @@ func TestSelector_selectBucketBasedNodes_FirstRelayerOriginCluster(t *testing.T)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x444")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 
 	nodes := selector.selectBucketBasedNodes(clusters, &committee, firstRelayerOriginCluster, 0, true)
-	assert.Contains(t, nodes, network.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node from remote cluster")
+	assert.Contains(t, nodes, cluster.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node from remote cluster")
 }
 
 func TestSelector_deduplicate(t *testing.T) {
 	selector := &selector{}
-	nodes := []network.Node{
+	nodes := []cluster.Node{
 		{Addr: common.HexToAddress("0x111"), Lat: 50, ClusterID: 0},
 		{Addr: common.HexToAddress("0x111"), Lat: 50, ClusterID: 0},
 		{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1},
 	}
 	result := selector.deduplicate(nodes)
 	assert.Len(t, result, 2, "Expected duplicates removed")
-	assert.Contains(t, result, network.Node{Addr: common.HexToAddress("0x111"), Lat: 50, ClusterID: 0}, "Expected node 0x111")
-	assert.Contains(t, result, network.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node 0x222")
+	assert.Contains(t, result, cluster.Node{Addr: common.HexToAddress("0x111"), Lat: 50, ClusterID: 0}, "Expected node 0x111")
+	assert.Contains(t, result, cluster.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node 0x222")
 }
 
 func TestSelector_selectCloseNodes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	np := mocks.NewMockNetworkProvider(ctrl)
+	np := mocks.NewMockClustersProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := &selector{networkProvider: np, recipientCache: recipients}
+	selector := &selector{clustersProvider: np, recipientCache: recipients}
 	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
@@ -350,7 +350,7 @@ func TestSelector_selectCloseNodes(t *testing.T) {
 		common.HexToAddress("0x222"): 10,
 		common.HexToAddress("0x333"): 15,
 	}
-	clusters, err := network.New(committeeAddrs, latencyMap, self)
+	clusters, err := cluster.New(committeeAddrs, latencyMap, self)
 	assert.NoError(t, err, "Failed to create clusters")
 	np.EXPECT().Clusters().Return(clusters).Times(1)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).Times(1)
@@ -365,10 +365,10 @@ func TestSelector_routingCandidatesFromCluster(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	np := mocks.NewMockNetworkProvider(ctrl)
+	np := mocks.NewMockClustersProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := &selector{networkProvider: np, recipientCache: recipients}
+	selector := &selector{clustersProvider: np, recipientCache: recipients}
 	selector.SetBroadcaster(peerFinder)
 
 	self := common.HexToAddress("0x111")
@@ -386,7 +386,7 @@ func TestSelector_routingCandidatesFromCluster(t *testing.T) {
 		self:                         50,
 		common.HexToAddress("0x222"): 100,
 	}
-	clusters, err := network.New(committeeAddrs, latencyMap, self)
+	clusters, err := cluster.New(committeeAddrs, latencyMap, self)
 	assert.NoError(t, err, "Failed to create clusters")
 	np.EXPECT().Clusters().Return(clusters).Times(1)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).Times(1)
@@ -400,10 +400,10 @@ func TestSelector_allConnected(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	np := mocks.NewMockNetworkProvider(ctrl)
+	np := mocks.NewMockClustersProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
-	selector := &selector{networkProvider: np, recipientCache: recipients}
+	selector := &selector{clustersProvider: np, recipientCache: recipients}
 	selector.SetBroadcaster(peerFinder)
 
 	recipientsToTest := []common.Address{common.HexToAddress("0x111"), common.HexToAddress("0x222")}
@@ -418,7 +418,7 @@ func TestSelector_determineSenderType(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	np := mocks.NewMockNetworkProvider(ctrl)
+	np := mocks.NewMockClustersProvider(ctrl)
 
 	self := common.HexToAddress("0x111")
 	committeeAddrs := []common.Address{
@@ -431,7 +431,7 @@ func TestSelector_determineSenderType(t *testing.T) {
 		common.HexToAddress("0x222"): 100,
 		common.HexToAddress("0x333"): 150,
 	}
-	clusters, err := network.New(committeeAddrs, latencyMap, self)
+	clusters, err := cluster.New(committeeAddrs, latencyMap, self)
 	assert.NoError(t, err, "Failed to create clusters")
 
 	tests := []struct {
@@ -512,7 +512,7 @@ func TestSelector_ConcurrentSelectPeers(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	np := mocks.NewMockNetworkProvider(ctrl)
+	np := mocks.NewMockClustersProvider(ctrl)
 	recipients := mocks.NewMockRecipients(ctrl)
 	peerFinder := mocks.NewMockPeerFinder(ctrl)
 	selector := New(np, recipients)
@@ -533,7 +533,7 @@ func TestSelector_ConcurrentSelectPeers(t *testing.T) {
 		self:                         50,
 		common.HexToAddress("0x222"): 100,
 	}
-	clusters, err := network.New(committeeAddrs, latencyMap, self)
+	clusters, err := cluster.New(committeeAddrs, latencyMap, self)
 	assert.NoError(t, err, "Failed to create clusters")
 	np.EXPECT().Clusters().Return(clusters).AnyTimes()
 	recipients.EXPECT().Get(gomock.Any()).Return(cache.Entry{}, false).AnyTimes()

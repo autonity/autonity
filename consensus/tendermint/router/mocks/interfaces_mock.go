@@ -15,8 +15,8 @@ import (
 	common "github.com/autonity/autonity/common"
 	consensus "github.com/autonity/autonity/consensus"
 	message "github.com/autonity/autonity/consensus/tendermint/core/message"
+	cluster "github.com/autonity/autonity/consensus/tendermint/router/cluster"
 	interfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
-	network "github.com/autonity/autonity/consensus/tendermint/router/network"
 	ping "github.com/autonity/autonity/consensus/tendermint/router/ping"
 	core "github.com/autonity/autonity/core"
 	types "github.com/autonity/autonity/core/types"
@@ -25,54 +25,54 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockNetworkProvider is a mock of NetworkProvider interface.
-type MockNetworkProvider struct {
+// MockClustersProvider is a mock of ClustersProvider interface.
+type MockClustersProvider struct {
 	ctrl     *gomock.Controller
-	recorder *MockNetworkProviderMockRecorder
+	recorder *MockClustersProviderMockRecorder
 	isgomock struct{}
 }
 
-// MockNetworkProviderMockRecorder is the mock recorder for MockNetworkProvider.
-type MockNetworkProviderMockRecorder struct {
-	mock *MockNetworkProvider
+// MockClustersProviderMockRecorder is the mock recorder for MockClustersProvider.
+type MockClustersProviderMockRecorder struct {
+	mock *MockClustersProvider
 }
 
-// NewMockNetworkProvider creates a new mock instance.
-func NewMockNetworkProvider(ctrl *gomock.Controller) *MockNetworkProvider {
-	mock := &MockNetworkProvider{ctrl: ctrl}
-	mock.recorder = &MockNetworkProviderMockRecorder{mock}
+// NewMockClustersProvider creates a new mock instance.
+func NewMockClustersProvider(ctrl *gomock.Controller) *MockClustersProvider {
+	mock := &MockClustersProvider{ctrl: ctrl}
+	mock.recorder = &MockClustersProviderMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockNetworkProvider) EXPECT() *MockNetworkProviderMockRecorder {
+func (m *MockClustersProvider) EXPECT() *MockClustersProviderMockRecorder {
 	return m.recorder
 }
 
 // Clusters mocks base method.
-func (m *MockNetworkProvider) Clusters() network.Clusters {
+func (m *MockClustersProvider) Clusters() cluster.Clusters {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Clusters")
-	ret0, _ := ret[0].(network.Clusters)
+	ret0, _ := ret[0].(cluster.Clusters)
 	return ret0
 }
 
 // Clusters indicates an expected call of Clusters.
-func (mr *MockNetworkProviderMockRecorder) Clusters() *gomock.Call {
+func (mr *MockClustersProviderMockRecorder) Clusters() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clusters", reflect.TypeOf((*MockNetworkProvider)(nil).Clusters))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clusters", reflect.TypeOf((*MockClustersProvider)(nil).Clusters))
 }
 
 // UpdateClusters mocks base method.
-func (m *MockNetworkProvider) UpdateClusters(arg0 network.Clusters) {
+func (m *MockClustersProvider) UpdateClusters(arg0 cluster.Clusters) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "UpdateClusters", arg0)
 }
 
 // UpdateClusters indicates an expected call of UpdateClusters.
-func (mr *MockNetworkProviderMockRecorder) UpdateClusters(arg0 any) *gomock.Call {
+func (mr *MockClustersProviderMockRecorder) UpdateClusters(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClusters", reflect.TypeOf((*MockNetworkProvider)(nil).UpdateClusters), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClusters", reflect.TypeOf((*MockClustersProvider)(nil).UpdateClusters), arg0)
 }
 
 // MockLatencyProvider is a mock of LatencyProvider interface.

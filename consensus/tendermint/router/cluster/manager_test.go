@@ -1,4 +1,4 @@
-package network
+package cluster
 
 import (
 	"sync"
@@ -394,15 +394,15 @@ func TestClusters_Self(t *testing.T) {
 }
 
 func TestNetwork_Clusters(t *testing.T) {
-	network := &Network{}
+	cm := &Manager{}
 	committee := []common.Address{common.HexToAddress("0x111")}
 	latencyMap := map[common.Address]uint{common.HexToAddress("0x111"): 50}
 	self := common.HexToAddress("0x111")
 	clusters, err := New(committee, latencyMap, self)
 	assert.NoError(t, err, "Expected no error creating clusters")
-	network.UpdateClusters(clusters)
+	cm.UpdateClusters(clusters)
 
-	retrieved := network.Clusters()
+	retrieved := cm.Clusters()
 	assert.Equal(t, clusters, retrieved, "Expected correct clusters")
 }
 
@@ -410,7 +410,7 @@ func TestNetwork_UpdateClusters_Concurrent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	network := &Network{}
+	cm := &Manager{}
 	var wg sync.WaitGroup
 	numGoroutines := 100
 
@@ -423,11 +423,11 @@ func TestNetwork_UpdateClusters_Concurrent(t *testing.T) {
 			self := common.HexToAddress("0x111")
 			clusters, err := New(committee, latencyMap, self)
 			assert.NoError(t, err, "Expected no error for concurrency")
-			network.UpdateClusters(clusters)
+			cm.UpdateClusters(clusters)
 		}(i)
 		go func() {
 			defer wg.Done()
-			network.Clusters()
+			cm.Clusters()
 		}()
 	}
 
