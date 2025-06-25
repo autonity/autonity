@@ -58,6 +58,7 @@ type Signers struct {
 	// these fields are not serialized, but instead computed at preValidate steps
 	committeeSize int              `rlp:"-"`
 	length        int              `rlp:"-"` // number of distinct signers
+	firstNonZero  int              `rlp:"-"` // first > 0 index in the validatorBitmap
 	powers        map[int]*big.Int `rlp:"-"`
 	power         *big.Int         `rlp:"-"` // aggregated power of all senders
 
@@ -74,8 +75,8 @@ func NewSigners(committeeSize int) *Signers {
 		Bits:          NewValidatorBitmap(committeeSize),
 		Coefficients:  make([]uint16, 0),
 		committeeSize: committeeSize,
-
 		length:        0,
+		firstNonZero:  committeeSize, // TODO: can this be a problem?
 		powers:        make(map[int]*big.Int),
 		power:         new(big.Int),
 		validated:     true,
@@ -141,38 +142,43 @@ func (s *Signers) SanityCheck() error {
 
 // validates the sender info, used to ensure received aggregates have correctly sized buffers
 func (s *Signers) Validate(committeeSize int) error {
-	distinctSigners, err := s.validate(committeeSize)
+	distinctSigners, firstNonZero, err := s.validate(committeeSize)
 	if err != nil {
 		return err
 	}
 
 	s.committeeSize = committeeSize
 	s.length = distinctSigners
+	s.firstNonZero = firstNonZero
 	s.validated = true
 	return nil
 }
 
 // validates the signer information and returns the number of distinct signers
 // it does not mutate the signers state
-func (s *Signers) validate(committeeSize int) (int, error) {
+func (s *Signers) validate(committeeSize int) (int, int, error) {
 	// whether locally created or received from wire, Bits and Coefficients are never nil
 	if s.Bits == nil || s.Coefficients == nil {
-		return 0, ErrNilSigners
+		return 0, committeeSize, ErrNilSigners
 	}
 
 	// length safety check
 	if !s.Bits.Valid(committeeSize) || len(s.Coefficients) > committeeSize {
-		return 0, ErrWrongSizeSigners
+		return 0, committeeSize, ErrWrongSizeSigners
 	}
 
 	// gather data about signers bits
 	countNonZero := 0
 	countLong := 0
 	sum := 0
+	firstNonZero := committeeSize
 	for i := 0; i < committeeSize; i++ {
 		value := s.Bits.Get(i)
 		if value > noSignature { // 01 10 11
 			countNonZero++
+			if i < firstNonZero {
+				firstNonZero = i
+			}
 		}
 		if value == multipleSignatures { // 11
 			countLong++
@@ -182,26 +188,26 @@ func (s *Signers) validate(committeeSize int) (int, error) {
 
 	// there has to be at least a signer
 	if sum == 0 {
-		return 0, ErrEmptySigners
+		return 0, committeeSize, ErrEmptySigners
 	}
 
 	// len(s.Coefficients) should be the same as the number of elements with value 11 in s.Bits
 	if len(s.Coefficients) != countLong {
-		return 0, ErrWrongCoefficientLen
+		return 0, committeeSize, ErrWrongCoefficientLen
 	}
 
 	// if individual signature, its coefficient should be one (01)
 	if countNonZero == 1 && sum != 1 {
-		return 0, ErrInvalidSingleSig
+		return 0, committeeSize, ErrInvalidSingleSig
 	}
 
 	// check that all coefficients respect the maximum allowed boundary (committeeSize)
 	for _, coefficient := range s.Coefficients {
 		if int(coefficient) > committeeSize {
-			return 0, ErrInvalidCoefficient
+			return 0, committeeSize, ErrInvalidCoefficient
 		}
 	}
-	return countNonZero, nil
+	return countNonZero, firstNonZero, nil
 }
 
 func (s *Signers) Contains(index int) bool {
@@ -222,6 +228,10 @@ func safetyCheck(first *Signers, second *Signers) error {
 		return ErrDifferentSize
 	}
 	return nil
+}
+
+func (s *Signers) FirstNonZero() int {
+	return s.firstNonZero
 }
 
 // checks that the resulting aggregate still respects the `committeeSize` boundary
@@ -296,6 +306,9 @@ func (s *Signers) increment(index int) {
 		value = oneSignature // 01
 		// we are adding a new signer, update the length cache
 		s.length++
+		if index < s.firstNonZero {
+			s.firstNonZero = index
+		}
 	case oneSignature:
 		value = twoSignatures // 10
 	case twoSignatures:
@@ -380,6 +393,9 @@ Loop:
 			case noSignature:
 				// we are adding a new signer, update the length cache
 				s.length++
+				if i < s.firstNonZero {
+					s.firstNonZero = i
+				}
 				fallthrough
 			case oneSignature:
 				fallthrough
@@ -447,6 +463,7 @@ func (s *Signers) Copy() *Signers {
 		Coefficients:  append(s.Coefficients[:0:0], s.Coefficients...),
 		committeeSize: s.committeeSize,
 		length:        s.length,
+		firstNonZero:  s.firstNonZero,
 		powers:        powers,
 		power:         s.power,
 		validated:     s.validated,
