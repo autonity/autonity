@@ -245,14 +245,7 @@ func (s *selector) selectBucketBasedNodes(clusters cluster.Clusters, committee *
 	case localRelayerOriginCluster, localRelayerRemoteCluster:
 		localNodes := len(clusters.Base()[ownClusterID])
 		targetLocalNodes := localNodes
-		//if isProposal {
-		//	// Select sqrt(n) nodes from local cluster for proposal
-		//	targetLocalNodes = int(math.Sqrt(float64(localNodes)))
-		//}
 		localCandidates := s.routingCandidatesFromCluster(ownClusterID, clusters.Self(), committee)
-		//rand.Shuffle(len(localCandidates), func(i, j int) {
-		//	localCandidates[i], localCandidates[j] = localCandidates[j], localCandidates[i]
-		//})
 		for i := 0; i < targetLocalNodes && i < len(localCandidates); i++ {
 			recipients = append(recipients, localCandidates[i])
 		}

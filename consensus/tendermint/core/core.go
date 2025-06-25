@@ -24,7 +24,7 @@ import (
 const EventQueueSize = 1000
 
 // New creates a Tendermint consensus Core
-func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger, noGossip bool) *Core {
+func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger) *Core {
 	messagesMap := message.NewMap()
 	roundMessage := messagesMap.GetOrCreate(0)
 	c := &Core{
@@ -47,7 +47,6 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newHeight:              time.Now(),
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
-		noGossip:               noGossip,
 		eventCh:                make(chan events.CoreEvent, EventQueueSize),
 		syncState:              &SyncState{},
 	}
@@ -174,7 +173,6 @@ type Core struct {
 	newHeight          time.Time
 	newRound           time.Time
 	currBlockTimeStamp time.Time
-	noGossip           bool
 	eventCh            chan events.CoreEvent // channel to communicate events from core to other modules (aggregator)
 }
 

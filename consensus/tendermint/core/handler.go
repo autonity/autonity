@@ -180,10 +180,8 @@ eventLoop:
 					break
 				}
 				var hadQuorum, hasQuorum bool
-				if !c.noGossip {
-					// check if we have quorum for message type for this round
-					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
-				}
+				// check if we have quorum for message type for this round
+				hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 				needGossip := true
 				var err error
 				// if we are the originator of the message, gossip early
@@ -219,29 +217,27 @@ eventLoop:
 
 				// valid message, mark liveness time
 				c.syncState.setLastLivenessTime(time.Now())
-				if !c.noGossip {
-					if !hadQuorum {
-						// if we did not have quorum and we reached it now
-						// gossip the (complex) aggregate with quorum to everyone instead of the current message
-						hasQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
-						if hasQuorum {
-							c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
-							recordMessageProcessingTime(msg.Code(), start)
-							break // do not gossip single message, only complex aggregate
-						}
-					}
-					if !needGossip {
+				if !hadQuorum {
+					// if we did not have quorum and we reached it now
+					// gossip the (complex) aggregate with quorum to everyone instead of the current message
+					hasQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
+					if hasQuorum {
+						c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
 						recordMessageProcessingTime(msg.Code(), start)
-						break
+						break // do not gossip single message, only complex aggregate
 					}
+				}
+				if !needGossip {
+					recordMessageProcessingTime(msg.Code(), start)
+					break
+				}
 
-					if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
-						go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
-					} else if e.Sender() == c.backend.Address() {
-						go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-					} else {
-						go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender(), nil)
-					}
+				if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
+					go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
+				} else if e.Sender() == c.backend.Address() {
+					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
+				} else {
+					go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender(), nil)
 				}
 				recordMessageProcessingTime(msg.Code(), start)
 			case backlogMessageEvent:
@@ -257,10 +253,8 @@ eventLoop:
 				}
 
 				var hadQuorum, hasQuorum bool
-				if !c.noGossip {
-					// check if we have quorum for message type for this round
-					hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
-				}
+				// check if we have quorum for message type for this round
+				hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
 
 				c.logger.Debug("Handling consensus backlog event")
 				var err error
@@ -277,16 +271,14 @@ eventLoop:
 					c.syncState.setLastLivenessTime(time.Now())
 				}
 
-				if !c.noGossip {
-					if !hadQuorum {
-						// if we did not have quorum and we reached it now
-						// gossip the (complex) aggregate with quorum to everyone instead of the current message
-						hasQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
-						if hasQuorum {
-							c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
-							recordMessageProcessingTime(msg.Code(), start)
-							break // do not gossip single message, only complex aggregate
-						}
+				if !hadQuorum {
+					// if we did not have quorum and we reached it now
+					// gossip the (complex) aggregate with quorum to everyone instead of the current message
+					hasQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
+					if hasQuorum {
+						c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
+						recordMessageProcessingTime(msg.Code(), start)
+						break // do not gossip single message, only complex aggregate
 					}
 				}
 				recordMessageProcessingTime(msg.Code(), start)

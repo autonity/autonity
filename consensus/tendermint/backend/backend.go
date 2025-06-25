@@ -59,7 +59,7 @@ func New(
 	services *interfaces.Services,
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
-	log log.Logger, noGossip bool,
+	log log.Logger,
 	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
@@ -104,7 +104,7 @@ func New(
 		backend.router.SetSelector(services.Selector(backend.router))
 	}
 
-	consensusCore := tendermintCore.New(backend, services, backend.address, log, noGossip)
+	consensusCore := tendermintCore.New(backend, services, backend.address, log)
 	backend.core = consensusCore
 	backend.coreEventDispatcher = consensusCore
 
