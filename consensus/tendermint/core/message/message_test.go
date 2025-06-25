@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"reflect"
 
+	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
 	"testing"
@@ -22,6 +23,99 @@ import (
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
 )
+
+func TestAggregate(t *testing.T) {
+	var (
+		r     int64       = 1
+		h     uint64      = 2
+		value common.Hash = common.BigToHash(big.NewInt(1000))
+		csize int         = 4
+	)
+	vote := func(member *types.CommitteeMember, privateKey blst.SecretKey, ecPrivateKey *ecdsa.PrivateKey) *Prevote {
+		signer := func(hash common.Hash) blst.Signature {
+			return privateKey.Sign(hash[:])
+		}
+		return NewPrevote(r, h, value, signer, member, csize)
+	}
+
+	type Voter struct {
+		privateKey   blst.SecretKey
+		ecPrivateKey *ecdsa.PrivateKey
+	}
+
+	voters := make([]Voter, 4)
+	privateKeyMap := make(map[blst.SecretKey]struct{}, 4)
+	ecPrivateKeyMap := make(map[*ecdsa.PrivateKey]struct{}, 4)
+	votes := make([]*Prevote, 4)
+	members := make([]types.CommitteeMember, 4)
+	for i := range voters {
+		for {
+			privateKey, err := blst.RandKey()
+			require.NoError(t, err)
+			if _, ok := privateKeyMap[privateKey]; ok {
+				continue
+			}
+			privateKeyMap[privateKey] = struct{}{}
+			voters[i].privateKey = privateKey
+			break
+		}
+
+		for {
+			ecPrivateKey, err := crypto.GenerateKey()
+			require.NoError(t, err)
+			if _, ok := ecPrivateKeyMap[ecPrivateKey]; ok {
+				continue
+			}
+			ecPrivateKeyMap[ecPrivateKey] = struct{}{}
+			voters[i].ecPrivateKey = ecPrivateKey
+			break
+		}
+
+		member := &types.CommitteeMember{
+			Index:        uint64(i),
+			ConsensusKey: voters[i].privateKey.PublicKey(),
+			VotingPower:  big.NewInt(1),
+			Address:      crypto.PubkeyToAddress(voters[i].ecPrivateKey.PublicKey),
+		}
+
+		votes[i] = vote(member, voters[i].privateKey, voters[i].ecPrivateKey)
+
+		members[i] = *member
+	}
+
+	committee := &types.Committee{
+		Members: members,
+	}
+
+	for _, v := range votes {
+		require.NoError(t, v.PreValidate(committee))
+		require.True(t, v.preverified)
+	}
+
+	verifyAndAggregate := func(votes []Vote) *Prevote {
+		signatures := make([]blst.Signature, len(votes))
+		publicKeys := make([]blst.PublicKey, len(votes))
+		for i, v := range votes {
+			signatures[i] = v.Signature()
+			publicKeys[i] = v.SignerKey()
+		}
+
+		require.True(t, blst.FastAggregateVerifyBatch(signatures, publicKeys, votes[0].SignatureInput()))
+
+		aggregate := AggregatePrevotes(votes)
+		require.NoError(t, aggregate.PreValidate(committee))
+		require.True(t, aggregate.preverified)
+
+		return aggregate
+	}
+
+	aggregateAB := verifyAndAggregate([]Vote{votes[0], votes[1]})
+
+	aggregateAC := verifyAndAggregate([]Vote{votes[0], votes[2]})
+
+	verifyAndAggregate([]Vote{aggregateAB, aggregateAC})
+
+}
 
 // locally created messages are considered as verified, we decode it to simulate a msgs arriving from the wire
 func newUnverifiedPrevote(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *Prevote { //nolint
