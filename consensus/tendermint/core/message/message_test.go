@@ -92,7 +92,7 @@ func TestAggregate(t *testing.T) {
 		require.True(t, v.preverified)
 	}
 
-	verifyAndAggregate := func(votes []Vote) *Prevote {
+	verifyAndAggregate := func(votes []Vote, name string) *Prevote {
 		signatures := make([]blst.Signature, len(votes))
 		publicKeys := make([]blst.PublicKey, len(votes))
 		for i, v := range votes {
@@ -108,25 +108,41 @@ func TestAggregate(t *testing.T) {
 		require.NoError(t, aggregate.PreValidate(committee))
 		require.True(t, aggregate.preverified)
 
+		fmt.Printf("\n\n %s \n", name)
+
+		for i := 0; i < csize; i++ {
+			var signatureCount uint16 = uint16(aggregate.signers.Bits.Get(i))
+			if signatureCount == 3 {
+				signatureCount = aggregate.signers.Coefficients[0]
+			}
+			fmt.Printf("signer %d signature count : %v\n", i, signatureCount)
+		}
+
 		return aggregate
 	}
 
 	// aggregated by B after receiving A
-	aggregateAB := verifyAndAggregate([]Vote{votes[0], votes[1]})
+	aggregateAB := verifyAndAggregate([]Vote{votes[0], votes[1]}, "AB")
 	// aggregated by C after receiving A
-	aggregateAC := verifyAndAggregate([]Vote{votes[0], votes[2]})
+	aggregateAC := verifyAndAggregate([]Vote{votes[0], votes[2]}, "AC")
 	// aggregated by D after receiving A
-	aggregateAD := verifyAndAggregate([]Vote{votes[0], votes[3]})
+	aggregateAD := verifyAndAggregate([]Vote{votes[0], votes[3]}, "AD")
+	// aggregated by E after receiving A
+	aggregateAE := verifyAndAggregate([]Vote{votes[0], votes[4]}, "AE")
 
 	// aggregated by C after receiving AB from B
-	aggregateABAC := verifyAndAggregate([]Vote{aggregateAB, aggregateAC})
+	aggregateAB_AC := verifyAndAggregate([]Vote{aggregateAB, aggregateAC}, "AB_AC")
 
 	// aggregated by D after receiving AB from B
-	aggregateABAD := verifyAndAggregate([]Vote{aggregateAB, aggregateAD})
+	aggregateAB_AD := verifyAndAggregate([]Vote{aggregateAB, aggregateAD}, "AB_AD")
 
-	// aggregated by E after receiving aggregateABAC, aggregateABAD
-	verifyAndAggregate([]Vote{aggregateABAC, aggregateABAD})
+	// aggregated by E after receiving AB from B
+	aggregateAB_AE := verifyAndAggregate([]Vote{aggregateAB, aggregateAE}, "AB_AE")
 
+	// aggregated by E after receiving aggregateAB_AC from C and aggregateAB_AD from D
+	aggregateAB_AC_AB_AD := verifyAndAggregate([]Vote{aggregateAB_AC, aggregateAB_AD}, "AB_AC_AB_AD")
+
+	verifyAndAggregate([]Vote{aggregateAB_AE, aggregateAB_AC_AB_AD}, "AB_AE_AB_AC_AB_AD")
 }
 
 // locally created messages are considered as verified, we decode it to simulate a msgs arriving from the wire
