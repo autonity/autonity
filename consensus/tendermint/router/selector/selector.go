@@ -282,22 +282,13 @@ func (s *selector) selectCloseNodes(committee *types.Committee, clusterID, minNo
 	if len(candidates) == 0 {
 		return nil
 	}
-	seen := make(map[common.Address]struct{}, len(candidates))
 	i := 0
 	for ; i < len(candidates) && len(selected) < minNodes; i++ {
-		c := candidates[i]
-		if _, exists := seen[c.Addr]; !exists {
-			seen[c.Addr] = struct{}{}
-			selected = append(selected, candidates[i])
-		}
+		selected = append(selected, candidates[i])
 	}
 
 	for ; i < len(candidates) && candidates[i].Lat < uint(defaultNearThreshold) && len(selected) < lowLatencyNodes; i++ {
-		c := candidates[i]
-		if _, exists := seen[c.Addr]; !exists {
-			seen[c.Addr] = struct{}{}
-			selected = append(selected, candidates[i])
-		}
+		selected = append(selected, candidates[i])
 	}
 
 	return selected
