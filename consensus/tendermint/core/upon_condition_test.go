@@ -1357,7 +1357,7 @@ func NewConsensusEnv(t *testing.T, customize func(*ConsensusENV)) *ConsensusENV 
 }
 
 func (e *ConsensusENV) setupCore(backend interfaces.Backend, address common.Address) {
-	e.core = New(backend, nil, address, log.Root(), false)
+	e.core = New(backend, nil, address, log.Root())
 
 	e.core.epoch = &types.EpochInfo{
 		EpochBlock: common.Big0,

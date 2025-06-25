@@ -286,7 +286,7 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 
 	backendMock.EXPECT().Subscribe(gomock.Any()).Return(sub).MaxTimes(5)
 
-	c := New(backendMock, nil, common.HexToAddress("0x0123456789"), log.Root(), false)
+	c := New(backendMock, nil, common.HexToAddress("0x0123456789"), log.Root())
 	_, c.cancel = context.WithCancel(context.Background())
 	c.subscribeEvents()
 	c.stopped <- struct{}{}
