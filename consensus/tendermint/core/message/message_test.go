@@ -110,10 +110,12 @@ func TestAggregate(t *testing.T) {
 
 		fmt.Printf("\n\n %s \n", name)
 
+		coeffCount := 0
 		for i := 0; i < csize; i++ {
 			var signatureCount uint16 = uint16(aggregate.signers.Bits.Get(i))
 			if signatureCount == 3 {
-				signatureCount = aggregate.signers.Coefficients[0]
+				signatureCount = aggregate.signers.Coefficients[coeffCount]
+				coeffCount++
 			}
 			fmt.Printf("signer %d signature count : %v\n", i, signatureCount)
 		}
