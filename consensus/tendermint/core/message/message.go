@@ -911,26 +911,6 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) common
 	return crypto.Hash(buf)
 }
 
-// determines the routing base of a message
-func RoutingBase(committee *types.Committee, message Msg) common.Address {
-	var routingBase common.Address
-	switch msg := message.(type) {
-	case *Propose:
-		routingBase = msg.Signer()
-	case *LightProposal:
-		routingBase = msg.Signer() // TODO: maybe need to panic here, lp is not gossiped
-	case *Prevote:
-		routingBaseIndex := msg.Signers().LeftmostSigner()
-		routingBase = committee.Members[routingBaseIndex].Address
-	case *Precommit:
-		routingBaseIndex := msg.Signers().LeftmostSigner()
-		routingBase = committee.Members[routingBaseIndex].Address
-	default:
-		panic("unknown msg type")
-	}
-	return routingBase
-}
-
 // computes the power of a set of messages. Every sender's power is counted only once
 func Power(messages []Msg) *big.Int {
 	power := NewAggregatedPower()

@@ -84,6 +84,26 @@ func (s *selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	return s.selectPeersWithBuckets(committee, msg, from, msg.Code() == message.ProposalCode)
 }
 
+// determines the routing base of a message
+func routingBase(committee *types.Committee, msg message.Msg) common.Address {
+	var rb common.Address
+	switch m := msg.(type) {
+	case *message.Propose:
+		rb = m.Signer()
+	case *message.LightProposal:
+		rb = m.Signer() // TODO: maybe need to panic here, lp is not gossiped
+	case *message.Prevote:
+		routingBaseIndex := m.Signers().LeftmostSigner()
+		rb = committee.Members[routingBaseIndex].Address
+	case *message.Precommit:
+		routingBaseIndex := m.Signers().LeftmostSigner()
+		rb = committee.Members[routingBaseIndex].Address
+	default:
+		panic("unknown msg type")
+	}
+	return rb
+}
+
 func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg message.Msg, from common.Address, isProposal bool) ([]common.Address, error) {
 	clusters := s.clustersProvider.Clusters()
 	if len(clusters.Base()) == 0 {
@@ -91,13 +111,13 @@ func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 	}
 
 	// TODO: make sure committee is always the committee related to msg, otherwise indexes might be wrong
-	routingBase := message.RoutingBase(committee, msg)
+	rb := routingBase(committee, msg)
 	senderClusterID := clusters.IDByAddress(from)
-	originClusterID := clusters.IDByAddress(routingBase)
+	originClusterID := clusters.IDByAddress(rb)
 	ownClusterID := clusters.ID()
 
 	if senderClusterID == -1 || originClusterID == -1 || ownClusterID == -1 {
-		fmt.Println("selector: unknown clusters", "sender", from.Hex(), "routingBase", routingBase.Hex(), "msg hash", msg.Hash().Hex(), "self", clusters.Self().Hex())
+		fmt.Println("selector: unknown clusters", "sender", from.Hex(), "routingBase", rb.Hex(), "msg hash", msg.Hash().Hex(), "self", clusters.Self().Hex())
 		return nil, errors.New("unknown clusters")
 	}
 
@@ -112,7 +132,7 @@ func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 		return ret
 	}
 
-	senderType := determineSenderType(from, clusters.Self(), routingBase, originClusterID, ownClusterID, senderClusterID)
+	senderType := determineSenderType(from, clusters.Self(), rb, originClusterID, ownClusterID, senderClusterID)
 	cacheKey := cache.GenerateKey(int(senderType), isProposal)
 	if cached, exists := s.recipientCache.Get(cacheKey); exists {
 		if s.allConnected(cached.Recipients) {
