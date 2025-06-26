@@ -421,13 +421,12 @@ func TestMessageHash(t *testing.T) {
 		signers.AssignPower(tamperedPower, big.NewInt(223423))
 
 		payload, _ := rlp.EncodeToBytes(extVote{
-			Code:       PrecommitCode,
-			Round:      uint64(r), // #nosec
-			Height:     h,
-			Value:      v,
-			Signers:    signers,
-			Originator: testCommittee.Members[0].Address,
-			Signature:  vote2.Signature().(*blst.BlsSignature),
+			Code:      PrecommitCode,
+			Round:     uint64(r), // #nosec
+			Height:    h,
+			Value:     v,
+			Signers:   signers,
+			Signature: vote2.Signature().(*blst.BlsSignature),
 		})
 		vote2.hash = crypto.Hash(payload)
 

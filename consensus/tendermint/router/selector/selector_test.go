@@ -492,17 +492,8 @@ func TestSelector_determineSenderType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fake := message.Fake{
-				FakeCode:   message.PrevoteCode,
-				FakeHash:   common.HexToHash("0xabc"),
-				FakeHeight: 1,
-				FakeRound:  0,
-				FakeSigner: tt.signer,
-				FakePower:  big.NewInt(1),
-			}
-			msg := message.NewFakePrevote(fake)
 			np.EXPECT().Clusters().Return(clusters).AnyTimes()
-			result := determineSenderType(tt.from, clusters.Self(), msg, tt.originClusterID, tt.ownClusterID, tt.senderClusterID)
+			result := determineSenderType(tt.from, clusters.Self(), tt.signer, tt.originClusterID, tt.ownClusterID, tt.senderClusterID)
 			assert.Equal(t, tt.expected, result, "Expected correct sender type")
 		})
 	}
