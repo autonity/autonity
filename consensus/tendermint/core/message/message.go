@@ -237,10 +237,6 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
-func (p *Propose) Originator() common.Address {
-	return p.signer
-}
-
 func (p *Propose) Signer() common.Address {
 	return p.signer
 }
@@ -411,10 +407,6 @@ func (p *LightProposal) Signer() common.Address {
 	return p.signer
 }
 
-func (p *LightProposal) Originator() common.Address {
-	return p.signer
-}
-
 func (p *LightProposal) SignerIndex() int {
 	return p.signerIndex
 }
@@ -451,20 +443,12 @@ type extVote struct {
 
 // TODO: would be good to do the same thing for proposal and lightproposal (to avoid code repetition)
 type vote struct {
-	signers    *types.Signers
-	originator common.Address // populated at PreValidate step
+	signers *types.Signers
 	base
 }
 
 func (v *vote) Signers() *types.Signers {
 	return v.signers
-}
-
-func (v *vote) Originator() common.Address {
-	if !v.preverified {
-		panic("Trying to access originator on not preverified message")
-	}
-	return v.originator
 }
 
 func (v *vote) Power() *big.Int {
@@ -490,8 +474,6 @@ func (v *vote) PreValidate(committee *types.Committee) error {
 	keys := make([]blst.PublicKey, len(indexes))
 	powers := make(map[int]*big.Int)
 	power := new(big.Int)
-	// originator is always selected as the first committee members in the signer object
-	originator := committee.Members[indexes[0]].Address
 
 	for i, index := range indexes {
 		member := committee.Members[index]
@@ -515,7 +497,6 @@ func (v *vote) PreValidate(committee *types.Committee) error {
 		panic("Error while aggregating keys from committee: " + err.Error())
 	}
 	v.signerKey = aggregatedKey
-	v.originator = originator
 	v.preverified = true
 	return nil
 }
@@ -562,11 +543,11 @@ func (p *Precommit) String() string {
 }
 
 func newVote[
-E Prevote | Precommit,
-PE interface {
-	*E
-	Msg
-}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *E {
+	E Prevote | Precommit,
+	PE interface {
+		*E
+		Msg
+	}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *E {
 	code := PE(new(E)).Code()
 
 	// Pay attention that we're adding the message Code to the signature input data.
@@ -588,8 +569,7 @@ PE interface {
 	vote := E{
 		value: value,
 		vote: vote{
-			signers:    signers,
-			originator: self.Address,
+			signers: signers,
 			base: base{
 				round:          r,
 				height:         h,
@@ -641,9 +621,6 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 		return votes[i].Signers().Power().Cmp(votes[j].Signers().Power()) > 0
 	})
 
-	originatorIndex := signers.FirstNonZero()
-	originator := representative.Originator()
-
 	// compute new aggregated signature and related signers information
 	var signatures []blst.Signature
 	var publicKeys []blst.PublicKey
@@ -654,10 +631,6 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 		// additionally, we also check if the resulting aggregate respects the coefficient boundaries.
 		// this avoids that we aggregate two complex aggregates together, which can lead to coefficient breaching.
 		if signers.AddsInformation(vote.Signers()) && signers.RespectsBoundaries(vote.Signers()) {
-			if vote.Signers().FirstNonZero() < originatorIndex {
-				originatorIndex = vote.Signers().FirstNonZero()
-				originator = vote.Originator()
-			}
 			signers.Merge(vote.Signers())
 			signatures = append(signatures, vote.Signature())
 			publicKeys = append(publicKeys, vote.SignerKey())
@@ -692,8 +665,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 	aggregateVote := E{
 		value: value,
 		vote: vote{
-			signers:    signers,
-			originator: originator,
+			signers: signers,
 			base: base{
 				height:         h,
 				round:          r,
@@ -728,11 +700,11 @@ var (
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been cryptographically verified
 func AggregateVotesSimple[
-E Prevote | Precommit,
-PE interface {
-	*E
-	Msg
-}](votes []Vote) []*E {
+	E Prevote | Precommit,
+	PE interface {
+		*E
+		Msg
+	}](votes []Vote) []*E {
 	// length safety checks
 	if len(votes) == 0 {
 		panic("Trying to aggregate empty set of votes")
@@ -748,8 +720,6 @@ PE interface {
 	var signersList []*types.Signers      //nolint
 	var signaturesList [][]blst.Signature //nolint
 	var publicKeysList [][]blst.PublicKey //nolint
-	var originatorIndexes []int
-	var originators []common.Address
 
 	// order votes by decreasing number of distinct signers.
 	// This ensures that we reduce as much as possible the number of duplicated signatures for the same validator
@@ -766,8 +736,6 @@ PE interface {
 		signers.Merge(vote.Signers())
 		signatures := []blst.Signature{vote.Signature()}
 		publicKeys := []blst.PublicKey{vote.SignerKey()}
-		originator := vote.Originator()
-		originatorIndex := signers.FirstNonZero()
 		for j := i + 1; j < len(votes); j++ {
 			if skip[j] {
 				continue
@@ -785,17 +753,11 @@ PE interface {
 			signers.Merge(other.Signers())
 			signatures = append(signatures, other.Signature())
 			publicKeys = append(publicKeys, other.SignerKey())
-			if other.Signers().FirstNonZero() < originatorIndex {
-				originatorIndex = other.Signers().FirstNonZero()
-				originator = other.Originator()
-			}
 			skip[j] = true
 		}
 		signersList = append(signersList, signers)
 		signaturesList = append(signaturesList, signatures)
 		publicKeysList = append(publicKeysList, publicKeys)
-		originators = append(originators, originator)
-		originatorIndexes = append(originatorIndexes, originatorIndex)
 	}
 
 	// build aggregates
@@ -834,8 +796,7 @@ PE interface {
 		aggregateVote := E{
 			value: value,
 			vote: vote{
-				signers:    signersList[i],
-				originator: originators[i],
+				signers: signersList[i],
 				base: base{
 					height:         h,
 					round:          r,
@@ -950,6 +911,26 @@ func PrepareCommittedSeal(hash common.Hash, round int64, height *big.Int) common
 	return crypto.Hash(buf)
 }
 
+// determines the routing base of a message
+func RoutingBase(committee *types.Committee, message Msg) common.Address {
+	var routingBase common.Address
+	switch msg := message.(type) {
+	case *Propose:
+		routingBase = msg.Signer()
+	case *LightProposal:
+		routingBase = msg.Signer() // TODO: maybe need to panic here, lp is not gossiped
+	case *Prevote:
+		routingBaseIndex := msg.Signers().LeftmostSigner()
+		routingBase = committee.Members[routingBaseIndex].Address
+	case *Precommit:
+		routingBaseIndex := msg.Signers().LeftmostSigner()
+		routingBase = committee.Members[routingBaseIndex].Address
+	default:
+		panic("unknown msg type")
+	}
+	return routingBase
+}
+
 // computes the power of a set of messages. Every sender's power is counted only once
 func Power(messages []Msg) *big.Int {
 	power := NewAggregatedPower()
@@ -1002,7 +983,6 @@ type Fake struct {
 	FakeVerified      bool // for prevote and precommits this is set to true by default for now
 }
 
-func (f Fake) Originator() common.Address           { return f.FakeSigner }
 func (f Fake) Code() uint8                          { return f.FakeCode }
 func (f Fake) R() int64                             { return int64(f.FakeRound) }
 func (f Fake) H() uint64                            { return f.FakeHeight }
@@ -1050,8 +1030,7 @@ func NewFakePrevote(f Fake) *Prevote {
 	return &Prevote{
 		value: f.FakeValue,
 		vote: vote{
-			signers:    f.FakeSigners,
-			originator: f.FakeSigner,
+			signers: f.FakeSigners,
 			base: base{
 				round:          int64(f.FakeRound),
 				height:         f.FakeHeight,

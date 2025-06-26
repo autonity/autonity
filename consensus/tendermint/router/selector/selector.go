@@ -90,12 +90,13 @@ func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 		return []common.Address{}, errors.New("no clusters")
 	}
 
+	routingBase := message.RoutingBase(committee, msg)
 	senderClusterID := clusters.IDByAddress(from)
-	originClusterID := clusters.IDByAddress(msg.Originator())
+	originClusterID := clusters.IDByAddress(routingBase)
 	ownClusterID := clusters.ID()
 
 	if senderClusterID == -1 || originClusterID == -1 || ownClusterID == -1 {
-		fmt.Println("selector: unknown clusters", "sender", from.Hex(), "originator", msg.Originator().Hex(), "msg hash", msg.Hash().Hex(), "self", clusters.Self().Hex())
+		fmt.Println("selector: unknown clusters", "sender", from.Hex(), "routingBase", routingBase.Hex(), "msg hash", msg.Hash().Hex(), "self", clusters.Self().Hex())
 		return nil, errors.New("unknown clusters")
 	}
 
@@ -110,7 +111,7 @@ func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 		return ret
 	}
 
-	senderType := determineSenderType(from, clusters.Self(), msg, originClusterID, ownClusterID, senderClusterID)
+	senderType := determineSenderType(from, clusters.Self(), routingBase, originClusterID, ownClusterID, senderClusterID)
 	cacheKey := cache.GenerateKey(int(senderType), isProposal)
 	if cached, exists := s.recipientCache.Get(cacheKey); exists {
 		if s.allConnected(cached.Recipients) {
@@ -169,11 +170,11 @@ func (s *selector) selectNodesByLatencySpread() []cluster.Node {
 	return recipients
 }
 
-func determineSenderType(from, self common.Address, msg message.Msg, originClusterID, ownClusterID, senderClusterID int) SenderType {
+func determineSenderType(from, self, routingBase common.Address, originClusterID, ownClusterID, senderClusterID int) SenderType {
 	switch {
 	case from == self:
 		return originator
-	case from == msg.Originator() && originClusterID == ownClusterID:
+	case from == routingBase && originClusterID == ownClusterID:
 		return firstRelayerOriginCluster
 	case originClusterID == ownClusterID:
 		return localRelayerOriginCluster
