@@ -90,6 +90,7 @@ func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 		return []common.Address{}, errors.New("no clusters")
 	}
 
+	// TODO: make sure committee is always the committee related to msg, otherwise indexes might be wrong
 	routingBase := message.RoutingBase(committee, msg)
 	senderClusterID := clusters.IDByAddress(from)
 	originClusterID := clusters.IDByAddress(routingBase)
