@@ -90,8 +90,6 @@ func routingBase(committee *types.Committee, msg message.Msg) common.Address {
 	switch m := msg.(type) {
 	case *message.Propose:
 		rb = m.Signer()
-	case *message.LightProposal:
-		rb = m.Signer() // TODO: maybe need to panic here, lp is not gossiped
 	case *message.Prevote:
 		routingBaseIndex := m.Signers().LeftmostSigner()
 		rb = committee.Members[routingBaseIndex].Address
@@ -99,7 +97,7 @@ func routingBase(committee *types.Committee, msg message.Msg) common.Address {
 		routingBaseIndex := m.Signers().LeftmostSigner()
 		rb = committee.Members[routingBaseIndex].Address
 	default:
-		panic("unknown msg type")
+		panic("unknown msg type. msg: " + msg.String())
 	}
 	return rb
 }
