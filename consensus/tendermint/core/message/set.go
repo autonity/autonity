@@ -39,6 +39,8 @@ func (s *Set) Add(vote Vote) bool {
 	// equivocated votes are considered redundant
 	voteContributed := false
 
+	containsEquivocation := false
+
 	value := vote.Value()
 	previousVotes, ok := s.votes[value]
 	if !ok {
@@ -50,7 +52,19 @@ func (s *Set) Add(vote Vote) bool {
 	for index, power := range vote.Signers().Powers() {
 		signerContributed := s.totalPower.Set(index, power)
 		voteContributed = voteContributed || signerContributed
-		s.powers[value].Set(index, power)
+		signerContributedToValue := s.powers[value].Set(index, power)
+		if !containsEquivocation {
+			// contributed to power for a specific value, but not for the total set of votes power
+			// (was already there) --> equivocation
+			// NOTE: we might have situations where we have
+			// vote for v from (A,B,C)
+			// vote for v' from (A,D,E)
+			// in this case A is definitely equivocating, however we cannot conclude anything about
+			// B,C,D,E because they might be honest (and the proposer is equivocating).
+			if signerContributedToValue && !signerContributed {
+				containsEquivocation = true
+			}
+		}
 	}
 
 	// check if we are adding the first vote
