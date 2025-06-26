@@ -1,10 +1,11 @@
 package autonity
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/JekaMas/pretty"
 	"math/big"
+	"os"
 	"reflect"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -304,13 +305,22 @@ func DeployAutonityContract(genesisConfig *params.AutonityContractGenesis, genes
 	}
 	validators := make([]params.Validator, 0, len(genesisConfig.Validators))
 
-	pretty.Println("contract deployer: ", params.DeployerAddress)
 	// print the input params of the constructor of autonity contract.
-	for i, v := range genesisConfig.Validators {
+	for _, v := range genesisConfig.Validators {
 		validators = append(validators, *v)
-		pretty.Println(fmt.Sprintf("validator %d", i), v.String())
 	}
-	pretty.Println("contract config", contractConfig.String())
+
+	// merge validators json objects with contract config as ABI encoding pack those params into an array.
+	mergedArray := []interface{}{validators, contractConfig}
+	result, err := json.MarshalIndent(mergedArray, "", "  ")
+	if err != nil {
+		return err
+	}
+	// write the json objects into a json file.
+	if err := os.WriteFile("output.json", result, 0644); err != nil {
+		return err
+	}
+
 	if err := evmContracts.DeployAutonityContract(genesisConfig.Bytecode, validators, contractConfig); err != nil {
 		log.Error("DeployAutonityContract failed", "err", err)
 		return fmt.Errorf("failed to deploy Autonity contract: %w", err)
