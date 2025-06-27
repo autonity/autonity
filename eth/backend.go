@@ -18,6 +18,7 @@
 package eth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -631,11 +632,53 @@ func (s *Ethereum) validatorController() {
 		panic(err)
 	}
 
+	var mu sync.Mutex
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	startMiningWhenReady := func(ctx context.Context, committee *types.Committee) {
+		go func() {
+			ticker := time.NewTicker(1 * time.Second)
+			timeout := time.After(1 * time.Minute) // max wait for 1 minute
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					// total number of nodes should include node itself.
+					if float64(s.consensusServer.PeerCount()+1) >= (float64(committee.Len()) * (2.0 / 3.0)) {
+						mu.Lock()
+						if !wasValidating {
+							s.miner.Start()
+							wasValidating = true
+							s.log.Info("Required peer count reached, mining started")
+						}
+						mu.Unlock()
+						return
+					}
+				case <-timeout:
+					s.log.Warn("miner waited for one minute to reach required peer count, start mining anyway", "current peer count", s.consensusServer.PeerCount(), "required", committee.Len())
+					mu.Lock()
+					if !wasValidating {
+						s.miner.Start()
+						wasValidating = true
+					}
+					mu.Unlock()
+					return
+				}
+			}
+		}()
+	}
+
 	committee := epoch.Committee
 	if committee.MemberByAddress(s.address) != nil {
 		updateConsensusEnodes(currentHead)
 		//todo: the minor control should move to acn server
-		s.miner.Start()
+		//s.miner.Start()
+		//wasValidating = true
+		startMiningWhenReady(ctx, committee)
 		s.log.Info("Starting node as validator")
 	}
 
@@ -652,21 +695,25 @@ func (s *Ethereum) validatorController() {
 				// if the local node was part of the committee set for the previous block
 				// there is no longer the need to retain the full connections and the
 				// consensus engine enabled.
+				mu.Lock()
 				if wasValidating {
 					s.log.Info("Local node no longer detected part of the consensus committee, mining stopped")
 					s.miner.Stop()
 					s.p2pServer.UpdateConsensusEnodes(nil, nil)
 					wasValidating = false
 				}
+				mu.Unlock()
 				continue
 			}
 			updateConsensusEnodes(ev.Header)
 			// if we were not committee in the past block we need to enable the mining engine.
+			mu.Lock()
 			if !wasValidating {
 				s.log.Info("Local node detected part of the consensus committee, mining started")
 				s.miner.Start()
 			}
 			wasValidating = true
+			mu.Unlock()
 		// Err() channel will be closed when unsubscribing.
 		case <-chainHeadSub.Err():
 			return

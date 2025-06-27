@@ -142,3 +142,50 @@ func (c *StandardCounter) Inc(i int64) {
 func (c *StandardCounter) Snapshot() Counter {
 	return CounterSnapshot(c.Count())
 }
+
+type ResettableCounter struct {
+	count int64
+}
+
+// NewResettableCounter constructs a new ResettableCounter.
+func NewResettableCounter() Counter {
+	if !Enabled {
+		return NilCounter{}
+	}
+	return &ResettableCounter{0}
+}
+
+// GetOrRegisterResettableCounter returns an existing Counter or constructs and
+// registers a new ResettableCounter.
+func GetOrRegisterResettableCounter(name string, r Registry) Counter {
+	if nil == r {
+		r = DefaultRegistry
+	}
+	return r.GetOrRegister(name, NewResettableCounter).(Counter)
+}
+
+// Clear sets the counter to zero.
+func (c *ResettableCounter) Clear() {
+	atomic.StoreInt64(&c.count, 0)
+}
+
+// Count returns the current count and atomically resets it to zero.
+func (c *ResettableCounter) Count() int64 {
+	// return the old value and reset the counter to zero
+	return atomic.SwapInt64(&c.count, 0)
+}
+
+// Dec decrements the counter by the given amount.
+func (c *ResettableCounter) Dec(i int64) {
+	atomic.AddInt64(&c.count, -i)
+}
+
+// Inc increments the counter by the given amount.
+func (c *ResettableCounter) Inc(i int64) {
+	atomic.AddInt64(&c.count, i)
+}
+
+// Snapshot returns a read-only copy of the counter's current value and resets it.
+func (c *ResettableCounter) Snapshot() Counter {
+	return CounterSnapshot(c.Count())
+}

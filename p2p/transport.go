@@ -100,7 +100,7 @@ func (t *rlpxTransport) WriteMsg(msg Msg) error {
 	if metrics.Enabled && msg.meterCap.Name != "" { // don't meter non-subprotocol messages
 		data, packets := getP2PMetricEgress(msg.meterCode, msg.meterCap.Name, msg.meterCap.Version)
 		data.Mark(int64(msg.meterSize))
-		packets.Mark(1)
+		packets.Inc(1)
 	}
 	return nil
 }

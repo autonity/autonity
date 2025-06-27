@@ -104,9 +104,17 @@ func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncM
 		panic("cannot encode sync message")
 	}
 
-	// send to everyone except ourselves
-	targets := make([]common.Address, 0, committee.Len())
-	for _, val := range committee.Members {
+	var numTargets int
+	// send to subset of committee ourselves
+	if committee.Len() >= router.ScaleThresholdForClustering {
+		numTargets = int(math.Sqrt(float64(committee.Len())))
+	} else {
+		numTargets = committee.Len()
+	}
+	indexes := rand.Perm(committee.Len())
+	targets := make([]common.Address, 0, numTargets)
+	for index := range indexes {
+		val := committee.MemberByIndex(index)
 		if val.Address != g.address {
 			targets = append(targets, val.Address)
 		}
