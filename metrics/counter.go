@@ -143,6 +143,7 @@ func (c *StandardCounter) Snapshot() Counter {
 	return CounterSnapshot(c.Count())
 }
 
+// todo: remove not required, standard counter is enough
 type ResettableCounter struct {
 	count int64
 }
@@ -171,8 +172,10 @@ func (c *ResettableCounter) Clear() {
 
 // Count returns the current count and atomically resets it to zero.
 func (c *ResettableCounter) Count() int64 {
+	// reset happening at reporting
+	return atomic.LoadInt64(&c.count)
 	// return the old value and reset the counter to zero
-	return atomic.SwapInt64(&c.count, 0)
+	//return atomic.SwapInt64(&c.count, 0)
 }
 
 // Dec decrements the counter by the given amount.
