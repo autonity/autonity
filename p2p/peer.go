@@ -64,17 +64,17 @@ var (
 	PrecommitPacketsEg            = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x13/packets", nil)  //nolint:goconst
 
 	// counters
-	TransactionPacketsInCounter          = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/aut/66/0x02/packets", nil) //nolint:goconst
-	NewPooledTransactionPacketsInCounter = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/aut/66/0x08/packets", nil) //nolint:goconst
-	ProposalPacketsInCounter             = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/acn/1/0x11/packets", nil)  //nolint:goconst
-	PrevotePacketsInCounter              = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/acn/1/0x12/packets", nil)  //nolint:goconst
-	PrecommitPacketsInCounter            = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/acn/1/0x13/packets", nil)  //nolint:goconst
+	TransactionPacketsInCounter          = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/aut/66/0x02/packets/count", nil) //nolint:goconst
+	NewPooledTransactionPacketsInCounter = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/aut/66/0x08/packets/count", nil) //nolint:goconst
+	ProposalPacketsInCounter             = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/acn/1/0x11/packets/count", nil)  //nolint:goconst
+	PrevotePacketsInCounter              = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/acn/1/0x12/packets/count", nil)  //nolint:goconst
+	PrecommitPacketsInCounter            = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/acn/1/0x13/packets/count", nil)  //nolint:goconst
 
-	TransactionPacketsEgCounter          = metrics.GetOrRegisterResettableCounter(egressMeterName+"/aut/66/0x02/packets", nil) //nolint:goconst
-	NewPooledTransactionPacketsEgCounter = metrics.GetOrRegisterResettableCounter(egressMeterName+"/aut/66/0x08/packets", nil) //nolint:goconst
-	ProposalPacketsEgCounter             = metrics.GetOrRegisterResettableCounter(egressMeterName+"/acn/1/0x11/packets", nil)  //nolint:goconst
-	PrevotePacketsEgCounter              = metrics.GetOrRegisterResettableCounter(egressMeterName+"/acn/1/0x12/packets", nil)  //nolint:goconst
-	PrecommitPacketsEgCounter            = metrics.GetOrRegisterResettableCounter(egressMeterName+"/acn/1/0x13/packets", nil)  //nolint:goconst
+	TransactionPacketsEgCounter          = metrics.GetOrRegisterResettableCounter(egressMeterName+"/aut/66/0x02/packets/count", nil) //nolint:goconst
+	NewPooledTransactionPacketsEgCounter = metrics.GetOrRegisterResettableCounter(egressMeterName+"/aut/66/0x08/packets/count", nil) //nolint:goconst
+	ProposalPacketsEgCounter             = metrics.GetOrRegisterResettableCounter(egressMeterName+"/acn/1/0x11/packets/count", nil)  //nolint:goconst
+	PrevotePacketsEgCounter              = metrics.GetOrRegisterResettableCounter(egressMeterName+"/acn/1/0x12/packets/count", nil)  //nolint:goconst
+	PrecommitPacketsEgCounter            = metrics.GetOrRegisterResettableCounter(egressMeterName+"/acn/1/0x13/packets/count", nil)  //nolint:goconst
 )
 
 const (
@@ -428,7 +428,7 @@ func getP2PMetricIngress(code uint64, proto *protoRW) (metrics.Meter, metrics.Me
 		return PrecommitPayloadIn, PrecommitPacketsIn, PrecommitPacketsInCounter
 	default:
 		m := fmt.Sprintf("%s/%s/%d/%#02x", ingressMeterName, proto.Name, proto.Version, code)
-		return metrics.GetOrRegisterMeter(m, nil), metrics.GetOrRegisterMeter(m+"/packets",nil),  metrics.GetOrRegisterResettableCounter(m+"/packets", nil) //nolint:goconst
+		return metrics.GetOrRegisterMeter(m, nil), metrics.GetOrRegisterMeter(m+"/packets", nil), metrics.GetOrRegisterResettableCounter(m+"/packets", nil) //nolint:goconst
 	}
 }
 
