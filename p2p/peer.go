@@ -428,7 +428,7 @@ func getP2PMetricIngress(code uint64, proto *protoRW) (metrics.Meter, metrics.Me
 		return PrecommitPayloadIn, PrecommitPacketsIn, PrecommitPacketsInCounter
 	default:
 		m := fmt.Sprintf("%s/%s/%d/%#02x", ingressMeterName, proto.Name, proto.Version, code)
-		return metrics.GetOrRegisterMeter(m, nil), metrics.GetOrRegisterMeter(m+"/packets", nil), metrics.GetOrRegisterResettableCounter(m+"/packets", nil) //nolint:goconst
+		return metrics.GetOrRegisterMeter(m, nil), metrics.GetOrRegisterMeter(m+"/packets", nil), metrics.GetOrRegisterResettableCounter(m+"/packets/count", nil) //nolint:goconst
 	}
 }
 
@@ -446,7 +446,7 @@ func getP2PMetricEgress(code uint64, name string, version uint) (metrics.Meter, 
 		return PrecommitPayloadEg, PrecommitPacketsEg, PrecommitPacketsEgCounter
 	default:
 		m := fmt.Sprintf("%s/%s/%d/%#02x", egressMeterName, name, version, code)
-		return metrics.GetOrRegisterMeter(m, nil), metrics.GetOrRegisterMeter(m+"/packets", nil), metrics.GetOrRegisterResettableCounter(m+"/packets", nil) //nolint:goconst
+		return metrics.GetOrRegisterMeter(m, nil), metrics.GetOrRegisterMeter(m+"/packets", nil), metrics.GetOrRegisterResettableCounter(m+"/packets/count", nil) //nolint:goconst
 	}
 }
 
