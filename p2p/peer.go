@@ -41,27 +41,40 @@ var (
 	ErrShuttingDown = errors.New("shutting down")
 	// Note: versions are hardocoded in metric, if there is a versio change in future new versions should be added here
 
-	TransactionPayloadIn          = metrics.NewRegisteredMeter(ingressMeterName+"/aut/66/0x02", nil)                     //nolint:goconst
-	TransactionPacketsIn          = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/aut/66/0x02/packets", nil) //nolint:goconst
-	NewPooledTransactionPayloadIn = metrics.NewRegisteredMeter(ingressMeterName+"/aut/66/0x08", nil)                     //nolint:goconst
-	NewPooledTransactionPacketsIn = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/aut/66/0x08/packets", nil) //nolint:goconst
-	ProposalPayloadIn             = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x11", nil)                      //nolint:goconst
-	ProposalPacketsIn             = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/acn/1/0x11/packets", nil)  //nolint:goconst
-	PrevotePayloadIn              = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x12", nil)                      //nolint:goconst
-	PrevotePacketsIn              = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/acn/1/0x12/packets", nil)  //nolint:goconst
-	PrecommitPayloadIn            = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x13", nil)                      //nolint:goconst
-	PrecommitPacketsIn            = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/acn/1/0x13/packets", nil)  //nolint:goconst
+	TransactionPayloadIn          = metrics.NewRegisteredMeter(ingressMeterName+"/aut/66/0x02", nil)         //nolint:goconst
+	TransactionPacketsIn          = metrics.NewRegisteredMeter(ingressMeterName+"/aut/66/0x02/packets", nil) //nolint:goconst
+	NewPooledTransactionPayloadIn = metrics.NewRegisteredMeter(ingressMeterName+"/aut/66/0x08", nil)         //nolint:goconst
+	NewPooledTransactionPacketsIn = metrics.NewRegisteredMeter(ingressMeterName+"/aut/66/0x08/packets", nil) //nolint:goconst
+	ProposalPayloadIn             = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x11", nil)          //nolint:goconst
+	ProposalPacketsIn             = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x11/packets", nil)  //nolint:goconst
+	PrevotePayloadIn              = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x12", nil)          //nolint:goconst
+	PrevotePacketsIn              = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x12/packets", nil)  //nolint:goconst
+	PrecommitPayloadIn            = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x13", nil)          //nolint:goconst
+	PrecommitPacketsIn            = metrics.NewRegisteredMeter(ingressMeterName+"/acn/1/0x13/packets", nil)  //nolint:goconst
 
-	TransactionPayloadEg          = metrics.NewRegisteredMeter(egressMeterName+"/aut/66/0x02", nil)                     //nolint:goconst
-	TransactionPacketsEg          = metrics.GetOrRegisterResettableCounter(egressMeterName+"/aut/66/0x02/packets", nil) //nolint:goconst
-	NewPooledTransactionPayloadEg = metrics.NewRegisteredMeter(egressMeterName+"/aut/66/0x08", nil)                     //nolint:goconst
-	NewPooledTransactionPacketsEg = metrics.GetOrRegisterResettableCounter(egressMeterName+"/aut/66/0x08/packets", nil) //nolint:goconst
-	ProposalPayloadEg             = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x11", nil)                      //nolint:goconst
-	ProposalPacketsEg             = metrics.GetOrRegisterResettableCounter(egressMeterName+"/acn/1/0x11/packets", nil)  //nolint:goconst
-	PrevotePayloadEg              = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x12", nil)                      //nolint:goconst
-	PrevotePacketsEg              = metrics.GetOrRegisterResettableCounter(egressMeterName+"/acn/1/0x12/packets", nil)  //nolint:goconst
-	PrecommitPayloadEg            = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x13", nil)                      //nolint:goconst
-	PrecommitPacketsEg            = metrics.GetOrRegisterResettableCounter(egressMeterName+"/acn/1/0x13/packets", nil)  //nolint:goconst
+	TransactionPayloadEg          = metrics.NewRegisteredMeter(egressMeterName+"/aut/66/0x02", nil)         //nolint:goconst
+	TransactionPacketsEg          = metrics.NewRegisteredMeter(egressMeterName+"/aut/66/0x02/packets", nil) //nolint:goconst
+	NewPooledTransactionPayloadEg = metrics.NewRegisteredMeter(egressMeterName+"/aut/66/0x08", nil)         //nolint:goconst
+	NewPooledTransactionPacketsEg = metrics.NewRegisteredMeter(egressMeterName+"/aut/66/0x08/packets", nil) //nolint:goconst
+	ProposalPayloadEg             = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x11", nil)          //nolint:goconst
+	ProposalPacketsEg             = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x11/packets", nil)  //nolint:goconst
+	PrevotePayloadEg              = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x12", nil)          //nolint:goconst
+	PrevotePacketsEg              = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x12/packets", nil)  //nolint:goconst
+	PrecommitPayloadEg            = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x13", nil)          //nolint:goconst
+	PrecommitPacketsEg            = metrics.NewRegisteredMeter(egressMeterName+"/acn/1/0x13/packets", nil)  //nolint:goconst
+
+	// counters
+	TransactionPacketsInCounter          = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/aut/66/0x02/packets", nil) //nolint:goconst
+	NewPooledTransactionPacketsInCounter = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/aut/66/0x08/packets", nil) //nolint:goconst
+	ProposalPacketsInCounter             = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/acn/1/0x11/packets", nil)  //nolint:goconst
+	PrevotePacketsInCounter              = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/acn/1/0x12/packets", nil)  //nolint:goconst
+	PrecommitPacketsInCounter            = metrics.GetOrRegisterResettableCounter(ingressMeterName+"/acn/1/0x13/packets", nil)  //nolint:goconst
+
+	TransactionPacketsEgCounter          = metrics.GetOrRegisterResettableCounter(egressMeterName+"/aut/66/0x02/packets", nil) //nolint:goconst
+	NewPooledTransactionPacketsEgCounter = metrics.GetOrRegisterResettableCounter(egressMeterName+"/aut/66/0x08/packets", nil) //nolint:goconst
+	ProposalPacketsEgCounter             = metrics.GetOrRegisterResettableCounter(egressMeterName+"/acn/1/0x11/packets", nil)  //nolint:goconst
+	PrevotePacketsEgCounter              = metrics.GetOrRegisterResettableCounter(egressMeterName+"/acn/1/0x12/packets", nil)  //nolint:goconst
+	PrecommitPacketsEgCounter            = metrics.GetOrRegisterResettableCounter(egressMeterName+"/acn/1/0x13/packets", nil)  //nolint:goconst
 )
 
 const (
@@ -386,9 +399,10 @@ func (p *Peer) handle(msg Msg) error {
 			return fmt.Errorf("msg code out of range: %v", msg.Code)
 		}
 		if metrics.Enabled {
-			data, packet := getP2PMetricIngress(msg.Code-proto.offset, proto)
+			data, packet, counter := getP2PMetricIngress(msg.Code-proto.offset, proto)
 			data.Mark(int64(msg.meterSize))
-			packet.Inc(1)
+			packet.Mark(1)
+			counter.Inc(1)
 		}
 		select {
 		case proto.in <- msg:
@@ -400,39 +414,39 @@ func (p *Peer) handle(msg Msg) error {
 	return nil
 }
 
-func getP2PMetricIngress(code uint64, proto *protoRW) (metrics.Meter, metrics.Counter) {
+func getP2PMetricIngress(code uint64, proto *protoRW) (metrics.Meter, metrics.Meter, metrics.Counter) {
 	switch code {
 	case 0x02:
-		return TransactionPayloadIn, TransactionPacketsIn
+		return TransactionPayloadIn, TransactionPacketsIn, TransactionPacketsInCounter
 	case 0x08:
-		return NewPooledTransactionPayloadIn, NewPooledTransactionPacketsIn
+		return NewPooledTransactionPayloadIn, NewPooledTransactionPacketsIn, NewPooledTransactionPacketsInCounter
 	case 0x11:
-		return ProposalPayloadIn, ProposalPacketsIn
+		return ProposalPayloadIn, ProposalPacketsIn, ProposalPacketsInCounter
 	case 0x12:
-		return PrevotePayloadIn, PrevotePacketsIn
+		return PrevotePayloadIn, PrevotePacketsIn, PrevotePacketsInCounter
 	case 0x13:
-		return PrecommitPayloadIn, PrecommitPacketsIn
+		return PrecommitPayloadIn, PrecommitPacketsIn, PrecommitPacketsInCounter
 	default:
 		m := fmt.Sprintf("%s/%s/%d/%#02x", ingressMeterName, proto.Name, proto.Version, code)
-		return metrics.GetOrRegisterMeter(m, nil), metrics.GetOrRegisterResettableCounter(m+"/packets", nil) //nolint:goconst
+		return metrics.GetOrRegisterMeter(m, nil), metrics.GetOrRegisterMeter(m+"/packets",nil),  metrics.GetOrRegisterResettableCounter(m+"/packets", nil) //nolint:goconst
 	}
 }
 
-func getP2PMetricEgress(code uint64, name string, version uint) (metrics.Meter, metrics.Counter) {
+func getP2PMetricEgress(code uint64, name string, version uint) (metrics.Meter, metrics.Meter, metrics.Counter) {
 	switch code {
 	case 0x02:
-		return TransactionPayloadEg, TransactionPacketsEg
+		return TransactionPayloadEg, TransactionPacketsEg, TransactionPacketsEgCounter
 	case 0x08:
-		return NewPooledTransactionPayloadEg, NewPooledTransactionPacketsEg
+		return NewPooledTransactionPayloadEg, NewPooledTransactionPacketsEg, NewPooledTransactionPacketsEgCounter
 	case 0x11:
-		return ProposalPayloadEg, ProposalPacketsEg
+		return ProposalPayloadEg, ProposalPacketsEg, ProposalPacketsEgCounter
 	case 0x12:
-		return PrevotePayloadEg, PrevotePacketsEg
+		return PrevotePayloadEg, PrevotePacketsEg, PrevotePacketsEgCounter
 	case 0x13:
-		return PrecommitPayloadEg, PrecommitPacketsEg
+		return PrecommitPayloadEg, PrecommitPacketsEg, PrecommitPacketsEgCounter
 	default:
 		m := fmt.Sprintf("%s/%s/%d/%#02x", egressMeterName, name, version, code)
-		return metrics.GetOrRegisterMeter(m, nil), metrics.GetOrRegisterResettableCounter(m+"/packets", nil) //nolint:goconst
+		return metrics.GetOrRegisterMeter(m, nil), metrics.GetOrRegisterMeter(m+"/packets", nil), metrics.GetOrRegisterResettableCounter(m+"/packets", nil) //nolint:goconst
 	}
 }
 

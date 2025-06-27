@@ -203,8 +203,13 @@ eventLoop:
 						recordMessageProcessingTime(msg.Code(), start)
 						break
 					}
+					//todo: (temporary) don't gossip redundant votes, since they are not useful for the network
+					if errors.Is(err, constants.ErrRedundantVote) {
+						recordMessageProcessingTime(msg.Code(), start)
+						continue
+					}
 					// we still want to gossip old round messages and redundant votes, any other error we abort
-					if !errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote) {
+					if !errors.Is(err, constants.ErrOldRoundMessage) {
 						break
 					}
 				}
@@ -234,7 +239,7 @@ eventLoop:
 
 				if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
 					go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
-				} else if e.Sender() == c.backend.Address() {
+				} else if e.Sender() == c.backend.Address() { // todo: this is not possible if we don't broadcast redundant votes
 					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 				} else {
 					go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender(), nil)
@@ -267,9 +272,9 @@ eventLoop:
 				}
 
 				// valid message, mark liveness time unless it was redundant
-				if !errors.Is(err, constants.ErrRedundantVote) {
-					c.syncState.setLastLivenessTime(time.Now())
-				}
+				//if !errors.Is(err, constants.ErrRedundantVote) {
+				c.syncState.setLastLivenessTime(time.Now())
+				//}
 
 				if !hadQuorum {
 					// if we did not have quorum and we reached it now
@@ -377,7 +382,9 @@ eventLoop:
 func (c *Core) SendEvent(ev any) {
 	switch ev := ev.(type) {
 	case events.CoreEvent:
-		c.eventCh <- ev
+		// todo: temporary
+		return
+		//c.eventCh <- ev
 	default:
 		c.backend.Post(ev)
 	}

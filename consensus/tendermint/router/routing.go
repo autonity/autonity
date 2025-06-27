@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/router/cache"
 	"github.com/autonity/autonity/consensus/tendermint/router/cluster"
@@ -19,6 +20,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 )
 
 const (
@@ -27,6 +29,12 @@ const (
 	retryLatencyTimeout         = 30 * time.Second
 	cacheCleanupInterval        = 10 * time.Minute
 	latencyMeasurementDelayCap  = 2000
+)
+
+var (
+	proposeHashesOut = metrics.GetOrRegisterResettableCounter("router/propose/hash/egress", nil)   //nolint:goconst
+	precommitHashOut = metrics.GetOrRegisterResettableCounter("router/precommit/hash/egress", nil) //nolint:goconst
+	prevoteHashOut   = metrics.GetOrRegisterResettableCounter("router/prevote/hash/egress", nil)   //nolint:goconst
 )
 
 func Setup(
@@ -64,6 +72,7 @@ type Router struct {
 	peerSelector        interfaces.PeerSelector
 	recipientCache      cache.Recipients
 	clusteringThreshold int
+	hashCache *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 }
 
 func New(
@@ -85,6 +94,7 @@ func New(
 		peerSelector:        peerSelector,
 		network:             networkProvider,
 		clusteringThreshold: ScaleThresholdForClustering,
+		hashCache : fixsizecache.New[common.Hash, bool](5987, 5, fixsizecache.HashKey[common.Hash]),
 	}
 	return router
 }
@@ -125,6 +135,22 @@ func (m *Router) Recipients(committee *types.Committee, msg message.Msg, from co
 	return recipients, nil
 }
 
+func (m *Router) recordDistinctHash(msg message.Msg) {
+	if m.hashCache.Contains(msg.Hash())  {
+		return
+	}
+	m.hashCache.Add(msg.Hash(), true)
+	switch msg.Code() {
+	case message.ProposalCode:
+		proposeHashesOut.Inc(1)
+	case message.PrecommitCode:
+		precommitHashOut.Inc(1)
+	case message.PrevoteCode:
+		prevoteHashOut.Inc(1)
+	default:
+	}
+}
+
 func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender common.Address, recipients []common.Address) {
 	if m.peerFinder == nil {
 		log.Info("Router: peer finder not set")
@@ -133,6 +159,8 @@ func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender com
 	if len(recipients) == 0 {
 		recipients, _ = m.Recipients(committee, msg, sender)
 	}
+
+	m.recordDistinctHash(msg)
 
 	lostPeers := make([]common.Address, 0)
 	for _, recipient := range recipients {

@@ -648,11 +648,12 @@ func (s *Ethereum) validatorController() {
 					return
 				case <-ticker.C:
 					// total number of nodes should include node itself.
-					if float64(s.consensusServer.PeerCount()+1) >= (float64(committee.Len()) * (2.0 / 3.0)) {
+					if float64(s.consensusServer.PeerCount()+1) >= (float64(committee.Len()) * (2.7 / 3.0)) {
 						mu.Lock()
 						if !wasValidating {
 							s.miner.Start()
 							wasValidating = true
+							//todo: metric - maybe
 							s.log.Info("Required peer count reached, mining started")
 						}
 						mu.Unlock()

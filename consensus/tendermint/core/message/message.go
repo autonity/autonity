@@ -723,6 +723,11 @@ func AggregatePrecommitsSimple(votes []Vote) []*Precommit {
 	return AggregateVotesSimple[Precommit](votes)
 }
 
+var (
+	validVotesBg     = metrics.NewRegisteredBufferedGauge("aggregator/backend/valid", nil, metrics.GetIntPointer(1000))     // measures time for message passing from backend to aggregator
+	aggregateVotesBg = metrics.NewRegisteredBufferedGauge("aggregator/backend/aggregate", nil, metrics.GetIntPointer(1000)) // measures time for message passing from backend to aggregator
+)
+
 // NOTE: this function assumes that:
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been cryptographically verified
@@ -736,6 +741,9 @@ func AggregateVotesSimple[
 	if len(votes) == 0 {
 		panic("Trying to aggregate empty set of votes")
 	}
+
+	validVotesBg.Add(int64(len(votes)))
+	// todo: metric for length of validVotes and length of aggregateVotes
 	code := PE(new(E)).Code()
 
 	csize := votes[0].Signers().CommitteeSize()
@@ -838,6 +846,7 @@ func AggregateVotesSimple[
 		}
 		aggregateVotes[i] = &aggregateVote
 	}
+	aggregateVotesBg.Add(int64(len(aggregateVotes)))
 	return aggregateVotes
 }
 

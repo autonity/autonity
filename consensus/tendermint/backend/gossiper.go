@@ -118,6 +118,9 @@ func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncM
 		if val.Address != g.address {
 			targets = append(targets, val.Address)
 		}
+		if len(targets) == numTargets {
+			break
+		}
 	}
 
 	// bail out if the local validator is the only one in the committee
