@@ -265,10 +265,7 @@ eventLoop:
 				var err error
 				if err = c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("BacklogEvent message handling failed", "err", err)
-					// we still want to gossip old round messages and redundant votes
-					if !errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote) {
-						continue
-					}
+					break
 				}
 
 				// valid message, mark liveness time unless it was redundant

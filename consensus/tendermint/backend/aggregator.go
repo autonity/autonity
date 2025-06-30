@@ -771,6 +771,7 @@ loop:
 				BackendAggregatorTransitBg.Add(time.Since(event.Posted).Nanoseconds())
 			}
 			a.handleEvent(event)
+			//Note: core events are not sent to the aggregator anymore, code remains here for later evaluation
 		case ev, ok := <-a.core.EventCh():
 			start := time.Now()
 			if !ok {
