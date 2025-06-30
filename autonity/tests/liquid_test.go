@@ -599,6 +599,40 @@ func TestFunctions(t *testing.T) {
 	})
 }
 
+func TestStakeAllowance(t *testing.T) {
+	setup := func() *Runner {
+		return Setup(t, nil)
+	}
+
+	RunWithSetup("can approve any amount", setup, func(r *Runner) {
+		// TODO
+	})
+
+	RunWithSetup("cannot unbond more than allowed", setup, func(r *Runner) {
+		// TODO
+	})
+
+	RunWithSetup("can unbond allowance", setup, func(r *Runner) {
+		// TODO
+	})
+
+	RunWithSetup("unbonding change allowance", setup, func(r *Runner) {
+		// TODO
+	})
+
+	RunWithSetup("unbonding from allowance goes to proper owner", setup, func(r *Runner) {
+		// TODO
+	})
+
+	RunWithSetup("can reset allowance", setup, func(r *Runner) {
+		// TODO
+	})
+
+	RunWithSetup("cannot transfer allowance", setup, func(r *Runner) {
+		// TODO
+	})
+}
+
 func checkLiquidBalance(r *Runner, liquidState *ILiquid, user common.Address, expecedBalance *big.Int) {
 	balance, _, err := liquidState.BalanceOf(nil, user)
 	require.NoError(r.T, err)

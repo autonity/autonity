@@ -296,3 +296,71 @@ func TestConversionRatio(t *testing.T) {
 	require.Equal(t, uint64(1e18), val.ConversionRatio.Uint64())
 
 }
+
+func TestStakeAllowance(t *testing.T) {
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
+
+	tests.RunWithSetup("can approve any amount", setup, func(r *tests.Runner) {
+		// TODO
+	})
+
+	tests.RunWithSetup("cannot bond more than allowed", setup, func(r *tests.Runner) {
+		// TODO
+	})
+
+	tests.RunWithSetup("can bond allowance", setup, func(r *tests.Runner) {
+		// TODO
+	})
+
+	tests.RunWithSetup("bonding change allowance", setup, func(r *tests.Runner) {
+		// TODO
+	})
+
+	tests.RunWithSetup("bonding from allowance goes to proper owner", setup, func(r *tests.Runner) {
+		// TODO
+	})
+
+	tests.RunWithSetup("can reset allowance", setup, func(r *tests.Runner) {
+		// TODO
+	})
+
+	tests.RunWithSetup("cannot transfer allowance", setup, func(r *tests.Runner) {
+		// TODO
+	})
+}
+
+func TestSelfStakeAllowance(t *testing.T) {
+	setup := func() *tests.Runner {
+		return tests.Setup(t, nil)
+	}
+
+	tests.RunWithSetup("can approve any amount", setup, func(r *tests.Runner) {
+		// TODO
+	})
+
+	tests.RunWithSetup("cannot unbond more than allowed", setup, func(r *tests.Runner) {
+		// TODO
+	})
+
+	tests.RunWithSetup("can unbond allowance", setup, func(r *tests.Runner) {
+		// TODO
+	})
+
+	tests.RunWithSetup("unbonding change allowance", setup, func(r *tests.Runner) {
+		// TODO
+	})
+
+	tests.RunWithSetup("unbonding from allowance goes to proper owner", setup, func(r *tests.Runner) {
+		// TODO
+	})
+
+	tests.RunWithSetup("can reset allowance", setup, func(r *tests.Runner) {
+		// TODO
+	})
+
+	tests.RunWithSetup("cannot transfer allowance", setup, func(r *tests.Runner) {
+		// TODO
+	})
+}
