@@ -155,6 +155,14 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     }
 
     /**
+    * @inheritdoc IDelegateStaking
+    */
+    function approveStake(address _staker, uint256 _amount) external virtual nonReentrant returns (bool) {
+        _approveStake(msg.sender, _staker, _amount);
+        return true;
+    }
+
+    /**
      * @dev See {IERC20-transferFrom}.
      *
      * Emits an {Approval} event indicating the updated allowance.
@@ -191,9 +199,19 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @param _account address of the account to lock funds .
               _amount LNTN amount of tokens to lock.
      */
-    function lock(address _account, uint256 _amount) external virtual nonReentrant onlyAutonity {
+    function lock(address _account, uint256 _amount) public virtual nonReentrant onlyAutonity {
         require(balances[_account] - lockedBalances[_account] >= _amount, "can't lock more funds than available");
         lockedBalances[_account] += _amount;
+    }
+
+    /**
+    * @inheritdoc ILiquid
+    */
+    function lockFrom(address _account, address _staker, uint256 _amount) external virtual nonReentrant onlyAutonity {
+        uint _allowed = stakeAllowance(_account, _staker);
+        require(_allowed >= _amount, "not enough allowance");
+        _approveStake(_account, _staker, _allowed - _amount);
+        lock(_account, _amount);
     }
 
     /**
@@ -314,6 +332,14 @@ contract LiquidLogic is ILiquid, LiquidStorage {
         emit Approval(_owner, _spender, _amount);
     }
 
+    function _approveStake(address _owner, address _staker, uint256 _amount) internal virtual {
+        require(_owner != address(0), "approve from the zero address");
+        require(_staker != address(0), "approve to the zero address");
+
+        stakeAllowances[_owner][_staker] = _amount;
+        emit StakeApproval(_owner, _staker, _amount);
+    }
+
     function _calculateValidatorCommission(uint256 _reward) internal virtual view returns (uint256) {
         uint256 _commission = (_reward * commissionRate) / COMMISSION_RATE_SCALE_FACTOR;
         return _commission;
@@ -376,6 +402,13 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      */
     function allowance(address _owner, address _spender) external virtual view nonReentrantView returns (uint256) {
         return allowances[_owner][_spender];
+    }
+
+    /**
+    * @inheritdoc IDelegateStaking
+    */
+    function stakeAllowance(address _owner, address _staker) public virtual view nonReentrantView returns (uint256) {
+        return stakeAllowances[_owner][_staker];
     }
 
     /**
