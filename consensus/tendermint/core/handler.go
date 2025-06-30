@@ -182,13 +182,7 @@ eventLoop:
 				var hadQuorum, hasQuorum bool
 				// check if we have quorum for message type for this round
 				hadQuorum = c.quorumFor(msg.Code(), msg.R(), msg.Value())
-				needGossip := true
 				var err error
-				// if we are the originator of the message, gossip early
-				if e.Sender() == c.backend.Address() && !hadQuorum {
-					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-					needGossip = false
-				}
 
 				if err = c.handleMsg(ctx, msg); err != nil {
 					c.logger.Debug("MessageEvent payload failed", "err", err, "current Height", c.Height().Uint64(), "msg Height", msg.H(), "msg Round", msg.R())
@@ -232,14 +226,10 @@ eventLoop:
 						break // do not gossip single message, only complex aggregate
 					}
 				}
-				if !needGossip {
-					recordMessageProcessingTime(msg.Code(), start)
-					break
-				}
 
 				if err != nil && errors.Is(err, constants.ErrOldRoundMessage) {
 					go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
-				} else if e.Sender() == c.backend.Address() { // todo: this is not possible if we don't broadcast redundant votes
+				} else if e.Sender() == c.backend.Address() {
 					go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
 				} else {
 					go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender(), nil)

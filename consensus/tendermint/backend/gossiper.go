@@ -13,6 +13,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/rlp"
 )
 
@@ -20,6 +21,11 @@ type msgRouter interface {
 	SetBroadcaster(broadcaster interfaces.PeerFinder)
 	Forward(committee *types.Committee, m message.Msg, sender common.Address, recipients []common.Address)
 }
+
+var (
+	slowGossipCounter = metrics.GetOrRegisterCounter("gossiper/slowGossip", nil) //nolint:goconst
+	gossipCounter     = metrics.GetOrRegisterCounter("gossiper/Gossip", nil)       //nolint:goconst
+)
 
 type Gossiper struct {
 	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
@@ -81,6 +87,7 @@ func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
 	if !g.knownMessages.Contains(msg.Hash()) {
 		g.knownMessages.Add(msg.Hash(), true)
 	}
+	slowGossipCounter.Inc(1)
 	g.router.Forward(committee, msg, g.address, recipients)
 }
 
@@ -89,6 +96,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	if !g.knownMessages.Contains(msg.Hash()) {
 		g.knownMessages.Add(msg.Hash(), true)
 	}
+	gossipCounter.Inc(1) // increment gossip counter
 	g.router.Forward(committee, msg, g.address, nil)
 }
 

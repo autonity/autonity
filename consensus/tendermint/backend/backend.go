@@ -200,6 +200,7 @@ func (sb *Backend) Address() common.Address {
 func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	// send to self (directly to Core and FD, no need to verify local messages)
 	// a goroutine is required here to avoid creating a deadlock, broadcast can be called from the messageEventHandler itself
+	go sb.gossiper.Gossip(committee, message)
 	go sb.MessageToCore(events.NewMessageEvent(message, nil, sb.Address(), time.Now())) // core
 	go sb.Post(events.NewMessageEvent(message, nil, sb.Address(), time.Now()))          // FD
 }
