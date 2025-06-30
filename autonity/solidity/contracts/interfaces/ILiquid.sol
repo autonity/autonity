@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.8.2 ;
+import "./IDelegateStaking.sol";
 import "./IERC20.sol";
 
-interface ILiquid is IERC20 {
+interface ILiquid is IDelegateStaking, IERC20 {
     function mint(address _account, uint256 _amount) external;
     function unlock(address _account, uint256 _amount) external;
     function lock(address _account, uint256 _amount) external;
+    function lockFrom(address _account, address _staker, uint256 _amount) external;
     function setCommissionRate(uint256 _rate) external;
     function claimRewards() external;
     function claimTreasuryATN() external;
