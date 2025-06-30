@@ -114,18 +114,16 @@ type Runner struct {
 
 	// protocol contracts
 	// todo: see if genesis deployment flow can be abstracted somehow
-	Autonity                *Autonity
-	Accountability          *Accountability
-	Oracle                  *Oracle
-	Acu                     *ACU
-	Auctioneer              *Auctioneer
-	SupplyControl           *SupplyControl
-	Stabilization           *Stabilization
-	UpgradeManager          *UpgradeManager
-	InflationController     *InflationController
-	StakeableVestingManager *StakeableVestingManager
-	NonStakeableVesting     *NonStakeableVesting
-	OmissionAccountability  *OmissionAccountability
+	Autonity               *Autonity
+	Accountability         *Accountability
+	Oracle                 *Oracle
+	Acu                    *ACU
+	Auctioneer             *Auctioneer
+	SupplyControl          *SupplyControl
+	Stabilization          *Stabilization
+	UpgradeManager         *UpgradeManager
+	InflationController    *InflationController
+	OmissionAccountability *OmissionAccountability
 
 	Committee Committee   // genesis validators for easy access
 	Operator  *runOptions // operator runOptions for easy access
@@ -372,14 +370,6 @@ func (r *Runner) contractObject(metadata *bind.MetaData, address common.Address)
 	return &contract{address, parsed, r}
 }
 
-func (r *Runner) StakeableVestingContractObject(user common.Address, contractID *big.Int) *IStakeableVesting {
-	address, _, err := r.StakeableVestingManager.GetContractAccount(nil, user, contractID)
-	require.NoError(r.T, err)
-	return &IStakeableVesting{
-		r.contractObject(IStakeableVestingMetaData, address),
-	}
-}
-
 func (r *Runner) generateNewCommittee() {
 	committeeMembers, _, err := r.Autonity.GetCommittee(nil)
 	require.NoError(r.T, err)
@@ -549,11 +539,6 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 
 	genesisConfig.Config.SetDefaults()
 
-	// ToDo: we should probably override this in the specific tests where it is needed
-	if genesisConfig.Config.StakeableVestingConfig.TotalNominal.Cmp(common.Big0) == 0 {
-		genesisConfig.Config.StakeableVestingConfig.TotalNominal = new(big.Int).Mul(big.NewInt(1_000_000), params.DecimalFactor) // 1M NTN
-	}
-
 	//
 	// Step 1: Execute test genesis sequence
 	//
@@ -603,16 +588,6 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	r.InflationController = &InflationController{&contract{
 		params.InflationControllerContractAddress,
 		&generated.InflationControllerAbi,
-		r,
-	}}
-	r.StakeableVestingManager = &StakeableVestingManager{&contract{
-		params.StakeableVestingManagerContractAddress,
-		&generated.StakeableVestingManagerAbi,
-		r,
-	}}
-	r.NonStakeableVesting = &NonStakeableVesting{&contract{
-		params.NonStakeableVestingContractAddress,
-		&generated.NonStakeableVestingAbi,
 		r,
 	}}
 

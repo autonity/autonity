@@ -382,9 +382,8 @@ func randomValidators(count int, randomPercentage int) ([]params.Validator, erro
 }
 
 func autonityTestConfig() bindings.IAutonityConfig {
-	var testConfigCopy params.AutonityContractGenesis
 	// shallow copy is enough for this modifications
-	testConfigCopy = *params.TestAutonityContractConfig
+	var testConfigCopy params.AutonityContractGenesis = *params.TestAutonityContractConfig
 	testConfigCopy.WithheldRewardsPool = params.TestAutonityContractConfig.Operator
 	testConfigCopy.Treasury = params.TestAutonityContractConfig.Operator
 	return toContractConfig(&testConfigCopy)
