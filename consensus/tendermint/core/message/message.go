@@ -724,8 +724,8 @@ func AggregatePrecommitsSimple(votes []Vote) []*Precommit {
 }
 
 var (
-	validVotesBg     = metrics.NewRegisteredBufferedGauge("aggregator/backend/valid", nil, metrics.GetIntPointer(1000))     // measures time for message passing from backend to aggregator
-	aggregateVotesBg = metrics.NewRegisteredBufferedGauge("aggregator/backend/aggregate", nil, metrics.GetIntPointer(1000)) // measures time for message passing from backend to aggregator
+	validVotesCounter     = metrics.GetOrRegisterCounter("aggregator/backend/valid", nil)     // measures time for message passing from backend to aggregator
+	aggregateVotesCounter = metrics.GetOrRegisterCounter("aggregator/backend/aggregate", nil) // measures time for message passing from backend to aggregator
 )
 
 // NOTE: this function assumes that:
@@ -742,7 +742,7 @@ func AggregateVotesSimple[
 		panic("Trying to aggregate empty set of votes")
 	}
 
-	validVotesBg.Add(int64(len(votes)))
+	validVotesCounter.Inc(int64(len(votes)))
 	// todo: metric for length of validVotes and length of aggregateVotes
 	code := PE(new(E)).Code()
 
@@ -846,7 +846,7 @@ func AggregateVotesSimple[
 		}
 		aggregateVotes[i] = &aggregateVote
 	}
-	aggregateVotesBg.Add(int64(len(aggregateVotes)))
+	aggregateVotesCounter.Inc(int64(len(aggregateVotes)))
 	return aggregateVotes
 }
 

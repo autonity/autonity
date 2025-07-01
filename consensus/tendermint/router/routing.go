@@ -35,7 +35,7 @@ var (
 	proposeHashesOut = metrics.GetOrRegisterResettableCounter("router/propose/hash/egress", nil)   //nolint:goconst
 	precommitHashOut = metrics.GetOrRegisterResettableCounter("router/precommit/hash/egress", nil) //nolint:goconst
 	prevoteHashOut   = metrics.GetOrRegisterResettableCounter("router/prevote/hash/egress", nil)   //nolint:goconst
-	forwardCounter   = metrics.GetOrRegisterResettableCounter("router/forward", nil)   //nolint:goconst
+	forwardCounter   = metrics.GetOrRegisterResettableCounter("router/forward", nil)               //nolint:goconst
 )
 
 func Setup(
@@ -73,7 +73,7 @@ type Router struct {
 	peerSelector        interfaces.PeerSelector
 	recipientCache      cache.Recipients
 	clusteringThreshold int
-	hashCache *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
+	hashCache           *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 }
 
 func New(
@@ -95,7 +95,7 @@ func New(
 		peerSelector:        peerSelector,
 		network:             networkProvider,
 		clusteringThreshold: ScaleThresholdForClustering,
-		hashCache : fixsizecache.New[common.Hash, bool](5987, 5, fixsizecache.HashKey[common.Hash]),
+		hashCache:           fixsizecache.New[common.Hash, bool](5987, 5, fixsizecache.HashKey[common.Hash]),
 	}
 	return router
 }
@@ -137,7 +137,7 @@ func (m *Router) Recipients(committee *types.Committee, msg message.Msg, from co
 }
 
 func (m *Router) recordDistinctHash(msg message.Msg) {
-	if m.hashCache.Contains(msg.Hash())  {
+	if m.hashCache.Contains(msg.Hash()) {
 		return
 	}
 	m.hashCache.Add(msg.Hash(), true)

@@ -24,7 +24,7 @@ type msgRouter interface {
 
 var (
 	slowGossipCounter = metrics.GetOrRegisterCounter("gossiper/slowGossip", nil) //nolint:goconst
-	gossipCounter     = metrics.GetOrRegisterCounter("gossiper/Gossip", nil)       //nolint:goconst
+	gossipCounter     = metrics.GetOrRegisterCounter("gossiper/Gossip", nil)     //nolint:goconst
 )
 
 type Gossiper struct {
