@@ -200,18 +200,17 @@ contract LiquidLogic is ILiquid, LiquidStorage {
               _amount LNTN amount of tokens to lock.
      */
     function lock(address _account, uint256 _amount) public virtual nonReentrant onlyAutonity {
-        require(balances[_account] - lockedBalances[_account] >= _amount, "can't lock more funds than available");
-        lockedBalances[_account] += _amount;
+        _lock(_account, _amount);
     }
 
     /**
     * @inheritdoc ILiquid
     */
     function lockFrom(address _account, address _staker, uint256 _amount) external virtual nonReentrant onlyAutonity {
-        uint _allowed = unbondAllowance(_account, _staker);
-        require(_allowed >= _amount, "not enough allowance");
+        uint _allowed = unbondAllowances[_account][_staker];
+        require(_allowed >= _amount, "amount exceeds allowance");
         _approveUnbond(_account, _staker, _allowed - _amount);
-        lock(_account, _amount);
+        _lock(_account, _amount);
     }
 
     /**
@@ -243,6 +242,11 @@ contract LiquidLogic is ILiquid, LiquidStorage {
 
      ============================================================
      */
+
+    function _lock(address _account, uint256 _amount) internal virtual {
+        require(balances[_account] - lockedBalances[_account] >= _amount, "can't lock more funds than available");
+        lockedBalances[_account] += _amount;
+    }
 
     function _increaseBalance(address _delegator, uint256 _value) private {
         _realiseFees(_delegator); //always updates fee factor

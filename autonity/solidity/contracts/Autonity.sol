@@ -319,7 +319,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     * @inheritdoc IAutonity
     */
     function bondFrom(address _account, address _validator, uint256 _amount) external virtual nonReentrant returns (uint256) {
-        uint _allowed = bondAllowance(_account, msg.sender);
+        uint _allowed = bondAllowances[_account][msg.sender];
         require(_allowed >= _amount, "amount exceeded allowance");
         _approveBond(_account, msg.sender, _allowed - _amount);
         return _bond(_validator, _amount, payable(_account));
@@ -1783,12 +1783,12 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
      * This function assume that `_validator` is a valid validator address.
      */
     function _bond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
+        Validator storage _validator = validators[_validatorAddress];
+        require(_validatorAddress != address(0) && _validator.nodeAddress == _validatorAddress, "validator not registered");
+        require(_validator.state == ValidatorState.active, "validator need to be active");
+
         require(_amount > 0, "amount need to be strictly positive");
         require(accounts[_recipient] >= _amount, "insufficient Newton balance");
-
-        Validator storage _validator = validators[_validatorAddress];
-        require(_validator.nodeAddress == _validatorAddress, "validator not registered");
-        require(_validator.state == ValidatorState.active, "validator need to be active");
 
         accounts[_recipient] -= _amount;
         BondingRequest memory _bonding = BondingRequest(_recipient, _validatorAddress, _amount, block.number);
@@ -1848,9 +1848,9 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     }
 
     function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient, address _staker) internal virtual returns (uint256) {
-        require(_amount > 0, "unbonding amount is 0");
         Validator storage _validator = validators[_validatorAddress];
-        require(_validator.nodeAddress == _validatorAddress, "validator not registered");
+        require(_validatorAddress != address(0) && _validator.nodeAddress == _validatorAddress, "validator not registered");
+        require(_amount > 0, "unbonding amount is 0");
 
         bool selfDelegation = _recipient == _validator.treasury;
         if (!selfDelegation) {
@@ -1869,7 +1869,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                 "insufficient self bonded newton balance"
             );
             if (_staker != _recipient) {
-                uint _allowed = selfUnbondAllowance(_recipient, _staker);
+                uint _allowed = selfUnbondAllowances[_recipient][_staker];
                 require(_allowed >= _amount, "amount exceeds allowance");
                 _approveSelfUnbond(_recipient, _staker, _allowed - _amount);
             }
