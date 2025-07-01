@@ -6,7 +6,6 @@ import {IAuctioneer} from "../asm/interfaces/IAuctioneer.sol";
 import {IStabilization} from "../asm/interfaces/IStabilization.sol";
 import {ISupplyControl} from "../asm/interfaces/ISupplyControl.sol";
 import {IAccountability} from "./IAccountability.sol";
-import {IDelegateStaking} from "./IDelegateStaking.sol";
 import {IERC20} from "./IERC20.sol";
 import {IInflationController} from "./IInflationController.sol";
 import {ILiquid} from "./ILiquid.sol";
@@ -21,7 +20,7 @@ uint8 constant NTN_DECIMALS = 18;
  * @dev Interface of the Autonity Contract.
  * Import this over Autonity.sol.
  */
-interface IAutonity is IDelegateStaking, IERC20, IScheduleController {
+interface IAutonity is IERC20, IScheduleController {
 
     struct Eip1559 {
         uint256 minBaseFee;
@@ -227,19 +226,35 @@ interface IAutonity is IDelegateStaking, IERC20, IScheduleController {
 
     /**
      * @notice Returns the remaining number of NTN that `_staker` will be
-     * allowed to unbond from self-bonded-stake on behalf of `_owner` through `unbondFrom`.
+     * allowed to bond on behalf of `_owner` through `bondFrom`.
      * This is zero by default.
      */
-    function selfBondedStakeAllowance(address _owner, address _staker) external view returns (uint256);
+    function bondAllowance(address _owner, address _staker) external view returns (uint256);
 
     /**
-     * @notice Sets `_amount` as the self-bonded-stake-allowance of `_staker` over the caller's tokens.
+     * @notice Sets `_amount` as the bond-allowance (NTN) of `_staker` over the caller's tokens.
      *
      * Returns a boolean value indicating whether the operation succeeded.
      *
-     * Emits an {SelfBondedStakeApproval} event.
+     * Emits an {BondApproval} event.
      */
-    function approveSelfBondedStake(address _staker, uint256 _amount) external returns (bool);
+    function approveBond(address _staker, uint256 _amount) external returns (bool);
+
+    /**
+     * @notice Returns the remaining number of NTN that `_staker` will be
+     * allowed to unbond from self-bonded-stake on behalf of `_owner` through `unbondFrom`.
+     * This is zero by default.
+     */
+    function selfUnbondAllowance(address _owner, address _staker) external view returns (uint256);
+
+    /**
+     * @notice Sets `_amount` as the self-unbond-allowance of `_staker` over the caller's tokens.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * Emits an {SelfUnbondApproval} event.
+     */
+    function approveSelfUnbond(address _staker, uint256 _amount) external returns (bool);
 
     /**
     * @dev Bonds the inflation rewards to the validator's stake at epoch finalization.
@@ -627,6 +642,12 @@ interface IAutonity is IDelegateStaking, IERC20, IScheduleController {
      * @notice Emitted when the self-bonded-stake-allowance of a `staker` for an `owner` is set by
      * a call to `approveSelfBondedStake`. `value` is the new stake-allowance.
      */
-    event SelfBondedStakeApproval(address indexed owner, address indexed staker, uint256 value);
+    event SelfUnbondApproval(address indexed owner, address indexed staker, uint256 value);
+
+    /**
+     * @notice Emitted when the bond-allowance (NTN) of a `_staker` for an `_owner` is set by
+     * a call to `approveBond`. `_value` is the new bond-allowance (NTN).
+     */
+    event BondApproval(address indexed _owner, address indexed _staker, uint256 _value);
 
 }

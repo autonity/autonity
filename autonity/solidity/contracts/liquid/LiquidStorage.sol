@@ -10,7 +10,7 @@ contract LiquidStorage is ReentrancyGuard {
     mapping(address => uint256) internal lockedBalances;
 
     mapping(address => mapping (address => uint256)) internal allowances;
-    mapping(address => mapping (address => uint256)) internal stakeAllowances;
+    mapping(address => mapping (address => uint256)) internal unbondAllowances;
     uint256 internal supply;
 
     mapping(address => uint256) internal atnRealisedFees;

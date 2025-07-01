@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity >=0.8.2 ;
-import "./IDelegateStaking.sol";
 import "./IERC20.sol";
 
-interface ILiquid is IDelegateStaking, IERC20 {
+interface ILiquid is IERC20 {
     function mint(address _account, uint256 _amount) external;
     function unlock(address _account, uint256 _amount) external;
     function lock(address _account, uint256 _amount) external;
@@ -23,4 +22,26 @@ interface ILiquid is IDelegateStaking, IERC20 {
     function getTreasury() external view returns (address);
     function getCommissionRate() external view returns (uint256);
     function getTreasuryUnclaimedATN() external view returns (uint256);
+
+    /**
+     * @notice Returns the remaining number of LNTN that `_staker` will be
+     * allowed to unbond on behalf of `_owner` through `unbondFrom`.
+     * This is zero by default.
+     */
+    function unbondAllowance(address _owner, address _staker) external view returns (uint256);
+
+    /**
+     * @notice Sets `_amount` as the unbond-allowance (LNTN) of `_staker` over the caller's tokens.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * Emits an {UnbondApproval} event.
+     */
+    function approveUnbond(address _staker, uint256 _amount) external returns (bool);
+
+    /**
+     * @notice Emitted when the unbond-allowance (LNTN) of a `_staker` for an `_owner` is set by
+     * a call to `approveUnbond`. `_value` is the new unbond-allowance (LNTN).
+     */
+    event UnbondApproval(address indexed _owner, address indexed _staker, uint256 _value);
 }
