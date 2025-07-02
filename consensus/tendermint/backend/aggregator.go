@@ -135,6 +135,18 @@ func NewRoundInfo() *RoundInfo {
 	}
 }
 
+type valueCache struct {
+	signatures map[common.Hash][]uint16
+}
+
+func (vc *valueCache) Add() {
+
+}
+
+func (vc *valueCache) HaveSuperSet() bool{
+	return false
+}
+
 type aggregator struct {
 	backend interfaces.Backend
 	core    interfaces.Core
