@@ -240,7 +240,7 @@ func (s *Signers) AddsInformation(other *Signers) bool {
 		panic(err.Error())
 	}
 	for i := 0; i < s.committeeSize; i++ {
-		if int(s.SignatureCounts[i]+other.SignatureCounts[i]) > 0 {
+		if byte(s.SignatureCounts[i]) == noSignature && byte(other.SignatureCounts[i]) != noSignature {
 			return true
 		}
 	}
@@ -254,7 +254,7 @@ func (s *Signers) CanMergeSimple(other *Signers) bool {
 	//todo(review) : if one signature has multiple counts but others not it should be still mergeable,
 	// though in current implementation that scenario is not possible
 	for i := 0; i < s.committeeSize; i++ {
-		if int(s.SignatureCounts[i]+other.SignatureCounts[i]) > 1 {
+		if byte(s.SignatureCounts[i]+other.SignatureCounts[i]) > oneSignature {
 			return false
 		}
 	}
