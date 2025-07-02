@@ -191,7 +191,7 @@ func (s *selector) selectBucketBasedNodes(clusters cluster.Clusters, committee *
 	var minNodes, lowLatencyNodes int
 
 	switch senderType {
-	case originator:
+	case originator: // 20 + 5 + 10
 		// additional nodes
 		localNodes := len(clusters.Base()[ownClusterID])
 		minNodes = int(float64(localNodes) * (2.0 / 3.0)) // assuming all cluster of same size, send to 2/3 of cluser size
@@ -242,7 +242,7 @@ func (s *selector) selectBucketBasedNodes(clusters cluster.Clusters, committee *
 		minNodes = len(clusters.Base()[ownClusterID])
 		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, clusters.Self())...)
 
-	case localRelayerOriginCluster, localRelayerRemoteCluster:
+	case localRelayerOriginCluster, localRelayerRemoteCluster: // 20 nodes
 		localNodes := len(clusters.Base()[ownClusterID])
 		targetLocalNodes := localNodes
 		localCandidates := s.routingCandidatesFromCluster(ownClusterID, clusters.Self(), committee)
