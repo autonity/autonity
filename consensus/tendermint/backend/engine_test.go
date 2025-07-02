@@ -243,7 +243,7 @@ func TestVerifyHeader(t *testing.T) {
 		header.ActivityProof = new(types.AggregateSignature)
 		header.ActivityProof.Signature = consensusKeys[1].Sign(headerSeal[:]).(*blst.BlsSignature)
 		header.ActivityProof.Signers = types.NewSigners(2)
-		header.ActivityProof.Signers.Bits.Set(1, 1)
+		header.ActivityProof.Signers.SignatureCounts[1] = 1
 		header.ActivityProofRound = targetHeader.Round
 		modifiedBlock := types.NewBlockWithHeader(header)
 		sealedBlock, err := engine.AddSeal(modifiedBlock)

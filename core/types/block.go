@@ -199,7 +199,9 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 	}
 
 	// verify signature
-	flattenedIndexes := a.Signers.flatten(committee.Len())
+	//flattenedIndexes := a.Signers.flatten(committee.Len())
+	//todo: do we need committee
+	flattenedIndexes := a.Signers.flatten()
 	keys := make([]blst.PublicKey, len(flattenedIndexes))
 	for i, index := range flattenedIndexes {
 		keys[i] = committee.Members[index].ConsensusKey
@@ -219,7 +221,8 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 	// Total assembled voting power for the activity proof
 	power := new(big.Int)
 	signers := make(map[common.Address]struct{}, distinctSigners)
-	for _, index := range a.Signers.flattenUniq(committee.Len()) {
+	//for _, index := range a.Signers.flattenUniq(committee.Len()) {
+	for _, index := range a.Signers.flattenUniq() {
 		power.Add(power, committee.Members[index].VotingPower)
 		signers[committee.Members[index].Address] = struct{}{}
 	}
