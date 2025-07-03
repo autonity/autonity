@@ -181,13 +181,13 @@ func (s *RoundMessages) AddPrecommit(precommit *Precommit) bool {
 }
 
 // used to gossip quorum of prevotes
-func (s *RoundMessages) PrevoteFor(hash common.Hash) *Prevote {
+func (s *RoundMessages) PrevoteFor(hash common.Hash) []*Prevote {
 	prevotes := s.prevotes.VotesFor(hash)
 	return AggregatePrevotes(prevotes) // we allow complex aggregate here
 }
 
 // used to create the quorum certificate when we managed to finalize a block and to gossip quorum of precommits
-func (s *RoundMessages) PrecommitFor(hash common.Hash) *Precommit {
+func (s *RoundMessages) PrecommitFor(hash common.Hash) []*Precommit {
 	precommits := s.precommits.VotesFor(hash)
 	return AggregatePrecommits(precommits) // we allow complex aggregate here
 }

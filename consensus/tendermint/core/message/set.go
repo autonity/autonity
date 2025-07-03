@@ -32,6 +32,7 @@ func NewSet() *Set {
 
 // returns whether the new signers increased the power or the vote was redundant
 func (s *Set) Add(vote Vote) bool {
+	// TODO: optimize
 	s.Lock()
 	defer s.Unlock()
 
@@ -62,13 +63,13 @@ func (s *Set) Add(vote Vote) bool {
 	// if not first vote, aggregate previous votes and new vote
 	switch vote.(type) {
 	case *Prevote:
-		aggregatedVotes := AggregatePrevotesSimple(append(previousVotes, vote))
+		aggregatedVotes := AggregatePrevotes(append(previousVotes, vote))
 		s.votes[value] = make([]Vote, len(aggregatedVotes))
 		for i, aggregatedVote := range aggregatedVotes {
 			s.votes[value][i] = aggregatedVote
 		}
 	case *Precommit:
-		aggregatedVotes := AggregatePrecommitsSimple(append(previousVotes, vote))
+		aggregatedVotes := AggregatePrecommits(append(previousVotes, vote))
 		s.votes[value] = make([]Vote, len(aggregatedVotes))
 		for i, aggregatedVote := range aggregatedVotes {
 			s.votes[value][i] = aggregatedVote

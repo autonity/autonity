@@ -176,7 +176,7 @@ type AggregateSignature struct {
 	Signers   *QuorumSigners     `rlp:"nil"`
 }
 
-func NewAggregateSignature(signature *blst.BlsSignature, signers *Signers) *AggregateSignature {
+func NewAggregateSignature(signature *blst.BlsSignature, signers *QuorumSigners) *AggregateSignature {
 	return &AggregateSignature{Signature: signature, Signers: signers}
 }
 
@@ -192,7 +192,8 @@ func (a *AggregateSignature) Malformed() bool {
 // returns map of signers and total power of the signers
 func (a *AggregateSignature) Validate(message common.Hash, committee *Committee, checkQuorum bool) (map[common.Address]struct{}, *big.Int, error) {
 	// validate signers information first
-	_, err := a.Signers.validate(committee.Len())
+
+	_, _, err := a.Signers.validate(committee.Len())
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid signers information: %w", err)
 	}
