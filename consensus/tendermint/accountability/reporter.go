@@ -58,19 +58,19 @@ func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
 	endIdx := primary + numBackups
 	validatorIdx := int(validator.Index) //nolint
 
+	if endIdx < committee.Len() {
+		return validatorIdx >= startIdx && validatorIdx <= endIdx
+	}
+
 	if startIdx == committee.Len() {
 		endIdx = endIdx % committee.Len()
 		return validatorIdx >= 0 && validatorIdx <= endIdx
 	}
 
-	if endIdx < committee.Len() {
-		return validatorIdx >= startIdx && validatorIdx <= endIdx
-	} else {
-		wrappedEndIdx := endIdx % committee.Len()
-		startIdx = (primary + 1) % committee.Len()
-		return (validatorIdx >= startIdx && validatorIdx < committee.Len()) ||
-			(validatorIdx >= 0 && validatorIdx <= wrappedEndIdx)
-	}
+	wrappedEndIdx := endIdx % committee.Len()
+	startIdx = (primary + 1) % committee.Len()
+	return (validatorIdx >= startIdx && validatorIdx < committee.Len()) ||
+		(validatorIdx >= 0 && validatorIdx <= wrappedEndIdx)
 }
 
 // canReport assign the validator a dedicated time-window to submit the accountability event, if the primary fails to
