@@ -18,7 +18,9 @@ var (
 	errPendingReport = errors.New("pending report")
 )
 
-// Select a sub set of validators as the rule engine runner to reduce the performance cost over the network.
+// isRuleEngineRunner check if client is a rule engine runner, as to reduce the performance cost in a large scale
+// network which contains a lots of consensus message to be scanned, we select a set of nodes as the rule runner
+// of a specific height, for smale scale network, all the nodes run the rule engine.
 func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
 	if _, ok := fd.shouldReportCache.Get(height); ok {
 		return true
@@ -30,30 +32,24 @@ func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
 		return false
 	}
 
-	// All members run rule engine in small scale network.
+	// All members run rule engine in a small scale network.
 	if committee.Len() <= NumBackups*3 {
-		fd.shouldReportCache.Add(height, true)
+		fd.shouldReportCache.Add(height, struct{}{})
 		return true
 	}
 
-	// Only a few members run the rule engine.
-	// Calculate primary reporter index
+	// Return true if node is the primary reporter.
 	primaryIndex := int((height / reportingSlotPeriod) % uint64(committee.Len()))
 	if committee.Members[primaryIndex].Address == fd.address {
-		fd.shouldReportCache.Add(height, true)
+		fd.shouldReportCache.Add(height, struct{}{})
 		return true
 	}
 
-	// Select backups starting from next validator in committee
+	// Return true if node is backups.
 	for i := 1; i <= NumBackups; i++ {
 		backupIndex := (primaryIndex + i) % committee.Len()
-		// Skip primary reporter if included
-		if backupIndex == primaryIndex {
-			continue
-		}
-
 		if committee.Members[backupIndex].Address == fd.address {
-			fd.shouldReportCache.Add(height, true)
+			fd.shouldReportCache.Add(height, struct{}{})
 			return true
 		}
 	}
