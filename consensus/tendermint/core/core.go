@@ -298,6 +298,7 @@ func (c *Core) Broadcaster() interfaces.Broadcaster {
 }
 
 func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundMessages) {
+	// TODO: fix
 	c.SetStep(ctx, PrecommitDone)
 	// for metrics
 	start := time.Now()

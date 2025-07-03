@@ -488,6 +488,7 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 
 // a batch is a set of messages for same (height,round,code,value) ---> can be aggregated using FastAggregateVerify
 func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, eventer eventBuilder) {
+	// TODO: optimize
 	if len(batches) == 0 {
 		return
 	}
@@ -560,13 +561,13 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			// repetitive code but I didn't find a way to declare aggregateVotes so that it works both with prevote and precommit
 			switch validVotes[0].(type) {
 			case *message.Prevote:
-				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
+				aggregateVotes := message.AggregatePrevotes(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					go a.backend.Post(eventer(aggregateVote, nil))
 				}
 			case *message.Precommit:
-				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
+				aggregateVotes := message.AggregatePrecommits(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					go a.backend.Post(eventer(aggregateVote, nil))
