@@ -1462,7 +1462,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 
 func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) error {
 	// skip process duplicated for votes.
-	allPrecommitsInRound := fd.msgStore.GetPrevotesByRound(m.H(), m.R(), nil)
+	allPrecommitsInRound := fd.msgStore.GetPrecommitsByRound(m.H(), m.R(), nil)
 	for _, storedPrecommit := range allPrecommitsInRound {
 		if storedPrecommit.Hash() == m.Hash() {
 			return errDuplicatedMsg
