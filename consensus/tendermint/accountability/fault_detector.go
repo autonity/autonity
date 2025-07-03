@@ -961,7 +961,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 			}
 
 			if len(voteForSigner) > 1 { // skip equivocations
-				 continue SignersLoop
+				continue SignersLoop
 			}
 
 			for value, prevoteForValue := range voteForSigner {
@@ -998,7 +998,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 							fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVN", "suspect", signer)
 						}
 					}
-					continue SignersLoop// we have no corresponding proposal, so we cannot check new and old prevote rules
+					continue SignersLoop // we have no corresponding proposal, so we cannot check new and old prevote rules
 				}
 
 				// if there was a proposal found, check if prevote is valid
@@ -1294,70 +1294,85 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 	// C: [Mr,P|proposer(r)] ∧ [Mr,PV] <--- [Mr,PC|pi]
 	// C1: [V:Valid(V)] ∧ [#(V) ≥ 2f+ 1] <--- [V]
 
-	precommits := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
-		return m.Value() != common.NilValue
-	})
+	maxRoundForHeight := fd.msgStore.GetMaxRoundSeen(height)
+	if maxRoundForHeight == -1 {
+		return nil // No messages for this height, nothing to check.
+	}
 
-	for _, precommit := range precommits {
-	signersLoop:
-		for _, signerIndex := range precommit.Signers().FlattenUniq() {
-			signer := committee.Members[signerIndex].Address
-
-			// Skip if preCommit is equivocated
-			precommitsForR := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
-				return m.R() == precommit.R() && m.Signers().Contains(signerIndex) && m.Value() != precommit.Value()
-			})
-			if len(precommitsForR) > 0 {
-				continue signersLoop
+	for r := int64(0); r <= maxRoundForHeight; r++ {
+		precommitsInR := fd.msgStore.GetPrecommitsByRound(height, r, nil)
+		if len(precommitsInR) == 0 {
+			continue
+		}
+	signerLoop:
+		for signerIndex := 0; signerIndex < committee.Len(); signerIndex++ {
+			votesForSigner := make(map[common.Hash]*message.Precommit)
+			for _, precommit := range precommitsInR {
+				if precommit.Signers().Contains(signerIndex) { // current signer voted for this precommit value
+					// pull out the vote per value
+					if _, ok := votesForSigner[precommit.Value()]; !ok {
+						votesForSigner[precommit.Value()] = precommit
+					}
+				}
+			}
+			if len(votesForSigner) > 1 { // equivocation skip here, checked separately
+				continue signerLoop
 			}
 
-			// Do we see a quorum for a value other than the proposed value? If so, we have proof of misbehaviour.
-			alternativeQuorum := fd.msgStore.SearchQuorum(height, precommit.R(), precommit.Value(), quorum)
-			// Here the assumption is that in a single round it is not possible to have 2 value which quorum votes,
-			// this would imply at least quorum nodes are malicious which is much higher than our assumption.
-			if len(alternativeQuorum) > 0 {
-				// fast aggregate quorum prevotes into single one.
-				evidences := make([]message.Msg, 1)
-				evidences[0] = alternativeQuorum[0]
-				if len(alternativeQuorum) > 1 {
-					evidences[0] = AggregateSamePrevotes(alternativeQuorum)
+			for value, precommit := range votesForSigner {
+				if value == common.NilValue {
+					continue signerLoop // there is only one entry in votesForSigner which is nil so continue to signerloop
 				}
+				// Do we see a quorum for a value other than the proposed value? If so, we have proof of misbehaviour.
+				excludeValue := value
+				alternativeQuorum := fd.msgStore.SearchQuorum(height, r, excludeValue, quorum)
+				// Here the assumption is that in a single round it is not possible to have 2 value which quorum votes,
+				// this would imply at least quorum nodes are malicious which is much higher than our assumption.
+				signer := committee.Members[signerIndex].Address
+				if len(alternativeQuorum) > 0 {
+					// fast aggregate quorum prevotes into single one.
+					evidences := make([]message.Msg, 1)
+					evidences[0] = alternativeQuorum[0]
+					if len(alternativeQuorum) > 1 {
+						evidences[0] = AggregateSamePrevotes(alternativeQuorum)
+					}
 
-				proof := &Proof{
-					Type:          autonity.Misbehaviour,
-					Rule:          autonity.C,
-					Evidences:     evidences,
-					Message:       precommit,
-					OffenderIndex: signerIndex,
-				}
-				proofs = append(proofs, proof)
-				fd.logger.Info("Misbehaviour detected", "rule", "C", "incriminated", signer)
-				continue signersLoop
-			}
-
-			// Do we see a quorum of prevotes in the same round? if not we can raise an accusation, since we cannot be sure
-			// that these prevotes do exist, this block also covers the Accusation of C since if over quorum prevotes for
-			// V indicates that the corresponding proposal of V do exist, thus we don't need to raise accusation for the missing
-			// proposal since over 2/3 member should all ready received it
-			if fd.msgStore.PrevotesPowerFor(height, precommit.R(), precommit.Value()).Cmp(quorum) < 0 {
-				/* We do not have a quorum of prevotes for this precommit to be justified.
-				* However if the precommit was for a value that got committed, we do not send the accusation.
-				* NOTE: this is an effective way to reduce the number of accusations and prevent accusation spamming,
-				* however we assume the risk of ignoring a potentially malicious committee member.
-				* Indeed the fact that the same value got committed does not rule out the fact that the suspected
-				* node was misbehaving. We can just infer that if he was misbehaving, he did so in line with the decision of the network.
-				* The only way to rule out misbehaviour would be to check also that the value was committed at the precommit round.
-				* However the commit round is not deterministic between all nodes.
-				 */
-				if fd.blockchain.GetBlock(precommit.Value(), precommit.H()) == nil {
-					accusation := &Proof{
-						Type:          autonity.Accusation,
-						Rule:          autonity.C1,
+					proof := &Proof{
+						Type:          autonity.Misbehaviour,
+						Rule:          autonity.C,
+						Evidences:     evidences,
 						Message:       precommit,
 						OffenderIndex: signerIndex,
 					}
-					proofs = append(proofs, accusation)
-					fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "C1", "suspect", signer)
+					proofs = append(proofs, proof)
+					fd.logger.Info("Misbehaviour detected", "rule", "C", "incriminated", signer)
+					continue signerLoop
+				}
+
+				// Do we see a quorum of prevotes in the same round? if not we can raise an accusation, since we cannot be sure
+				// that these prevotes do exist, this block also covers the Accusation of C since if over quorum prevotes for
+				// V indicates that the corresponding proposal of V do exist, thus we don't need to raise accusation for the missing
+				// proposal since over 2/3 member should all ready received it
+				if fd.msgStore.PrevotesPowerFor(height, r, value).Cmp(quorum) < 0 {
+					/* We do not have a quorum of prevotes for this precommit to be justified.
+					* However if the precommit was for a value that got committed, we do not send the accusation.
+					* NOTE: this is an effective way to reduce the number of accusations and prevent accusation spamming,
+					* however we assume the risk of ignoring a potentially malicious committee member.
+					* Indeed the fact that the same value got committed does not rule out the fact that the suspected
+					* node was misbehaving. We can just infer that if he was misbehaving, he did so in line with the decision of the network.
+					* The only way to rule out misbehaviour would be to check also that the value was committed at the precommit round.
+					* However the commit round is not deterministic between all nodes.
+					 */
+					if fd.blockchain.GetBlock(value, height) == nil {
+						accusation := &Proof{
+							Type:          autonity.Accusation,
+							Rule:          autonity.C1,
+							Message:       precommit,
+							OffenderIndex: signerIndex,
+						}
+						proofs = append(proofs, accusation)
+						fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "C1", "suspect", signer)
+					}
 				}
 			}
 		}

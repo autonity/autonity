@@ -746,52 +746,49 @@ func AggregateVotesSimple[
 	// todo: metric for length of validVotes and length of aggregateVotes
 	code := PE(new(E)).Code()
 
-	csize := votes[0].Signers().CommitteeSize()
-
-	skip := make([]bool, len(votes))
-	var signersList []*types.Signers      //nolint
-	var signaturesList [][]blst.Signature //nolint
-	var publicKeysList [][]blst.PublicKey //nolint
-
-	// order votes by decreasing number of distinct signers.
-	// This ensures that we reduce as much as possible the number of duplicated signatures for the same validator
+	// sort signers in the decsecnding order of signer length, it
+	// should allow us to aggregate larger aggregates first, the remaining votes may become redundant
 	sort.Slice(votes, func(i, j int) bool {
 		return votes[i].Signers().Len() > votes[j].Signers().Len()
 	})
-
-	//TODO: I think we can have a more optimized version
-	for i, vote := range votes {
-		if skip[i] {
-			continue
-		}
-		signers := types.NewSigners(csize)
-		signers.Merge(vote.Signers())
-		signatures := []blst.Signature{vote.Signature()}
-		publicKeys := []blst.PublicKey{vote.SignerKey()}
-		for j := i + 1; j < len(votes); j++ {
-			if skip[j] {
-				continue
-			}
-			other := votes[j]
-			if !signers.AddsInformation(other.Signers()) {
-				// this vote could potentially still aggregate with other votes.
-				// however we don't care much since its signers are a subset of another vote.
-				skip[j] = true
-				continue
-			}
-			if !signers.CanMergeSimple(other.Signers()) {
-				continue
-			}
-			signers.Merge(other.Signers())
-			signatures = append(signatures, other.Signature())
-			publicKeys = append(publicKeys, other.SignerKey())
-			skip[j] = true
-		}
-		signersList = append(signersList, signers)
-		signaturesList = append(signaturesList, signatures)
-		publicKeysList = append(publicKeysList, publicKeys)
+	// internal helper.
+	type aggregate struct {
+		signers    *types.Signers
+		signatures []blst.Signature
+		publicKeys []blst.PublicKey
 	}
 
+	var aggr []*aggregate
+	for _, vote := range votes {
+		isRedundant := false
+		var targetAgg *aggregate
+		for _, agg := range aggr {
+			if !vote.Signers().AddsInformation(agg.signers) {
+				isRedundant = true
+				break
+			}
+			if targetAgg == nil && agg.signers.CanMergeSimple(vote.Signers()) {
+				targetAgg = agg
+			}
+		}
+
+		if isRedundant {
+			continue
+		}
+
+		if targetAgg != nil {
+			targetAgg.signers.Merge(vote.Signers())
+			targetAgg.signatures = append(targetAgg.signatures, vote.Signature())
+			targetAgg.publicKeys = append(targetAgg.publicKeys, vote.SignerKey())
+		} else {
+			newAgg := &aggregate{
+				signers:    vote.Signers().Copy(),
+				signatures: []blst.Signature{vote.Signature()},
+				publicKeys: []blst.PublicKey{vote.SignerKey()},
+			}
+			aggr = append(aggr, newAgg)
+		}
+	}
 	// build aggregates
 	representative := deterministicRepresentative(votes)
 	h := representative.H()
@@ -799,18 +796,19 @@ func AggregateVotesSimple[
 	value := representative.Value()
 	signatureInput := representative.SignatureInput()
 
-	n := len(signersList)
+	n := len(aggr)
 	aggregateVotes := make([]*E, n)
 	for i := 0; i < n; i++ {
+		agg := aggr[i]
 		var aggregatedSignature blst.Signature
 		var aggregatedPublicKey blst.PublicKey
 		var err error
-		if len(signaturesList[i]) == 1 {
-			aggregatedSignature = signaturesList[i][0]
-			aggregatedPublicKey = publicKeysList[i][0]
+		if len(agg.signatures) == 1 {
+			aggregatedSignature = agg.signatures[0]
+			aggregatedPublicKey = agg.publicKeys[0]
 		} else {
-			aggregatedSignature = blst.AggregateSignatures(signaturesList[i])
-			aggregatedPublicKey, err = blst.AggregatePublicKeys(publicKeysList[i])
+			aggregatedSignature = blst.AggregateSignatures(agg.signatures)
+			aggregatedPublicKey, err = blst.AggregatePublicKeys(agg.publicKeys)
 			if err != nil {
 				panic("Cannot generate aggregate public key from valid votes: " + err.Error()) //nolint
 			}
@@ -821,7 +819,7 @@ func AggregateVotesSimple[
 			Round:      uint64(r), // #nosec
 			Height:     h,
 			Value:      value,
-			Signers:    signersList[i],
+			Signers:    agg.signers,
 			Originator: representative.Originator(),
 			Signature:  aggregatedSignature.(*blst.BlsSignature),
 		})
@@ -829,7 +827,7 @@ func AggregateVotesSimple[
 		aggregateVote := E{
 			value: value,
 			vote: vote{
-				signers:    signersList[i],
+				signers:    agg.signers,
 				originator: representative.Originator(),
 				base: base{
 					height:         h,
