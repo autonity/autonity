@@ -156,6 +156,10 @@ func (s *Signers) Merge(other *Signers) {
 	}
 }
 
+func (s *Signers) Set(validatorIndex int, value byte) {
+	s.SignatureCounts[validatorIndex] = uint16(value)
+}
+
 func (s *Signers) Get(index int) uint16 {
 	if !s.validated {
 		panic("Attempting to use un validated signer information")
