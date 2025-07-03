@@ -599,7 +599,7 @@ func TestFunctions(t *testing.T) {
 	})
 }
 
-func TestUnbondAllowance(t *testing.T) {
+func TestUnbondingAllowance(t *testing.T) {
 	var liquidContract *ILiquid
 	var validator common.Address
 	owner := common.HexToAddress("0x123")
@@ -633,7 +633,7 @@ func TestUnbondAllowance(t *testing.T) {
 
 	allow := func(r *Runner, allowance *big.Int) {
 		r.NoError(
-			liquidContract.ApproveUnbond(
+			liquidContract.ApproveUnbonding(
 				FromSender(owner, nil),
 				staker,
 				allowance,
@@ -642,7 +642,7 @@ func TestUnbondAllowance(t *testing.T) {
 	}
 
 	checkAllowance := func(r *Runner, expAllowance *big.Int) {
-		actualAllowance := r.CheckErrorAndGetData(liquidContract.UnbondAllowance(nil, owner, staker)).(*big.Int)
+		actualAllowance := r.CheckErrorAndGetData(liquidContract.UnbondingAllowance(nil, owner, staker)).(*big.Int)
 		if expAllowance.Cmp(common.Big0) == 0 {
 			require.True(r.T, actualAllowance.Cmp(common.Big0) == 0)
 		} else {

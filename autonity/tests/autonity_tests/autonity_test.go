@@ -297,7 +297,7 @@ func TestConversionRatio(t *testing.T) {
 
 }
 
-func TestBondAllowance(t *testing.T) {
+func TestBondingAllowance(t *testing.T) {
 	validator := common.Address{}
 	setup := func() *tests.Runner {
 		r := tests.Setup(t, nil)
@@ -310,7 +310,7 @@ func TestBondAllowance(t *testing.T) {
 
 	allow := func(r *tests.Runner, allowance *big.Int) {
 		r.NoError(
-			r.Autonity.ApproveBond(
+			r.Autonity.ApproveBonding(
 				tests.FromSender(owner, nil),
 				staker,
 				allowance,
@@ -339,7 +339,7 @@ func TestBondAllowance(t *testing.T) {
 	}
 
 	checkAllowance := func(r *tests.Runner, expAllowance *big.Int) {
-		actualAllowance := r.CheckErrorAndGetData(r.Autonity.BondAllowance(nil, owner, staker)).(*big.Int)
+		actualAllowance := r.CheckErrorAndGetData(r.Autonity.BondingAllowance(nil, owner, staker)).(*big.Int)
 		if expAllowance.Cmp(common.Big0) == 0 {
 			require.True(r.T, actualAllowance.Cmp(common.Big0) == 0)
 		} else {
@@ -453,7 +453,7 @@ func TestBondAllowance(t *testing.T) {
 	})
 }
 
-func TestSelfUnbondAllowance(t *testing.T) {
+func TestSelfUnbondingAllowance(t *testing.T) {
 	validator := common.Address{}
 	owner := common.Address{}
 	staker := common.HexToAddress("0x123")
@@ -471,7 +471,7 @@ func TestSelfUnbondAllowance(t *testing.T) {
 
 	allow := func(r *tests.Runner, allowance *big.Int) {
 		r.NoError(
-			r.Autonity.ApproveSelfUnbond(
+			r.Autonity.ApproveSelfUnbonding(
 				tests.FromSender(owner, nil),
 				staker,
 				allowance,
@@ -480,7 +480,7 @@ func TestSelfUnbondAllowance(t *testing.T) {
 	}
 
 	checkAllowance := func(r *tests.Runner, expAllowance *big.Int) {
-		actualAllowance := r.CheckErrorAndGetData(r.Autonity.SelfUnbondAllowance(nil, owner, staker)).(*big.Int)
+		actualAllowance := r.CheckErrorAndGetData(r.Autonity.SelfUnbondingAllowance(nil, owner, staker)).(*big.Int)
 		if expAllowance.Cmp(common.Big0) == 0 {
 			require.True(r.T, actualAllowance.Cmp(common.Big0) == 0)
 		} else {
