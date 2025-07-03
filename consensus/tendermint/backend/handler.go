@@ -230,13 +230,20 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
 		allJailed := true
-		for _, signerIndex := range vote.Signers().FlattenUniq() {
+		vote.Signers().ForEachDistinctSigner(func(signerIndex int) {
 			signer := committee.Members[signerIndex].Address
 			if !sb.IsJailed(signer) {
 				allJailed = false
-				break
+				return
 			}
-		}
+		})
+		//for _, signerIndex := range vote.Signers().FlattenUniq() {
+		//	signer := committee.Members[signerIndex].Address
+		//	if !sb.IsJailed(signer) {
+		//		allJailed = false
+		//		break
+		//	}
+		//}
 		// unless all signers are jailed, we still process aggregates
 		if allJailed {
 			sb.logger.Debug("Vote message contains only signatures from jailed validators, ignoring message", "signers", vote.Signers().String())

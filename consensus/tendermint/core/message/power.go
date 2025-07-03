@@ -4,7 +4,8 @@ import "math/big"
 
 // auxiliary data structure to take into account aggregated power of a set of signers
 type AggregatedPower struct {
-	power   *big.Int
+	power *big.Int
+	//todo:(review) => integration with new signer
 	signers *big.Int // used as bitmap, we do not care about coefficients here, only if a validator is present or not
 }
 

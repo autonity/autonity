@@ -39,16 +39,16 @@ type roundStore struct {
 func newRoundStore(committeeSize int) *roundStore {
 	return &roundStore{
 		RWMutex:    sync.RWMutex{},
-		proposals:  make([]*message.Propose, 1),
-		prevotes:   make([]*message.Prevote, committeeSize/int(float64(2.0/3.0))), // pre allocate minimum committee size
-		precommits: make([]*message.Precommit, committeeSize/10),
+		proposals:  make([]*message.Propose, 0, 1),
+		prevotes:   make([]*message.Prevote, 0, int(float64(committeeSize)*(2.0/3.0))), // pre allocate minimum committee size
+		precommits: make([]*message.Precommit, 0, committeeSize/10),
 		powerCache: &roundPowerCache{
 			hashVotePower:  message.NewAggregatedPower(),
 			nilVotePower:   message.NewAggregatedPower(),
 			otherVotePower: make(map[common.Hash]*message.AggregatedPower),
 		},
 		prevoteByValue: make(map[common.Hash][]*message.Prevote),
-		nilPrevotes:    make([]*message.Prevote, 0),
+		nilPrevotes:    make([]*message.Prevote, 0, int(float64(committeeSize)/3.0)),
 	}
 
 }
@@ -57,17 +57,19 @@ type heightStore struct {
 	sync.RWMutex
 	rounds        []*roundStore
 	committeeSize int // the committee size at this height
+	maxRoundSeen  int64
 }
 
 func newHeightStore(committeeSize int) *heightStore {
 	return &heightStore{
 		RWMutex:       sync.RWMutex{},
-		rounds:        make([]*roundStore, 0),
+		rounds:        make([]*roundStore, 2), // 2 rounds by default
 		committeeSize: committeeSize,
+		maxRoundSeen:  -1,
 	}
 }
 
-func (hs *heightStore) getOrCreateRoundStore(round uint64) *roundStore {
+func (hs *heightStore) getOrCreateRoundStore(round int64) *roundStore {
 	hs.RLock()
 	if int(round) < len(hs.rounds) && hs.rounds[round] != nil {
 		rs := hs.rounds[round]
@@ -80,11 +82,19 @@ func (hs *heightStore) getOrCreateRoundStore(round uint64) *roundStore {
 	hs.Lock()
 	defer hs.Unlock()
 
-	if hs.rounds[round] != nil {
+	if round < int64(len(hs.rounds)) && hs.rounds[round] != nil {
 		return hs.rounds[round]
+	}
+	if int(round) >= len(hs.rounds) {
+		newRounds := make([]*roundStore, round+1)
+		copy(newRounds, hs.rounds)
+		hs.rounds = newRounds
 	}
 	rs := newRoundStore(hs.committeeSize)
 	hs.rounds[round] = rs
+	if round > hs.maxRoundSeen {
+		hs.maxRoundSeen = round
+	}
 	return rs
 }
 
@@ -104,6 +114,16 @@ func NewMsgStore() *MsgStore {
 		store:             make(map[uint64]*heightStore),
 		committeeProvider: nil,
 	}
+}
+
+func (ms *MsgStore) GetMaxRoundSeen(height uint64) int64 {
+	ms.storeLock.RLock()
+	defer ms.storeLock.RUnlock()
+	hs, ok := ms.store[height]
+	if !ok {
+		return -1
+	}
+	return hs.maxRoundSeen
 }
 
 func (ms *MsgStore) SetCommitteeProvider(provider committeeProvider) {
@@ -157,7 +177,7 @@ func (ms *MsgStore) Save(m message.Msg) error {
 	if err != nil {
 		return err
 	}
-	rs := hs.getOrCreateRoundStore(uint64(round))
+	rs := hs.getOrCreateRoundStore(round)
 
 	rs.Lock()
 	defer rs.Unlock()
@@ -205,7 +225,7 @@ func (ms *MsgStore) RemoveMsg(height uint64, round int64, code uint8, hash commo
 		return
 	}
 	hs, _ := ms.getOrCreateHeightStore(height)
-	rs := hs.getOrCreateRoundStore(uint64(round))
+	rs := hs.getOrCreateRoundStore(round)
 	rs.Lock()
 	defer rs.Unlock()
 	switch code {
@@ -263,7 +283,7 @@ func (ms *MsgStore) GetPrevotesByRoundAndValue(height uint64, round int64, value
 	if err != nil {
 		return nil, err
 	}
-	rs := hs.getOrCreateRoundStore(uint64(round))
+	rs := hs.getOrCreateRoundStore(round)
 	rs.RLock()
 	defer rs.RUnlock()
 	var result []*message.Prevote
@@ -286,51 +306,40 @@ func (ms *MsgStore) SearchQuorum(height uint64, round int64, excludedValue commo
 		log.Error("SearchQuorum: failed to get height store", "height", height, "error", err)
 		return nil
 	}
-	rs := hs.getOrCreateRoundStore(uint64(round))
+	rs := hs.getOrCreateRoundStore(round)
 	rs.RLock()
 	defer rs.RUnlock()
 
 	cache := rs.powerCache
-	var quorumValue common.Hash
-	foundQuorum := false
-
-	if cache.votedHash != excludedValue && cache.hashVotePower != nil && cache.hashVotePower.Power().Cmp(quorum) >= 0 {
-		quorumValue = cache.votedHash
-		foundQuorum = true
-	}
-
-	if !foundQuorum && cache.otherVotePower != nil {
-		for value, power := range cache.otherVotePower {
-			if value == excludedValue {
-				continue
-			}
-			if power.Power().Cmp(quorum) >= 0 {
-				quorumValue = value
-				foundQuorum = true
-				break
-			}
+	getPrevotesCopy := func(source []*message.Prevote) []*message.Prevote {
+		if len(source) == 0 { // this should never hit
+			return nil
 		}
-	}
-	if !foundQuorum {
-		return nil
-	}
-
-	// quorum on nil value
-	if quorumValue == common.NilValue {
-		result := make([]*message.Prevote, len(rs.nilPrevotes))
-		copy(result, rs.nilPrevotes)
+		result := make([]*message.Prevote, len(source))
+		copy(result, source)
 		return result
 	}
 
-	if prevotes, ok := rs.prevoteByValue[quorumValue]; ok {
-		result := make([]*message.Prevote, len(prevotes))
-		copy(result, prevotes)
-		return result
+	// find quorum for nil value
+	if excludedValue != common.NilValue && cache.nilVotePower.Power().Cmp(quorum) >= 0 {
+		return getPrevotesCopy(rs.nilPrevotes)
+	}
+
+	// find quorum for the primary voted hash
+	if cache.votedHash != (common.Hash{}) && cache.votedHash != excludedValue && cache.hashVotePower.Power().Cmp(quorum) >= 0 {
+		return getPrevotesCopy(rs.prevoteByValue[cache.votedHash])
+	}
+
+	// check quorum for other values
+	for value, power := range cache.otherVotePower {
+		if value != excludedValue && power.Power().Cmp(quorum) >= 0 {
+			return getPrevotesCopy(rs.prevoteByValue[value])
+		}
 	}
 	return nil
 }
 
-func (ms *MsgStore) GetProposals(height uint64, round int64, query func(*message.Propose) bool) []*message.Propose {
+func (ms *MsgStore) GetProposalsByRound(height uint64, round int64, query func(*message.Propose) bool) []*message.Propose {
 	if round < 0 || round > constants.MaxRound {
 		return nil
 	}
@@ -338,10 +347,15 @@ func (ms *MsgStore) GetProposals(height uint64, round int64, query func(*message
 	if err != nil {
 		return nil
 	}
-	rs := hs.getOrCreateRoundStore(uint64(round))
+	rs := hs.getOrCreateRoundStore(round)
 	rs.RLock()
 	defer rs.RUnlock()
 	var result []*message.Propose
+	if query == nil {
+		result = make([]*message.Propose, len(rs.proposals))
+		copy(result, rs.proposals)
+		return result
+	}
 	for _, proposal := range rs.proposals {
 		if query(proposal) {
 			result = append(result, proposal)
@@ -351,7 +365,7 @@ func (ms *MsgStore) GetProposals(height uint64, round int64, query func(*message
 	return result
 }
 
-func (ms *MsgStore) GetPrevotes(height uint64, round int64, query func(prevote *message.Prevote) bool) []*message.Prevote {
+func (ms *MsgStore) GetPrevotesByRound(height uint64, round int64, query func(prevote *message.Prevote) bool) []*message.Prevote {
 	if round < 0 || round > constants.MaxRound {
 		return nil
 	}
@@ -359,10 +373,15 @@ func (ms *MsgStore) GetPrevotes(height uint64, round int64, query func(prevote *
 	if err != nil {
 		return nil
 	}
-	rs := hs.getOrCreateRoundStore(uint64(round))
+	rs := hs.getOrCreateRoundStore(round)
 	rs.RLock()
 	defer rs.RUnlock()
 	var result []*message.Prevote
+	if query == nil {
+		result = make([]*message.Prevote, len(rs.prevotes))
+		copy(result, rs.prevotes)
+		return result
+	}
 	for _, prevote := range rs.prevotes {
 		if query(prevote) {
 			result = append(result, prevote)
@@ -371,7 +390,7 @@ func (ms *MsgStore) GetPrevotes(height uint64, round int64, query func(prevote *
 	return result
 }
 
-func (ms *MsgStore) GetPrecommits(height uint64, round uint64, query func(precommit *message.Precommit) bool) []*message.Precommit {
+func (ms *MsgStore) GetPrecommitsByRound(height uint64, round int64, query func(precommit *message.Precommit) bool) []*message.Precommit {
 	if round < 0 || round > constants.MaxRound {
 		return nil
 	}
@@ -379,14 +398,109 @@ func (ms *MsgStore) GetPrecommits(height uint64, round uint64, query func(precom
 	if err != nil {
 		return nil
 	}
-	rs := hs.getOrCreateRoundStore(uint64(round))
+	rs := hs.getOrCreateRoundStore(round)
 	rs.RLock()
 	defer rs.RUnlock()
 	var result []*message.Precommit
+	if query == nil {
+		result = make([]*message.Precommit, len(rs.precommits))
+		copy(result, rs.precommits)
+		return result
+	}
 	for _, precommit := range rs.precommits {
 		if query(precommit) {
 			result = append(result, precommit)
 		}
+	}
+	return result
+}
+
+// GetProposals provides a generic query over all rounds for a given height.
+func (ms *MsgStore) GetProposals(height uint64, query func(*message.Propose) bool) []*message.Propose {
+	hs, err := ms.getOrCreateHeightStore(height)
+	if err != nil {
+		return nil
+	}
+
+	hs.RLock()
+	defer hs.RUnlock()
+
+	var result []*message.Propose
+	for _, rs := range hs.rounds {
+		if rs == nil {
+			continue
+		}
+		rs.RLock()
+		if query == nil {
+			result = append(result, rs.proposals...)
+		} else {
+			for _, proposal := range rs.proposals {
+				if query(proposal) {
+					result = append(result, proposal)
+				}
+			}
+		}
+		rs.RUnlock()
+	}
+	return result
+}
+
+// GetPrevotes provides a generic query over all rounds for a given height.
+func (ms *MsgStore) GetPrevotes(height uint64, query func(*message.Prevote) bool) []*message.Prevote {
+	hs, err := ms.getOrCreateHeightStore(height)
+	if err != nil {
+		return nil
+	}
+
+	hs.RLock()
+	defer hs.RUnlock()
+
+	var result []*message.Prevote
+	for _, rs := range hs.rounds {
+		if rs == nil {
+			continue
+		}
+		rs.RLock()
+		if query == nil {
+			result = append(result, rs.prevotes...)
+		} else {
+			for _, prevote := range rs.prevotes {
+				if query(prevote) {
+					result = append(result, prevote)
+				}
+			}
+		}
+		rs.RUnlock()
+	}
+	return result
+}
+
+// GetPrecommits provides a generic query over all rounds for a given height.
+func (ms *MsgStore) GetPrecommits(height uint64, query func(*message.Precommit) bool) []*message.Precommit {
+	hs, err := ms.getOrCreateHeightStore(height)
+	if err != nil {
+		return nil
+	}
+
+	hs.RLock()
+	defer hs.RUnlock()
+
+	var result []*message.Precommit
+	for _, rs := range hs.rounds {
+		if rs == nil {
+			continue
+		}
+		rs.RLock()
+		if query == nil {
+			result = append(result, rs.precommits...)
+		} else {
+			for _, precommit := range rs.precommits {
+				if query(precommit) {
+					result = append(result, precommit)
+				}
+			}
+		}
+		rs.RUnlock()
 	}
 	return result
 }
@@ -399,21 +513,19 @@ func (ms *MsgStore) PrevotesPowerFor(height uint64, round int64, value common.Ha
 	if err != nil {
 		return nil
 	}
-	rs := hs.getOrCreateRoundStore(uint64(round))
+	rs := hs.getOrCreateRoundStore(round)
 	rs.RLock()
 	defer rs.RUnlock()
 
 	cache := rs.powerCache
-	if value == common.NilValue && cache.nilVotePower != nil {
+	if value == common.NilValue {
 		return new(big.Int).Set(cache.nilVotePower.Power())
 	}
-	if value == cache.votedHash && cache.hashVotePower != nil {
+	if value == cache.votedHash {
 		return new(big.Int).Set(cache.hashVotePower.Power())
 	}
-	if cache.otherVotePower != nil {
-		if power, ok := cache.otherVotePower[value]; ok {
-			return new(big.Int).Set(power.Power())
-		}
+	if power, ok := cache.otherVotePower[value]; ok {
+		return new(big.Int).Set(power.Power())
 	}
 	return new(big.Int) // return zero if no power found for the value
 }

@@ -222,10 +222,10 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 	power := new(big.Int)
 	signers := make(map[common.Address]struct{}, distinctSigners)
 	//for _, index := range a.Signers.flattenUniq(committee.Len()) {
-	for _, index := range a.Signers.flattenUniq() {
-		power.Add(power, committee.Members[index].VotingPower)
-		signers[committee.Members[index].Address] = struct{}{}
-	}
+	a.Signers.ForEachDistinctSigner(func(signerIndex int) {
+		power.Add(power, committee.Members[signerIndex].VotingPower)
+		signers[committee.Members[signerIndex].Address] = struct{}{}
+	})
 
 	if checkQuorum && power.Cmp(bft.Quorum(committee.TotalVotingPower())) < 0 {
 		return nil, nil, errNoQuorum
