@@ -19,9 +19,10 @@ package message
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/metrics"
 	"math/big"
 	"sort"
+
+	"github.com/autonity/autonity/metrics"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
@@ -601,6 +602,11 @@ func AggregatePrecommits(votes []Vote) *Precommit {
 	return AggregateVotes[Precommit](votes)
 }
 
+var (
+	validVotesCounter     = metrics.GetOrRegisterCounter("aggregator/backend/valid", nil)     // measures time for message passing from backend to aggregator
+	aggregateVotesCounter = metrics.GetOrRegisterCounter("aggregator/backend/aggregate", nil) // measures time for message passing from backend to aggregator
+)
+
 // NOTE: this function assumes that:
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been preverified and cryptographically verified
@@ -608,6 +614,10 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 	// length safety checks
 	if len(votes) == 0 {
 		panic("Trying to aggregate empty set of votes")
+	}
+
+	if metrics.Enabled {
+		validVotesCounter.Inc(int64(len(votes)))
 	}
 
 	// use votes[0] as a set representative
