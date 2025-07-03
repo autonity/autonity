@@ -222,6 +222,9 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 			roundInfo.precommitsPower.Set(index, power)
 			roundInfo.precommitsPowerFor[v].Set(index, power)
 		}
+	case message.EvidenceVoteCode:
+		panic("msg of type EvidenceVoteCode in aggregator")
+
 	}
 }
 
@@ -554,13 +557,13 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			// repetitive code but I didn't find a way to declare aggregateVotes so that it works both with prevote and precommit
 			switch validVotes[0].(type) {
 			case *message.Prevote:
-				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
+				aggregateVotes := message.AggregatePrevotes(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					go a.backend.MessageToCore(eventer(aggregateVote, nil, a.backend.Address()))
 					go a.backend.Post(eventer(aggregateVote, nil, a.backend.Address()))
 				}
 			case *message.Precommit:
-				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
+				aggregateVotes := message.AggregatePrecommits(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					go a.backend.MessageToCore(eventer(aggregateVote, nil, a.backend.Address()))
 					go a.backend.Post(eventer(aggregateVote, nil, a.backend.Address()))
@@ -602,11 +605,10 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 	code := vote.Code()
 	value := vote.Value()
 
-	// complex aggregates always carry quorum (enforced at PreValidate)
-	// if we do not already have quorum in Core, process right away
+	// if we do not already have quorum in Core, but the msg has quorum, process right away
 	coreVotesForPower := a.core.VotesPowerFor(height, round, code, value)
 	coreVotesPower := a.core.VotesPower(height, round, code)
-	if vote.Signers().IsComplex() && (coreVotesForPower.Power().Cmp(quorum) < 0 || coreVotesPower.Power().Cmp(quorum) < 0) {
+	if vote.Signers().Power().Cmp(quorum) >= 0 && (coreVotesForPower.Power().Cmp(quorum) < 0 || coreVotesPower.Power().Cmp(quorum) < 0) {
 		if err := vote.Validate(); err != nil {
 			a.handleInvalidMessage(errCh, err, sender)
 			return

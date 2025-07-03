@@ -63,6 +63,11 @@ type Msg interface {
 
 // Votes have an additional method, which returns all the available information about the signers
 type Vote interface {
-	Signers() *types.Signers
+	Signers() *types.SignersBase[uint16]
+	Msg
+}
+
+type Evidence interface {
+	Signers() *types.SignersBase[uint32]
 	Msg
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/core/types"
 )
 
 type Map struct {
@@ -181,15 +182,18 @@ func (s *RoundMessages) AddPrecommit(precommit *Precommit) bool {
 }
 
 // used to gossip quorum of prevotes
-func (s *RoundMessages) PrevoteFor(hash common.Hash) *Prevote {
-	prevotes := s.prevotes.VotesFor(hash)
-	return AggregatePrevotes(prevotes) // we allow complex aggregate here
+func (s *RoundMessages) PrevoteFor(hash common.Hash) []Vote {
+	return s.prevotes.VotesFor(hash)
+}
+
+func (s *RoundMessages) PrecommitFor(hash common.Hash) []Vote {
+	return s.precommits.VotesFor(hash)
 }
 
 // used to create the quorum certificate when we managed to finalize a block and to gossip quorum of precommits
-func (s *RoundMessages) PrecommitFor(hash common.Hash) *Precommit {
+func (s *RoundMessages) QuorumFor(hash common.Hash) *types.AggregateSignature {
 	precommits := s.precommits.VotesFor(hash)
-	return AggregatePrecommits(precommits) // we allow complex aggregate here
+	return AggregatePrecommitsToQuorum(precommits)
 }
 
 func (s *RoundMessages) Proposal() *Propose {

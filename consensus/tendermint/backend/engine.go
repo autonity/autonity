@@ -23,7 +23,6 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/params"
@@ -408,16 +407,16 @@ func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (
 		votes[i] = p
 	}
 
-	aggregatePrecommit := message.AggregatePrecommits(votes)
+	aggregateSignature := message.AggregatePrecommitsToQuorum(votes)
 
 	// if we do not have enough voting power, leave the proof empty
 	quorum := bft.Quorum(epochInfo.Committee.TotalVotingPower())
-	if aggregatePrecommit.Power().Cmp(quorum) < 0 {
-		sb.logger.Warn("Failed to provide activity valid activity proof as proposer, not enough voting power", "height", h, "targetHeight", targetHeight, "targetRound", targetRound, "power", aggregatePrecommit.Power(), "quorum", quorum)
+	if aggregateSignature.Signers.Power().Cmp(quorum) < 0 {
+		sb.logger.Warn("Failed to provide activity valid activity proof as proposer, not enough voting power", "height", h, "targetHeight", targetHeight, "targetRound", targetRound, "power", aggregateSignature.Signers.Power(), "quorum", quorum)
 		return nil, 0, nil
 	}
 
-	return types.NewAggregateSignature(aggregatePrecommit.Signature().(*blst.BlsSignature), aggregatePrecommit.Signers()), targetRound, nil
+	return aggregateSignature, targetRound, nil
 }
 
 // Finalize runs any post-transaction state modifications (e.g. block rewards)

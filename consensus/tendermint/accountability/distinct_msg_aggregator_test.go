@@ -2,6 +2,10 @@ package accountability
 
 import (
 	cr "crypto/rand"
+	"math/big"
+	"math/rand"
+	"testing"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -10,9 +14,6 @@ import (
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"math/rand"
-	"testing"
 )
 
 var (
@@ -30,7 +31,8 @@ func TestRLPEncodingDecoding(t *testing.T) {
 	rvs := Signers{
 		Round:               r,
 		Value:               common.Hash{},
-		Signers:             []int{0},
+		SignersIndex:        []int{0},
+		SignersCoeff:        []uint16{1},
 		aggregatedPublicKey: nil,
 		hasSigners:          nil,
 		preValidated:        false,
@@ -51,7 +53,8 @@ func TestRLPEncodingDecoding(t *testing.T) {
 	require.NotNil(t, err)
 
 	rvs.Round = constants.MaxRound
-	rvs.Signers = []int{}
+	rvs.SignersIndex = []int{}
+	rvs.SignersCoeff = []uint16{}
 	p, err = rlp.EncodeToBytes(&rvs)
 	require.NoError(t, err)
 	decodeRVS = &Signers{}
@@ -136,7 +139,12 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 	})
 
 	t.Run("with wrong signers", func(t *testing.T) {
-		wrongSigners := randomSigners(cSize)
+		wrongSigners := precommits[0].Signers().FlattenUniq()
+		if len(wrongSigners) > 1 {
+			wrongSigners[0], wrongSigners[1] = wrongSigners[1], wrongSigners[0]
+		} else {
+			wrongSigners[0] = (wrongSigners[0] + 1) % cSize
+		}
 		aggPrecommits := maliciousAggregatePrecommits(precommits, nil, nil, nil, wrongSigners)
 		payload, err := rlp.EncodeToBytes(aggPrecommits)
 		require.NoError(t, err)
@@ -159,7 +167,7 @@ func aggregatedPrecommit(h uint64, r int64, v common.Hash, signers []int, commit
 	for i, s := range signers {
 		precommits[i] = newValidatedPrecommit(r, h, v, makeSigner(keys[s]), &committee.Members[s], committee.Len())
 	}
-	return message.AggregatePrecommits(precommits)
+	return aggregatePrecommits(precommits)
 }
 
 // randomSigners generate a set of signer's index, it could have duplicated index.
@@ -214,7 +222,8 @@ func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *
 	for i, m := range precommitsToBeAggregated {
 		defaultRound := m.R()
 		defaultValue := m.Value()
-		defaultSingers := m.Signers().Flatten()
+		defaultSingers := m.Signers().FlattenUniq()
+		coeffs := m.Signers().Coefficients
 		if wrongRound != nil {
 			defaultRound += *wrongRound
 		}
@@ -224,12 +233,19 @@ func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *
 
 		if len(wrongSigners) > 0 {
 			defaultSingers = wrongSigners
+			for len(coeffs) < len(defaultSingers) {
+				coeffs = append(coeffs, 1)
+			}
+			if len(coeffs) > len(defaultSingers) {
+				coeffs = coeffs[:len(defaultSingers)]
+			}
 		}
 
 		roundValueSigners := &Signers{
-			Round:   defaultRound,
-			Value:   defaultValue,
-			Signers: defaultSingers,
+			Round:        defaultRound,
+			Value:        defaultValue,
+			SignersIndex: defaultSingers,
+			SignersCoeff: coeffs,
 		}
 		result.MsgSigners = append(result.MsgSigners, roundValueSigners)
 		signatures[i] = m.Signature()

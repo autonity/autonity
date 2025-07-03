@@ -131,19 +131,20 @@ func (c *Core) quorumFor(code uint8, round int64, value common.Hash) bool {
 }
 
 func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash) {
-	// We re-add the complex aggregate to the prevote set. If we would substitute the entire set with the complex aggregate,
-	// there is a possibility of message loss (if we had multiple un-mergeable complex aggregates in the `messages`).
-	// This loss would not harm consensus (we would still have quorum voting power), however it is better to keep all messages
-	// in case we have to sync another peer. We can consider changing it only if it considerably harms performance.
+	var votes []message.Vote
+
+	// messages are aggregated (complex) when they are added in the set
+	// the array of `message.Vote` from the set are non-mergeable complex aggregate
 	switch code {
 	case message.PrevoteCode:
-		aggregatePrevote := c.messages.GetOrCreate(round).PrevoteFor(value)
-		c.messages.GetOrCreate(round).AddPrevote(aggregatePrevote)
-		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrevote, true)
+		votes = c.messages.GetOrCreate(round).PrevoteFor(value)
 	case message.PrecommitCode:
-		aggregatePrecommit := c.messages.GetOrCreate(round).PrecommitFor(value)
-		c.messages.GetOrCreate(round).AddPrecommit(aggregatePrecommit)
-		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrecommit, true)
+		votes = c.messages.GetOrCreate(round).PrecommitFor(value)
+	}
+
+	for _, vote := range votes {
+		// TODO: fine to set isLocal to true?
+		go c.backend.Gossip(c.CommitteeSet().Committee(), vote, true)
 	}
 }
 

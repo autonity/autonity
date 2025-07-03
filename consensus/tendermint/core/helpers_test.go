@@ -53,10 +53,10 @@ func defaultSigner(h common.Hash) blst.Signature {
 }
 
 // creates a signers data structure that carries the requested power
-func signersWithPower(index uint64, committeeSize int, requestedPower *big.Int) *types.Signers {
-	signers := types.NewSigners(committeeSize)
+func signersWithPower(index uint64, committeeSize int, requestedPower *big.Int) *types.VoteSigners {
+	signers := types.NewVoteSigners(committeeSize)
 	fakeMember := &types.CommitteeMember{Index: index, VotingPower: requestedPower}
-	signers.Increment(fakeMember)
+	signers.AddMember(fakeMember)
 	return signers
 }
 

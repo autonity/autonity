@@ -2,6 +2,11 @@ package accountability
 
 import (
 	"errors"
+	"io"
+	"math/bits"
+
+	blstbind "github.com/supranational/blst/bindings/go"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -9,12 +14,12 @@ import (
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
-	"io"
 )
 
 var (
 	ErrSignatureInvalid     = errors.New("HighlyAggregatedPrecommit has invalid signature")
 	ErrInvalidSignerIndex   = errors.New("HighlyAggregatedPrecommit has invalid signer index")
+	ErrInvalidSignerCoeff   = errors.New("HighlyAggregatedPrecommit has invalid signer coefficient")
 	ErrNoSigners            = errors.New("no signers found")
 	ErrInvalidRound         = errors.New("invalid round")
 	ErrDuplicatedPrecommits = errors.New("duplicated precommits")
@@ -22,9 +27,10 @@ var (
 
 // Signers is a set that contains signers of the same message with the using of fastAggregate().
 type Signers struct {
-	Round   int64
-	Value   common.Hash
-	Signers []int // it could contain duplicated index.
+	Round        int64
+	Value        common.Hash
+	SignersIndex []int
+	SignersCoeff []uint16
 
 	// computed fields
 	aggregatedPublicKey blst.PublicKey   `rlp:"-"`
@@ -33,21 +39,25 @@ type Signers struct {
 }
 
 type extSigners struct {
-	Round   uint64
-	Value   common.Hash
-	Signers []uint
+	Round        uint64
+	Value        common.Hash
+	SignersIndex []uint
+	SignersCoeff []uint16
 }
 
 func (r *Signers) EncodeRLP(w io.Writer) error {
-	signers := make([]uint, len(r.Signers))
-	for i, s := range r.Signers {
-		signers[i] = uint(s)
+	signersIndex := make([]uint, len(r.SignersIndex))
+	signersCoeff := make([]uint16, len(r.SignersCoeff))
+	for i, s := range r.SignersIndex {
+		signersIndex[i] = uint(s)
 	}
+	copy(signersCoeff, r.SignersCoeff)
 
 	ext := extSigners{
-		Round:   uint64(r.Round),
-		Value:   r.Value,
-		Signers: signers,
+		Round:        uint64(r.Round),
+		Value:        r.Value,
+		SignersIndex: signersIndex,
+		SignersCoeff: signersCoeff,
 	}
 
 	return rlp.Encode(w, &ext)
@@ -59,8 +69,11 @@ func (r *Signers) DecodeRLP(stream *rlp.Stream) error {
 		return err
 	}
 
-	if len(ext.Signers) == 0 {
+	if len(ext.SignersIndex) == 0 {
 		return ErrNoSigners
+	}
+	if len(ext.SignersCoeff) != len(ext.SignersIndex) {
+		return ErrInvalidSignerCoeff
 	}
 
 	if int64(ext.Round) > constants.MaxRound {
@@ -69,36 +82,73 @@ func (r *Signers) DecodeRLP(stream *rlp.Stream) error {
 
 	r.Round = int64(ext.Round)
 	r.Value = ext.Value
-	signers := make([]int, len(ext.Signers))
-	for i, s := range ext.Signers {
-		signers[i] = int(s)
+	signersIndex := make([]int, len(ext.SignersIndex))
+	signersCoeff := make([]uint16, len(ext.SignersCoeff))
+	for i, s := range ext.SignersIndex {
+		signersIndex[i] = int(s)
 	}
-	r.Signers = signers
+	copy(signersCoeff, ext.SignersCoeff)
+	r.SignersIndex = signersIndex
+	r.SignersCoeff = signersCoeff
 	return nil
 }
 
 // PreValidate computes the aggregated public key and set the preValidated flag.
 func (r *Signers) PreValidate(committee *types.Committee) error {
+	if len(r.SignersIndex) == 0 || len(r.SignersCoeff) != len(r.SignersIndex) {
+		return ErrSignatureInvalid
+	}
+
 	committeeSize := committee.Len()
-	publicKeys := make([]blst.PublicKey, len(r.Signers))
+	// early return, as signer indexes are distinct
+	if len(r.SignersIndex) > committeeSize {
+		return ErrSignatureInvalid
+	}
+
+	publicKeys := make([]blst.PublicKey, len(r.SignersIndex))
 	r.hasSigners = make(map[int]struct{})
-	for i, idx := range r.Signers {
+	var maxCoeff uint16
+
+	for i, idx := range r.SignersIndex {
 		if idx >= committeeSize || idx < 0 {
 			return ErrInvalidSignerIndex
 		}
+		if r.SignersCoeff[i] == 0 {
+			return ErrInvalidSignerCoeff
+		}
+		maxCoeff = max(maxCoeff, r.SignersCoeff[i])
 		publicKeys[i] = committee.Members[idx].ConsensusKey
+
+		// distinct signers
+		if _, ok := r.hasSigners[idx]; ok {
+			return ErrSignatureInvalid
+		}
 		r.hasSigners[idx] = struct{}{}
 	}
 
-	aggKey, err := blst.AggregatePublicKeys(publicKeys)
-	if err != nil {
-		// should not happen, as the public key is query from the committee by their index.
-		panic("cannot aggregate public keys from committee: " + err.Error())
+	if len(r.SignersCoeff) == 1 && maxCoeff != 1 {
+		return ErrSignatureInvalid
 	}
+
+	if len(r.SignersCoeff) > 1 && len(r.SignersCoeff) < 18 {
+		if maxCoeff > (1 << (len(r.SignersCoeff) - 2)) {
+			return ErrInvalidSignerCoeff
+		}
+	}
+
+	aggKey := blst.AggregatePublicKeysMultScalars(
+		publicKeys,
+		r.toBlstScalars(),
+		bits.Len16(maxCoeff),
+	)
 
 	r.aggregatedPublicKey = aggKey
 	r.preValidated = true
 	return nil
+}
+
+func (r *Signers) toBlstScalars() []*blstbind.Scalar {
+	return blst.ToBlstScalars(r.SignersCoeff)
 }
 
 func (r *Signers) Contains(index int) bool {
@@ -251,9 +301,10 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregat
 	signatures := make([]blst.Signature, len(precommitsToBeAggregated))
 	for i, m := range precommitsToBeAggregated {
 		roundValueSigners := &Signers{
-			Round:   m.R(),
-			Value:   m.Value(),
-			Signers: m.Signers().Flatten(),
+			Round:        m.R(),
+			Value:        m.Value(),
+			SignersIndex: m.Signers().FlattenUniq(),
+			SignersCoeff: m.Signers().CopyCoefficients(),
 		}
 		result.MsgSigners = append(result.MsgSigners, roundValueSigners)
 		signatures[i] = m.Signature()
@@ -264,10 +315,10 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregat
 }
 
 // AggregateSamePrevotes assumes the votes are for the same msg, it does a BLS fast aggregate for the input signatures.
-func AggregateSamePrevotes(prevotes []*message.Prevote) *message.Prevote {
+func AggregateSamePrevotes(prevotes []*message.Prevote) *message.EvidenceVote {
 	votes := make([]message.Vote, len(prevotes))
 	for i, prevote := range prevotes {
 		votes[i] = prevote
 	}
-	return message.AggregatePrevotes(votes)
+	return message.AggregatePrevotesToEvidence(votes)
 }

@@ -61,22 +61,32 @@ func (s *Set) Add(vote Vote) bool {
 	}
 
 	// if not first vote, aggregate previous votes and new vote
+	// if we have an array of previous votes, then they are non-mergeable
+	// aggrgate the last vote only
+
+	var (
+		canAggregate   bool
+		voteIndex      int
+		aggregatedVote Vote
+	)
+
 	switch vote.(type) {
 	case *Prevote:
-		aggregatedVotes := AggregatePrevotesSimple(append(previousVotes, vote))
-		s.votes[value] = make([]Vote, len(aggregatedVotes))
-		for i, aggregatedVote := range aggregatedVotes {
-			s.votes[value][i] = aggregatedVote
-		}
+		canAggregate, voteIndex, aggregatedVote = AggregateLastVote[Prevote](previousVotes, vote)
 	case *Precommit:
-		aggregatedVotes := AggregatePrecommitsSimple(append(previousVotes, vote))
-		s.votes[value] = make([]Vote, len(aggregatedVotes))
-		for i, aggregatedVote := range aggregatedVotes {
-			s.votes[value][i] = aggregatedVote
-		}
+		canAggregate, voteIndex, aggregatedVote = AggregateLastVote[Precommit](previousVotes, vote)
 	default:
 		panic("Trying to add a vote that is not Prevote nor Precommit")
 	}
+	if canAggregate {
+		// `vote` was aggregated with `previousVotes[voteIndex]`
+		previousVotes[voteIndex] = aggregatedVote
+	} else {
+		// cannot aggregate `vote` with any previous votes
+		// all votes in the array are non-mergeable
+		previousVotes = append(previousVotes, vote)
+	}
+	s.votes[value] = previousVotes
 	return voteContributed
 }
 

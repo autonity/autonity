@@ -8,6 +8,7 @@
 package bitutil
 
 import (
+	//nolint
 	"runtime"
 	"unsafe"
 )

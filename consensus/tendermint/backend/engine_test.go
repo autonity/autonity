@@ -20,9 +20,11 @@ import (
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
@@ -143,7 +145,7 @@ func TestVerifyHeader(t *testing.T) {
 		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
 		require.NoError(t, err)
 		header := block.Header()
-		header.ActivityProof = types.NewAggregateSignature(testSignature.(*blst.BlsSignature), types.NewSigners(1))
+		header.ActivityProof = types.NewAggregateSignature(testSignature.(*blst.BlsSignature), types.NewQuorumSigners(1))
 		modifiedBlock := types.NewBlockWithHeader(header)
 		sealedBlock, err = engine.AddSeal(modifiedBlock)
 		require.NoError(t, err)
@@ -185,7 +187,7 @@ func TestVerifyHeader(t *testing.T) {
 		require.NoError(t, err)
 		header = block.Header()
 		header.ActivityProof = chain.GetHeaderByNumber(targetHeight).QuorumCertificate.Copy()
-		header.ActivityProof.Signers = types.NewSigners(10)
+		header.ActivityProof.Signers = types.NewQuorumSigners(10)
 		modifiedBlock = types.NewBlockWithHeader(header)
 		sealedBlock, err = engine.AddSeal(modifiedBlock)
 		require.NoError(t, err)
@@ -242,8 +244,8 @@ func TestVerifyHeader(t *testing.T) {
 		headerSeal := message.PrepareCommittedSeal(targetHeader.Hash(), int64(targetHeader.Round), targetHeader.Number)
 		header.ActivityProof = new(types.AggregateSignature)
 		header.ActivityProof.Signature = consensusKeys[1].Sign(headerSeal[:]).(*blst.BlsSignature)
-		header.ActivityProof.Signers = types.NewSigners(2)
-		header.ActivityProof.Signers.Bits.Set(1, 1)
+		header.ActivityProof.Signers = types.NewQuorumSigners(2)
+		header.ActivityProof.Signers.AddMember(&types.CommitteeMember{Index: 1, VotingPower: common.Big1})
 		header.ActivityProofRound = targetHeader.Round
 		modifiedBlock := types.NewBlockWithHeader(header)
 		sealedBlock, err := engine.AddSeal(modifiedBlock)
@@ -265,7 +267,7 @@ func addQuorumCertificate(chain *core.BlockChain, engine *Backend, b *types.Bloc
 
 	header := b.Header()
 	precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), engine.Sign, self, 1)
-	header.QuorumCertificate = types.NewAggregateSignature(precommit.Signature().(*blst.BlsSignature), precommit.Signers())
+	header.QuorumCertificate = types.NewAggregateSignature(precommit.Signature().(*blst.BlsSignature), precommit.Signers().ToQuorumSigners())
 	blockWithCertificate := b.WithSeal(header) // improper use, we use the WithSeal function to substitute the header with the one with quorumCertificate set
 	return blockWithCertificate, precommit
 }
@@ -968,7 +970,7 @@ func TestAssembleProof(t *testing.T) {
 				FakeValue:          precommit.Value(),
 				FakePayload:        precommit.Payload(),
 				FakeHash:           precommit.Hash(),
-				FakeSigners:        precommit.Signers(),
+				FakeSigners:        &types.VoteSigners{SignersBase: precommit.Signers()},
 				FakeSignature:      precommit.Signature(),
 				FakeSignatureInput: precommit.SignatureInput(),
 				FakeSignerKey:      precommit.SignerKey(),
