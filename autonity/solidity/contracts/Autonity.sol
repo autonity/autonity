@@ -92,8 +92,8 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
 
-    mapping(address => mapping (address => uint256)) internal bondAllowances;
-    mapping(address => mapping (address => uint256)) internal selfUnbondAllowances;
+    mapping(address => mapping (address => uint256)) internal bondingAllowances;
+    mapping(address => mapping (address => uint256)) internal selfUnbondingAllowances;
 
     /* Newton ERC-20. */
     mapping(address => uint256) internal accounts;
@@ -319,9 +319,9 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     * @inheritdoc IAutonity
     */
     function bondFrom(address _account, address _validator, uint256 _amount) external virtual nonReentrant returns (uint256) {
-        uint _allowed = bondAllowances[_account][msg.sender];
+        uint _allowed = bondingAllowances[_account][msg.sender];
         require(_allowed >= _amount, "amount exceeded allowance");
-        _approveBond(_account, msg.sender, _allowed - _amount);
+        _approveBonding(_account, msg.sender, _allowed - _amount);
         return _bond(_validator, _amount, payable(_account));
     }
 
@@ -692,16 +692,16 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     /**
     * @inheritdoc IAutonity
     */
-    function approveBond(address _staker, uint256 _amount) external virtual override nonReentrant returns (bool) {
-        _approveBond(msg.sender, _staker, _amount);
+    function approveBonding(address _staker, uint256 _amount) external virtual override nonReentrant returns (bool) {
+        _approveBonding(msg.sender, _staker, _amount);
         return true;
     }
 
     /**
     * @inheritdoc IAutonity
     */
-    function approveSelfUnbond(address _staker, uint256 _amount) external virtual override nonReentrant returns (bool) {
-        _approveSelfUnbond(msg.sender, _staker, _amount);
+    function approveSelfUnbonding(address _staker, uint256 _amount) external virtual override nonReentrant returns (bool) {
+        _approveSelfUnbonding(msg.sender, _staker, _amount);
         return true;
     }
 
@@ -1005,15 +1005,15 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     /**
     * @inheritdoc IAutonity
     */
-    function bondAllowance(address _owner, address _staker) public view virtual nonReentrantView returns (uint256) {
-        return bondAllowances[_owner][_staker];
+    function bondingAllowance(address _owner, address _staker) public view virtual nonReentrantView returns (uint256) {
+        return bondingAllowances[_owner][_staker];
     }
 
     /**
     * @inheritdoc IAutonity
     */
-    function selfUnbondAllowance(address _owner, address _staker) public view virtual nonReentrantView returns (uint256) {
-        return selfUnbondAllowances[_owner][_staker];
+    function selfUnbondingAllowance(address _owner, address _staker) public view virtual nonReentrantView returns (uint256) {
+        return selfUnbondingAllowances[_owner][_staker];
     }
 
     /**
@@ -1660,20 +1660,20 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         emit MintedStake(_addr, _amount);
     }
 
-    function _approveBond(address _owner, address _staker, uint256 _amount) internal virtual {
+    function _approveBonding(address _owner, address _staker, uint256 _amount) internal virtual {
         require(_owner != address(0), "approve from the zero address");
         require(_staker != address(0), "approve to the zero address");
 
-        bondAllowances[_owner][_staker] = _amount;
-        emit BondApproval(_owner, _staker, _amount);
+        bondingAllowances[_owner][_staker] = _amount;
+        emit BondingApproval(_owner, _staker, _amount);
     }
 
-    function _approveSelfUnbond(address _owner, address _staker, uint256 _amount) internal virtual {
+    function _approveSelfUnbonding(address _owner, address _staker, uint256 _amount) internal virtual {
         require(_owner != address(0), "approve from the zero address");
         require(_staker != address(0), "approve to the zero address");
 
-        selfUnbondAllowances[_owner][_staker] = _amount;
-        emit SelfUnbondApproval(_owner, _staker, _amount);
+        selfUnbondingAllowances[_owner][_staker] = _amount;
+        emit SelfUnbondingApproval(_owner, _staker, _amount);
     }
 
     /**
@@ -1869,9 +1869,9 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
                 "insufficient self bonded newton balance"
             );
             if (_staker != _recipient) {
-                uint _allowed = selfUnbondAllowances[_recipient][_staker];
+                uint _allowed = selfUnbondingAllowances[_recipient][_staker];
                 require(_allowed >= _amount, "amount exceeds allowance");
-                _approveSelfUnbond(_recipient, _staker, _allowed - _amount);
+                _approveSelfUnbonding(_recipient, _staker, _allowed - _amount);
             }
             _validator.selfUnbondingStakeLocked += _amount;
         }

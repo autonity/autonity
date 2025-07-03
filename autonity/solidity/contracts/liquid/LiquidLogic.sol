@@ -157,8 +157,8 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     /**
     * @inheritdoc ILiquid
     */
-    function approveUnbond(address _staker, uint256 _amount) external virtual nonReentrant returns (bool) {
-        _approveUnbond(msg.sender, _staker, _amount);
+    function approveUnbonding(address _staker, uint256 _amount) external virtual nonReentrant returns (bool) {
+        _approveUnbonding(msg.sender, _staker, _amount);
         return true;
     }
 
@@ -207,9 +207,9 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     * @inheritdoc ILiquid
     */
     function lockFrom(address _account, address _staker, uint256 _amount) external virtual nonReentrant onlyAutonity {
-        uint _allowed = unbondAllowances[_account][_staker];
+        uint _allowed = unbondingAllowances[_account][_staker];
         require(_allowed >= _amount, "amount exceeds allowance");
-        _approveUnbond(_account, _staker, _allowed - _amount);
+        _approveUnbonding(_account, _staker, _allowed - _amount);
         _lock(_account, _amount);
     }
 
@@ -336,12 +336,12 @@ contract LiquidLogic is ILiquid, LiquidStorage {
         emit Approval(_owner, _spender, _amount);
     }
 
-    function _approveUnbond(address _owner, address _staker, uint256 _amount) internal virtual {
+    function _approveUnbonding(address _owner, address _staker, uint256 _amount) internal virtual {
         require(_owner != address(0), "approve from the zero address");
         require(_staker != address(0), "approve to the zero address");
 
-        unbondAllowances[_owner][_staker] = _amount;
-        emit UnbondApproval(_owner, _staker, _amount);
+        unbondingAllowances[_owner][_staker] = _amount;
+        emit UnbondingApproval(_owner, _staker, _amount);
     }
 
     function _calculateValidatorCommission(uint256 _reward) internal virtual view returns (uint256) {
@@ -411,8 +411,8 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     /**
     * @inheritdoc ILiquid
     */
-    function unbondAllowance(address _owner, address _staker) public virtual view nonReentrantView returns (uint256) {
-        return unbondAllowances[_owner][_staker];
+    function unbondingAllowance(address _owner, address _staker) public virtual view nonReentrantView returns (uint256) {
+        return unbondingAllowances[_owner][_staker];
     }
 
     /**

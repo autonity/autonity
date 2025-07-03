@@ -206,7 +206,7 @@ interface IAutonity is IERC20, IScheduleController {
 
     /**
     * @notice Create a bonding(delegation) request with the `_account` as delegator. The caller needs to have required
-    * stake-allowance (NTN) from the `_account`.
+    * bonding-allowance (NTN) from the `_account`.
     * @param _account address of the delegator.
     * @param _validator address of the validator to delegate stake to.
     * @param _amount total amount of NTN to bond.
@@ -216,7 +216,7 @@ interface IAutonity is IERC20, IScheduleController {
 
     /**
     * @notice Create an unbonding request with the `_account` as delegator. The caller needs to have required
-    * stake-allowance (LNTN) from the `_account`.
+    * unbonding-allowance (self-unbonding-allowance) to unbond LNTN (NTN) from the `_account`.
     * @param _account address of the delegator.
     * @param _validator address of the validator to unbond stake to.
     * @param _amount total amount of LNTN (or NTN if self delegated) to unbond.
@@ -229,32 +229,32 @@ interface IAutonity is IERC20, IScheduleController {
      * allowed to bond on behalf of `_owner` through `bondFrom`.
      * This is zero by default.
      */
-    function bondAllowance(address _owner, address _staker) external view returns (uint256);
+    function bondingAllowance(address _owner, address _staker) external view returns (uint256);
 
     /**
-     * @notice Sets `_amount` as the bond-allowance (NTN) of `_staker` over the caller's tokens.
+     * @notice Sets `_amount` as the bonding-allowance (NTN) of `_staker` over the caller's tokens.
      *
      * Returns a boolean value indicating whether the operation succeeded.
      *
-     * Emits an {BondApproval} event.
+     * Emits an {BondingApproval} event.
      */
-    function approveBond(address _staker, uint256 _amount) external returns (bool);
+    function approveBonding(address _staker, uint256 _amount) external returns (bool);
 
     /**
      * @notice Returns the remaining number of NTN that `_staker` will be
      * allowed to unbond from self-bonded-stake on behalf of `_owner` through `unbondFrom`.
      * This is zero by default.
      */
-    function selfUnbondAllowance(address _owner, address _staker) external view returns (uint256);
+    function selfUnbondingAllowance(address _owner, address _staker) external view returns (uint256);
 
     /**
-     * @notice Sets `_amount` as the self-unbond-allowance of `_staker` over the caller's tokens.
+     * @notice Sets `_amount` as the self-unbonding-allowance of `_staker` over the caller's tokens.
      *
      * Returns a boolean value indicating whether the operation succeeded.
      *
-     * Emits an {SelfUnbondApproval} event.
+     * Emits an {SelfUnbondingApproval} event.
      */
-    function approveSelfUnbond(address _staker, uint256 _amount) external returns (bool);
+    function approveSelfUnbonding(address _staker, uint256 _amount) external returns (bool);
 
     /**
     * @dev Bonds the inflation rewards to the validator's stake at epoch finalization.
@@ -639,15 +639,15 @@ interface IAutonity is IERC20, IScheduleController {
     event Eip1559ParamsUpdate(Eip1559 oldParams, Eip1559 newParams);
 
     /**
-     * @notice Emitted when the self-bonded-stake-allowance of a `staker` for an `owner` is set by
-     * a call to `approveSelfBondedStake`. `value` is the new stake-allowance.
+     * @notice Emitted when the self-unbonding-allowance of a `staker` for an `owner` is set by
+     * a call to `approveSelfUnbonding`. `value` is the new `selfUnbondingAllowance`.
      */
-    event SelfUnbondApproval(address indexed owner, address indexed staker, uint256 value);
+    event SelfUnbondingApproval(address indexed owner, address indexed staker, uint256 value);
 
     /**
-     * @notice Emitted when the bond-allowance (NTN) of a `_staker` for an `_owner` is set by
-     * a call to `approveBond`. `_value` is the new bond-allowance (NTN).
+     * @notice Emitted when the bonding-allowance (NTN) of a `_staker` for an `_owner` is set by
+     * a call to `approveBonding`. `_value` is the new `bondingAllowance` (NTN).
      */
-    event BondApproval(address indexed _owner, address indexed _staker, uint256 _value);
+    event BondingApproval(address indexed _owner, address indexed _staker, uint256 _value);
 
 }
