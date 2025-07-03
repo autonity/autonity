@@ -507,11 +507,11 @@ func (ms *MsgStore) GetPrecommits(height uint64, query func(*message.Precommit) 
 
 func (ms *MsgStore) PrevotesPowerFor(height uint64, round int64, value common.Hash) *big.Int {
 	if round < 0 || round > constants.MaxRound {
-		return nil
+		return new(big.Int)
 	}
 	hs, err := ms.getOrCreateHeightStore(height)
 	if err != nil {
-		return nil
+		return new(big.Int)
 	}
 	rs := hs.getOrCreateRoundStore(round)
 	rs.RLock()
