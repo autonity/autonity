@@ -140,11 +140,11 @@ func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 			return selected, nil
 		}
 	}
-	recipients := make([]cluster.Node, 0, len(clusters.Base()))
+	var recipients []cluster.Node
 	if isProposal {
-		s.selectNodesForProposal(recipients, clusters, committee, senderType, ownClusterID)
+		recipients = s.selectNodesForProposal(clusters, committee, senderType, ownClusterID)
 	} else {
-		s.selectNodesForNonProposalMessages(recipients, clusters, committee, senderType, ownClusterID)
+		recipients = s.selectNodesForNonProposalMessages(clusters, committee, senderType, ownClusterID)
 	}
 	recipientsAddr := make([]common.Address, 0, len(recipients))
 	for _, r := range recipients {
@@ -210,7 +210,8 @@ func determineSenderType(from, self, routingBase common.Address, originClusterID
 	}
 }
 
-func (s *selector) selectNodesForNonProposalMessages(recipients []cluster.Node, clusters cluster.Clusters, committee *types.Committee, senderType SenderType, ownClusterID int) {
+func (s *selector) selectNodesForNonProposalMessages(clusters cluster.Clusters, committee *types.Committee, senderType SenderType, ownClusterID int) []cluster.Node {
+	recipients := make([]cluster.Node, 0, len(clusters.Base())*2)
 	var minNodes, lowLatencyNodes int
 	switch senderType {
 	case originator:
@@ -242,13 +243,15 @@ func (s *selector) selectNodesForNonProposalMessages(recipients []cluster.Node, 
 	recipients = s.deduplicate(recipients)
 	// Sort by latency for consistent ordering
 	sort.Slice(recipients, func(i, j int) bool { return recipients[i].Lat < recipients[j].Lat })
+	return recipients
 }
 
-func (s *selector) selectNodesForProposal(recipients []cluster.Node, clusters cluster.Clusters, committee *types.Committee, senderType SenderType, ownClusterID int) {
+func (s *selector) selectNodesForProposal(clusters cluster.Clusters, committee *types.Committee, senderType SenderType, ownClusterID int) []cluster.Node {
+	recipients := make([]cluster.Node, 0, len(clusters.Base())*2)
 	var minNodes, lowLatencyNodes int
 	switch senderType {
 	case originator:
-		recipients = s.selectNodesByLatencySpread()
+		recipients = append(recipients, s.selectNodesByLatencySpread()...)
 		lowLatencyNodes = 0
 		for clusterID := range clusters.Base() {
 			if clusterID == ownClusterID {
@@ -293,6 +296,7 @@ func (s *selector) selectNodesForProposal(recipients []cluster.Node, clusters cl
 	recipients = s.deduplicate(recipients)
 	// Sort by latency for consistent ordering
 	sort.Slice(recipients, func(i, j int) bool { return recipients[i].Lat < recipients[j].Lat })
+	return recipients
 }
 
 func (s *selector) deduplicate(recipients []cluster.Node) []cluster.Node {
