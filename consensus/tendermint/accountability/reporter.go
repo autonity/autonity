@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	MaxEventSize = 20480 // 20KB
-	NumBackups   = 8     // todo: resolve a optimal number of backups for the AFD
+	MaxEventSize      = 20480 // 20KB
+	SmallScaleNetSize = 32
 )
 
 var (
@@ -35,25 +35,37 @@ func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
 	}
 
 	// All members run rule engine in a small scale network.
-	if committee.Len() <= NumBackups*3 {
+	if committee.Len() <= SmallScaleNetSize {
 		return true
 	}
 
+	validator := committee.MemberByAddress(fd.address)
+	if validator == nil {
+		return false
+	}
+
+	// With a larger network, we select primary and backups reporters.
 	// Return true if node is the primary reporter.
 	primary := primaryIndex(height, uint64(committee.Len())) //nolint
 	if committee.Members[primary].Address == fd.address {
 		return true
 	}
 
-	// Return true if node is backups.
-	for i := 1; i <= NumBackups; i++ {
-		backup := (primary + i) % committee.Len()
-		if committee.Members[backup].Address == fd.address {
-			return true
-		}
-	}
+	// Beside the primary, we select other 1/3 nodes as backups, thus there
+	// will be at least 1 honest node runs rule engine.
+	numBackups := committee.Len() / 3
+	endIdx := primary + numBackups
+	validatorIdx := int(validator.Index) //nolint
 
-	return false
+	if endIdx < committee.Len() {
+		startIdx := (primary + 1) % committee.Len()
+		return validatorIdx >= startIdx && validatorIdx <= endIdx
+	} else {
+		wrappedEndIdx := endIdx % committee.Len()
+		startIdx := (primary + 1) % committee.Len()
+		return (validatorIdx >= startIdx && validatorIdx < committee.Len()) ||
+			(validatorIdx >= 0 && validatorIdx <= wrappedEndIdx)
+	}
 }
 
 // canReport assign the validator a dedicated time-window to submit the accountability event, if the primary fails to
