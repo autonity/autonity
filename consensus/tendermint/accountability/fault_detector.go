@@ -29,7 +29,6 @@ import (
 	"github.com/autonity/autonity/internal/ethapi"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 type ChainContext interface {
@@ -51,7 +50,6 @@ const (
 	maxAccusationPerHeight        = 4                            // max number of accusation allowed to be produced by rule engine over a height against a validator.
 	maxNumOfInnocenceProofCached  = 120 * maxAccusationPerHeight // 120 blocks with 4 on each height that rule engine can produce totally over a height.
 	reportingSlotPeriod           = 20                           // Each AFD reporting slot holds 20 blocks, each validator response for a slot.
-	reporterCacheSize             = 8                            // Buffer for 8 blocks about reporters.
 )
 
 var (
@@ -110,8 +108,6 @@ type FaultDetector struct {
 
 	logger log.Logger
 
-	reportersCache *lru.Cache
-
 	scanned map[uint64]struct{}
 }
 
@@ -126,7 +122,6 @@ func NewFaultDetector(
 	nodeKey *ecdsa.PrivateKey,
 	protocolContracts *autonity.ProtocolContracts,
 	logger log.Logger) *FaultDetector {
-	reporterCache, _ := lru.New(reporterCacheSize)
 	txOpts, err := bind.NewKeyedTransactorWithChainID(nodeKey, chain.Config().ChainID)
 	if err != nil {
 		logger.Crit("Critical error building transactor", "err", err)
@@ -152,7 +147,6 @@ func NewFaultDetector(
 		stopRetry:             make(chan struct{}),
 		misbehaviourProofCh:   make(chan *bindings.IAccountabilityEvent, 100),
 		logger:                logger, // Todo(youssef): remove context
-		reportersCache:        reporterCache,
 		scanned:               make(map[uint64]struct{}),
 	}
 	// use ChainEvent instead of ChainHeadEvent as we want the relative select cases to ran at every single block.

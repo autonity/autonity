@@ -27,9 +27,6 @@ func primaryIndex(height uint64, committeeSize uint64) int {
 // network which contains a lots of consensus message to be scanned, we select a set of nodes as the rule runner
 // of a specific height, for smale scale network, all the nodes run the rule engine.
 func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
-	if _, ok := fd.reportersCache.Get(height); ok {
-		return true
-	}
 
 	committee, err := fd.blockchain.CommitteeByHeight(height)
 	if err != nil {
@@ -39,14 +36,12 @@ func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
 
 	// All members run rule engine in a small scale network.
 	if committee.Len() <= NumBackups*3 {
-		fd.reportersCache.Add(height, struct{}{})
 		return true
 	}
 
 	// Return true if node is the primary reporter.
 	primary := primaryIndex(height, uint64(committee.Len())) //nolint
 	if committee.Members[primary].Address == fd.address {
-		fd.reportersCache.Add(height, struct{}{})
 		return true
 	}
 
@@ -54,7 +49,6 @@ func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
 	for i := 1; i <= NumBackups; i++ {
 		backup := (primary + i) % committee.Len()
 		if committee.Members[backup].Address == fd.address {
-			fd.reportersCache.Add(height, struct{}{})
 			return true
 		}
 	}
