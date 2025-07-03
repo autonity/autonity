@@ -946,6 +946,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 			continue
 		}
 
+	SignersLoop:
 		// for each signer look at their action
 		for signerIndex := 0; signerIndex < committee.Len(); signerIndex++ {
 			voteForSigner := make(map[common.Hash]*message.Prevote)
@@ -960,12 +961,12 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 			}
 
 			if len(voteForSigner) > 1 { // skip equivocations
-				continue
+				 continue SignersLoop
 			}
 
 			for value, prevoteForValue := range voteForSigner {
 				if value == common.NilValue {
-					return
+					continue SignersLoop
 				}
 				signer := committee.Members[signerIndex].Address
 				correspondingProposals := fd.msgStore.GetProposalsByRound(height, prevoteForValue.R(), func(m *message.Propose) bool {
@@ -997,7 +998,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 							fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVN", "suspect", signer)
 						}
 					}
-					continue // we have no corresponding proposal, so we cannot check new and old prevote rules
+					continue SignersLoop// we have no corresponding proposal, so we cannot check new and old prevote rules
 				}
 
 				// if there was a proposal found, check if prevote is valid
@@ -1025,7 +1026,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 						// If there is any corresponding proposal for which no proof was returned then we know the current prevote
 						// is valid.
 						if proof == nil {
-							continue
+							continue SignersLoop
 						}
 					}
 
@@ -1034,7 +1035,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 					for _, proof := range prevotesProofs {
 						if proof.Type == autonity.Misbehaviour {
 							proofs = append(proofs, proof)
-							continue
+							continue SignersLoop
 						}
 					}
 
@@ -1427,14 +1428,13 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error {
 	// skip process duplicated for votes.
 	// todo:(review) => this is very expensive, message hash search for every prevote over a height
-	// we should rather maintain a map of duplicates, for now commenting out the check.
-	//duplicatedMsg := fd.msgStore.GetPrevotes(m.H(), func(msg *message.Prevote) bool {
-	//	return msg.Hash() == m.Hash()
-	//})
-	//
-	//if len(duplicatedMsg) > 0 {
-	//	return errDuplicatedMsg
-	//}
+	// we should rather maintain a map of duplicates, for now modified to use linear search
+	allPrevotesInRound := fd.msgStore.GetPrevotesByRound(m.H(), m.R(), nil)
+	for _, storedPrevote := range allPrevotesInRound {
+		if storedPrevote.Hash() == m.Hash() {
+			return errDuplicatedMsg
+		}
+	}
 
 	// account for equivocation for votes.
 	var err error
@@ -1444,18 +1444,15 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 	}
 
 	m.Signers().ForEachDistinctSigner(func(signerIndex int) {
-		// Skip if prevote is equivocated
-		equivocatedMessages := make([]*message.Prevote, 0)
-		filteredPrevotes, _ := fd.msgStore.GetPrevotesByRoundAndValue(m.H(), m.R(), m.Value())
-		for _, prevote := range filteredPrevotes {
-			if prevote.Signers().Contains(signerIndex) {
-				equivocatedMessages = append(equivocatedMessages, prevote)
+		for _, storedPrevote := range allPrevotesInRound {
+			if storedPrevote.Value() != m.Value() && storedPrevote.Signers().Contains(signerIndex) {
+				signer := committee.Members[signerIndex].Address
+				fd.submitMisbehavior(m, []message.Msg{storedPrevote}, errEquivocation, signerIndex, signer)
+				err = errEquivocation
+				// We found an equivocation for this signer, so we can stop checking for them
+				// since we are anyway submitting only one of those
+				return
 			}
-		}
-		if len(equivocatedMessages) > 0 {
-			signer := committee.Members[signerIndex].Address
-			fd.submitMisbehavior(m, []message.Msg{equivocatedMessages[0]}, errEquivocation, signerIndex, signer)
-			err = errEquivocation
 		}
 	})
 
@@ -1465,14 +1462,12 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 
 func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) error {
 	// skip process duplicated for votes.
-	// todo: ==> redo the duplicate check differently, this is expensive linear search
-	//duplicatedMsg := fd.msgStore.GetPrecommits(m.H(), func(msg *message.Precommit) bool {
-	//	return msg.Hash() == m.Hash()
-	//})
-	//
-	//if len(duplicatedMsg) > 0 {
-	//	return errDuplicatedMsg
-	//}
+	allPrecommitsInRound := fd.msgStore.GetPrevotesByRound(m.H(), m.R(), nil)
+	for _, storedPrecommit := range allPrecommitsInRound {
+		if storedPrecommit.Hash() == m.Hash() {
+			return errDuplicatedMsg
+		}
+	}
 
 	// account for equivocation for votes.
 	var err error
@@ -1481,13 +1476,15 @@ func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) e
 		panic(fmt.Sprintf("cannot get committee of height: %d", m.H()))
 	}
 	m.Signers().ForEachDistinctSigner(func(signerIndex int) {
-		equivocatedMessages := fd.msgStore.GetPrecommits(m.H(), func(msg *message.Precommit) bool {
-			return msg.R() == m.R() && msg.Signers().Contains(signerIndex) && msg.Value() != m.Value()
-		})
-		if len(equivocatedMessages) > 0 {
-			signer := committee.Members[signerIndex].Address
-			fd.submitMisbehavior(m, []message.Msg{equivocatedMessages[0]}, errEquivocation, signerIndex, signer)
-			err = errEquivocation
+		for _, storedPrecommit := range allPrecommitsInRound {
+			if storedPrecommit.Value() != m.Value() && storedPrecommit.Signers().Contains(signerIndex) {
+				signer := committee.Members[signerIndex].Address
+				fd.submitMisbehavior(m, []message.Msg{storedPrecommit}, errEquivocation, signerIndex, signer)
+				err = errEquivocation
+				// We found an equivocation for this signer, so we can stop checking for them
+				// since we are anyway submitting only one of those
+				return
+			}
 		}
 	})
 
