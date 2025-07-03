@@ -173,7 +173,7 @@ type AggregateSignature struct {
 	// this is because otherwise rlp creates a signature with new(blst.BlsSignature)
 	// which causes all sorts of problem because the private inner signature s.s remains nil
 	Signature *blst.BlsSignature `rlp:"nil"`
-	Signers   *Signers           `rlp:"nil"`
+	Signers   *QuorumSigners     `rlp:"nil"`
 }
 
 func NewAggregateSignature(signature *blst.BlsSignature, signers *Signers) *AggregateSignature {
