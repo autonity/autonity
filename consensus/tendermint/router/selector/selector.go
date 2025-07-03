@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand"
 	"sort"
 	"strings"
 	"sync"
@@ -120,8 +121,12 @@ func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 			return selected, nil
 		}
 	}
-
-	recipients := s.selectBucketBasedNodes(clusters, committee, senderType, ownClusterID, isProposal)
+	recipients := make([]cluster.Node, 0, len(clusters.Base()))
+	if isProposal {
+		s.selectNodesForProposal(recipients, clusters, committee, senderType, ownClusterID)
+	} else {
+		s.selectNodesForNonProposalMessages(recipients, clusters, committee, senderType, ownClusterID)
+	}
 	recipientsAddr := make([]common.Address, 0, len(recipients))
 	for _, r := range recipients {
 		recipientsAddr = append(recipientsAddr, r.Addr)
@@ -186,75 +191,89 @@ func determineSenderType(from, self common.Address, msg message.Msg, originClust
 	}
 }
 
-func (s *selector) selectBucketBasedNodes(clusters cluster.Clusters, committee *types.Committee, senderType SenderType, ownClusterID int, isProposal bool) []cluster.Node {
-	var recipients []cluster.Node
+func (s *selector) selectNodesForNonProposalMessages(recipients []cluster.Node, clusters cluster.Clusters, committee *types.Committee, senderType SenderType, ownClusterID int) {
 	var minNodes, lowLatencyNodes int
-
 	switch senderType {
-	case originator: // 20 + 5 + 10
-		// additional nodes
-		localNodes := len(clusters.Base()[ownClusterID])
-		minNodes = int(float64(localNodes) * (2.0 / 3.0)) // assuming all cluster of same size, send to 2/3 of cluser size
-		lowLatencyNodes = 4
-		if isProposal {
-			recipients = s.selectNodesByLatencySpread()
-			localNodes = int(math.Sqrt(float64(localNodes)))
-			minNodes = 1
-			lowLatencyNodes = 0
-		}
+	case originator:
+		lowLatencyNodes = 0
 		for clusterID := range clusters.Base() {
 			if clusterID == ownClusterID {
+				//local cluster
+				localNodes := int(math.Sqrt(float64(len(clusters.Base()[ownClusterID]))))
 				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, localNodes, lowLatencyNodes, clusters.Self())...)
 			} else {
+				// everyone in remote clusters
+				minNodes = math.MaxInt
 				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, clusters.Self())...)
 			}
 		}
-
 	case firstRelayerOriginCluster:
-		// remote clusters
-		if isProposal {
-			minNodes = 1
-			lowLatencyNodes = 4
-			for clusterID := range clusters.Base() {
-				if clusterID == ownClusterID {
-					continue
-				}
-				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, clusters.Self())...)
-			}
+		minNodes = 1 // 1 node from each remote cluster randomly selected
+		for clusterID := range clusters.Base() {
+			recipients = append(recipients, s.selectRandomNodes(committee, clusterID, minNodes, clusters.Self())...)
 		}
-		// local cluster
 		minNodes = len(clusters.MembersByID(clusters.ID()))
 		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, clusters.Self())...)
 
-	case firstRelayerRemoteCluster: // now also includes messages from the first Relayer in origin cluster
-		// remote clusters
-		if isProposal {
-			minNodes = 0
-			lowLatencyNodes = 4
-			for clusterID := range clusters.Base() {
-				if clusterID == ownClusterID {
-					continue
-				}
-				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, clusters.Self())...)
-			}
-		}
-		// local cluster
+	case firstRelayerRemoteCluster, localRelayerOriginCluster, localRelayerRemoteCluster: // 20 nodes
 		minNodes = len(clusters.Base()[ownClusterID])
 		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, 0, clusters.Self())...)
-
-	case localRelayerOriginCluster, localRelayerRemoteCluster: // 20 nodes
-		localNodes := len(clusters.Base()[ownClusterID])
-		targetLocalNodes := localNodes
-		localCandidates := s.routingCandidatesFromCluster(ownClusterID, clusters.Self(), committee)
-		for i := 0; i < targetLocalNodes && i < len(localCandidates); i++ {
-			recipients = append(recipients, localCandidates[i])
-		}
 	}
 
 	recipients = s.deduplicate(recipients)
 	// Sort by latency for consistent ordering
 	sort.Slice(recipients, func(i, j int) bool { return recipients[i].Lat < recipients[j].Lat })
-	return recipients
+}
+
+func (s *selector) selectNodesForProposal(recipients []cluster.Node, clusters cluster.Clusters, committee *types.Committee, senderType SenderType, ownClusterID int) {
+	var minNodes, lowLatencyNodes int
+	switch senderType {
+	case originator:
+		recipients = s.selectNodesByLatencySpread()
+		lowLatencyNodes = 0
+		for clusterID := range clusters.Base() {
+			if clusterID == ownClusterID {
+				minNodes = int(math.Sqrt(float64(len(clusters.Base()[ownClusterID]))))
+				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, clusters.Self())...)
+			} else {
+				minNodes = 1
+				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, clusters.Self())...)
+			}
+		}
+	case firstRelayerOriginCluster:
+		minNodes = 1
+		lowLatencyNodes = 4
+		for clusterID := range clusters.Base() {
+			if clusterID == ownClusterID {
+				// local cluster full
+				minNodes = len(clusters.MembersByID(clusters.ID()))
+				recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, lowLatencyNodes, clusters.Self())...)
+			} else {
+				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, clusters.Self())...)
+			}
+		}
+
+	case firstRelayerRemoteCluster: // now also includes messages from the first Relayer in origin cluster
+		lowLatencyNodes = 4
+		for clusterID := range clusters.Base() {
+			if clusterID == ownClusterID {
+				// local cluster full
+				minNodes = len(clusters.Base()[ownClusterID])
+				recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, lowLatencyNodes, clusters.Self())...)
+			} else {
+				minNodes = 0
+				// only low latency nodes from remote clusters
+				recipients = append(recipients, s.selectCloseNodes(committee, clusterID, minNodes, lowLatencyNodes, clusters.Self())...)
+			}
+		}
+	case localRelayerOriginCluster, localRelayerRemoteCluster: // 20 nodes
+		minNodes = len(clusters.Base()[ownClusterID])
+		recipients = append(recipients, s.selectCloseNodes(committee, ownClusterID, minNodes, lowLatencyNodes, clusters.Self())...)
+	}
+
+	recipients = s.deduplicate(recipients)
+	// Sort by latency for consistent ordering
+	sort.Slice(recipients, func(i, j int) bool { return recipients[i].Lat < recipients[j].Lat })
 }
 
 func (s *selector) deduplicate(recipients []cluster.Node) []cluster.Node {
@@ -284,6 +303,23 @@ func (s *selector) selectCloseNodes(committee *types.Committee, clusterID, minNo
 		selected = append(selected, candidates[i])
 	}
 
+	return selected
+}
+
+func (s *selector) selectRandomNodes(committee *types.Committee, clusterID, minNodes int, self common.Address) []cluster.Node {
+	var selected, candidates []cluster.Node
+	candidates = s.routingCandidatesFromCluster(clusterID, self, committee)
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	rand.Shuffle(len(candidates), func(i, j int) {
+		candidates[i], candidates[j] = candidates[j], candidates[i]
+	})
+
+	for i := 0; i < len(candidates) && len(selected) < minNodes; i++ {
+		selected = append(selected, candidates[i])
+	}
 	return selected
 }
 
