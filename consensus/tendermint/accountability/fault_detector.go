@@ -365,7 +365,6 @@ loop:
 					continue
 				}
 
-				// Only a sub set of validators runs rule engine.
 				if !fd.isRuleEngineRunner(h) {
 					continue
 				}

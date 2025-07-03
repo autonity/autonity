@@ -18,6 +18,11 @@ var (
 	errPendingReport = errors.New("pending report")
 )
 
+// primaryIndex returns the index of the validator which is assigned with a reporting block period.
+func primaryIndex(height uint64, committeeSize uint64) int {
+	return int((height / reportingSlotPeriod) % committeeSize)
+}
+
 // isRuleEngineRunner check if client is a rule engine runner, as to reduce the performance cost in a large scale
 // network which contains a lots of consensus message to be scanned, we select a set of nodes as the rule runner
 // of a specific height, for smale scale network, all the nodes run the rule engine.
@@ -39,16 +44,16 @@ func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
 	}
 
 	// Return true if node is the primary reporter.
-	primaryIndex := int((height / reportingSlotPeriod) % uint64(committee.Len()))
-	if committee.Members[primaryIndex].Address == fd.address {
+	primary := primaryIndex(height, 0)
+	if committee.Members[primary].Address == fd.address {
 		fd.shouldReportCache.Add(height, struct{}{})
 		return true
 	}
 
 	// Return true if node is backups.
 	for i := 1; i <= NumBackups; i++ {
-		backupIndex := (primaryIndex + i) % committee.Len()
-		if committee.Members[backupIndex].Address == fd.address {
+		backup := (primary + i) % committee.Len()
+		if committee.Members[backup].Address == fd.address {
 			fd.shouldReportCache.Add(height, struct{}{})
 			return true
 		}
@@ -57,8 +62,8 @@ func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
 	return false
 }
 
-// canReport assign the validator a dedicated time-window to submit the accountability event
-// TODO: consider including smart contract side enforcement
+// canReport assign the validator a dedicated time-window to submit the accountability event, if the primary fails to
+// report, those backups will report once they become to primary at next dedicated time-window.
 func (fd *FaultDetector) canReport(height uint64) bool {
 	committee, err := fd.blockchain.CommitteeByHeight(height)
 	if err != nil {
@@ -66,15 +71,14 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 	}
 
 	// each validator is assigned a reporting slot
-	primaryIndex := (height / reportingSlotPeriod) % uint64(committee.Len())
+	primary := primaryIndex(height, uint64(committee.Len()))
 
-	// TODO: consider allowing the validator to report for the entirety of the period
 	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
 	// slot, then it is time to report the collected events by this validator.
 	if height%reportingSlotPeriod != 0 {
 		return false
 	}
-	return committee.Members[primaryIndex].Address == fd.address
+	return committee.Members[primary].Address == fd.address
 }
 
 func (fd *FaultDetector) reportEvents(events []*bindings.IAccountabilityEvent) []*bindings.IAccountabilityEvent {
