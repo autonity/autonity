@@ -566,6 +566,7 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof, committee *types.Committee) 
 	evidences := make([]message.Msg, 1)
 	evidences[0] = prevotesForV[0]
 	if len(prevotesForV) > 1 {
+		// TODO: fix, create quorum signers instead
 		evidences[0] = AggregateSamePrevotes(prevotesForV)
 	}
 	p := fd.eventFromProof(&Proof{
@@ -615,6 +616,7 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof, committee *types.Committee) 
 	evidences := make([]message.Msg, 1)
 	evidences[0] = prevotes[0]
 	if len(prevotes) > 1 {
+		// TODO: fix, create quorum signers instead
 		evidences[0] = AggregateSamePrevotes(prevotes)
 	}
 
@@ -690,6 +692,7 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof, committee *types.Committee)
 	evidences := make([]message.Msg, 1)
 	evidences[0] = prevotes[0]
 	if len(prevotes) > 1 {
+		// TODO: fix, create quorum signers instead
 		evidences[0] = AggregateSamePrevotes(prevotes)
 	}
 
@@ -955,6 +958,7 @@ oldProposalLoop:
 			evidences := make([]message.Msg, 1)
 			evidences[0] = alternativeQuorum[0]
 			if len(alternativeQuorum) > 1 {
+				// TODO: fix, create quorum signers instead
 				evidences[0] = AggregateSamePrevotes(alternativeQuorum)
 			}
 
@@ -1233,6 +1237,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		evidences := make([]message.Msg, 1)
 		evidences[0] = alternativeQuorum[0]
 		if len(alternativeQuorum) > 1 {
+			// TODO: fix, create quorum signers instead
 			evidences[0] = AggregateSamePrevotes(alternativeQuorum)
 		}
 
@@ -1402,10 +1407,7 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 				if len(alternativeQuorum) > 0 {
 					// fast aggregate quorum prevotes into single one.
 					evidences := make([]message.Msg, 1)
-					evidences[0] = alternativeQuorum[0]
-					if len(alternativeQuorum) > 1 {
-						evidences[0] = AggregateSamePrevotes(alternativeQuorum)
-					}
+					evidences[0] = AggregateSamePrevotes(alternativeQuorum)
 
 					proof := &Proof{
 						Type:          autonity.Misbehaviour,

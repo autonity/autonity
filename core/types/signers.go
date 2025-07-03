@@ -493,6 +493,13 @@ func (s *SignersBase) AssignPower(powers map[int]*big.Int, power *big.Int) {
 	s.powerAssigned = true
 }
 
+func (s *QuorumSigners) Copy() *QuorumSigners {
+	return &QuorumSigners{
+		SignersBase:  s.SignersBase.Copy(),
+		Coefficients: append(s.Coefficients[:0:0], s.Coefficients...),
+	}
+}
+
 func (s *VoteSigners) Copy() *VoteSigners {
 	return &VoteSigners{
 		SignersBase:  s.SignersBase.Copy(),
@@ -626,6 +633,10 @@ func (s *VoteSigners) IsComplex() bool {
 		}
 	}
 	return false
+}
+
+func (s *QuorumSigners) String() string {
+	return fmt.Sprintf("Bits: %08b, Coefficients: %v, power: %v, validated: %v, powerAssigned: %v", s.Bits, s.Coefficients, s.power, s.validated, s.powerAssigned)
 }
 
 func (s *VoteSigners) String() string {

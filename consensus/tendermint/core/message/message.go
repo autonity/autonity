@@ -445,19 +445,19 @@ type extVote struct {
 	Round      uint64
 	Height     uint64
 	Value      common.Hash
-	Signers    *types.Signers
+	Signers    *types.VoteSigners
 	Signature  *blst.BlsSignature
 	Originator common.Address
 }
 
 // TODO: would be good to do the same thing for proposal and lightproposal (to avoid code repetition)
 type vote struct {
-	signers    *types.Signers
+	signers    *types.VoteSigners
 	originator common.Address
 	base
 }
 
-func (v *vote) Signers() *types.Signers {
+func (v *vote) Signers() *types.VoteSigners {
 	return v.signers
 }
 
@@ -611,10 +611,10 @@ func NewPrecommit(r int64, h uint64, value common.Hash, signer Signer, self *typ
 }
 
 // NOTE: these functions allow for the creation of complex aggregates
-func AggregatePrevotes(votes []Vote) *Prevote {
+func AggregatePrevotes(votes []Vote) []*Prevote {
 	return AggregateVotes[Prevote](votes)
 }
-func AggregatePrecommits(votes []Vote) *Precommit {
+func AggregatePrecommits(votes []Vote) []*Precommit {
 	return AggregateVotes[Precommit](votes)
 }
 
@@ -639,7 +639,8 @@ var (
 // NOTE: this function assumes that:
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been preverified and cryptographically verified
-func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
+func AggregateVotes[E Prevote | Precommit](votes []Vote) []*E {
+	// TODO: fix
 	// length safety checks
 	if len(votes) == 0 {
 		panic("Trying to aggregate empty set of votes")
@@ -669,7 +670,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 		// we would just create and gossip new aggregates that would uselessly flood the network
 		// additionally, we also check if the resulting aggregate respects the coefficient boundaries.
 		// this avoids that we aggregate two complex aggregates together, which can lead to coefficient breaching.
-		if signers.AddsInformation(vote.Signers()) && signers.RespectsBoundaries(vote.Signers()) {
+		if signers.AddsInformation(vote.Signers().SignersBase) && signers.RespectsBoundaries(vote.Signers()) {
 			signers.Merge(vote.Signers())
 			signatures = append(signatures, vote.Signature())
 			publicKeys = append(publicKeys, vote.SignerKey())
@@ -720,139 +721,11 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 			},
 		},
 	}
-	return &aggregateVote
-}
-
-// NOTE: these functions will aggregate votes as much as possible without creating complex aggregates
-func AggregatePrevotesSimple(votes []Vote) []*Prevote {
-	return AggregateVotesSimple[Prevote](votes)
-}
-
-func AggregatePrecommitsSimple(votes []Vote) []*Precommit {
-	return AggregateVotesSimple[Precommit](votes)
-}
-
-// NOTE: this function assumes that:
-// 1. all votes are for the same signature input (code,h,r,value)
-// 2. all votes have previously been cryptographically verified
-func AggregateVotesSimple[
-	E Prevote | Precommit,
-	PE interface {
-		*E
-		Msg
-	}](votes []Vote) []*E {
-	// length safety checks
-	if len(votes) == 0 {
-		panic("Trying to aggregate empty set of votes")
+	aggregates := []*E{&aggregateVote}
+	if metrics.Enabled {
+		aggregateVotesCounter.Inc(int64(len(aggregates)))
 	}
-
-	validVotesCounter.Inc(int64(len(votes)))
-	// todo: metric for length of validVotes and length of aggregateVotes
-	code := PE(new(E)).Code()
-
-	// sort signers in the decsecnding order of signer length, it
-	// should allow us to aggregate larger aggregates first, the remaining votes may become redundant
-	sort.Slice(votes, func(i, j int) bool {
-		return votes[i].Signers().Len() > votes[j].Signers().Len()
-	})
-	// internal helper.
-	type aggregate struct {
-		signers    *types.Signers
-		signatures []blst.Signature
-		publicKeys []blst.PublicKey
-	}
-
-	var aggr []*aggregate
-	for _, vote := range votes {
-		isRedundant := false
-		isMerged := false
-		for _, agg := range aggr {
-			if !agg.signers.AddsInformation(vote.Signers()) {
-				isRedundant = true
-				break
-			}
-		}
-
-		if isRedundant {
-			continue
-		}
-
-		for _, agg := range aggr {
-			if agg.signers.CanMergeSimple(vote.Signers()) {
-				agg.signers.Merge(vote.Signers())
-				agg.signatures = append(agg.signatures, vote.Signature())
-				agg.publicKeys = append(agg.publicKeys, vote.SignerKey())
-				isMerged = true
-				break
-			}
-		}
-
-		if !isMerged {
-			newAgg := &aggregate{
-				signers:    vote.Signers().Copy(),
-				signatures: []blst.Signature{vote.Signature()},
-				publicKeys: []blst.PublicKey{vote.SignerKey()},
-			}
-			aggr = append(aggr, newAgg)
-		}
-	}
-	// build aggregates
-	representative := deterministicRepresentative(votes)
-	h := representative.H()
-	r := representative.R()
-	value := representative.Value()
-	signatureInput := representative.SignatureInput()
-
-	n := len(aggr)
-	aggregateVotes := make([]*E, n)
-	for i := 0; i < n; i++ {
-		agg := aggr[i]
-		var aggregatedSignature blst.Signature
-		var aggregatedPublicKey blst.PublicKey
-		var err error
-		if len(agg.signatures) == 1 {
-			aggregatedSignature = agg.signatures[0]
-			aggregatedPublicKey = agg.publicKeys[0]
-		} else {
-			aggregatedSignature = blst.AggregateSignatures(agg.signatures)
-			aggregatedPublicKey, err = blst.AggregatePublicKeys(agg.publicKeys)
-			if err != nil {
-				panic("Cannot generate aggregate public key from valid votes: " + err.Error()) //nolint
-			}
-		}
-
-		payload, _ := rlp.EncodeToBytes(extVote{
-			Code:       code,
-			Round:      uint64(r), // #nosec
-			Height:     h,
-			Value:      value,
-			Signers:    agg.signers,
-			Originator: representative.Originator(),
-			Signature:  aggregatedSignature.(*blst.BlsSignature),
-		})
-
-		aggregateVote := E{
-			value: value,
-			vote: vote{
-				signers:    agg.signers,
-				originator: representative.Originator(),
-				base: base{
-					height:         h,
-					round:          r,
-					signatureInput: signatureInput,
-					signature:      aggregatedSignature,
-					payload:        payload,
-					hash:           crypto.Hash(payload),
-					verified:       true, // verified due to all votes being verified
-					preverified:    true,
-					signerKey:      aggregatedPublicKey, // this is not strictly necessary since the vote is already verified
-				},
-			},
-		}
-		aggregateVotes[i] = &aggregateVote
-	}
-	aggregateVotesCounter.Inc(int64(len(aggregateVotes)))
-	return aggregateVotes
+	return aggregates
 }
 
 func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
@@ -995,7 +868,7 @@ type Fake struct {
 	FakeValue          common.Hash
 	FakePayload        []byte
 	FakeHash           common.Hash
-	FakeSigners        *types.Signers
+	FakeSigners        *types.VoteSigners
 	FakeSignature      blst.Signature
 	FakeSignatureInput common.Hash
 	FakeSignerKey      blst.PublicKey

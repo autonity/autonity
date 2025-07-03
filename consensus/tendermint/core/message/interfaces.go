@@ -63,6 +63,6 @@ type Msg interface {
 
 // Votes have an additional method, which returns all the available information about the signers
 type Vote interface {
-	Signers() *types.Signers
+	Signers() *types.VoteSigners
 	Msg
 }

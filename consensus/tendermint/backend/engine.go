@@ -376,6 +376,7 @@ func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *
 // of height: `h-delta`. The proposer is incentivised to include as many signers as possible.
 // If the proposer does not have to OR cannot provide a valid activity proof, it should leave the proof empty (internal pointers set to nil)
 func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (*types.AggregateSignature, uint64, error) {
+	// TODO: fix
 	epochBlock := epochInfo.EpochBlock.Uint64()
 	delta := epochInfo.OmissionDelta.Uint64()
 
