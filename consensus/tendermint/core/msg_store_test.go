@@ -8,9 +8,18 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
 )
 
 var NilValue = common.Hash{}
+
+type committeeProviderHelper struct {
+	committee *types.Committee
+}
+
+func (cp *committeeProviderHelper) CommitteeByHeight(_ uint64) (*types.Committee, error) {
+	return cp.committee, nil
+}
 
 func TestMsgStore(t *testing.T) {
 	height := uint64(100)
@@ -21,6 +30,7 @@ func TestMsgStore(t *testing.T) {
 	committee, keys := GenerateCommittee(cSize)
 	proposer := committee.Members[proposerIdx].Address
 	proposerKey := keys[proposer].consensus
+	cp := &committeeProviderHelper{committee: committee}
 
 	indexBob := 1
 	addrBob := committee.Members[indexBob].Address
@@ -29,6 +39,8 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query msg store when msg store is empty", func(t *testing.T) {
 		ms := NewMsgStore()
+		ms.SetCommitteeProvider(cp)
+
 		proposals := ms.GetProposals(height, func(_ *message.Propose) bool {
 			return true
 		})
@@ -37,6 +49,7 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("save equivocation msgs in msg store", func(t *testing.T) {
 		ms := NewMsgStore()
+		ms.SetCommitteeProvider(cp)
 		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNil)
 
@@ -54,6 +67,7 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("Save aggregated votes in msg store", func(t *testing.T) {
 		ms := NewMsgStore()
+		ms.SetCommitteeProvider(cp)
 		var prevotes []message.Vote
 		for _, member := range committee.Members {
 			m := member
@@ -85,6 +99,7 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query a presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
+		ms.SetCommitteeProvider(cp)
 		preVote := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVote)
 
@@ -103,6 +118,7 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("query multiple presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
+		ms.SetCommitteeProvider(cp)
 		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNil)
 
@@ -126,6 +142,7 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("delete msgs at a specific height", func(t *testing.T) {
 		ms := NewMsgStore()
+		ms.SetCommitteeProvider(cp)
 		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNil)
 		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee.Members[1], cSize)
@@ -140,6 +157,7 @@ func TestMsgStore(t *testing.T) {
 
 	t.Run("get equivocated votes", func(t *testing.T) {
 		ms := NewMsgStore()
+		ms.SetCommitteeProvider(cp)
 		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNil)
 
@@ -164,6 +182,7 @@ func TestMsgStore(t *testing.T) {
 	})
 	t.Run("SearchQuorum correctly detects quorum of prevotes", func(t *testing.T) {
 		ms := NewMsgStore()
+		ms.SetCommitteeProvider(cp)
 		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
 		ms.Save(preVoteNil)
 

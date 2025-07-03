@@ -233,11 +233,10 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	}
 
 	// temporary solution
-	if be, ok := consensusEngine.(interface {
-		SetBlockchain(*core.BlockChain)
-	}); ok {
+	if be, ok := consensusEngine.(interface { SetBlockchain(*core.BlockChain) }); ok {
 		be.SetBlockchain(eth.blockchain)
 	}
+
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		eth.log.Warn("Rewinding chain to upgrade configuration", "err", compat)
@@ -296,6 +295,8 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 		msgStore, eth.txPool, eth.APIBackend, nodeKey,
 		eth.blockchain.ProtocolContracts(),
 		eth.log)
+
+	msgStore.SetCommitteeProvider(eth.blockchain)
 
 	// Setup DNS discovery iterators.
 	dnsclient := dnsdisc.NewClient(dnsdisc.Config{})

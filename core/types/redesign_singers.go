@@ -44,6 +44,14 @@ func (s *Signers) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, payload)
 }
 
+func (s *Signers) ForEachDistinctSigner(callback func(signerIndex int)) {
+	for i, count := range s.SignatureCounts {
+		if count > 0 {
+			callback(i)
+		}
+	}
+}
+
 func (s *Signers) encodeVarintPayload() []byte {
 	var buf bytes.Buffer
 	buf.Grow(s.length * 2) // estimate size based on number of signers
