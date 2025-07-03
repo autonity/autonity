@@ -29,6 +29,7 @@ import (
 	"github.com/autonity/autonity/internal/ethapi"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 type ChainContext interface {
@@ -108,6 +109,8 @@ type FaultDetector struct {
 
 	logger log.Logger
 
+	shouldReportCache *lru.Cache
+
 	scanned map[uint64]struct{}
 }
 
@@ -122,7 +125,7 @@ func NewFaultDetector(
 	nodeKey *ecdsa.PrivateKey,
 	protocolContracts *autonity.ProtocolContracts,
 	logger log.Logger) *FaultDetector {
-
+	shouldReportCache, _ := lru.New(256)
 	txOpts, err := bind.NewKeyedTransactorWithChainID(nodeKey, chain.Config().ChainID)
 	if err != nil {
 		logger.Crit("Critical error building transactor", "err", err)
@@ -148,6 +151,7 @@ func NewFaultDetector(
 		stopRetry:             make(chan struct{}),
 		misbehaviourProofCh:   make(chan *bindings.IAccountabilityEvent, 100),
 		logger:                logger, // Todo(youssef): remove context
+		shouldReportCache:     shouldReportCache,
 		scanned:               make(map[uint64]struct{}),
 	}
 	// use ChainEvent instead of ChainHeadEvent as we want the relative select cases to ran at every single block.
@@ -360,6 +364,12 @@ loop:
 				if alreadyScanned {
 					continue
 				}
+
+				// Only a sub set of validators runs rule engine.
+				if !fd.isRuleEngineRunner(h) {
+					continue
+				}
+
 				if events := fd.runRuleEngine(h); len(events) > 0 {
 					fd.pendingEvents = append(fd.pendingEvents, events...)
 				}
@@ -428,26 +438,6 @@ loop:
 			break loop
 		}
 	}
-}
-
-// canReport assign the validator a dedicated time-window to submit the accountability event
-// TODO: consider including smart contract side enforcement
-func (fd *FaultDetector) canReport(height uint64) bool {
-	committee, err := fd.blockchain.CommitteeByHeight(height)
-	if err != nil {
-		fd.logger.Crit("Can't retrieve committee for message", "err", err, "height", height)
-	}
-
-	// each validator is assigned a reporting slot
-	reporterIndex := (height / reportingSlotPeriod) % uint64(committee.Len())
-
-	// TODO: consider allowing the validator to report for the entirety of the period
-	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
-	// slot, then it is time to report the collected events by this validator.
-	if height%reportingSlotPeriod != 0 {
-		return false
-	}
-	return committee.Members[reporterIndex].Address == fd.address
 }
 
 func (fd *FaultDetector) Stop() {

@@ -2,7 +2,6 @@ package accountability
 
 import (
 	"errors"
-
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
@@ -11,12 +10,76 @@ import (
 
 const (
 	MaxEventSize = 20480 // 20KB
+	NumBackups   = 8     // todo: resolve a optimal number of backups for the AFD
 )
 
 var (
 	errInvalidReport = errors.New("invalid report")
 	errPendingReport = errors.New("pending report")
 )
+
+// Select a sub set of validators as the rule engine runner to reduce the performance cost over the network.
+func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
+	if _, ok := fd.shouldReportCache.Get(height); ok {
+		return true
+	}
+
+	committee, err := fd.blockchain.CommitteeByHeight(height)
+	if err != nil {
+		fd.logger.Error("Failed to get committee for height %d: %v", height, err)
+		return false
+	}
+
+	// All members run rule engine in small scale network.
+	if committee.Len() <= NumBackups*3 {
+		fd.shouldReportCache.Add(height, true)
+		return true
+	}
+
+	// Only a few members run the rule engine.
+	// Calculate primary reporter index
+	primaryIndex := int((height / reportingSlotPeriod) % uint64(committee.Len()))
+	if committee.Members[primaryIndex].Address == fd.address {
+		fd.shouldReportCache.Add(height, true)
+		return true
+	}
+
+	// Select backups starting from next validator in committee
+	for i := 1; i <= NumBackups; i++ {
+		backupIndex := (primaryIndex + i) % committee.Len()
+		// Skip primary reporter if included
+		if backupIndex == primaryIndex {
+			continue
+		}
+
+		if committee.Members[backupIndex].Address == fd.address {
+			fd.shouldReportCache.Add(height, true)
+			return true
+		}
+	}
+
+	return false
+}
+
+// canReport assign the validator a dedicated time-window to submit the accountability event
+// TODO: consider including smart contract side enforcement
+func (fd *FaultDetector) canReport(height uint64) bool {
+	committee, err := fd.blockchain.CommitteeByHeight(height)
+	if err != nil {
+		fd.logger.Crit("Can't retrieve committee for message", "err", err, "height", height)
+	}
+
+	// each validator is assigned a reporting slot
+	primaryIndex := (height / reportingSlotPeriod) % uint64(committee.Len())
+
+	// TODO: consider allowing the validator to report for the entirety of the period
+	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
+	// slot, then it is time to report the collected events by this validator.
+	if height%reportingSlotPeriod != 0 {
+		return false
+	}
+	return committee.Members[primaryIndex].Address == fd.address
+}
 
 func (fd *FaultDetector) reportEvents(events []*bindings.IAccountabilityEvent) []*bindings.IAccountabilityEvent {
 	var filtered []*bindings.IAccountabilityEvent
