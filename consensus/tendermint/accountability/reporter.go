@@ -20,7 +20,7 @@ var (
 
 // primaryIndex returns the index of the validator which is assigned with a reporting block period.
 func primaryIndex(height uint64, committeeSize uint64) int {
-	return int((height / reportingSlotPeriod) % committeeSize)
+	return int((height / reportingSlotPeriod) % committeeSize) //nolint
 }
 
 // isRuleEngineRunner check if client is a rule engine runner, as to reduce the performance cost in a large scale
@@ -44,7 +44,7 @@ func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
 	}
 
 	// Return true if node is the primary reporter.
-	primary := primaryIndex(height, 0)
+	primary := primaryIndex(height, uint64(committee.Len())) //nolint
 	if committee.Members[primary].Address == fd.address {
 		fd.shouldReportCache.Add(height, struct{}{})
 		return true
@@ -71,7 +71,7 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 	}
 
 	// each validator is assigned a reporting slot
-	primary := primaryIndex(height, uint64(committee.Len()))
+	primary := primaryIndex(height, uint64(committee.Len())) //nolint
 
 	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
 	// slot, then it is time to report the collected events by this validator.
