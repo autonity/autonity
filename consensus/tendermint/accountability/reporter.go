@@ -54,15 +54,20 @@ func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
 	// Beside the primary, we select other 1/3 nodes as backups, thus there
 	// will be at least 1 honest node runs rule engine.
 	numBackups := committee.Len() / 3
+	startIdx := primary + 1
 	endIdx := primary + numBackups
 	validatorIdx := int(validator.Index) //nolint
 
+	if startIdx == committee.Len() {
+		endIdx = endIdx % committee.Len()
+		return validatorIdx >= 0 && validatorIdx <= endIdx
+	}
+
 	if endIdx < committee.Len() {
-		startIdx := (primary + 1) % committee.Len()
 		return validatorIdx >= startIdx && validatorIdx <= endIdx
 	} else {
 		wrappedEndIdx := endIdx % committee.Len()
-		startIdx := (primary + 1) % committee.Len()
+		startIdx = (primary + 1) % committee.Len()
 		return (validatorIdx >= startIdx && validatorIdx < committee.Len()) ||
 			(validatorIdx >= 0 && validatorIdx <= wrappedEndIdx)
 	}
