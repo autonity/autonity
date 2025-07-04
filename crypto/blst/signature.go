@@ -103,6 +103,14 @@ func AggregateSignatures(sigs []Signature) Signature {
 	return &BlsSignature{s: signature.ToAffine()}
 }
 
+func ToAffineSigSet(sigs []Signature) blstSignatureSet {
+	var rawSigs blstSignatureSet
+	for _, sig := range sigs {
+		rawSigs = append(rawSigs, *sig.(*BlsSignature).s)
+	}
+	return rawSigs
+}
+
 // POPVerify verify a proof of possession, it assumes that the zero public key was
 // checked, the group and zero signature were checked.
 func (s *BlsSignature) POPVerify(pubKey PublicKey, msg []byte) bool {
