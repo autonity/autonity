@@ -202,7 +202,8 @@ func ByteOnesCountLowerIndex(n uint8, index int) int {
 		return bits.OnesCount8(n)
 	}
 	// take only the bits at lower positions than the `index`
-	return bits.OnesCount8(n & (1 << index))
+	onlyLower := n & ((1 << index) - 1)
+	return bits.OnesCount8(onlyLower)
 }
 
 func ByteLSBPosition(n uint8) int {
