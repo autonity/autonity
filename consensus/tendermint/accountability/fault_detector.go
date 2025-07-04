@@ -359,6 +359,11 @@ loop:
 				if alreadyScanned {
 					continue
 				}
+
+				if !fd.isRuleEngineRunner(h) {
+					continue
+				}
+
 				if events := fd.runRuleEngine(h); len(events) > 0 {
 					fd.pendingEvents = append(fd.pendingEvents, events...)
 				}
@@ -427,26 +432,6 @@ loop:
 			break loop
 		}
 	}
-}
-
-// canReport assign the validator a dedicated time-window to submit the accountability event
-// TODO: consider including smart contract side enforcement
-func (fd *FaultDetector) canReport(height uint64) bool {
-	committee, err := fd.blockchain.CommitteeByHeight(height)
-	if err != nil {
-		fd.logger.Crit("Can't retrieve committee for message", "err", err, "height", height)
-	}
-
-	// each validator is assigned a reporting slot
-	reporterIndex := (height / reportingSlotPeriod) % uint64(committee.Len())
-
-	// TODO: consider allowing the validator to report for the entirety of the period
-	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
-	// slot, then it is time to report the collected events by this validator.
-	if height%reportingSlotPeriod != 0 {
-		return false
-	}
-	return committee.Members[reporterIndex].Address == fd.address
 }
 
 func (fd *FaultDetector) Stop() {

@@ -10,13 +10,88 @@ import (
 )
 
 const (
-	MaxEventSize = 20480 // 20KB
+	MaxEventSize      = 20480 // 20KB
+	SmallScaleNetSize = 32
 )
 
 var (
 	errInvalidReport = errors.New("invalid report")
 	errPendingReport = errors.New("pending report")
 )
+
+// primaryIndex returns the index of the validator which is assigned with a reporting block period.
+func primaryIndex(height uint64, committeeSize uint64) int {
+	return int((height / reportingSlotPeriod) % committeeSize) //nolint
+}
+
+// isRuleEngineRunner check if client is a rule engine runner, as to reduce the performance cost in a large scale
+// network which contains a lots of consensus message to be scanned, we select a set of nodes as the rule runner
+// of a specific height, for smale scale network, all the nodes run the rule engine.
+func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
+
+	committee, err := fd.blockchain.CommitteeByHeight(height)
+	if err != nil {
+		fd.logger.Error("Failed to get committee for height %d: %v", height, err)
+		return false
+	}
+
+	// All members run rule engine in a small scale network.
+	if committee.Len() <= SmallScaleNetSize {
+		return true
+	}
+
+	validator := committee.MemberByAddress(fd.address)
+	if validator == nil {
+		return false
+	}
+
+	// With a larger network, we select primary and backups reporters.
+	// Return true if node is the primary reporter.
+	primary := primaryIndex(height, uint64(committee.Len())) //nolint
+	if committee.Members[primary].Address == fd.address {
+		return true
+	}
+
+	// Beside the primary, we select other 1/3 nodes as backups, thus there
+	// will be at least 1 honest node runs rule engine.
+	numBackups := committee.Len() / 3
+	startIdx := primary + 1
+	endIdx := primary + numBackups
+	validatorIdx := int(validator.Index) //nolint
+
+	if endIdx < committee.Len() {
+		return validatorIdx >= startIdx && validatorIdx <= endIdx
+	}
+
+	if startIdx == committee.Len() {
+		endIdx = endIdx % committee.Len()
+		return validatorIdx >= 0 && validatorIdx <= endIdx
+	}
+
+	wrappedEndIdx := endIdx % committee.Len()
+	startIdx = (primary + 1) % committee.Len()
+	return (validatorIdx >= startIdx && validatorIdx < committee.Len()) ||
+		(validatorIdx >= 0 && validatorIdx <= wrappedEndIdx)
+}
+
+// canReport assign the validator a dedicated time-window to submit the accountability event, if the primary fails to
+// report, those backups will report once they become to primary at next dedicated time-window.
+func (fd *FaultDetector) canReport(height uint64) bool {
+	committee, err := fd.blockchain.CommitteeByHeight(height)
+	if err != nil {
+		fd.logger.Crit("Can't retrieve committee for message", "err", err, "height", height)
+	}
+
+	// each validator is assigned a reporting slot
+	primary := primaryIndex(height, uint64(committee.Len())) //nolint
+
+	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
+	// slot, then it is time to report the collected events by this validator.
+	if height%reportingSlotPeriod != 0 {
+		return false
+	}
+	return committee.Members[primary].Address == fd.address
+}
 
 func (fd *FaultDetector) reportEvents(events []*bindings.IAccountabilityEvent) []*bindings.IAccountabilityEvent {
 	var filtered []*bindings.IAccountabilityEvent
