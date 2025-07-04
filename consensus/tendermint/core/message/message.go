@@ -763,7 +763,7 @@ func AggregateVotesSimple[
 		isRedundant := false
 		isMerged := false
 		for _, agg := range aggr {
-			if !vote.Signers().AddsInformation(agg.signers) {
+			if !agg.signers.AddsInformation(vote.Signers()) {
 				isRedundant = true
 				break
 			}
@@ -850,7 +850,6 @@ func AggregateVotesSimple[
 	aggregateVotesCounter.Inc(int64(len(aggregateVotes)))
 	return aggregateVotes
 }
-
 
 func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	payload, err := s.Raw()

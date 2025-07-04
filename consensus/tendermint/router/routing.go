@@ -24,6 +24,7 @@ import (
 )
 
 const (
+	// todo: needds update 21 is too low, but it helps while we are testing clustering
 	ScaleThresholdForClustering = 21
 	latencyDataExpiry           = 5 * time.Minute
 	retryLatencyTimeout         = 30 * time.Second
