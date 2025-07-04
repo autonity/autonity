@@ -221,3 +221,61 @@ func ByteLSBPosition(n uint8) int {
 	// because `lsbBecomesMSB = pow(2,x+1) - 1`, it has `x+1` 1 bits
 	return bits.OnesCount8(lsbBecomesMSB) - 1
 }
+
+func Uint16LSBPosition(n uint16) int {
+	if n == 0 {
+		return -1
+	}
+	// remove everything but LSB of the `n`
+
+	// also add 1 bit to all the positions in `n` which are
+	// lower than the LSB, i.e., calculate `pow(2,x+1) - 1`,
+	// where `x` is the position of the LSB of `n`
+	lsbBecomesMSB := n ^ (n - 1)
+
+	// we want to know `x`
+
+	// because `lsbBecomesMSB = pow(2,x+1) - 1`, it has `x+1` 1 bits
+	return bits.OnesCount16(lsbBecomesMSB) - 1
+}
+
+func Uint32LSBPosition(n uint32) int {
+	if n == 0 {
+		return -1
+	}
+	// remove everything but LSB of the `n`
+
+	// also add 1 bit to all the positions in `n` which are
+	// lower than the LSB, i.e., calculate `pow(2,x+1) - 1`,
+	// where `x` is the position of the LSB of `n`
+	lsbBecomesMSB := n ^ (n - 1)
+
+	// we want to know `x`
+
+	// because `lsbBecomesMSB = pow(2,x+1) - 1`, it has `x+1` 1 bits
+	return bits.OnesCount32(lsbBecomesMSB) - 1
+}
+
+func Uint16MSBPosition(n uint16) int {
+	for n > 0 {
+		// check if `n` is a power of 2, then we have the MSB
+		if (n & (n - 1)) == 0 {
+			return Uint16LSBPosition(n)
+		}
+		n = n & (n - 1)
+	}
+	// 0 input
+	return -1
+}
+
+func Uint32MSBPosition(n uint32) int {
+	for n > 0 {
+		// check if `n` is a power of 2, then we have the MSB
+		if (n & (n - 1)) == 0 {
+			return Uint32LSBPosition(n)
+		}
+		n = n & (n - 1)
+	}
+	// 0 input
+	return -1
+}

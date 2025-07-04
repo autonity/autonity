@@ -15,7 +15,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
@@ -300,7 +299,6 @@ func (c *Core) Broadcaster() interfaces.Broadcaster {
 }
 
 func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundMessages) {
-	// TODO: fix
 	c.SetStep(ctx, PrecommitDone)
 	// for metrics
 	start := time.Now()
@@ -308,13 +306,11 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	if proposal == nil {
 		// Should never happen really. Let's panic to catch bugs.
 		panic("Core commit called with empty proposal")
-		return
 	}
 	proposalHash := proposal.Block().Header().Hash()
 	c.logger.Debug("Committing a block", "hash", proposalHash)
 
-	precommitWithQuorum := messages.PrecommitFor(proposalHash)
-	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
+	quorumCertificate := messages.QuorumFor(proposalHash)
 
 	if err := c.backend.Commit(proposal.Block(), round, quorumCertificate); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
