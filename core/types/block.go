@@ -27,14 +27,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/autonity/autonity/log"
-
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/bitutil"
+	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/crypto"
-
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
 )
 
@@ -181,7 +180,7 @@ func NewAggregateSignature(signature *blst.BlsSignature, signers *QuorumSigners)
 }
 
 func (a *AggregateSignature) Copy() *AggregateSignature {
-	return &AggregateSignature{Signature: a.Signature.Copy(), Signers: a.Signers.Copy()}
+	return &AggregateSignature{Signature: a.Signature.Copy(), Signers: &QuorumSigners{a.Signers.Copy()}}
 }
 
 func (a *AggregateSignature) Malformed() bool {
@@ -193,21 +192,23 @@ func (a *AggregateSignature) Malformed() bool {
 func (a *AggregateSignature) Validate(message common.Hash, committee *Committee, checkQuorum bool) (map[common.Address]struct{}, *big.Int, error) {
 	// validate signers information first
 	// TODO: fix
-	distinctSigners, err := a.Signers.validate(committee.Len())
+	distinctSigners, maxCoefficient, err := a.Signers.validate(committee.Len())
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid signers information: %w", err)
 	}
 
 	// verify signature
-	flattenedIndexes := a.Signers.flatten(committee.Len())
-	keys := make([]blst.PublicKey, len(flattenedIndexes))
-	for i, index := range flattenedIndexes {
+	// multiply the public keys with coefficients to aggregate them
+	indexes := a.Signers.flattenUniq()
+	keys := make([]blst.PublicKey, len(indexes))
+	for i, index := range indexes {
 		keys[i] = committee.Members[index].ConsensusKey
 	}
-	aggregatedKey, err := blst.AggregatePublicKeys(keys)
-	if err != nil {
-		return nil, nil, errors.Join(ErrNonAggregatablePublicKeys, err)
-	}
+	aggregatedKey := blst.AggregatePublicKeysMultScalars(
+		keys,
+		a.Signers.toBlstScalars(),
+		bitutil.Uint32MSBPosition(maxCoefficient)+1,
+	)
 	if !aggregatedKey.Validate() {
 		log.Warn("aggregated public key from committee is zero! Please report the issue!", "signers", a.Signers.String())
 	}
@@ -219,7 +220,7 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 	// Total assembled voting power for the activity proof
 	power := new(big.Int)
 	signers := make(map[common.Address]struct{}, distinctSigners)
-	for _, index := range a.Signers.flattenUniq(committee.Len()) {
+	for _, index := range indexes {
 		power.Add(power, committee.Members[index].VotingPower)
 		signers[committee.Members[index].Address] = struct{}{}
 	}
