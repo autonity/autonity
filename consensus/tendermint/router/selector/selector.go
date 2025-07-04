@@ -340,113 +340,114 @@ func (s *selector) buildResultFromRecipients(recipients []common.Address, cluste
 }
 
 func (s *selector) clusterStatus(recipients []cluster.Node, msg message.Msg, from common.Address, senderType SenderType, ownClusterID int, originClusterID int) {
-	logKey := fmt.Sprintf("%d-%d-%d", msg.H(), msg.R(), msg.Code())
+	log.Debug("cluster status", "stats", log.Lazy{Fn: func() interface{} {
+		logKey := fmt.Sprintf("%d-%d-%d", msg.H(), msg.R(), msg.Code())
 
-	s.heightLock.Lock()
-	if _, logged := s.loggedHR[logKey]; logged {
+		s.heightLock.Lock()
+		if _, logged := s.loggedHR[logKey]; logged {
+			s.heightLock.Unlock()
+			return ""
+		}
+
+		oldHeight := s.recentHeights[s.heightIndex]
+		if oldHeight != 0 {
+			for k, h := range s.loggedHR {
+				if h == oldHeight {
+					delete(s.loggedHR, k)
+				}
+			}
+		}
+
+		s.recentHeights[s.heightIndex] = msg.H()
+		s.loggedHR[logKey] = msg.H()
+		s.heightIndex = (s.heightIndex + 1) % 50
 		s.heightLock.Unlock()
-		return
-	}
 
-	oldHeight := s.recentHeights[s.heightIndex]
-	if oldHeight != 0 {
-		for k, h := range s.loggedHR {
-			if h == oldHeight {
-				delete(s.loggedHR, k)
-			}
+		var sb strings.Builder
+		totalDisconnected := 0
+		totalSelected := 0
+		var fullyConnectedClusters []string
+		var totalConnected int
+		var sender string
+		switch senderType {
+		case originator:
+			sender = "originator"
+		case firstRelayerOriginCluster:
+			sender = "first relayer origin cluster"
+		case localRelayerOriginCluster:
+			sender = "local relayer origin cluster"
+		case firstRelayerRemoteCluster:
+			sender = "first relayer remote cluster"
+		case localRelayerRemoteCluster:
+			sender = "local relayer remote cluster"
 		}
-	}
 
-	s.recentHeights[s.heightIndex] = msg.H()
-	s.loggedHR[logKey] = msg.H()
-	s.heightIndex = (s.heightIndex + 1) % 50
-	s.heightLock.Unlock()
+		var msgType string
+		switch msg.Code() {
+		case message.ProposalCode:
+			msgType = "Proposal"
+		case message.PrevoteCode:
+			msgType = "Prevote"
+		case message.PrecommitCode:
+			msgType = "Precommit"
+		case message.LightProposalCode:
+			msgType = "Light Proposal"
+		default:
+			msgType = "Unknown"
+		}
 
-	var sb strings.Builder
-	totalDisconnected := 0
-	totalSelected := 0
-	var fullyConnectedClusters []string
-	var totalConnected int
-	var sender string
-	switch senderType {
-	case originator:
-		sender = "originator"
-	case firstRelayerOriginCluster:
-		sender = "first relayer origin cluster"
-	case localRelayerOriginCluster:
-		sender = "local relayer origin cluster"
-	case firstRelayerRemoteCluster:
-		sender = "first relayer remote cluster"
-	case localRelayerRemoteCluster:
-		sender = "local relayer remote cluster"
-	}
+		sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s MessageHash=%s SenderType=%s localCluster=%d originCluster=%d\n",
+			msg.H(), msg.R(), from.Hex(), msgType, msg.Hash().Hex(), sender, ownClusterID, originClusterID))
 
-	var msgType string
-	switch msg.Code() {
-	case message.ProposalCode:
-		msgType = "Proposal"
-	case message.PrevoteCode:
-		msgType = "Prevote"
-	case message.PrecommitCode:
-		msgType = "Precommit"
-	case message.LightProposalCode:
-		msgType = "Light Proposal"
-	default:
-		msgType = "Unknown"
-	}
+		clusterMap := make(map[int][]cluster.Node)
+		for _, node := range recipients {
+			clusterMap[node.ClusterID] = append(clusterMap[node.ClusterID], node)
+		}
 
-	sb.WriteString(fmt.Sprintf("\nCluster routing status:\t Height=%d, Round=%d, From=%s Message=%s MessageHash=%s SenderType=%s localCluster=%d originCluster=%d\n",
-		msg.H(), msg.R(), from.Hex(), msgType, msg.Hash().Hex(), sender, ownClusterID, originClusterID))
+		for clusterID, cluster := range clusterMap {
+			var lostPeers []string
+			connectedCount := 0
+			latencyList := []string{}
 
-	clusterMap := make(map[int][]cluster.Node)
-	for _, node := range recipients {
-		clusterMap[node.ClusterID] = append(clusterMap[node.ClusterID], node)
-	}
+			for _, peer := range cluster {
+				_, ok := s.peerFinder.FindPeer(peer.Addr)
+				if ok {
+					connectedCount++
+					totalConnected++
+					latencyList = append(latencyList, fmt.Sprintf("%s-%d", peer.Addr.Hex(), peer.Lat))
+				} else {
+					lostPeers = append(lostPeers, peer.Addr.Hex())
+					totalDisconnected++
+				}
+				totalSelected++
+			}
 
-	for clusterID, cluster := range clusterMap {
-		var lostPeers []string
-		connectedCount := 0
-		latencyList := []string{}
-
-		for _, peer := range cluster {
-			_, ok := s.peerFinder.FindPeer(peer.Addr)
-			if ok {
-				connectedCount++
-				totalConnected++
-				latencyList = append(latencyList, fmt.Sprintf("%s-%d", peer.Addr.Hex(), peer.Lat))
+			if len(lostPeers) == 0 && len(cluster) > 0 {
+				fullyConnectedClusters = append(fullyConnectedClusters,
+					fmt.Sprintf("C%d:%d L:%s\n", clusterID, len(cluster), latencyList))
 			} else {
-				lostPeers = append(lostPeers, peer.Addr.Hex())
-				totalDisconnected++
+				sb.WriteString(fmt.Sprintf("Cluster #%d: selected:%d connected:%d\nL:%s\n", clusterID, len(cluster), connectedCount, latencyList))
+				sb.WriteString("  X disconnected:")
+				for _, peerHex := range lostPeers {
+					sb.WriteString(" ")
+					sb.WriteString(peerHex)
+				}
+				sb.WriteByte('\n')
 			}
-			totalSelected++
 		}
 
-		if len(lostPeers) == 0 && len(cluster) > 0 {
-			fullyConnectedClusters = append(fullyConnectedClusters,
-				fmt.Sprintf("C%d:%d L:%s\n", clusterID, len(cluster), latencyList))
-		} else {
-			sb.WriteString(fmt.Sprintf("Cluster #%d: selected:%d connected:%d\nL:%s\n", clusterID, len(cluster), connectedCount, latencyList))
-			sb.WriteString("  X disconnected:")
-			for _, peerHex := range lostPeers {
-				sb.WriteString(" ")
-				sb.WriteString(peerHex)
+		if len(fullyConnectedClusters) > 0 {
+			sb.WriteString("Fully connected: ")
+			for i, clusterInfo := range fullyConnectedClusters {
+				if i > 0 {
+					sb.WriteString(" ")
+				}
+				sb.WriteString(clusterInfo)
 			}
 			sb.WriteByte('\n')
 		}
-	}
 
-	if len(fullyConnectedClusters) > 0 {
-		sb.WriteString("Fully connected: ")
-		for i, clusterInfo := range fullyConnectedClusters {
-			if i > 0 {
-				sb.WriteString(" ")
-			}
-			sb.WriteString(clusterInfo)
-		}
-		sb.WriteByte('\n')
-	}
-
-	sb.WriteString(fmt.Sprintf("Total: selected:%d connected:%d disconnected:%d\n", totalSelected, totalConnected, totalDisconnected))
-
-	log.Info(sb.String())
+		sb.WriteString(fmt.Sprintf("Total: selected:%d connected:%d disconnected:%d\n", totalSelected, totalConnected, totalDisconnected))
+		return sb.String()
+	}})
 }
