@@ -34,6 +34,9 @@ type roundStore struct {
 	// todo: (review) this is optional but adding it because it is most accessed, number of prevotes are generally high for large committees
 	prevoteByValue map[common.Hash][]*message.Prevote
 	nilPrevotes    []*message.Prevote
+
+	votesBySigner map[int]map[common.Hash]message.Vote // prevotes and precommits
+	seenHashes    map[common.Hash]struct{}             // common for prevote/precommit/proposal
 }
 
 func newRoundStore(committeeSize int) *roundStore {
@@ -49,6 +52,9 @@ func newRoundStore(committeeSize int) *roundStore {
 		},
 		prevoteByValue: make(map[common.Hash][]*message.Prevote),
 		nilPrevotes:    make([]*message.Prevote, 0, int(float64(committeeSize)/3.0)),
+
+		votesBySigner: make(map[int]map[common.Hash]message.Vote),
+		seenHashes:    make(map[common.Hash]struct{}),
 	}
 
 }
@@ -63,7 +69,7 @@ type heightStore struct {
 func newHeightStore(committeeSize int) *heightStore {
 	return &heightStore{
 		RWMutex:       sync.RWMutex{},
-		rounds:        make([]*roundStore, 2), // 2 rounds by default
+		rounds:        make([]*roundStore, 0, 1), // 1 round by default
 		committeeSize: committeeSize,
 		maxRoundSeen:  -1,
 	}
@@ -126,6 +132,67 @@ func (ms *MsgStore) GetMaxRoundSeen(height uint64) int64 {
 	return hs.maxRoundSeen
 }
 
+func (ms *MsgStore) HasVote(height uint64, round int64, hash common.Hash) bool {
+	if round < 0 || round >= constants.MaxRound {
+		return false
+	}
+	hs, err := ms.getOrCreateHeightStore(height)
+	if err != nil {
+		return false
+	}
+	rs := hs.getOrCreateRoundStore(round)
+	rs.RLock()
+	defer rs.RUnlock()
+	_, ok := rs.seenHashes[hash]
+	return ok
+}
+
+func (ms *MsgStore) GetSignerPrevotesByRound(height uint64, round int64, signerIndex int) map[common.Hash]*message.Prevote {
+	if round < 0 || round >= constants.MaxRound {
+		return nil
+	}
+	hs, err := ms.getOrCreateHeightStore(height)
+	if err != nil {
+		return nil
+	}
+	rs := hs.getOrCreateRoundStore(round)
+	rs.RLock()
+	defer rs.RUnlock()
+	if votes, ok := rs.votesBySigner[signerIndex]; ok {
+		result := make(map[common.Hash]*message.Prevote, len(votes))
+		for k, v := range votes {
+			if _, isVote := v.(*message.Prevote); isVote {
+				result[k] = v.(*message.Prevote)
+			}
+		}
+		return result
+	}
+	return nil
+}
+
+func (ms *MsgStore) GetSignerPrecommitsByRound(height uint64, round int64, signerIndex int) map[common.Hash]*message.Precommit {
+	if round < 0 || round >= constants.MaxRound {
+		return nil
+	}
+	hs, err := ms.getOrCreateHeightStore(height)
+	if err != nil {
+		return nil
+	}
+	rs := hs.getOrCreateRoundStore(round)
+	rs.RLock()
+	defer rs.RUnlock()
+	if votes, ok := rs.votesBySigner[signerIndex]; ok {
+		result := make(map[common.Hash]*message.Precommit, len(votes))
+		for k, v := range votes {
+			if _, isVote := v.(*message.Precommit); isVote {
+				result[k] = v.(*message.Precommit)
+			}
+		}
+		return result
+	}
+	return nil
+}
+
 func (ms *MsgStore) SetCommitteeProvider(provider committeeProvider) {
 	if provider == nil {
 		panic("committee provider cannot be nil")
@@ -181,16 +248,29 @@ func (ms *MsgStore) Save(m message.Msg) error {
 
 	rs.Lock()
 	defer rs.Unlock()
+	rs.seenHashes[m.Hash()] = struct{}{}
+
 	switch msg := m.(type) {
 	case *message.Propose:
 		rs.proposals = append(rs.proposals, msg)
 	case *message.Prevote:
 		rs.prevotes = append(rs.prevotes, msg)
 		ms.updatePrevotePower(rs, msg)
+		ms.updateSignerIndex(rs, msg)
 	case *message.Precommit:
 		rs.precommits = append(rs.precommits, msg)
+		ms.updateSignerIndex(rs, msg)
 	}
 	return nil
+}
+
+func (ms *MsgStore) updateSignerIndex(rs *roundStore, vote message.Vote) {
+	vote.Signers().ForEachDistinctSigner(func(signerIndex int) {
+		if _, ok := rs.votesBySigner[signerIndex]; !ok {
+			rs.votesBySigner[signerIndex] = make(map[common.Hash]message.Vote)
+		}
+		rs.votesBySigner[signerIndex][vote.Value()] = vote
+	})
 }
 
 func (ms *MsgStore) updatePrevotePower(rs *roundStore, msg *message.Prevote) {
@@ -251,10 +331,19 @@ func (ms *MsgStore) RemoveMsg(height uint64, round int64, code uint8, hash commo
 		}
 		rs.prevoteByValue = make(map[common.Hash][]*message.Prevote)
 		rs.nilPrevotes = rs.nilPrevotes[:0]
+		for signerIndex, votes := range rs.votesBySigner {
+			for value, vote := range votes {
+				if _, ok := vote.(*message.Prevote); ok {
+					delete(rs.votesBySigner[signerIndex], value)
+				}
+			}
+		}
+		delete(rs.seenHashes, hash)
 
 		// rebuild the prevotes power
 		for _, p := range rs.prevotes {
 			ms.updatePrevotePower(rs, p)
+			ms.updateSignerIndex(rs, p)
 		}
 	case message.PrecommitCode:
 		filtered := rs.precommits[:0]
@@ -264,6 +353,18 @@ func (ms *MsgStore) RemoveMsg(height uint64, round int64, code uint8, hash commo
 			}
 		}
 		rs.precommits = filtered
+		for signerIndex, votes := range rs.votesBySigner {
+			for value, vote := range votes {
+				if _, ok := vote.(*message.Precommit); ok {
+					delete(rs.votesBySigner[signerIndex], value)
+				}
+			}
+		}
+
+		for _, p := range rs.precommits {
+			ms.updateSignerIndex(rs, p)
+		}
+
 	case message.ProposalCode:
 		filtered := rs.proposals[:0]
 		for _, p := range rs.proposals {

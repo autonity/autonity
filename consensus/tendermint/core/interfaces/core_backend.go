@@ -52,7 +52,9 @@ type Backend interface {
 
 	Post(ev any)
 
-	MessageToCore(ev any)
+	DispatchToCore(ev any)
+
+	DispatchToFD(ev any)
 
 	ProposedBlockHash() common.Hash
 	// SetProposedBlockHash is a setter for the proposed block hash

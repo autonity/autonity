@@ -76,6 +76,7 @@ type FaultDetector struct {
 
 	wg               sync.WaitGroup
 	tendermintMsgSub *event.TypeMuxSubscription
+	messageEventCh   <-chan events.MessageEventer
 
 	txPool     *core.TxPool
 	ethBackend ethapi.Backend
@@ -121,6 +122,7 @@ func NewFaultDetector(
 	ethBackend ethapi.Backend,
 	nodeKey *ecdsa.PrivateKey,
 	protocolContracts *autonity.ProtocolContracts,
+	messageEventCh <-chan events.MessageEventer,
 	logger log.Logger) *FaultDetector {
 
 	txOpts, err := bind.NewKeyedTransactorWithChainID(nodeKey, chain.Config().ChainID)
@@ -139,6 +141,7 @@ func NewFaultDetector(
 		txOpts:                txOpts,
 		tendermintMsgSub:      sub,
 		ruleEngineBlockCh:     make(chan core.ChainEvent, 300),
+		messageEventCh:        messageEventCh, //todo size
 		accountabilityEventCh: make(chan *bindings.AccountabilityNewAccusation),
 		blockchain:            chain,
 		address:               nodeAddress,
@@ -188,7 +191,7 @@ func (fd *FaultDetector) consensusMsgHandlerLoop() {
 tendermintMsgLoop:
 	for {
 		select {
-		case ev, ok := <-fd.tendermintMsgSub.Chan():
+		case ev, ok := <-fd.messageEventCh:
 			if !ok {
 				break tendermintMsgLoop
 			}
@@ -199,8 +202,7 @@ tendermintMsgLoop:
 				continue tendermintMsgLoop
 			}
 			currentHeightRange := accountabilityParams.Range.Uint64() //nolint:typecheck
-			// handle consensus message or innocence proof messages
-			switch e := ev.Data.(type) {
+			switch e := ev.(type) {
 			case events.MessageEvent:
 				if IsHeightExpired(currentCoreHeight, e.Message().H(), currentHeightRange) {
 					fd.logger.Debug("Fault detector: discarding old message")
@@ -218,11 +220,11 @@ tendermintMsgLoop:
 					continue tendermintMsgLoop
 				}
 			case events.OldMessageEvent:
-				if IsHeightExpired(currentCoreHeight, e.Message.H(), currentHeightRange) {
+				if IsHeightExpired(currentCoreHeight, e.Message().H(), currentHeightRange) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
-				if err := fd.processMsg(e.Message); err != nil {
+				if err := fd.processMsg(e.Message()); err != nil {
 					if !errors.Is(err, errDuplicatedMsg) {
 						fd.logger.Warn("Fault detector: Detected faulty old message event", "err", err)
 					} else {
@@ -233,6 +235,14 @@ tendermintMsgLoop:
 					}
 					continue tendermintMsgLoop
 				}
+			}
+
+		case ev, ok := <-fd.tendermintMsgSub.Chan():
+			if !ok {
+				break tendermintMsgLoop
+			}
+			// handle consensus message or innocence proof messages
+			switch e := ev.Data.(type) {
 			case events.AccountabilityEvent:
 				err := fd.handleOffChainAccountabilityEvent(e.Payload, e.Sender)
 				if err != nil {
@@ -1442,13 +1452,8 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 
 func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error {
 	// skip process duplicated for votes.
-	// todo:(review) => this is very expensive, message hash search for every prevote over a height
-	// we should rather maintain a map of duplicates, for now modified to use linear search
-	allPrevotesInRound := fd.msgStore.GetPrevotesByRound(m.H(), m.R(), nil)
-	for _, storedPrevote := range allPrevotesInRound {
-		if storedPrevote.Hash() == m.Hash() {
-			return errDuplicatedMsg
-		}
+	if fd.msgStore.HasVote(m.H(), m.R(), m.Hash()) {
+		return errDuplicatedMsg
 	}
 
 	// account for equivocation for votes.
@@ -1459,8 +1464,9 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 	}
 
 	m.Signers().ForEachDistinctSigner(func(signerIndex int) {
-		for _, storedPrevote := range allPrevotesInRound {
-			if storedPrevote.Value() != m.Value() && storedPrevote.Signers().Contains(signerIndex) {
+		storedVotes := fd.msgStore.GetSignerPrevotesByRound(m.H(), m.R(), signerIndex)
+		for _, storedPrevote := range storedVotes {
+			if storedPrevote.Value() != m.Value() {
 				signer := committee.Members[signerIndex].Address
 				fd.submitMisbehavior(m, []message.Msg{storedPrevote}, errEquivocation, signerIndex, signer)
 				err = errEquivocation
@@ -1477,11 +1483,8 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 
 func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) error {
 	// skip process duplicated for votes.
-	allPrecommitsInRound := fd.msgStore.GetPrecommitsByRound(m.H(), m.R(), nil)
-	for _, storedPrecommit := range allPrecommitsInRound {
-		if storedPrecommit.Hash() == m.Hash() {
-			return errDuplicatedMsg
-		}
+	if fd.msgStore.HasVote(m.H(), m.R(), m.Hash()) {
+		return errDuplicatedMsg
 	}
 
 	// account for equivocation for votes.
@@ -1490,9 +1493,11 @@ func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) e
 	if err != nil {
 		panic(fmt.Sprintf("cannot get committee of height: %d", m.H()))
 	}
+
 	m.Signers().ForEachDistinctSigner(func(signerIndex int) {
-		for _, storedPrecommit := range allPrecommitsInRound {
-			if storedPrecommit.Value() != m.Value() && storedPrecommit.Signers().Contains(signerIndex) {
+		storedVotes := fd.msgStore.GetSignerPrecommitsByRound(m.H(), m.R(), signerIndex)
+		for _, storedPrecommit := range storedVotes {
+			if storedPrecommit.Value() != m.Value() {
 				signer := committee.Members[signerIndex].Address
 				fd.submitMisbehavior(m, []message.Msg{storedPrecommit}, errEquivocation, signerIndex, signer)
 				err = errEquivocation

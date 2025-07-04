@@ -71,11 +71,36 @@ func (m MessageEvent) ErrCh() chan<- error {
 	return m.errCh
 }
 
-// old messages are posted only to the fault detector
 type OldMessageEvent struct {
-	Message message.Msg
-	ErrCh   chan<- error
-	Sender  common.Address
+	message message.Msg
+	errCh   chan<- error
+	sender  common.Address
+	posted  time.Time
+}
+
+func NewOldMessageEvent(message message.Msg, errCh chan<- error, sender common.Address, posted time.Time) OldMessageEvent {
+	return OldMessageEvent{
+		message: message,
+		errCh:   errCh,
+		sender:  sender,
+		posted:  posted,
+	}
+}
+
+func (o OldMessageEvent) Message() message.Msg {
+	return o.message
+}
+
+func (o OldMessageEvent) Sender() common.Address {
+	return o.sender
+}
+
+func (o OldMessageEvent) Posted() time.Time {
+	return o.posted
+}
+
+func (o OldMessageEvent) ErrCh() chan<- error {
+	return o.errCh
 }
 
 type MessageEventer interface {
