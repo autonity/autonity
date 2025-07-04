@@ -23,6 +23,7 @@ import (
 
 const (
 	aggregationPeriod            = 150 * time.Millisecond
+	fastAggregationPeriod        = 30 * time.Millisecond
 	oldMessagesAggregationPeriod = 2 * time.Second
 	oldMessagesStatsPeriod       = 2 * time.Second
 )
@@ -72,11 +73,7 @@ func currentHeightEventBuilder(msg message.Msg, event events.UnverifiedMessageEv
 
 // function to create the event for old height messages (they get picked up only by the FD)
 func oldHeightEventBuilder(msg message.Msg, event events.UnverifiedMessageEvent) interface{} {
-	return events.OldMessageEvent{
-		Message: msg,
-		ErrCh:   event.ErrCh,
-		Sender:  event.Sender,
-	}
+	return events.NewOldMessageEvent(msg, event.ErrCh, event.Sender, time.Now())
 }
 
 // computes how much new voting power will the messages in the aggregator apport to core
@@ -95,16 +92,20 @@ func powerContribution(aggregatorSigners *big.Int, coreSigners *big.Int, committ
 	return contributionPower
 }
 
-func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger, knownMessages *fixsizecache.Cache[common.Hash, bool]) *aggregator {
+func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger, knownMessages *fixsizecache.Cache[common.Hash, bool], afdDispatchCh chan<- events.MessageEventer) *aggregator {
 	return &aggregator{
-		backend:       backend,
-		core:          core,
-		staleMessages: make(map[common.Hash][]events.UnverifiedMessageEvent),
-		messages:      make(map[uint64]map[int64]*RoundInfo),
-		logger:        logger,
-		messagesFrom:  make(map[common.Address][]common.Hash),
-		toIgnore:      make(map[common.Hash]struct{}),
-		knownMessages: knownMessages,
+		backend:          backend,
+		core:             core,
+		staleMessages:    make(map[common.Hash][]events.UnverifiedMessageEvent),
+		messages:         make(map[uint64]map[int64]*RoundInfo),
+		logger:           logger,
+		messagesFrom:     make(map[common.Address][]common.Hash),
+		toIgnore:         make(map[common.Hash]struct{}),
+		knownMessages:    knownMessages,
+		afdDispatchCh:    afdDispatchCh,
+		internalCoreCh:   make(chan events.MessageEventer, 1),
+		internalFdCh:     make(chan events.MessageEventer, 1),
+		signalFastTickCh: make(chan struct{}, 1),
 	}
 }
 
@@ -143,7 +144,7 @@ func (vc *valueCache) Add() {
 
 }
 
-func (vc *valueCache) HaveSuperSet() bool{
+func (vc *valueCache) HaveSuperSet() bool {
 	return false
 }
 
@@ -158,10 +159,14 @@ type aggregator struct {
 	toIgnore     map[common.Hash]struct{}
 
 	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
+	afdDispatchCh chan<- events.MessageEventer
 
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
-	logger log.Logger
+	internalCoreCh   chan events.MessageEventer
+	internalFdCh     chan events.MessageEventer
+	signalFastTickCh chan struct{} // todo(review) - a height specific loop may by
+	cancel           context.CancelFunc
+	wg               sync.WaitGroup
+	logger           log.Logger
 }
 
 func (a *aggregator) start(ctx context.Context) {
@@ -406,10 +411,19 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 
 	// fetch batch
 	switch c {
-	case message.PrevoteCode:
+	case message.PrevoteCode: //todo: identical code for preovote and precommit - refactor
 		batch, ok := roundInfo.prevotes[v]
 		if !ok {
 			return
+		}
+
+		// calcluate removed power so we don't have to recalcualte everything
+		removedPower := message.NewAggregatedPower()
+		for _, e := range batch {
+			vote := e.Message.(message.Vote)
+			for index, power := range vote.Signers().Powers() {
+				removedPower.Set(index, power)
+			}
 		}
 
 		a.processBatches([][]events.UnverifiedMessageEvent{batch}, currentHeightEventBuilder)
@@ -419,81 +433,113 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		delete(roundInfo.prevotesPowerFor, v)
 
 		// re-compute round power and prevote power
-		roundInfo.prevotesPower = message.NewAggregatedPower()
-		roundInfo.power = message.NewAggregatedPower()
+		//roundInfo.prevotesPower = message.NewAggregatedPower()
+		//roundInfo.power = message.NewAggregatedPower()
+
+		roundInfo.power.Subtract(removedPower)
+		roundInfo.prevotesPower.Subtract(removedPower)
 
 		// prevotes
-		for _, prevotesEvent := range roundInfo.prevotes {
-			for _, e := range prevotesEvent {
-				vote := e.Message.(message.Vote)
-				for index, power := range vote.Signers().Powers() {
-					roundInfo.power.Set(index, power)
-					roundInfo.prevotesPower.Set(index, power)
-				}
-			}
-		}
-
-		// precommits
-		for _, precommitsEvent := range roundInfo.precommits {
-			for _, e := range precommitsEvent {
-				vote := e.Message.(message.Vote)
-				for index, power := range vote.Signers().Powers() {
-					roundInfo.power.Set(index, power)
-				}
-			}
-		}
-
-		// proposals
-		for _, proposalEvent := range roundInfo.proposals {
-			proposal := proposalEvent.Message.(*message.Propose)
-			roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
-		}
+		//for _, prevotesEvent := range roundInfo.prevotes {
+		//	for _, e := range prevotesEvent {
+		//		vote := e.Message.(message.Vote)
+		//		for index, power := range vote.Signers().Powers() {
+		//			roundInfo.power.Set(index, power)
+		//			roundInfo.prevotesPower.Set(index, power)
+		//		}
+		//	}
+		//}
+		//
+		//// precommits
+		//for _, precommitsEvent := range roundInfo.precommits {
+		//	for _, e := range precommitsEvent {
+		//		vote := e.Message.(message.Vote)
+		//		for index, power := range vote.Signers().Powers() {
+		//			roundInfo.power.Set(index, power)
+		//		}
+		//	}
+		//}
+		//
+		//// proposals
+		//for _, proposalEvent := range roundInfo.proposals {
+		//	proposal := proposalEvent.Message.(*message.Propose)
+		//	roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
+		//}
 	case message.PrecommitCode:
 		batch, ok := roundInfo.precommits[v]
 		if !ok {
 			return
 		}
 
+		removedPower := message.NewAggregatedPower()
+		for _, e := range batch {
+			vote := e.Message.(message.Vote)
+			for index, power := range vote.Signers().Powers() {
+				removedPower.Set(index, power)
+			}
+		}
 		a.processBatches([][]events.UnverifiedMessageEvent{batch}, currentHeightEventBuilder)
 
 		// clean up
 		delete(roundInfo.precommits, v)
 		delete(roundInfo.precommitsPowerFor, v)
 
-		// re-compute round power and prevote power
-		roundInfo.precommitsPower = message.NewAggregatedPower()
-		roundInfo.power = message.NewAggregatedPower()
-
-		// prevotes
-		for _, prevotesEvent := range roundInfo.prevotes {
-			for _, e := range prevotesEvent {
-				vote := e.Message.(message.Vote)
-				for index, power := range vote.Signers().Powers() {
-					roundInfo.power.Set(index, power)
-				}
-			}
-		}
-
-		// precommits
-		for _, precommitsEvent := range roundInfo.precommits {
-			for _, e := range precommitsEvent {
-				vote := e.Message.(message.Vote)
-				for index, power := range vote.Signers().Powers() {
-					roundInfo.power.Set(index, power)
-					roundInfo.precommitsPower.Set(index, power)
-				}
-			}
-		}
-
-		// proposals
-		for _, proposalEvent := range roundInfo.proposals {
-			proposal := proposalEvent.Message.(*message.Propose)
-			roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
-		}
+		roundInfo.power.Subtract(removedPower)
+		roundInfo.precommitsPower.Subtract(removedPower)
+		//// re-compute round power and prevote power
+		//roundInfo.precommitsPower = message.NewAggregatedPower()
+		//roundInfo.power = message.NewAggregatedPower()
+		//
+		//// prevotes
+		//for _, prevotesEvent := range roundInfo.prevotes {
+		//	for _, e := range prevotesEvent {
+		//		vote := e.Message.(message.Vote)
+		//		for index, power := range vote.Signers().Powers() {
+		//			roundInfo.power.Set(index, power)
+		//		}
+		//	}
+		//}
+		//
+		//// precommits
+		//for _, precommitsEvent := range roundInfo.precommits {
+		//	for _, e := range precommitsEvent {
+		//		vote := e.Message.(message.Vote)
+		//		for index, power := range vote.Signers().Powers() {
+		//			roundInfo.power.Set(index, power)
+		//			roundInfo.precommitsPower.Set(index, power)
+		//		}
+		//	}
+		//}
+		//
+		//// proposals
+		//for _, proposalEvent := range roundInfo.proposals {
+		//	proposal := proposalEvent.Message.(*message.Propose)
+		//	roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
+		//}
 	default:
 		a.logger.Crit("Unexpected code", "c", c)
 	}
 
+}
+
+func (a *aggregator) DispatchCoreEvents() {
+	go func() {
+		for event := range a.internalCoreCh {
+			// This is the only place that blocks for the Core
+			if ev, ok := event.(events.MessageEvent); ok { // only new message events are send to core
+				a.backend.DispatchToCore(ev)
+			}
+		}
+	}()
+}
+
+func (a *aggregator) DispatchFaultDetectorEvents() {
+	go func() {
+		for event := range a.internalFdCh {
+			// This is the only place that blocks the fault detector
+			a.backend.DispatchToFD(event)
+		}
+	}()
 }
 
 // a batch is a set of messages for same (height,round,code,value) ---> can be aggregated using FastAggregateVerify
@@ -573,15 +619,15 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
-					go a.backend.MessageToCore(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
-					go a.backend.Post(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
+					a.internalCoreCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
+					a.internalFdCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
 				}
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
-					go a.backend.MessageToCore(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
-					go a.backend.Post(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
+					a.internalCoreCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
+					a.internalFdCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
 				}
 			default:
 				a.logger.Crit("messages being aggregated are not votes", "type", reflect.TypeOf(validVotes[0]))
@@ -603,8 +649,8 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent, eventer eventBuilder) {
 	proposal := proposalEvent.Message
 	// go routine for core event dispatch as well to avoid deadlock, there is loop between core and aggregator
-	go a.backend.MessageToCore(eventer(proposal, proposalEvent)) // to core
-	go a.backend.Post(eventer(proposal, proposalEvent))          // to FD
+	a.internalCoreCh <- eventer(proposal, proposalEvent).(events.MessageEventer)
+	a.internalFdCh <- eventer(proposal, proposalEvent).(events.MessageEventer)
 }
 
 // assumes current or old round vote
@@ -612,9 +658,9 @@ func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent
 // if add == false, the msg is not saved and only the power checks are done.
 func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committee *types.Committee, quorum *big.Int, add bool) {
 	vote := voteEvent.Message.(message.Vote)
-	errCh := voteEvent.ErrCh
-	sender := voteEvent.Sender
-
+	//errCh := voteEvent.ErrCh
+	//sender := voteEvent.Sender
+	//
 	height := vote.H()
 	round := vote.R()
 	code := vote.Code()
@@ -622,38 +668,52 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 
 	// complex aggregates always carry quorum (enforced at PreValidate)
 	// if we do not already have quorum in Core, process right away
-	coreVotesForPower := a.core.VotesPowerFor(height, round, code, value)
-	coreVotesPower := a.core.VotesPower(height, round, code)
-	if vote.Signers().IsComplex() && (coreVotesForPower.Power().Cmp(quorum) < 0 || coreVotesPower.Power().Cmp(quorum) < 0) {
-		if err := vote.Validate(); err != nil {
-			a.handleInvalidMessage(errCh, err, sender)
-			return
-		}
-		go a.backend.MessageToCore(currentHeightEventBuilder(voteEvent.Message, voteEvent)) // to core
-		go a.backend.Post(currentHeightEventBuilder(voteEvent.Message, voteEvent))          // to FD
-		return
-	}
+	//coreVotesForPower := a.core.VotesPowerFor(height, round, code, value)
+	//coreVotesPower := a.core.VotesPower(height, round, code)
+	//if vote.Signers().IsComplex() && (coreVotesForPower.Power().Cmp(quorum) < 0 || coreVotesPower.Power().Cmp(quorum) < 0) {
+	//	if err := vote.Validate(); err != nil {
+	//		a.handleInvalidMessage(errCh, err, sender)
+	//		return
+	//	}
+	//	a.internalCoreCh <- currentHeightEventBuilder(voteEvent.Message, voteEvent).(events.MessageEventer)
+	//	a.internalFdCh <- currentHeightEventBuilder(voteEvent.Message, voteEvent).(events.MessageEventer)
+	//	return
+	//}
 
 	if add {
 		a.saveMessage(voteEvent)
 	}
+	if height == a.core.Height().Uint64() && round == a.core.Round() {
+		// current Height/Round message
+		// we check if we are at 75% quorum post that we will switch to fast tick aggregation
+		fastAggregationThreshold := new(big.Int).Sub(quorum, big.NewInt(3)).Div(quorum, big.NewInt(4))
+		aggPower := a.votesPowerFor(height, round, code, value)
+		if aggPower.Power().Cmp(fastAggregationThreshold) > 0 && aggPower.Power().Cmp(quorum) < 0 {
+			select {
+			case a.signalFastTickCh <- struct{}{}:
+			default:
+				// a signal is already pending,  drop this
+			}
+		}
 
-	// check if we reached quorum voting power on a specific value
-	corePower := a.core.VotesPowerFor(height, round, code, value)
-	aggregatorPower := a.votesPowerFor(height, round, code, value)
-	contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
-	if corePower.Power().Cmp(quorum) < 0 && contribution.Add(contribution, corePower.Power()).Cmp(quorum) >= 0 {
-		a.processVotesFor(height, round, code, value)
-		return
 	}
 
-	// check if we reached quorum voting power in general
-	corePower = a.core.VotesPower(height, round, code)
-	aggregatorPower = a.votesPower(height, round, code)
-	contribution = powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
-	if corePower.Power().Cmp(quorum) < 0 && contribution.Add(contribution, corePower.Power()).Cmp(quorum) >= 0 {
-		a.processVotes(height, round, code)
-	}
+	//// check if we reached quorum voting power on a specific value
+	//corePower := a.core.VotesPowerFor(height, round, code, value)
+	//aggregatorPower := a.votesPowerFor(height, round, code, value)
+	//contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
+	//if corePower.Power().Cmp(quorum) < 0 && contribution.Add(contribution, corePower.Power()).Cmp(quorum) >= 0 {
+	//	a.processVotesFor(height, round, code, value)
+	//	return
+	//}
+	//
+	//// check if we reached quorum voting power in general
+	//corePower = a.core.VotesPower(height, round, code)
+	//aggregatorPower = a.votesPower(height, round, code)
+	//contribution = powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
+	//if corePower.Power().Cmp(quorum) < 0 && contribution.Add(contribution, corePower.Power()).Cmp(quorum) >= 0 {
+	//	a.processVotes(height, round, code)
+	//}
 }
 
 func (a *aggregator) toSkip(msg message.Msg) bool {
@@ -761,9 +821,13 @@ func (a *aggregator) oldHeightStats() {
 
 func (a *aggregator) loop(ctx context.Context) {
 	defer a.wg.Done()
+	a.DispatchCoreEvents()
+	a.DispatchFaultDetectorEvents()
 
-	ticker := time.NewTicker(aggregationPeriod)
-	defer ticker.Stop()
+	//ticker := time.NewTicker(aggregationPeriod)
+	//defer ticker.Stop()
+	aggTimer := time.NewTimer(aggregationPeriod)
+	defer aggTimer.Stop()
 	oldMessagesTicker := time.NewTicker(oldMessagesAggregationPeriod)
 	defer oldMessagesTicker.Stop()
 
@@ -900,7 +964,15 @@ loop:
 					FuturePowerBg.Add(time.Since(start).Nanoseconds())
 				}
 			}
-		case <-ticker.C:
+		case <-a.signalFastTickCh:
+			// this tick fires after we are about to meet quorum, this way the aggregation triggers fast which should quicly identify quorum
+			if !aggTimer.Stop() {
+				// Timer already fired and value is sitting in the channel
+				// to be picked, we drain this value and rely on the one we create now
+				<-aggTimer.C
+			}
+			aggTimer.Reset(fastAggregationPeriod)
+		case <-aggTimer.C:
 			coreHeight := a.core.Height().Uint64()
 
 			// process all messages in the aggregator
@@ -942,6 +1014,7 @@ loop:
 			// cleanup
 			clear(a.messagesFrom)
 			clear(a.toIgnore)
+			aggTimer.Reset(aggregationPeriod)
 		case <-oldMessagesTicker.C:
 			a.logger.Trace("Processing stale messages in the aggregator")
 			var batches [][]events.UnverifiedMessageEvent

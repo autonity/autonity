@@ -11,6 +11,7 @@ import (
 )
 
 type Signers struct {
+	//todo: review: consider making it a map, it should help in easy copying the object, we need not keep full committee always allocated
 	SignatureCounts []uint16 // support up to 65535 committee members
 
 	// these fields are not serialized, but instead computed at preValidate steps

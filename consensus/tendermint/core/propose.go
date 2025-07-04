@@ -138,7 +138,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			c.logger.Debug("delaying processing of proposal due to future timestamp", "delay", duration)
 			c.StopFutureProposalTimer()
 			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				go c.backend.MessageToCore(backlogMessageEvent{
+				go c.backend.DispatchToCore(backlogMessageEvent{
 					msg: proposal,
 				})
 			})
