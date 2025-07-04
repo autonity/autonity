@@ -761,14 +761,11 @@ func AggregateVotesSimple[
 	var aggr []*aggregate
 	for _, vote := range votes {
 		isRedundant := false
-		var targetAgg *aggregate
+		isMerged := false
 		for _, agg := range aggr {
 			if !vote.Signers().AddsInformation(agg.signers) {
 				isRedundant = true
 				break
-			}
-			if targetAgg == nil && agg.signers.CanMergeSimple(vote.Signers()) {
-				targetAgg = agg
 			}
 		}
 
@@ -776,11 +773,17 @@ func AggregateVotesSimple[
 			continue
 		}
 
-		if targetAgg != nil {
-			targetAgg.signers.Merge(vote.Signers())
-			targetAgg.signatures = append(targetAgg.signatures, vote.Signature())
-			targetAgg.publicKeys = append(targetAgg.publicKeys, vote.SignerKey())
-		} else {
+		for _, agg := range aggr {
+			if agg.signers.CanMergeSimple(vote.Signers()) {
+				agg.signers.Merge(vote.Signers())
+				agg.signatures = append(agg.signatures, vote.Signature())
+				agg.publicKeys = append(agg.publicKeys, vote.SignerKey())
+				isMerged = true
+				break
+			}
+		}
+
+		if !isMerged {
 			newAgg := &aggregate{
 				signers:    vote.Signers().Copy(),
 				signatures: []blst.Signature{vote.Signature()},
@@ -847,6 +850,7 @@ func AggregateVotesSimple[
 	aggregateVotesCounter.Inc(int64(len(aggregateVotes)))
 	return aggregateVotes
 }
+
 
 func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	payload, err := s.Raw()
