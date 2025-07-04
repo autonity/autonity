@@ -109,7 +109,8 @@ type FaultDetector struct {
 
 	logger log.Logger
 
-	scanned map[uint64]struct{}
+	scanned     map[uint64]struct{}
+	saveQueueCh chan message.Msg
 }
 
 // NewFaultDetector call by ethereum object to create fd instance.
@@ -152,6 +153,7 @@ func NewFaultDetector(
 		misbehaviourProofCh:   make(chan *bindings.IAccountabilityEvent, 100),
 		logger:                logger, // Todo(youssef): remove context
 		scanned:               make(map[uint64]struct{}),
+		saveQueueCh:           make(chan message.Msg, 500), // save queue for messages
 	}
 	// use ChainEvent instead of ChainHeadEvent as we want the relative select cases to ran at every single block.
 	// ChainHeadEvent might be fired a single time for a batch of inserted blocks.
@@ -169,6 +171,21 @@ func NewFaultDetector(
 	return fd
 }
 
+func (fd *FaultDetector) msgStoreLoop() {
+saverLoop:
+	for {
+		select {
+		case msg, ok := <-fd.saveQueueCh:
+			if !ok {
+				break saverLoop
+			}
+			fd.msgStore.Save(msg)
+		case <-fd.stopRetry:
+			break saverLoop
+		}
+	}
+}
+
 // Start listen for new block events from blockchain, do the tasks like take challenge and provide Proof for innocent, the
 // Fault Detector rule engine could also trigger from here to scan those msgs of msg store by applying rules.
 // TODO: should we start accountability module only once we are in sync with the chain? Right now it is started when the node starts.
@@ -177,6 +194,7 @@ func (fd *FaultDetector) Start() {
 	go fd.eventReporter()
 	go fd.ruleEngine()
 	go fd.consensusMsgHandlerLoop()
+	go fd.msgStoreLoop()
 }
 
 func IsHeightExpired(coreHeight uint64, height uint64, heightRange uint64) bool {
@@ -465,6 +483,7 @@ func (fd *FaultDetector) Stop() {
 	fd.chainEventSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
 	fd.accountabilityEventSub.Unsubscribe()
+	close(fd.saveQueueCh)
 	close(fd.stopRetry)
 	close(fd.eventReporterCh)
 	fd.wg.Wait()
@@ -770,10 +789,51 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum *big.Int, comm
 	// We should be here at time t = timestamp(h+1) + delta
 	// In this rule engine context, the symbol `pi` stands for a consensus participant with unique identity `i`.
 
-	proofs = append(proofs, fd.newProposalsAccountabilityCheck(height)...)
-	proofs = append(proofs, fd.oldProposalsAccountabilityCheck(height, quorum)...)
-	proofs = append(proofs, fd.prevotesAccountabilityCheck(height, quorum, committee)...)
-	proofs = append(proofs, fd.precommitsAccountabilityCheck(height, quorum, committee)...)
+	wg := &sync.WaitGroup{}
+	mu := sync.Mutex{}
+	wg.Add(4)
+	go func() {
+		defer wg.Done()
+		newProposalProofs := fd.newProposalsAccountabilityCheck(height)
+		if len(newProposalProofs) > 0 {
+			mu.Lock()
+			proofs = append(proofs, newProposalProofs...)
+			mu.Unlock()
+		}
+	}()
+	// Run Old Proposals check in parallel
+	go func() {
+		defer wg.Done()
+		oldProposalProofs := fd.oldProposalsAccountabilityCheck(height, quorum)
+		if len(oldProposalProofs) > 0 {
+			mu.Lock()
+			proofs = append(proofs, oldProposalProofs...)
+			mu.Unlock()
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		prevoteProofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
+		if len(prevoteProofs) > 0 {
+			mu.Lock()
+			proofs = append(proofs, prevoteProofs...)
+			mu.Unlock()
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		precommitProofs := fd.precommitsAccountabilityCheck(height, quorum, committee)
+		if len(precommitProofs) > 0 {
+			mu.Lock()
+			proofs = append(proofs, precommitProofs...)
+			mu.Unlock()
+		}
+	}()
+	wg.Wait()
+	//proofs = append(proofs, fd.newProposalsAccountabilityCheck(height)...)
+	//proofs = append(proofs, fd.oldProposalsAccountabilityCheck(height, quorum)...)
+	//proofs = append(proofs, fd.prevotesAccountabilityCheck(height, quorum, committee)...)
+	//proofs = append(proofs, fd.precommitsAccountabilityCheck(height, quorum, committee)...)
 	return proofs
 }
 
@@ -1443,10 +1503,11 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 		}
 		fd.submitMisbehavior(message.NewLightProposal(proposal), equivocatedMsgs, errEquivocation, proposal.SignerIndex(), proposal.Signer())
 		// we allow the equivocated msg to be stored in msg store.
-		fd.msgStore.Save(proposal)
+		fd.saveQueueCh <- proposal
 		return errEquivocation
 	}
-	fd.msgStore.Save(proposal)
+	fd.saveQueueCh <- proposal
+
 	return nil
 }
 
@@ -1477,7 +1538,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 		}
 	})
 
-	fd.msgStore.Save(m)
+	fd.saveQueueCh <- m
 	return err
 }
 
@@ -1508,7 +1569,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) e
 		}
 	})
 
-	fd.msgStore.Save(m)
+	fd.saveQueueCh <- m
 	return err
 }
 
