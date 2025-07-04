@@ -524,10 +524,16 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 
 func (a *aggregator) DispatchCoreEvents() {
 	go func() {
-		for event := range a.internalCoreCh {
-			// This is the only place that blocks for the Core
-			if ev, ok := event.(events.MessageEvent); ok { // only new message events are send to core
-				a.backend.DispatchToCore(ev)
+		for {
+			select {
+			case event, ok := <-a.internalCoreCh:
+				if !ok {
+					return
+				}
+				// This is the only place that blocks for the Core
+				if ev, ok := event.(events.MessageEvent); ok { // only new message events are send to core
+					a.backend.DispatchToCore(ev)
+				}
 			}
 		}
 	}()
@@ -535,9 +541,15 @@ func (a *aggregator) DispatchCoreEvents() {
 
 func (a *aggregator) DispatchFaultDetectorEvents() {
 	go func() {
-		for event := range a.internalFdCh {
-			// This is the only place that blocks the fault detector
-			a.backend.DispatchToFD(event)
+		for {
+			select {
+			case event, ok := <-a.internalFdCh:
+				if !ok {
+					return
+				}
+				// This is the only place that blocks the fault detector
+				a.backend.DispatchToFD(event)
+			}
 		}
 	}()
 }
@@ -1044,5 +1056,7 @@ loop:
 func (a *aggregator) stop() {
 	a.logger.Info("Stopping the aggregator routine")
 	a.cancel()
+	close(a.internalFdCh)
+	close(a.internalCoreCh)
 	a.wg.Wait()
 }
