@@ -189,58 +189,13 @@ func safeTestBytes(p []byte) bool {
 }
 
 // returns the number of 1 bits in `n` at lower positions than the LSB of `c`
-// where the set of 1 bits in `c` excluding the LSB must be a subset of set of 1 bits in `n`.
-// the caller is responsible to make sure the mentioned condition is true.
-func OnesCountLowerLSB8(n, c uint8) int {
-	if c == 0 {
-		return 0
-	}
-	// remove all 1 bits from `n` which are common with `c`
-	commonBitsRemoved := n ^ c
-	// `commonBitsRemoved` has all the 1 bits of `n` which are not present in `c`
-
-	// all the positions in `commonBitsRemoved` which are lower than the LSB of `c`
-	// have 1 only if `n` has 1 in those positions
-
-	// so we need to know the count of 1 bits in `commonBitsRemoved` at lower positions
-	// than the LSB of `c`
-
-	// `commonBitsRemoved` and `c` have no 1 bits in common or have exaclty one in common
-	// at the position of the LSB of `c`
-
-	// for example, if `n = 10101100` and `c = 10001000` (`c` is a subset of `n`),
-	// then `commonBitsRemoved = 00100100` (no 1 bit common between `c` and `commonBitsRemoved`)
-	// again, if `n = 10101100` and `c = 00110000` (`c`, excluding LSB, is a subset of `n`),
-	// then `commonBitsRemoved = 10011100` (only the LSB of `c` is common between `c` and `commonBitsRemoved`)
-
-	onlyLowerBits := commonBitsRemoved & (c - 1)
-	// all the positions in `c-1` which are lower than the LSB of `c` have 1
-	// and all the positions in `c-1` which greater than the LSB of `c`
-	// have the same bit as `c` in those positions. `c-1` has 0 in the position
-	// of the LSB of `c`.
-
-	// for example if `c = 10100110000`, then `c-1 = 10100101111`
-
-	// As `commonBitsRemoved` and `c` have no common 1 bits except LSB,
-	// `commonBitsRemoved` and `c-1` have common bits only in the
-	// lower positions than the LSB of `c`, because all the positions in `c-1`
-	// which are lower than the LSB of `c` has 1.
-
-	// Again `onlyLowerBits` is a subset of both `commonBitsRemoved` and `c-1`
-	// i.e. `onlyLowerBits` only has the common bits of `commonBitsRemoved` and `c-1`
-
-	// Now, because all the positions in `c-1` which are greater than or equal to the LSB of `c`
-	// have no common 1 bits with `commonBitsRemoved`, `onlyLowerBits` has 0 in all those
-	// positions. And because all the positions in `c-1` which are lower than the LSB of `c` have 1,
-	// `onlyLowerBits` has 1 in those positions only if `commonBitsRemoved` has 1 in those positions
-
-	// So we just need to count the 1 bits in the whole number `onlyLowerBits`
-	return bits.OnesCount8(onlyLowerBits)
+func ByteOnesCountLowerLSB(n, c uint8) int {
+	return ByteOnesCountLowerIndex(n, ByteLSBPosition(n))
 }
 
 // returns the number of 1 bits in `n` at lower positions than the `index`
-func OnesCountBeforeIndex8(n, index uint8) int {
-	if index == 0 {
+func ByteOnesCountLowerIndex(n uint8, index int) int {
+	if index <= 0 {
 		return 0
 	}
 	if index > 7 {
@@ -248,4 +203,21 @@ func OnesCountBeforeIndex8(n, index uint8) int {
 	}
 	// take only the bits at lower positions than the `index`
 	return bits.OnesCount8(n & (1 << index))
+}
+
+func ByteLSBPosition(n uint8) int {
+	if n == 0 {
+		return -1
+	}
+	// remove everything but LSB of the `n`
+
+	// also add 1 bit to all the positions in `n` which are
+	// lower than the LSB, i.e., calculate `pow(2,x+1) - 1`,
+	// where `x` is the position of the LSB of `n`
+	lsbBecomesMSB := n ^ (n - 1)
+
+	// we want to know `x`
+
+	// because `lsbBecomesMSB = pow(2,x+1) - 1`, it has `x+1` 1 bits
+	return bits.OnesCount8(lsbBecomesMSB) - 1
 }
