@@ -774,15 +774,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) []*E {
 		publicKeys[index] = append(publicKeys[index], vote.SignerKey())
 		voteDistributed[index] = append(voteDistributed[index], vote)
 
-		// `signers.Merge` will iterate over the other object. So megre the smaller object into the larger one.
-		// This will give an approximate total runtime complexity of `O(n * logn)`, where n = number of total elements
-		// in all the signers combined
-		if aggregateSigners[index].Len() < vote.Signers().Len() {
-			vote.Signers().Merge(aggregateSigners[index])
-			aggregateSigners[index] = vote.Signers()
-		} else {
-			aggregateSigners[index].Merge(vote.Signers())
-		}
+		aggregateSigners[index].Merge(vote.Signers())
 	}
 
 	aggregates := make([]*E, 0, len(aggregateSigners))

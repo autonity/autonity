@@ -105,7 +105,7 @@ func (vb validatorBitmap) HasSigner(validatorIndex int) bool {
 
 	// because of the constant `bitsPerValidator = 1`, each validator takes a single bit
 	// we just need to check if the bit is 1 or 0
-	// note that the bits are numbered from LSB to MSB (in both `HasSigner` and `SetSigner`)
+	// note that the bits are numbered from LSB to MSB (in both `HasSigner` and `setSigner`)
 	return vb.hasBit(byteIndex, bitIndex)
 }
 
@@ -132,12 +132,12 @@ func (vb validatorBitmap) hasBit(byteIndex, bitIndex int) bool {
 // NOTE: be careful when calling directly this function without passing through the `increment` function.
 // this function will not invalidate any cache, it is just a naive setter
 // this function needs to be modified if the constant `validatorsPerByte` is changed
-func (vb validatorBitmap) SetSigner(validatorIndex int) {
+func (vb validatorBitmap) setSigner(validatorIndex int) {
 	byteIndex, bitIndex := indexToBitMapPosition(validatorIndex)
 
 	// because of the constant `bitsPerValidator = 1`, each validator takes a single bit
 	// we just need to set 1 in `bitIndex`
-	// note that the bits are numbered from LSB to MSB (in both `HasSigner` and `SetSigner`)
+	// note that the bits are numbered from LSB to MSB (in both `HasSigner` and `setSigner`)
 	vb.setBit(byteIndex, bitIndex)
 }
 
@@ -524,7 +524,7 @@ func (s *SignersBase[T]) Copy() *SignersBase[T] {
 		committeeSize:  s.committeeSize,
 		length:         s.length,
 		powers:         powers,
-		power:          s.power,
+		power:          new(big.Int).Set(s.power),
 		validated:      s.validated,
 		powerAssigned:  s.powerAssigned,
 	}
@@ -617,6 +617,9 @@ func (s *SignersBase[T]) AggregatePublicKey(keys []blst.PublicKey) blst.PublicKe
 }
 
 func (s *SignersBase[T]) aggregatePublicKey(keys []blst.PublicKey, maxCoefficient T) blst.PublicKey {
+	if len(keys) != s.length {
+		panic("invalid public key length")
+	}
 
 	var bitsEntropy int
 	if reflect.TypeOf(maxCoefficient) == reflect.TypeOf(uint16(0)) {
@@ -641,23 +644,14 @@ func (s *SignersBase[T]) ToBlstScalars() []*blstbind.Scalar {
 
 func (s *SignersBase[T]) toBlstScalars() []*blstbind.Scalar {
 	scalars := make([]*blstbind.Scalar, 0, len(s.Coefficients))
-	isSmallData := false
-	var bytes []byte
-	if reflect.TypeOf(s.maxCoefficient) == reflect.TypeOf(uint16(0)) {
-		isSmallData = true
-		bytes = make([]byte, 2)
-	} else {
-		bytes = make([]byte, 4)
-	}
+	// always use 32 bytes, otherwise it breaks
+	bytes := make([]byte, 32)
 
 	for _, c := range s.Coefficients {
-		if isSmallData {
-			binary.BigEndian.PutUint16(bytes, uint16(c))
-		} else {
-			binary.BigEndian.PutUint32(bytes, uint32(c))
-		}
+		// use little endian, as these coefficients need to multiplied as they are
+		binary.LittleEndian.PutUint32(bytes, uint32(c))
 		scalar := new(blstbind.Scalar)
-		scalar.FromBEndian(bytes)
+		scalar.FromLEndian(bytes)
 		scalars = append(scalars, scalar)
 	}
 	return scalars
