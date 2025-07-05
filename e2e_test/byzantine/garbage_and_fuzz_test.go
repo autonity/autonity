@@ -135,7 +135,7 @@ func (c *fuzzPrecommitSender) SendPrecommit(_ context.Context, isNil bool) {
 		precommit = message.NewPrecommit(r, h, randHash(), c.Backend().Sign, self, csize)
 	}
 	for i := 0; i < rand.Intn(10); i++ {
-		precommit.Signers().Increment(&types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1})
+		precommit.Signers().AddMember(&types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1})
 	}
 	c.SetSentPrecommit(true)
 	c.Backend().Gossip(c.CommitteeSet().Committee(), precommit)
@@ -185,7 +185,7 @@ func (c *fuzzPrevoter) SendPrevote(_ context.Context, isNil bool) {
 		prevote = message.NewPrevote(r, h, randHash(), c.Backend().Sign, self, csize)
 	}
 	for i := 0; i < rand.Intn(10); i++ {
-		prevote.Signers().Increment(&types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1})
+		prevote.Signers().AddMember(&types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1})
 	}
 	c.SetSentPrevote(true)
 	c.Backend().Gossip(c.CommitteeSet().Committee(), prevote)
