@@ -4,23 +4,22 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math"
 	"math/big"
 	"sort"
 	"sync"
 	"time"
 
-	"github.com/autonity/autonity/autonity/bindings"
-
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	engineCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
@@ -531,7 +530,6 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof, committee *types.Committee) 
 	evidences := make([]message.Msg, 1)
 	evidences[0] = prevotesForV[0]
 	if len(prevotesForV) > 1 {
-		// TODO: fix, create quorum signers instead
 		evidences[0] = AggregateSamePrevotes(prevotesForV)
 	}
 	p := fd.eventFromProof(&Proof{
@@ -576,7 +574,6 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof, committee *types.Committee) 
 	evidences := make([]message.Msg, 1)
 	evidences[0] = prevotes[0]
 	if len(prevotes) > 1 {
-		// TODO: fix, create quorum signers instead
 		evidences[0] = AggregateSamePrevotes(prevotes)
 	}
 
@@ -649,7 +646,6 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof, committee *types.Committee)
 	evidences := make([]message.Msg, 1)
 	evidences[0] = prevotes[0]
 	if len(prevotes) > 1 {
-		// TODO: fix, create quorum signers instead
 		evidences[0] = AggregateSamePrevotes(prevotes)
 	}
 
@@ -874,7 +870,6 @@ oldProposalLoop:
 			evidences := make([]message.Msg, 1)
 			evidences[0] = alternativeQuorum[0]
 			if len(alternativeQuorum) > 1 {
-				// TODO: fix, create quorum signers instead
 				evidences[0] = AggregateSamePrevotes(alternativeQuorum)
 			}
 
@@ -1058,6 +1053,7 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 
 				// check for equivocation. If present, bail out on the checking of this rule. Remote peer has already been punished for equivocation
 				precommitsAtRPrime := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
+					// TODO: shouldn't we exclude `m` if `m.Value() == nil`
 					return m.R() == pc.R() && m.Signers().Contains(signerIndex) && m.Value() != pc.Value()
 				})
 				if len(precommitsAtRPrime) > 0 {
@@ -1128,7 +1124,6 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		evidences := make([]message.Msg, 1)
 		evidences[0] = alternativeQuorum[0]
 		if len(alternativeQuorum) > 1 {
-			// TODO: fix, create quorum signers instead
 			evidences[0] = AggregateSamePrevotes(alternativeQuorum)
 		}
 
@@ -1286,7 +1281,6 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 				evidences := make([]message.Msg, 1)
 				evidences[0] = alternativeQuorum[0]
 				if len(alternativeQuorum) > 1 {
-					// TODO: fix, create quorum signers instead
 					evidences[0] = AggregateSamePrevotes(alternativeQuorum)
 				}
 
