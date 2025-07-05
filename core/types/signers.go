@@ -421,6 +421,40 @@ func (s *SignersBase[T]) addOrUpdate(
 	s.power.Add(s.power, votingPower)
 }
 
+// this function adds `index` in signer `s`. It assumes the signer is prevalidated.
+// The caller is responsible to check so the coefficient doesn't overflow.
+func (s *SignersBase[T]) increment(index int, coefficient T, votingPower *big.Int) {
+
+	count := 0 // count of signers present before `index`
+
+	byteIndex, bitIndex := indexToBitMapPosition(index)
+	// count the number of signers present before `byteIndex`
+	for i := 0; i < byteIndex; i++ {
+		count += bits.OnesCount8(s.Bits[i])
+	}
+
+	// now count the number of signers in `byteIndex` before `bitIndex`
+	count += s.signerCountBeforeIndex(byteIndex, bitIndex)
+
+	s.addOrUpdate(byteIndex, bitIndex, count, index, coefficient, votingPower)
+}
+
+// This function adds the `member` in signer `s`. This function assumes that `member` is absent in signer `s`.
+// The caller is responsible to check if `member` is already present in `s` or not.
+func (s *SignersBase[T]) AddMember(member *CommitteeMember) {
+	if !s.validated {
+		panic("Using un-validated signers information")
+	}
+	if !s.powerAssigned {
+		panic("Power has not been assigned in signers information")
+	}
+	if int(member.Index) >= s.committeeSize {
+		panic("trying to increment signer information of non-existent committee member")
+	}
+
+	s.increment(int(member.Index), 1, member.VotingPower)
+}
+
 // Iterates over the signers present in `other` and merge it with `s`.
 // It assumes that they are mergeable. The caller is responsible to check
 // so that coefficient overflow does not happen and the merge increases the total power in `s`.
@@ -677,40 +711,6 @@ func NewVoteSigners(committeeSize int) *VoteSigners {
 			maxCoefficient: 0,
 		},
 	}
-}
-
-// this function adds `index` in signer `s`. It assumes the signer is prevalidated.
-// The caller is responsible to check so the coefficient doesn't overflow.
-func (s *VoteSigners) increment(index int, coefficient uint16, votingPower *big.Int) {
-
-	count := 0 // count of signers present before `index`
-
-	byteIndex, bitIndex := indexToBitMapPosition(index)
-	// count the number of signers present before `byteIndex`
-	for i := 0; i < byteIndex; i++ {
-		count += bits.OnesCount8(s.Bits[i])
-	}
-
-	// now count the number of signers in `byteIndex` before `bitIndex`
-	count += s.signerCountBeforeIndex(byteIndex, bitIndex)
-
-	s.addOrUpdate(byteIndex, bitIndex, count, index, coefficient, votingPower)
-}
-
-// This function adds the `member` in signer `s`. This function assumes that `member` is absent in signer `s`.
-// The caller is responsible to check if `member` is already present in `s` or not.
-func (s *VoteSigners) AddMember(member *CommitteeMember) {
-	if !s.validated {
-		panic("Using un-validated signers information")
-	}
-	if !s.powerAssigned {
-		panic("Power has not been assigned in signers information")
-	}
-	if int(member.Index) >= s.committeeSize {
-		panic("trying to increment signer information of non-existent committee member")
-	}
-
-	s.increment(int(member.Index), 1, member.VotingPower)
 }
 
 type QuorumSigners struct {

@@ -188,9 +188,9 @@ func safeTestBytes(p []byte) bool {
 	return false
 }
 
-// returns the number of 1 bits in `n` at lower positions than the LSB of `c`
-func ByteOnesCountLowerLSB(n, c uint8) int {
-	return ByteOnesCountLowerIndex(n, ByteLSBPosition(n))
+// returns the number of 1 bits in `n` at lower positions than the LSB of `l`
+func ByteOnesCountLowerLSB(n, l uint8) int {
+	return ByteOnesCountLowerIndex(n, ByteLSBPosition(l))
 }
 
 // returns the number of 1 bits in `n` at lower positions than the `index`
