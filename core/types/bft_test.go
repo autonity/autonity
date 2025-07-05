@@ -37,8 +37,8 @@ func TestHeaderHash(t *testing.T) {
 	quorumCertificate := &AggregateSignature{}
 	testKey, _ := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
 	quorumCertificate.Signature = testKey.Sign([]byte("0xcafe")).(*blst.BlsSignature)
-	quorumCertificate.Signers = NewSigners(1)
-	quorumCertificate.Signers.increment(0)
+	quorumCertificate.Signers = newQuorumSigners(1)
+	quorumCertificate.Signers.increment(0, 0, common.Big0)
 
 	activityProof := quorumCertificate.Copy()
 

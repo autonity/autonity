@@ -114,7 +114,7 @@ func TestMessageSetAggregationAndPower(t *testing.T) {
 
 	// add an aggregate that cannot be merged with the previous one
 
-	aggregate := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize), NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)})
+	aggregate := AggregatePrevotes([]Vote{NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize), NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)})
 	ms.Add(aggregate[0])
 
 	require.Equal(t, common.Big5, ms.TotalPower().Power())
@@ -250,7 +250,7 @@ func TestAddReturnValue(t *testing.T) {
 	require.True(t, ms.Add(vote2))
 
 	// add another aggregate
-	aggregate := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize), NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)})
+	aggregate := AggregatePrevotes([]Vote{NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize), NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)})
 	require.True(t, ms.Add(aggregate[0]))
 
 	// redundant vote

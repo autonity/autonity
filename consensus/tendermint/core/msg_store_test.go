@@ -62,7 +62,9 @@ func TestMsgStore(t *testing.T) {
 		}
 
 		aggVote := message.AggregatePrevotes(prevotes)
-		ms.Save(aggVote)
+		for _, vote := range aggVote {
+			ms.Save(vote)
+		}
 
 		// for every account, they have the prevote saved.
 		for i, member := range committee.Members {

@@ -8,7 +8,10 @@ package bitutil
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // Tests that bitwise XOR works for various alignments.
@@ -110,6 +113,108 @@ func TestTest(t *testing.T) {
 			t.Error("not equal")
 		}
 	}
+}
+
+func testLSBPosition[T uint8 | uint16 | uint32](
+	t *testing.T,
+	maxPosition, maxNumber int,
+	tester func(n T) int,
+) {
+	require.Equal(t, tester(0), -1)
+	for lsbPos := range maxPosition {
+		lsb := 1 << lsbPos
+		for n := range maxNumber {
+			num := lsb | (n << (lsbPos + 1))
+			require.Equal(t, tester(T(num)), lsbPos)
+		}
+	}
+}
+
+func testMSBPosition[T uint8 | uint16 | uint32](
+	t *testing.T,
+	maxPosition, maxNumber int,
+	tester func(n T) int,
+) {
+	require.Equal(t, tester(0), -1)
+	for msbPos := range maxPosition {
+		msb := 1 << msbPos
+		for n := range min(msb, maxNumber) {
+			num := msb | n
+			require.Equal(t, tester(T(num)), msbPos)
+		}
+	}
+}
+
+func TestBitPosition(t *testing.T) {
+	t.Run("test ByteLSBPosition", func(t *testing.T) {
+		maxUint8 := (1 << 8) - 1
+		testLSBPosition(t, 8, maxUint8, ByteLSBPosition)
+	})
+
+	maxUint16 := (1 << 16) - 1
+	t.Run("test Uint16LSBPosition", func(t *testing.T) {
+		testLSBPosition(t, 16, maxUint16, Uint16LSBPosition)
+	})
+
+	t.Run("test Uint32LSBPosition", func(t *testing.T) {
+		// cannot test for maxUint32
+		testLSBPosition(t, 32, maxUint16, Uint32LSBPosition)
+	})
+
+	t.Run("test Uint16MSBPosition", func(t *testing.T) {
+		testMSBPosition(t, 16, maxUint16, Uint16MSBPosition)
+	})
+
+	t.Run("test Uint32MSBPosition", func(t *testing.T) {
+		// cannot test for maxUint32
+		testMSBPosition(t, 32, maxUint16, Uint32MSBPosition)
+	})
+}
+
+func TestOnesCount(t *testing.T) {
+	bitCounter := func(n, l uint) int {
+		if l == 0 {
+			return 0
+		}
+		count := 0
+		for lowerBit := 0; ; lowerBit++ {
+			if (l & (1 << lowerBit)) > 0 {
+				break
+			}
+			if ((1 << lowerBit) & n) > 0 {
+				count++
+			}
+		}
+		return count
+	}
+
+	maxUint8 := (1 << 8) - 1
+
+	t.Run("test ByteOnesCountLowerIndex", func(t *testing.T) {
+		for n := range maxUint8 {
+			require.Equal(t, ByteOnesCountLowerIndex(uint8(n), -1), 0)
+			for index := range 9 {
+				require.Equal(
+					t,
+					bitCounter(uint(n), 1<<index),
+					ByteOnesCountLowerIndex(uint8(n), index),
+				)
+			}
+		}
+	})
+
+	t.Run("test ByteOnesCountLowerLSB", func(t *testing.T) {
+		for n := range maxUint8 {
+			for l := range maxUint8 {
+				fmt.Printf("n %v , l %v\n", n, l)
+				require.Equal(
+					t,
+					bitCounter(uint(n), uint(l)),
+					ByteOnesCountLowerLSB(uint8(n), uint8(l)),
+				)
+			}
+		}
+	})
 }
 
 // Benchmarks the potentially optimized XOR performance.
