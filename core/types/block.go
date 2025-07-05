@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/bitutil"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/crypto"
@@ -204,11 +203,7 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 	for i, index := range indexes {
 		keys[i] = committee.Members[index].ConsensusKey
 	}
-	aggregatedKey := blst.AggregatePublicKeysMultScalars(
-		keys,
-		a.Signers.toBlstScalars(),
-		bitutil.Uint32MSBPosition(maxCoefficient)+1,
-	)
+	aggregatedKey := a.Signers.aggregatePublicKey(keys, maxCoefficient)
 	if !aggregatedKey.Validate() {
 		log.Warn("aggregated public key from committee is zero! Please report the issue!", "signers", a.Signers.String())
 	}

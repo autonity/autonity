@@ -8,9 +8,10 @@ import (
 	"math/bits"
 	"reflect"
 
-	blst "github.com/supranational/blst/bindings/go"
+	blstbind "github.com/supranational/blst/bindings/go"
 
 	"github.com/autonity/autonity/common/bitutil"
+	"github.com/autonity/autonity/crypto/blst"
 )
 
 const (
@@ -54,73 +55,6 @@ var (
 * coefficients   17 170
 * #sigs          0  17 2  1  0  170
  */
-
-type VoteSigners struct {
-	*SignersBase[uint16]
-}
-
-type QuorumSigners struct {
-	*SignersBase[uint32]
-}
-
-// it should support `VoteSigners` for `T = uint16` and `QuorumSigners` for `T = uint32`
-type SignersBase[T uint16 | uint32] struct {
-	Bits         validatorBitmap
-	Coefficients []T // support up to 65535 committee members
-
-	// these fields are not serialized, but instead computed at preValidate steps
-	committeeSize  int              `rlp:"-"`
-	length         int              `rlp:"-"` // number of distinct signers
-	powers         map[int]*big.Int `rlp:"-"`
-	power          *big.Int         `rlp:"-"` // aggregated power of all senders
-	maxCoefficient T                `rlp:"-"`
-
-	// auxiliary data structures flags
-	validated     bool `rlp:"-"` // if true --> Bits and Coefficients have correct length + committeeSize and length is assigned
-	powerAssigned bool `rlp:"-"` // if true --> powers and power assigned
-}
-
-func NewVoteSigners(committeeSize int) *VoteSigners {
-	if committeeSize > maxUint16 {
-		panic("Unsupported committee size")
-	}
-	return &VoteSigners{
-		SignersBase: &SignersBase[uint16]{
-			Bits:          NewValidatorBitmap(committeeSize),
-			committeeSize: committeeSize,
-
-			length:        0,
-			powers:        make(map[int]*big.Int),
-			power:         new(big.Int),
-			validated:     true,
-			powerAssigned: true, // when we are locally creating a sender info, we are ok with power being 0 initially
-
-			Coefficients:   make([]uint16, 0),
-			maxCoefficient: 0,
-		},
-	}
-}
-
-func NewQuorumSigners(committeeSize int) *QuorumSigners {
-	if committeeSize > maxUint16 {
-		panic("Unsupported committee size")
-	}
-	return &QuorumSigners{
-		SignersBase: &SignersBase[uint32]{
-			Bits:          NewValidatorBitmap(committeeSize),
-			committeeSize: committeeSize,
-
-			length:        0,
-			powers:        make(map[int]*big.Int),
-			power:         new(big.Int),
-			validated:     true,
-			powerAssigned: true, // when we are locally creating a sender info, we are ok with power being 0 initially
-
-			Coefficients:   make([]uint32, 0),
-			maxCoefficient: 0,
-		},
-	}
-}
 
 type validatorBitmap []byte
 
@@ -209,6 +143,42 @@ func (vb validatorBitmap) SetSigner(validatorIndex int) {
 
 func (vb validatorBitmap) setBit(byteIndex, bitIndex int) {
 	vb[byteIndex] = vb[byteIndex] | (1 << bitIndex)
+}
+
+// it should support `VoteSigners` for `T = uint16` and `QuorumSigners` for `T = uint32`
+type SignersBase[T uint16 | uint32] struct {
+	Bits         validatorBitmap
+	Coefficients []T // support up to 65535 committee members
+
+	// these fields are not serialized, but instead computed at preValidate steps
+	committeeSize  int              `rlp:"-"`
+	length         int              `rlp:"-"` // number of distinct signers
+	powers         map[int]*big.Int `rlp:"-"`
+	power          *big.Int         `rlp:"-"` // aggregated power of all senders
+	maxCoefficient T                `rlp:"-"`
+
+	// auxiliary data structures flags
+	validated     bool `rlp:"-"` // if true --> Bits and Coefficients have correct length + committeeSize and length is assigned
+	powerAssigned bool `rlp:"-"` // if true --> powers and power assigned
+}
+
+func NewSigners[T uint16 | uint32](committeeSize int) *SignersBase[T] {
+	if committeeSize > maxUint16 {
+		panic("Unsupported committee size")
+	}
+	return &SignersBase[T]{
+		Bits:          NewValidatorBitmap(committeeSize),
+		committeeSize: committeeSize,
+
+		length:        0,
+		powers:        make(map[int]*big.Int),
+		power:         new(big.Int),
+		validated:     true,
+		powerAssigned: true, // when we are locally creating a sender info, we are ok with power being 0 initially
+
+		Coefficients:   make([]T, 0),
+		maxCoefficient: 0,
+	}
 }
 
 // Correct full validation cannot be done until we know the committee size of this block,
@@ -325,7 +295,7 @@ func (s *SignersBase[T]) safetyCheck(other *SignersBase[T]) error {
 	return nil
 }
 
-func (s *VoteSigners) canAddCoefficient(other *VoteSigners, position1, position2 int) bool {
+func (s *SignersBase[uint16]) canAddCoefficient(other *SignersBase[uint16], position1, position2 int) bool {
 	// check if `s.Coefficients[position1] + other.Coefficients[position2] <= maxUint16`
 	// checking if `s.Coefficients[position1] <= (maxUint16 - other.Coefficients[position2])`
 
@@ -336,8 +306,8 @@ func (s *VoteSigners) canAddCoefficient(other *VoteSigners, position1, position2
 
 // checks that the resulting aggregate still respects the logical boundary for `VoteSigners`
 // we don't need this method for `QuorumSigners`
-func (s *VoteSigners) RespectsBoundaries(other *VoteSigners) bool {
-	if err := s.safetyCheck(other.SignersBase); err != nil {
+func (s *SignersBase[uint16]) RespectsBoundaries(other *SignersBase[uint16]) bool {
+	if err := s.safetyCheck(other); err != nil {
 		panic(err.Error())
 	}
 
@@ -451,40 +421,6 @@ func (s *SignersBase[T]) addOrUpdate(
 	s.power.Add(s.power, votingPower)
 }
 
-// this function adds `index` in signer `s`. It assumes the signer is prevalidated.
-// The caller is responsible to check so the coefficient doesn't overflow.
-func (s *VoteSigners) increment(index int, coefficient uint16, votingPower *big.Int) {
-
-	count := 0 // count of signers present before `index`
-
-	byteIndex, bitIndex := indexToBitMapPosition(index)
-	// count the number of signers present before `byteIndex`
-	for i := 0; i < byteIndex; i++ {
-		count += bits.OnesCount8(s.Bits[i])
-	}
-
-	// now count the number of signers in `byteIndex` before `bitIndex`
-	count += s.signerCountBeforeIndex(byteIndex, bitIndex)
-
-	s.addOrUpdate(byteIndex, bitIndex, count, index, coefficient, votingPower)
-}
-
-// This function adds the `member` in signer `s`. This function assumes that `member` is absent in signer `s`.
-// The caller is responsible to check if `member` is already present in `s` or not.
-func (s *VoteSigners) AddMember(member *CommitteeMember) {
-	if !s.validated {
-		panic("Using un-validated signers information")
-	}
-	if !s.powerAssigned {
-		panic("Power has not been assigned in signers information")
-	}
-	if int(member.Index) >= s.committeeSize {
-		panic("trying to increment signer information of non-existent committee member")
-	}
-
-	s.increment(int(member.Index), 1, member.VotingPower)
-}
-
 // Iterates over the signers present in `other` and merge it with `s`.
 // It assumes that they are mergeable. The caller is responsible to check
 // so that coefficient overflow does not happen and the merge increases the total power in `s`.
@@ -560,26 +496,13 @@ func (s *SignersBase[T]) Copy() *SignersBase[T] {
 	}
 }
 
-func (s *VoteSigners) ToQuorumSigners() *QuorumSigners {
-	coefficient := make([]uint32, s.length)
-	for i, c := range s.Coefficients {
-		coefficient[i] = uint32(c)
+func (s *SignersBase[T]) CopyCoefficients() []T {
+	if !s.validated {
+		panic("Using un-validated signers information")
 	}
-	duplicate := s.Copy()
-	return &QuorumSigners{
-		SignersBase: &SignersBase[uint32]{
-			Bits:          duplicate.Bits,
-			committeeSize: duplicate.committeeSize,
-			length:        duplicate.length,
-			powers:        duplicate.powers,
-			power:         duplicate.power,
-			validated:     duplicate.validated,
-			powerAssigned: duplicate.powerAssigned,
-
-			Coefficients:   coefficient,
-			maxCoefficient: uint32(duplicate.maxCoefficient),
-		},
-	}
+	coeffs := make([]T, len(s.Coefficients))
+	copy(coeffs, s.Coefficients)
+	return coeffs
 }
 
 // same as before, but repeated indexes are returned only once
@@ -606,37 +529,6 @@ func (s *SignersBase[T]) flattenUniq() []int {
 		}
 	}
 	return indexes
-}
-
-func (s *SignersBase[T]) ToBlstScalars() []*blst.Scalar {
-	if !s.validated {
-		panic("Using un-validated signers information")
-	}
-	return s.toBlstScalars()
-}
-
-func (s *SignersBase[T]) toBlstScalars() []*blst.Scalar {
-	scalars := make([]*blst.Scalar, 0, len(s.Coefficients))
-	isSmallData := false
-	var bytes []byte
-	if reflect.TypeOf(s.maxCoefficient) == reflect.TypeOf(uint16(0)) {
-		isSmallData = true
-		bytes = make([]byte, 2)
-	} else {
-		bytes = make([]byte, 4)
-	}
-
-	for _, c := range s.Coefficients {
-		if isSmallData {
-			binary.BigEndian.PutUint16(bytes, uint16(c))
-		} else {
-			binary.BigEndian.PutUint32(bytes, uint32(c))
-		}
-		scalar := new(blst.Scalar)
-		scalar.FromBEndian(bytes)
-		scalars = append(scalars, scalar)
-	}
-	return scalars
 }
 
 // returns number of distinct signers of the aggregate
@@ -680,6 +572,170 @@ func (s *SignersBase[T]) MaxCoefficient() T {
 		panic("Using un-validated signers information")
 	}
 	return s.maxCoefficient
+}
+
+func (s *SignersBase[T]) AggregatePublicKey(keys []blst.PublicKey) blst.PublicKey {
+	if !s.validated {
+		panic("Using un-validated signers information")
+	}
+
+	return s.aggregatePublicKey(keys, s.maxCoefficient)
+}
+
+func (s *SignersBase[T]) aggregatePublicKey(keys []blst.PublicKey, maxCoefficient T) blst.PublicKey {
+
+	var bitsEntropy int
+	if reflect.TypeOf(maxCoefficient) == reflect.TypeOf(uint16(0)) {
+		bitsEntropy = bitutil.Uint16MSBPosition(uint16(maxCoefficient)) + 1
+	} else {
+		bitsEntropy = bitutil.Uint32MSBPosition(uint32(maxCoefficient)) + 1
+	}
+
+	return blst.AggregatePublicKeysMultScalars(
+		keys,
+		s.toBlstScalars(),
+		bitsEntropy,
+	)
+}
+
+func (s *SignersBase[T]) ToBlstScalars() []*blstbind.Scalar {
+	if !s.validated {
+		panic("Using un-validated signers information")
+	}
+	return s.toBlstScalars()
+}
+
+func (s *SignersBase[T]) toBlstScalars() []*blstbind.Scalar {
+	scalars := make([]*blstbind.Scalar, 0, len(s.Coefficients))
+	isSmallData := false
+	var bytes []byte
+	if reflect.TypeOf(s.maxCoefficient) == reflect.TypeOf(uint16(0)) {
+		isSmallData = true
+		bytes = make([]byte, 2)
+	} else {
+		bytes = make([]byte, 4)
+	}
+
+	for _, c := range s.Coefficients {
+		if isSmallData {
+			binary.BigEndian.PutUint16(bytes, uint16(c))
+		} else {
+			binary.BigEndian.PutUint32(bytes, uint32(c))
+		}
+		scalar := new(blstbind.Scalar)
+		scalar.FromBEndian(bytes)
+		scalars = append(scalars, scalar)
+	}
+	return scalars
+}
+
+func (s *SignersBase[T]) ToQuorumSigners() *QuorumSigners {
+	if !s.validated {
+		panic("Trying to use not validated signer information")
+	}
+	coefficient := make([]uint32, s.length)
+	for i, c := range s.Coefficients {
+		coefficient[i] = uint32(c)
+	}
+	duplicate := s.Copy()
+	return &QuorumSigners{
+		SignersBase: &SignersBase[uint32]{
+			Bits:          duplicate.Bits,
+			committeeSize: duplicate.committeeSize,
+			length:        duplicate.length,
+			powers:        duplicate.powers,
+			power:         duplicate.power,
+			validated:     duplicate.validated,
+			powerAssigned: duplicate.powerAssigned,
+
+			Coefficients:   coefficient,
+			maxCoefficient: uint32(duplicate.maxCoefficient),
+		},
+	}
+}
+
+type VoteSigners struct {
+	*SignersBase[uint16]
+}
+
+func NewVoteSigners(committeeSize int) *VoteSigners {
+	if committeeSize > maxUint16 {
+		panic("Unsupported committee size")
+	}
+	return &VoteSigners{
+		SignersBase: &SignersBase[uint16]{
+			Bits:          NewValidatorBitmap(committeeSize),
+			committeeSize: committeeSize,
+
+			length:        0,
+			powers:        make(map[int]*big.Int),
+			power:         new(big.Int),
+			validated:     true,
+			powerAssigned: true, // when we are locally creating a sender info, we are ok with power being 0 initially
+
+			Coefficients:   make([]uint16, 0),
+			maxCoefficient: 0,
+		},
+	}
+}
+
+// this function adds `index` in signer `s`. It assumes the signer is prevalidated.
+// The caller is responsible to check so the coefficient doesn't overflow.
+func (s *VoteSigners) increment(index int, coefficient uint16, votingPower *big.Int) {
+
+	count := 0 // count of signers present before `index`
+
+	byteIndex, bitIndex := indexToBitMapPosition(index)
+	// count the number of signers present before `byteIndex`
+	for i := 0; i < byteIndex; i++ {
+		count += bits.OnesCount8(s.Bits[i])
+	}
+
+	// now count the number of signers in `byteIndex` before `bitIndex`
+	count += s.signerCountBeforeIndex(byteIndex, bitIndex)
+
+	s.addOrUpdate(byteIndex, bitIndex, count, index, coefficient, votingPower)
+}
+
+// This function adds the `member` in signer `s`. This function assumes that `member` is absent in signer `s`.
+// The caller is responsible to check if `member` is already present in `s` or not.
+func (s *VoteSigners) AddMember(member *CommitteeMember) {
+	if !s.validated {
+		panic("Using un-validated signers information")
+	}
+	if !s.powerAssigned {
+		panic("Power has not been assigned in signers information")
+	}
+	if int(member.Index) >= s.committeeSize {
+		panic("trying to increment signer information of non-existent committee member")
+	}
+
+	s.increment(int(member.Index), 1, member.VotingPower)
+}
+
+type QuorumSigners struct {
+	*SignersBase[uint32]
+}
+
+func NewQuorumSigners(committeeSize int) *QuorumSigners {
+	if committeeSize > maxUint16 {
+		panic("Unsupported committee size")
+	}
+	return &QuorumSigners{
+		SignersBase: &SignersBase[uint32]{
+			Bits:          NewValidatorBitmap(committeeSize),
+			committeeSize: committeeSize,
+
+			length:        0,
+			powers:        make(map[int]*big.Int),
+			power:         new(big.Int),
+			validated:     true,
+			powerAssigned: true, // when we are locally creating a sender info, we are ok with power being 0 initially
+
+			Coefficients:   make([]uint32, 0),
+			maxCoefficient: 0,
+		},
+	}
 }
 
 func indexToBitMapPosition(index int) (int, int) {

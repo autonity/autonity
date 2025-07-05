@@ -81,6 +81,8 @@ func ToAffineKeySet(pubkeys []PublicKey) blstPublicKeySet {
 	return rawKeys
 }
 
+// returns aggregated public key by multiplying `pubkeys` with `scalars`.
+// `bitsEntropy` is the number of bits in the `scalars`
 func AggregatePublicKeysMultScalars(
 	pubkeys []PublicKey,
 	scalars []*blst.Scalar,
