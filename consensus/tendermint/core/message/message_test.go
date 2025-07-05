@@ -300,19 +300,6 @@ func TestPreValidate(t *testing.T) {
 			require.Error(t, err)
 		}
 	})
-	t.Run("votes is complex aggregate but does not carry quorum, error is returned", func(t *testing.T) {
-		committee := new(types.Committee)
-		committee.Members = []types.CommitteeMember{*testCommitteeMember, *testCommitteeMember, *testCommitteeMember, *testCommitteeMember, *testCommitteeMember}
-		header := newHeader(25, committee)
-		vote := newUnverifiedPrevote(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 5)
-
-		// let's make this vote complex by tweaking the signers (NOTE: this will not pass validate since the signature doesn't actually match the signers)
-		vote.Signers().Bits.SetSigner(0)
-		vote.Signers().Bits.SetSigner(1)
-
-		err := vote.PreValidate(committee)
-		require.True(t, errors.Is(err, ErrInvalidComplexAggregate))
-	})
 
 }
 

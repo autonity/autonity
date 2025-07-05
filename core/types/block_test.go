@@ -436,7 +436,7 @@ func TestQuorumCertificateDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
-	header = headerWithQuorumCertificate(&AggregateSignature{Signature: nil, Signers: newQuorumSigners(10)})
+	header = headerWithQuorumCertificate(&AggregateSignature{Signature: nil, Signers: NewQuorumSigners(10)})
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
 	headerDecoded = &Header{}
@@ -455,7 +455,7 @@ func TestQuorumCertificateDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
-	validQuorumCertificate := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: newQuorumSigners(10)}
+	validQuorumCertificate := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewQuorumSigners(10)}
 	validQuorumCertificate.Signers.increment(0, 0, common.Big0)
 	header = headerWithQuorumCertificate(validQuorumCertificate)
 	b, err = rlp.EncodeToBytes(header)
@@ -532,7 +532,7 @@ func TestActivityProofDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
-	header = headerWithActivityProof(&AggregateSignature{Signature: nil, Signers: newQuorumSigners(10)}, 0)
+	header = headerWithActivityProof(&AggregateSignature{Signature: nil, Signers: NewQuorumSigners(10)}, 0)
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
 	headerDecoded = &Header{}
@@ -551,7 +551,7 @@ func TestActivityProofDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
-	validActivityProof := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: newQuorumSigners(10)}
+	validActivityProof := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewQuorumSigners(10)}
 	validActivityProof.Signers.increment(0, 0, common.Big0)
 	header = headerWithActivityProof(validActivityProof, 4)
 	b, err = rlp.EncodeToBytes(header)
