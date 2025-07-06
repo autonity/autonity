@@ -3,8 +3,6 @@ package backend
 import (
 	"context"
 	"errors"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math/big"
 	"os"
 	"sync"
