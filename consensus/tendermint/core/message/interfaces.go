@@ -68,3 +68,8 @@ type Vote interface {
 	Signers() *types.SignersBase[uint16]
 	Msg
 }
+
+type Evidence interface {
+	Signers() *types.SignersBase[uint32]
+	Msg
+}
