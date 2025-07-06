@@ -545,7 +545,6 @@ func (a *aggregator) DispatchFaultDetectorEvents() {
 
 // a batch is a set of messages for same (height,round,code,value) ---> can be aggregated using FastAggregateVerify
 func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, eventer eventBuilder) {
-	// TODO: optimize
 	if len(batches) == 0 {
 		return
 	}
