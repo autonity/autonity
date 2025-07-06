@@ -488,7 +488,6 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 
 // a batch is a set of messages for same (height,round,code,value) ---> can be aggregated using FastAggregateVerify
 func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, eventer eventBuilder) {
-	// TODO: optimize
 	if len(batches) == 0 {
 		return
 	}

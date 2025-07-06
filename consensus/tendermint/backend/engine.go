@@ -375,7 +375,6 @@ func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *
 // of height: `h-delta`. The proposer is incentivised to include as many signers as possible.
 // If the proposer does not have to OR cannot provide a valid activity proof, it should leave the proof empty (internal pointers set to nil)
 func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (*types.AggregateSignature, uint64, error) {
-	// TODO: fix
 	epochBlock := epochInfo.EpochBlock.Uint64()
 	delta := epochInfo.OmissionDelta.Uint64()
 
@@ -408,16 +407,16 @@ func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (
 		votes[i] = p
 	}
 
-	aggregatePrecommit := message.AggregatePrecommitsToQuorum(votes)
+	aggregateSignature := message.AggregatePrecommitsToQuorum(votes)
 
 	// if we do not have enough voting power, leave the proof empty
 	quorum := bft.Quorum(epochInfo.Committee.TotalVotingPower())
-	if aggregatePrecommit.Signers.Power().Cmp(quorum) < 0 {
-		sb.logger.Warn("Failed to provide activity valid activity proof as proposer, not enough voting power", "height", h, "targetHeight", targetHeight, "targetRound", targetRound, "power", aggregatePrecommit.Signers.Power(), "quorum", quorum)
+	if aggregateSignature.Signers.Power().Cmp(quorum) < 0 {
+		sb.logger.Warn("Failed to provide activity valid activity proof as proposer, not enough voting power", "height", h, "targetHeight", targetHeight, "targetRound", targetRound, "power", aggregateSignature.Signers.Power(), "quorum", quorum)
 		return nil, 0, nil
 	}
 
-	return aggregatePrecommit, targetRound, nil
+	return aggregateSignature, targetRound, nil
 }
 
 // Finalize runs any post-transaction state modifications (e.g. block rewards)

@@ -203,7 +203,7 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 	for i, index := range indexes {
 		keys[i] = committee.Members[index].ConsensusKey
 	}
-	aggregatedKey := a.Signers.aggregatePublicKey(keys, maxCoefficient)
+	aggregatedKey := a.Signers.aggregatePublicKey(keys, maxCoefficient, distinctSigners)
 	if !aggregatedKey.Validate() {
 		log.Warn("aggregated public key from committee is zero! Please report the issue!", "signers", a.Signers.String())
 	}

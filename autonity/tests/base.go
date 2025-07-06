@@ -283,7 +283,6 @@ func activityProof(committee []IAutonityValidator, headerSeal common.Hash, absen
 
 	aggregateSig := blst.AggregateSignatures(signatures)
 
-	// TODO: fix
 	return types.NewAggregateSignature(aggregateSig.(*blst.BlsSignature), signers)
 }
 

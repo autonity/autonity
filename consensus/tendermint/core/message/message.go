@@ -466,8 +466,6 @@ func (v *vote[T]) PreValidate(committee *types.Committee) error {
 
 	// compute aggregated key and auxiliary data structures
 	indexes := v.signers.FlattenUniq()
-	// coefficients := v.signers.ToBlstScalars()
-	// for _, c := range v.signers.Coefficients
 	keys := make([]blst.PublicKey, len(indexes))
 	powers := make(map[int]*big.Int)
 	power := new(big.Int)
@@ -694,7 +692,7 @@ func AggregateVotesToQuorum(votes []Vote) (*types.AggregateSignature, blst.Publi
 	}
 
 	aggregatedSignature := blst.AggregateSignatures(signatures)
-	aggregateKey, err := blst.AggregatePublicKeys(publicKeys)
+	aggregateKey, err := blst.AggregatePublicKeys(publicKeys) // remove?
 	if err != nil {
 		panic("Cannot generate aggregate public key from valid votes: " + err.Error()) //nolint
 	}
@@ -789,7 +787,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) []*E {
 
 		representative := deterministicRepresentative(voteDistributed[i])
 		aggregatedSignature := blst.AggregateSignatures(signatures[i])
-		aggregatedPublicKey, err := blst.AggregatePublicKeys(publicKeys[i])
+		aggregatedPublicKey, err := blst.AggregatePublicKeys(publicKeys[i]) // TODO: remove?
 		if err != nil {
 			panic("Cannot generate aggregate public key from valid votes: " + err.Error()) //nolint
 		}
