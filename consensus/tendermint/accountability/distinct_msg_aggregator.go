@@ -50,8 +50,8 @@ func (r *Signers) EncodeRLP(w io.Writer) error {
 	signersCoeff := make([]uint16, len(r.SignersCoeff))
 	for i, s := range r.SignersIndex {
 		signersIndex[i] = uint(s)
-		signersCoeff[i] = r.SignersCoeff[i]
 	}
+	copy(signersCoeff, r.SignersCoeff)
 
 	ext := extSigners{
 		Round:        uint64(r.Round),
@@ -83,8 +83,8 @@ func (r *Signers) DecodeRLP(stream *rlp.Stream) error {
 	signersCoeff := make([]uint16, len(ext.SignersCoeff))
 	for i, s := range ext.SignersIndex {
 		signersIndex[i] = int(s)
-		signersCoeff[i] = ext.SignersCoeff[i]
 	}
+	copy(signersCoeff, ext.SignersCoeff)
 	r.SignersIndex = signersIndex
 	r.SignersCoeff = signersCoeff
 	return nil

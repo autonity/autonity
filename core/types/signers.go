@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"math/bits"
+	"math/bits" //nolint
 	"reflect"
 
 	blstbind "github.com/supranational/blst/bindings/go"
@@ -516,7 +516,7 @@ func (s *SignersBase[T]) Copy() *SignersBase[T] {
 			powers[index] = new(big.Int).Set(power)
 		}
 	}
-	power := new(big.Int)
+	var power *big.Int
 	if s.power != nil {
 		power = new(big.Int).Set(s.power)
 	}

@@ -528,10 +528,7 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof, committee *types.Committee) 
 
 	// fast aggregate quorum prevotes for V into single one.
 	evidences := make([]message.Msg, 1)
-	evidences[0] = prevotesForV[0]
-	if len(prevotesForV) > 1 {
-		evidences[0] = AggregateSamePrevotes(prevotesForV)
-	}
+	evidences[0] = AggregateSamePrevotes(prevotesForV)
 	p := fd.eventFromProof(&Proof{
 		Type:          autonity.Innocence,
 		Rule:          c.Rule,
@@ -572,10 +569,7 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof, committee *types.Committee) 
 
 	// fast aggregate quorum prevotes into single one.
 	evidences := make([]message.Msg, 1)
-	evidences[0] = prevotes[0]
-	if len(prevotes) > 1 {
-		evidences[0] = AggregateSamePrevotes(prevotes)
-	}
+	evidences[0] = AggregateSamePrevotes(prevotes)
 
 	p := fd.eventFromProof(&Proof{
 		Type:          autonity.Innocence,
@@ -644,10 +638,7 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof, committee *types.Committee)
 
 	// fast aggregate quorum prevotes into single one.
 	evidences := make([]message.Msg, 1)
-	evidences[0] = prevotes[0]
-	if len(prevotes) > 1 {
-		evidences[0] = AggregateSamePrevotes(prevotes)
-	}
+	evidences[0] = AggregateSamePrevotes(prevotes)
 
 	p := fd.eventFromProof(&Proof{
 		Type:          autonity.Innocence,
@@ -868,10 +859,7 @@ oldProposalLoop:
 		if len(alternativeQuorum) > 0 {
 			// fast aggregate quorum prevotes into single one.
 			evidences := make([]message.Msg, 1)
-			evidences[0] = alternativeQuorum[0]
-			if len(alternativeQuorum) > 1 {
-				evidences[0] = AggregateSamePrevotes(alternativeQuorum)
-			}
+			evidences[0] = AggregateSamePrevotes(alternativeQuorum)
 
 			proof := &Proof{
 				Type:          autonity.Misbehaviour,
@@ -1122,10 +1110,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		fd.logger.Info("Misbehaviour detected", "rule", "PV0", "incriminated", signer)
 		// fast aggregate quorum prevotes into single one.
 		evidences := make([]message.Msg, 1)
-		evidences[0] = alternativeQuorum[0]
-		if len(alternativeQuorum) > 1 {
-			evidences[0] = AggregateSamePrevotes(alternativeQuorum)
-		}
+		evidences[0] = AggregateSamePrevotes(alternativeQuorum)
 
 		proof := &Proof{
 			Type:          autonity.Misbehaviour,
@@ -1279,10 +1264,7 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 			if len(alternativeQuorum) > 0 {
 				// fast aggregate quorum prevotes into single one.
 				evidences := make([]message.Msg, 1)
-				evidences[0] = alternativeQuorum[0]
-				if len(alternativeQuorum) > 1 {
-					evidences[0] = AggregateSamePrevotes(alternativeQuorum)
-				}
+				evidences[0] = AggregateSamePrevotes(alternativeQuorum)
 
 				proof := &Proof{
 					Type:          autonity.Misbehaviour,

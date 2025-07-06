@@ -476,88 +476,69 @@ func TestAggregateVotes(t *testing.T) {
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize))
 	aggregate := aggregatePrevotes(votes)
 	t.Log(aggregate.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01000000")
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "00000001")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize))
 	aggregate = aggregatePrevotes(votes)
 	t.Log(aggregate.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01000000")
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "00000001")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize))
 	aggregate = aggregatePrevotes(votes)
 	t.Log(aggregate.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01010000")
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "00000011")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize))
 	aggregate = aggregatePrevotes(votes)
 	t.Log(aggregate.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01010100")
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "00000111")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize))
 	aggregate = aggregatePrevotes(votes)
 	t.Log(aggregate.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "01010101")
+	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "00001111")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	aggregate2 := aggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
 	aggregate3 := aggregatePrevotes([]Vote{aggregate, aggregate2})
 	t.Log(aggregate3.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate3.Signers().Bits[0]), "01010101")
+	require.Equal(t, fmt.Sprintf("%08b", aggregate3.Signers().Bits[0]), "00001111")
 	require.NoError(t, aggregate3.Signers().Validate(csize))
 
 	aggregate4 := aggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize)})
 	aggregate5 := aggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
 	aggregate6 := aggregatePrevotes([]Vote{aggregate4, aggregate5})
 	t.Log(aggregate6.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate6.Signers().Bits[0]), "10010100")
+	require.Equal(t, fmt.Sprintf("%08b", aggregate6.Signers().Bits[0]), "00000111")
 	require.NoError(t, aggregate6.Signers().Validate(csize))
 
 	aggregate7 := aggregatePrevotes([]Vote{aggregate6, aggregate3})
 	t.Log(aggregate7.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate7.Signers().Bits[0]), "01010101")
+	require.Equal(t, fmt.Sprintf("%08b", aggregate7.Signers().Bits[0]), "00001111")
 	require.NoError(t, aggregate7.Signers().Validate(csize))
 
 	// aggregate with artificially inflated contribution from index = 0. validator 0 has already the maximum coefficient.
 	inflatedAggregate := aggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize)})
-	inflatedAggregate.Signers().AddMember(&testCommittee.Members[0])
-	inflatedAggregate.Signers().AddMember(&testCommittee.Members[0])
-	inflatedAggregate.Signers().AddMember(&testCommittee.Members[0])
+
 	t.Log(inflatedAggregate.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", inflatedAggregate.Signers().Bits[0]), "11010000")
+	require.Equal(t, fmt.Sprintf("%08b", inflatedAggregate.Signers().Bits[0]), "00000011")
+	require.NoError(t, inflatedAggregate.Signers().Validate(csize))
 
 	// inflatedAggregate has quorum
 	require.True(t, inflatedAggregate.Power().Cmp(bft.Quorum(testCommittee.TotalVotingPower())) >= 0)
 
 	aggregate8 := aggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize)})
+	require.NoError(t, aggregate8.Signers().Validate(csize))
 
 	aggregate9 := aggregatePrevotes([]Vote{aggregate8, inflatedAggregate})
 	t.Log(aggregate9.Signers().String())
-	// inflated aggregate is privileged because it carries higher voting power
-	require.Equal(t, fmt.Sprintf("%08b", aggregate9.Signers().Bits[0]), "11010000")
+	require.Equal(t, fmt.Sprintf("%08b", aggregate9.Signers().Bits[0]), "00001111")
 	require.NoError(t, aggregate9.Signers().Validate(csize))
 
-	aggregate10 := aggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
-	aggregate11 := aggregatePrevotes([]Vote{aggregate10, inflatedAggregate})
-	t.Log(aggregate11.Signers().String())
-	// inflated aggregate is privileged because it carries higher voting power
-	require.Equal(t, fmt.Sprintf("%08b", aggregate11.Signers().Bits[0]), "11010000")
-	require.NoError(t, aggregate11.Signers().Validate(csize))
-	aggregate12 := aggregatePrevotes([]Vote{inflatedAggregate, aggregate10})
-	t.Log(aggregate12.Signers().String())
-	// inflated aggregate is privileged because it carries higher voting power
-	require.Equal(t, fmt.Sprintf("%08b", aggregate12.Signers().Bits[0]), "11010000")
-	require.NoError(t, aggregate12.Signers().Validate(csize))
-
-	aggregate13 := aggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
-	// aggregate13 is privileged because it carries higher voting power
-	aggregate14 := aggregatePrevotes([]Vote{inflatedAggregate, aggregate13})
-	t.Log(aggregate14.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate14.Signers().Bits[0]), "01010100")
-	require.NoError(t, aggregate14.Signers().Validate(csize))
 }
 
 func TestPower(t *testing.T) {

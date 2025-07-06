@@ -8,7 +8,7 @@
 package bitutil
 
 import (
-	"math/bits"
+	"math/bits" //nolint
 	"runtime"
 	"unsafe"
 )

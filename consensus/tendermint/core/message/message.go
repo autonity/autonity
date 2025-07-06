@@ -21,13 +21,12 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/autonity/autonity/metrics"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/rlp"
 )
 
@@ -709,6 +708,7 @@ var (
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been preverified and cryptographically verified
 func AggregateVotes[E Prevote | Precommit](votes []Vote) []*E {
+	// TODO: return for len = 1
 	// length safety checks
 	if len(votes) == 0 {
 		panic("Trying to aggregate empty set of votes")
