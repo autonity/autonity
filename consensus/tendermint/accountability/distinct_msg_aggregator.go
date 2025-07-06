@@ -105,7 +105,7 @@ func (r *Signers) PreValidate(committee *types.Committee) error {
 
 	publicKeys := make([]blst.PublicKey, len(r.SignersIndex))
 	r.hasSigners = make(map[int]struct{})
-	var maxCoeff uint16 = 0
+	var maxCoeff uint16
 
 	for i, idx := range r.SignersIndex {
 		if idx >= committeeSize || idx < 0 {

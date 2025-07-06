@@ -58,7 +58,7 @@ var (
 
 type validatorBitmap []byte
 
-func NewValidatorBitmap(committeeSize int) validatorBitmap {
+func NewValidatorBitmap(committeeSize int) validatorBitmap { //nolint
 	byteLength := (committeeSize*bitsPerValidator + bitsInByte - 1) / bitsInByte
 	return make(validatorBitmap, byteLength)
 }
@@ -271,7 +271,7 @@ func (s *SignersBase[T]) validate(committeeSize int) (int, T, error) {
 		return 0, 0, ErrInvalidSingleSig
 	}
 
-	var maxCoefficient T = 0
+	var maxCoefficient T
 	for _, coefficient := range s.Coefficients {
 		if coefficient == 0 {
 			return 0, 0, ErrInvalidCoefficient
@@ -535,6 +535,10 @@ func (s *SignersBase[T]) Copy() *SignersBase[T] {
 			powers[index] = new(big.Int).Set(power)
 		}
 	}
+	power := new(big.Int)
+	if s.power != nil {
+		power = new(big.Int).Set(s.power)
+	}
 	return &SignersBase[T]{
 		Bits:           append(s.Bits[:0:0], s.Bits...),
 		Coefficients:   append(s.Coefficients[:0:0], s.Coefficients...),
@@ -542,7 +546,7 @@ func (s *SignersBase[T]) Copy() *SignersBase[T] {
 		committeeSize:  s.committeeSize,
 		length:         s.length,
 		powers:         powers,
-		power:          new(big.Int).Set(s.power),
+		power:          power,
 		validated:      s.validated,
 		powerAssigned:  s.powerAssigned,
 	}
@@ -643,11 +647,11 @@ func (s *SignersBase[T]) AggregatePublicKey(keys []blst.PublicKey) blst.PublicKe
 		panic("Using un-validated signers information")
 	}
 
-	return s.aggregatePublicKey(keys, s.maxCoefficient)
+	return s.aggregatePublicKey(keys, s.maxCoefficient, s.length)
 }
 
-func (s *SignersBase[T]) aggregatePublicKey(keys []blst.PublicKey, maxCoefficient T) blst.PublicKey {
-	if len(keys) != s.length {
+func (s *SignersBase[T]) aggregatePublicKey(keys []blst.PublicKey, maxCoefficient T, length int) blst.PublicKey {
+	if len(keys) != length {
 		panic("invalid public key length")
 	}
 
@@ -717,23 +721,8 @@ type VoteSigners struct {
 }
 
 func NewVoteSigners(committeeSize int) *VoteSigners {
-	if committeeSize > maxUint16 {
-		panic("Unsupported committee size")
-	}
 	return &VoteSigners{
-		SignersBase: &SignersBase[uint16]{
-			Bits:          NewValidatorBitmap(committeeSize),
-			committeeSize: committeeSize,
-
-			length:        0,
-			powers:        make(map[int]*big.Int),
-			power:         new(big.Int),
-			validated:     true,
-			powerAssigned: true, // when we are locally creating a sender info, we are ok with power being 0 initially
-
-			Coefficients:   make([]uint16, 0),
-			maxCoefficient: 0,
-		},
+		SignersBase: NewSigners[uint16](committeeSize),
 	}
 }
 
@@ -742,23 +731,8 @@ type QuorumSigners struct {
 }
 
 func NewQuorumSigners(committeeSize int) *QuorumSigners {
-	if committeeSize > maxUint16 {
-		panic("Unsupported committee size")
-	}
 	return &QuorumSigners{
-		SignersBase: &SignersBase[uint32]{
-			Bits:          NewValidatorBitmap(committeeSize),
-			committeeSize: committeeSize,
-
-			length:        0,
-			powers:        make(map[int]*big.Int),
-			power:         new(big.Int),
-			validated:     true,
-			powerAssigned: true, // when we are locally creating a sender info, we are ok with power being 0 initially
-
-			Coefficients:   make([]uint32, 0),
-			maxCoefficient: 0,
-		},
+		SignersBase: NewSigners[uint32](committeeSize),
 	}
 }
 
