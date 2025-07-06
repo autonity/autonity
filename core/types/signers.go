@@ -1,7 +1,6 @@
 package types
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -677,18 +676,7 @@ func (s *SignersBase[T]) ToBlstScalars() []*blstbind.Scalar {
 }
 
 func (s *SignersBase[T]) toBlstScalars() []*blstbind.Scalar {
-	scalars := make([]*blstbind.Scalar, 0, len(s.Coefficients))
-	// always use 32 bytes, otherwise it breaks
-	bytes := make([]byte, 32)
-
-	for _, c := range s.Coefficients {
-		// use little endian, as these coefficients need to multiplied as they are
-		binary.LittleEndian.PutUint32(bytes, uint32(c))
-		scalar := new(blstbind.Scalar)
-		scalar.FromLEndian(bytes)
-		scalars = append(scalars, scalar)
-	}
-	return scalars
+	return blst.ToBlstScalars(s.Coefficients)
 }
 
 func (s *SignersBase[T]) ToQuorumSigners() *QuorumSigners {
