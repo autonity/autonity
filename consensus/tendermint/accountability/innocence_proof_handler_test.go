@@ -1,22 +1,21 @@
 package accountability
 
 import (
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math/big"
 	"testing"
 	"time"
-
-	"github.com/autonity/autonity/autonity/bindings"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	ccore "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -490,7 +489,7 @@ func TestHandleOffChainProofOfInnocence(t *testing.T) {
 		lastHeader := newBlockHeader(lastHeight, committee)
 		for i := range committee.Members {
 			preVote := newValidatedPrevote(validRound, height, proposal.Value(), makeSigner(keys[i]), &committee.Members[i], cSize)
-			proofPO.Evidences = append(proofPO.Evidences, preVote)
+			proofPO.Evidences = append(proofPO.Evidences, AggregateSamePrevotes([]*message.Prevote{preVote}))
 		}
 
 		chainMock.EXPECT().GetHeaderByNumber(lastHeight).Return(lastHeader).AnyTimes()
