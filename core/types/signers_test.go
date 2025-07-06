@@ -60,8 +60,9 @@ func signersAggregation[T uint16 | uint32](
 	signers := NewSigners[T](len(committee))
 	keys := make([]blst.PublicKey, 0, len(committee))
 	for i, c := range coeffs {
-		for range c {
+		for c > 0 {
 			signers.AddMember(committee[i])
+			c--
 		}
 		keys = append(keys, committee[i].ConsensusKey)
 	}
@@ -81,7 +82,7 @@ func TestPublicKeyAggregation(t *testing.T) {
 
 	msg := common.BigToHash(big.NewInt(1234345677))
 
-	for i := range csize {
+	for i := 0; i < csize; i++ {
 		var privateKey blst.SecretKey
 		var err error
 		for {
@@ -104,7 +105,7 @@ func TestPublicKeyAggregation(t *testing.T) {
 
 		signature := privateKey.Sign(msg[:])
 
-		for range coeffs[i] {
+		for c := 0; c < coeffs[i]; c++ {
 			signatures = append(signatures, signature)
 		}
 	}
@@ -125,7 +126,7 @@ func TestValidatorBitmap(t *testing.T) {
 			require.Equal(t, false, bitmap.HasSigner(i))
 		}
 
-		for i := range n {
+		for i := 0; i < n; i++ {
 			bitmap.setSigner(i)
 			require.Equal(t, true, bitmap.HasSigner(i))
 		}
@@ -210,7 +211,7 @@ func TestSerialization(t *testing.T) {
 		// encode and decode
 		payload, err := rlp.EncodeToBytes(s)
 		require.NoError(t, err)
-		decoded := &VoteSigners{}
+		decoded := &VoteSigners{&SignersBase[uint16]{}}
 		err = rlp.Decode(bytes.NewBuffer(payload), decoded)
 		require.NoError(t, err)
 
