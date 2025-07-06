@@ -721,7 +721,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 				Rule:          autonity.PO,
 				Message:       liteOldP,
 				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{aggVote},
+				Evidences:     []message.Msg{AggregateSamePrevotes([]*message.Prevote{aggVote})},
 			},
 			outCome: validReturn(liteOldP, proposer, autonity.PO),
 		},
@@ -975,7 +975,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 				Rule:          autonity.PVO,
 				Message:       maliciousPreVotePVO,
 				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{correspondingProposalPVO, aggVotePVO},
+				Evidences:     []message.Msg{correspondingProposalPVO, AggregateSamePrevotes([]*message.Prevote{aggVotePVO})},
 			},
 			outCome: validReturn(maliciousPreVotePVO, proposer, autonity.PVO),
 		},
@@ -1156,7 +1156,7 @@ func TestMisbehaviourVerifier(t *testing.T) {
 				Rule:          autonity.C,
 				Message:       preCommitC,
 				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{aggVoteC},
+				Evidences:     []message.Msg{AggregateSamePrevotes([]*message.Prevote{aggVoteC})},
 			},
 			outCome: validReturn(preCommitC, proposer, autonity.C),
 		},
@@ -1338,7 +1338,7 @@ func TestInnocenceVerifier(t *testing.T) {
 				Rule:          autonity.PO,
 				Message:       proposalPO,
 				OffenderIndex: proposerIdx,
-				Evidences:     []message.Msg{aggVotesPO},
+				Evidences:     []message.Msg{AggregateSamePrevotes([]*message.Prevote{aggVotesPO})},
 			},
 			outCome: true,
 		},
@@ -1460,7 +1460,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		{
 			proof: Proof{
 				Rule:          autonity.PVO,
-				Evidences:     []message.Msg{proposalPVO, aggVotePVO},
+				Evidences:     []message.Msg{proposalPVO, AggregateSamePrevotes([]*message.Prevote{aggVotePVO})},
 				OffenderIndex: proposerIdx,
 				Message:       preVotePVO,
 			},
@@ -1510,7 +1510,7 @@ func TestInnocenceVerifier(t *testing.T) {
 		{
 			proof: Proof{
 				Rule:          autonity.C1,
-				Evidences:     []message.Msg{aggVoteC1},
+				Evidences:     []message.Msg{AggregateSamePrevotes([]*message.Prevote{aggVoteC1})},
 				OffenderIndex: proposerIdx,
 				Message:       preCommitC1,
 			},
