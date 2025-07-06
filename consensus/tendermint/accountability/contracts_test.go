@@ -1715,3 +1715,19 @@ func newValidatedPrevote(r int64, height uint64, v common.Hash, signer message.S
 	prevote := message.NewPrevote(r, height, v, signer, s, cSize)
 	return prevote
 }
+
+func aggregatePrevotes(votes []message.Vote) *message.Prevote {
+	aggregates := message.AggregatePrevotes(votes)
+	if len(aggregates) > 1 {
+		panic("aggregate length more than 1")
+	}
+	return aggregates[0]
+}
+
+func aggregatePrecommits(votes []message.Vote) *message.Precommit {
+	aggregates := message.AggregatePrecommits(votes)
+	if len(aggregates) > 1 {
+		panic("aggregate length more than 1")
+	}
+	return aggregates[0]
+}

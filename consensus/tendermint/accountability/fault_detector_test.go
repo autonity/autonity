@@ -1823,19 +1823,3 @@ func aggregatedPreVote(numOfSigners int, h uint64, r int64, v common.Hash, keys 
 func aggregatePrevotesToEvidence(votes []message.Vote) *message.EvidenceVote {
 	return message.AggregatePrevotesToEvidence(votes)
 }
-
-func aggregatePrevotes(votes []message.Vote) *message.Prevote {
-	aggregates := message.AggregatePrevotes(votes)
-	if len(aggregates) > 1 {
-		panic("aggregate length more than 1")
-	}
-	return aggregates[0]
-}
-
-func aggregatePrecommits(votes []message.Vote) *message.Precommit {
-	aggregates := message.AggregatePrecommits(votes)
-	if len(aggregates) > 1 {
-		panic("aggregate length more than 1")
-	}
-	return aggregates[0]
-}
