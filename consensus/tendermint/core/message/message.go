@@ -43,6 +43,7 @@ const (
 	PrevoteCode
 	PrecommitCode
 	LightProposalCode
+	EvidenceVoteCode
 )
 
 // Message IDs used by the ACN p2p network layer to deliver raw messages of the upper layer.
@@ -529,7 +530,7 @@ type EvidenceVote struct {
 }
 
 func (e *EvidenceVote) Code() uint8 {
-	return PrevoteCode
+	return EvidenceVoteCode
 }
 
 func (e *EvidenceVote) Value() common.Hash {
@@ -614,14 +615,13 @@ func AggregatePrevotesToEvidence(votes []Vote) *EvidenceVote {
 	aggregateSignature, aggregateKey := AggregateVotesToQuorum(votes)
 
 	representative := votes[0]
-	c := representative.Code()
 	h := representative.H()
 	r := representative.R()
 	value := representative.Value()
 	signatureInput := representative.SignatureInput()
 
 	payload, _ := rlp.EncodeToBytes(extVote[uint32]{
-		Code:      c,
+		Code:      EvidenceVoteCode,
 		Round:     uint64(r), // #nosec
 		Height:    h,
 		Value:     value,
@@ -854,7 +854,7 @@ func (e *EvidenceVote) DecodeRLP(s *rlp.Stream) error {
 	if err := rlp.DecodeBytes(payload, encoded); err != nil {
 		return err
 	}
-	if encoded.Code != PrevoteCode {
+	if encoded.Code != EvidenceVoteCode {
 		return constants.ErrInvalidMessage
 	}
 	if encoded.Signature == nil {
@@ -879,7 +879,7 @@ func (e *EvidenceVote) DecodeRLP(s *rlp.Stream) error {
 	e.signers = encoded.Signers
 	e.payload = payload
 	// precompute hash and signature hash
-	e.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrevoteCode, encoded.Value)
+	e.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, EvidenceVoteCode, encoded.Value)
 	e.hash = crypto.Hash(payload)
 	e.verified = false
 	e.preverified = false
@@ -991,6 +991,11 @@ func Power(messages []Msg) *big.Int {
 			power.Set(m.SignerIndex(), m.Power())
 		case *Prevote, *Precommit:
 			vote := m.(Vote)
+			for index, signerPower := range vote.Signers().Powers() {
+				power.Set(index, signerPower)
+			}
+		case *EvidenceVote:
+			vote := Msg(m).(Evidence)
 			for index, signerPower := range vote.Signers().Powers() {
 				power.Set(index, signerPower)
 			}

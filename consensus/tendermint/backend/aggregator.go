@@ -610,11 +610,10 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 	code := vote.Code()
 	value := vote.Value()
 
-	// complex aggregates always carry quorum (enforced at PreValidate)
-	// if we do not already have quorum in Core, process right away
+	// if we do not already have quorum in Core, but the msg has quorum, process right away
 	coreVotesForPower := a.core.VotesPowerFor(height, round, code, value)
 	coreVotesPower := a.core.VotesPower(height, round, code)
-	if vote.Signers().IsComplex() && (coreVotesForPower.Power().Cmp(quorum) < 0 || coreVotesPower.Power().Cmp(quorum) < 0) {
+	if vote.Signers().Power().Cmp(quorum) >= 0 && (coreVotesForPower.Power().Cmp(quorum) < 0 || coreVotesPower.Power().Cmp(quorum) < 0) {
 		if err := vote.Validate(); err != nil {
 			a.handleInvalidMessage(errCh, err, sender)
 			return

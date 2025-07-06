@@ -576,16 +576,6 @@ func (s *SignersBase[T]) Len() int {
 	return s.length
 }
 
-// returns whether an aggregate is:
-//   - a simple aggregate (all coefficients are 0 or 1)
-//   - a complex aggregate (at least one coefficient is > 1)
-func (s *SignersBase[T]) IsComplex() bool {
-	if !s.validated {
-		panic("Using un-validated signers information")
-	}
-	return s.maxCoefficient > 1
-}
-
 func (s *SignersBase[T]) String() string {
 	return fmt.Sprintf("Bits: %08b, Coefficients: %v, power: %v, validated: %v, powerAssigned: %v", s.Bits, s.Coefficients, s.power, s.validated, s.powerAssigned)
 }
@@ -672,6 +662,34 @@ func (s *SignersBase[T]) ToQuorumSigners() *QuorumSigners {
 			maxCoefficient: uint32(duplicate.maxCoefficient),
 		},
 	}
+}
+
+func (s *SignersBase[T]) ToVoteSigners() (*VoteSigners, error) {
+	if !s.validated {
+		panic("Trying to use not validated signer information")
+	}
+	if s.maxCoefficient > maxUint16 {
+		return nil, ErrInvalidCoefficient
+	}
+	coefficient := make([]uint16, s.length)
+	for i, c := range s.Coefficients {
+		coefficient[i] = uint16(c)
+	}
+	duplicate := s.Copy()
+	return &VoteSigners{
+		SignersBase: &SignersBase[uint16]{
+			Bits:          duplicate.Bits,
+			committeeSize: duplicate.committeeSize,
+			length:        duplicate.length,
+			powers:        duplicate.powers,
+			power:         duplicate.power,
+			validated:     duplicate.validated,
+			powerAssigned: duplicate.powerAssigned,
+
+			Coefficients:   coefficient,
+			maxCoefficient: uint16(duplicate.maxCoefficient),
+		},
+	}, nil
 }
 
 type VoteSigners struct {
