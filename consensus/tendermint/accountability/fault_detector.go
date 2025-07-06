@@ -1517,7 +1517,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 				return
 			}
 		}
-	}, m.Signers().CommitteeSize())
+	})
 
 	fd.saveQueueCh <- m
 	return err
