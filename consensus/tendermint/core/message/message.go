@@ -607,6 +607,9 @@ func AggregatePrecommits(votes []Vote) []*Precommit {
 	return AggregateVotes[Precommit](votes)
 }
 
+// NOTE: this function assumes that:
+// 1. all votes are for the same signature input (code,h,r,value)
+// 2. all votes have previously been preverified and cryptographically verified
 func AggregatePrevotesToEvidence(votes []Vote) *EvidenceVote {
 	aggregateSignature, aggregateKey := AggregateVotesToQuorum(votes)
 
@@ -707,7 +710,10 @@ var (
 // NOTE: this function assumes that:
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been preverified and cryptographically verified
-func AggregateVotes[E Prevote | Precommit](votes []Vote) []*E {
+//
+// set `skipBoundaryCheck[0] = true` only if the boundary checks are done previously
+// and the caller is sure that no boundary check is needed anymore.
+func AggregateVotes[E Prevote | Precommit](votes []Vote, skipBoundaryCheck ...bool) []*E {
 	// TODO: return for len = 1
 	// length safety checks
 	if len(votes) == 0 {
@@ -716,6 +722,11 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) []*E {
 
 	if metrics.Enabled {
 		validVotesCounter.Inc(int64(len(votes)))
+	}
+
+	doBoundaryCheck := true
+	if len(skipBoundaryCheck) > 0 {
+		doBoundaryCheck = !skipBoundaryCheck[0]
 	}
 
 	// bitmap to track if the each vote has any contribution
@@ -736,6 +747,10 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) []*E {
 		}
 		index := -1
 		for i, signers := range aggregateSigners {
+			if !doBoundaryCheck {
+				index = i
+				break
+			}
 			// we check if the resulting aggregate respects the coefficient boundaries.
 			// this avoids that we aggregate two complex aggregates together, which can lead to coefficient breaching.
 			if signers.RespectsBoundaries(vote.Signers()) {
@@ -809,6 +824,24 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) []*E {
 		aggregateVotesCounter.Inc(int64(len(aggregates)))
 	}
 	return aggregates
+}
+
+// NOTE: this function assumes that:
+// 1. all votes are for the same signature input (code,h,r,value)
+// 2. all votes have previously been preverified and cryptographically verified
+//
+// returns `true` if the `newVote` can be merged with any of the `nonMergeable` votes.
+// if the `newVote` can be merged, then it will also return the index of the `nonMergeable` which
+// was merged with `newVote`. `nonMergeable` votes cannot be merged with one another.
+//
+// NOTE: DO NOT MODIFY `nonMergeable`
+func AggregateLastVote[E Prevote | Precommit](nonMergeable []Vote, newVote Vote) (bool, int, *E) {
+	for i, vote := range nonMergeable {
+		if vote.Signers().RespectsBoundaries(newVote.Signers()) {
+			return true, i, AggregateVotes[E]([]Vote{vote, newVote}, true)[0]
+		}
+	}
+	return false, 0, nil
 }
 
 func (e *EvidenceVote) DecodeRLP(s *rlp.Stream) error {

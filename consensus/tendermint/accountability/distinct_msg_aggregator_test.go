@@ -162,11 +162,7 @@ func aggregatedPrecommit(h uint64, r int64, v common.Hash, signers []int, commit
 	for i, s := range signers {
 		precommits[i] = newValidatedPrecommit(r, h, v, makeSigner(keys[s]), &committee.Members[s], committee.Len())
 	}
-	aggregates := message.AggregatePrecommits(precommits)
-	if len(aggregates) > 1 {
-		panic("aggregate len more than 1")
-	}
-	return aggregates[0]
+	return aggregatePrecommits(precommits)
 }
 
 // randomSigners generate a set of signer's index, it could have duplicated index.
