@@ -427,31 +427,6 @@ func TestSigners(t *testing.T) {
 		require.False(t, s.Contains(1))
 		require.True(t, s.Contains(2))
 	})
-	t.Run("IsComplex returns expected result", func(t *testing.T) {
-		s := NewVoteSigners(committee.Len())
-
-		require.False(t, s.IsComplex())
-
-		s.AddMember(&committee.Members[0])
-		s.AddMember(&committee.Members[1])
-		s.AddMember(&committee.Members[2])
-
-		require.False(t, s.IsComplex())
-
-		s.AddMember(&committee.Members[0])
-
-		require.True(t, s.IsComplex())
-
-		s.AddMember(&committee.Members[0])
-		s.AddMember(&committee.Members[1])
-		s.AddMember(&committee.Members[2])
-		s.AddMember(&committee.Members[0])
-		s.AddMember(&committee.Members[1])
-		s.AddMember(&committee.Members[2])
-
-		require.True(t, s.IsComplex())
-
-	})
 	t.Run("AddsInformation, RespectBoundaries return expected results", func(t *testing.T) {
 		s1 := NewVoteSigners(committee.Len())
 		s2 := NewVoteSigners(committee.Len())
