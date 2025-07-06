@@ -129,7 +129,6 @@ func (c *Core) quorumFor(code uint8, round int64, value common.Hash) bool {
 }
 
 func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash) {
-	// TODO: optimize
 	// We re-add the complex aggregate to the prevote set. If we would substitute the entire set with the complex aggregate,
 	// there is a possibility of message loss (if we had multiple un-mergeable complex aggregates in the `messages`).
 	// This loss would not harm consensus (we would still have quorum voting power), however it is better to keep all messages

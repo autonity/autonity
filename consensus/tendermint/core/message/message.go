@@ -627,29 +627,26 @@ func AggregatePrecommits(votes []Vote) []*Precommit {
 func AggregatePrevotesToEvidence(votes []Vote) *EvidenceVote {
 	aggregateSignature, aggregateKey := AggregateVotesToQuorum(votes)
 
-	c := votes[0].Code()
-	h := votes[0].H()
-	r := votes[0].R()
-	value := votes[0].Value()
-	signatureInput := votes[0].SignatureInput()
-
-	representative := deterministicRepresentative(votes)
+	representative := votes[0]
+	c := representative.Code()
+	h := representative.H()
+	r := representative.R()
+	value := representative.Value()
+	signatureInput := representative.SignatureInput()
 
 	payload, _ := rlp.EncodeToBytes(extVote[uint32]{
-		Code:       c,
-		Round:      uint64(r), // #nosec
-		Height:     h,
-		Value:      value,
-		Signers:    aggregateSignature.Signers.SignersBase,
-		Originator: representative.Originator(), //todo: review
-		Signature:  aggregateSignature.Signature,
+		Code:      c,
+		Round:     uint64(r), // #nosec
+		Height:    h,
+		Value:     value,
+		Signers:   aggregateSignature.Signers.SignersBase,
+		Signature: aggregateSignature.Signature,
 	})
 
 	return &EvidenceVote{
 		value: value,
 		vote: vote[uint32]{
-			signers:    aggregateSignature.Signers.SignersBase,
-			originator: representative.Originator(), // todo: review
+			signers: aggregateSignature.Signers.SignersBase,
 			base: base{
 				height:         h,
 				round:          r,
@@ -719,19 +716,6 @@ func AggregateVotesToQuorum(votes []Vote) (*types.AggregateSignature, blst.Publi
 	}, aggregateKey
 }
 
-func deterministicRepresentative(votes []Vote) Vote {
-	minVote := votes[0]
-	minHash := minVote.Originator().Hash().Big()
-	for _, vote := range votes[1:] {
-		hash := vote.Originator().Hash().Big()
-		if hash.Cmp(minHash) < 0 {
-			minVote = vote
-			minHash = hash
-		}
-	}
-	return minVote
-}
-
 var (
 	validVotesCounter     = metrics.GetOrRegisterCounter("aggregator/backend/valid", nil)     // measures time for message passing from backend to aggregator
 	aggregateVotesCounter = metrics.GetOrRegisterCounter("aggregator/backend/aggregate", nil) // measures time for message passing from backend to aggregator
@@ -793,15 +777,15 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) []*E {
 
 	aggregates := make([]*E, 0, len(aggregateSigners))
 
-	c := votes[0].Code()
-	h := votes[0].H()
-	r := votes[0].R()
-	value := votes[0].Value()
-	signatureInput := votes[0].SignatureInput()
+	representative := votes[0]
+	c := representative.Code()
+	h := representative.H()
+	r := representative.R()
+	value := representative.Value()
+	signatureInput := representative.SignatureInput()
 
 	for i, signers := range aggregateSigners {
 
-		representative := deterministicRepresentative(voteDistributed[i])
 		aggregatedSignature := blst.AggregateSignatures(signatures[i])
 		aggregatedPublicKey, err := blst.AggregatePublicKeys(publicKeys[i]) // TODO: remove?
 		if err != nil {
@@ -809,20 +793,18 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) []*E {
 		}
 
 		payload, _ := rlp.EncodeToBytes(extVote[uint16]{
-			Code:       c,
-			Round:      uint64(r), // #nosec
-			Height:     h,
-			Value:      value,
-			Signers:    signers,
-			Originator: representative.Originator(), //todo: review
-			Signature:  aggregatedSignature.(*blst.BlsSignature),
+			Code:      c,
+			Round:     uint64(r), // #nosec
+			Height:    h,
+			Value:     value,
+			Signers:   signers,
+			Signature: aggregatedSignature.(*blst.BlsSignature),
 		})
 
 		aggregateVote := E{
 			value: value,
 			vote: vote[uint16]{
-				signers:    signers,
-				originator: representative.Originator(), // todo: review
+				signers: signers,
 				base: base{
 					height:         h,
 					round:          r,
@@ -878,7 +860,6 @@ func (e *EvidenceVote) DecodeRLP(s *rlp.Stream) error {
 	e.value = encoded.Value
 	e.signature = encoded.Signature
 	e.signers = encoded.Signers
-	e.originator = encoded.Originator
 	e.payload = payload
 	// precompute hash and signature hash
 	e.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrevoteCode, encoded.Value)
