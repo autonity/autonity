@@ -1,7 +1,6 @@
 package accountability
 
 import (
-	"encoding/binary"
 	"errors"
 	"io"
 
@@ -146,16 +145,7 @@ func (r *Signers) PreValidate(committee *types.Committee) error {
 }
 
 func (r *Signers) toBlstScalars() []*blstbind.Scalar {
-	scalars := make([]*blstbind.Scalar, 0, len(r.SignersCoeff))
-	bytes := make([]byte, 2)
-
-	for _, c := range r.SignersCoeff {
-		binary.BigEndian.PutUint16(bytes, uint16(c))
-		scalar := new(blstbind.Scalar)
-		scalar.FromBEndian(bytes)
-		scalars = append(scalars, scalar)
-	}
-	return scalars
+	return blst.ToBlstScalars(r.SignersCoeff)
 }
 
 func (r *Signers) Contains(index int) bool {
