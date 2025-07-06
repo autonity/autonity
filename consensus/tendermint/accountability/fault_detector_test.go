@@ -999,8 +999,8 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	otherPrevoteForB1 := newValidatedPrevote(prevoteForB1.R(), prevoteForB1.H(), prevoteForB1.Value(),
 		makeSigner(keys[prevoterIdx]), &committee.Members[prevoterIdx], cSize)
 
-	aggregatedPrevoteForB := aggregatePrevotes([]message.Vote{prevoteForB, otherPrevoteForB})
-	aggregatedPrevoteForB1 := aggregatePrevotes([]message.Vote{prevoteForB1, otherPrevoteForB1})
+	aggregatedPrevoteForB := aggregatePrevotesToEvidence([]message.Vote{prevoteForB, otherPrevoteForB})
+	aggregatedPrevoteForB1 := aggregatePrevotesToEvidence([]message.Vote{prevoteForB1, otherPrevoteForB1})
 
 	precommitForB := newValidatedPrecommit(3, height, block.Hash(), signer, self, cSize)
 	otherPrecommitForB := newValidatedPrecommit(precommitForB.R(), precommitForB.H(), precommitForB.Value(),
@@ -1025,7 +1025,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	prevoteForOldB10 := newValidatedPrevote(10, height, block.Hash(), signer, self, cSize)
 	otherPrevoteForOldB10 := newValidatedPrevote(prevoteForOldB10.R(), prevoteForOldB10.H(), prevoteForOldB10.Value(),
 		makeSigner(keys[prevoterIdx]), &committee.Members[prevoterIdx], cSize)
-	aggregatedPrevoteForOldB10 := aggregatePrevotes([]message.Vote{prevoteForOldB10, otherPrevoteForOldB10})
+	aggregatedPrevoteForOldB10 := aggregatePrevotesToEvidence([]message.Vote{prevoteForOldB10, otherPrevoteForOldB10})
 
 	precommitForB1In8 := newValidatedPrecommit(8, height, block1.Hash(), signer, self, cSize)
 	otherPrecommitForB1In8 := newValidatedPrecommit(8, height, block1.Hash(), makeSigner(keys[prevoterIdx]),
@@ -1312,7 +1312,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 			vr5Prevotes = append(vr5Prevotes, vr5Prevote)
 			fd.msgStore.Save(vr5Prevote)
 		}
-		aggVr5Votes := aggregatePrevotes(vr5Prevotes)
+		aggVr5Votes := aggregatePrevotesToEvidence(vr5Prevotes)
 
 		expectedMisbehaviour1 := &Proof{
 			OffenderIndex: proposerIdx,
@@ -1716,7 +1716,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 			votesForB1[i] = p
 		}
 
-		aggVoteForB1 := aggregatePrevotes(votesForB1)
+		aggVoteForB1 := aggregatePrevotesToEvidence(votesForB1)
 
 		expectedProof0 := &Proof{
 			OffenderIndex: proposerIdx,
@@ -1810,14 +1810,18 @@ func newTestBlockchain() *ccore.BlockChain {
 }
 
 func aggregatedPreVote(numOfSigners int, h uint64, r int64, v common.Hash, keys []blst.SecretKey,
-	committee *types.Committee) *message.Prevote {
+	committee *types.Committee) *message.EvidenceVote {
 	var votes []message.Vote
 	for i := 0; i < numOfSigners && i < committee.Len(); i++ {
 		preVote := newValidatedPrevote(r, h, v, makeSigner(keys[i]), &committee.Members[i], committee.Len())
 		votes = append(votes, preVote)
 	}
-	aggregatedVote := aggregatePrevotes(votes)
+	aggregatedVote := aggregatePrevotesToEvidence(votes)
 	return aggregatedVote
+}
+
+func aggregatePrevotesToEvidence(votes []message.Vote) *message.EvidenceVote {
+	return message.AggregatePrevotesToEvidence(votes)
 }
 
 func aggregatePrevotes(votes []message.Vote) *message.Prevote {

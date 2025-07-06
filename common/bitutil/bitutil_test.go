@@ -8,7 +8,6 @@ package bitutil
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -121,9 +120,9 @@ func testLSBPosition[T uint8 | uint16 | uint32](
 	tester func(n T) int,
 ) {
 	require.Equal(t, tester(0), -1)
-	for lsbPos := range maxPosition {
+	for lsbPos := 0; lsbPos < maxPosition; lsbPos++ {
 		lsb := 1 << lsbPos
-		for n := range maxNumber {
+		for n := 0; n < maxNumber+1; n++ {
 			num := lsb | (n << (lsbPos + 1))
 			require.Equal(t, tester(T(num)), lsbPos)
 		}
@@ -136,9 +135,9 @@ func testMSBPosition[T uint8 | uint16 | uint32](
 	tester func(n T) int,
 ) {
 	require.Equal(t, tester(0), -1)
-	for msbPos := range maxPosition {
+	for msbPos := 0; msbPos < maxPosition; msbPos++ {
 		msb := 1 << msbPos
-		for n := range min(msb, maxNumber) {
+		for n := 0; n < min(msb, maxNumber+1); n++ {
 			num := msb | n
 			require.Equal(t, tester(T(num)), msbPos)
 		}
@@ -191,9 +190,9 @@ func TestOnesCount(t *testing.T) {
 	maxUint8 := (1 << 8) - 1
 
 	t.Run("test ByteOnesCountLowerIndex", func(t *testing.T) {
-		for n := range maxUint8 {
+		for n := 0; n <= maxUint8; n++ {
 			require.Equal(t, ByteOnesCountLowerIndex(uint8(n), -1), 0)
-			for index := range 9 {
+			for index := 0; index < 9; index++ {
 				require.Equal(
 					t,
 					bitCounter(uint(n), 1<<index),
@@ -204,9 +203,8 @@ func TestOnesCount(t *testing.T) {
 	})
 
 	t.Run("test ByteOnesCountLowerLSB", func(t *testing.T) {
-		for n := range maxUint8 {
-			for l := range maxUint8 {
-				fmt.Printf("n %v , l %v\n", n, l)
+		for n := 0; n <= maxUint8; n++ {
+			for l := 0; l <= maxUint8; l++ {
 				require.Equal(
 					t,
 					bitCounter(uint(n), uint(l)),

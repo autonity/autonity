@@ -222,6 +222,7 @@ func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *
 		defaultRound := m.R()
 		defaultValue := m.Value()
 		defaultSingers := m.Signers().FlattenUniq()
+		coeffs := m.Signers().Coefficients
 		if wrongRound != nil {
 			defaultRound += *wrongRound
 		}
@@ -231,13 +232,17 @@ func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *
 
 		if len(wrongSigners) > 0 {
 			defaultSingers = wrongSigners
+			coeffs = make([]uint16, len(defaultSingers))
+			for i := range coeffs {
+				coeffs[i] = 1
+			}
 		}
 
 		roundValueSigners := &Signers{
 			Round:        defaultRound,
 			Value:        defaultValue,
 			SignersIndex: defaultSingers,
-			SignersCoeff: m.Signers().Coefficients,
+			SignersCoeff: coeffs,
 		}
 		result.MsgSigners = append(result.MsgSigners, roundValueSigners)
 		signatures[i] = m.Signature()
