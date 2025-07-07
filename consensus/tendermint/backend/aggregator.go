@@ -106,6 +106,7 @@ func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.
 		internalCoreCh:   make(chan events.MessageEventer, 1),
 		internalFdCh:     make(chan events.MessageEventer, 1),
 		signalFastTickCh: make(chan struct{}, 1),
+		signatureSet: newAggregatorCache(),
 	}
 }
 
@@ -136,18 +137,6 @@ func NewRoundInfo() *RoundInfo {
 	}
 }
 
-type valueCache struct {
-	signatures map[common.Hash][]uint16
-}
-
-func (vc *valueCache) Add() {
-
-}
-
-func (vc *valueCache) HaveSuperSet() bool {
-	return false
-}
-
 type aggregator struct {
 	backend interfaces.Backend
 	core    interfaces.Core
@@ -159,6 +148,7 @@ type aggregator struct {
 	toIgnore     map[common.Hash]struct{}
 
 	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
+	signatureSet  *aggregatorCache
 	afdDispatchCh chan<- events.MessageEventer
 
 	internalCoreCh   chan events.MessageEventer
@@ -519,7 +509,6 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 	default:
 		a.logger.Crit("Unexpected code", "c", c)
 	}
-
 }
 
 func (a *aggregator) DispatchCoreEvents() {
@@ -757,6 +746,12 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	if err != nil {
 		panic(fmt.Sprintf("cannot get committee of height: %d", msg.H()))
 	}
+	if a.signatureSet.Contains(msg.H(), msg.R(), committee.Len(), event) {
+		return // already processed a message with more signers
+	} else {
+		a.signatureSet.Add(msg.H(), msg.R(), committee.Len(), event) // add to aggregator cache
+	}
+
 	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	coreRound := a.core.Round()
@@ -1026,6 +1021,7 @@ loop:
 			// cleanup
 			clear(a.messagesFrom)
 			clear(a.toIgnore)
+			a.signatureSet.PruneToHeight(coreHeight)
 			aggTimer.Reset(aggregationPeriod)
 		case <-oldMessagesTicker.C:
 			a.logger.Trace("Processing stale messages in the aggregator")
