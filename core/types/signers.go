@@ -42,17 +42,10 @@ var (
 // represents the senders of an aggregated signature
 
 /*
-* Two bits for each validator. The meaning is:
-* 00 --> no signature from the validator
-* 01 --> 1 signature
-* 10 --> 2 signatures
-* 11 --> look at the number of signatures in the `Coefficients` array
+* One bit for each validator. The meaning is:
+* 0 --> no signature from the validator
+* 1 --> present, look at the number of signatures in the `Coefficients` array
 *
-* example:
-* indexes 			 0  1  2  3  4  5
-* bits    			 00 11 10 01 00 11
-* coefficients   17 170
-* #sigs          0  17 2  1  0  170
  */
 
 type validatorBitmap []byte
@@ -86,18 +79,6 @@ func (vb validatorBitmap) Merge(other validatorBitmap) bool {
 	return contributed
 }
 
-// TODO: remove
-// func (vb validatorBitmap) Get(validatorIndex int) byte {
-// 	byteIndex := validatorIndex / validatorsPerByte
-// 	bitIndex := validatorIndex % validatorsPerByte
-// 	b := vb[byteIndex]
-
-// 	result := b & getMasks[bitIndex]
-// 	shift := validatorsPerByte - 1 - bitIndex
-// 	result = result >> (shift * bitsPerValidator)
-// 	return result
-// }
-
 // this function needs to be modified if the constant `validatorsPerByte` is changed
 func (vb validatorBitmap) HasSigner(validatorIndex int) bool {
 	byteIndex, bitIndex := indexToBitMapPosition(validatorIndex)
@@ -105,28 +86,8 @@ func (vb validatorBitmap) HasSigner(validatorIndex int) bool {
 	// because of the constant `bitsPerValidator = 1`, each validator takes a single bit
 	// we just need to check if the bit is 1 or 0
 	// note that the bits are numbered from LSB to MSB (in both `HasSigner` and `setSigner`)
-	return vb.hasBit(byteIndex, bitIndex)
-}
-
-func (vb validatorBitmap) hasBit(byteIndex, bitIndex int) bool {
 	return (vb[byteIndex] & (1 << bitIndex)) > 0
 }
-
-// TODO: remove
-// // NOTE: be careful when calling directly this function without passing through the `increment` function.
-// // this function will not invalidate any cache, it is just a naive setter
-// func (vb validatorBitmap) Set(validatorIndex int, value byte) {
-// 	if value > multipleSignatures {
-// 		panic("Trying to set value that cannot fit into 2 bits")
-// 	}
-// 	bitIndex := validatorIndex % validatorsPerByte
-// 	shift := validatorsPerByte - 1 - bitIndex
-// 	valueShifted := value << (shift * bitsPerValidator)
-
-// 	byteIndex := validatorIndex / validatorsPerByte
-// 	vb[byteIndex] = vb[byteIndex] & setMasks[bitIndex]
-// 	vb[byteIndex] = vb[byteIndex] | valueShifted
-// }
 
 // NOTE: be careful when calling directly this function without passing through the `increment` function.
 // this function will not invalidate any cache, it is just a naive setter
@@ -137,10 +98,6 @@ func (vb validatorBitmap) setSigner(validatorIndex int) {
 	// because of the constant `bitsPerValidator = 1`, each validator takes a single bit
 	// we just need to set 1 in `bitIndex`
 	// note that the bits are numbered from LSB to MSB (in both `HasSigner` and `setSigner`)
-	vb.setBit(byteIndex, bitIndex)
-}
-
-func (vb validatorBitmap) setBit(byteIndex, bitIndex int) {
 	vb[byteIndex] = vb[byteIndex] | (1 << bitIndex)
 }
 
@@ -230,6 +187,7 @@ func (s *SignersBase[T]) validate(committeeSize int) (int, T, error) {
 		if b == 0 {
 			continue
 		}
+		// number of signers in `b`
 		countNonZero += bits.OnesCount8(b)
 	}
 
@@ -294,15 +252,6 @@ func (s *SignersBase[T]) safetyCheck(other *SignersBase[T]) error {
 	return nil
 }
 
-func (s *SignersBase[uint16]) canAddCoefficient(other *SignersBase[uint16], position1, position2 int) bool {
-	// check if `s.Coefficients[position1] + other.Coefficients[position2] <= maxUint16`
-	// checking if `s.Coefficients[position1] <= (maxUint16 - other.Coefficients[position2])`
-
-	// `maxUint16 = (1<<16) - 1`, so all the 16 positions in it has 1
-	// so `maxUint16 - n` equals to `maxUint16 ^ n` if `n <= maxUint16`
-	return s.Coefficients[position1] <= (maxUint16 ^ other.Coefficients[position2])
-}
-
 // checks that the resulting aggregate still respects the logical boundary for `VoteSigners`
 // we don't need this method for `QuorumSigners`
 func (s *SignersBase[uint16]) RespectsBoundaries(other *SignersBase[uint16]) bool {
@@ -327,40 +276,27 @@ func (s *SignersBase[uint16]) RespectsBoundaries(other *SignersBase[uint16]) boo
 	// in case constant `bitsPerValidator` is changed, this block of codes needs refactoring
 	count1 := 0 // number of signers in `s.Bits`
 	count2 := 0 // number of signers in `other.Bits`
-	for i, b := range s.Bits {
-		commonBits := b & other.Bits[i]
-		for commonBits > 0 {
-			// we have some signers present in both `s` and `other` which are present in `commonBits`
+	for i := 0; i < s.committeeSize; i++ {
+		var coefficient1 uint16
+		var coefficient2 uint16
 
-			// we will take the signer at the LSB of `commonBits`
-			// so we need to know how many signers are present in `s.Bits[i]`
-			// and `other.Bits[i]` separately in lower bits than the LSB of `commonBits`
-
-			signerAtLowerBits1 := s.signerCountBeforeLSB(i, commonBits) + count1
-			signerAtLowerBits2 := other.signerCountBeforeLSB(i, commonBits) + count2
-
-			// if both coefficients are <= minSafeCoefficient than no need to check
-			if !s.canAddCoefficient(other, signerAtLowerBits1, signerAtLowerBits2) {
-				return false
-			}
-
-			// then we remove the LSB
-			commonBits = commonBits & (commonBits - 1)
-
-			// the above idea is inspired from Brian Kernighan's Algorithm
-			// see more here: https://how.dev/answers/what-is-kernighans-algorithm
+		if s.Bits.HasSigner(i) {
+			coefficient1 = s.Coefficients[count1]
+			count1++
 		}
-		// the total complexity of the above loop is `O(number_of_common_signers)`
 
-		// update `count1`, `count2`
-		if b > 0 {
-			count1 += bits.OnesCount8(b)
+		if other.Bits.HasSigner(i) {
+			coefficient2 = other.Coefficients[count2]
+			count2++
 		}
-		if other.Bits[i] > 0 {
-			count2 += bits.OnesCount8(other.Bits[i])
+
+		// check if `coefficient1 + coefficient2 > maxUint16`
+		// checking if `coefficient1 > (maxUint16 - coefficient2)`
+		if coefficient1 > maxUint16-coefficient2 {
+			return false
 		}
 	}
-	// the total complexity of the nested loops is `O(len(s.bits)) + O(number_of_common_signers)`
+
 	return true
 }
 
@@ -381,32 +317,21 @@ func (s *SignersBase[T]) AddsInformation(other *SignersBase[T]) bool {
 	return false
 }
 
-// returns the count of signers in `s` at `s.Bits[byteIndex]` before `bitIndex`
-func (s *SignersBase[T]) signerCountBeforeIndex(byteIndex, bitIndex int) int {
-	return bitutil.ByteOnesCountLowerIndex(s.Bits[byteIndex], bitIndex)
-}
-
-// returns the count of signers in `s` at `s.Bits[byteIndex]` before the
-// LSB of `b`
-func (s *SignersBase[T]) signerCountBeforeLSB(byteIndex int, b byte) int {
-	return bitutil.ByteOnesCountLowerLSB(s.Bits[byteIndex], b)
-}
-
 // this function will add the `coefficient` in `s.Coefficient` and will update the `s.Bits` if needed
 // the caller is responsible to check if the coefficient does not overflow
 func (s *SignersBase[T]) addOrUpdate(
-	byteIndex, bitIndex, coeffIndex, validatorIndex int,
+	validatorIndex, coeffIndex int,
 	coefficient T,
 	votingPower *big.Int,
 ) {
-	if s.Bits.hasBit(byteIndex, bitIndex) {
+	if s.Bits.HasSigner(validatorIndex) {
 		s.Coefficients[coeffIndex] += coefficient
 		s.maxCoefficient = max(s.maxCoefficient, s.Coefficients[coeffIndex])
 		return
 	}
 
 	s.length++
-	s.Bits.setBit(byteIndex, bitIndex)
+	s.Bits.setSigner(validatorIndex)
 
 	if coeffIndex == len(s.Coefficients) {
 		s.Coefficients = append(s.Coefficients, coefficient)
@@ -426,16 +351,13 @@ func (s *SignersBase[T]) increment(index int, coefficient T, votingPower *big.In
 
 	count := 0 // count of signers present before `index`
 
-	byteIndex, bitIndex := indexToBitMapPosition(index)
-	// count the number of signers present before `byteIndex`
-	for i := 0; i < byteIndex; i++ {
-		count += bits.OnesCount8(s.Bits[i])
+	for i := 0; i < index; i++ {
+		if s.Bits.HasSigner(i) {
+			count++
+		}
 	}
 
-	// now count the number of signers in `byteIndex` before `bitIndex`
-	count += s.signerCountBeforeIndex(byteIndex, bitIndex)
-
-	s.addOrUpdate(byteIndex, bitIndex, count, index, coefficient, votingPower)
+	s.addOrUpdate(index, count, coefficient, votingPower)
 }
 
 // This function adds the `member` in signer `s`. This function assumes that `member` is absent in signer `s`.
@@ -467,30 +389,15 @@ func (s *SignersBase[T]) Merge(other *SignersBase[T]) {
 
 	count1 := 0 // count of signers in `s`
 	count2 := 0 // count of signers in `other`
-	for i, b := range other.Bits {
-		for b > 0 {
-			// take the `bitIndex` of the LSB of `b`
-			bitIndex := bitutil.ByteLSBPosition(b)
-			signerAtLowerBits1 := s.signerCountBeforeIndex(i, bitIndex) + count1
-			signerAtLowerBits2 := other.signerCountBeforeIndex(i, bitIndex) + count2
 
-			validatorIndex := bitMapPositionToIndex(i, bitIndex)
-
-			s.addOrUpdate(
-				i, bitIndex, signerAtLowerBits1, validatorIndex,
-				other.Coefficients[signerAtLowerBits2],
-				other.powers[validatorIndex],
-			)
-
-			// remove the LSB of `b`
-			b = b & (b - 1)
-			// the above idea is inspired from Brian Kernighan's Algorithm
-			// see more here: https://how.dev/answers/what-is-kernighans-algorithm
+	for i := 0; i < s.committeeSize; i++ {
+		if other.Bits.HasSigner(i) {
+			s.addOrUpdate(i, count1, other.Coefficients[count2], other.powers[i])
+			count2++
 		}
-
-		// update `count1`, `count2`
-		count1 += bits.OnesCount8(s.Bits[i])
-		count2 += bits.OnesCount8(other.Bits[i])
+		if s.Bits.HasSigner(i) {
+			count1++
+		}
 	}
 }
 
@@ -714,11 +621,4 @@ func indexToBitMapPosition(index int) (int, int) {
 	// but the following works because `validatorsPerByte = 8`, which is a power of 2
 	bitIndex := index & (validatorsPerByte - 1)
 	return byteIndex, bitIndex
-}
-
-func bitMapPositionToIndex(byteIndex, bitIndex int) int {
-	// the following line is the same as `byteIndex * validatorsPerByte + bitIndex`
-	// but the following works because `validatorsPerByte = 8 = 2^3` and `bitIndex < validatorsPerByte`
-	// `bitIndex < validatorsPerByte` should always be true
-	return (byteIndex << 3) | bitIndex
 }
