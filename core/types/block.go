@@ -191,7 +191,7 @@ func (a *AggregateSignature) Malformed() bool {
 func (a *AggregateSignature) Validate(message common.Hash, committee *Committee, checkQuorum bool) (map[common.Address]struct{}, *big.Int, error) {
 	// validate signers information first
 
-	_, _, err := a.Signers.validate(committee.Len())
+	distinctSigners, maxCoefficient, err := a.Signers.validate(committee.Len())
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid signers information: %w", err)
 	}

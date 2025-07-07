@@ -690,68 +690,6 @@ func generatePrevotes(t *testing.B, numVotes int, committee *types.Committee, va
 	return votes
 }
 
-func BenchmarkAggregatePrevotesSimple(b *testing.B) {
-	// Setup a large committee to simulate a realistic scenario
-	const committeeSize = 500
-	committee, signers := generateTestCommittee(b, committeeSize)
-	value := common.HexToHash("0xa55843ac1c1247324a23a23f23f742f89f431293123020912dade33149f4fffe")
-
-	// --- Scenario 1: Dense Aggregation ---
-	// This simulates the beginning of a round, where the aggregator receives
-	// many individual votes that need to be combined.
-	b.Run(fmt.Sprintf("DenseAggregation-Committee%d-Votes%d", committeeSize, 100), func(b *testing.B) {
-		// Generate 100 unique votes from the 150 committee members
-		votes := generatePrevotes(b, 500, committee, value, signers)
-
-		// Pre-verify all votes outside the benchmark loop
-		for _, v := range votes {
-			require.NoError(b, v.PreValidate(committee))
-			require.NoError(b, v.Validate())
-		}
-
-		b.ResetTimer()
-		b.ReportAllocs()
-
-		for i := 0; i < b.N; i++ {
-			// This call is what we are measuring. It will perform many
-			// Copy, Merge, and AddsInformation operations.
-			_ = AggregatePrevotesSimple(votes)
-		}
-	})
-
-	// --- Scenario 2: Sparse Aggregation ---
-	// This simulates a later stage in a round, where the aggregator receives
-	// a smaller number of already-aggregated votes.
-	b.Run(fmt.Sprintf("SparseAggregation-Committee%d-Aggregates%d", committeeSize, 10), func(b *testing.B) {
-		// Generate 10 pre-aggregated votes, each containing 10 unique signers.
-		const numAggregates = 10
-		const signersPerAggregate = 50
-		aggregates := make([]Vote, numAggregates)
-
-		for i := 0; i < numAggregates; i++ {
-			individualVotes := generatePrevotes(b, signersPerAggregate, committee, value, signers)
-
-			// Pre-verify individual votes
-			for _, v := range individualVotes {
-				require.NoError(b, v.PreValidate(committee))
-				require.NoError(b, v.Validate())
-			}
-			// Create the initial aggregate
-			aggregatedVote := AggregatePrevotesSimple(individualVotes)
-			require.Len(b, aggregatedVote, 1)
-			aggregates[i] = aggregatedVote[0]
-		}
-
-		b.ResetTimer()
-		b.ReportAllocs()
-
-		for i := 0; i < b.N; i++ {
-			// This call measures merging larger, existing aggregates.
-			_ = AggregatePrevotesSimple(aggregates)
-		}
-	})
-}
-
 func BenchmarkSignersEncodingSize(b *testing.B) {
 	committeeSizes := []int{100, 250, 500, 1000}
 
@@ -761,11 +699,11 @@ func BenchmarkSignersEncodingSize(b *testing.B) {
 			numSigners := (cSize) / 10 // Simulate a 1/10 committee size
 
 			// Create a Signers object and populate it
-			signers := types.NewSigners(cSize)
+			signers := types.NewVoteSigners(cSize)
 			p := rand.New(rand.NewSource(time.Now().UnixNano())).Perm(cSize)
 			for i := 0; i < numSigners; i++ {
 				member := &committee.Members[p[i]]
-				signers.Increment(member)
+				signers.AddMember(member)
 			}
 
 			// We are not measuring time, but the size of the output.

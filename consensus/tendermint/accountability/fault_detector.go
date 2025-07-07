@@ -1548,7 +1548,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) e
 				return
 			}
 		}
-	}, m.Signers().CommitteeSize())
+	})
 
 	fd.saveQueueCh <- m
 	return err
