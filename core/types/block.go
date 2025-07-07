@@ -197,7 +197,7 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 
 	// verify signature
 	// multiply the public keys with coefficients to aggregate them
-	indexes := a.Signers.flattenUniq()
+	indexes := a.Signers.flattenUniq(distinctSigners, committee.Len())
 	keys := make([]blst.PublicKey, len(indexes))
 	for i, index := range indexes {
 		keys[i] = committee.Members[index].ConsensusKey
