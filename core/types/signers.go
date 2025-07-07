@@ -123,6 +123,24 @@ func (vb validatorBitmap) Set(validatorIndex int, value byte) {
 	vb[byteIndex] = vb[byteIndex] | valueShifted
 }
 
+func (vb validatorBitmap) ToSingleBitmap(committeeSize int) []byte {
+	oneBitmapLength := (committeeSize + bitsInByte - 1) / bitsInByte
+	oneBitmap := make([]byte, oneBitmapLength)
+
+	for i := 0; i < committeeSize; i++ {
+		byteIndex := i / validatorsPerByte
+		bitIndex := i % validatorsPerByte
+		shift := (validatorsPerByte - 1 - bitIndex) * bitsPerValidator
+		value := (vb[byteIndex] >> shift) & 0x03 // Extract 2 bits
+		if value > 0 {
+			newByteIndex := i / 8
+			newBitIndex := i % 8
+			oneBitmap[newByteIndex] |= 1 << (7 - newBitIndex)
+		}
+	}
+	return oneBitmap
+}
+
 // Correct full validation cannot be done until we know the committee size of this block,
 // but we can already ensure that the fields have sane values
 func (s *Signers) SanityCheck() error {
