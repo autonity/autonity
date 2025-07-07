@@ -1391,7 +1391,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 			return msg.R() == m.R() && msg.Signers().Contains(signerIndex) && msg.Value() != m.Value()
 		})
 		if len(equivocatedMessages) > 0 {
-			fd.submitMisbehavior(m, []message.Msg{AggregateSamePrevotes(equivocatedMessages)}, errEquivocation, signerIndex, signer)
+			fd.submitMisbehavior(m, []message.Msg{equivocatedMessages[0]}, errEquivocation, signerIndex, signer)
 			err = errEquivocation
 		}
 	}
