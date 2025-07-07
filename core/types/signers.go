@@ -572,27 +572,20 @@ func (s *SignersBase[T]) CopyCoefficients() []T {
 	return coeffs
 }
 
-// same as before, but repeated indexes are returned only once
 func (s *SignersBase[T]) FlattenUniq() []int {
 	if !s.validated {
 		panic("Using un-validated signers information")
 	}
-	return s.flattenUniq()
+	return s.flattenUniq(s.length, s.committeeSize)
 }
 
 // it is responsibility of the caller to pass the correct committee size
-func (s *SignersBase[T]) flattenUniq() []int {
-	indexes := make([]int, 0, s.length)
-	for i, b := range s.Bits {
-		for b > 0 {
-			// get the `bitIndex` of the LSB of `b`
-			bitIndex := bitutil.ByteLSBPosition(b)
-			indexes = append(indexes, bitMapPositionToIndex(i, bitIndex))
+func (s *SignersBase[T]) flattenUniq(signers, committeeSize int) []int {
+	indexes := make([]int, 0, signers)
 
-			// remove the LSB of `b`
-			b = b & (b - 1)
-			// the above idea is inspired from Brian Kernighan's Algorithm
-			// see more here: https://how.dev/answers/what-is-kernighans-algorithm
+	for i := 0; i < committeeSize; i++ {
+		if s.Bits.HasSigner(i) {
+			indexes = append(indexes, i)
 		}
 	}
 	return indexes
