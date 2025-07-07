@@ -106,7 +106,7 @@ func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.
 		internalCoreCh:   make(chan events.MessageEventer, 1),
 		internalFdCh:     make(chan events.MessageEventer, 1),
 		signalFastTickCh: make(chan struct{}, 1),
-		signatureSet: newAggregatorCache(),
+		signatureSet:     newAggregatorCache(),
 	}
 }
 
@@ -619,6 +619,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			case *message.Prevote:
 				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
+					a.signatureSet.AddPrevote(aggregateVote.H(), aggregateVote.R(), aggregateVote)
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					a.internalCoreCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
 					a.internalFdCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
@@ -626,6 +627,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
+					a.signatureSet.AddPrecommit(aggregateVote.H(), aggregateVote.R(), aggregateVote)
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					a.internalCoreCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
 					a.internalFdCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
@@ -746,10 +748,12 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	if err != nil {
 		panic(fmt.Sprintf("cannot get committee of height: %d", msg.H()))
 	}
+
 	if a.signatureSet.Contains(msg.H(), msg.R(), committee.Len(), event) {
 		return // already processed a message with more signers
 	} else {
-		a.signatureSet.Add(msg.H(), msg.R(), committee.Len(), event) // add to aggregator cache
+		// mark committee size for the height to avoid any more calls to CommitteeByHeight
+		a.signatureSet.MarkCommitteeSize(msg.H(), committee.Len())
 	}
 
 	quorum := bft.Quorum(committee.TotalVotingPower())

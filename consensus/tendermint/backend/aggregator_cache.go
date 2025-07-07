@@ -135,6 +135,7 @@ func (c *voteCache) PresentPower(height uint64, round int64, committee *types.Co
 }
 
 type aggregatorCache struct {
+	committeeSize  map[uint64]int // the committee size used to create the bitmaps
 	precommitCache *voteCache
 	prevoteCache   *voteCache
 }
@@ -158,21 +159,24 @@ func (c *aggregatorCache) Contains(height uint64, round int64, committeeSize int
 	}
 }
 
-func (c *aggregatorCache) Add(height uint64, round int64, committeeSize int, event events.UnverifiedMessageEvent) {
-	msg := event.Message
-	switch msg.(type) {
-	case *message.Precommit:
-		vote := msg.(message.Vote)
-		c.precommitCache.Merge(height, round, committeeSize, vote)
-	case *message.Prevote:
-		vote := msg.(message.Vote)
-		c.prevoteCache.Merge(height, round, committeeSize, vote)
-	default:
-		// Ignore other message types
-	}
+func (c *aggregatorCache) MarkCommitteeSize(height uint64, size int) {
+	c.committeeSize[height] = size
+}
+
+func (c *aggregatorCache) AddPrevote(height uint64, round int64, vote *message.Prevote) {
+	c.prevoteCache.Merge(height, round, c.committeeSize[height], vote)
+}
+
+func (c *aggregatorCache) AddPrecommit(height uint64, round int64, vote *message.Precommit) {
+	c.precommitCache.Merge(height, round, c.committeeSize[height], vote)
 }
 
 func (c *aggregatorCache) PruneToHeight(height uint64) {
 	c.precommitCache.PruneToHeight(height)
 	c.prevoteCache.PruneToHeight(height)
+	for h := range c.committeeSize {
+		if h < height {
+			delete(c.committeeSize, h)
+		}
+	}
 }
