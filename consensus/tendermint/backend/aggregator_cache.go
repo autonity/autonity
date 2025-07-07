@@ -163,12 +163,12 @@ func (c *aggregatorCache) MarkCommitteeSize(height uint64, size int) {
 	c.committeeSize[height] = size
 }
 
-func (c *aggregatorCache) AddPrevote(height uint64, round int64, vote *message.Prevote) {
-	c.prevoteCache.Merge(height, round, c.committeeSize[height], vote)
+func (c *aggregatorCache) AddPrevote(vote *message.Prevote) {
+	c.prevoteCache.Merge(vote.H(), vote.R(), c.committeeSize[vote.H()], vote)
 }
 
-func (c *aggregatorCache) AddPrecommit(height uint64, round int64, vote *message.Precommit) {
-	c.precommitCache.Merge(height, round, c.committeeSize[height], vote)
+func (c *aggregatorCache) AddPrecommit(vote *message.Precommit) {
+	c.precommitCache.Merge(vote.H(), vote.R(), c.committeeSize[vote.H()], vote)
 }
 
 func (c *aggregatorCache) PruneToHeight(height uint64) {

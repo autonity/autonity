@@ -124,7 +124,6 @@ func (vb validatorBitmap) Set(validatorIndex int, value byte) {
 }
 
 func (vb validatorBitmap) ToSingleBitmap(committeeSize int) []byte {
-	twoBitMap := vb
 	oneBitmapLength := (committeeSize + bitsInByte - 1) / bitsInByte
 	oneBitmap := make([]byte, oneBitmapLength)
 
@@ -132,7 +131,7 @@ func (vb validatorBitmap) ToSingleBitmap(committeeSize int) []byte {
 		byteIndex := i / validatorsPerByte
 		bitIndex := i % validatorsPerByte
 		shift := (validatorsPerByte - 1 - bitIndex) * bitsPerValidator
-		value := (twoBitMap[byteIndex] >> shift) & 0x03 // Extract 2 bits
+		value := (vb[byteIndex] >> shift) & 0x03 // Extract 2 bits
 		if value > 0 {
 			newByteIndex := i / 8
 			newBitIndex := i % 8
