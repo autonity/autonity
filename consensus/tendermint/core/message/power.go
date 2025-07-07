@@ -30,7 +30,7 @@ func (p *AggregatedPower) Set(index int, power *big.Int) bool {
 func (p *AggregatedPower) Subtract(other *AggregatedPower) bool {
 	p.power.Sub(p.power, other.power)
 	mask := new(big.Int).Not(other.signers)
-	p.signers.And(other.signers, mask)
+	p.signers.And(p.signers, mask)
 	return true
 }
 
