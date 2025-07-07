@@ -84,18 +84,37 @@ func (s *selector) SelectPeers(committee *types.Committee, msg message.Msg, from
 	return s.selectPeersWithBuckets(committee, msg, from, msg.Code() == message.ProposalCode)
 }
 
+// determines the routing base of a message
+func routingBase(committee *types.Committee, msg message.Msg) common.Address {
+	var rb common.Address
+	switch m := msg.(type) {
+	case *message.Propose:
+		rb = m.Signer()
+	case *message.Prevote:
+		routingBaseIndex := m.Signers().LeftmostSigner()
+		rb = committee.Members[routingBaseIndex].Address
+	case *message.Precommit:
+		routingBaseIndex := m.Signers().LeftmostSigner()
+		rb = committee.Members[routingBaseIndex].Address
+	default:
+		panic("unknown msg type. msg: " + msg.String())
+	}
+	return rb
+}
+
 func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg message.Msg, from common.Address, isProposal bool) ([]common.Address, error) {
 	clusters := s.clustersProvider.Clusters()
 	if len(clusters.Base()) == 0 {
 		return []common.Address{}, errors.New("no clusters")
 	}
 
+	rb := routingBase(committee, msg)
 	senderClusterID := clusters.IDByAddress(from)
-	originClusterID := clusters.IDByAddress(msg.Originator())
+	originClusterID := clusters.IDByAddress(rb)
 	ownClusterID := clusters.ID()
 
 	if senderClusterID == -1 || originClusterID == -1 || ownClusterID == -1 {
-		fmt.Println("selector: unknown clusters", "sender", from.Hex(), "originator", msg.Originator().Hex(), "msg hash", msg.Hash().Hex(), "self", clusters.Self().Hex())
+		fmt.Println("selector: unknown clusters", "sender", from.Hex(), "routingBase", rb.Hex(), "msg hash", msg.Hash().Hex(), "self", clusters.Self().Hex())
 		return nil, errors.New("unknown clusters")
 	}
 
@@ -110,7 +129,7 @@ func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 		return ret
 	}
 
-	senderType := determineSenderType(from, clusters.Self(), msg, originClusterID, ownClusterID, senderClusterID)
+	senderType := determineSenderType(from, clusters.Self(), rb, originClusterID, ownClusterID, senderClusterID)
 	cacheKey := cache.GenerateKey(int(senderType), isProposal)
 	if cached, exists := s.recipientCache.Get(cacheKey); exists {
 		if s.allConnected(cached.Recipients) {
@@ -169,11 +188,11 @@ func (s *selector) selectNodesByLatencySpread() []cluster.Node {
 	return recipients
 }
 
-func determineSenderType(from, self common.Address, msg message.Msg, originClusterID, ownClusterID, senderClusterID int) SenderType {
+func determineSenderType(from, self, routingBase common.Address, originClusterID, ownClusterID, senderClusterID int) SenderType {
 	switch {
 	case from == self:
 		return originator
-	case from == msg.Originator() && originClusterID == ownClusterID:
+	case from == routingBase && originClusterID == ownClusterID:
 		return firstRelayerOriginCluster
 	case originClusterID == ownClusterID:
 		return localRelayerOriginCluster

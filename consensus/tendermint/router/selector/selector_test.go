@@ -155,9 +155,9 @@ func TestSelector_SelectPeers_NonProposal_NoCache(t *testing.T) {
 	}
 	committee := types.Committee{
 		Members: []types.CommitteeMember{
-			{Address: self, VotingPower: big.NewInt(1)},
-			{Address: common.HexToAddress("0x222"), VotingPower: big.NewInt(1)},
-			{Address: common.HexToAddress("0x333"), VotingPower: big.NewInt(1)},
+			{Address: self, VotingPower: big.NewInt(1), Index: 0},
+			{Address: common.HexToAddress("0x222"), VotingPower: big.NewInt(1), Index: 1},
+			{Address: common.HexToAddress("0x333"), VotingPower: big.NewInt(1), Index: 2},
 		},
 	}
 	latencyMap := map[common.Address]uint{
@@ -165,13 +165,17 @@ func TestSelector_SelectPeers_NonProposal_NoCache(t *testing.T) {
 		common.HexToAddress("0x222"): 100,
 		common.HexToAddress("0x333"): 150,
 	}
+
+	fakeSigners := types.NewSigners(committee.Len())
+	fakeSigners.Increment(&committee.Members[0])
 	fake := message.Fake{
-		FakeCode:   message.PrevoteCode,
-		FakeHash:   common.HexToHash("0xabc"),
-		FakeHeight: 1,
-		FakeRound:  0,
-		FakeSigner: self,
-		FakePower:  big.NewInt(1),
+		FakeCode:    message.PrevoteCode,
+		FakeHash:    common.HexToHash("0xabc"),
+		FakeHeight:  1,
+		FakeRound:   0,
+		FakeSigner:  self,
+		FakeSigners: fakeSigners,
+		FakePower:   big.NewInt(1),
 	}
 	msg := message.NewFakePrevote(fake)
 	from := self
@@ -492,17 +496,8 @@ func TestSelector_determineSenderType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fake := message.Fake{
-				FakeCode:   message.PrevoteCode,
-				FakeHash:   common.HexToHash("0xabc"),
-				FakeHeight: 1,
-				FakeRound:  0,
-				FakeSigner: tt.signer,
-				FakePower:  big.NewInt(1),
-			}
-			msg := message.NewFakePrevote(fake)
 			np.EXPECT().Clusters().Return(clusters).AnyTimes()
-			result := determineSenderType(tt.from, clusters.Self(), msg, tt.originClusterID, tt.ownClusterID, tt.senderClusterID)
+			result := determineSenderType(tt.from, clusters.Self(), tt.signer, tt.originClusterID, tt.ownClusterID, tt.senderClusterID)
 			assert.Equal(t, tt.expected, result, "Expected correct sender type")
 		})
 	}

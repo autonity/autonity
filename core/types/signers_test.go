@@ -588,3 +588,47 @@ func TestValidation(t *testing.T) {
 	require.Equal(t, csize, s.CommitteeSize())
 	require.Equal(t, 1, s.Len())
 }
+
+func TestLeftmostSigners(t *testing.T) {
+	err := committee.Enrich()
+	require.NoError(t, err)
+
+	s := NewSigners(committee.Len())
+	require.Equal(t, committee.Len(), s.LeftmostSigner())
+	s.Increment(&committee.Members[3])
+	require.Equal(t, 3, s.LeftmostSigner())
+	s.Increment(&committee.Members[4])
+	require.Equal(t, 3, s.LeftmostSigner())
+	s.Increment(&committee.Members[2])
+	require.Equal(t, 2, s.LeftmostSigner())
+
+	other := NewSigners(committee.Len())
+	other.Increment(&committee.Members[4])
+	other.Increment(&committee.Members[2])
+	other.Increment(&committee.Members[1])
+	require.Equal(t, 1, other.LeftmostSigner())
+
+	s.Merge(other)
+	require.Equal(t, 1, s.LeftmostSigner())
+
+	signerCopy := s.Copy()
+	require.Equal(t, 1, signerCopy.LeftmostSigner())
+
+	payload, err := rlp.EncodeToBytes(signerCopy)
+	require.NoError(t, err)
+	decoded := &Signers{}
+	err = rlp.Decode(bytes.NewBuffer(payload), decoded)
+	require.NoError(t, err)
+
+	err = decoded.Validate(committee.Len())
+	require.NoError(t, err)
+
+	require.Equal(t, 1, decoded.LeftmostSigner())
+
+	decoded2 := &Signers{}
+	err = rlp.Decode(bytes.NewBuffer(payload), decoded2)
+	require.NoError(t, err)
+
+	defer expectPanic(t)
+	decoded2.LeftmostSigner()
+}
