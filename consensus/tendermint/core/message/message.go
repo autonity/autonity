@@ -873,12 +873,12 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
-	//if encoded.Signers == nil || encoded.Signers.Bits == nil || encoded.Signers.Coefficients == nil {
-	//	return constants.ErrInvalidMessage
-	//}
-	if encoded.Signers == nil || encoded.Signers.SignatureCounts == nil {
+	if encoded.Signers == nil || encoded.Signers.Bits == nil || encoded.Signers.Coefficients == nil {
 		return constants.ErrInvalidMessage
 	}
+	//if encoded.Signers == nil || encoded.Signers.SignatureCounts == nil {
+	//	return constants.ErrInvalidMessage
+	//}
 	if encoded.Signers.SanityCheck() != nil {
 		return constants.ErrInvalidMessage
 	}
@@ -918,12 +918,12 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
-	//if encoded.Signers == nil || encoded.Signers.Bits == nil || encoded.Signers.Coefficients == nil {
-	//	return constants.ErrInvalidMessage
-	//}
-	if encoded.Signers == nil || encoded.Signers.SignatureCounts == nil {
+	if encoded.Signers == nil || encoded.Signers.Bits == nil || encoded.Signers.Coefficients == nil {
 		return constants.ErrInvalidMessage
 	}
+	//if encoded.Signers == nil || encoded.Signers.SignatureCounts == nil {
+	//	return constants.ErrInvalidMessage
+	//}
 	if encoded.Signers.SanityCheck() != nil {
 		return constants.ErrInvalidMessage
 	}

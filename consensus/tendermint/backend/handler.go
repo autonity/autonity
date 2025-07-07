@@ -236,7 +236,7 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 				allJailed = false
 				return
 			}
-		})
+		}, vote.Signers().CommitteeSize())
 		//for _, signerIndex := range vote.Signers().FlattenUniq() {
 		//	signer := committee.Members[signerIndex].Address
 		//	if !sb.IsJailed(signer) {
