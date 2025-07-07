@@ -80,8 +80,8 @@ func (ms *MsgStore) Save(m message.Msg) {
 			ms.precommits[height] = make([]*message.Precommit, 0)
 		}
 		ms.precommits[height] = append(ms.precommits[height], msg)
-	default:
-		panic("Unknown consensus message type in msg store")
+	case *message.EvidenceVote:
+		panic("msg of type EvidenceVoteCode in aggregator")
 	}
 }
 

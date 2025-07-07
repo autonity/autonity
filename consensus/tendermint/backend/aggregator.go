@@ -227,6 +227,9 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 			roundInfo.precommitsPower.Set(index, power)
 			roundInfo.precommitsPowerFor[v].Set(index, power)
 		}
+	case message.EvidenceVoteCode:
+		panic("msg of type EvidenceVoteCode in aggregator")
+
 	}
 
 }

@@ -879,7 +879,8 @@ func (e *EvidenceVote) DecodeRLP(s *rlp.Stream) error {
 	e.signers = encoded.Signers
 	e.payload = payload
 	// precompute hash and signature hash
-	e.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, EvidenceVoteCode, encoded.Value)
+	// use `PrevoteCode` instead of `EvidenceVoteCode` as the evidences are generated from prevotes
+	e.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrevoteCode, encoded.Value)
 	e.hash = crypto.Hash(payload)
 	e.verified = false
 	e.preverified = false
