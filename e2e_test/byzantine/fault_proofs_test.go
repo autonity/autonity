@@ -273,19 +273,19 @@ func TestFaultProofs(t *testing.T) {
 		broadcasters func(c interfaces.Core) interfaces.Broadcaster
 		rule         autonity.Rule
 	}{
-		// {"PN", newPNBroadcaster, autonity.PN}, // Pass with 120
-		// {"PO", newPOBroadcaster, autonity.PO}, // Pass with 120
-		// // {"PVN", newPVNBroadcaster, autonity.PVN}, //Not supported, need multiple byzantine validators
-		// // {"PVO1", newPVO1Broadcaster, autonity.PVO12}, Not supported currently, need multiple byzantine validators to generate.
-		// // {"InvalidProposal", newInvalidProposalBroadcaster, autonity.InvalidProposal}, Invalid proposals are not currently supported
-		// {"InvalidProposer", newInvalidProposer, autonity.InvalidProposer}, // Pass with 120
-		{"Equivocation", newEquivocation, autonity.Equivocation}, // Pass with 120
+		{"PN", newPNBroadcaster, autonity.PN}, // Pass with 120
+		{"PO", newPOBroadcaster, autonity.PO}, // Pass with 120
+		// {"PVN", newPVNBroadcaster, autonity.PVN}, //Not supported, need multiple byzantine validators
+		// {"PVO1", newPVO1Broadcaster, autonity.PVO12}, Not supported currently, need multiple byzantine validators to generate.
+		// {"InvalidProposal", newInvalidProposalBroadcaster, autonity.InvalidProposal}, Invalid proposals are not currently supported
+		{"InvalidProposer", newInvalidProposer, autonity.InvalidProposer}, // Pass with 120
+		{"Equivocation", newEquivocation, autonity.Equivocation},          // Pass with 120
 	}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			handler := &interfaces.Services{Broadcaster: test.broadcasters}
-			runTest(t, handler, autonity.Misbehaviour, test.rule, 180)
+			runTest(t, handler, autonity.Misbehaviour, test.rule, 120)
 		})
 	}
 
