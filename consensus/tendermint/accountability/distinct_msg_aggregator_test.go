@@ -139,7 +139,12 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 	})
 
 	t.Run("with wrong signers", func(t *testing.T) {
-		wrongSigners := randomSigners(cSize)
+		wrongSigners := precommits[0].Signers().FlattenUniq()
+		if len(wrongSigners) > 1 {
+			wrongSigners[0], wrongSigners[1] = wrongSigners[1], wrongSigners[0]
+		} else {
+			wrongSigners[0] = (wrongSigners[0] + 1) % cSize
+		}
 		aggPrecommits := maliciousAggregatePrecommits(precommits, nil, nil, nil, wrongSigners)
 		payload, err := rlp.EncodeToBytes(aggPrecommits)
 		require.NoError(t, err)
@@ -228,9 +233,11 @@ func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *
 
 		if len(wrongSigners) > 0 {
 			defaultSingers = wrongSigners
-			coeffs = make([]uint16, len(defaultSingers))
-			for i := range coeffs {
-				coeffs[i] = 1
+			for len(coeffs) < len(defaultSingers) {
+				coeffs = append(coeffs, 1)
+			}
+			if len(coeffs) > len(defaultSingers) {
+				coeffs = coeffs[:len(defaultSingers)]
 			}
 		}
 

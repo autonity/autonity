@@ -82,6 +82,21 @@ func makeSigner(key blst.SecretKey) func(common.Hash) blst.Signature {
 }
 
 func TestMessageDecode(t *testing.T) {
+	t.Run("evidence", func(t *testing.T) {
+		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), defaultSigner, testCommitteeMember, 1).ToEvidence()
+		decoded := &EvidenceVote{}
+		reader := bytes.NewReader(vote.Payload())
+		if err := rlp.Decode(reader, decoded); err != nil {
+			t.Fatalf("have %v, want nil", err)
+		}
+		require.Equal(t, vote.Code(), decoded.Code())
+		require.Equal(t, vote.R(), decoded.R())
+		require.Equal(t, vote.H(), decoded.H())
+		require.Equal(t, vote.Value(), decoded.Value())
+		require.Equal(t, vote.Signers().Bits, decoded.Signers().Bits)
+		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
+		require.Equal(t, vote.Signature(), decoded.Signature())
+	})
 	t.Run("prevote", func(t *testing.T) {
 		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), defaultSigner, testCommitteeMember, 1)
 		decoded := &Prevote{}
@@ -311,6 +326,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 		NewPropose(1, 2, -1, types.NewBlockWithHeader(header), defaultSigner, testCommitteeMember),
 		NewPrevote(1, 2, header.Hash(), defaultSigner, testCommitteeMember, 1),
 		NewPrecommit(1, 2, header.Hash(), defaultSigner, testCommitteeMember, 1),
+		NewPrevote(1, 2, header.Hash(), defaultSigner, testCommitteeMember, 1).ToEvidence(),
 	}
 	for i := range messages {
 		buff := new(bytes.Buffer)
