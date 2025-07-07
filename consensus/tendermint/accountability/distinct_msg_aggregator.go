@@ -72,6 +72,9 @@ func (r *Signers) DecodeRLP(stream *rlp.Stream) error {
 	if len(ext.SignersIndex) == 0 {
 		return ErrNoSigners
 	}
+	if len(ext.SignersCoeff) != len(ext.SignersIndex) {
+		return ErrInvalidSignerCoeff
+	}
 
 	if int64(ext.Round) > constants.MaxRound {
 		return ErrInvalidRound
