@@ -39,7 +39,6 @@ import (
 )
 
 var (
-	NilValue                     = common.Hash{}
 	EmptyRootHash                = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 	EmptyUncleHash               = rlpHash([]*Header(nil))
 	errInvalidSignature          = errors.New("aggregate signature is invalid")
@@ -193,19 +192,21 @@ func (a *AggregateSignature) Malformed() bool {
 // returns map of signers and total power of the signers
 func (a *AggregateSignature) Validate(message common.Hash, committee *Committee, checkQuorum bool) (map[common.Address]struct{}, *big.Int, error) {
 	// validate signers information first
-	distinctSigners, _, err := a.Signers.validate(committee.Len())
-	if err != nil {
-		return nil, nil, fmt.Errorf("invalid signers information: %w", err)
-	}
+	//distinctSigners, err := a.Signers.validate(committee.Len())
+	//if err != nil {
+	//	return nil, nil, fmt.Errorf("invalid signers information: %w", err)
+	//}
 
 	// verify signature
 	//flattenedIndexes := a.Signers.flatten(committee.Len())
-	//todo: do we need committee
-	flattenedIndexes := a.Signers.flatten()
-	keys := make([]blst.PublicKey, len(flattenedIndexes))
-	for i, index := range flattenedIndexes {
-		keys[i] = committee.Members[index].ConsensusKey
-	}
+	//for i, index := range flattenedIndexes {
+	//	keys[i] = committee.Members[index].ConsensusKey
+	//}
+
+	keys := make([]blst.PublicKey, 0, committee.Len())
+	a.Signers.ForEveryRepeatedSigner(func(signerIndex int) {
+		keys = append(keys, committee.Members[signerIndex].ConsensusKey)
+	}, committee.Len())
 	aggregatedKey, err := blst.AggregatePublicKeys(keys)
 	if err != nil {
 		return nil, nil, errors.Join(ErrNonAggregatablePublicKeys, err)
@@ -220,12 +221,14 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 
 	// Total assembled voting power for the activity proof
 	power := new(big.Int)
-	signers := make(map[common.Address]struct{}, distinctSigners)
+	signers := make(map[common.Address]struct{}, committee.Len())
 	//for _, index := range a.Signers.flattenUniq(committee.Len()) {
 	a.Signers.ForEachDistinctSigner(func(signerIndex int) {
 		power.Add(power, committee.Members[signerIndex].VotingPower)
 		signers[committee.Members[signerIndex].Address] = struct{}{}
-	})
+	}, committee.Len())
+	//for _, index := range a.Signers.flattenUniq(committee.Len()) {
+	//}
 
 	if checkQuorum && power.Cmp(bft.Quorum(committee.TotalVotingPower())) < 0 {
 		return nil, nil, errNoQuorum

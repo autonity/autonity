@@ -424,7 +424,7 @@ func TestAggregatorOldHeightMessage(t *testing.T) {
 			select {
 			case ev := <-subOldMessageEvent.Chan():
 				event := ev.Data.(events.OldMessageEvent)
-				if prevote.Hash() == event.Message.Hash() {
+				if prevote.Hash() == event.Message().Hash() {
 					return true
 				}
 			default:

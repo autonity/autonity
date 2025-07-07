@@ -168,7 +168,7 @@ func (sb *Backend) missingPrecommits(askSync *message.AskSyncMsg) []*message.Pre
 				missing = true
 				return
 			}
-		})
+		}, m.Signers().CommitteeSize())
 		// otherwise, the node already has this message
 		return missing
 	})
