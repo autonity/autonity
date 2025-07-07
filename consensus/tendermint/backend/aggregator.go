@@ -1056,7 +1056,7 @@ loop:
 func (a *aggregator) stop() {
 	a.logger.Info("Stopping the aggregator routine")
 	a.cancel()
+	a.wg.Wait()
 	close(a.internalFdCh)
 	close(a.internalCoreCh)
-	a.wg.Wait()
 }
