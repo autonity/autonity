@@ -128,28 +128,17 @@ var (
 		Delta:                  5,      // 5 blocks
 	}
 
-	DefaultNonStakeableVestingGenesis = &NonStakeableVestingGenesis{
-		NonStakeableContracts: make([]NonStakeableVestingData, 0),
-	}
-
-	DefaultStakeableVestingGenesis = &StakeableVestingGenesis{
-		StakeableContracts: make([]StakeableVestingData, 0),
-		TotalNominal:       big.NewInt(0),
-	}
-
-	DeployerAddress                        = common.Address{}
-	AutonityContractAddress                = crypto.CreateAddress(DeployerAddress, 0)
-	AccountabilityContractAddress          = crypto.CreateAddress(DeployerAddress, 1)
-	OracleContractAddress                  = crypto.CreateAddress(DeployerAddress, 2)
-	ACUContractAddress                     = crypto.CreateAddress(DeployerAddress, 3)
-	SupplyControlContractAddress           = crypto.CreateAddress(DeployerAddress, 4)
-	StabilizationContractAddress           = crypto.CreateAddress(DeployerAddress, 5)
-	UpgradeManagerContractAddress          = crypto.CreateAddress(DeployerAddress, 6)
-	InflationControllerContractAddress     = crypto.CreateAddress(DeployerAddress, 7)
-	StakeableVestingManagerContractAddress = crypto.CreateAddress(DeployerAddress, 8)
-	NonStakeableVestingContractAddress     = crypto.CreateAddress(DeployerAddress, 9)
-	OmissionAccountabilityContractAddress  = crypto.CreateAddress(DeployerAddress, 10)
-	AuctioneerContractAddress              = crypto.CreateAddress(DeployerAddress, 11)
+	DeployerAddress                       = common.Address{}
+	AutonityContractAddress               = crypto.CreateAddress(DeployerAddress, 0)
+	AccountabilityContractAddress         = crypto.CreateAddress(DeployerAddress, 1)
+	OracleContractAddress                 = crypto.CreateAddress(DeployerAddress, 2)
+	ACUContractAddress                    = crypto.CreateAddress(DeployerAddress, 3)
+	SupplyControlContractAddress          = crypto.CreateAddress(DeployerAddress, 4)
+	StabilizationContractAddress          = crypto.CreateAddress(DeployerAddress, 5)
+	UpgradeManagerContractAddress         = crypto.CreateAddress(DeployerAddress, 6)
+	InflationControllerContractAddress    = crypto.CreateAddress(DeployerAddress, 7)
+	OmissionAccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 8)
+	AuctioneerContractAddress             = crypto.CreateAddress(DeployerAddress, 9)
 )
 
 type AutonityContractGenesis struct {
@@ -584,10 +573,6 @@ func (s *InflationControllerGenesis) SetDefaults() {
 	}
 }
 
-type NonStakeableVestingGenesis struct {
-	NonStakeableContracts []NonStakeableVestingData `json:"nonStakeableVestingContracts"`
-}
-
 type Schedule struct {
 	Start         *big.Int       `json:"startTime"`
 	TotalDuration *big.Int       `json:"totalDuration"`
@@ -606,33 +591,7 @@ func (s *Schedule) Validate() error {
 		return errors.New("amount must be specified")
 	}
 	if deep.Equal(s.VaultAddress, common.Address{}) {
-		s.VaultAddress = NonStakeableVestingContractAddress
+		return errors.New("vault address must be specified")
 	}
 	return nil
-}
-
-type NonStakeableVestingData struct {
-	Beneficiary   common.Address `json:"beneficiary"`
-	Amount        *big.Int       `json:"amount"`
-	ScheduleID    *big.Int       `json:"scheduleID"`
-	CliffDuration *big.Int       `json:"cliffDuration"`
-}
-
-type StakeableVestingGenesis struct {
-	TotalNominal       *big.Int               `json:"totalNominal"`
-	StakeableContracts []StakeableVestingData `json:"stakeableVestingContracts"`
-}
-
-type StakeableVestingData struct {
-	Beneficiary   common.Address `json:"beneficiary"`
-	Amount        *big.Int       `json:"amount"`
-	Start         *big.Int       `json:"startTime"`
-	CliffDuration *big.Int       `json:"cliffDuration"`
-	TotalDuration *big.Int       `json:"totalDuration"`
-}
-
-func (s *StakeableVestingGenesis) SetDefaults() {
-	if s.TotalNominal == nil {
-		s.TotalNominal = DefaultStakeableVestingGenesis.TotalNominal
-	}
 }

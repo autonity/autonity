@@ -18,8 +18,6 @@ import "../asm/SupplyControl.sol";
 import "../asm/Auctioneer.sol";
 import "../UpgradeManager.sol";
 import "../InflationController.sol";
-import "../vesting/NonStakeableVesting.sol";
-import "../vesting/StakeableVestingManager.sol";
 
 // test contracts
 import "../liquid/LiquidStateTest.sol";
@@ -28,5 +26,4 @@ import "../test-contract/AccountabilityTest.sol";
 import "../test-contract/AutonityUpgradeTest.sol";
 import "../test-contract/DummyContract.sol";
 import "../test-contract/DummyMaliciousContract.sol";
-import "../test-contract/StakeableVestingLogicTest.sol";
 import "../test-contract/Tests.sol";

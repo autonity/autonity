@@ -123,17 +123,9 @@ var (
 			ProposerRewardRate:       1000,                                                                            // 10% TODO: is this enough?
 			OracleRewardRate:         1000,                                                                            // 10%
 			InitialInflationReserve:  (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)), // 40M NTN
-			Schedules: []Schedule{
-				{
-					Start:         big.NewInt(PiccadillyGenesisUnixTimestamp),
-					TotalDuration: big.NewInt(60444000),
-					Amount:        mustParseString("12985416666666700000000000"),
-					VaultAddress:  NonStakeableVestingContractAddress,
-				},
-			},
-			SkipGenesisVerification: false,
-			TokenMint:               (*math.HexOrDecimal256)(DefaultNTNGenesisAllocation),
-			TokenBond:               (*math.HexOrDecimal256)(DefaultGenesisBonding),
+			SkipGenesisVerification:  false,
+			TokenMint:                (*math.HexOrDecimal256)(DefaultNTNGenesisAllocation),
+			TokenBond:                (*math.HexOrDecimal256)(DefaultGenesisBonding),
 		},
 		OracleContractConfig: &OracleContractGenesis{
 			VotePeriod: OracleVotePeriod,
@@ -155,8 +147,6 @@ var (
 		},
 		AccountabilityConfig:         DefaultAccountabilityConfig,
 		OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig,
-		NonStakeableVestingConfig:    DefaultNonStakeableVestingGenesis,
-		StakeableVestingConfig:       DefaultStakeableVestingGenesis,
 		InflationContractConfig:      DefaultInflationControllerGenesis,
 	}
 
@@ -455,7 +445,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, nil, nil, nil, false}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, nil, false}
 
 	TestNodeKeys = []string{
 		"b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291",
@@ -553,8 +543,6 @@ var (
 			StabilizationContractConfig: DefaultStabilizationGenesis,
 			SupplyControlConfig:         DefaultSupplyControlGenesis,
 		},
-		DefaultNonStakeableVestingGenesis,
-		DefaultStakeableVestingGenesis,
 		DefaultOmissionAccountabilityConfig,
 		false,
 	}
@@ -683,8 +671,6 @@ type ChainConfig struct {
 	OracleContractConfig         *OracleContractGenesis         `json:"oracle,omitempty"`
 	InflationContractConfig      *InflationControllerGenesis    `json:"inflation,omitempty"`
 	ASM                          AsmConfig                      `json:"asm,omitempty"`
-	NonStakeableVestingConfig    *NonStakeableVestingGenesis    `json:"nonStakeableVesting,omitempty"`
-	StakeableVestingConfig       *StakeableVestingGenesis       `json:"stakeableVesting,omitempty"`
 	OmissionAccountabilityConfig *OmissionAccountabilityGenesis `json:"omissionAccountability,omitempty"`
 
 	// true if run in testmode, false by default
@@ -741,18 +727,6 @@ func (c *ChainConfig) SetDefaults() {
 		c.InflationContractConfig = DefaultInflationControllerGenesis
 	} else {
 		c.InflationContractConfig.SetDefaults()
-	}
-	// Stakable vesting
-	if c.StakeableVestingConfig == nil {
-		log.Info("Config missing, using default parameters for the Stakeable Vesting contract")
-		c.StakeableVestingConfig = DefaultStakeableVestingGenesis
-	} else {
-		c.StakeableVestingConfig.SetDefaults()
-	}
-	// NonStakable vesting
-	if c.NonStakeableVestingConfig == nil {
-		log.Info("Config missing, using default parameters for the Non-Stakeable Vesting contract")
-		c.NonStakeableVestingConfig = DefaultNonStakeableVestingGenesis
 	}
 	// Omission
 	if c.OmissionAccountabilityConfig == nil {

@@ -50,10 +50,6 @@ var (
 		deployStabilizationContract,
 		deployUpgradeManagerContract,
 		deployInflationControllerContract,
-		deployStakableVestingManagerContract,
-		createDefaultStakableVestingContracts,
-		deployNonStakableVestingContract,
-		createDefaultNonStakableVestingContracts,
 		deployOmissionAccountabilityContract,
 		deployAuctioneerContract,
 		verifyGenesisSequence,
@@ -235,12 +231,6 @@ func executeGenesisDelegations(config *params.ChainConfig, genesisBonds GenesisB
 
 func createAutonitySchedules(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, caller genericCaller) error {
 	createSchedule := func(schedule params.Schedule) error {
-		if schedule.VaultAddress != params.NonStakeableVestingContractAddress {
-			return fmt.Errorf(
-				"invalid Schedule configuration, should match non stakable vesting contract address: %s",
-				schedule.VaultAddress,
-			)
-		}
 		ret, err := caller(
 			config.AutonityContractConfig.Operator,
 			params.AutonityContractAddress,
@@ -475,94 +465,6 @@ func deployInflationControllerContract(config *params.ChainConfig, _ GenesisBond
 	)
 	if err != nil {
 		return fmt.Errorf("failed to deploy inflation controller contract: %w", err)
-	}
-	return nil
-}
-
-func deployStakableVestingManagerContract(_ *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	err := deploy(
-		params.StakeableVestingManagerContractAddress,
-		&generated.StakeableVestingManagerAbi,
-		generated.StakeableVestingManagerBytecode,
-		common.Big0,
-		params.AutonityContractAddress,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to deploy Stakable vesting contract: %w", err)
-	}
-	return nil
-}
-
-func createDefaultStakableVestingContracts(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, caller genericCaller) error {
-	if ret, err := caller(
-		config.AutonityContractConfig.Operator,
-		params.AutonityContractAddress,
-		&generated.AutonityAbi,
-		"mint",
-		params.StakeableVestingManagerContractAddress,
-		config.StakeableVestingConfig.TotalNominal,
-	); err != nil {
-		return fmt.Errorf(
-			"error while minting total nominal to Stakable vesting contract: %w",
-			newErrorWithRevertReason(err, ret),
-		)
-	}
-
-	callNewStakableContract := func(contract params.StakeableVestingData) error {
-		ret, err := caller(
-			config.AutonityContractConfig.Operator,
-			params.StakeableVestingManagerContractAddress,
-			&generated.StakeableVestingManagerAbi,
-			"newContract",
-			contract.Beneficiary,
-			contract.Amount,
-			contract.Start,
-			contract.CliffDuration,
-			contract.TotalDuration,
-		)
-		return newErrorWithRevertReason(err, ret)
-	}
-
-	for i, data := range config.StakeableVestingConfig.StakeableContracts {
-		if err := callNewStakableContract(data); err != nil {
-			return fmt.Errorf("failed to create new Stakable vesting contract (i=%d): %w", i, err)
-		}
-	}
-	return nil
-}
-
-func deployNonStakableVestingContract(_ *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller) error {
-	err := deploy(
-		params.NonStakeableVestingContractAddress,
-		&generated.NonStakeableVestingAbi,
-		generated.NonStakeableVestingBytecode,
-		common.Big0,
-		params.AutonityContractAddress,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to deploy non-Stakable vesting contract: %w", err)
-	}
-	return nil
-}
-
-func createDefaultNonStakableVestingContracts(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, caller genericCaller) error {
-	createNonStakableVestingContract := func(contract params.NonStakeableVestingData) error {
-		ret, err := caller(
-			config.AutonityContractConfig.Operator,
-			params.NonStakeableVestingContractAddress,
-			&generated.NonStakeableVestingAbi,
-			"newContract",
-			contract.Beneficiary,
-			contract.Amount,
-			contract.ScheduleID,
-			contract.CliffDuration,
-		)
-		return newErrorWithRevertReason(err, ret)
-	}
-	for _, schedule := range config.NonStakeableVestingConfig.NonStakeableContracts {
-		if err := createNonStakableVestingContract(schedule); err != nil {
-			return fmt.Errorf("error while creating new non-stakable schedule: %w", err)
-		}
 	}
 	return nil
 }

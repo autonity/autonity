@@ -232,29 +232,6 @@ func (c *AutonityContract) CallEpochByHeight(state vm.StateDB, header *types.Hea
 // Internal package functions
 // *
 
-func (c *AutonityContract) callGetMinimumBaseFee(state vm.StateDB, header *types.Header) (*big.Int, error) {
-	minBaseFee := new(big.Int)
-	_, err := AutonityContractCall(
-		c.contractABI,
-		c.evmProvider(header, params.DeployerAddress, state),
-		"getMinimumBaseFee",
-		&minBaseFee,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return minBaseFee, nil
-}
-
-func (c *AutonityContract) callGetEpochPeriod(state vm.StateDB, header *types.Header) (*big.Int, error) {
-	epochPeriod := new(big.Int)
-	_, err := AutonityContractCall(c.contractABI, c.evmProvider(header, params.DeployerAddress, state), "getEpochPeriod", &epochPeriod)
-	if err != nil {
-		return nil, err
-	}
-	return epochPeriod, nil
-}
-
 func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) (bool, *types.Epoch, *types.ContractsConfig, error) {
 	var output raw
 
