@@ -146,7 +146,7 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		require.NoError(t, err)
 
 		header.QuorumCertificate.Signers = &QuorumSigners{&SignersBase[uint32]{Bits: NewValidatorBitmap(5), Coefficients: make([]uint32, 0)}}
-		header.QuorumCertificate.Signers.Bits = validatorBitmap{0x44, 0x0}
+		header.QuorumCertificate.Signers.Bits = ValidatorBitmap{0x44, 0x0}
 		sig := blst.AggregateSignatures([]blst.Signature{seal1, seal2})
 		header.QuorumCertificate.Signature = sig.(*blst.BlsSignature)
 
@@ -215,7 +215,7 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		require.NoError(t, err)
 
 		header.QuorumCertificate.Signers = &QuorumSigners{&SignersBase[uint32]{Bits: NewValidatorBitmap(5), Coefficients: make([]uint32, 0)}}
-		header.QuorumCertificate.Signers.Bits = validatorBitmap{0x44, 0x0}
+		header.QuorumCertificate.Signers.Bits = ValidatorBitmap{0x44, 0x0}
 		sig := blst.AggregateSignatures([]blst.Signature{seal1, seal2})
 		header.QuorumCertificate.Signature = sig.(*blst.BlsSignature)
 

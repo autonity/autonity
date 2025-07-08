@@ -752,7 +752,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 		panic(fmt.Sprintf("cannot get committee of height: %d", msg.H()))
 	}
 
-	if a.signerSetCache.Contains(msg.H(), msg.R(), committee.Len(), event) {
+	if a.signerSetCache.Contains(event) {
 		return // already processed a message with more signers
 	} else {
 		// mark committee size for the height to avoid any more calls to CommitteeByHeight

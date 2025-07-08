@@ -48,24 +48,24 @@ var (
 *
  */
 
-type validatorBitmap []byte
+type ValidatorBitmap []byte
 
-func NewValidatorBitmap(committeeSize int) validatorBitmap { //nolint
+func NewValidatorBitmap(committeeSize int) ValidatorBitmap { //nolint
 	byteLength := (committeeSize*bitsPerValidator + bitsInByte - 1) / bitsInByte
-	return make(validatorBitmap, byteLength)
+	return make(ValidatorBitmap, byteLength)
 }
 
 // ensures that the validator bitmap has the correct length compared to the committee size
 // used to validate aggregate messages coming from other peers
-func (vb validatorBitmap) Valid(committeeSize int) bool {
+func (vb ValidatorBitmap) Valid(committeeSize int) bool {
 	expectedByteLength := (committeeSize*bitsPerValidator + bitsInByte - 1) / bitsInByte
 	return len(vb) == expectedByteLength
 }
 
-// Do not call this function on the signers' bitmap. Create a new `validatorBitmap`, `vb`
+// Do not call this function on the signers' bitmap. Create a new `ValidatorBitmap`, `vb`
 // to call `vb.Merge`. `other` can be from some signers' bitmap as it's not modified.
 // returns true if the `other` object contributes to the `vb` object
-func (vb validatorBitmap) Merge(other validatorBitmap) bool {
+func (vb ValidatorBitmap) Merge(other ValidatorBitmap) bool {
 	if len(vb) != len(other) {
 		panic(ErrDifferentSize.Error())
 	}
@@ -80,7 +80,7 @@ func (vb validatorBitmap) Merge(other validatorBitmap) bool {
 }
 
 // this function needs to be modified if the constant `validatorsPerByte` is changed
-func (vb validatorBitmap) HasSigner(validatorIndex int) bool {
+func (vb ValidatorBitmap) HasSigner(validatorIndex int) bool {
 	byteIndex, bitIndex := indexToBitMapPosition(validatorIndex)
 
 	// because of the constant `bitsPerValidator = 1`, each validator takes a single bit
@@ -92,7 +92,7 @@ func (vb validatorBitmap) HasSigner(validatorIndex int) bool {
 // NOTE: be careful when calling directly this function without passing through the `increment` function.
 // this function will not invalidate any cache, it is just a naive setter
 // this function needs to be modified if the constant `validatorsPerByte` is changed
-func (vb validatorBitmap) setSigner(validatorIndex int) {
+func (vb ValidatorBitmap) setSigner(validatorIndex int) {
 	byteIndex, bitIndex := indexToBitMapPosition(validatorIndex)
 
 	// because of the constant `bitsPerValidator = 1`, each validator takes a single bit
@@ -101,27 +101,21 @@ func (vb validatorBitmap) setSigner(validatorIndex int) {
 	vb[byteIndex] = vb[byteIndex] | (1 << bitIndex)
 }
 
-func (vb validatorBitmap) ToSingleBitmap(committeeSize int) []byte {
-	oneBitmapLength := (committeeSize + bitsInByte - 1) / bitsInByte
-	oneBitmap := make([]byte, oneBitmapLength)
-
-	for i := 0; i < committeeSize; i++ {
-		byteIndex := i / validatorsPerByte
-		bitIndex := i % validatorsPerByte
-		shift := (validatorsPerByte - 1 - bitIndex) * bitsPerValidator
-		value := (vb[byteIndex] >> shift) & 0x03 // Extract 2 bits
-		if value > 0 {
-			newByteIndex := i / 8
-			newBitIndex := i % 8
-			oneBitmap[newByteIndex] |= 1 << (7 - newBitIndex)
+func (vb ValidatorBitmap) Contains(other ValidatorBitmap) bool {
+	if len(vb) != len(other) {
+		return false
+	}
+	for i, b := range other {
+		if (vb[i] & b) != b {
+			return false
 		}
 	}
-	return oneBitmap
+	return true
 }
 
 // it should support `VoteSigners` for `T = uint16` and `QuorumSigners` for `T = uint32`
 type SignersBase[T uint16 | uint32] struct {
-	Bits         validatorBitmap
+	Bits         ValidatorBitmap
 	Coefficients []T // support up to 65535 committee members
 
 	// these fields are not serialized, but instead computed at preValidate steps
