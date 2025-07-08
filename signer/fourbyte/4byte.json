@@ -204,5 +204,14 @@
   "41b6cb0f": "jail((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,bytes,uint8,uint256),uint256,uint256,uint8)",
   "0273a3ee": "jailbound((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,bytes,uint8,uint256),uint8)",
   "99ac2d48": "slash((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,bytes,uint8,uint256),uint256)",
-  "a00f313f": "slashAndJail((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,bytes,uint8,uint256),uint256,uint256,uint256,uint8,uint8)"
+  "a00f313f": "slashAndJail((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,bytes,uint8,uint256),uint256,uint256,uint256,uint8,uint8)",
+  "50492571": "approveBonding(address,uint256)",
+  "67542de6": "approveSelfUnbonding(address,uint256)",
+  "41de7400": "bondFrom(address,address,uint256)",
+  "e0e01d54": "bondingAllowance(address,address)",
+  "251f1a13": "selfUnbondingAllowance(address,address)",
+  "a9a7d7c9": "unbondFrom(address,address,uint256)",
+  "bf99b73e": "approveUnbonding(address,uint256)",
+  "708e91e5": "lockFrom(address,address,uint256)",
+  "d768d578": "unbondingAllowance(address,address)"
 }
