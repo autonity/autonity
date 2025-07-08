@@ -9,7 +9,6 @@ import (
 
 	blstbind "github.com/supranational/blst/bindings/go"
 
-	"github.com/autonity/autonity/common/bitutil"
 	"github.com/autonity/autonity/crypto/blst"
 )
 
@@ -538,17 +537,10 @@ func (s *SignersBase[T]) aggregatePublicKey(keys []blst.PublicKey, maxCoefficien
 		panic("invalid public key length")
 	}
 
-	var bitsEntropy int
-	if reflect.TypeOf(maxCoefficient) == reflect.TypeOf(uint16(0)) {
-		bitsEntropy = bitutil.Uint16MSBPosition(uint16(maxCoefficient)) + 1
-	} else {
-		bitsEntropy = bitutil.Uint32MSBPosition(uint32(maxCoefficient)) + 1
-	}
-
 	return blst.AggregatePublicKeysMultScalars(
 		keys,
 		s.toBlstScalars(),
-		bitsEntropy,
+		bits.Len32(uint32(maxCoefficient)),
 	)
 }
 

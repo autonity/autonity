@@ -3,11 +3,11 @@ package accountability
 import (
 	"errors"
 	"io"
+	"math/bits"
 
 	blstbind "github.com/supranational/blst/bindings/go"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/bitutil"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
@@ -139,7 +139,7 @@ func (r *Signers) PreValidate(committee *types.Committee) error {
 	aggKey := blst.AggregatePublicKeysMultScalars(
 		publicKeys,
 		r.toBlstScalars(),
-		bitutil.Uint16MSBPosition(maxCoeff)+1,
+		bits.Len16(maxCoeff),
 	)
 
 	r.aggregatedPublicKey = aggKey
