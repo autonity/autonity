@@ -886,6 +886,12 @@ loop:
 			}
 			a.handleEvent(event)
 			//Note: core events are not sent to the aggregator anymore, code remains here for later evaluation
+		case event, ok := <-a.internalBacklogCh:
+			// handle backlog messages that were filtered by cache, but reinjected
+			if !ok {
+				break loop
+			}
+			a.handleEvent(event)
 		case ev, ok := <-a.core.EventCh():
 			start := time.Now()
 			if !ok {
@@ -1091,5 +1097,9 @@ func (a *aggregator) stop() {
 	if a.internalFdCh != nil {
 		close(a.internalFdCh)
 		a.internalFdCh = nil
+	}
+	if a.internalBacklogCh != nil {
+		close(a.internalBacklogCh)
+		a.internalBacklogCh = nil
 	}
 }
