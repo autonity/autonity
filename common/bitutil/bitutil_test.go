@@ -189,26 +189,26 @@ func TestOnesCount(t *testing.T) {
 
 	maxUint8 := (1 << 8) - 1
 
-	t.Run("test ByteOnesCountLowerIndex", func(t *testing.T) {
+	t.Run("test ByteOnesCountBeforeIndex", func(t *testing.T) {
 		for n := 0; n <= maxUint8; n++ {
-			require.Equal(t, ByteOnesCountLowerIndex(uint8(n), -1), 0)
+			require.Equal(t, ByteOnesCountBeforeIndex(uint8(n), -1), 0)
 			for index := 0; index < 9; index++ {
 				require.Equal(
 					t,
 					bitCounter(uint(n), 1<<index),
-					ByteOnesCountLowerIndex(uint8(n), index),
+					ByteOnesCountBeforeIndex(uint8(n), index),
 				)
 			}
 		}
 	})
 
-	t.Run("test ByteOnesCountLowerLSB", func(t *testing.T) {
+	t.Run("test ByteOnesCountBeforeLSB", func(t *testing.T) {
 		for n := 0; n <= maxUint8; n++ {
 			for l := 0; l <= maxUint8; l++ {
 				require.Equal(
 					t,
 					bitCounter(uint(n), uint(l)),
-					ByteOnesCountLowerLSB(uint8(n), uint8(l)),
+					ByteOnesCountBeforeLSB(uint8(n), uint8(l)),
 				)
 			}
 		}
