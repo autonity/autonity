@@ -439,6 +439,18 @@ func (s *SignersBase[T]) Copy() *SignersBase[T] {
 	}
 }
 
+// ForEachDistinctSigner iterates over each signer and calls the callback function.
+func (s *SignersBase[T]) ForEachDistinctSigner(callback func(signerIndex int)) {
+	//if s.validated {
+	//	panic("Using un-validated signers information")
+	//}
+	for i := 0; i < s.committeeSize; i++ {
+		if s.Bits.HasSigner(i) {
+			callback(i)
+		}
+	}
+}
+
 func (s *SignersBase[T]) CopyCoefficients() []T {
 	if !s.validated {
 		panic("Using un-validated signers information")
