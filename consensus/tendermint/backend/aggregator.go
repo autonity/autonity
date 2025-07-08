@@ -619,7 +619,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			case *message.Prevote:
 				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					a.signerSetCache.AddPrevote(aggregateVote)
+					//a.signerSetCache.AddPrevote(aggregateVote)
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					a.internalCoreCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
 					a.internalFdCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
@@ -627,7 +627,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					a.signerSetCache.AddPrecommit(aggregateVote)
+					//a.signerSetCache.AddPrecommit(aggregateVote)
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					a.internalCoreCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
 					a.internalFdCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
@@ -779,7 +779,11 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	// if proposal, verify right away
 	case *message.Propose:
 		a.processProposal(event, currentHeightEventBuilder)
-	case *message.Prevote, *message.Precommit:
+	case *message.Prevote:
+		a.signerSetCache.AddPrevote(msg.(*message.Prevote))
+		a.handleVote(event, committee, quorum, true)
+	case *message.Precommit:
+		a.signerSetCache.AddPrecommit(msg.(*message.Precommit))
 		a.handleVote(event, committee, quorum, true)
 	default:
 		a.logger.Crit("unknown message type arrived in aggregator")
