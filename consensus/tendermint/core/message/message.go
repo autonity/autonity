@@ -22,6 +22,7 @@ import (
 	"math/big"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/bitutil"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
@@ -730,7 +731,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, skipBoundaryCheck ...bo
 	}
 
 	// bitmap to track if the each vote has any contribution
-	totalBitMap := types.NewValidatorBitmap(votes[0].Signers().CommitteeSize())
+	totalBitMap := bitutil.NewBitmap(votes[0].Signers().CommitteeSize())
 
 	// compute new aggregated signature and related signers information
 	voteDistributed := make([][]Vote, 0)

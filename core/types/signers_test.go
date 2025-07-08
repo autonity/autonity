@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/bitutil"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/rlp"
@@ -119,53 +120,53 @@ func TestValidatorBitmap(t *testing.T) {
 	t.Run("Simple bitmap with 8 validators (1 byte)", func(t *testing.T) {
 		// 00000000
 		n := 8
-		bitmap := NewValidatorBitmap(n)
+		bitmap := bitutil.NewBitmap(n)
 		require.True(t, bitmap.Valid(n))
 
 		for i := 0; i < n; i++ {
-			require.Equal(t, false, bitmap.HasSigner(i))
+			require.Equal(t, false, bitmap.HasItem(i))
 		}
 
 		for i := 0; i < n; i++ {
-			bitmap.setSigner(i)
-			require.Equal(t, true, bitmap.HasSigner(i))
+			bitmap.AddItem(i)
+			require.Equal(t, true, bitmap.HasItem(i))
 		}
 	})
 	t.Run("bitmap with 12 validators (2 byte)", func(t *testing.T) {
 		// 00000000 | 00000000
 		n := 12
-		bitmap := NewValidatorBitmap(n)
+		bitmap := bitutil.NewBitmap(n)
 		require.True(t, bitmap.Valid(n))
 
 		for i := 0; i < n; i++ {
-			require.Equal(t, false, bitmap.HasSigner(i))
+			require.Equal(t, false, bitmap.HasItem(i))
 		}
 
 		// 00000001 | 00000000
-		bitmap.setSigner(0)
-		require.Equal(t, true, bitmap.HasSigner(0))
+		bitmap.AddItem(0)
+		require.Equal(t, true, bitmap.HasItem(0))
 
 		// 00000001 | 00000001
-		bitmap.setSigner(8)
-		require.Equal(t, true, bitmap.HasSigner(8))
+		bitmap.AddItem(8)
+		require.Equal(t, true, bitmap.HasItem(8))
 
 		// 00000001 | 00000011
-		bitmap.setSigner(9)
-		require.Equal(t, true, bitmap.HasSigner(9))
+		bitmap.AddItem(9)
+		require.Equal(t, true, bitmap.HasItem(9))
 	})
 	t.Run("Setting out of bound bit should panic", func(t *testing.T) {
 		defer expectPanic(t)
-		bitmap := NewValidatorBitmap(0)
-		bitmap.setSigner(1)
+		bitmap := bitutil.NewBitmap(0)
+		bitmap.AddItem(1)
 	})
 	t.Run("Getting out of bound bit should panic", func(t *testing.T) {
 		defer expectPanic(t)
-		bitmap := NewValidatorBitmap(0)
-		bitmap.HasSigner(1)
+		bitmap := bitutil.NewBitmap(0)
+		bitmap.HasItem(1)
 	})
 	t.Run("Valid method", func(t *testing.T) {
 		n := 8
-		bitmap := NewValidatorBitmap(n)
+		bitmap := bitutil.NewBitmap(n)
 		require.True(t, bitmap.Valid(n))
 		bitmap = append(bitmap, []byte{0xca, 0xfe}...)
 		require.False(t, bitmap.Valid(n))
@@ -246,10 +247,10 @@ func TestSigners(t *testing.T) {
 		s := NewVoteSigners(committee.Len() + 10)
 		require.Equal(t, s.CommitteeSize(), committee.Len()+10)
 
-		require.Equal(t, s.Bits.HasSigner(0), false)
+		require.Equal(t, s.Bits.HasItem(0), false)
 
 		s.AddMember(&committee.Members[0])
-		require.Equal(t, s.Bits.HasSigner(0), true)
+		require.Equal(t, s.Bits.HasItem(0), true)
 		require.Equal(t, s.Coefficients[0], uint16(1))
 		require.Equal(t, len(s.Powers()), 1)
 		require.Equal(t, s.Power().Uint64(), committee.Members[0].VotingPower.Uint64())
@@ -257,10 +258,10 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, s.Len(), 1)
 
 		s.AddMember(&committee.Members[0])
-		require.Equal(t, s.Bits.HasSigner(0), true)
+		require.Equal(t, s.Bits.HasItem(0), true)
 		require.Equal(t, s.Coefficients[0], uint16(2))
 		s.AddMember(&committee.Members[0])
-		require.Equal(t, s.Bits.HasSigner(0), true)
+		require.Equal(t, s.Bits.HasItem(0), true)
 		require.Equal(t, s.Coefficients[0], uint16(3))
 
 		require.Equal(t, len(s.Powers()), 1)
@@ -269,7 +270,7 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, s.Len(), 1)
 
 		s.AddMember(&committee.Members[1])
-		require.Equal(t, s.Bits.HasSigner(1), true)
+		require.Equal(t, s.Bits.HasItem(1), true)
 		require.Equal(t, s.Coefficients[1], uint16(1))
 
 		require.Equal(t, len(s.Powers()), 2)
@@ -278,13 +279,13 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, s.Len(), 2)
 
 		s.AddMember(&committee.Members[2])
-		require.Equal(t, s.Bits.HasSigner(2), true)
+		require.Equal(t, s.Bits.HasItem(2), true)
 		require.Equal(t, s.Coefficients[2], uint16(1))
 		s.AddMember(&committee.Members[2])
-		require.Equal(t, s.Bits.HasSigner(2), true)
+		require.Equal(t, s.Bits.HasItem(2), true)
 		require.Equal(t, s.Coefficients[2], uint16(2))
 		s.AddMember(&committee.Members[2])
-		require.Equal(t, s.Bits.HasSigner(2), true)
+		require.Equal(t, s.Bits.HasItem(2), true)
 		require.Equal(t, s.Coefficients[2], uint16(3))
 
 		s.AddMember(&committee.Members[2])
@@ -296,17 +297,17 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, s.Coefficients[0], uint16(4))
 
 		s.AddMember(&committee.Members[1])
-		require.Equal(t, s.Bits.HasSigner(1), true)
+		require.Equal(t, s.Bits.HasItem(1), true)
 		require.Equal(t, s.Coefficients[1], uint16(2))
 		s.AddMember(&committee.Members[1])
-		require.Equal(t, s.Bits.HasSigner(1), true)
+		require.Equal(t, s.Bits.HasItem(1), true)
 		require.Equal(t, s.Coefficients[1], uint16(3))
 		s.AddMember(&committee.Members[1])
-		require.Equal(t, s.Bits.HasSigner(1), true)
+		require.Equal(t, s.Bits.HasItem(1), true)
 		require.Equal(t, s.Coefficients[1], uint16(4))
 
 		s.AddMember(&committee.Members[1])
-		require.Equal(t, s.Bits.HasSigner(1), true)
+		require.Equal(t, s.Bits.HasItem(1), true)
 		require.Equal(t, s.Coefficients[1], uint16(5))
 	})
 	t.Run("Merge correctly merges two senders info", func(t *testing.T) {
@@ -325,7 +326,7 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, len(s1.Powers()), committee.Len())
 		require.Equal(t, s1.Len(), committee.Len())
 		for i, member := range committee.Members {
-			require.Equal(t, s1.Bits.HasSigner(i), true)
+			require.Equal(t, s1.Bits.HasItem(i), true)
 			require.Equal(t, s1.Coefficients[i], uint16(1))
 			require.Equal(t, s1.Powers()[i], member.VotingPower)
 		}
@@ -344,7 +345,7 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, len(s1.Powers()), committee.Len())
 		require.Equal(t, s1.Len(), committee.Len())
 		for i, member := range committee.Members {
-			require.Equal(t, s1.Bits.HasSigner(i), true)
+			require.Equal(t, s1.Bits.HasItem(i), true)
 			require.Equal(t, s1.Coefficients[i], uint16(2))
 			require.Equal(t, s1.Powers()[i], member.VotingPower)
 		}
@@ -361,18 +362,18 @@ func TestSigners(t *testing.T) {
 
 		s1.Merge(s4.SignersBase)
 
-		require.Equal(t, s1.Bits.HasSigner(0), true)
+		require.Equal(t, s1.Bits.HasItem(0), true)
 		require.Equal(t, s1.Coefficients[0], uint16(5))
-		require.Equal(t, s1.Bits.HasSigner(2), true)
+		require.Equal(t, s1.Bits.HasItem(2), true)
 		require.Equal(t, s1.Coefficients[2], uint16(6))
 
 		s5 := NewVoteSigners(committee.Len() + 10)
 		s5.AddMember(&committee.Members[1])
 
 		s1.Merge(s5.SignersBase)
-		require.Equal(t, s1.Bits.HasSigner(0), true)
-		require.Equal(t, s1.Bits.HasSigner(1), true)
-		require.Equal(t, s1.Bits.HasSigner(2), true)
+		require.Equal(t, s1.Bits.HasItem(0), true)
+		require.Equal(t, s1.Bits.HasItem(1), true)
+		require.Equal(t, s1.Bits.HasItem(2), true)
 		require.Equal(t, s1.Coefficients[0], uint16(5))
 		require.Equal(t, s1.Coefficients[1], uint16(3))
 		require.Equal(t, s1.Coefficients[2], uint16(6))

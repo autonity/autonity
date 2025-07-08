@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/autonity/autonity/common/bitutil"
 	"github.com/autonity/autonity/common/hexutil"
 
 	"golang.org/x/crypto/sha3"
@@ -145,8 +146,8 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		seal2, err := blst.SignatureFromBytes(hexutil.MustDecode("0xa2f685ab4925fa955796dc2fe83038036ec96a19ce7c8c76ab6ec2a65143a35a3540ee902fb87755ba8566f6550bc4ef1024489b34d2ad0ac1f3d2d238f265b5ebe2e1cd265472bb352bf3ecc57ec4269931c9dc8fcdf83fbe0bb1f9ec5cefd1"))
 		require.NoError(t, err)
 
-		header.QuorumCertificate.Signers = &QuorumSigners{&SignersBase[uint32]{Bits: NewValidatorBitmap(5), Coefficients: make([]uint32, 0)}}
-		header.QuorumCertificate.Signers.Bits = validatorBitmap{0x44, 0x0}
+		header.QuorumCertificate.Signers = &QuorumSigners{&SignersBase[uint32]{Bits: bitutil.NewBitmap(5), Coefficients: make([]uint32, 0)}}
+		header.QuorumCertificate.Signers.Bits = bitutil.Bitmap{0x44, 0x0}
 		sig := blst.AggregateSignatures([]blst.Signature{seal1, seal2})
 		header.QuorumCertificate.Signature = sig.(*blst.BlsSignature)
 
@@ -214,8 +215,8 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		seal2, err := blst.SignatureFromBytes(hexutil.MustDecode("0xa2f685ab4925fa955796dc2fe83038036ec96a19ce7c8c76ab6ec2a65143a35a3540ee902fb87755ba8566f6550bc4ef1024489b34d2ad0ac1f3d2d238f265b5ebe2e1cd265472bb352bf3ecc57ec4269931c9dc8fcdf83fbe0bb1f9ec5cefd1"))
 		require.NoError(t, err)
 
-		header.QuorumCertificate.Signers = &QuorumSigners{&SignersBase[uint32]{Bits: NewValidatorBitmap(5), Coefficients: make([]uint32, 0)}}
-		header.QuorumCertificate.Signers.Bits = validatorBitmap{0x44, 0x0}
+		header.QuorumCertificate.Signers = &QuorumSigners{&SignersBase[uint32]{Bits: bitutil.NewBitmap(5), Coefficients: make([]uint32, 0)}}
+		header.QuorumCertificate.Signers.Bits = bitutil.Bitmap{0x44, 0x0}
 		sig := blst.AggregateSignatures([]blst.Signature{seal1, seal2})
 		header.QuorumCertificate.Signature = sig.(*blst.BlsSignature)
 
