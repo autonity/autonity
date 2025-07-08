@@ -408,13 +408,13 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		}
 
 		// calcluate removed power so we don't have to recalcualte everything
-		removedPower := message.NewAggregatedPower()
-		for _, e := range batch {
-			vote := e.Message.(message.Vote)
-			for index, power := range vote.Signers().Powers() {
-				removedPower.Set(index, power)
-			}
-		}
+		//removedPower := message.NewAggregatedPower()
+		//for _, e := range batch {
+		//	vote := e.Message.(message.Vote)
+		//	for index, power := range vote.Signers().Powers() {
+		//		removedPower.Set(index, power)
+		//	}
+		//}
 
 		a.processBatches([][]events.UnverifiedMessageEvent{batch}, currentHeightEventBuilder)
 
@@ -423,89 +423,89 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		delete(roundInfo.prevotesPowerFor, v)
 
 		// re-compute round power and prevote power
-		//roundInfo.prevotesPower = message.NewAggregatedPower()
-		//roundInfo.power = message.NewAggregatedPower()
+		roundInfo.prevotesPower = message.NewAggregatedPower()
+		roundInfo.power = message.NewAggregatedPower()
 
-		roundInfo.power.Subtract(removedPower)
-		roundInfo.prevotesPower.Subtract(removedPower)
+		//roundInfo.power.Subtract(removedPower)
+		//roundInfo.prevotesPower.Subtract(removedPower)
 
 		// prevotes
-		//for _, prevotesEvent := range roundInfo.prevotes {
-		//	for _, e := range prevotesEvent {
-		//		vote := e.Message.(message.Vote)
-		//		for index, power := range vote.Signers().Powers() {
-		//			roundInfo.power.Set(index, power)
-		//			roundInfo.prevotesPower.Set(index, power)
-		//		}
-		//	}
-		//}
-		//
+		for _, prevotesEvent := range roundInfo.prevotes {
+			for _, e := range prevotesEvent {
+				vote := e.Message.(message.Vote)
+				for index, power := range vote.Signers().Powers() {
+					roundInfo.power.Set(index, power)
+					roundInfo.prevotesPower.Set(index, power)
+				}
+			}
+		}
+
 		//// precommits
-		//for _, precommitsEvent := range roundInfo.precommits {
-		//	for _, e := range precommitsEvent {
-		//		vote := e.Message.(message.Vote)
-		//		for index, power := range vote.Signers().Powers() {
-		//			roundInfo.power.Set(index, power)
-		//		}
-		//	}
-		//}
-		//
-		//// proposals
-		//for _, proposalEvent := range roundInfo.proposals {
-		//	proposal := proposalEvent.Message.(*message.Propose)
-		//	roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
-		//}
+		for _, precommitsEvent := range roundInfo.precommits {
+			for _, e := range precommitsEvent {
+				vote := e.Message.(message.Vote)
+				for index, power := range vote.Signers().Powers() {
+					roundInfo.power.Set(index, power)
+				}
+			}
+		}
+
+		// proposals
+		for _, proposalEvent := range roundInfo.proposals {
+			proposal := proposalEvent.Message.(*message.Propose)
+			roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
+		}
 	case message.PrecommitCode:
 		batch, ok := roundInfo.precommits[v]
 		if !ok {
 			return
 		}
 
-		removedPower := message.NewAggregatedPower()
-		for _, e := range batch {
-			vote := e.Message.(message.Vote)
-			for index, power := range vote.Signers().Powers() {
-				removedPower.Set(index, power)
-			}
-		}
+		//removedPower := message.NewAggregatedPower()
+		//for _, e := range batch {
+		//	vote := e.Message.(message.Vote)
+		//	for index, power := range vote.Signers().Powers() {
+		//		removedPower.Set(index, power)
+		//	}
+		//}
 		a.processBatches([][]events.UnverifiedMessageEvent{batch}, currentHeightEventBuilder)
 
 		// clean up
 		delete(roundInfo.precommits, v)
 		delete(roundInfo.precommitsPowerFor, v)
 
-		roundInfo.power.Subtract(removedPower)
-		roundInfo.precommitsPower.Subtract(removedPower)
+		//roundInfo.power.Subtract(removedPower)
+		//roundInfo.precommitsPower.Subtract(removedPower)
 		//// re-compute round power and prevote power
-		//roundInfo.precommitsPower = message.NewAggregatedPower()
-		//roundInfo.power = message.NewAggregatedPower()
+		roundInfo.precommitsPower = message.NewAggregatedPower()
+		roundInfo.power = message.NewAggregatedPower()
 		//
-		//// prevotes
-		//for _, prevotesEvent := range roundInfo.prevotes {
-		//	for _, e := range prevotesEvent {
-		//		vote := e.Message.(message.Vote)
-		//		for index, power := range vote.Signers().Powers() {
-		//			roundInfo.power.Set(index, power)
-		//		}
-		//	}
-		//}
-		//
-		//// precommits
-		//for _, precommitsEvent := range roundInfo.precommits {
-		//	for _, e := range precommitsEvent {
-		//		vote := e.Message.(message.Vote)
-		//		for index, power := range vote.Signers().Powers() {
-		//			roundInfo.power.Set(index, power)
-		//			roundInfo.precommitsPower.Set(index, power)
-		//		}
-		//	}
-		//}
-		//
-		//// proposals
-		//for _, proposalEvent := range roundInfo.proposals {
-		//	proposal := proposalEvent.Message.(*message.Propose)
-		//	roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
-		//}
+		// prevotes
+		for _, prevotesEvent := range roundInfo.prevotes {
+			for _, e := range prevotesEvent {
+				vote := e.Message.(message.Vote)
+				for index, power := range vote.Signers().Powers() {
+					roundInfo.power.Set(index, power)
+				}
+			}
+		}
+
+		// precommits
+		for _, precommitsEvent := range roundInfo.precommits {
+			for _, e := range precommitsEvent {
+				vote := e.Message.(message.Vote)
+				for index, power := range vote.Signers().Powers() {
+					roundInfo.power.Set(index, power)
+					roundInfo.precommitsPower.Set(index, power)
+				}
+			}
+		}
+
+		// proposals
+		for _, proposalEvent := range roundInfo.proposals {
+			proposal := proposalEvent.Message.(*message.Propose)
+			roundInfo.power.Set(proposal.SignerIndex(), proposal.Power())
+		}
 	default:
 		a.logger.Crit("Unexpected code", "c", c)
 	}
