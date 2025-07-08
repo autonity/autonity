@@ -4,12 +4,16 @@ import (
 	"math/big"
 	"sync"
 
-	"golang.org/x/exp/slices"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/core/types"
+)
+
+type CacheStep int
+
+const (
+	StepReceived CacheStep = iota
+	StepDispatched
 )
 
 type oneBitmap []byte
@@ -43,7 +47,19 @@ func (o oneBitmap) Present(index int) bool {
 	}
 	byteIndex := index / 8
 	bitIndex := index % 8
+	bitIndex = 7 - bitIndex
 	return (o[byteIndex] & (1 << bitIndex)) != 0
+}
+
+func (o oneBitmap) Invalidate(b oneBitmap) oneBitmap {
+	if len(o) != len(b) {
+		return nil
+	}
+	result := make(oneBitmap, len(o))
+	for i := range o {
+		result[i] = o[i] & (^b[i])
+	}
+	return result
 }
 
 type voteCache struct {
@@ -96,6 +112,27 @@ func (c *voteCache) Merge(height uint64, round int64, committeeSize int, vote me
 	}
 }
 
+func (c *voteCache) Invalidate(height uint64, round int64, committeeSize int, vote message.Vote) {
+	signers := vote.Signers()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if _, ok := c.internal[height]; !ok {
+		return
+	}
+	if _, ok := c.internal[height][round]; !ok {
+		return
+	}
+	if _, ok := c.internal[height][round][vote.Value()]; !ok {
+		return
+	}
+
+	toInvalidate := oneBitmap(signers.Bits.ToSingleBitmap(committeeSize))
+	known := c.internal[height][round][vote.Value()]
+
+	c.internal[height][round][vote.Value()] = known.Invalidate(toInvalidate)
+}
+
 func (c *voteCache) PruneToHeight(height uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -106,7 +143,7 @@ func (c *voteCache) PruneToHeight(height uint64) {
 	}
 }
 
-func (c *voteCache) PresentPower(height uint64, round int64, committee *types.Committee) *big.Int {
+func (c *voteCache) PresentPower(height uint64, round int64, committeePowers []*big.Int) *big.Int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if _, ok := c.internal[height]; !ok {
@@ -116,68 +153,172 @@ func (c *voteCache) PresentPower(height uint64, round int64, committee *types.Co
 		return big.NewInt(0)
 	}
 	known := c.internal[height][round]
-	powers := make([]*big.Int, len(known))
-	i := 0
+	power := big.NewInt(0)
 	for _, bm := range known {
-		for _, member := range committee.Members {
-			if bm.Present(int(member.Index)) { //nolint
-				if powers[i] == nil {
-					powers[i] = big.NewInt(0)
-				}
-				powers[i].Add(powers[i], member.VotingPower)
+		for i, memberPower := range committeePowers {
+			if bm.Present(i) {
+				power.Add(power, memberPower)
 			}
 		}
-		i++
 	}
-	return slices.MaxFunc(powers, func(a, b *big.Int) int {
-		return a.Cmp(b)
-	})
+	return power
+}
+
+func (c *voteCache) PresentPowerFor(height uint64, round int64, value common.Hash, committeePower []*big.Int) *big.Int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if _, ok := c.internal[height]; !ok {
+		return big.NewInt(0)
+	}
+	if _, ok := c.internal[height][round]; !ok {
+		return big.NewInt(0)
+	}
+	if _, ok := c.internal[height][round][value]; !ok {
+		return big.NewInt(0)
+	}
+
+	bm := c.internal[height][round][value]
+	power := big.NewInt(0)
+	for i, memberPower := range committeePower {
+		if bm.Present(i) {
+			power = power.Add(power, memberPower)
+		}
+	}
+	return power
 }
 
 type aggregatorCache struct {
-	committeeSize  map[uint64]int // the committee size used to create the bitmaps
-	precommitCache *voteCache
-	prevoteCache   *voteCache
+	committeePowers map[uint64][]*big.Int              // the committee size used to create the bitmaps
+	voteCaches      map[uint8]map[CacheStep]*voteCache // code -> step -> vote cache
+	filtered        map[uint8]map[uint64]map[int64]map[common.Hash][]events.UnverifiedMessageEvent
 }
 
 func newAggregatorCache() *aggregatorCache {
 	return &aggregatorCache{
-		committeeSize:  make(map[uint64]int),
-		precommitCache: newVoteCache(),
-		prevoteCache:   newVoteCache(),
+		committeePowers: make(map[uint64][]*big.Int),
+		voteCaches: map[uint8]map[CacheStep]*voteCache{
+			message.PrecommitCode: {
+				StepReceived:   newVoteCache(),
+				StepDispatched: newVoteCache(),
+			},
+			message.PrevoteCode: {
+				StepReceived:   newVoteCache(),
+				StepDispatched: newVoteCache(),
+			},
+		},
+
+		filtered: map[uint8]map[uint64]map[int64]map[common.Hash][]events.UnverifiedMessageEvent{
+			message.PrecommitCode: make(map[uint64]map[int64]map[common.Hash][]events.UnverifiedMessageEvent),
+			message.PrevoteCode:   make(map[uint64]map[int64]map[common.Hash][]events.UnverifiedMessageEvent),
+		},
 	}
 }
 
-func (c *aggregatorCache) Contains(height uint64, round int64, committeeSize int, event events.UnverifiedMessageEvent) bool {
+func (c *aggregatorCache) Contains(height uint64, round int64, committeeSize int, event events.UnverifiedMessageEvent) (received bool, dispatched bool) {
 	msg := event.Message
 	switch msg.(type) {
-	case *message.Precommit:
-		return c.precommitCache.Contains(height, round, committeeSize, msg.(message.Vote))
-	case *message.Prevote:
-		return c.prevoteCache.Contains(height, round, committeeSize, msg.(message.Vote))
+	case *message.Precommit, *message.Prevote:
+		received = c.voteCaches[msg.Code()][StepReceived].Contains(height, round, committeeSize, msg.(message.Vote))
+		dispatched = c.voteCaches[msg.Code()][StepDispatched].Contains(height, round, committeeSize, msg.(message.Vote))
+		return received, dispatched
+	default:
+		return false, false
+	}
+}
+
+func (c *aggregatorCache) Filter(committeeSize int, event events.UnverifiedMessageEvent) bool {
+	msg := event.Message
+	switch msg.(type) {
+	case *message.Precommit, *message.Prevote:
+		received, dispatched := c.Contains(msg.H(), msg.R(), committeeSize, event)
+		if dispatched {
+			return true
+		} else if received && !dispatched {
+			if _, ok := c.filtered[msg.Code()][msg.H()]; !ok {
+				c.filtered[msg.Code()][msg.H()] = make(map[int64]map[common.Hash][]events.UnverifiedMessageEvent)
+			}
+			if _, ok := c.filtered[msg.Code()][msg.H()][msg.R()]; !ok {
+				c.filtered[msg.Code()][msg.H()][msg.R()] = make(map[common.Hash][]events.UnverifiedMessageEvent)
+			}
+			c.filtered[msg.Code()][msg.H()][msg.R()][msg.Value()] = append(
+				c.filtered[msg.Code()][msg.H()][msg.R()][msg.Value()],
+				event,
+			)
+			return true
+		}
+		return received && dispatched
 	default:
 		return false
 	}
 }
 
-func (c *aggregatorCache) MarkCommitteeSize(height uint64, size int) {
-	c.committeeSize[height] = size
+func (c *aggregatorCache) InvalidateVote(msg message.Vote) {
+	c.voteCaches[msg.Code()][StepReceived].Invalidate(msg.H(), msg.R(), len(c.committeePowers[msg.H()]), msg)
 }
 
-func (c *aggregatorCache) AddPrevote(vote *message.Prevote) {
-	c.prevoteCache.Merge(vote.H(), vote.R(), c.committeeSize[vote.H()], vote)
+func (c *aggregatorCache) EmptyFiltered(h uint64, r int64, code uint8, value common.Hash) []events.UnverifiedMessageEvent {
+	if _, ok := c.filtered[code][h]; !ok {
+		return nil
+	}
+	if _, ok := c.filtered[code][h][r]; !ok {
+		return nil
+	}
+	if _, ok := c.filtered[code][h][r][value]; !ok {
+		return nil
+	}
+	filtered := c.filtered[code][h][r][value]
+	c.filtered[code][h][r][value] = nil
+	return filtered
 }
 
-func (c *aggregatorCache) AddPrecommit(vote *message.Precommit) {
-	c.precommitCache.Merge(vote.H(), vote.R(), c.committeeSize[vote.H()], vote)
+func (c *aggregatorCache) MarkCommittee(height uint64, committee *types.Committee) {
+	if len(c.committeePowers) == committee.Len() {
+		return // already marked
+	}
+	c.committeePowers[height] = func() []*big.Int {
+		powers := make([]*big.Int, committee.Len())
+		for i, member := range committee.Members {
+			powers[i] = new(big.Int).Set(member.VotingPower)
+		}
+		return powers
+	}()
+}
+
+func (c *aggregatorCache) AddVote(msg message.Vote, step CacheStep) {
+	if _, ok := c.committeePowers[msg.H()]; !ok {
+		panic("aggregatorCache: committee powers not set for height")
+	}
+	c.voteCaches[msg.Code()][step].Merge(msg.H(), msg.R(), len(c.committeePowers[msg.H()]), msg)
+}
+
+func (c *aggregatorCache) PresentPower(height uint64, round int64, code uint8, step CacheStep) *big.Int {
+	if _, ok := c.committeePowers[height]; !ok {
+		panic("aggregatorCache: committee powers not set for height")
+	}
+	committeePowers := c.committeePowers[height]
+	return c.voteCaches[code][step].PresentPower(height, round, committeePowers)
+}
+
+func (c *aggregatorCache) PresentPowerFor(height uint64, round int64, value common.Hash, code uint8, step CacheStep) *big.Int {
+	if _, ok := c.committeePowers[height]; !ok {
+		panic("aggregatorCache: committee powers not set for height")
+	}
+	committeePowers := c.committeePowers[height]
+	return c.voteCaches[code][step].PresentPowerFor(height, round, value, committeePowers)
 }
 
 func (c *aggregatorCache) PruneToHeight(height uint64) {
-	c.precommitCache.PruneToHeight(height)
-	c.prevoteCache.PruneToHeight(height)
-	for h := range c.committeeSize {
+	c.voteCaches[message.PrecommitCode][StepReceived].PruneToHeight(height)
+	c.voteCaches[message.PrecommitCode][StepDispatched].PruneToHeight(height)
+
+	c.voteCaches[message.PrevoteCode][StepReceived].PruneToHeight(height)
+	c.voteCaches[message.PrevoteCode][StepDispatched].PruneToHeight(height)
+
+	for h := range c.committeePowers {
 		if h < height {
-			delete(c.committeeSize, h)
+			delete(c.committeePowers, h)
+			delete(c.filtered[message.PrecommitCode], h)
+			delete(c.filtered[message.PrevoteCode], h)
 		}
 	}
 }

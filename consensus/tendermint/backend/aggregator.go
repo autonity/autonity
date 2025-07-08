@@ -94,19 +94,20 @@ func powerContribution(aggregatorSigners *big.Int, coreSigners *big.Int, committ
 
 func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger, knownMessages *fixsizecache.Cache[common.Hash, bool], afdDispatchCh chan<- events.MessageEventer) *aggregator {
 	return &aggregator{
-		backend:          backend,
-		core:             core,
-		staleMessages:    make(map[common.Hash][]events.UnverifiedMessageEvent),
-		messages:         make(map[uint64]map[int64]*RoundInfo),
-		logger:           logger,
-		messagesFrom:     make(map[common.Address][]common.Hash),
-		toIgnore:         make(map[common.Hash]struct{}),
-		knownMessages:    knownMessages,
-		afdDispatchCh:    afdDispatchCh,
-		internalCoreCh:   make(chan events.MessageEventer, 1),
-		internalFdCh:     make(chan events.MessageEventer, 1),
-		signalFastTickCh: make(chan struct{}, 1),
-		signerSetCache:   newAggregatorCache(),
+		backend:           backend,
+		core:              core,
+		staleMessages:     make(map[common.Hash][]events.UnverifiedMessageEvent),
+		messages:          make(map[uint64]map[int64]*RoundInfo),
+		logger:            logger,
+		messagesFrom:      make(map[common.Address][]common.Hash),
+		toIgnore:          make(map[common.Hash]struct{}),
+		knownMessages:     knownMessages,
+		afdDispatchCh:     afdDispatchCh,
+		internalCoreCh:    make(chan events.MessageEventer, 1),
+		internalFdCh:      make(chan events.MessageEventer, 1),
+		internalBacklogCh: make(chan events.UnverifiedMessageEvent, 1000),
+		signalFastTickCh:  make(chan struct{}, 1),
+		signerSetCache:    newAggregatorCache(),
 	}
 }
 
@@ -151,8 +152,10 @@ type aggregator struct {
 	signerSetCache *aggregatorCache
 	afdDispatchCh  chan<- events.MessageEventer
 
-	internalCoreCh   chan events.MessageEventer
-	internalFdCh     chan events.MessageEventer
+	internalCoreCh    chan events.MessageEventer
+	internalFdCh      chan events.MessageEventer
+	internalBacklogCh chan events.UnverifiedMessageEvent // backlog for messages that were filtered by cache, but reinjected
+
 	signalFastTickCh chan struct{} // todo(review) - a height specific loop may by
 	cancel           context.CancelFunc
 	wg               sync.WaitGroup
@@ -601,10 +604,29 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			for i, msg := range messages {
 				if j < len(invalids) && uint(i) == invalids[j] {
 					j++
+					a.signerSetCache.InvalidateVote(msg)
 					continue
 				}
 				validVotes = append(validVotes, msg)
 			}
+
+			go func() {
+				var filtered []events.UnverifiedMessageEvent
+				switch validVotes[0].(type) {
+				case *message.Prevote, *message.Precommit:
+					filtered = a.signerSetCache.EmptyFiltered(
+						batch[0].Message.H(),
+						batch[0].Message.R(),
+						batch[0].Message.Code(),
+						batch[0].Message.Value(),
+					)
+				default:
+					return
+				}
+				for _, e := range filtered {
+					a.internalBacklogCh <- e // reinject the filtered messages to the backlog
+				}
+			}()
 		} else {
 			// all messages are valid
 			validVotes = messages
@@ -619,7 +641,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			case *message.Prevote:
 				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					//a.signerSetCache.AddPrevote(aggregateVote)
+					a.signerSetCache.AddVote(aggregateVote, StepDispatched)
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					a.internalCoreCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
 					a.internalFdCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
@@ -627,7 +649,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					//a.signerSetCache.AddPrecommit(aggregateVote)
+					a.signerSetCache.AddVote(aggregateVote, StepDispatched)
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					a.internalCoreCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
 					a.internalFdCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
@@ -701,14 +723,16 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 	}
 
 	//// check if we reached quorum voting power on a specific value
-	//corePower := a.core.VotesPowerFor(height, round, code, value)
-	//aggregatorPower := a.votesPowerFor(height, round, code, value)
-	//contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
-	//if corePower.Power().Cmp(quorum) < 0 && contribution.Add(contribution, corePower.Power()).Cmp(quorum) >= 0 {
-	//	a.processVotesFor(height, round, code, value)
-	//	return
-	//}
-	//
+	votingPowerReceived := a.signerSetCache.PresentPowerFor(height, round, value, code, StepReceived)
+	if votingPowerReceived.Cmp(quorum) >= 0 {
+		votingPowerDispatched := a.signerSetCache.PresentPowerFor(height, round, value, code, StepDispatched)
+		if votingPowerDispatched.Cmp(quorum) < 0 {
+			// we have enough votes, but not enough dispatched, so process the votes
+			a.processVotesFor(height, round, code, value)
+			return
+		}
+	}
+
 	//// check if we reached quorum voting power in general
 	//corePower = a.core.VotesPower(height, round, code)
 	//aggregatorPower = a.votesPower(height, round, code)
@@ -748,11 +772,12 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 		panic(fmt.Sprintf("cannot get committee of height: %d", msg.H()))
 	}
 
-	if a.signerSetCache.Contains(msg.H(), msg.R(), committee.Len(), event) {
+	if a.signerSetCache.Filter(committee.Len(), event) {
 		return // already processed a message with more signers
 	}
 	// mark committee size for the height to avoid any more calls to CommitteeByHeight
-	a.signerSetCache.MarkCommitteeSize(msg.H(), committee.Len())
+	a.signerSetCache.MarkCommittee(msg.H(), committee)
+
 
 	quorum := bft.Quorum(committee.TotalVotingPower())
 
@@ -778,10 +803,10 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	case *message.Propose:
 		a.processProposal(event, currentHeightEventBuilder)
 	case *message.Prevote:
-		a.signerSetCache.AddPrevote(msg.(*message.Prevote))
+		a.signerSetCache.AddVote(msg.(message.Vote), StepReceived)
 		a.handleVote(event, committee, quorum, true)
 	case *message.Precommit:
-		a.signerSetCache.AddPrecommit(msg.(*message.Precommit))
+		a.signerSetCache.AddVote(msg.(message.Vote), StepReceived)
 		a.handleVote(event, committee, quorum, true)
 	default:
 		a.logger.Crit("unknown message type arrived in aggregator")
