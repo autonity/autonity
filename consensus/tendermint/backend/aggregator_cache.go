@@ -48,16 +48,16 @@ func (o oneBitmap) Present(index int) bool {
 
 type voteCache struct {
 	mu       sync.RWMutex
-	internal map[uint64]map[int64]map[common.Hash]oneBitmap
+	internal map[uint64]map[int64]map[common.Hash]types.ValidatorBitmap
 }
 
 func newVoteCache() *voteCache {
 	return &voteCache{
-		internal: make(map[uint64]map[int64]map[common.Hash]oneBitmap),
+		internal: make(map[uint64]map[int64]map[common.Hash]types.ValidatorBitmap),
 	}
 }
 
-func (c *voteCache) Contains(height uint64, round int64, committeeSize int, vote message.Vote) bool {
+func (c *voteCache) Contains(height uint64, round int64, vote message.Vote) bool {
 	signers := vote.Signers()
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -71,9 +71,8 @@ func (c *voteCache) Contains(height uint64, round int64, committeeSize int, vote
 	if _, ok := c.internal[height][round][vote.Value()]; !ok {
 		return false
 	}
-	bm := oneBitmap(signers.Bits.ToSingleBitmap(committeeSize))
 	known := c.internal[height][round][vote.Value()]
-	return known.Contains(bm)
+	return known.Contains(signers.Bits)
 }
 
 func (c *voteCache) Merge(height uint64, round int64, committeeSize int, vote message.Vote) {
@@ -82,17 +81,17 @@ func (c *voteCache) Merge(height uint64, round int64, committeeSize int, vote me
 	defer c.mu.Unlock()
 
 	if _, ok := c.internal[height]; !ok {
-		c.internal[height] = make(map[int64]map[common.Hash]oneBitmap)
+		c.internal[height] = make(map[int64]map[common.Hash]types.ValidatorBitmap)
 	}
 	if _, ok := c.internal[height][round]; !ok {
-		c.internal[height][round] = make(map[common.Hash]oneBitmap)
+		c.internal[height][round] = make(map[common.Hash]types.ValidatorBitmap)
 	}
 
-	bm := oneBitmap(signers.Bits.ToSingleBitmap(committeeSize))
 	if existing, ok := c.internal[height][round][vote.Value()]; ok {
-		c.internal[height][round][vote.Value()] = existing.Merge(bm)
+		existing.Merge(signers.Bits)
 	} else {
-		c.internal[height][round][vote.Value()] = bm
+		c.internal[height][round][vote.Value()] = types.NewValidatorBitmap(committeeSize)
+		c.internal[height][round][vote.Value()].Merge(signers.Bits)
 	}
 }
 
@@ -120,7 +119,7 @@ func (c *voteCache) PresentPower(height uint64, round int64, committee *types.Co
 	i := 0
 	for _, bm := range known {
 		for _, member := range committee.Members {
-			if bm.Present(int(member.Index)) {
+			if bm.HasSigner(int(member.Index)) {
 				if powers[i] == nil {
 					powers[i] = big.NewInt(0)
 				}
@@ -147,13 +146,15 @@ func newAggregatorCache() *aggregatorCache {
 	}
 }
 
-func (c *aggregatorCache) Contains(height uint64, round int64, committeeSize int, event events.UnverifiedMessageEvent) bool {
+func (c *aggregatorCache) Contains(event events.UnverifiedMessageEvent) bool {
 	msg := event.Message
+	height := msg.H()
+	round := msg.R()
 	switch msg.(type) {
 	case *message.Precommit:
-		return c.precommitCache.Contains(height, round, committeeSize, msg.(message.Vote))
+		return c.precommitCache.Contains(height, round, msg.(message.Vote))
 	case *message.Prevote:
-		return c.prevoteCache.Contains(height, round, committeeSize, msg.(message.Vote))
+		return c.prevoteCache.Contains(height, round, msg.(message.Vote))
 	default:
 		return false
 	}
