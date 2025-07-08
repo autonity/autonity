@@ -8,7 +8,7 @@
 package bitutil
 
 import (
-	"math/bits" //nolint
+	//nolint
 	"runtime"
 	"unsafe"
 )
@@ -186,97 +186,4 @@ func safeTestBytes(p []byte) bool {
 		}
 	}
 	return false
-}
-
-// returns the number of 1 bits in `n` at lower positions than the LSB of `l`
-func ByteOnesCountLowerLSB(n, l uint8) int {
-	return ByteOnesCountLowerIndex(n, ByteLSBPosition(l))
-}
-
-// returns the number of 1 bits in `n` at lower positions than the `index`
-func ByteOnesCountLowerIndex(n uint8, index int) int {
-	if index <= 0 {
-		return 0
-	}
-	if index > 7 {
-		return bits.OnesCount8(n)
-	}
-	// take only the bits at lower positions than the `index`
-	onlyLower := n & ((1 << index) - 1)
-	return bits.OnesCount8(onlyLower)
-}
-
-func ByteLSBPosition(n uint8) int {
-	if n == 0 {
-		return -1
-	}
-	// remove everything but LSB of the `n`
-
-	// also add 1 bit to all the positions in `n` which are
-	// lower than the LSB, i.e., calculate `pow(2,x+1) - 1`,
-	// where `x` is the position of the LSB of `n`
-	lsbBecomesMSB := n ^ (n - 1)
-
-	// we want to know `x`
-
-	// because `lsbBecomesMSB = pow(2,x+1) - 1`, it has `x+1` 1 bits
-	return bits.OnesCount8(lsbBecomesMSB) - 1
-}
-
-func Uint16LSBPosition(n uint16) int {
-	if n == 0 {
-		return -1
-	}
-	// remove everything but LSB of the `n`
-
-	// also add 1 bit to all the positions in `n` which are
-	// lower than the LSB, i.e., calculate `pow(2,x+1) - 1`,
-	// where `x` is the position of the LSB of `n`
-	lsbBecomesMSB := n ^ (n - 1)
-
-	// we want to know `x`
-
-	// because `lsbBecomesMSB = pow(2,x+1) - 1`, it has `x+1` 1 bits
-	return bits.OnesCount16(lsbBecomesMSB) - 1
-}
-
-func Uint32LSBPosition(n uint32) int {
-	if n == 0 {
-		return -1
-	}
-	// remove everything but LSB of the `n`
-
-	// also add 1 bit to all the positions in `n` which are
-	// lower than the LSB, i.e., calculate `pow(2,x+1) - 1`,
-	// where `x` is the position of the LSB of `n`
-	lsbBecomesMSB := n ^ (n - 1)
-
-	// we want to know `x`
-
-	// because `lsbBecomesMSB = pow(2,x+1) - 1`, it has `x+1` 1 bits
-	return bits.OnesCount32(lsbBecomesMSB) - 1
-}
-
-func Uint16MSBPosition(n uint16) int {
-	for n > 0 {
-		// check if `n` is a power of 2, then we have the MSB
-		if (n & (n - 1)) == 0 {
-			return Uint16LSBPosition(n)
-		}
-		n = n & (n - 1)
-	}
-	// 0 input
-	return -1
-}
-
-func Uint32MSBPosition(n uint32) int {
-	for n > 0 {
-		// check if `n` is a power of 2, then we have the MSB
-		if (n & (n - 1)) == 0 {
-			return Uint32LSBPosition(n)
-		}
-		n = n & (n - 1)
-	}
-	// 0 input
-	return -1
 }
