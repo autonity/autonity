@@ -142,6 +142,7 @@ type aggregatorCache struct {
 
 func newAggregatorCache() *aggregatorCache {
 	return &aggregatorCache{
+		committeeSize:  make(map[uint64]int),
 		precommitCache: newVoteCache(),
 		prevoteCache:   newVoteCache(),
 	}

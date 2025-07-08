@@ -976,7 +976,7 @@ loop:
 				}
 			}
 		case <-a.signalFastTickCh:
-			// this tick fires after we are about to meet quorum, this way the aggregation triggers fast which should quicly identify quorum
+			// this tick fires after we are about to meet quorum, this way the aggregation triggers fast which should quickly identify quorum
 			if !aggTimer.Stop() {
 				// Timer already fired and value is sitting in the channel
 				// to be picked, we drain this value and rely on the one we create now
