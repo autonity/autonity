@@ -18,6 +18,8 @@ const (
 	validatorsPerByte  = bitsInByte / bitsPerValidator
 	maxUint16          = (1 << 16) - 1
 	minSafeCoefficient = maxUint16 / 2 // because adding two coefficient with value `minSafeCoefficient` will not overflow uint16
+	// only to check the coefficient on small signers object
+	smallSignersThreshold = 17
 )
 
 var (
@@ -220,10 +222,10 @@ func (s *SignersBase[T]) validate(committeeSize int) (int, T, error) {
 	// the following check is needed only for `VoteSigners`
 
 	if reflect.TypeOf(maxCoefficient) == reflect.TypeOf(uint16(0)) {
-		// check that `maxCoefficient` respects the maximum allowed boundary (2^(s.length-2))
-		// if `s.length >= 18`, maximum coefficient can be over `maxUint16`, so we can skip the check
-		if s.length < 18 && s.length > 1 {
-			if maxCoefficient > (1 << (s.length - 2)) {
+		// check that `maxCoefficient` respects the maximum allowed boundary (2^(countNonZero-2))
+		// if `countNonZero >= 18`, maximum coefficient can be over `maxUint16`, so we can skip the check
+		if countNonZero <= smallSignersThreshold && countNonZero > 1 {
+			if maxCoefficient > (1 << (countNonZero - 2)) {
 				return 0, 0, ErrInvalidCoefficient
 			}
 		}
