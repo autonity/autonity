@@ -610,23 +610,38 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 				validVotes = append(validVotes, msg)
 			}
 
-			go func() {
-				var filtered []events.UnverifiedMessageEvent
-				switch validVotes[0].(type) {
-				case *message.Prevote, *message.Precommit:
-					filtered = a.signerSetCache.EmptyFiltered(
-						batch[0].Message.H(),
-						batch[0].Message.R(),
-						batch[0].Message.Code(),
-						batch[0].Message.Value(),
-					)
+			var filtered []events.UnverifiedMessageEvent
+			switch validVotes[0].(type) {
+			case *message.Prevote, *message.Precommit:
+				filtered = a.signerSetCache.EmptyFiltered(
+					batch[0].Message.H(),
+					batch[0].Message.R(),
+					batch[0].Message.Code(),
+					batch[0].Message.Value(),
+				)
+			default:
+				// len(filtered) = 0
+			}
+			warned := false
+			for i, e := range filtered {
+				select {
+				case a.internalBacklogCh <- e:
+				// reinject the filtered messages to the backlog
 				default:
-					return
+					if !warned {
+						log.Warn(
+							"Aggregator backlog channel is full, dropping messages",
+							"number of messages dropped",
+							len(filtered)-i,
+							"height", batch[0].Message.H(),
+							"round", batch[0].Message.R(),
+							"code", batch[0].Message.Code(),
+							"value", batch[0].Message.Value(),
+						)
+						warned = true
+					}
 				}
-				for _, e := range filtered {
-					a.internalBacklogCh <- e // reinject the filtered messages to the backlog
-				}
-			}()
+			}
 		} else {
 			// all messages are valid
 			validVotes = messages
