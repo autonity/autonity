@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -738,6 +739,13 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, skipBoundaryCheck ...bo
 	publicKeys := make([][]blst.PublicKey, 0)
 	// Both `Prevote` and `Precommit` have `SignersBase[uint16]`
 	aggregateSigners := make([]*types.SignersBase[uint16], 0)
+
+	// votes containing more signers should take preference for aggregation,
+	// this way we do fewer aggregations and votes with smaller signer-set gets redundant fast
+	sort.Slice(votes, func(i, j int) bool {
+		return votes[i].Signers().Len() > votes[j].Signers().Len()
+	})
+
 	for _, vote := range votes {
 		// do not aggregate votes if they do not add any useful information
 		// e.g. signers contains already at least 1 signature for all signers of vote.Signers()
