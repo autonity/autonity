@@ -130,10 +130,11 @@ type PeerEvent struct {
 
 // Peer represents a connected remote node.
 type Peer struct {
-	rw      *conn
-	running map[string]*protoRW
-	log     log.Logger
-	created mclock.AbsTime
+	rw              *conn
+	running         map[string]*protoRW
+	log             log.Logger
+	created         mclock.AbsTime
+	setupInProgress atomic.Bool
 
 	wg       sync.WaitGroup
 	protoErr chan error
@@ -242,6 +243,10 @@ func (p *Peer) Disconnect(reason DiscReason) {
 	case p.disc <- reason:
 	case <-p.closed:
 	}
+}
+
+func (p *Peer) UpdateSetupProgress(setupStatus bool) {
+	p.setupInProgress.Store(setupStatus)
 }
 
 // String implements fmt.Stringer.
