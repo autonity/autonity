@@ -92,6 +92,8 @@ func AggregatePublicKeysMultScalars(
 		panic("bits length of scalars cannot be zero")
 	}
 	rawkeys := ToAffineKeySet(pubkeys)
+
+	bitsEntropy = max(bitsEntropy, 3)
 	aggregatedKeyAffine := rawkeys.Mult(scalars, bitsEntropy).ToAffine()
 	return &BlsPublicKey{p: aggregatedKeyAffine}
 }
