@@ -87,15 +87,15 @@ func (mr *MockGossiperMockRecorder) Broadcaster() *gomock.Call {
 }
 
 // Gossip mocks base method.
-func (m *MockGossiper) Gossip(committee *types.Committee, arg1 message.Msg) {
+func (m *MockGossiper) Gossip(committee *types.Committee, message message.Msg) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Gossip", committee, arg1)
+	m.ctrl.Call(m, "Gossip", committee, message)
 }
 
 // Gossip indicates an expected call of Gossip.
-func (mr *MockGossiperMockRecorder) Gossip(committee, arg1 any) *gomock.Call {
+func (mr *MockGossiperMockRecorder) Gossip(committee, message any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockGossiper)(nil).Gossip), committee, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockGossiper)(nil).Gossip), committee, message)
 }
 
 // KnownMessages mocks base method.
@@ -125,15 +125,15 @@ func (mr *MockGossiperMockRecorder) SetBroadcaster(broadcaster any) *gomock.Call
 }
 
 // SlowGossip mocks base method.
-func (m *MockGossiper) SlowGossip(committee *types.Committee, arg1 message.Msg) {
+func (m *MockGossiper) SlowGossip(committee *types.Committee, message message.Msg) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SlowGossip", committee, arg1)
+	m.ctrl.Call(m, "SlowGossip", committee, message)
 }
 
 // SlowGossip indicates an expected call of SlowGossip.
-func (mr *MockGossiperMockRecorder) SlowGossip(committee, arg1 any) *gomock.Call {
+func (mr *MockGossiperMockRecorder) SlowGossip(committee, message any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlowGossip", reflect.TypeOf((*MockGossiper)(nil).SlowGossip), committee, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlowGossip", reflect.TypeOf((*MockGossiper)(nil).SlowGossip), committee, message)
 }
 
 // UpdateStopChannel mocks base method.

@@ -439,8 +439,8 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 
 	memDB := rawdb.NewMemoryDatabase()
 	msgStore := tdmcore.NewMsgStore()
-	// Use the first key as private key
 	afdDispatchCh := make(chan events.MessageEventer, 100)
+	// Use the first key as private key
 	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, afdDispatchCh, log.Root(), fakeExpiryChecker)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 

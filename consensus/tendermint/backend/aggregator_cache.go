@@ -187,10 +187,18 @@ func (c *voteCache) PresentPowerFor(height uint64, round int64, value common.Has
 	return power
 }
 
+type filteredCacheKey struct {
+	code  uint8
+	round int64
+	value common.Hash
+}
+
 type aggregatorCache struct {
 	committeePowers map[uint64][]*big.Int              // the committee size used to create the bitmaps
 	voteCaches      map[uint8]map[CacheStep]*voteCache // code -> step -> vote cache
-	filtered        map[uint8]map[uint64]map[int64]map[common.Hash][]events.UnverifiedMessageEvent
+
+	filterMu sync.RWMutex
+	filtered map[uint64]map[filteredCacheKey][]events.UnverifiedMessageEvent
 }
 
 func newAggregatorCache() *aggregatorCache {
@@ -207,10 +215,7 @@ func newAggregatorCache() *aggregatorCache {
 			},
 		},
 
-		filtered: map[uint8]map[uint64]map[int64]map[common.Hash][]events.UnverifiedMessageEvent{
-			message.PrecommitCode: make(map[uint64]map[int64]map[common.Hash][]events.UnverifiedMessageEvent),
-			message.PrevoteCode:   make(map[uint64]map[int64]map[common.Hash][]events.UnverifiedMessageEvent),
-		},
+		filtered: make(map[uint64]map[filteredCacheKey][]events.UnverifiedMessageEvent),
 	}
 }
 
@@ -234,16 +239,18 @@ func (c *aggregatorCache) Filter(committeeSize int, event events.UnverifiedMessa
 		if dispatched {
 			return true
 		} else if received && !dispatched {
-			if _, ok := c.filtered[msg.Code()][msg.H()]; !ok {
-				c.filtered[msg.Code()][msg.H()] = make(map[int64]map[common.Hash][]events.UnverifiedMessageEvent)
+			c.filterMu.Lock()
+			defer c.filterMu.Unlock()
+			if _, ok := c.filtered[msg.H()]; !ok {
+				c.filtered[msg.H()] = make(map[filteredCacheKey][]events.UnverifiedMessageEvent)
 			}
-			if _, ok := c.filtered[msg.Code()][msg.H()][msg.R()]; !ok {
-				c.filtered[msg.Code()][msg.H()][msg.R()] = make(map[common.Hash][]events.UnverifiedMessageEvent)
+
+			key := filteredCacheKey{
+				code:  msg.Code(),
+				round: msg.R(),
+				value: msg.Value(),
 			}
-			c.filtered[msg.Code()][msg.H()][msg.R()][msg.Value()] = append(
-				c.filtered[msg.Code()][msg.H()][msg.R()][msg.Value()],
-				event,
-			)
+			c.filtered[msg.H()][key] = append(c.filtered[msg.H()][key], event)
 			return true
 		}
 		return received && dispatched
@@ -257,17 +264,19 @@ func (c *aggregatorCache) InvalidateVote(msg message.Vote) {
 }
 
 func (c *aggregatorCache) EmptyFiltered(h uint64, r int64, code uint8, value common.Hash) []events.UnverifiedMessageEvent {
-	if _, ok := c.filtered[code][h]; !ok {
+	key := filteredCacheKey{
+		code:  code,
+		round: r,
+		value: value,
+	}
+	c.filterMu.Lock()
+	defer c.filterMu.Unlock()
+	if _, ok := c.filtered[h]; !ok {
 		return nil
 	}
-	if _, ok := c.filtered[code][h][r]; !ok {
-		return nil
-	}
-	if _, ok := c.filtered[code][h][r][value]; !ok {
-		return nil
-	}
-	filtered := c.filtered[code][h][r][value]
-	c.filtered[code][h][r][value] = nil
+	filtered := c.filtered[h][key]
+	// remove the key from the cache
+	delete(c.filtered[h], key)
 	return filtered
 }
 
@@ -314,11 +323,13 @@ func (c *aggregatorCache) PruneToHeight(height uint64) {
 	c.voteCaches[message.PrevoteCode][StepReceived].PruneToHeight(height)
 	c.voteCaches[message.PrevoteCode][StepDispatched].PruneToHeight(height)
 
+	c.filterMu.Lock()
+	defer c.filterMu.Unlock()
+
 	for h := range c.committeePowers {
 		if h < height {
 			delete(c.committeePowers, h)
-			delete(c.filtered[message.PrecommitCode], h)
-			delete(c.filtered[message.PrevoteCode], h)
+			delete(c.filtered, h)
 		}
 	}
 }

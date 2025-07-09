@@ -217,7 +217,18 @@ func TestVerifyHeader(t *testing.T) {
 		memDB := rawdb.NewMemoryDatabase()
 		genesis.MustCommit(memDB)
 		afdDispatchCh := make(chan events.MessageEventer, 100)
-		engine := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), tdmcore.NewMsgStore(), afdDispatchCh, log.Root(), fakeExpiryChecker)
+		engine := New(
+			memDB,
+			nodeKeys[0],
+			consensusKeys[0],
+			&vm.Config{},
+			nil,
+			new(event.TypeMux),
+			tdmcore.NewMsgStore(),
+			afdDispatchCh,
+			log.Root(),
+			fakeExpiryChecker,
+		)
 		log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 		chain, err := core.NewBlockChain(memDB, nil, genesis.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher(), nil, backends.NewInternalBackend(nil), log.Root())
 		require.NoError(t, err)
