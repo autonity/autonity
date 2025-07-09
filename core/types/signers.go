@@ -121,6 +121,7 @@ type SignersBase[T uint16 | uint32] struct {
 
 	// these fields are not serialized, but instead computed at preValidate steps
 	committeeSize  int              `rlp:"-"`
+	leftmostSigner int              `rlp:"-"` // first > 0 index in the validatorBitmap
 	length         int              `rlp:"-"` // number of distinct signers
 	powers         map[int]*big.Int `rlp:"-"`
 	power          *big.Int         `rlp:"-"` // aggregated power of all senders
@@ -168,13 +169,14 @@ func (s *SignersBase[T]) SanityCheck() error {
 
 // validates the sender info, used to ensure received aggregates have correctly sized buffers
 func (s *SignersBase[T]) Validate(committeeSize int) error {
-	countNonZero, maxCoefficient, err := s.validate(committeeSize)
+	leftmostSigner, countNonZero, maxCoefficient, err := s.validate(committeeSize)
 	if err != nil {
 		return err
 	}
 
 	s.committeeSize = committeeSize
 	s.length = countNonZero
+	s.leftmostSigner = leftmostSigner
 	s.maxCoefficient = maxCoefficient
 	s.validated = true
 	return nil
@@ -183,22 +185,26 @@ func (s *SignersBase[T]) Validate(committeeSize int) error {
 
 // validates the signer information and returns the number of distinct signers
 // it does not mutate the signers state
-func (s *SignersBase[T]) validate(committeeSize int) (int, T, error) {
+func (s *SignersBase[T]) validate(committeeSize int) (int, int, T, error) {
 	// whether locally created or received from wire, Bits are never nil
 	if s.Bits == nil || s.Coefficients == nil {
-		return 0, 0, ErrNilSigners
+		return 0, 0, 0, ErrNilSigners
 	}
 
 	// length safety check
 	if len(s.Coefficients) > committeeSize || !s.Bits.Valid(committeeSize) {
-		return 0, 0, ErrWrongSizeSigners
+		return 0, 0, 0, ErrWrongSizeSigners
 	}
 
 	// gather data about signers bits
 	countNonZero := 0
-	for _, b := range s.Bits {
+	leftmostSigner := committeeSize
+	for i, b := range s.Bits {
 		if b == 0 {
 			continue
+		}
+		if i < leftmostSigner {
+			leftmostSigner = i
 		}
 		// number of signers in `b`
 		countNonZero += bits.OnesCount8(b)
@@ -206,27 +212,27 @@ func (s *SignersBase[T]) validate(committeeSize int) (int, T, error) {
 
 	// there has to be at least a signer
 	if countNonZero == 0 {
-		return 0, 0, ErrEmptySigners
+		return 0, 0, 0, ErrEmptySigners
 	}
 	if countNonZero > committeeSize {
-		return 0, 0, ErrWrongSizeSigners
+		return 0, 0, 0, ErrWrongSizeSigners
 	}
 
 	// len(s.Coefficients) should be the same as the signer length
 	// because each validator occupies only 1 bit in `s.Bits`
 	if len(s.Coefficients) != countNonZero {
-		return 0, 0, ErrWrongCoefficientLen
+		return 0, 0, 0, ErrWrongCoefficientLen
 	}
 
 	// if individual signature, its coefficient should be one (01)
 	if countNonZero == 1 && s.Coefficients[0] != 1 {
-		return 0, 0, ErrInvalidSingleSig
+		return 0, 0, 0, ErrInvalidSingleSig
 	}
 
 	var maxCoefficient T
 	for _, coefficient := range s.Coefficients {
 		if coefficient == 0 {
-			return 0, 0, ErrInvalidCoefficient
+			return 0, 0, 0, ErrInvalidCoefficient
 		}
 		maxCoefficient = max(maxCoefficient, coefficient)
 	}
@@ -238,11 +244,18 @@ func (s *SignersBase[T]) validate(committeeSize int) (int, T, error) {
 		// if `countNonZero >= 18`, maximum coefficient can be over `maxUint16`, so we can skip the check
 		if countNonZero <= smallSignersThreshold && countNonZero > 1 {
 			if maxCoefficient > (1 << (countNonZero - 2)) {
-				return 0, 0, ErrInvalidCoefficient
+				return 0, 0, 0, ErrInvalidCoefficient
 			}
 		}
 	}
-	return countNonZero, maxCoefficient, nil
+	return leftmostSigner, countNonZero, maxCoefficient, nil
+}
+
+func (s *SignersBase[T]) LeftmostSigner() int {
+	if !s.validated {
+		panic("Trying to use not validated signer information")
+	}
+	return s.leftmostSigner
 }
 
 func (s *SignersBase[T]) Contains(index int) bool {
@@ -368,6 +381,10 @@ func (s *SignersBase[T]) increment(index int, coefficient T, votingPower *big.In
 		if s.Bits.HasSigner(i) {
 			count++
 		}
+	}
+
+	if index < s.leftmostSigner {
+		s.leftmostSigner = index
 	}
 
 	s.addOrUpdate(index, count, coefficient, votingPower)
