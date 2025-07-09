@@ -67,7 +67,7 @@ type eventBuilder func(msg message.Msg, event events.UnverifiedMessageEvent) int
 
 // function to create the event for current height messages (they get picked up by Core and by the FD)
 func currentHeightEventBuilder(msg message.Msg, event events.UnverifiedMessageEvent) interface{} {
-	return events.NewMessageEvent(msg, event.ErrCh, event.Sender, time.Now())
+	return events.NewMessageEvent(msg, event.ErrCh, event.Sender, time.Now(), false)
 }
 
 // function to create the event for old height messages (they get picked up only by the FD)

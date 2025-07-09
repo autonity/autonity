@@ -201,8 +201,8 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	// send to self (directly to Core and FD, no need to verify local messages)
 	// a goroutine is required here to avoid creating a deadlock, broadcast can be called from the messageEventHandler itself
 	go sb.gossiper.Gossip(committee, message)
-	go sb.MessageToCore(events.NewMessageEvent(message, nil, sb.Address(), time.Now())) // core
-	go sb.Post(events.NewMessageEvent(message, nil, sb.Address(), time.Now()))          // FD
+	go sb.MessageToCore(events.NewMessageEvent(message, nil, sb.Address(), time.Now(), true)) // core
+	go sb.Post(events.NewMessageEvent(message, nil, sb.Address(), time.Now(), true))          // FD
 }
 
 func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
@@ -282,7 +282,7 @@ func (sb *Backend) Post(ev any) {
 
 func (sb *Backend) MessageToCore(ev any) {
 	switch ev := ev.(type) {
-	case events.MessageEventer:
+	case events.MessageEvent:
 		sb.coreEventDispatcher.Post(ev)
 	}
 	return

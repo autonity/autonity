@@ -73,7 +73,6 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 		// message to the backlog is fine.
 		return constants.ErrFutureRoundMessage
 	}
-
 	// proposal is either for current round or old round
 	roundMessages := c.messages.GetOrCreate(proposal.R())
 
@@ -113,16 +112,16 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	}
 
 	var (
-		duration time.Duration
-		err      error
-		start    = time.Now()
+		delay time.Duration
+		err   error
+		start = time.Now()
 	)
 
 	// skip verification for our own proposal
 	// skip if our own OR cached
 	// verify if not in our own and not state cached
 	if c.backend.ProposedBlockHash() != proposal.Block().Hash() && !c.backend.IsProposalStateCached(proposal.Block().Hash()) {
-		duration, err = c.backend.VerifyProposal(proposal.Block())
+		delay, err = c.backend.VerifyProposal(proposal.Block())
 	}
 
 	if metrics.Enabled {
@@ -132,21 +131,13 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 	}
 
 	if err != nil {
-		// if it's a future block, we will handle it again after the duration
-		// TODO: implement wiggle time / median time
+		// if it's a future block, we will handle it again after the delay
 		if errors.Is(err, consensus.ErrFutureTimestampBlock) {
-			c.logger.Debug("delaying processing of proposal due to future timestamp", "delay", duration)
-			c.StopFutureProposalTimer()
-			c.futureProposalTimer = time.AfterFunc(duration, func() {
-				go c.backend.MessageToCore(backlogMessageEvent{
-					msg: proposal,
-				})
-			})
-			return err
+			return errors.Join(err, consensus.NewErrDelayedProposal(delay))
 		}
 		// if the proposal block is already in the chain, no need to prevote for nil
 		if errors.Is(err, core.ErrKnownBlock) || errors.Is(err, constants.ErrAlreadyHaveBlock) {
-			c.logger.Info("Verified proposal that was already in our local chain", "err", err, "duration", duration)
+			c.logger.Info("Verified proposal that was already in our local chain", "err", err)
 			c.SetStep(ctx, PrecommitDone) // we do not need to process any more consensus messages for this height
 			return constants.ErrAlreadyHaveBlock
 		}
@@ -158,7 +149,7 @@ func (c *Proposer) HandleProposal(ctx context.Context, proposal *message.Propose
 			// do not to accept another proposal in current round
 			c.SetStep(ctx, Prevote)
 		}
-		c.logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
+		c.logger.Warn("Failed to verify proposal", "err", err)
 		return err
 	}
 

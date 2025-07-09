@@ -32,7 +32,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		address:                address,
 		logger:                 logger,
 		backend:                backend,
-		futureRound:            make(map[int64][]message.Msg),
+		futureRound:            make(map[int64][]events.MessageEvent),
 		futurePower:            make(map[int64]*message.AggregatedPower),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
@@ -108,7 +108,7 @@ type Core struct {
 	cancel  context.CancelFunc
 
 	stateEventSub       *event.TypeMuxSubscription
-	messageEventCh      chan events.MessageEventer
+	messageEventCh      chan events.MessageEvent
 	candidateBlockCh    chan events.NewCandidateBlockEvent
 	committedCh         chan events.CommitEvent
 	timeoutEventSub     *event.TypeMuxSubscription
@@ -140,7 +140,7 @@ type Core struct {
 
 	// future round messages are accessed also by the backend (to sync other peers) and the aggregator.
 	// they need a lock.
-	futureRound     map[int64][]message.Msg
+	futureRound     map[int64][]events.MessageEvent
 	futurePower     map[int64]*message.AggregatedPower // power cache for future value msgs (per round)
 	futureRoundLock sync.RWMutex
 
@@ -206,7 +206,7 @@ func (c *Core) Post(ev any) {
 		c.committedCh <- ev
 	case events.NewCandidateBlockEvent:
 		c.candidateBlockCh <- ev
-	case events.MessageEventer:
+	case events.MessageEvent:
 		c.messageEventCh <- ev
 	}
 }
@@ -337,26 +337,6 @@ func (c *Core) measureHeightRoundMetrics(round int64) {
 	}
 }
 
-type backlogMessageEvent struct {
-	msg message.Msg
-}
-
-func (b backlogMessageEvent) Message() message.Msg {
-	return b.msg
-}
-
-func (b backlogMessageEvent) Sender() common.Address {
-	panic("implement me")
-}
-
-func (b backlogMessageEvent) Posted() time.Time {
-	panic("implement me")
-}
-
-func (b backlogMessageEvent) ErrCh() chan<- error {
-	panic("implement me")
-}
-
 // current round == 0 --> height change
 func (c *Core) processFuture(previousRound int64, currentRound int64) {
 	if currentRound == 0 {
@@ -370,11 +350,9 @@ func (c *Core) processFuture(previousRound int64, currentRound int64) {
 	defer c.futureRoundLock.Unlock()
 
 	for r := previousRound + 1; r <= currentRound; r++ {
-		for _, msg := range c.futureRound[r] {
+		for _, ev := range c.futureRound[r] {
 			// only to core, should we send to FD ??
-			go c.backend.MessageToCore(backlogMessageEvent{
-				msg: msg,
-			})
+			go c.backend.MessageToCore(ev)
 		}
 		delete(c.futureRound, r)
 		delete(c.futurePower, r)
@@ -455,7 +433,7 @@ func (c *Core) setInitialState(r int64) {
 		c.validValue = nil
 		c.messages.Reset()
 		c.futureRoundLock.Lock()
-		c.futureRound = make(map[int64][]message.Msg)
+		c.futureRound = make(map[int64][]events.MessageEvent)
 		c.futurePower = make(map[int64]*message.AggregatedPower)
 		c.futureRoundLock.Unlock()
 		// update height duration timer

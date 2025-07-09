@@ -27,14 +27,15 @@ func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 
 	views := make([]*message.RoundMsgView, 0, 32)
 
-	for r, roundMsgs := range c.futureRound {
+	for r, roundEvs := range c.futureRound {
 		roundView := &message.RoundMsgView{}
 		roundView.Round = uint64(r)
 
 		preVoteSigners := make(map[common.Hash]*big.Int)
 		preCommitSigners := make(map[common.Hash]*big.Int)
 
-		for _, m := range roundMsgs {
+		for _, ev := range roundEvs {
+			m := ev.Message()
 			if m.Code() == message.ProposalCode {
 				roundView.HaveProposal = true
 			}
