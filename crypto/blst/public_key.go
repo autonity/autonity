@@ -89,6 +89,8 @@ func AggregatePublicKeysMultScalars(
 	bitsEntropy int,
 ) PublicKey {
 	rawkeys := ToAffineKeySet(pubkeys)
+
+	bitsEntropy = max(bitsEntropy, 3)
 	aggregatedKeyAffine := rawkeys.Mult(scalars, bitsEntropy).ToAffine()
 	return &BlsPublicKey{p: aggregatedKeyAffine}
 }

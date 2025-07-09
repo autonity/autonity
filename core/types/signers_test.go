@@ -73,7 +73,7 @@ func signersAggregation[T uint16 | uint32](
 }
 
 func TestPublicKeyAggregation(t *testing.T) {
-	csize := 10 // at least 4
+	csize := 33 // at least 4
 	members := make([]*CommitteeMember, 0, csize)
 	privateKeyMap := make(map[blst.SecretKey]struct{})
 	coeffs := make([]int, 0, csize)
@@ -101,7 +101,7 @@ func TestPublicKeyAggregation(t *testing.T) {
 			Address:      common.BigToAddress(big.NewInt(int64(i + 1))),
 			ConsensusKey: privateKey.PublicKey(),
 		})
-		coeffs = append(coeffs, i+1)
+		coeffs = append(coeffs, 1)
 
 		signature := privateKey.Sign(msg[:])
 
