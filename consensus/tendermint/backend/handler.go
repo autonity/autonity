@@ -223,8 +223,9 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		if err := msg.Validate(); err != nil {
 			return true, err
 		}
-		// structured relaying happens after the pre-validation, only unknown msg is relayed.
-		if sb.core.Height().Uint64() == msg.H() { // same height messages early forward
+
+		// current height proposals --> early forward
+		if sb.core.Height().Uint64() == msg.H() {
 			go sb.router.Forward(committee, msg, sender, nil)
 		}
 	case *message.Prevote, *message.Precommit:
@@ -246,7 +247,8 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		sb.logger.Crit("Tendermint backend processing unknown message")
 	}
 
-	//todo: proposal is already verified, post directly to the core
+	//todo: proposal is already verified, post directly to the core (and FD?)
+	// 		also needs to verify that future round messages logic in aggregator still works as expected
 	sb.Post(events.UnverifiedMessageEvent{
 		Message: msg,
 		ErrCh:   errCh,

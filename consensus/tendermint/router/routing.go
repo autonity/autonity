@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	ScaleThresholdForClustering = 21
+	ScaleThresholdForClustering = 64
 	latencyDataExpiry           = 5 * time.Minute
 	retryLatencyTimeout         = 30 * time.Second
 	cacheCleanupInterval        = 10 * time.Minute
@@ -95,7 +95,7 @@ func New(
 		peerSelector:        peerSelector,
 		network:             networkProvider,
 		clusteringThreshold: ScaleThresholdForClustering,
-		hashCache:           fixsizecache.New[common.Hash, bool](5987, 5, fixsizecache.HashKey[common.Hash]),
+		hashCache:           fixsizecache.New[common.Hash, bool](5987, 5, fixsizecache.HashKey[common.Hash]), // note: used only for metrics collection
 	}
 	return router
 }
@@ -137,10 +137,15 @@ func (m *Router) Recipients(committee *types.Committee, msg message.Msg, from co
 }
 
 func (m *Router) recordDistinctHash(msg message.Msg) {
+	if !metrics.Enabled {
+		return
+	}
+
 	if m.hashCache.Contains(msg.Hash()) {
 		return
 	}
 	m.hashCache.Add(msg.Hash(), true)
+
 	switch msg.Code() {
 	case message.ProposalCode:
 		proposeHashesOut.Inc(1)
@@ -162,7 +167,7 @@ func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender com
 	}
 
 	m.recordDistinctHash(msg)
-	if sender != m.self {
+	if sender != m.self && metrics.Enabled {
 		// simple forward
 		forwardCounter.Inc(1)
 	}

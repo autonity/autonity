@@ -16,6 +16,8 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
+const initialAskSyncRetries = 10
+
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
 	chainHead := c.backend.HeadBlock().Header()
@@ -205,7 +207,7 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 		c.logger.Debug("delaying processing of proposal due to future timestamp", "delay", delay)
 		c.proposer.StopFutureProposalTimer()
 		c.futureProposalTimer = time.AfterFunc(delay, func() {
-			go c.backend.MessageToCore(e)
+			go c.Post(e)
 		})
 	case errors.Is(err, constants.ErrFutureRoundMessage):
 		// Store the message if it is a future round message
@@ -376,7 +378,7 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 	}()
 
 	// Ask for sync when the engine starts. Retry few times post which the sync tracker loop will take over
-	for i := 0; i < 10; i++ {
+	for i := 0; i < initialAskSyncRetries; i++ {
 		err := c.backend.AskSync(c.CommitteeSet().Committee(), c.createSyncMsg())
 		if err == nil {
 			break
@@ -387,7 +389,7 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 			return
 		default:
 			c.logger.Trace("Failed to ask initial consensus sync, retrying...", "err", err)
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(300 * time.Millisecond)
 		}
 	}
 

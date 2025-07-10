@@ -87,7 +87,9 @@ func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
 	if !g.knownMessages.Contains(msg.Hash()) {
 		g.knownMessages.Add(msg.Hash(), true)
 	}
-	slowGossipCounter.Inc(1)
+	if metrics.Enabled {
+		slowGossipCounter.Inc(1)
+	}
 	g.router.Forward(committee, msg, g.address, recipients)
 }
 
@@ -96,7 +98,9 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
 	if !g.knownMessages.Contains(msg.Hash()) {
 		g.knownMessages.Add(msg.Hash(), true)
 	}
-	gossipCounter.Inc(1) // increment gossip counter
+	if metrics.Enabled {
+		gossipCounter.Inc(1) // increment gossip counter
+	}
 	g.router.Forward(committee, msg, g.address, nil)
 }
 
@@ -113,8 +117,7 @@ func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncM
 	}
 
 	var numTargets int
-	// send to subset of committee ourselves
-	if committee.Len() >= router.ScaleThresholdForClustering {
+	if committee.Len() > router.ScaleThresholdForClustering {
 		numTargets = int(math.Sqrt(float64(committee.Len())))
 	} else {
 		numTargets = committee.Len()

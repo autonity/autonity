@@ -21,6 +21,7 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
+// channel size between core and other modules (i.e. aggregator)
 const EventQueueSize = 1000
 
 // New creates a Tendermint consensus Core
@@ -351,8 +352,7 @@ func (c *Core) processFuture(previousRound int64, currentRound int64) {
 
 	for r := previousRound + 1; r <= currentRound; r++ {
 		for _, ev := range c.futureRound[r] {
-			// only to core, should we send to FD ??
-			go c.backend.MessageToCore(ev)
+			go c.Post(ev)
 		}
 		delete(c.futureRound, r)
 		delete(c.futurePower, r)
@@ -418,7 +418,7 @@ func (c *Core) setInitialState(r int64) {
 		c.committee.SetLastHeader(lastHeader)
 		epoch, err := c.Backend().EpochByHeight(c.Height().Uint64())
 		if err != nil {
-			panic(err)
+			panic("failed to fetch epoch info: " + err.Error())
 		}
 		if c.epoch.EpochBlock.Cmp(epoch.EpochBlock) != 0 {
 			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())

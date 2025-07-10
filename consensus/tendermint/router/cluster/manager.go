@@ -53,5 +53,5 @@ func (m *Manager) UpdateClusters(clusters Clusters) {
 		sb.WriteString("]\n")
 	}
 	sb.WriteString("]")
-	log.Info(sb.String())
+	log.Debug(sb.String())
 }
