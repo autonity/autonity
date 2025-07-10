@@ -154,7 +154,7 @@ func TestProcessFuture(t *testing.T) {
 		evChan := make(chan any, 1)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().MessageToCore(expected).Do(func(ev any) {
+		backendMock.EXPECT().DispatchToCore(expected).Do(func(ev any) {
 			evChan <- ev
 		})
 
@@ -199,7 +199,7 @@ func TestProcessFuture(t *testing.T) {
 		evChan := make(chan any, 1)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().MessageToCore(expected).Do(func(ev any) {
+		backendMock.EXPECT().DispatchToCore(expected).Do(func(ev any) {
 			evChan <- ev
 		})
 

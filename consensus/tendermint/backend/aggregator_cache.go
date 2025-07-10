@@ -120,7 +120,7 @@ func (c *voteCache) PresentPower(height uint64, round int64, committee *types.Co
 	i := 0
 	for _, bm := range known {
 		for _, member := range committee.Members {
-			if bm.Present(int(member.Index)) {
+			if bm.Present(int(member.Index)) { //nolint
 				if powers[i] == nil {
 					powers[i] = big.NewInt(0)
 				}

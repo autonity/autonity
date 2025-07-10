@@ -61,17 +61,17 @@ func newRoundStore(committeeSize int) *roundStore {
 
 type heightStore struct {
 	sync.RWMutex
-	rounds        []*roundStore
-	committeeSize int // the committee size at this height
-	maxRoundSeen  int64
+	rounds          []*roundStore
+	initialCapacity int // the committee size at this height
+	maxRoundSeen    int64
 }
 
-func newHeightStore(committeeSize int) *heightStore {
+func newHeightStore(capacity int) *heightStore {
 	return &heightStore{
-		RWMutex:       sync.RWMutex{},
-		rounds:        make([]*roundStore, 0, 1), // 1 round by default
-		committeeSize: committeeSize,
-		maxRoundSeen:  -1,
+		RWMutex:         sync.RWMutex{},
+		rounds:          make([]*roundStore, 0, 1), // 1 round by default
+		initialCapacity: capacity,
+		maxRoundSeen:    -1,
 	}
 }
 
@@ -96,7 +96,7 @@ func (hs *heightStore) getOrCreateRoundStore(round int64) *roundStore {
 		copy(newRounds, hs.rounds)
 		hs.rounds = newRounds
 	}
-	rs := newRoundStore(hs.committeeSize)
+	rs := newRoundStore(hs.initialCapacity)
 	hs.rounds[round] = rs
 	if round > hs.maxRoundSeen {
 		hs.maxRoundSeen = round
@@ -215,13 +215,17 @@ func (ms *MsgStore) getOrCreateHeightStore(height uint64) (*heightStore, error) 
 	if ok {
 		return store, nil
 	}
-	// Fetch the committee for this specific height to get its size.
-	committee, err := ms.committeeProvider.CommitteeByHeight(height)
-	if err != nil {
-		return nil, fmt.Errorf("committee provider error: %s", err)
+
+	storeCapacity := 50
+	if ms.committeeProvider != nil {
+		// Fetch the committee for this specific height to get its size.
+		committee, err := ms.committeeProvider.CommitteeByHeight(height)
+		if err == nil {
+			storeCapacity = committee.Len()
+		}
 	}
 
-	store = newHeightStore(committee.Len())
+	store = newHeightStore(storeCapacity)
 	ms.store[height] = store
 
 	return store, nil
@@ -299,7 +303,7 @@ func (ms *MsgStore) updatePrevotePower(rs *roundStore, msg *message.Prevote) {
 	}
 }
 
-// todo: (review) can we eliminate the need for this method?
+// RemoveMsg only for testing
 func (ms *MsgStore) RemoveMsg(height uint64, round int64, code uint8, hash common.Hash) {
 	if round < 0 || round > constants.MaxRound {
 		return

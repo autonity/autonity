@@ -137,6 +137,30 @@ func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, quorumCertificat
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, quorumCertificate)
 }
 
+// DispatchToCore mocks base method.
+func (m *MockBackend) DispatchToCore(ev any) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "DispatchToCore", ev)
+}
+
+// DispatchToCore indicates an expected call of DispatchToCore.
+func (mr *MockBackendMockRecorder) DispatchToCore(ev any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DispatchToCore", reflect.TypeOf((*MockBackend)(nil).DispatchToCore), ev)
+}
+
+// DispatchToFD mocks base method.
+func (m *MockBackend) DispatchToFD(ev any) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "DispatchToFD", ev)
+}
+
+// DispatchToFD indicates an expected call of DispatchToFD.
+func (mr *MockBackendMockRecorder) DispatchToFD(ev any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DispatchToFD", reflect.TypeOf((*MockBackend)(nil).DispatchToFD), ev)
+}
+
 // EpochByHeight mocks base method.
 func (m *MockBackend) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 	m.ctrl.T.Helper()
@@ -300,18 +324,6 @@ func (m *MockBackend) MessageCh() <-chan events.UnverifiedMessageEvent {
 func (mr *MockBackendMockRecorder) MessageCh() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MessageCh", reflect.TypeOf((*MockBackend)(nil).MessageCh))
-}
-
-// MessageToCore mocks base method.
-func (m *MockBackend) MessageToCore(ev any) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "MessageToCore", ev)
-}
-
-// MessageToCore indicates an expected call of MessageToCore.
-func (mr *MockBackendMockRecorder) MessageToCore(ev any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MessageToCore", reflect.TypeOf((*MockBackend)(nil).MessageToCore), ev)
 }
 
 // Post mocks base method.

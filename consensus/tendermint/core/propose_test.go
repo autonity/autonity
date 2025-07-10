@@ -234,7 +234,7 @@ func TestHandleProposal(t *testing.T) {
 		event := backlogMessageEvent{
 			msg: proposal,
 		}
-		backendMock.EXPECT().MessageToCore(event).Times(1)
+		backendMock.EXPECT().DispatchToCore(event).Times(1)
 		c := &Core{
 			address:          addr,
 			backend:          backendMock,

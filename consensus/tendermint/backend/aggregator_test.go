@@ -720,7 +720,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		coreMock.EXPECT().VotesPowerFor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(message.NewAggregatedPower()).Times(1)
 		coreMock.EXPECT().VotesPower(gomock.Any(), gomock.Any(), gomock.Any()).Return(message.NewAggregatedPower()).Times(1)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 		a.handleVote(voteEvent, committee, quorum, true)
 		require.Nil(t, a.messages[h])
@@ -789,7 +789,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		coreMock.EXPECT().VotesPowerFor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(message.NewAggregatedPower()).Times(2)
 		coreMock.EXPECT().VotesPower(gomock.Any(), gomock.Any(), gomock.Any()).Return(message.NewAggregatedPower()).Times(1)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 		a.handleVote(voteEvent, committee, quorum, true)
 		require.Equal(t, 0, len(a.messages[h][r].precommits[value]))
@@ -820,7 +820,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		coreMock.EXPECT().VotesPowerFor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(message.NewAggregatedPower()).Times(2)
 		coreMock.EXPECT().VotesPower(gomock.Any(), gomock.Any(), gomock.Any()).Return(message.NewAggregatedPower()).Times(2)
 		backendMock.EXPECT().Post(gomock.Any()).Times(2)
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 		a.handleVote(eventForNil, committee, quorum, true)
 
@@ -885,7 +885,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		coreMock.EXPECT().VotesPowerFor(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(corePowerForV).Times(2)
 		coreMock.EXPECT().VotesPower(gomock.Any(), gomock.Any(), gomock.Any()).Return(message.NewAggregatedPower()).Times(1)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 		a.handleVote(voteEvent, committee, quorum, true)
 		require.Equal(t, 0, len(a.messages[h][r].precommits))
@@ -939,7 +939,7 @@ func TestAggregatorProcess(t *testing.T) {
 		a := &aggregator{backend: backendMock}
 
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 		// signature is invalid but proposal is created with `verified`=true, so it is considered valid
 		propose := makeBogusPropose(0, 1, 0)
@@ -952,7 +952,7 @@ func TestAggregatorProcess(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{
@@ -981,7 +981,7 @@ func TestAggregatorProcess(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{
@@ -1011,7 +1011,7 @@ func TestAggregatorProcess(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{
@@ -1042,7 +1042,7 @@ func TestAggregatorProcess(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(4)
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{
@@ -1081,7 +1081,7 @@ func TestAggregatorProcess(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).Times(3)
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{
@@ -1152,7 +1152,7 @@ func TestAggregatorDosProtection(t *testing.T) {
 
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Post(gomock.Any()).Times(1)
-	backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+	backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 	backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 	a := &aggregator{
@@ -1210,7 +1210,7 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		backendMock.EXPECT().MessageCh().Return(make(chan events.UnverifiedMessageEvent)).Times(1)
 		backendMock.EXPECT().BlockChain().Return(chain).AnyTimes()
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		coreMock.EXPECT().Height().Return(common.Big1).AnyTimes()
@@ -1251,7 +1251,7 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		backendMock.EXPECT().MessageCh().Return(make(chan events.UnverifiedMessageEvent)).Times(1)
 		backendMock.EXPECT().BlockChain().Return(chain).AnyTimes()
 		backendMock.EXPECT().Post(gomock.Any()).Times(4)
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 		coreMock.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		coreMock.EXPECT().Height().Return(common.Big1).AnyTimes()
@@ -1362,7 +1362,7 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		aggregatedPower.Set(0, chain.Genesis().Header().Epoch.Committee.TotalVotingPower())
 		coreMock.EXPECT().Power(gomock.Any(), gomock.Any()).Return(aggregatedPower).Times(1)
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{

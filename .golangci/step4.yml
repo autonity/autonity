@@ -11,3 +11,7 @@ linters:
 issues:
   exclude:
     - 'G404'
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec

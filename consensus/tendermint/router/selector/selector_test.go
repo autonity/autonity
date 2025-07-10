@@ -262,7 +262,7 @@ func TestSelector_selectBucketBasedNodes_Originator(t *testing.T) {
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x444")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 
-	nodes := selector.selectNodesForProposal( clusters, &committee, originator, 0)
+	nodes := selector.selectNodesForProposal(clusters, &committee, originator, 0)
 	assert.Contains(t, nodes, cluster.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node from cluster 1")
 	assert.Contains(t, nodes, cluster.Node{Addr: common.HexToAddress("0x333"), Lat: 150, ClusterID: 0}, "Expected node from cluster 0")
 }

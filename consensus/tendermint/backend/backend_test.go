@@ -25,6 +25,7 @@ import (
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/consensus/tendermint/router"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
@@ -439,7 +440,8 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	memDB := rawdb.NewMemoryDatabase()
 	msgStore := tdmcore.NewMsgStore()
 	// Use the first key as private key
-	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), fakeExpiryChecker)
+	afdDispatchCh := make(chan events.MessageEventer, 100)
+	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, afdDispatchCh, log.Root(), fakeExpiryChecker)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)

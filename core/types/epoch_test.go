@@ -5,9 +5,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
-	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
 )
@@ -210,8 +211,8 @@ func TestCommittee_Enrich(t *testing.T) {
 	err = c.Enrich()
 	require.NoError(t, err)
 
-	if committee.Members[0].Index != 0 {
-		t.Errorf("expected index to be 0, got %d", committee.Members[0].Index)
+	if c.Members[0].Index != 0 {
+		t.Errorf("expected index to be 0, got %d", c.Members[0].Index)
 	}
 }
 

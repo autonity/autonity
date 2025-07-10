@@ -751,10 +751,9 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 
 	if a.signerSetCache.Contains(msg.H(), msg.R(), committee.Len(), event) {
 		return // already processed a message with more signers
-	} else {
-		// mark committee size for the height to avoid any more calls to CommitteeByHeight
-		a.signerSetCache.MarkCommitteeSize(msg.H(), committee.Len())
 	}
+	// mark committee size for the height to avoid any more calls to CommitteeByHeight
+	a.signerSetCache.MarkCommitteeSize(msg.H(), committee.Len())
 
 	quorum := bft.Quorum(committee.TotalVotingPower())
 

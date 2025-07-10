@@ -216,7 +216,8 @@ func TestVerifyHeader(t *testing.T) {
 
 		memDB := rawdb.NewMemoryDatabase()
 		genesis.MustCommit(memDB)
-		engine := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), tdmcore.NewMsgStore(), log.Root(), fakeExpiryChecker)
+		afdDispatchCh := make(chan events.MessageEventer, 100)
+		engine := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), tdmcore.NewMsgStore(), afdDispatchCh, log.Root(), fakeExpiryChecker)
 		log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 		chain, err := core.NewBlockChain(memDB, nil, genesis.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher(), nil, backends.NewInternalBackend(nil), log.Root())
 		require.NoError(t, err)
@@ -243,7 +244,7 @@ func TestVerifyHeader(t *testing.T) {
 		header.ActivityProof = new(types.AggregateSignature)
 		header.ActivityProof.Signature = consensusKeys[1].Sign(headerSeal[:]).(*blst.BlsSignature)
 		header.ActivityProof.Signers = types.NewSigners(2)
-		header.ActivityProof.Signers.SignatureCounts[1] = 1
+		header.ActivityProof.Signers.Bits.Set(1, 1)
 		header.ActivityProofRound = targetHeader.Round
 		modifiedBlock := types.NewBlockWithHeader(header)
 		sealedBlock, err := engine.AddSeal(modifiedBlock)

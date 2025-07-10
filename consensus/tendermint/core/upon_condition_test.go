@@ -1236,7 +1236,7 @@ func TestFutureRoundChange(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		e.setupCore(backendMock, e.clientAddress)
-		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
 
 		err := e.core.handleMsg(context.Background(), msg1)
 		assert.Equal(t, constants.ErrFutureRoundMessage, err)
