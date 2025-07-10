@@ -2,6 +2,7 @@ package backend
 
 import (
 	"errors"
+	"math/big"
 	"testing"
 	"time"
 
@@ -39,12 +40,13 @@ func fromCommittee(committee *types.Committee) []mockCommitteeMember {
 	return members
 }
 func TestAggregatorCache(t *testing.T) {
-	// Initialize the aggregator cache
-	cache := newAggregatorCache()
 	require.NoError(t, committee.Enrich())
 	mockCommittee := fromCommittee(committee)
 
 	t.Run("should add a prevote to the correct round and height", func(t *testing.T) {
+		// Initialize the aggregator cache
+		cache := newAggregatorCache()
+
 		// create a mock message
 		r := int64(0)
 		h := uint64(100)
@@ -52,13 +54,18 @@ func TestAggregatorCache(t *testing.T) {
 		signer := mockCommittee[0].Sign
 		prevote := message.NewPrevote(r, h, value, signer, &committee.Members[0], committee.Len())
 
-		cache.MarkCommittee(h, committee)
-		cache.AddVote(prevote, StepReceived)
+		cache.markCommittee(h, committee)
+		cache.addVote(prevote, stepReceived)
 
-		require.True(t, cache.voteCaches[message.PrevoteCode][StepReceived].Contains(h, r, committee.Len(), prevote))
+		require.True(t, cache.voteCaches[message.PrevoteCode][stepReceived].contains(
+			h, r, value, prevote.Signers().Bits.ToSingleBitmap(committee.Len()),
+		))
 	})
 
 	t.Run("it should not add a prevote when a vote with a superset of signers was added", func(t *testing.T) {
+		// Initialize the aggregator cache
+		cache := newAggregatorCache()
+
 		// create a mock message
 		r := int64(0)
 		h := uint64(100)
@@ -69,17 +76,27 @@ func TestAggregatorCache(t *testing.T) {
 
 		aggregatedVote := message.AggregatePrevotes([]message.Vote{prevote1, prevote2})
 
-		cache.MarkCommittee(h, committee)
-		cache.AddVote(aggregatedVote, StepReceived)
+		cache.markCommittee(h, committee)
+		cache.addVote(aggregatedVote, stepReceived)
 
-		require.True(t, cache.voteCaches[message.PrevoteCode][StepReceived].Contains(h, r, committee.Len(), prevote1))
-		require.True(t, cache.voteCaches[message.PrevoteCode][StepReceived].Contains(h, r, committee.Len(), prevote2))
+		require.True(t, cache.voteCaches[message.PrevoteCode][stepReceived].contains(
+			h,
+			r,
+			prevote1.Value(),
+			prevote1.Signers().Bits.ToSingleBitmap(committee.Len()),
+		))
+		require.True(t, cache.voteCaches[message.PrevoteCode][stepReceived].contains(
+			h,
+			r,
+			prevote2.Value(),
+			prevote2.Signers().Bits.ToSingleBitmap(committee.Len()),
+		))
 
 		// This should filter the prevote, as the signer is already included in the aggregated vote
 		errCh := make(chan<- error)
 		defer close(errCh)
 
-		prevoteFiltered := cache.Filter(
+		prevoteFiltered := cache.filter(
 			committee.Len(),
 			events.UnverifiedMessageEvent{
 				Message: prevote1,
@@ -90,12 +107,15 @@ func TestAggregatorCache(t *testing.T) {
 		)
 		require.True(t, prevoteFiltered)
 
-		require.Len(t, cache.EmptyFiltered(h, r, message.PrevoteCode, value), 1)
+		require.Len(t, cache.emptyFiltered(h, r, message.PrevoteCode, value), 1)
 		// should be empty now
 		require.Len(t, cache.filtered[h][filteredCacheKey{round: r, code: message.PrevoteCode, value: value}], 0)
 	})
 
 	t.Run("should discard messages if dispatched and not save them in queue", func(t *testing.T) {
+		// Initialize the aggregator cache
+		cache := newAggregatorCache()
+
 		// create a mock message
 		r := int64(0)
 		h := uint64(100)
@@ -103,16 +123,26 @@ func TestAggregatorCache(t *testing.T) {
 		signer := mockCommittee[0].Sign
 		prevote := message.NewPrevote(r, h, value, signer, &committee.Members[0], committee.Len())
 
-		cache.MarkCommittee(h, committee)
-		cache.AddVote(prevote, StepDispatched)
+		cache.markCommittee(h, committee)
+		cache.addVote(prevote, stepDispatched)
 
-		require.False(t, cache.voteCaches[message.PrevoteCode][StepReceived].Contains(h, r, committee.Len(), prevote))
-		require.True(t, cache.voteCaches[message.PrevoteCode][StepDispatched].Contains(h, r, committee.Len(), prevote))
+		require.False(t, cache.voteCaches[message.PrevoteCode][stepReceived].contains(
+			h,
+			r,
+			prevote.Value(),
+			prevote.Signers().Bits.ToSingleBitmap(committee.Len()),
+		))
+		require.True(t, cache.voteCaches[message.PrevoteCode][stepDispatched].contains(
+			h,
+			r,
+			prevote.Value(),
+			prevote.Signers().Bits.ToSingleBitmap(committee.Len()),
+		))
 
 		errCh := make(chan<- error)
 		defer close(errCh)
 
-		require.True(t, cache.Filter(
+		require.True(t, cache.filter(
 			committee.Len(),
 			events.UnverifiedMessageEvent{
 				Message: prevote,
@@ -122,6 +152,140 @@ func TestAggregatorCache(t *testing.T) {
 			},
 		))
 		require.Len(t, cache.filtered[h][filteredCacheKey{round: r, code: message.PrevoteCode, value: value}], 0)
+	})
+}
+
+func TestAggregatorCachePowerCalculations(t *testing.T) {
+	require.NoError(t, committee.Enrich())
+	mockCommittee := fromCommittee(committee)
+
+	t.Run("should calculate the correct power for a specific value", func(t *testing.T) {
+		// Initialize the aggregator cache
+		cache := newAggregatorCache()
+
+		r := int64(0)
+		h := uint64(100)
+		value := testrand.Hash()
+
+		votersA := []int{1, 3, 5} // Mock voters from the committee
+		votersB := []int{0, 1, 4} // Another set of mock voters
+		var votesA []message.Vote
+		for _, voter := range votersA {
+			votesA = append(votesA, message.NewPrevote(r, h, value, mockCommittee[voter].Sign, &committee.Members[voter], committee.Len()))
+		}
+		voteA := message.AggregatePrevotes(votesA)
+
+		var votesB []message.Vote
+		for _, voter := range votersB {
+			votesB = append(votesB, message.NewPrevote(r, h, value, mockCommittee[voter].Sign, &committee.Members[voter], committee.Len()))
+		}
+		voteB := message.AggregatePrevotes(votesB)
+
+		cache.markCommittee(h, committee)
+
+		cache.addVote(voteA, stepReceived)
+		cache.addVote(voteB, stepReceived)
+
+		power := cache.presentPowerForValue(h, r, value, message.PrevoteCode, stepReceived)
+		require.NotNil(t, power, "power should not be nil")
+
+		expectedPower := big.NewInt(0)
+		for _, voter := range []int{0, 1, 3, 4, 5} {
+			expectedPower.Add(expectedPower, committee.Members[voter].VotingPower)
+		}
+		require.Equal(t, expectedPower, power, "should match the expected voting power for the value")
+	})
+
+	t.Run("should calculate the proper round power for all messages", func(t *testing.T) {
+		// Initialize the aggregator cache
+		cache := newAggregatorCache()
+
+		r := int64(0)
+		h := uint64(100)
+		cache.markCommittee(h, committee)
+
+		valueA := testrand.Hash()
+		valueB := testrand.Hash()
+
+		proposers := []int{5, 6}  // Mock proposers from the committee
+		votersA := []int{1, 3, 5} // Mock voters from the committee
+		votersB := []int{0, 1, 4} // Another set of mock voters
+		for _, proposer := range proposers {
+			proposal := message.NewPropose(
+				r, h, -1,
+				types.NewBlockWithHeader(&types.Header{Number: big.NewInt(int64(h))}),
+				mockCommittee[proposer].Sign,
+				&committee.Members[proposer],
+			)
+			cache.addEvent(events.UnverifiedMessageEvent{Message: proposal}, stepReceived)
+		}
+		var votesA []message.Vote
+		for _, voter := range votersA {
+			votesA = append(votesA, message.NewPrevote(r, h, valueA, mockCommittee[voter].Sign, &committee.Members[voter], committee.Len()))
+		}
+		voteA := message.AggregatePrevotes(votesA)
+
+		var votesB []message.Vote
+		for _, voter := range votersB {
+			votesB = append(votesB, message.NewPrecommit(r, h, valueB, mockCommittee[voter].Sign, &committee.Members[voter], committee.Len()))
+		}
+		voteB := message.AggregatePrecommits(votesB)
+
+		cache.addEvent(events.UnverifiedMessageEvent{Message: voteA}, stepReceived)
+		cache.addEvent(events.UnverifiedMessageEvent{Message: voteB}, stepReceived)
+
+		power := cache.totalPowerForRound(h, r, stepReceived)
+		require.NotNil(t, power, "power should not be nil")
+
+		expectedPower := big.NewInt(0)
+		for _, voter := range []int{0, 1, 3, 4, 5, 6} {
+			expectedPower.Add(expectedPower, committee.Members[voter].VotingPower)
+		}
+
+		require.Equal(t, expectedPower, power, "should match the expected voting power for the round")
+	})
+
+	t.Run("should calculate the correct power for a specific code", func(t *testing.T) {
+
+	})
+
+}
+
+func TestBitmapLogic(t *testing.T) {
+	t.Run("signers should align with bitmap indexes", func(t *testing.T) {
+		signers := types.NewSigners(committee.Len())
+		signers.Increment(&committee.Members[0])
+		signers.Increment(&committee.Members[3])
+		signers.Increment(&committee.Members[5])
+
+		bm := oneBitmap(signers.Bits.ToSingleBitmap(committee.Len()))
+		indexes := bm.presentIndexes()
+		require.Equal(t, 3, len(indexes), "should have 3 indexes present in the bitmap")
+		require.Equal(t, []int{0, 3, 5}, indexes, "indexes should match the signers present in the bitmap")
+	})
+
+	t.Run("should properly merge bitmaps with different sets", func(t *testing.T) {
+		signersA := types.NewSigners(committee.Len())
+		signersA.Increment(&committee.Members[0])
+		signersA.Increment(&committee.Members[3])
+		signersA.Increment(&committee.Members[5])
+
+		bmA := oneBitmap(signersA.Bits.ToSingleBitmap(committee.Len()))
+
+		signersB := types.NewSigners(committee.Len())
+		signersB.Increment(&committee.Members[1])
+		signersB.Increment(&committee.Members[4])
+		signersB.Increment(&committee.Members[5])
+		bmB := oneBitmap(signersB.Bits.ToSingleBitmap(committee.Len()))
+
+		require.False(t, bmA.contains(bmB))
+
+		merged := bmA.merge(bmB)
+		require.True(t, merged.contains(bmA), "merged bitmap should contain the first bitmap")
+		require.True(t, merged.contains(bmB), "merged bitmap should contain the second bitmap")
+
+		indexes := merged.presentIndexes()
+		require.Equal(t, []int{0, 1, 3, 4, 5}, indexes, "merged bitmap should have indexes from both bitmaps")
 	})
 
 }

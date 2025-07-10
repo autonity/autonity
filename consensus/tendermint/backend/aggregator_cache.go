@@ -9,16 +9,35 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/events"
 )
 
-type CacheStep int
+type cacheStep int
 
 const (
-	StepReceived CacheStep = iota
-	StepDispatched
+	stepReceived cacheStep = iota
+	stepDispatched
 )
 
 type oneBitmap []byte
 
-func (o oneBitmap) Contains(a oneBitmap) bool {
+func newOneBitmap(size int) oneBitmap {
+	if size <= 0 {
+		return nil
+	}
+	bytes := (size + 7) / 8 // Calculate the number of bytes needed
+	return make(oneBitmap, bytes)
+}
+
+func newOneBitmapProposal(size int, proposerIndex int) oneBitmap {
+	if size <= 0 || proposerIndex < 0 || proposerIndex >= size {
+		return nil
+	}
+	bm := newOneBitmap(size)
+	byteIndex := proposerIndex / 8
+	bitIndex := 7 - (proposerIndex % 8) // Convert to big-endian bit index
+	bm[byteIndex] = 1 << bitIndex
+	return bm
+}
+
+func (o oneBitmap) contains(a oneBitmap) bool {
 	if len(o) != len(a) {
 		return false
 	}
@@ -30,7 +49,7 @@ func (o oneBitmap) Contains(a oneBitmap) bool {
 	return true
 }
 
-func (o oneBitmap) Merge(a oneBitmap) oneBitmap {
+func (o oneBitmap) merge(a oneBitmap) oneBitmap {
 	if len(o) != len(a) {
 		return nil
 	}
@@ -41,17 +60,7 @@ func (o oneBitmap) Merge(a oneBitmap) oneBitmap {
 	return result
 }
 
-func (o oneBitmap) Present(index int) bool {
-	if index < 0 || index >= len(o)*8 {
-		return false
-	}
-	byteIndex := index / 8
-	bitIndex := index % 8
-	bitIndex = 7 - bitIndex
-	return (o[byteIndex] & (1 << bitIndex)) != 0
-}
-
-func (o oneBitmap) Invalidate(b oneBitmap) oneBitmap {
+func (o oneBitmap) invalidate(b oneBitmap) oneBitmap {
 	if len(o) != len(b) {
 		return nil
 	}
@@ -60,6 +69,19 @@ func (o oneBitmap) Invalidate(b oneBitmap) oneBitmap {
 		result[i] = o[i] & (^b[i])
 	}
 	return result
+}
+
+func (o oneBitmap) presentIndexes() []int {
+	var indexes []int
+	for byteIndex, b := range o {
+		for bitIndex := 0; b != 0; bitIndex++ {
+			if b&0x80 != 0 { // Check if the most significant bit is set
+				indexes = append(indexes, byteIndex*8+bitIndex)
+			}
+			b <<= 1 // Shift left to check the next bit
+		}
+	}
+	return indexes
 }
 
 type voteCache struct {
@@ -73,8 +95,7 @@ func newVoteCache() *voteCache {
 	}
 }
 
-func (c *voteCache) Contains(height uint64, round int64, committeeSize int, vote message.Vote) bool {
-	signers := vote.Signers()
+func (c *voteCache) contains(height uint64, round int64, value common.Hash, bm oneBitmap) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -84,16 +105,14 @@ func (c *voteCache) Contains(height uint64, round int64, committeeSize int, vote
 	if _, ok := c.internal[height][round]; !ok {
 		return false
 	}
-	if _, ok := c.internal[height][round][vote.Value()]; !ok {
+	if _, ok := c.internal[height][round][value]; !ok {
 		return false
 	}
-	bm := oneBitmap(signers.Bits.ToSingleBitmap(committeeSize))
-	known := c.internal[height][round][vote.Value()]
-	return known.Contains(bm)
+	known := c.internal[height][round][value]
+	return known.contains(bm)
 }
 
-func (c *voteCache) Merge(height uint64, round int64, committeeSize int, vote message.Vote) {
-	signers := vote.Signers()
+func (c *voteCache) merge(height uint64, round int64, value common.Hash, bm oneBitmap) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -104,15 +123,14 @@ func (c *voteCache) Merge(height uint64, round int64, committeeSize int, vote me
 		c.internal[height][round] = make(map[common.Hash]oneBitmap)
 	}
 
-	bm := oneBitmap(signers.Bits.ToSingleBitmap(committeeSize))
-	if existing, ok := c.internal[height][round][vote.Value()]; ok {
-		c.internal[height][round][vote.Value()] = existing.Merge(bm)
+	if existing, ok := c.internal[height][round][value]; ok {
+		c.internal[height][round][value] = existing.merge(bm)
 	} else {
-		c.internal[height][round][vote.Value()] = bm
+		c.internal[height][round][value] = bm
 	}
 }
 
-func (c *voteCache) Invalidate(height uint64, round int64, committeeSize int, vote message.Vote) {
+func (c *voteCache) invalidate(height uint64, round int64, committeeSize int, vote message.Vote) {
 	signers := vote.Signers()
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -130,10 +148,10 @@ func (c *voteCache) Invalidate(height uint64, round int64, committeeSize int, vo
 	toInvalidate := oneBitmap(signers.Bits.ToSingleBitmap(committeeSize))
 	known := c.internal[height][round][vote.Value()]
 
-	c.internal[height][round][vote.Value()] = known.Invalidate(toInvalidate)
+	c.internal[height][round][vote.Value()] = known.invalidate(toInvalidate)
 }
 
-func (c *voteCache) PruneToHeight(height uint64) {
+func (c *voteCache) pruneToHeight(height uint64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for h := range c.internal {
@@ -143,28 +161,40 @@ func (c *voteCache) PruneToHeight(height uint64) {
 	}
 }
 
-func (c *voteCache) PresentPower(height uint64, round int64, committeePowers []*big.Int) *big.Int {
+func (c *voteCache) mergedVoters(height uint64, round int64) oneBitmap {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if _, ok := c.internal[height]; !ok {
-		return big.NewInt(0)
+		return nil
 	}
 	if _, ok := c.internal[height][round]; !ok {
+		return nil
+	}
+	var merged oneBitmap
+	for _, bm := range c.internal[height][round] {
+		if merged == nil {
+			merged = make(oneBitmap, len(bm))
+		}
+		merged = merged.merge(bm)
+	}
+	return merged
+}
+
+func (c *voteCache) presentPowerForRound(height uint64, round int64, committeePowers []*big.Int) *big.Int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	merged := c.mergedVoters(height, round)
+	if len(merged) == 0 {
 		return big.NewInt(0)
 	}
-	known := c.internal[height][round]
 	power := big.NewInt(0)
-	for _, bm := range known {
-		for i, memberPower := range committeePowers {
-			if bm.Present(i) {
-				power.Add(power, memberPower)
-			}
-		}
+	for _, index := range merged.presentIndexes() {
+		power.Add(power, committeePowers[index])
 	}
 	return power
 }
 
-func (c *voteCache) PresentPowerFor(height uint64, round int64, value common.Hash, committeePower []*big.Int) *big.Int {
+func (c *voteCache) presentPowerForValue(height uint64, round int64, value common.Hash, committeePower []*big.Int) *big.Int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if _, ok := c.internal[height]; !ok {
@@ -179,10 +209,8 @@ func (c *voteCache) PresentPowerFor(height uint64, round int64, value common.Has
 
 	bm := c.internal[height][round][value]
 	power := big.NewInt(0)
-	for i, memberPower := range committeePower {
-		if bm.Present(i) {
-			power = power.Add(power, memberPower)
-		}
+	for _, index := range bm.presentIndexes() {
+		power.Add(power, committeePower[index])
 	}
 	return power
 }
@@ -195,7 +223,7 @@ type filteredCacheKey struct {
 
 type aggregatorCache struct {
 	committeePowers map[uint64][]*big.Int              // the committee size used to create the bitmaps
-	voteCaches      map[uint8]map[CacheStep]*voteCache // code -> step -> vote cache
+	voteCaches      map[uint8]map[cacheStep]*voteCache // code -> step -> vote cache
 
 	filterMu sync.RWMutex
 	filtered map[uint64]map[filteredCacheKey][]events.UnverifiedMessageEvent
@@ -204,14 +232,18 @@ type aggregatorCache struct {
 func newAggregatorCache() *aggregatorCache {
 	return &aggregatorCache{
 		committeePowers: make(map[uint64][]*big.Int),
-		voteCaches: map[uint8]map[CacheStep]*voteCache{
+		voteCaches: map[uint8]map[cacheStep]*voteCache{
 			message.PrecommitCode: {
-				StepReceived:   newVoteCache(),
-				StepDispatched: newVoteCache(),
+				stepReceived:   newVoteCache(),
+				stepDispatched: newVoteCache(),
 			},
 			message.PrevoteCode: {
-				StepReceived:   newVoteCache(),
-				StepDispatched: newVoteCache(),
+				stepReceived:   newVoteCache(),
+				stepDispatched: newVoteCache(),
+			},
+			message.ProposalCode: {
+				stepReceived:   newVoteCache(),
+				stepDispatched: newVoteCache(),
 			},
 		},
 
@@ -219,23 +251,29 @@ func newAggregatorCache() *aggregatorCache {
 	}
 }
 
-func (c *aggregatorCache) Contains(height uint64, round int64, committeeSize int, event events.UnverifiedMessageEvent) (received bool, dispatched bool) {
+func (c *aggregatorCache) contains(height uint64, round int64, committeeSize int, event events.UnverifiedMessageEvent) (received bool, dispatched bool) {
 	msg := event.Message
 	switch msg.(type) {
+	case *message.Propose:
+		bm := newOneBitmapProposal(committeeSize, msg.(*message.Propose).SignerIndex())
+		received = c.voteCaches[message.ProposalCode][stepReceived].contains(height, round, msg.Value(), bm)
+		dispatched = c.voteCaches[message.ProposalCode][stepDispatched].contains(height, round, msg.Value(), bm)
+		return received, dispatched
 	case *message.Precommit, *message.Prevote:
-		received = c.voteCaches[msg.Code()][StepReceived].Contains(height, round, committeeSize, msg.(message.Vote))
-		dispatched = c.voteCaches[msg.Code()][StepDispatched].Contains(height, round, committeeSize, msg.(message.Vote))
+		bm := msg.(message.Vote).Signers().Bits.ToSingleBitmap(committeeSize)
+		received = c.voteCaches[msg.Code()][stepReceived].contains(height, round, msg.Value(), bm)
+		dispatched = c.voteCaches[msg.Code()][stepDispatched].contains(height, round, msg.Value(), bm)
 		return received, dispatched
 	default:
 		return false, false
 	}
 }
 
-func (c *aggregatorCache) Filter(committeeSize int, event events.UnverifiedMessageEvent) bool {
+func (c *aggregatorCache) filter(committeeSize int, event events.UnverifiedMessageEvent) bool {
 	msg := event.Message
 	switch msg.(type) {
 	case *message.Precommit, *message.Prevote:
-		received, dispatched := c.Contains(msg.H(), msg.R(), committeeSize, event)
+		received, dispatched := c.contains(msg.H(), msg.R(), committeeSize, event)
 		if dispatched {
 			return true
 		} else if received && !dispatched {
@@ -259,11 +297,11 @@ func (c *aggregatorCache) Filter(committeeSize int, event events.UnverifiedMessa
 	}
 }
 
-func (c *aggregatorCache) InvalidateVote(msg message.Vote) {
-	c.voteCaches[msg.Code()][StepReceived].Invalidate(msg.H(), msg.R(), len(c.committeePowers[msg.H()]), msg)
+func (c *aggregatorCache) invalidateVotes(msg message.Vote) {
+	c.voteCaches[msg.Code()][stepReceived].invalidate(msg.H(), msg.R(), len(c.committeePowers[msg.H()]), msg)
 }
 
-func (c *aggregatorCache) EmptyFiltered(h uint64, r int64, code uint8, value common.Hash) []events.UnverifiedMessageEvent {
+func (c *aggregatorCache) emptyFiltered(h uint64, r int64, code uint8, value common.Hash) []events.UnverifiedMessageEvent {
 	key := filteredCacheKey{
 		code:  code,
 		round: r,
@@ -280,7 +318,7 @@ func (c *aggregatorCache) EmptyFiltered(h uint64, r int64, code uint8, value com
 	return filtered
 }
 
-func (c *aggregatorCache) MarkCommittee(height uint64, committee *types.Committee) {
+func (c *aggregatorCache) markCommittee(height uint64, committee *types.Committee) {
 	if len(c.committeePowers) == committee.Len() {
 		return // already marked
 	}
@@ -293,35 +331,95 @@ func (c *aggregatorCache) MarkCommittee(height uint64, committee *types.Committe
 	}()
 }
 
-func (c *aggregatorCache) AddVote(msg message.Vote, step CacheStep) {
+func (c *aggregatorCache) addEvent(event events.UnverifiedMessageEvent, step cacheStep) {
+	msg := event.Message
+	switch msg.(type) {
+	case *message.Propose:
+		c.addProposal(msg.(*message.Propose), step)
+	case *message.Precommit, *message.Prevote:
+		c.addVote(msg.(message.Vote), step)
+	default:
+		panic("aggregatorCache: unsupported message type for addEvent")
+	}
+}
+
+func (c *aggregatorCache) addProposal(msg *message.Propose, step cacheStep) {
+	// TODO: Add proposal power to the total power for a round
 	if _, ok := c.committeePowers[msg.H()]; !ok {
 		panic("aggregatorCache: committee powers not set for height")
 	}
-	c.voteCaches[msg.Code()][step].Merge(msg.H(), msg.R(), len(c.committeePowers[msg.H()]), msg)
+	c.voteCaches[message.ProposalCode][step].merge(
+		msg.H(),
+		msg.R(),
+		msg.Value(),
+		newOneBitmapProposal(len(c.committeePowers[msg.H()]), msg.SignerIndex()),
+	)
 }
 
-func (c *aggregatorCache) PresentPower(height uint64, round int64, code uint8, step CacheStep) *big.Int {
+func (c *aggregatorCache) addVote(msg message.Vote, step cacheStep) {
+	if _, ok := c.committeePowers[msg.H()]; !ok {
+		panic("aggregatorCache: committee powers not set for height")
+	}
+	c.voteCaches[msg.Code()][step].merge(
+		msg.H(),
+		msg.R(),
+		msg.Value(),
+		msg.Signers().Bits.ToSingleBitmap(len(c.committeePowers[msg.H()])),
+	)
+}
+
+func (c *aggregatorCache) presentPowerForRound(height uint64, round int64, code uint8, step cacheStep) *big.Int {
 	if _, ok := c.committeePowers[height]; !ok {
 		panic("aggregatorCache: committee powers not set for height")
 	}
 	committeePowers := c.committeePowers[height]
-	return c.voteCaches[code][step].PresentPower(height, round, committeePowers)
+	return c.voteCaches[code][step].presentPowerForRound(height, round, committeePowers)
 }
 
-func (c *aggregatorCache) PresentPowerFor(height uint64, round int64, value common.Hash, code uint8, step CacheStep) *big.Int {
+func (c *aggregatorCache) presentPowerForValue(height uint64, round int64, value common.Hash, code uint8, step cacheStep) *big.Int {
 	if _, ok := c.committeePowers[height]; !ok {
 		panic("aggregatorCache: committee powers not set for height")
 	}
 	committeePowers := c.committeePowers[height]
-	return c.voteCaches[code][step].PresentPowerFor(height, round, value, committeePowers)
+	return c.voteCaches[code][step].presentPowerForValue(height, round, value, committeePowers)
+}
+
+func (c *aggregatorCache) totalPowerForCode(height uint64, round int64, code uint8, step cacheStep) *big.Int {
+	if _, ok := c.committeePowers[height]; !ok {
+		panic("aggregatorCache: committee powers not set for height")
+	}
+	committeePowers := c.committeePowers[height]
+	return c.voteCaches[code][step].presentPowerForRound(height, round, committeePowers)
+}
+
+// / Total power for a round, considering all vote types (precommit, prevote, proposal)
+func (c *aggregatorCache) totalPowerForRound(height uint64, round int64, step cacheStep) *big.Int {
+	if _, ok := c.committeePowers[height]; !ok {
+		panic("aggregatorCache: committee powers not set for height")
+	}
+	merged := newOneBitmap(len(c.committeePowers[height]))
+	for _, code := range []uint8{message.PrecommitCode, message.PrevoteCode, message.ProposalCode} {
+		voters := c.voteCaches[code][step].mergedVoters(height, round)
+		if len(voters) != 0 {
+			merged = merged.merge(voters)
+		}
+	}
+	if len(merged) == 0 {
+		return big.NewInt(0)
+	}
+	power := big.NewInt(0)
+	for _, index := range merged.presentIndexes() {
+		power.Add(power, c.committeePowers[height][index])
+	}
+	return power
 }
 
 func (c *aggregatorCache) PruneToHeight(height uint64) {
-	c.voteCaches[message.PrecommitCode][StepReceived].PruneToHeight(height)
-	c.voteCaches[message.PrecommitCode][StepDispatched].PruneToHeight(height)
+	c.voteCaches[message.PrecommitCode][stepReceived].pruneToHeight(height)
+	c.voteCaches[message.PrecommitCode][stepDispatched].pruneToHeight(height)
 
-	c.voteCaches[message.PrevoteCode][StepReceived].PruneToHeight(height)
-	c.voteCaches[message.PrevoteCode][StepDispatched].PruneToHeight(height)
+	c.voteCaches[message.PrevoteCode][stepReceived].pruneToHeight(height)
+	c.voteCaches[message.PrevoteCode][stepDispatched].pruneToHeight(height)
 
 	c.filterMu.Lock()
 	defer c.filterMu.Unlock()

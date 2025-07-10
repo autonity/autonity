@@ -546,6 +546,94 @@ func (a *aggregator) DispatchFaultDetectorEvents() {
 	}()
 }
 
+// validates a batch of messages, returns valid votes
+func (a *aggregator) validateBatch(batch []events.UnverifiedMessageEvent) (valid []message.Vote, invalid []uint) {
+	var publicKeys []blst.PublicKey
+	var signatures []blst.Signature
+	var messages []message.Vote
+	var senders []common.Address
+	var errChs []chan<- error
+
+	for _, e := range batch {
+		m := e.Message
+		// skip messages to be ignored or that are already in core
+		if a.toSkip(m) {
+			continue
+		}
+
+		messages = append(messages, m.(message.Vote))
+		publicKeys = append(publicKeys, m.SignerKey())
+		signatures = append(signatures, m.Signature())
+		senders = append(senders, e.Sender)
+		errChs = append(errChs, e.ErrCh)
+	}
+
+	// if all messages in the batch got skipped, move to the next batch
+	if len(signatures) == 0 {
+		return nil, nil
+	}
+
+	hash := batch[0].Message.SignatureInput()
+
+	if blst.FastAggregateVerifyBatch(signatures, publicKeys, hash) {
+		// all signatures are valid
+		return messages, nil
+	}
+
+	var validVotes []message.Vote
+	var invalids []uint
+
+	// at least one of the signatures is invalid, find at which index
+	invalids = blst.FindInvalid(signatures, publicKeys, hash)
+
+	// remove invalid messages and sent the rest of the batch
+	// NOTE: the following loop relies on blst.FindInvalid returning invalid indexes sorted according to ascending order
+	j := 0
+	for i, msg := range messages {
+		if j < len(invalids) && uint(i) == invalids[j] {
+			j++
+			a.signerSetCache.invalidateVotes(msg)
+			continue
+		}
+		validVotes = append(validVotes, msg)
+	}
+
+	var filtered []events.UnverifiedMessageEvent
+	switch validVotes[0].(type) {
+	case *message.Prevote, *message.Precommit:
+		filtered = a.signerSetCache.emptyFiltered(
+			batch[0].Message.H(),
+			batch[0].Message.R(),
+			batch[0].Message.Code(),
+			batch[0].Message.Value(),
+		)
+	default:
+		// len(filtered) = 0
+	}
+	warned := false
+	for i, e := range filtered {
+		select {
+		case a.internalBacklogCh <- e:
+		// reinject the filtered messages to the backlog
+		default:
+			if !warned {
+				log.Warn(
+					"Aggregator backlog channel is full, dropping messages",
+					"number of messages dropped",
+					len(filtered)-i,
+					"height", batch[0].Message.H(),
+					"round", batch[0].Message.R(),
+					"code", batch[0].Message.Code(),
+					"value", batch[0].Message.Value(),
+				)
+				warned = true
+			}
+		}
+	}
+
+	return validVotes, invalids
+}
+
 // a batch is a set of messages for same (height,round,code,value) ---> can be aggregated using FastAggregateVerify
 func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, eventer eventBuilder) {
 	if len(batches) == 0 {
@@ -562,93 +650,8 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			BatchesBg.Add(int64(len(batch)))
 		}
 		processed += len(batch)
-
-		var publicKeys []blst.PublicKey
-		var signatures []blst.Signature
-		var messages []message.Vote
-		var senders []common.Address
-		var errChs []chan<- error
-
-		for _, e := range batch {
-			m := e.Message
-			// skip messages to be ignored or that are already in core
-			if a.toSkip(m) {
-				continue
-			}
-
-			messages = append(messages, m.(message.Vote))
-			publicKeys = append(publicKeys, m.SignerKey())
-			signatures = append(signatures, m.Signature())
-			senders = append(senders, e.Sender)
-			errChs = append(errChs, e.ErrCh)
-		}
-
-		// if all messages in the batch got skipped, move to the next batch
-		if len(signatures) == 0 {
-			continue
-		}
-
-		hash := batch[0].Message.SignatureInput()
-		valid := blst.FastAggregateVerifyBatch(signatures, publicKeys, hash)
-
-		var validVotes []message.Vote
-		var invalids []uint
-
-		if !valid {
-			// at least one of the signatures is invalid, find at which index
-			invalids = blst.FindInvalid(signatures, publicKeys, hash)
-
-			// remove invalid messages and sent the rest of the batch
-			// NOTE: the following loop relies on blst.FindInvalid returning invalid indexes sorted according to ascending order
-			j := 0
-			for i, msg := range messages {
-				if j < len(invalids) && uint(i) == invalids[j] {
-					j++
-					a.signerSetCache.InvalidateVote(msg)
-					continue
-				}
-				validVotes = append(validVotes, msg)
-			}
-
-			var filtered []events.UnverifiedMessageEvent
-			switch validVotes[0].(type) {
-			case *message.Prevote, *message.Precommit:
-				filtered = a.signerSetCache.EmptyFiltered(
-					batch[0].Message.H(),
-					batch[0].Message.R(),
-					batch[0].Message.Code(),
-					batch[0].Message.Value(),
-				)
-			default:
-				// len(filtered) = 0
-			}
-			warned := false
-			for i, e := range filtered {
-				select {
-				case a.internalBacklogCh <- e:
-				// reinject the filtered messages to the backlog
-				default:
-					if !warned {
-						log.Warn(
-							"Aggregator backlog channel is full, dropping messages",
-							"number of messages dropped",
-							len(filtered)-i,
-							"height", batch[0].Message.H(),
-							"round", batch[0].Message.R(),
-							"code", batch[0].Message.Code(),
-							"value", batch[0].Message.Value(),
-						)
-						warned = true
-					}
-				}
-			}
-		} else {
-			// all messages are valid
-			validVotes = messages
-		}
-
+		validVotes, invalids := a.validateBatch(batch)
 		sent += len(validVotes)
-
 		if len(validVotes) > 0 {
 			// dispatch messages to core and FD
 			// repetitive code but I didn't find a way to declare aggregateVotes so that it works both with prevote and precommit
@@ -656,7 +659,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			case *message.Prevote:
 				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					a.signerSetCache.AddVote(aggregateVote, StepDispatched)
+					a.signerSetCache.addVote(aggregateVote, stepDispatched)
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					a.internalCoreCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
 					a.internalFdCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
@@ -664,7 +667,7 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					a.signerSetCache.AddVote(aggregateVote, StepDispatched)
+					a.signerSetCache.addVote(aggregateVote, stepDispatched)
 					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					a.internalCoreCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
 					a.internalFdCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}).(events.MessageEventer)
@@ -688,6 +691,8 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 
 func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent, eventer eventBuilder) {
 	proposal := proposalEvent.Message
+	// go routine for core event dispatch as well to avoid deadlock, there is loop between core and aggregator
+	a.signerSetCache.addEvent(proposalEvent, stepDispatched)
 	a.internalCoreCh <- eventer(proposal, proposalEvent).(events.MessageEventer)
 	a.internalFdCh <- eventer(proposal, proposalEvent).(events.MessageEventer)
 }
@@ -697,31 +702,15 @@ func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent
 // if add == false, the msg is not saved and only the power checks are done.
 func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committee *types.Committee, quorum *big.Int, add bool) {
 	vote := voteEvent.Message.(message.Vote)
-	//errCh := voteEvent.ErrCh
-	//sender := voteEvent.Sender
-	//
 	height := vote.H()
 	round := vote.R()
 	code := vote.Code()
 	value := vote.Value()
 
-	// complex aggregates always carry quorum (enforced at PreValidate)
-	// if we do not already have quorum in Core, process right away
-	//coreVotesForPower := a.core.VotesPowerFor(height, round, code, value)
-	//coreVotesPower := a.core.VotesPower(height, round, code)
-	//if vote.Signers().IsComplex() && (coreVotesForPower.Power().Cmp(quorum) < 0 || coreVotesPower.Power().Cmp(quorum) < 0) {
-	//	if err := vote.Validate(); err != nil {
-	//		a.handleInvalidMessage(errCh, err, sender)
-	//		return
-	//	}
-	//	a.internalCoreCh <- currentHeightEventBuilder(voteEvent.Message, voteEvent).(events.MessageEventer)
-	//	a.internalFdCh <- currentHeightEventBuilder(voteEvent.Message, voteEvent).(events.MessageEventer)
-	//	return
-	//}
-
 	if add {
 		a.saveMessage(voteEvent)
 	}
+
 	if height == a.core.Height().Uint64() && round == a.core.Round() {
 		// current Height/Round message
 		// we check if we are at 75% quorum post that we will switch to fast tick aggregation
@@ -738,12 +727,22 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 	}
 
 	//// check if we reached quorum voting power on a specific value
-	votingPowerReceived := a.signerSetCache.PresentPowerFor(height, round, value, code, StepReceived)
+	votingPowerReceived := a.signerSetCache.presentPowerForValue(height, round, value, code, stepReceived)
 	if votingPowerReceived.Cmp(quorum) >= 0 {
-		votingPowerDispatched := a.signerSetCache.PresentPowerFor(height, round, value, code, StepDispatched)
+		votingPowerDispatched := a.signerSetCache.presentPowerForValue(height, round, value, code, stepDispatched)
 		if votingPowerDispatched.Cmp(quorum) < 0 {
 			// we have enough votes, but not enough dispatched, so process the votes
 			a.processVotesFor(height, round, code, value)
+			return
+		}
+	}
+
+	//// check if we have reached a quorum of votes for a specific round (regardless of value)
+	totalPowerReceived := a.signerSetCache.totalPowerForCode(height, round, code, stepReceived)
+	if totalPowerReceived.Cmp(quorum) >= 0 {
+		totalPowerDispatched := a.signerSetCache.totalPowerForCode(height, round, code, stepDispatched)
+		if totalPowerDispatched.Cmp(quorum) < 0 {
+			a.processVotes(height, round, code)
 			return
 		}
 	}
@@ -787,11 +786,12 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 		panic(fmt.Sprintf("cannot get committee of height: %d", msg.H()))
 	}
 
-	if a.signerSetCache.Filter(committee.Len(), event) {
+	if a.signerSetCache.filter(committee.Len(), event) {
 		return // already processed a message with more signers
 	}
 	// mark committee size for the height to avoid any more calls to CommitteeByHeight
-	a.signerSetCache.MarkCommittee(msg.H(), committee)
+	a.signerSetCache.markCommittee(msg.H(), committee)
+	a.signerSetCache.addEvent(event, stepReceived)
 
 
 	quorum := bft.Quorum(committee.TotalVotingPower())
@@ -800,13 +800,15 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	if msg.R() > coreRound {
 		// NOTE: here we could be buffering a proposal for future round, or a complex vote aggregate.
 		a.saveMessage(event)
-		// check if power is enough for a round skip
-		aggregatorPower := a.power(msg.H(), msg.R())
-		corePower := a.core.Power(msg.H(), msg.R())
-		contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
-		if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(committee.TotalVotingPower())) > 0 {
-			a.logger.Debug("Processing future round messages due to possible round skip", "height", msg.H(), "round", msg.R(), "coreRound", coreRound)
-			a.processRound(msg.H(), msg.R())
+
+		// check power of ALL messages for that round, including proposals
+		// if > 1/3 (ie. bft.F) then process that round
+		receivedPowerForRound := a.signerSetCache.totalPowerForRound(msg.H(), msg.R(), stepReceived)
+		if receivedPowerForRound.Cmp(bft.F(committee.TotalVotingPower())) > 0 {
+			dispatchedPowerForRound := a.signerSetCache.totalPowerForRound(msg.H(), msg.R(), stepDispatched)
+			if dispatchedPowerForRound.Cmp(bft.F(committee.TotalVotingPower())) < 0 {
+				a.processRound(msg.H(), msg.R())
+			}
 		}
 		recordMessageProcessingTime(msg.Code(), start)
 		return
@@ -817,11 +819,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	// if proposal, verify right away
 	case *message.Propose:
 		a.processProposal(event, currentHeightEventBuilder)
-	case *message.Prevote:
-		a.signerSetCache.AddVote(msg.(message.Vote), StepReceived)
-		a.handleVote(event, committee, quorum, true)
-	case *message.Precommit:
-		a.signerSetCache.AddVote(msg.(message.Vote), StepReceived)
+	case *message.Prevote, *message.Precommit:
 		a.handleVote(event, committee, quorum, true)
 	default:
 		a.logger.Crit("unknown message type arrived in aggregator")
