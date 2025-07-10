@@ -32,10 +32,10 @@ const (
 )
 
 var (
-	proposeHashesOut = metrics.GetOrRegisterResettableCounter("router/propose/hash/egress", nil)   //nolint:goconst
-	precommitHashOut = metrics.GetOrRegisterResettableCounter("router/precommit/hash/egress", nil) //nolint:goconst
-	prevoteHashOut   = metrics.GetOrRegisterResettableCounter("router/prevote/hash/egress", nil)   //nolint:goconst
-	forwardCounter   = metrics.GetOrRegisterResettableCounter("router/forward", nil)               //nolint:goconst
+	proposeHashesOut = metrics.GetOrRegisterCounter("router/propose/hash/egress", nil)   //nolint:goconst
+	precommitHashOut = metrics.GetOrRegisterCounter("router/precommit/hash/egress", nil) //nolint:goconst
+	prevoteHashOut   = metrics.GetOrRegisterCounter("router/prevote/hash/egress", nil)   //nolint:goconst
+	forwardCounter   = metrics.GetOrRegisterCounter("router/forward", nil)               //nolint:goconst
 )
 
 func Setup(
