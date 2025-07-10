@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"runtime"
 	"sync"
@@ -639,7 +640,8 @@ func (s *Ethereum) validatorController() {
 	startMiningWhenReady := func(ctx context.Context, committee *types.Committee) {
 		go func() {
 			ticker := time.NewTicker(1 * time.Second)
-			timeout := time.After(1 * time.Minute) // max wait for 1 minute
+			timeOutSec := int(math.Min(float64(committee.Len())/2, 60))
+			timeout := time.After(time.Duration(timeOutSec) * time.Second) // max wait one minute
 			defer ticker.Stop()
 
 			for {
@@ -660,7 +662,7 @@ func (s *Ethereum) validatorController() {
 						return
 					}
 				case <-timeout:
-					s.log.Warn("miner waited for one minute to reach required peer count, start mining anyway", "current peer count", s.consensusServer.PeerCount(), "required", committee.Len())
+					s.log.Warn("miner waited to reach required peer count, start mining anyway", "timeout sec", timeOutSec, "current peer count", s.consensusServer.PeerCount(), "required", committee.Len())
 					mu.Lock()
 					if !wasValidating {
 						s.miner.Start()
