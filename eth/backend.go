@@ -678,9 +678,7 @@ func (s *Ethereum) validatorController() {
 	committee := epoch.Committee
 	if committee.MemberByAddress(s.address) != nil {
 		updateConsensusEnodes(currentHead)
-		//todo: the minor control should move to acn server
-		//s.miner.Start()
-		//wasValidating = true
+		//todo: the miner control should move to acn server
 		startMiningWhenReady(ctx, committee)
 		s.log.Info("Starting node as validator")
 	}

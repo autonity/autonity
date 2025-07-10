@@ -178,6 +178,7 @@ const (
 
 func determineDisseminationStrategy(err error, code uint8, alreadyDisseminated bool) disseminationStrategy {
 	// proposals are already forwarded in backend
+	// TODO: check for proposals also if they were eraly forewaded?
 	if alreadyDisseminated || code == message.ProposalCode {
 		return noDissemination
 	}
@@ -198,6 +199,7 @@ func determineDisseminationStrategy(err error, code uint8, alreadyDisseminated b
 }
 
 // handleError takes the appropriate actions based on the error (e.g. backlog the event)
+// assumes err != nil
 func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error) {
 	delayErr := &consensus.ErrDelayedProposal{}
 	switch {
@@ -247,9 +249,10 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 
 }
 
-func isMessageRelevant(err error) bool {
+// filters out messages that we don't consider for liveness tracking and p2p dissemination
+func shouldQuit(err error) bool {
 	if err == nil {
-		return true
+		return false
 	}
 	switch {
 	case errors.Is(err, constants.ErrOldRoundMessage):
@@ -257,9 +260,10 @@ func isMessageRelevant(err error) bool {
 	case errors.Is(err, constants.ErrFutureRoundMessage):
 		fallthrough
 	case errors.Is(err, constants.ErrRedundantVote):
-		return true
-	default:
 		return false
+		// TODO: equivocated votes + do not gossip redundant?
+	default:
+		return true
 	}
 }
 
@@ -298,7 +302,7 @@ func (c *Core) handleEvent(ctx context.Context, e events.MessageEvent) {
 		// note: we continue the execution here
 	}
 
-	if !isMessageRelevant(err) {
+	if shouldQuit(err) {
 		return
 	}
 

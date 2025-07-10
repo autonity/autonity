@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"go.uber.org/mock/gomock"
 
@@ -20,6 +21,10 @@ import (
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 )
+
+func makeBogusMessageEvent(msg message.Msg, alreadyDisseminated bool) events.MessageEvent {
+	return events.NewMessageEvent(msg, nil, common.Address{}, time.Now(), alreadyDisseminated)
+}
 
 type testCase struct {
 	id               uint64
@@ -38,8 +43,8 @@ func (tc *testCase) String() string {
 
 func searchForFutureMsg(engine *Core, msg message.Msg) bool {
 	messages := engine.futureRound[msg.R()]
-	for _, message := range messages {
-		if message.Hash() == msg.Hash() {
+	for _, event := range messages {
+		if event.Message().Hash() == msg.Hash() {
 			return true
 		}
 	}
@@ -128,16 +133,6 @@ func TestHandleMessage(t *testing.T) {
 			6,
 			2,
 			big.NewInt(2),
-			PrecommitDone,
-			createPrecommit(2, 2),
-			constants.ErrHeightClosed,
-			false,
-			false,
-		},
-		{
-			7,
-			2,
-			big.NewInt(2),
 			Precommit,
 			createPrecommit(1, 2),
 			constants.ErrOldRoundMessage,
@@ -145,7 +140,7 @@ func TestHandleMessage(t *testing.T) {
 			false,
 		},
 		{
-			8,
+			7,
 			1,
 			big.NewInt(2),
 			Propose,
@@ -168,7 +163,7 @@ func TestHandleMessage(t *testing.T) {
 			round:            tc.round,
 			height:           tc.height,
 			step:             tc.step,
-			futureRound:      make(map[int64][]message.Msg),
+			futureRound:      make(map[int64][]events.MessageEvent),
 			futurePower:      make(map[int64]*message.AggregatedPower),
 			messages:         messageMap,
 			curRoundMessages: messageMap.GetOrCreate(0),
@@ -207,14 +202,6 @@ func TestHandleMessage(t *testing.T) {
 					t.Log(tc.String())
 					t.Fatal("unexpected behaviour, shouldDisconnectSender returning", "disconnect=", disconnect, ", expecting=", tc.shouldDisconnect)
 				}
-
-				if err == constants.ErrFutureRoundMessage {
-					// check backlog
-					found := searchForFutureMsg(&engine, tc.message)
-					if !found {
-						t.Fatal("future round message not found in backlog")
-					}
-				}
 			}
 		}()
 	}
@@ -243,7 +230,7 @@ func TestHandleFutureRound(t *testing.T) {
 		round:            currentRound,
 		height:           currentHeight,
 		step:             Propose,
-		futureRound:      make(map[int64][]message.Msg),
+		futureRound:      make(map[int64][]events.MessageEvent),
 		futurePower:      make(map[int64]*message.AggregatedPower),
 		messages:         messageMap,
 		curRoundMessages: messageMap.GetOrCreate(0),
@@ -253,13 +240,17 @@ func TestHandleFutureRound(t *testing.T) {
 		precommitTimeout: NewTimeout(Precommit, logger),
 		backend:          backendMock,
 		eventCh:          eventCh,
+		syncState:        &SyncState{},
 	}
 	engine.SetDefaultHandlers()
 
 	// handling vote
 	vote := message.NewPrevote(currentRound+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender2.Address].consensus), sender2, 4)
-	err := engine.handleMsg(context.Background(), vote)
-	require.True(t, errors.Is(err, constants.ErrFutureRoundMessage))
+	// future round messages are forwarded right away
+	mockRouter := interfaces.NewMockRouter(ctrl)
+	mockRouter.EXPECT().Forward(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	backendMock.EXPECT().Router().Return(mockRouter).Times(1)
+	engine.handleEvent(context.Background(), makeBogusMessageEvent(vote, false))
 
 	// check that vote was saved in the future messages and power was updated accordingly
 	found := searchForFutureMsg(&engine, vote)
@@ -269,8 +260,8 @@ func TestHandleFutureRound(t *testing.T) {
 	lastHeader := &types.Header{Number: currentHeight.Sub(currentHeight, common.Big1)}
 	// same thing for future round proposal
 	propose := message.NewPropose(currentRound+1, currentHeight.Uint64(), -1, generateBlock(currentHeight, lastHeader), makeSigner(keysMap[sender1.Address].consensus), sender1)
-	err = engine.handleMsg(context.Background(), propose)
-	require.True(t, errors.Is(err, constants.ErrFutureRoundMessage))
+	// proposals are never disseminated in Core
+	engine.handleEvent(context.Background(), makeBogusMessageEvent(propose, false))
 
 	found = searchForFutureMsg(&engine, propose)
 	require.True(t, found)

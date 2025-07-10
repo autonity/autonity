@@ -944,7 +944,7 @@ func TestAggregatorProcess(t *testing.T) {
 		// signature is invalid but proposal is created with `verified`=true, so it is considered valid
 		propose := makeBogusPropose(0, 1, 0)
 		proposeEvent := makeBogusEvent(propose)
-		a.processProposal(proposeEvent, func(_ message.Msg, _ events.UnverifiedMessageEvent) interface{} { return struct{}{} })
+		a.processProposal(proposeEvent, func(_ message.Msg, _ chan<- error, _ common.Address) interface{} { return struct{}{} })
 	})
 	t.Run("processRound processes all the messages for a round", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -1073,7 +1073,7 @@ func TestAggregatorProcess(t *testing.T) {
 			makeBogusEvent(aggregate2[0]),
 		})
 
-		a.processBatches(batches, func(_ message.Msg, _ events.UnverifiedMessageEvent) interface{} { return struct{}{} })
+		a.processBatches(batches, func(_ message.Msg, _ chan<- error, _ common.Address) interface{} { return struct{}{} })
 	})
 	t.Run("ProcessBatch successfully detects and discard invalid signatures", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -1127,7 +1127,7 @@ func TestAggregatorProcess(t *testing.T) {
 			makeBogusEvent(message.NewPrecommit(r, h, value, testSigner, &committee.Members[5], csize)),
 		})
 
-		a.processBatches(batches, func(m message.Msg, _ events.UnverifiedMessageEvent) interface{} {
+		a.processBatches(batches, func(m message.Msg, _ chan<- error, _ common.Address) interface{} {
 			vote, ok := m.(message.Vote)
 			require.True(t, ok)
 			if vote.Signers().Contains(3) || vote.Signers().Contains(6) {
