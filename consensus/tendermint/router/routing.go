@@ -95,7 +95,9 @@ func New(
 		peerSelector:        peerSelector,
 		network:             networkProvider,
 		clusteringThreshold: ScaleThresholdForClustering,
-		hashCache:           fixsizecache.New[common.Hash, bool](5987, 5, fixsizecache.HashKey[common.Hash]), // note: used only for metrics collection
+	}
+	if metrics.Enabled {
+		router.hashCache = fixsizecache.New[common.Hash, bool](5987, 5, fixsizecache.HashKey[common.Hash])
 	}
 	return router
 }

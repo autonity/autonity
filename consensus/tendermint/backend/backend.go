@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"math"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -284,6 +285,10 @@ func (sb *Backend) MessageToCore(ev any) {
 	switch ev := ev.(type) {
 	case events.MessageEvent:
 		sb.coreEventDispatcher.Post(ev)
+	case events.OldMessageEvent:
+		// ignore old height messages for Core
+	default:
+		panic("unknown event " + reflect.TypeOf(ev).String())
 	}
 	return
 }
