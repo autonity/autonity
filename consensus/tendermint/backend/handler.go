@@ -174,7 +174,7 @@ func handleConsensusMsg[T any, PT interface {
 	// if the message is for a future height wrt to consensus engine, buffer it
 	// it will be re-injected into the handleDecodedMsg function at the right height
 	// TODO: Due to a race condition a message that is considered as future could become current,
-	// but remain stuck into the future message buffer forever
+	// but remain stuck into the future message buffer forever (Lorenzo: I think this got addressed with the ErrNotFuture, verify)
 	currentHeight := sb.core.Height().Uint64()
 	if msg.H() > currentHeight {
 		sb.logger.Debug("Saving future height consensus message for later", "msgHeight", msg.H(), "coreHeight", currentHeight)
@@ -247,8 +247,6 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		sb.logger.Crit("Tendermint backend processing unknown message")
 	}
 
-	//todo: proposal is already verified, post directly to the core (and FD?)
-	// 		also needs to verify that future round messages logic in aggregator still works as expected
 	sb.Post(events.UnverifiedMessageEvent{
 		Message: msg,
 		ErrCh:   errCh,

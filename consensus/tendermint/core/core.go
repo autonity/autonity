@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"math/big"
+	"math/rand"
 	"sync"
 	"sync/atomic" // nolint
 	"time"
@@ -23,6 +24,8 @@ import (
 
 // channel size between core and other modules (i.e. aggregator)
 const EventQueueSize = 1000
+
+const timeoutRandomizationBoundary = int(5 * time.Second)
 
 // New creates a Tendermint consensus Core
 func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger) *Core {
@@ -96,7 +99,7 @@ func (s *SyncState) updateSyncTimeout(timeout time.Duration) {
 	if timeout > s.getSyncTimeout() {
 		// as tendermint can generate nil prevote/precomit after round timeout,
 		// thus we add a few buffer seconds to reduce unnecessary ask-syncs.
-		s.setSyncTimeout(timeout + constants.AskSyncBufferTime)
+		s.setSyncTimeout(addRandomness(timeout + constants.AskSyncBufferTime))
 	}
 }
 
@@ -338,6 +341,13 @@ func (c *Core) measureHeightRoundMetrics(round int64) {
 	}
 }
 
+// add some randomness (in a defined bound) to a duration.
+// used to prevent all nodes asking sync at the same time
+func addRandomness(duration time.Duration) time.Duration {
+	return duration + time.Duration(rand.Intn(timeoutRandomizationBoundary))
+
+}
+
 // current round == 0 --> height change
 func (c *Core) processFuture(previousRound int64, currentRound int64) {
 	if currentRound == 0 {
@@ -367,7 +377,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 
 	// if the node is starting a new height, reset the timeout to the default value
 	if round == 0 {
-		c.syncState.setSyncTimeout(constants.DefaultSyncTimeout)
+		c.syncState.setSyncTimeout(addRandomness(constants.DefaultSyncTimeout))
 	}
 
 	previousRound := c.Round()

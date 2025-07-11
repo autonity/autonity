@@ -398,9 +398,7 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 	ticker := time.NewTicker(constants.AskSyncInterval)
 	defer ticker.Stop()
 
-	// TODO:
-	//	 1. make it lighter on network propagation
-	// 	 2. dissemination strategy of messages received due to asking sync
+	// TODO: evaluate dissemination strategy of messages received due to asking sync
 	// 		- no dissemination? or partial dissemination (only local cluster)? or standard forward (current approach)
 
 eventLoop:
