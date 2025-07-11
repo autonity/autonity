@@ -77,7 +77,7 @@ func (m MessageEvent) Disseminated() bool {
 	return m.disseminated
 }
 
-func (m MessageEvent) SetDisseminated(disseminated bool) {
+func (m *MessageEvent) SetDisseminated(disseminated bool) {
 	m.disseminated = disseminated
 }
 

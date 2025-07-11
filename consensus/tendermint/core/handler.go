@@ -16,7 +16,10 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
-const initialAskSyncRetries = 10
+const (
+	initialAskSyncRetries             = 10
+	futureRoundDisseminationThreshold = 3 // how many rounds in the future we disseminate messages for
+)
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
@@ -174,12 +177,10 @@ const (
 	noDissemination disseminationStrategy = iota
 	slowGossip
 	gossip
-	forward
 )
 
-func determineDisseminationStrategy(err error, code uint8, alreadyDisseminated bool) disseminationStrategy {
-	// proposals are already forwarded in backend
-	// TODO: some proposal might not be early forwarded
+func determineDisseminationStrategy(err error, code uint8, alreadyDisseminated bool, msgRound int64, coreRound int64) disseminationStrategy {
+	// all proposals are already forwarded in backend
 	if alreadyDisseminated || code == message.ProposalCode {
 		return noDissemination
 	}
@@ -187,9 +188,13 @@ func determineDisseminationStrategy(err error, code uint8, alreadyDisseminated b
 		return gossip
 	}
 	switch {
-	// TODO: cap to +2/3 rounds gossiping of future round msg (separate PR) - mitigate network spam
 	case errors.Is(err, constants.ErrFutureRoundMessage):
-		return gossip
+		// TODO: verify that edge cases where a future msg triggers a round skip do not cause issues
+		if msgRound-coreRound <= futureRoundDisseminationThreshold {
+			return gossip
+		} else {
+			return noDissemination
+		}
 	case errors.Is(err, constants.ErrOldRoundMessage):
 		//TODO: instead of slow gossip we could use a priority based logic when processing messages
 		return slowGossip
@@ -218,10 +223,16 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 
 		msg := e.Message()
 
-		// TODO: use a pointer?
-		// future round messages are gossiped right away so set disseminated to true
-		e.SetDisseminated(true)
+		// gossip only "close" future rounds to avoid clogging the network
+		if msg.R()-c.Round() <= futureRoundDisseminationThreshold {
+			// will be disseminated right away in handleEvent, no need to re-disseminate on reprocessing
+			e.SetDisseminated(true)
+		} else {
+			// will not be disseminated right away, but will be disseminated on reprocessing
+			e.SetDisseminated(false) //TODO: might be unnecessary
+		}
 
+		// TODO: use a pointer for e? in general verify Disseminated related logic
 		r := msg.R()
 		c.futureRoundLock.Lock()
 		c.futureRound[r] = append(c.futureRound[r], e)
@@ -317,7 +328,7 @@ func (c *Core) handleEvent(ctx context.Context, e events.MessageEvent) {
 	}
 
 	isLocal := c.Address() == e.Sender()
-	switch determineDisseminationStrategy(err, msg.Code(), e.Disseminated()) {
+	switch determineDisseminationStrategy(err, msg.Code(), e.Disseminated(), msg.R(), c.Round()) {
 	case noDissemination:
 		// do nothing
 	case slowGossip:
