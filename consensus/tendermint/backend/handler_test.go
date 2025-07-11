@@ -3,11 +3,12 @@ package backend
 import (
 	"bytes"
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"io"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 
 	"go.uber.org/mock/gomock"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
@@ -154,11 +154,9 @@ func TestNewChainHead(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		ctx := context.Background()
-		coreEventCh := make(chan events.CoreEvent, 10)
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
-		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		evDispathcer := interfaces.NewMockEventDispatcher(ctrl)
 		evDispathcer.EXPECT().Post(gomock.Any()).MaxTimes(1)
 		chain, _ := newBlockChain(1)

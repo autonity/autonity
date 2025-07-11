@@ -368,14 +368,6 @@ func (c *aggregatorCache) addVote(msg message.Vote, step cacheStep) {
 	)
 }
 
-func (c *aggregatorCache) presentPowerForRound(height uint64, round int64, code uint8, step cacheStep) *big.Int {
-	if _, ok := c.committeePowers[height]; !ok {
-		panic("aggregatorCache: committee powers not set for height")
-	}
-	committeePowers := c.committeePowers[height]
-	return c.voteCaches[code][step].presentPowerForRound(height, round, committeePowers)
-}
-
 func (c *aggregatorCache) presentPowerForValue(height uint64, round int64, value common.Hash, code uint8, step cacheStep) *big.Int {
 	if _, ok := c.committeePowers[height]; !ok {
 		panic("aggregatorCache: committee powers not set for height")
@@ -414,7 +406,7 @@ func (c *aggregatorCache) totalPowerForRound(height uint64, round int64, step ca
 	return power
 }
 
-func (c *aggregatorCache) PruneToHeight(height uint64) {
+func (c *aggregatorCache) pruneToHeight(height uint64) {
 	c.voteCaches[message.PrecommitCode][stepReceived].pruneToHeight(height)
 	c.voteCaches[message.PrecommitCode][stepDispatched].pruneToHeight(height)
 

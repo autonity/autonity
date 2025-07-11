@@ -276,35 +276,35 @@ eventLoop:
 				}
 				recordMessageProcessingTime(msg.Code(), start)
 			}
-		case ev, ok := <-c.stateEventSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			c.handleStateDump(ev.Data.(StateRequestEvent))
-		case ev, ok := <-c.timeoutEventSub.Chan():
-			if !ok {
-				break eventLoop
-			}
-			if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
-				// if we already decided on this height block, ignore the timeout. It is useless by now.
-				if c.step == PrecommitDone {
-					c.logTimeoutEvent("Timer expired while at PrecommitDone step, ignoring", "", timeoutE)
-					continue
-				}
-				switch timeoutE.Step {
-				case Propose:
-					c.handleTimeoutPropose(ctx, timeoutE)
-				case Prevote:
-					c.handleTimeoutPrevote(ctx, timeoutE)
-				case Precommit:
-					c.handleTimeoutPrecommit(ctx, timeoutE)
-				}
-			}
-		case _, ok := <-c.committedCh:
-			if !ok {
-				break eventLoop
-			}
-			c.precommiter.HandleCommit(ctx)
+			/*		case ev, ok := <-c.stateEventSub.Chan():
+						if !ok {
+							break eventLoop
+						}
+						c.handleStateDump(ev.Data.(StateRequestEvent))
+					case ev, ok := <-c.timeoutEventSub.Chan():
+						if !ok {
+							break eventLoop
+						}
+						if timeoutE, ok := ev.Data.(TimeoutEvent); ok {
+							// if we already decided on this height block, ignore the timeout. It is useless by now.
+							if c.step == PrecommitDone {
+								c.logTimeoutEvent("Timer expired while at PrecommitDone step, ignoring", "", timeoutE)
+								continue
+							}
+							switch timeoutE.Step {
+							case Propose:
+								c.handleTimeoutPropose(ctx, timeoutE)
+							case Prevote:
+								c.handleTimeoutPrevote(ctx, timeoutE)
+							case Precommit:
+								c.handleTimeoutPrecommit(ctx, timeoutE)
+							}
+						}
+					case _, ok := <-c.committedCh:
+						if !ok {
+							break eventLoop
+						}
+						c.precommiter.HandleCommit(ctx)*/
 		case <-ctx.Done():
 			c.logger.Debug("Tendermint core main loop stopped", "event", ctx.Err())
 			break eventLoop
@@ -368,14 +368,7 @@ eventLoop:
 
 // SendEvent sends event to mux
 func (c *Core) SendEvent(ev any) {
-	switch ev := ev.(type) {
-	case events.CoreEvent:
-		// todo: temporary
-		return
-		//c.eventCh <- ev
-	default:
-		c.backend.Post(ev)
-	}
+	c.backend.Post(ev)
 }
 
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
@@ -427,8 +420,6 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 			}
 		}
 		c.futureRoundLock.Unlock()
-
-		c.SendEvent(events.NewFuturePowerChangeEvent(c.Height().Uint64(), r))
 
 		c.roundSkipCheck(ctx, r)
 	}

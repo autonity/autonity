@@ -9,8 +9,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/events"
-
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
@@ -62,8 +60,6 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 		// in this old round.
 		roundMessages := c.messages.GetOrCreate(precommit.R())
 		precommitContributed := roundMessages.AddPrecommit(precommit)
-		// note even if the vote is redundant, it might still cause a power change in case of equivocation
-		c.SendEvent(events.NewPowerChangeEvent(message.PrecommitCode, c.Height().Uint64(), c.Round(), precommit.Value()))
 
 		oldRoundProposal := roundMessages.Proposal()
 		if oldRoundProposal == nil {
@@ -79,8 +75,6 @@ func (c *Precommiter) HandlePrecommit(ctx context.Context, precommit *message.Pr
 	// We don't care about which step we are in to accept a precommit, since it has the highest importance
 
 	precommitContributed := c.curRoundMessages.AddPrecommit(precommit)
-	// note even if the vote is redundant, it might still cause a power change in case of equivocation
-	c.SendEvent(events.NewPowerChangeEvent(message.PrecommitCode, c.Height().Uint64(), c.Round(), precommit.Value()))
 	c.LogPrecommitMessageEvent("MessageEvent(Precommit): Received", precommit)
 
 	c.currentPrecommitChecks(ctx)

@@ -525,20 +525,6 @@ func (mr *MockCoreMockRecorder) CoreState() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CoreState", reflect.TypeOf((*MockCore)(nil).CoreState))
 }
 
-// EventCh mocks base method.
-func (m *MockCore) EventCh() <-chan events.CoreEvent {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EventCh")
-	ret0, _ := ret[0].(<-chan events.CoreEvent)
-	return ret0
-}
-
-// EventCh indicates an expected call of EventCh.
-func (mr *MockCoreMockRecorder) EventCh() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventCh", reflect.TypeOf((*MockCore)(nil).EventCh))
-}
-
 // Height mocks base method.
 func (m *MockCore) Height() *big.Int {
 	m.ctrl.T.Helper()
@@ -551,34 +537,6 @@ func (m *MockCore) Height() *big.Int {
 func (mr *MockCoreMockRecorder) Height() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockCore)(nil).Height))
-}
-
-// MessageEventCh mocks base method.
-func (m *MockCore) MessageEventCh() <-chan events.MessageEventer {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MessageEventCh")
-	ret0, _ := ret[0].(<-chan events.MessageEventer)
-	return ret0
-}
-
-// MessageEventCh indicates an expected call of MessageEventCh.
-func (mr *MockCoreMockRecorder) MessageEventCh() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MessageEventCh", reflect.TypeOf((*MockCore)(nil).MessageEventCh))
-}
-
-// Power mocks base method.
-func (m *MockCore) Power(h uint64, r int64) *message.AggregatedPower {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Power", h, r)
-	ret0, _ := ret[0].(*message.AggregatedPower)
-	return ret0
-}
-
-// Power indicates an expected call of Power.
-func (mr *MockCoreMockRecorder) Power(h, r any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Power", reflect.TypeOf((*MockCore)(nil).Power), h, r)
 }
 
 // Precommiter mocks base method.
@@ -659,34 +617,6 @@ func (m *MockCore) Stop() {
 func (mr *MockCoreMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockCore)(nil).Stop))
-}
-
-// VotesPower mocks base method.
-func (m *MockCore) VotesPower(h uint64, r int64, code uint8) *message.AggregatedPower {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VotesPower", h, r, code)
-	ret0, _ := ret[0].(*message.AggregatedPower)
-	return ret0
-}
-
-// VotesPower indicates an expected call of VotesPower.
-func (mr *MockCoreMockRecorder) VotesPower(h, r, code any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VotesPower", reflect.TypeOf((*MockCore)(nil).VotesPower), h, r, code)
-}
-
-// VotesPowerFor mocks base method.
-func (m *MockCore) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *message.AggregatedPower {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VotesPowerFor", h, r, code, v)
-	ret0, _ := ret[0].(*message.AggregatedPower)
-	return ret0
-}
-
-// VotesPowerFor indicates an expected call of VotesPowerFor.
-func (mr *MockCoreMockRecorder) VotesPowerFor(h, r, code, v any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VotesPowerFor", reflect.TypeOf((*MockCore)(nil).VotesPowerFor), h, r, code, v)
 }
 
 // MockRouter is a mock of Router interface.

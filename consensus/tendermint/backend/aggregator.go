@@ -106,7 +106,6 @@ func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.
 		internalCoreCh:    make(chan events.MessageEventer, 1),
 		internalFdCh:      make(chan events.MessageEventer, 1),
 		internalBacklogCh: make(chan events.UnverifiedMessageEvent, 1000),
-		signalFastTickCh:  make(chan struct{}, 1),
 		signerSetCache:    newAggregatorCache(),
 	}
 }
@@ -156,10 +155,9 @@ type aggregator struct {
 	internalFdCh      chan events.MessageEventer
 	internalBacklogCh chan events.UnverifiedMessageEvent // backlog for messages that were filtered by cache, but reinjected
 
-	signalFastTickCh chan struct{} // todo(review) - a height specific loop may by
-	cancel           context.CancelFunc
-	wg               sync.WaitGroup
-	logger           log.Logger
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+	logger log.Logger
 }
 
 func (a *aggregator) start(ctx context.Context) {
@@ -248,54 +246,6 @@ func (a *aggregator) empty(h uint64, r int64) bool {
 		return true
 	}
 	return false
-}
-
-func (a *aggregator) power(h uint64, r int64) *message.AggregatedPower {
-	if a.empty(h, r) {
-		return message.NewAggregatedPower()
-	}
-	return a.messages[h][r].power.Copy() // return a copy as the aggregator is going to modify this value
-}
-
-func (a *aggregator) votesPower(h uint64, r int64, c uint8) *message.AggregatedPower {
-	if a.empty(h, r) {
-		return message.NewAggregatedPower()
-	}
-
-	roundInfo := a.messages[h][r]
-	var power *message.AggregatedPower
-	switch c {
-	case message.PrevoteCode:
-		power = roundInfo.prevotesPower.Copy()
-	case message.PrecommitCode:
-		power = roundInfo.precommitsPower.Copy()
-	default:
-		a.logger.Crit("Unexpected code", "c", c)
-	}
-	return power // return a copy as the aggregator is going to modify this value
-}
-
-func (a *aggregator) votesPowerFor(h uint64, r int64, c uint8, v common.Hash) *message.AggregatedPower {
-	if a.empty(h, r) {
-		return message.NewAggregatedPower()
-	}
-
-	roundInfo := a.messages[h][r]
-	var power *message.AggregatedPower
-	var ok bool // necessary to not override power declaration inside the switch
-	switch c {
-	case message.PrevoteCode:
-		power, ok = roundInfo.prevotesPowerFor[v]
-	case message.PrecommitCode:
-		power, ok = roundInfo.precommitsPowerFor[v]
-	default:
-		a.logger.Crit("Unexpected code", "c", c)
-	}
-
-	if !ok {
-		return message.NewAggregatedPower()
-	}
-	return power.Copy() // return a copy as the aggregator is going to modify this value
 }
 
 func (a *aggregator) processRound(h uint64, r int64) {
@@ -682,8 +632,8 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			InvalidBg.Add(int64(len(invalids)))
 		}
 		for _, index := range invalids {
-			a.logger.Info("Received invalid bls signature from", "peer", senders[index])
-			a.handleInvalidMessage(errChs[index], message.ErrBadSignature, senders[index])
+			a.logger.Info("Received invalid bls signature from", "peer", batch[index].Sender)
+			a.handleInvalidMessage(batch[index].ErrCh, message.ErrBadSignature, batch[index].Sender)
 		}
 	}
 	a.logger.Debug("Aggregator processed messages", "processed", processed, "sent", sent)
@@ -714,15 +664,15 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 	if height == a.core.Height().Uint64() && round == a.core.Round() {
 		// current Height/Round message
 		// we check if we are at 75% quorum post that we will switch to fast tick aggregation
-		fastAggregationThreshold := new(big.Int).Sub(quorum, big.NewInt(3)).Div(quorum, big.NewInt(4))
-		aggPower := a.votesPowerFor(height, round, code, value)
-		if aggPower.Power().Cmp(fastAggregationThreshold) > 0 && aggPower.Power().Cmp(quorum) < 0 {
-			select {
-			case a.signalFastTickCh <- struct{}{}:
-			default:
-				// a signal is already pending,  drop this
-			}
-		}
+		/*		fastAggregationThreshold := new(big.Int).Sub(quorum, big.NewInt(3)).Div(quorum, big.NewInt(4))
+				aggPower := a.signerSetCache.presentPowerForValue(height, round, value, code, stepReceived)
+				if aggPower.Cmp(fastAggregationThreshold) > 0 && aggPower.Cmp(quorum) < 0 {
+					select {
+					case a.signalFastTickCh <- struct{}{}:
+					default:
+						// a signal is already pending,  drop this
+					}
+				}*/
 
 	}
 
@@ -794,6 +744,11 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	a.signerSetCache.addEvent(event, stepReceived)
 
 
+	switch msg.(type) {
+	case *message.Propose:
+		a.processProposal(event, currentHeightEventBuilder)
+	}
+
 	quorum := bft.Quorum(committee.TotalVotingPower())
 
 	coreRound := a.core.Round()
@@ -816,9 +771,8 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 
 	// current or old round here
 	switch msg.(type) {
-	// if proposal, verify right away
 	case *message.Propose:
-		a.processProposal(event, currentHeightEventBuilder)
+		// do nothing, proposal already processed
 	case *message.Prevote, *message.Precommit:
 		a.handleVote(event, committee, quorum, true)
 	default:
@@ -905,130 +859,6 @@ loop:
 				break loop
 			}
 			a.handleEvent(event)
-		case ev, ok := <-a.core.EventCh():
-			start := time.Now()
-			if !ok {
-				break loop
-			}
-			//nolint:typecheck
-			height := ev.Height()
-			//nolint:typecheck
-			round := ev.Round()
-			switch e := ev.(type) {
-			case events.RoundChangeEvent:
-				//eventType = "RoundChange"
-				/* a round change happened in Core
-				* messages that we had buffered as future round might now be current round, therefore:
-				* 1. process right away proposals
-				* 2. re-do quorum checks on individual votes and simple aggregates
-				*
-				* Note: we cannot have complex aggregates, as if we receive a complex aggregate for a future round,
-				* we would instantly process it and move to that future round
-				 */
-
-				if a.empty(height, round) {
-					break
-				}
-
-				roundInfo := a.messages[height][round]
-
-				// process proposals
-				for _, proposalEvent := range roundInfo.proposals {
-					if a.toSkip(proposalEvent.Message) {
-						continue
-					}
-					a.processProposal(proposalEvent, currentHeightEventBuilder)
-				}
-				//clean up
-				roundInfo.proposals = make([]events.UnverifiedMessageEvent, 0)
-
-				committee, err := a.backend.BlockChain().CommitteeByHeight(height)
-				if err != nil {
-					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
-				}
-				quorum := bft.Quorum(committee.TotalVotingPower())
-
-				for _, evs := range roundInfo.precommits {
-					if len(evs) == 0 {
-						continue
-					}
-					// re-handling 1 message for each value is enough to cover all needed power checks
-					a.handleVote(evs[0], committee, quorum, false)
-				}
-
-				for _, evs := range roundInfo.prevotes {
-					if len(evs) == 0 {
-						continue
-					}
-					// re-handling 1 message for each value is enough to cover all needed power checks
-					a.handleVote(evs[0], committee, quorum, false)
-				}
-				if metrics.Enabled {
-					RoundBg.Add(time.Since(start).Nanoseconds())
-				}
-			case events.PowerChangeEvent:
-				// a power change happened in Core: re-do quorum checks on individual votes and simple aggregates
-				code := e.Code()
-				value := e.Value()
-				if a.empty(height, round) {
-					break
-				}
-
-				roundInfo := a.messages[height][round]
-
-				committee, err := a.backend.BlockChain().CommitteeByHeight(height)
-				if err != nil {
-					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
-				}
-				quorum := bft.Quorum(committee.TotalVotingPower())
-
-				var votesEvent []events.UnverifiedMessageEvent
-				var ok bool
-				switch code {
-				case message.PrevoteCode:
-					votesEvent, ok = roundInfo.prevotes[value]
-				case message.PrecommitCode:
-					votesEvent, ok = roundInfo.precommits[value]
-				default:
-					a.logger.Crit("Unexpected code", "code", code)
-				}
-
-				if !ok || len(votesEvent) == 0 {
-					break
-				}
-
-				// processing one vote for the value for which power changed is enough to do all necessary checks
-				a.handleVote(votesEvent[0], committee, quorum, false)
-				if metrics.Enabled {
-					PowerBg.Add(time.Since(start).Nanoseconds())
-				}
-			case events.FuturePowerChangeEvent:
-				//eventType = "FuturePowerChange"
-
-				committee, err := a.backend.BlockChain().CommitteeByHeight(height)
-				if err != nil {
-					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)
-				}
-
-				// check in future round messages power, check again for round skip
-				aggregatorPower := a.power(height, round)
-				corePower := a.core.Power(height, round)
-				contribution := powerContribution(aggregatorPower.Signers(), corePower.Signers(), committee)
-				if contribution.Add(contribution, corePower.Power()).Cmp(bft.F(committee.TotalVotingPower())) > 0 {
-					a.processRound(height, round)
-				}
-				if metrics.Enabled {
-					FuturePowerBg.Add(time.Since(start).Nanoseconds())
-				}
-			}
-		case <-a.signalFastTickCh:
-			// this tick fires after we are about to meet quorum, this way the aggregation triggers fast which should quickly identify quorum
-			if !aggTimer.Stop() {
-				// Timer already fired and value is sitting in the channel
-				// to be picked, we drain this value and rely on the one we create now
-				<-aggTimer.C
-			}
-			aggTimer.Reset(fastAggregationPeriod)
 		case <-aggTimer.C:
 			coreHeight := a.core.Height().Uint64()
 
@@ -1071,7 +901,7 @@ loop:
 			// cleanup
 			clear(a.messagesFrom)
 			clear(a.toIgnore)
-			a.signerSetCache.PruneToHeight(coreHeight)
+			a.signerSetCache.pruneToHeight(coreHeight)
 			aggTimer.Reset(aggregationPeriod)
 		case <-oldMessagesTicker.C:
 			a.logger.Trace("Processing stale messages in the aggregator")
