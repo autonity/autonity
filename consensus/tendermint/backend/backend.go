@@ -77,6 +77,7 @@ func New(
 		MsgStore:            ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
 		askSyncRateLimiter:  helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		aggregatorMessageCh: make(chan events.UnverifiedMessageEvent, 5000),
+		jailingCh:           make(chan common.Address, 100),
 		isHeightExpired:     isHeightExpired,
 		jailed: jailed{
 			validators: make(map[common.Address]uint64),
@@ -131,6 +132,7 @@ type Backend struct {
 	proposalVerifiedCh  chan<- *types.Block
 	commitCh            chan<- *types.Block
 	aggregatorMessageCh chan events.UnverifiedMessageEvent // to send events to the aggregator
+	jailingCh           chan common.Address
 	proposedBlockHash   common.Hash
 	coreStarting        atomic.Bool
 	coreRunning         atomic.Bool

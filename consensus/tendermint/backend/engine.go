@@ -627,6 +627,32 @@ func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
 	sb.hasBadBlock = bc.HasBadBlock
 }
 
+func (sb *Backend) Jail(offender common.Address) {
+	sb.jailingCh <- offender
+}
+
+// note: not sure if jailing for more than current epoch is supported by the cleanup code currently
+func (sb *Backend) jail(offender common.Address, epochOfJailing uint64) {
+	if sb.IsJailed(offender) {
+		return
+	}
+
+	sb.jailed.Lock()
+	// the validator is in a perpetual jailed state
+	// which should only be temporary until it gets updated at the next epoch event.
+	sb.jailed.validators[offender] = epochOfJailing
+	sb.jailed.Unlock()
+
+	// persist in db
+	jailedCount := rawdb.ReadJailedCount(sb.database, epochOfJailing)
+	batch := sb.database.NewBatch()
+	rawdb.WriteJailedAddress(batch, epochOfJailing, jailedCount, offender)
+	rawdb.WriteJailedCount(batch, epochOfJailing, jailedCount+1)
+	if err := batch.Write(); err != nil {
+		sb.logger.Crit("Batch write failed", "err", err)
+	}
+}
+
 func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	// subscribe to relevant events
 	var subscriptions event.SubscriptionScope
@@ -690,28 +716,14 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 				sb.logger.Warn("Your validator has been found guilty of consensus misbehaviour", "address", event.Offender, "event id", ev.Id.Uint64(), "event type", eventType, "rule", rule, "block", event.Block.Uint64(), "epoch", event.Epoch.Uint64(), "faulty message hash", common.BigToHash(event.MessageHash))
 				sb.logger.Warn(explanation)
 			}
-			if !sb.IsJailed(ev.Offender) {
-				epochID := ev.Epoch.Uint64()
-				if epochID < lastEpochID {
-					// we don't care about these jailed validators as they are not in the committee anymore
-					continue
-				}
-
-				sb.jailed.Lock()
-				// the validator is in a perpetual jailed state
-				// which should only be temporary until it gets updated at the next epoch event.
-				sb.jailed.validators[ev.Offender] = epochID
-				sb.jailed.Unlock()
-
-				// persist in db
-				jailedCount := rawdb.ReadJailedCount(sb.database, epochID)
-				batch := sb.database.NewBatch()
-				rawdb.WriteJailedAddress(batch, epochID, jailedCount, ev.Offender)
-				rawdb.WriteJailedCount(batch, epochID, jailedCount+1)
-				if err := batch.Write(); err != nil {
-					sb.logger.Crit("Batch write failed", "err", err)
-				}
+			epochOfJailing := ev.Epoch.Uint64()
+			if epochOfJailing < lastEpochID {
+				// we don't care about these jailed validators as they are not in the committee anymore
+				continue
 			}
+			sb.jail(ev.Offender, epochOfJailing)
+		case offender := <-sb.jailingCh:
+			sb.jail(offender, lastEpochID)
 		case ev := <-newEpochEventCh:
 			// remove jailed validators from db
 			// they cannot be in committee and their messages are discarded

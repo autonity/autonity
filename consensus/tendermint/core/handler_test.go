@@ -27,14 +27,14 @@ func makeBogusMessageEvent(msg message.Msg, alreadyDisseminated bool) events.Mes
 }
 
 type testCase struct {
-	id               uint64
-	round            int64
-	height           *big.Int
-	step             Step
-	message          message.Msg
-	outcome          error
-	panic            bool
-	shouldDisconnect bool
+	id         uint64
+	round      int64
+	height     *big.Int
+	step       Step
+	message    message.Msg
+	outcome    error
+	panic      bool
+	shouldJail bool
 }
 
 func (tc *testCase) String() string {
@@ -196,11 +196,11 @@ func TestHandleMessage(t *testing.T) {
 			}
 
 			if err != nil {
-				// check if disconnection is required
-				disconnect := shouldDisconnectSender(err)
-				if tc.shouldDisconnect != disconnect {
+				// check if jailing is required
+				shouldJail := shouldJailSigner(err)
+				if tc.shouldJail != shouldJail {
 					t.Log(tc.String())
-					t.Fatal("unexpected behaviour, shouldDisconnectSender returning", "disconnect=", disconnect, ", expecting=", tc.shouldDisconnect)
+					t.Fatal("unexpected behaviour, shouldJailSigner returning", "shouldJail=", shouldJail, ", expecting=", tc.shouldJail)
 				}
 			}
 		}()

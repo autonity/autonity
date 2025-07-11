@@ -81,6 +81,9 @@ type Backend interface {
 	// IsJailed returns true if the address belongs to the jailed validator list.
 	IsJailed(address common.Address) bool
 
+	// Jail jails the offender up to the end of the epoch
+	Jail(offender common.Address)
+
 	// Gossiper returns gossiper object
 	Gossiper() Gossiper
 

@@ -69,11 +69,13 @@ func (c *Core) unsubscribeEvents() {
 	c.timeoutEventSub.Unsubscribe()
 }
 
-func shouldDisconnectSender(err error) bool {
+func shouldJailSigner(err error) bool {
 	switch {
 	case errors.Is(err, constants.ErrOldRoundMessage):
 		fallthrough
 	case errors.Is(err, constants.ErrFutureRoundMessage):
+		fallthrough
+	case errors.Is(err, constants.ErrRedundantVote):
 		fallthrough
 	case errors.Is(err, constants.ErrNilPrevoteSent):
 		fallthrough
@@ -87,11 +89,10 @@ func shouldDisconnectSender(err error) bool {
 		fallthrough
 	case errors.Is(err, consensus.ErrPrunedAncestor):
 		fallthrough
-	case errors.Is(err, constants.ErrRedundantVote):
-		fallthrough
 	case errors.Is(err, constants.ErrAlreadyHaveProposal):
 		return false
 	default:
+		// only proposal validation errors (e.g. invalid tx) should end up here
 		return true
 	}
 }
@@ -292,9 +293,9 @@ func (c *Core) handleEvent(ctx context.Context, e events.MessageEvent) {
 	if err != nil {
 		c.logger.Debug("core.Handler: consensus message handling returned error", "err", err, "core height", c.Height().Uint64(), "msg", msg.String())
 		c.handleError(ctx, e, err)
-		// filter errors which needs remote peer disconnection.
-		if shouldDisconnectSender(err) {
-			tryDisconnect(e.ErrCh(), err)
+		// filter errors which needs signer jailing
+		if msg.Code() == message.ProposalCode && shouldJailSigner(err) {
+			c.backend.Jail(msg.(*message.Propose).Signer())
 		}
 		// note: we continue the execution here
 	}
