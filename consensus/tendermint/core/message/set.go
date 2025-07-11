@@ -35,8 +35,9 @@ func (s *Set) Add(vote Vote) bool {
 	s.Lock()
 	defer s.Unlock()
 
-	// will be set to true if the vote brings an increase in voting power in Core
-	// equivocated votes are considered redundant
+	// will be set to true if the vote brings an increase in voting power in Core.
+	// votes that contribute by equivocation (increasing power of a specific value, but
+	// not the total power for the votes set) are considered not redundant (as they should be gossiped)
 	voteContributed := false
 
 	value := vote.Value()
@@ -49,8 +50,8 @@ func (s *Set) Add(vote Vote) bool {
 	// update total power and power for value
 	for index, power := range vote.Signers().Powers() {
 		signerContributed := s.totalPower.Set(index, power)
-		voteContributed = voteContributed || signerContributed
-		s.powers[value].Set(index, power)
+		signerContributedToValue := s.powers[value].Set(index, power)
+		voteContributed = voteContributed || signerContributed || signerContributedToValue
 	}
 
 	// check if we are adding the first vote

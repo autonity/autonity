@@ -187,8 +187,6 @@ func determineDisseminationStrategy(err error, code uint8, alreadyDisseminated b
 		return forward
 	}
 	switch {
-	case errors.Is(err, constants.ErrRedundantVote):
-		return noDissemination
 	case errors.Is(err, constants.ErrFutureRoundMessage):
 		return forward
 	case errors.Is(err, constants.ErrOldRoundMessage):
@@ -203,6 +201,7 @@ func determineDisseminationStrategy(err error, code uint8, alreadyDisseminated b
 func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error) {
 	delayErr := &consensus.ErrDelayedProposal{}
 	switch {
+	// TODO: can errors.As modify err? it seems like it does some unwrapping
 	case errors.As(err, delayErr):
 		// TODO: implement wiggle time / median time
 		delay := delayErr.Delay()
@@ -259,10 +258,8 @@ func shouldQuit(err error) bool {
 		fallthrough
 	case errors.Is(err, constants.ErrFutureRoundMessage):
 		fallthrough
-	case errors.Is(err, constants.ErrRedundantVote):
-		return false
-		// TODO: equivocated votes + do not gossip redundant?
 	default:
+		// redundant votes are not disseminated
 		return true
 	}
 }
