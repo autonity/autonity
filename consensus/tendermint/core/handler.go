@@ -192,9 +192,9 @@ func determineDisseminationStrategy(err error, code uint8, alreadyDisseminated b
 		// TODO: verify that edge cases where a future msg triggers a round skip do not cause issues
 		if msgRound-coreRound <= futureRoundDisseminationThreshold {
 			return gossip
-		} else {
-			return noDissemination
 		}
+		// message is too far in the future rounds
+		return noDissemination
 	case errors.Is(err, constants.ErrOldRoundMessage):
 		//TODO: instead of slow gossip we could use a priority based logic when processing messages
 		return slowGossip

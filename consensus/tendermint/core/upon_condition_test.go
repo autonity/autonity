@@ -1237,9 +1237,7 @@ func TestFutureRoundChange(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		e.setupCore(backendMock, e.clientAddress)
 		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
-		routerMock := interfaces.NewMockRouter(ctrl)
-		routerMock.EXPECT().Forward(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
-		backendMock.EXPECT().Router().Return(routerMock).Times(2)
+		backendMock.EXPECT().Gossip(gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
 
 		// send to handleMsg to check the error, however handleEvent does the actual backlogging
 		err := e.core.handleMsg(context.Background(), msg1)
@@ -1278,9 +1276,7 @@ func TestFutureRoundChange(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		e.setupCore(backendMock, e.clientAddress)
-		routerMock := interfaces.NewMockRouter(ctrl)
-		routerMock.EXPECT().Forward(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
-		backendMock.EXPECT().Router().Return(routerMock).Times(2)
+		backendMock.EXPECT().Gossip(gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
 
 		// send to handleMsg to check the error, however handleEvent does the actual backlogging
 		err := e.core.handleMsg(context.Background(), prevoteMsg)
