@@ -172,7 +172,6 @@ type Core struct {
 	newHeight          time.Time
 	newRound           time.Time
 	currBlockTimeStamp time.Time
-	eventCh            chan events.CoreEvent // channel to communicate events from core to other modules (aggregator)
 }
 
 func (c *Core) MessageEventCh() <-chan events.MessageEventer {
@@ -202,7 +201,11 @@ func (c *Core) Step() Step {
 func (c *Core) Post(ev any) {
 	switch ev := ev.(type) {
 	case events.CommitEvent:
-		c.committedCh <- ev
+		select {
+		case c.committedCh <- ev:
+		default:
+			c.logger.Warn("Commit event channel is full, dropping event", "event", ev)
+		}
 	case events.NewCandidateBlockEvent:
 		c.candidateBlockCh <- ev
 	case events.MessageEventer:
@@ -309,7 +312,7 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 		return
 	}
 	proposalHash := proposal.Block().Header().Hash()
-	c.logger.Debug("Committing a block", "hash", proposalHash)
+	c.logger.Debug("Committing a block", "hash", proposalHash, "number", proposal.Block().Number().Uint64())
 
 	precommitWithQuorum := messages.PrecommitFor(proposalHash)
 	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())

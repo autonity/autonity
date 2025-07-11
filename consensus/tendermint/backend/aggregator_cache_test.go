@@ -25,6 +25,18 @@ func (m *mockCommitteeMember) Sign(hash common.Hash) blst.Signature {
 	return m.privateKey.Sign(hash[:])
 }
 
+type mockCommittee []mockCommitteeMember
+
+func (mc mockCommittee) ToCommittee() *types.Committee {
+	members := make([]types.CommitteeMember, len(mc))
+	for i, member := range mc {
+		members[i] = member.CommitteeMember
+	}
+	return &types.Committee{
+		Members: members,
+	}
+}
+
 func fromCommittee(committee *types.Committee) []mockCommitteeMember {
 	members := make([]mockCommitteeMember, len(committee.Members))
 	for i, member := range committee.Members {
@@ -33,8 +45,13 @@ func fromCommittee(committee *types.Committee) []mockCommitteeMember {
 			panic(errors.New("failed to generate random key for mock committee member"))
 		}
 		members[i] = mockCommitteeMember{
-			CommitteeMember: member,
-			privateKey:      key,
+			CommitteeMember: types.CommitteeMember{
+				Address:      member.Address,
+				VotingPower:  member.VotingPower,
+				ConsensusKey: key.PublicKey(),
+				Index:        member.Index,
+			},
+			privateKey: key,
 		}
 	}
 	return members

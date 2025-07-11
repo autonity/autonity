@@ -190,6 +190,10 @@ func (sb *Backend) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 	return sb.BlockChain().EpochByHeight(height)
 }
 
+func (sb *Backend) CommitteeByHeight(height uint64) (*types.Committee, error) {
+	return sb.BlockChain().CommitteeByHeight(height)
+}
+
 func (sb *Backend) MessageCh() <-chan events.UnverifiedMessageEvent {
 	return sb.aggregatorMessageCh
 }

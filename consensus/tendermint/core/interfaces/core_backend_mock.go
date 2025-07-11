@@ -137,6 +137,21 @@ func (mr *MockBackendMockRecorder) Commit(proposalBlock, round, quorumCertificat
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBackend)(nil).Commit), proposalBlock, round, quorumCertificate)
 }
 
+// CommitteeByHeight mocks base method.
+func (m *MockBackend) CommitteeByHeight(height uint64) (*types.Committee, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitteeByHeight", height)
+	ret0, _ := ret[0].(*types.Committee)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommitteeByHeight indicates an expected call of CommitteeByHeight.
+func (mr *MockBackendMockRecorder) CommitteeByHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeByHeight", reflect.TypeOf((*MockBackend)(nil).CommitteeByHeight), height)
+}
+
 // DispatchToCore mocks base method.
 func (m *MockBackend) DispatchToCore(ev any) {
 	m.ctrl.T.Helper()

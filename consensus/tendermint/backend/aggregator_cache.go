@@ -7,6 +7,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/core/types"
 )
 
 type cacheStep int
@@ -344,7 +345,6 @@ func (c *aggregatorCache) addEvent(event events.UnverifiedMessageEvent, step cac
 }
 
 func (c *aggregatorCache) addProposal(msg *message.Propose, step cacheStep) {
-	// TODO: Add proposal power to the total power for a round
 	if _, ok := c.committeePowers[msg.H()]; !ok {
 		panic("aggregatorCache: committee powers not set for height")
 	}

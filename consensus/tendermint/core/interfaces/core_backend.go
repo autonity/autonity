@@ -72,7 +72,11 @@ type Backend interface {
 	// Returns the main blockchain object.
 	BlockChain() *ethcore.BlockChain
 
+	// GetEpochByHeight returns the epoch information for a given height.
 	EpochByHeight(height uint64) (*types.EpochInfo, error)
+
+	// GetCommitteeByHeight returns the committee for a given height.
+	CommitteeByHeight(height uint64) (*types.Committee, error)
 
 	// SetBlockchain is used to set the blockchain on this object
 	SetBlockchain(bc *ethcore.BlockChain)
