@@ -115,6 +115,7 @@ type Core interface {
 	Precommiter() Precommiter
 	Height() *big.Int
 	Round() int64
+	MessageEventCh() <-chan events.MessageEventer
 
 	// Used by the aggregator
 	Power(h uint64, r int64) *message.AggregatedPower

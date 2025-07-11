@@ -651,7 +651,6 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 
 func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent, eventer eventBuilder) {
 	proposal := proposalEvent.Message
-	// go routine for core event dispatch as well to avoid deadlock, there is loop between core and aggregator
 	a.internalCoreCh <- eventer(proposal, proposalEvent).(events.MessageEventer)
 	a.internalFdCh <- eventer(proposal, proposalEvent).(events.MessageEventer)
 }
@@ -1060,6 +1059,12 @@ func (a *aggregator) stop() {
 	a.logger.Info("Stopping the aggregator routine")
 	a.cancel()
 	a.wg.Wait()
-	close(a.internalFdCh)
-	close(a.internalCoreCh)
+	if a.internalCoreCh != nil {
+		close(a.internalCoreCh)
+		a.internalCoreCh = nil
+	}
+	if a.internalFdCh != nil {
+		close(a.internalFdCh)
+		a.internalFdCh = nil
+	}
 }

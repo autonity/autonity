@@ -553,6 +553,20 @@ func (mr *MockCoreMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockCore)(nil).Height))
 }
 
+// MessageEventCh mocks base method.
+func (m *MockCore) MessageEventCh() <-chan events.MessageEventer {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MessageEventCh")
+	ret0, _ := ret[0].(<-chan events.MessageEventer)
+	return ret0
+}
+
+// MessageEventCh indicates an expected call of MessageEventCh.
+func (mr *MockCoreMockRecorder) MessageEventCh() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MessageEventCh", reflect.TypeOf((*MockCore)(nil).MessageEventCh))
+}
+
 // Power mocks base method.
 func (m *MockCore) Power(h uint64, r int64) *message.AggregatedPower {
 	m.ctrl.T.Helper()

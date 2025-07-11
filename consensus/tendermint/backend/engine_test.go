@@ -511,7 +511,10 @@ func TestAPIs(t *testing.T) {
 func fakeAggregator() *aggregator {
 	stopped := false
 	fakeAggregator := &aggregator{
-		logger: log.Root(),
+		logger:         log.Root(),
+		internalCoreCh: make(chan events.MessageEventer, 1),
+		internalFdCh:   make(chan events.MessageEventer, 1),
+		signerSetCache: newAggregatorCache(),
 		cancel: func() {
 			if !stopped {
 				stopped = true
@@ -670,7 +673,7 @@ func TestStart(t *testing.T) {
 			logger:             log.Root(),
 			router:             mockRouter,
 		}
-		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC, signerSetCache: newAggregatorCache()}
 
 		err := b.Start(ctx)
 		assertNilError(t, err)
@@ -716,7 +719,7 @@ func TestStart(t *testing.T) {
 			logger:             log.Root(),
 			router:             mockRouter,
 		}
-		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC, signerSetCache: newAggregatorCache()}
 		b.coreStarting.Store(false)
 
 		err := b.Start(ctx)
@@ -753,7 +756,7 @@ func TestStart(t *testing.T) {
 			logger:             log.Root(),
 			router:             mockRouter,
 		}
-		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC, signerSetCache: newAggregatorCache()}
 		b.coreStarting.Store(false)
 
 		var wg sync.WaitGroup
@@ -820,7 +823,14 @@ func TestMultipleRestart(t *testing.T) {
 		logger:             log.Root(),
 		router:             mockRouter,
 	}
-	b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
+	b.aggregator = &aggregator{
+		logger:         log.Root(),
+		backend:        b,
+		core:           tendermintC,
+		signerSetCache: newAggregatorCache(),
+		internalCoreCh:   make(chan events.MessageEventer, 1),
+		internalFdCh:     make(chan events.MessageEventer, 1),
+	}
 	b.coreStarting.Store(false)
 
 	for i := 0; i < times; i++ {

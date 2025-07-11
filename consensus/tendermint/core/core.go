@@ -176,6 +176,10 @@ type Core struct {
 	eventCh            chan events.CoreEvent // channel to communicate events from core to other modules (aggregator)
 }
 
+func (c *Core) MessageEventCh() <-chan events.MessageEventer {
+	return c.messageEventCh
+}
+
 func (c *Core) EventCh() <-chan events.CoreEvent {
 	return c.eventCh
 }
