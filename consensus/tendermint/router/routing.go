@@ -159,6 +159,7 @@ func (m *Router) recordDistinctHash(msg message.Msg) {
 	}
 }
 
+// TODO: rename to Send and deal with all the edge cases (full broadcast, forward, slow gossip, etc.) inside this function itself
 func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender common.Address, recipients []common.Address) {
 	if m.peerFinder == nil {
 		log.Info("Router: peer finder not set")

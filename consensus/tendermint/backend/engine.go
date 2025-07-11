@@ -628,7 +628,11 @@ func (sb *Backend) SetBlockchain(bc *core.BlockChain) {
 }
 
 func (sb *Backend) Jail(offender common.Address) {
-	sb.jailingCh <- offender
+	select {
+	case sb.jailingCh <- offender:
+	default:
+		sb.logger.Warn("jailing channel full - cannot jail", "offender", offender)
+	}
 }
 
 // note: not sure if jailing for more than current epoch is supported by the cleanup code currently

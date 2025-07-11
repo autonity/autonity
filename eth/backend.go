@@ -620,7 +620,6 @@ func (s *Ethereum) validatorController() {
 		index := s.topologySelector.MyIndex(committee.List, s.p2pServer.LocalNode())
 		s.p2pServer.UpdateConsensusEnodes(s.topologySelector.RequestSubset(committee.List, index), committee.List)
 	}
-	wasValidating := false
 
 	// read the committee base on latest state.
 	currentHead := s.blockchain.CurrentBlock().Header()
@@ -634,6 +633,8 @@ func (s *Ethereum) validatorController() {
 	}
 
 	var mu sync.Mutex
+	wasValidating := false
+	pendingStop := false // signals to startMiningWhenReady that the node went out of the committee
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -652,6 +653,9 @@ func (s *Ethereum) validatorController() {
 					// total number of nodes should include node itself.
 					if float64(s.consensusServer.PeerCount()+1) >= (float64(committee.Len()) * (2.7 / 3.0)) {
 						mu.Lock()
+						if pendingStop { // we already exited the committee due to a new epoch head. Must not start mining.
+							return
+						}
 						if !wasValidating {
 							s.miner.Start()
 							wasValidating = true
@@ -664,6 +668,9 @@ func (s *Ethereum) validatorController() {
 				case <-timeout:
 					s.log.Warn("miner waited to reach required peer count, start mining anyway", "timeout sec", timeOutSec, "current peer count", s.consensusServer.PeerCount(), "required", committee.Len())
 					mu.Lock()
+					if pendingStop { // we already exited the committee due to a new epoch head. Must not start mining.
+						return
+					}
 					if !wasValidating {
 						s.miner.Start()
 						wasValidating = true
@@ -697,6 +704,7 @@ func (s *Ethereum) validatorController() {
 				// there is no longer the need to retain the full connections and the
 				// consensus engine enabled.
 				mu.Lock()
+				pendingStop = true
 				if wasValidating {
 					s.log.Info("Local node no longer detected part of the consensus committee, mining stopped")
 					s.miner.Stop()

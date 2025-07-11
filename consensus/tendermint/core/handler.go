@@ -136,11 +136,11 @@ func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash
 	case message.PrevoteCode:
 		aggregatePrevote := c.messages.GetOrCreate(round).PrevoteFor(value)
 		c.messages.GetOrCreate(round).AddPrevote(aggregatePrevote)
-		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrevote)
+		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrevote, true)
 	case message.PrecommitCode:
 		aggregatePrecommit := c.messages.GetOrCreate(round).PrecommitFor(value)
 		c.messages.GetOrCreate(round).AddPrecommit(aggregatePrecommit)
-		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrecommit)
+		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrecommit, true)
 	}
 }
 
@@ -179,21 +179,22 @@ const (
 
 func determineDisseminationStrategy(err error, code uint8, alreadyDisseminated bool) disseminationStrategy {
 	// proposals are already forwarded in backend
-	// TODO: check for proposals also if they were eraly forewaded?
+	// TODO: some proposal might not be early forwarded
 	if alreadyDisseminated || code == message.ProposalCode {
 		return noDissemination
 	}
-	// standard dissemination strategy is forwarding
 	if err == nil {
-		return forward
+		return gossip
 	}
 	switch {
+	// TODO: cap to +2/3 rounds gossiping of future round msg (separate PR) - mitigate network spam
 	case errors.Is(err, constants.ErrFutureRoundMessage):
-		return forward
+		return gossip
 	case errors.Is(err, constants.ErrOldRoundMessage):
+		//TODO: instead of slow gossip we could use a priority based logic when processing messages
 		return slowGossip
 	default:
-		return noDissemination
+		panic("cannot determine strategy for err: " + err.Error())
 	}
 }
 
@@ -258,9 +259,9 @@ func shouldQuit(err error) bool {
 	case errors.Is(err, constants.ErrOldRoundMessage):
 		fallthrough
 	case errors.Is(err, constants.ErrFutureRoundMessage):
-		fallthrough
+		return false
 	default:
-		// redundant votes are not disseminated
+		// note: redundant votes are not disseminated
 		return true
 	}
 }
@@ -315,15 +316,14 @@ func (c *Core) handleEvent(ctx context.Context, e events.MessageEvent) {
 		return // do not gossip single message, only complex aggregate
 	}
 
+	isLocal := c.Address() == e.Sender()
 	switch determineDisseminationStrategy(err, msg.Code(), e.Disseminated()) {
 	case noDissemination:
 		// do nothing
 	case slowGossip:
-		go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg)
+		go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg, isLocal)
 	case gossip:
-		go c.backend.Gossip(c.CommitteeSet().Committee(), msg)
-	case forward:
-		go c.backend.Router().Forward(c.CommitteeSet().Committee(), msg, e.Sender(), nil)
+		go c.backend.Gossip(c.CommitteeSet().Committee(), msg, isLocal)
 	default:
 		panic("unknown dissemination strategy")
 	}
@@ -397,6 +397,11 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 
 	ticker := time.NewTicker(constants.AskSyncInterval)
 	defer ticker.Stop()
+
+	// TODO:
+	//	 1. make it lighter on network propagation
+	// 	 2. dissemination strategy of messages received due to asking sync
+	// 		- no dissemination? or partial dissemination (only local cluster)? or standard forward (current approach)
 
 eventLoop:
 	for {

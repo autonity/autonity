@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -95,7 +94,7 @@ func powerContribution(aggregatorSigners *big.Int, coreSigners *big.Int, committ
 	return contributionPower
 }
 
-func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger, knownMessages *fixsizecache.Cache[common.Hash, bool]) *aggregator {
+func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger) *aggregator {
 	return &aggregator{
 		backend:       backend,
 		core:          core,
@@ -104,7 +103,6 @@ func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.
 		logger:        logger,
 		messagesFrom:  make(map[common.Address][]common.Hash),
 		toIgnore:      make(map[common.Hash]struct{}),
-		knownMessages: knownMessages,
 	}
 }
 
@@ -144,8 +142,6 @@ type aggregator struct {
 
 	messagesFrom map[common.Address][]common.Hash
 	toIgnore     map[common.Hash]struct{}
-
-	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -560,14 +556,12 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			case *message.Prevote:
 				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					go a.backend.MessageToCore(eventer(aggregateVote, nil, a.backend.Address()))
 					go a.backend.Post(eventer(aggregateVote, nil, a.backend.Address()))
 				}
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
 					go a.backend.MessageToCore(eventer(aggregateVote, nil, a.backend.Address()))
 					go a.backend.Post(eventer(aggregateVote, nil, a.backend.Address()))
 				}
