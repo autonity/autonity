@@ -247,9 +247,7 @@ func TestHandleFutureRound(t *testing.T) {
 	// handling vote
 	vote := message.NewPrevote(currentRound+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender2.Address].consensus), sender2, 4)
 	// future round messages are forwarded right away
-	mockRouter := interfaces.NewMockRouter(ctrl)
-	mockRouter.EXPECT().Forward(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-	backendMock.EXPECT().Router().Return(mockRouter).Times(1)
+	backendMock.EXPECT().Gossip(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
 	engine.handleEvent(context.Background(), makeBogusMessageEvent(vote, false))
 
 	// check that vote was saved in the future messages and power was updated accordingly
