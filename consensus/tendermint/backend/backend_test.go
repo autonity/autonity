@@ -170,14 +170,14 @@ func BenchmarkGossip(b *testing.B) {
 	for n := 0; n < 1000; n++ {
 		i := n % 1000
 		//n := time.Now()
-		bk.Gossip(committee, msgs[i])
+		bk.Gossip(committee, msgs[i], true)
 		//b.Log("time in 1 gossip", time.Since(n).Nanoseconds())
 	}
 	b.Run("cache checks", func(b *testing.B) {
 		b.ReportAllocs()
 		for n := 0; n < b.N; n++ {
 			i := n % 1000
-			bk.Gossip(committee, msgs[i])
+			bk.Gossip(committee, msgs[i], true)
 		}
 	})
 }
@@ -227,7 +227,7 @@ func TestGossip(t *testing.T) {
 		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{}), rt),
 	}
 	b.SetBroadcaster(broadcaster)
-	b.Gossip(committee, msg)
+	b.Gossip(committee, msg, true)
 	<-time.NewTimer(2 * time.Second).C
 	if c := atomic.LoadUint64(&counter); c != 4 {
 		t.Fatal("Gossip message transmission failure", "have", c, "want", 4)

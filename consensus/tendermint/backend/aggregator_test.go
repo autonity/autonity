@@ -14,7 +14,6 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	tc "github.com/autonity/autonity/consensus/tendermint/core"
@@ -701,11 +700,10 @@ func TestAggregatorHandleVote(t *testing.T) {
 		coreMock := interfaces.NewMockCore(ctrl)
 
 		a := &aggregator{
-			messages:      make(map[uint64]map[int64]*RoundInfo),
-			core:          coreMock,
-			backend:       backendMock,
-			knownMessages: fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
-			logger:        log.Root(),
+			messages: make(map[uint64]map[int64]*RoundInfo),
+			core:     coreMock,
+			backend:  backendMock,
+			logger:   log.Root(),
 		}
 
 		r := int64(5)
@@ -758,11 +756,10 @@ func TestAggregatorHandleVote(t *testing.T) {
 		coreMock := interfaces.NewMockCore(ctrl)
 
 		a := &aggregator{
-			messages:      make(map[uint64]map[int64]*RoundInfo),
-			core:          coreMock,
-			backend:       backendMock,
-			knownMessages: fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
-			logger:        log.Root(),
+			messages: make(map[uint64]map[int64]*RoundInfo),
+			core:     coreMock,
+			backend:  backendMock,
+			logger:   log.Root(),
 		}
 
 		r := int64(5)
@@ -956,11 +953,10 @@ func TestAggregatorProcess(t *testing.T) {
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{
-			messages:      make(map[uint64]map[int64]*RoundInfo),
-			messagesFrom:  make(map[common.Address][]common.Hash),
-			backend:       backendMock,
-			knownMessages: fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
-			logger:        log.Root(),
+			messages:     make(map[uint64]map[int64]*RoundInfo),
+			messagesFrom: make(map[common.Address][]common.Hash),
+			backend:      backendMock,
+			logger:       log.Root(),
 		}
 
 		for _, message := range messages {
@@ -985,11 +981,10 @@ func TestAggregatorProcess(t *testing.T) {
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{
-			messages:      make(map[uint64]map[int64]*RoundInfo),
-			messagesFrom:  make(map[common.Address][]common.Hash),
-			backend:       backendMock,
-			knownMessages: fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
-			logger:        log.Root(),
+			messages:     make(map[uint64]map[int64]*RoundInfo),
+			messagesFrom: make(map[common.Address][]common.Hash),
+			backend:      backendMock,
+			logger:       log.Root(),
 		}
 
 		for _, message := range messages {
@@ -1015,11 +1010,10 @@ func TestAggregatorProcess(t *testing.T) {
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{
-			messages:      make(map[uint64]map[int64]*RoundInfo),
-			messagesFrom:  make(map[common.Address][]common.Hash),
-			backend:       backendMock,
-			knownMessages: fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
-			logger:        log.Root(),
+			messages:     make(map[uint64]map[int64]*RoundInfo),
+			messagesFrom: make(map[common.Address][]common.Hash),
+			backend:      backendMock,
+			logger:       log.Root(),
 		}
 
 		for _, message := range messages {
@@ -1046,9 +1040,8 @@ func TestAggregatorProcess(t *testing.T) {
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{
-			backend:       backendMock,
-			knownMessages: fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
-			logger:        log.Root(),
+			backend: backendMock,
+			logger:  log.Root(),
 		}
 
 		var batches [][]events.UnverifiedMessageEvent
@@ -1085,9 +1078,8 @@ func TestAggregatorProcess(t *testing.T) {
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{
-			backend:       backendMock,
-			knownMessages: fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
-			logger:        log.Root(),
+			backend: backendMock,
+			logger:  log.Root(),
 		}
 
 		var batches [][]events.UnverifiedMessageEvent
@@ -1156,12 +1148,11 @@ func TestAggregatorDosProtection(t *testing.T) {
 	backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 	a := &aggregator{
-		backend:       backendMock,
-		knownMessages: fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
-		logger:        log.Root(),
-		messagesFrom:  make(map[common.Address][]common.Hash),
-		messages:      make(map[uint64]map[int64]*RoundInfo),
-		toIgnore:      make(map[common.Hash]struct{}),
+		backend:      backendMock,
+		logger:       log.Root(),
+		messagesFrom: make(map[common.Address][]common.Hash),
+		messages:     make(map[uint64]map[int64]*RoundInfo),
+		toIgnore:     make(map[common.Hash]struct{}),
 	}
 
 	// suppose committee[0] is sending invalid sigs
@@ -1259,11 +1250,10 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		coreMock.EXPECT().VotesPower(gomock.Any(), gomock.Any(), gomock.Any()).Return(message.NewAggregatedPower()).Times(2)
 
 		a := &aggregator{
-			core:          coreMock,
-			backend:       backendMock,
-			messages:      make(map[uint64]map[int64]*RoundInfo),
-			logger:        log.Root(),
-			knownMessages: fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
+			core:     coreMock,
+			backend:  backendMock,
+			messages: make(map[uint64]map[int64]*RoundInfo),
+			logger:   log.Root(),
 		}
 
 		// need to pass them through a fake prevote to make signature valid
@@ -1314,11 +1304,10 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		backendMock.EXPECT().BlockChain().Return(chain).AnyTimes()
 
 		a := &aggregator{
-			core:          coreMock,
-			backend:       backendMock,
-			messages:      make(map[uint64]map[int64]*RoundInfo),
-			logger:        log.Root(),
-			knownMessages: fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
+			core:     coreMock,
+			backend:  backendMock,
+			messages: make(map[uint64]map[int64]*RoundInfo),
+			logger:   log.Root(),
 		}
 
 		// save a prevote carrying quorum for same (h,r,c,v) as the power change. It should get processed due to the power change
@@ -1366,11 +1355,10 @@ func TestAggregatorCoreEvents(t *testing.T) {
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{
-			core:          coreMock,
-			backend:       backendMock,
-			messages:      make(map[uint64]map[int64]*RoundInfo),
-			logger:        log.Root(),
-			knownMessages: fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
+			core:     coreMock,
+			backend:  backendMock,
+			messages: make(map[uint64]map[int64]*RoundInfo),
+			logger:   log.Root(),
 		}
 
 		// should get processed thanks to the FuturePowerChangeEvent

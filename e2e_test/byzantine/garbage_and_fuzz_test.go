@@ -43,7 +43,7 @@ func (s *randomBytesBroadcaster) Broadcast(_ message.Msg) {
 		var hash common.Hash
 		copy(hash[:], payload)
 		msg := message.Fake{FakeCode: 1, FakePayload: payload, FakeHash: hash}
-		s.Backend().Gossip(s.CommitteeSet().Committee(), msg)
+		s.Backend().Gossip(s.CommitteeSet().Committee(), msg, true)
 	}
 }
 
