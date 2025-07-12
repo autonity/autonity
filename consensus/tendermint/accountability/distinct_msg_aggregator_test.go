@@ -32,7 +32,7 @@ func TestRLPEncodingDecoding(t *testing.T) {
 		Round:               r,
 		Value:               common.Hash{},
 		SignersIndex:        []int{0},
-		SignersCoeff:        []uint16{1},
+		SignersCoeff:        []*big.Int{big.NewInt(1)},
 		aggregatedPublicKey: nil,
 		hasSigners:          nil,
 		preValidated:        false,
@@ -54,7 +54,7 @@ func TestRLPEncodingDecoding(t *testing.T) {
 
 	rvs.Round = constants.MaxRound
 	rvs.SignersIndex = []int{}
-	rvs.SignersCoeff = []uint16{}
+	rvs.SignersCoeff = []*big.Int{}
 	p, err = rlp.EncodeToBytes(&rvs)
 	require.NoError(t, err)
 	decodeRVS = &Signers{}
@@ -167,7 +167,7 @@ func aggregatedPrecommit(h uint64, r int64, v common.Hash, signers []int, commit
 	for i, s := range signers {
 		precommits[i] = newValidatedPrecommit(r, h, v, makeSigner(keys[s]), &committee.Members[s], committee.Len())
 	}
-	return aggregatePrecommits(precommits)
+	return message.AggregatePrecommitsSingle(precommits)
 }
 
 // randomSigners generate a set of signer's index, it could have duplicated index.
@@ -234,7 +234,7 @@ func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *
 		if len(wrongSigners) > 0 {
 			defaultSingers = wrongSigners
 			for len(coeffs) < len(defaultSingers) {
-				coeffs = append(coeffs, 1)
+				coeffs = append(coeffs, new(big.Int).SetUint64(1))
 			}
 			if len(coeffs) > len(defaultSingers) {
 				coeffs = coeffs[:len(defaultSingers)]

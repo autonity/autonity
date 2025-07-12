@@ -38,10 +38,10 @@ type Backend interface {
 	GetContractABI() *abi.ABI
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(committee *types.Committee, message message.Msg, isLocal bool)
+	Gossip(committee *types.Committee, message message.Msg, sender common.Address)
 
 	// SlowGossip sends a message to a subset of validators
-	SlowGossip(committee *types.Committee, message message.Msg, isLocal bool)
+	SlowGossip(committee *types.Committee, message message.Msg, sender common.Address)
 
 	KnownMsgHash() []common.Hash
 

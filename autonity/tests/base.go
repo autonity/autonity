@@ -245,7 +245,7 @@ func (r *Runner) deployContract(
 // then this func needs to be modified to add their signatures as well.
 func activityProof(committee []IAutonityValidator, headerSeal common.Hash, absentees map[common.Address]struct{}) *types.AggregateSignature {
 	var signatures []blst.Signature //nolint
-	signers := types.NewQuorumSigners(len(committee))
+	signers := types.NewSigners(len(committee))
 	numSigners := 0
 	for _, keyHex := range params.TestConsensusKeys {
 		// deserialize key
@@ -271,7 +271,10 @@ func activityProof(committee []IAutonityValidator, headerSeal common.Hash, absen
 		}
 		signatures = append(signatures, key.Sign(headerSeal[:]))
 
-		signers.AddMember(&types.CommitteeMember{Index: uint64(index), VotingPower: common.Big1})
+		signers.AddMember(&types.CommitteeMember{
+			Index:       uint64(index), //nolint:gosec
+			VotingPower: common.Big1,
+		})
 		numSigners++
 	}
 	// if there are no signers, return an empty proof

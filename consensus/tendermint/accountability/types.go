@@ -49,9 +49,6 @@ func (t *typedMessage) DecodeRLP(stream *rlp.Stream) error {
 		p = &message.Precommit{}
 	case message.LightProposalCode:
 		p = &message.LightProposal{}
-	case message.EvidenceVoteCode:
-		p = &message.EvidenceVote{}
-
 	default:
 		return errUnexpectedCode
 	}

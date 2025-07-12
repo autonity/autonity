@@ -91,10 +91,10 @@ func routingBase(committee *types.Committee, msg message.Msg) common.Address {
 	case *message.Propose:
 		rb = m.Signer()
 	case *message.Prevote:
-		routingBaseIndex := m.Signers().LeftmostSigner()
+		routingBaseIndex := m.Signers().RightmostSigner()
 		rb = committee.Members[routingBaseIndex].Address
 	case *message.Precommit:
-		routingBaseIndex := m.Signers().LeftmostSigner()
+		routingBaseIndex := m.Signers().RightmostSigner()
 		rb = committee.Members[routingBaseIndex].Address
 	default:
 		panic("unknown msg type. msg: " + msg.String())
@@ -114,7 +114,7 @@ func (s *selector) selectPeersWithBuckets(committee *types.Committee, msg messag
 	ownClusterID := clusters.ID()
 
 	if senderClusterID == -1 || originClusterID == -1 || ownClusterID == -1 {
-		fmt.Println("selector: unknown clusters", "sender", from.Hex(), "routingBase", rb.Hex(), "msg hash", msg.Hash().Hex(), "self", clusters.Self().Hex())
+		log.Debug("selector: unknown clusters", "sender", from.Hex(), "routingBase", rb.Hex(), "msg hash", msg.Hash().Hex(), "self", clusters.Self().Hex())
 		return nil, errors.New("unknown clusters")
 	}
 
@@ -213,7 +213,7 @@ func (s *selector) selectBucketBasedNodes(clusters cluster.Clusters, committee *
 	case originator:
 		// additional nodes
 		localNodes := len(clusters.Base()[ownClusterID])
-		minNodes = int(float64(localNodes) * (2.0 / 3.0)) // assuming all cluster of same size, send to 2/3 of cluser size
+		minNodes = int(float64(localNodes) * (2.0 / 3.0)) // assuming all cluster of same size, send to 2/3 of cluster size
 		lowLatencyNodes = 4
 		if isProposal {
 			recipients = s.selectNodesByLatencySpread()

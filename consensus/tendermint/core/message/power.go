@@ -8,13 +8,6 @@ type AggregatedPower struct {
 	signers *big.Int // used as bitmap, we do not care about coefficients here, only if a validator is present or not
 }
 
-// computes the contribution that a vote/aggregate would bring to Core
-func Contribution(aggregatorSigners *big.Int, coreSigners *big.Int) *big.Int {
-	notCoreSigners := new(big.Int).Not(coreSigners)
-	contribution := notCoreSigners.And(notCoreSigners, aggregatorSigners)
-	return contribution
-}
-
 // returns whether the new signer increased the power or was redundant
 func (p *AggregatedPower) Set(index int, power *big.Int) bool {
 	if p.signers.Bit(index) == 1 {

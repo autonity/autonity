@@ -82,7 +82,7 @@ func mineOneBlock(t *testing.T, chain *core.BlockChain, backend *Backend) {
 func tweakPrevote(prevote *message.Prevote, key blst.PublicKey) *message.Prevote {
 	return message.NewFakePrevote(message.Fake{
 		FakeValue:          prevote.Value(),
-		FakeSigners:        &types.VoteSigners{SignersBase: prevote.Signers()},
+		FakeSigners:        prevote.Signers().Copy(),
 		FakeRound:          uint64(prevote.R()),
 		FakeHeight:         prevote.H(),
 		FakeSignatureInput: prevote.SignatureInput(),
@@ -870,8 +870,8 @@ func TestAggregatorHandleVote(t *testing.T) {
 		a.handleVote(voteEvent, committee, quorum, true)
 		require.Equal(t, 1, len(a.messages[h][r].precommits))
 
-		// // message makes us reach quorum for v, gets processed
-		// vote = message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize)
+		// message makes us reach quorum for v, gets processed
+		vote = message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize)
 		vote.Signers().AddMember(&committee.Members[1])
 		vote.Signers().AddMember(&committee.Members[2])
 		voteEvent = makeBogusEvent(vote)
@@ -943,7 +943,7 @@ func TestAggregatorProcess(t *testing.T) {
 		// signature is invalid but proposal is created with `verified`=true, so it is considered valid
 		propose := makeBogusPropose(0, 1, 0)
 		proposeEvent := makeBogusEvent(propose)
-		a.processProposal(proposeEvent, func(_ message.Msg, _ chan<- error, _ common.Address) interface{} { return struct{}{} })
+		a.processProposal(proposeEvent, func(_ message.Msg, _ chan<- error, _ common.Address, _ bool) interface{} { return struct{}{} })
 	})
 	t.Run("processRound processes all the messages for a round", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -1037,7 +1037,7 @@ func TestAggregatorProcess(t *testing.T) {
 		defer waitForExpects(t, ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Post(gomock.Any()).Times(4)
+		backendMock.EXPECT().Post(gomock.Any()).Times(3)
 		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
@@ -1067,7 +1067,7 @@ func TestAggregatorProcess(t *testing.T) {
 			makeBogusEvent(aggregate2[0]),
 		})
 
-		a.processBatches(batches, func(_ message.Msg, _ chan<- error, _ common.Address) interface{} { return struct{}{} })
+		a.processBatches(batches, func(_ message.Msg, _ chan<- error, _ common.Address, _ bool) interface{} { return struct{}{} })
 	})
 	t.Run("ProcessBatch successfully detects and discard invalid signatures", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -1120,7 +1120,7 @@ func TestAggregatorProcess(t *testing.T) {
 			makeBogusEvent(message.NewPrecommit(r, h, value, testSigner, &committee.Members[5], csize)),
 		})
 
-		a.processBatches(batches, func(m message.Msg, _ chan<- error, _ common.Address) interface{} {
+		a.processBatches(batches, func(m message.Msg, _ chan<- error, _ common.Address, _ bool) interface{} {
 			vote, ok := m.(message.Vote)
 			require.True(t, ok)
 			if vote.Signers().Contains(3) || vote.Signers().Contains(6) {

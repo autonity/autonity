@@ -62,15 +62,15 @@ func recordMessageProcessingTime(code uint8, start time.Time) {
 	}
 }
 
-type eventBuilder func(msg message.Msg, errCh chan<- error, sender common.Address) interface{}
+type eventBuilder func(msg message.Msg, errCh chan<- error, sender common.Address, disseminated bool) interface{}
 
 // function to create the event for current height messages (they get picked up by Core and by the FD)
-func currentHeightEventBuilder(msg message.Msg, errCh chan<- error, sender common.Address) interface{} {
-	return events.NewMessageEvent(msg, errCh, sender, time.Now(), false)
+func currentHeightEventBuilder(msg message.Msg, errCh chan<- error, sender common.Address, disseminated bool) interface{} {
+	return events.NewMessageEvent(msg, errCh, sender, time.Now(), disseminated)
 }
 
 // function to create the event for old height messages (they get picked up only by the FD)
-func oldHeightEventBuilder(msg message.Msg, errCh chan<- error, sender common.Address) interface{} {
+func oldHeightEventBuilder(msg message.Msg, errCh chan<- error, sender common.Address, _ bool) interface{} {
 	return events.OldMessageEvent{
 		Message: msg,
 		ErrCh:   errCh,
@@ -80,7 +80,7 @@ func oldHeightEventBuilder(msg message.Msg, errCh chan<- error, sender common.Ad
 
 // computes how much new voting power will the messages in the aggregator apport to core
 func powerContribution(aggregatorSigners *big.Int, coreSigners *big.Int, committee *types.Committee) *big.Int {
-	contribution := message.Contribution(aggregatorSigners, coreSigners)
+	contribution := common.Contribution(aggregatorSigners, coreSigners)
 	if contribution.Cmp(common.Big0) == 0 {
 		return new(big.Int) // no power contribution
 	}
@@ -222,9 +222,6 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 			roundInfo.precommitsPower.Set(index, power)
 			roundInfo.precommitsPowerFor[v].Set(index, power)
 		}
-	case message.EvidenceVoteCode:
-		panic("msg of type EvidenceVoteCode in aggregator")
-
 	}
 }
 
@@ -559,14 +556,14 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			case *message.Prevote:
 				aggregateVotes := message.AggregatePrevotes(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					go a.backend.MessageToCore(eventer(aggregateVote, nil, a.backend.Address()))
-					go a.backend.Post(eventer(aggregateVote, nil, a.backend.Address()))
+					go a.backend.MessageToCore(eventer(aggregateVote, nil, a.backend.Address(), false))
+					go a.backend.Post(eventer(aggregateVote, nil, a.backend.Address(), false))
 				}
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommits(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					go a.backend.MessageToCore(eventer(aggregateVote, nil, a.backend.Address()))
-					go a.backend.Post(eventer(aggregateVote, nil, a.backend.Address()))
+					go a.backend.MessageToCore(eventer(aggregateVote, nil, a.backend.Address(), false))
+					go a.backend.Post(eventer(aggregateVote, nil, a.backend.Address(), false))
 				}
 			default:
 				a.logger.Crit("messages being aggregated are not votes", "type", reflect.TypeOf(validVotes[0]))
@@ -588,8 +585,8 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent, eventer eventBuilder) {
 	proposal := proposalEvent.Message
 	// go routine for core event dispatch as well to avoid deadlock, there is loop between core and aggregator
-	go a.backend.MessageToCore(eventer(proposal, proposalEvent.ErrCh, proposalEvent.Sender)) // to core
-	go a.backend.Post(eventer(proposal, proposalEvent.ErrCh, proposalEvent.Sender))          // to FD
+	go a.backend.MessageToCore(eventer(proposal, proposalEvent.ErrCh, proposalEvent.Sender, proposalEvent.Disseminated)) // to core
+	go a.backend.Post(eventer(proposal, proposalEvent.ErrCh, proposalEvent.Sender, proposalEvent.Disseminated))          // to FD
 }
 
 // assumes current or old round vote
@@ -613,8 +610,8 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 			a.handleInvalidMessage(errCh, err, sender)
 			return
 		}
-		go a.backend.MessageToCore(currentHeightEventBuilder(voteEvent.Message, voteEvent.ErrCh, voteEvent.Sender)) // to core
-		go a.backend.Post(currentHeightEventBuilder(voteEvent.Message, voteEvent.ErrCh, voteEvent.Sender))          // to FD
+		go a.backend.MessageToCore(currentHeightEventBuilder(voteEvent.Message, voteEvent.ErrCh, voteEvent.Sender, voteEvent.Disseminated)) // to core
+		go a.backend.Post(currentHeightEventBuilder(voteEvent.Message, voteEvent.ErrCh, voteEvent.Sender, voteEvent.Disseminated))          // to FD
 		return
 	}
 

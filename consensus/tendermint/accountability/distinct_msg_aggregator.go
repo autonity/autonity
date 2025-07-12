@@ -2,10 +2,9 @@ package accountability
 
 import (
 	"errors"
+	"fmt"
 	"io"
-	"math/bits"
-
-	blstbind "github.com/supranational/blst/bindings/go"
+	"math/big"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -30,7 +29,7 @@ type Signers struct {
 	Round        int64
 	Value        common.Hash
 	SignersIndex []int
-	SignersCoeff []uint16
+	SignersCoeff []*big.Int
 
 	// computed fields
 	aggregatedPublicKey blst.PublicKey   `rlp:"-"`
@@ -41,23 +40,21 @@ type Signers struct {
 type extSigners struct {
 	Round        uint64
 	Value        common.Hash
-	SignersIndex []uint
-	SignersCoeff []uint16
+	SignersIndex []*big.Int
+	SignersCoeff []*big.Int
 }
 
 func (r *Signers) EncodeRLP(w io.Writer) error {
-	signersIndex := make([]uint, len(r.SignersIndex))
-	signersCoeff := make([]uint16, len(r.SignersCoeff))
+	signersIndex := make([]*big.Int, len(r.SignersIndex))
 	for i, s := range r.SignersIndex {
-		signersIndex[i] = uint(s)
+		signersIndex[i] = big.NewInt(int64(s))
 	}
-	copy(signersCoeff, r.SignersCoeff)
 
 	ext := extSigners{
-		Round:        uint64(r.Round),
+		Round:        uint64(r.Round), //nolint:gosec
 		Value:        r.Value,
 		SignersIndex: signersIndex,
-		SignersCoeff: signersCoeff,
+		SignersCoeff: r.SignersCoeff,
 	}
 
 	return rlp.Encode(w, &ext)
@@ -69,36 +66,57 @@ func (r *Signers) DecodeRLP(stream *rlp.Stream) error {
 		return err
 	}
 
-	if len(ext.SignersIndex) == 0 {
+	if int64(ext.Round) > constants.MaxRound {
+		return ErrInvalidRound
+	}
+
+	if len(ext.SignersIndex) == 0 || len(ext.SignersIndex) > types.MaxAllowedSigners {
 		return ErrNoSigners
 	}
 	if len(ext.SignersCoeff) != len(ext.SignersIndex) {
 		return ErrInvalidSignerCoeff
 	}
-
-	if int64(ext.Round) > constants.MaxRound {
-		return ErrInvalidRound
+	for i, coefficient := range ext.SignersCoeff {
+		// coefficients cannot be nil
+		if coefficient == nil {
+			return fmt.Errorf("coefficient cannot be nil")
+		}
+		// every coefficient should be > 0
+		if coefficient.Sign() <= 0 {
+			return fmt.Errorf("invalid coefficient. Sign: %d", coefficient.Sign())
+		}
+		// coefficient cannot exceed QuorumVote bitsize in any situation
+		if coefficient.BitLen() > common.QuorumCap {
+			return fmt.Errorf("coefficient too big. BitLen: %d", coefficient.BitLen())
+		}
+		index := ext.SignersIndex[i]
+		// indexes cannot be nil
+		if index == nil {
+			return fmt.Errorf("index cannot be nil")
+		}
+		// every index should be >= 0
+		if index.Sign() < 0 {
+			return fmt.Errorf("invalid index. Sign: %d", index.Sign())
+		}
+		// index cannot be >= MaxAllowedSigners
+		if !index.IsInt64() || index.Cmp(types.MaxAllowedSignersBig) >= 0 {
+			return fmt.Errorf("index too big: %s", index.String())
+		}
 	}
 
 	r.Round = int64(ext.Round)
 	r.Value = ext.Value
 	signersIndex := make([]int, len(ext.SignersIndex))
-	signersCoeff := make([]uint16, len(ext.SignersCoeff))
 	for i, s := range ext.SignersIndex {
-		signersIndex[i] = int(s)
+		signersIndex[i] = int(s.Int64())
 	}
-	copy(signersCoeff, ext.SignersCoeff)
 	r.SignersIndex = signersIndex
-	r.SignersCoeff = signersCoeff
+	r.SignersCoeff = ext.SignersCoeff
 	return nil
 }
 
 // PreValidate computes the aggregated public key and set the preValidated flag.
 func (r *Signers) PreValidate(committee *types.Committee) error {
-	if len(r.SignersIndex) == 0 || len(r.SignersCoeff) != len(r.SignersIndex) {
-		return ErrSignatureInvalid
-	}
-
 	committeeSize := committee.Len()
 	// early return, as signer indexes are distinct
 	if len(r.SignersIndex) > committeeSize {
@@ -107,16 +125,11 @@ func (r *Signers) PreValidate(committee *types.Committee) error {
 
 	publicKeys := make([]blst.PublicKey, len(r.SignersIndex))
 	r.hasSigners = make(map[int]struct{})
-	var maxCoeff uint16
 
 	for i, idx := range r.SignersIndex {
 		if idx >= committeeSize || idx < 0 {
 			return ErrInvalidSignerIndex
 		}
-		if r.SignersCoeff[i] == 0 {
-			return ErrInvalidSignerCoeff
-		}
-		maxCoeff = max(maxCoeff, r.SignersCoeff[i])
 		publicKeys[i] = committee.Members[idx].ConsensusKey
 
 		// distinct signers
@@ -126,29 +139,15 @@ func (r *Signers) PreValidate(committee *types.Committee) error {
 		r.hasSigners[idx] = struct{}{}
 	}
 
-	if len(r.SignersCoeff) == 1 && maxCoeff != 1 {
+	if len(r.SignersCoeff) == 1 && r.SignersCoeff[0].Cmp(common.Big1) != 0 {
 		return ErrSignatureInvalid
 	}
 
-	if len(r.SignersCoeff) > 1 && len(r.SignersCoeff) < 18 {
-		if maxCoeff > (1 << (len(r.SignersCoeff) - 2)) {
-			return ErrInvalidSignerCoeff
-		}
-	}
-
-	aggKey := blst.AggregatePublicKeysMultScalars(
-		publicKeys,
-		r.toBlstScalars(),
-		bits.Len16(maxCoeff),
-	)
+	aggKey := blst.AggregatePublicKeysMultScalars(publicKeys, blst.ToScalars(r.SignersCoeff))
 
 	r.aggregatedPublicKey = aggKey
 	r.preValidated = true
 	return nil
-}
-
-func (r *Signers) toBlstScalars() []*blstbind.Scalar {
-	return blst.ToBlstScalars(r.SignersCoeff)
 }
 
 func (r *Signers) Contains(index int) bool {
@@ -314,11 +313,16 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregat
 	return result
 }
 
-// AggregateSamePrevotes assumes the votes are for the same msg, it does a BLS fast aggregate for the input signatures.
-func AggregateSamePrevotes(prevotes []*message.Prevote) *message.EvidenceVote {
+// aggregateSamePrevotes assumes the votes are for the same msg. It is a convenience wrapper whose
+// main function is to convert from []*message.Prevote to []message.Vote
+func aggregateSamePrevotes(prevotes []*message.Prevote) *message.Prevote {
+	// shortcircuit if we have a single prevote, no need to get into aggregation
+	if len(prevotes) == 1 {
+		return prevotes[0]
+	}
 	votes := make([]message.Vote, len(prevotes))
 	for i, prevote := range prevotes {
 		votes[i] = prevote
 	}
-	return message.AggregatePrevotesToEvidence(votes)
+	return message.AggregatePrevotesSingle(votes)
 }

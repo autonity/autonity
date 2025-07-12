@@ -23,18 +23,15 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/autonity/autonity/common/hexutil"
-
-	"golang.org/x/crypto/sha3"
-
-	"github.com/stretchr/testify/require"
-
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/sha3"
 )
 
 // from bcValidBlockTest.json, "SimpleTx"
@@ -145,8 +142,10 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		seal2, err := blst.SignatureFromBytes(hexutil.MustDecode("0xa2f685ab4925fa955796dc2fe83038036ec96a19ce7c8c76ab6ec2a65143a35a3540ee902fb87755ba8566f6550bc4ef1024489b34d2ad0ac1f3d2d238f265b5ebe2e1cd265472bb352bf3ecc57ec4269931c9dc8fcdf83fbe0bb1f9ec5cefd1"))
 		require.NoError(t, err)
 
-		header.QuorumCertificate.Signers = &QuorumSigners{&SignersBase[uint32]{Bits: NewValidatorBitmap(5), Coefficients: make([]uint32, 0)}}
-		header.QuorumCertificate.Signers.Bits = validatorBitmap{0x44, 0x0}
+		header.QuorumCertificate.Signers = &Signers{Bitmap: NewBitmap(), Coefficients: make([]*big.Int, 0)}
+		bm, fine := new(big.Int).SetString("4400", 16)
+		require.True(t, fine)
+		header.QuorumCertificate.Signers.Bitmap = (*Bitmap)(bm)
 		sig := blst.AggregateSignatures([]blst.Signature{seal1, seal2})
 		header.QuorumCertificate.Signature = sig.(*blst.BlsSignature)
 
@@ -214,8 +213,10 @@ func TestHeaderEncodeDecodeJson(t *testing.T) {
 		seal2, err := blst.SignatureFromBytes(hexutil.MustDecode("0xa2f685ab4925fa955796dc2fe83038036ec96a19ce7c8c76ab6ec2a65143a35a3540ee902fb87755ba8566f6550bc4ef1024489b34d2ad0ac1f3d2d238f265b5ebe2e1cd265472bb352bf3ecc57ec4269931c9dc8fcdf83fbe0bb1f9ec5cefd1"))
 		require.NoError(t, err)
 
-		header.QuorumCertificate.Signers = &QuorumSigners{&SignersBase[uint32]{Bits: NewValidatorBitmap(5), Coefficients: make([]uint32, 0)}}
-		header.QuorumCertificate.Signers.Bits = validatorBitmap{0x44, 0x0}
+		header.QuorumCertificate.Signers = &Signers{Bitmap: NewBitmap(), Coefficients: make([]*big.Int, 0)}
+		bm, fine := new(big.Int).SetString("4400", 16)
+		require.True(t, fine)
+		header.QuorumCertificate.Signers.Bitmap = (*Bitmap)(bm)
 		sig := blst.AggregateSignatures([]blst.Signature{seal1, seal2})
 		header.QuorumCertificate.Signature = sig.(*blst.BlsSignature)
 
@@ -436,7 +437,7 @@ func TestQuorumCertificateDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
-	header = headerWithQuorumCertificate(&AggregateSignature{Signature: nil, Signers: NewQuorumSigners(10)})
+	header = headerWithQuorumCertificate(&AggregateSignature{Signature: nil, Signers: NewSigners(10)})
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
 	headerDecoded = &Header{}
@@ -446,7 +447,7 @@ func TestQuorumCertificateDeserialization(t *testing.T) {
 	require.Equal(t, &Header{}, headerDecoded)
 
 	// empty signers is not allowed
-	header = headerWithQuorumCertificate(&AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: &QuorumSigners{&SignersBase[uint32]{}}})
+	header = headerWithQuorumCertificate(&AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: &Signers{}})
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
 	headerDecoded = &Header{}
@@ -455,8 +456,8 @@ func TestQuorumCertificateDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
-	validQuorumCertificate := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewQuorumSigners(10)}
-	validQuorumCertificate.Signers.increment(0, 1, common.Big1)
+	validQuorumCertificate := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewSigners(10)}
+	validQuorumCertificate.Signers.increment(0, common.Big1)
 	header = headerWithQuorumCertificate(validQuorumCertificate)
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
@@ -467,7 +468,7 @@ func TestQuorumCertificateDeserialization(t *testing.T) {
 	require.NotNil(t, headerDecoded.QuorumCertificate.Signature)
 	require.NotNil(t, headerDecoded.QuorumCertificate.Signers)
 	require.Equal(t, validQuorumCertificate.Signature.Marshal(), headerDecoded.QuorumCertificate.Signature.Marshal())
-	require.Equal(t, validQuorumCertificate.Signers.Bits, headerDecoded.QuorumCertificate.Signers.Bits)
+	require.Equal(t, validQuorumCertificate.Signers.Bitmap, headerDecoded.QuorumCertificate.Signers.Bitmap)
 	require.Equal(t, validQuorumCertificate.Signers.Coefficients, headerDecoded.QuorumCertificate.Signers.Coefficients)
 
 	err = headerDecoded.QuorumCertificate.Signers.Validate(10)
@@ -534,7 +535,7 @@ func TestActivityProofDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
-	header = headerWithActivityProof(&AggregateSignature{Signature: nil, Signers: NewQuorumSigners(10)}, 0)
+	header = headerWithActivityProof(&AggregateSignature{Signature: nil, Signers: NewSigners(10)}, 0)
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
 	headerDecoded = &Header{}
@@ -544,7 +545,7 @@ func TestActivityProofDeserialization(t *testing.T) {
 	require.Equal(t, &Header{}, headerDecoded)
 
 	// empty signers is not allowed
-	header = headerWithActivityProof(&AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: &QuorumSigners{&SignersBase[uint32]{}}}, 4)
+	header = headerWithActivityProof(&AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: &Signers{}}, 4)
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
 	headerDecoded = &Header{}
@@ -553,8 +554,8 @@ func TestActivityProofDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
-	validActivityProof := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewQuorumSigners(10)}
-	validActivityProof.Signers.increment(0, 1, common.Big1)
+	validActivityProof := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewSigners(10)}
+	validActivityProof.Signers.increment(0, common.Big1)
 	header = headerWithActivityProof(validActivityProof, 4)
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
@@ -565,7 +566,7 @@ func TestActivityProofDeserialization(t *testing.T) {
 	require.NotNil(t, headerDecoded.ActivityProof.Signature)
 	require.NotNil(t, headerDecoded.ActivityProof.Signers)
 	require.Equal(t, validActivityProof.Signature.Marshal(), headerDecoded.ActivityProof.Signature.Marshal())
-	require.Equal(t, validActivityProof.Signers.Bits, headerDecoded.ActivityProof.Signers.Bits)
+	require.Equal(t, validActivityProof.Signers.Bitmap, headerDecoded.ActivityProof.Signers.Bitmap)
 	require.Equal(t, validActivityProof.Signers.Coefficients, headerDecoded.ActivityProof.Signers.Coefficients)
 	require.Equal(t, uint64(4), headerDecoded.ActivityProofRound)
 

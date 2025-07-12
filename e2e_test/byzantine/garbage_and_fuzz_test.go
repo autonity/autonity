@@ -43,7 +43,7 @@ func (s *randomBytesBroadcaster) Broadcast(_ message.Msg) {
 		var hash common.Hash
 		copy(hash[:], payload)
 		msg := message.Fake{FakeCode: 1, FakePayload: payload, FakeHash: hash}
-		s.Backend().Gossip(s.CommitteeSet().Committee(), msg, true)
+		s.Backend().Gossip(s.CommitteeSet().Committee(), msg, s.Address())
 	}
 }
 
@@ -87,7 +87,7 @@ func (s *garbageMessageBroadcaster) Broadcast(_ message.Msg) {
 	f.Fuzz(&fMsg.FakePayload)
 	f.Fuzz(&fMsg.FakeHash)
 	logger.Info("Broadcasting random bytes")
-	s.Backend().Gossip(s.CommitteeSet().Committee(), fMsg, true)
+	s.Backend().Gossip(s.CommitteeSet().Committee(), fMsg, s.Address())
 }
 
 // TestGarbageMessageBroadcaster broadcasts a garbage Messages in the network,
@@ -135,10 +135,13 @@ func (c *fuzzPrecommitSender) SendPrecommit(_ context.Context, isNil bool) {
 		precommit = message.NewPrecommit(r, h, randHash(), c.Backend().Sign, self, csize)
 	}
 	for i := 0; i < rand.Intn(10); i++ {
-		precommit.Signers().AddMember(&types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1})
+		precommit.Signers().AddMember(&types.CommitteeMember{
+			Index:       uint64(rand.Intn(csize)), // nolint:gosec
+			VotingPower: common.Big1,
+		})
 	}
 	c.SetSentPrecommit(true)
-	c.Backend().Gossip(c.CommitteeSet().Committee(), precommit, true)
+	c.Backend().Gossip(c.CommitteeSet().Committee(), precommit, c.Address())
 }
 
 // TestFuzzPrecommitter broadcasts a garbage precommit message in the network,
@@ -178,17 +181,23 @@ func (c *fuzzPrevoter) SendPrevote(_ context.Context, isNil bool) {
 	r := rand.Int63()
 	h := rand.Uint64()
 	csize := rand.Intn((1 << 16))
-	self := &types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1} // other fields are compute locally by the remote peer
+	self := &types.CommitteeMember{
+		Index:       uint64(rand.Intn(csize)), //nolint:gosec
+		VotingPower: common.Big1,
+	} // other fields are compute locally by the remote peer
 	if isNil {
 		prevote = message.NewPrevote(r, h, common.Hash{}, c.Backend().Sign, self, csize)
 	} else {
 		prevote = message.NewPrevote(r, h, randHash(), c.Backend().Sign, self, csize)
 	}
 	for i := 0; i < rand.Intn(10); i++ {
-		prevote.Signers().AddMember(&types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1})
+		prevote.Signers().AddMember(&types.CommitteeMember{
+			Index:       uint64(rand.Intn(csize)), //nolint:gosec
+			VotingPower: common.Big1,
+		})
 	}
 	c.SetSentPrevote(true)
-	c.Backend().Gossip(c.CommitteeSet().Committee(), prevote, true)
+	c.Backend().Gossip(c.CommitteeSet().Committee(), prevote, c.Address())
 }
 
 // TestFuzzPrevoter broadcasts a garbage prevote message in the network,

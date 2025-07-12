@@ -171,15 +171,15 @@ type AggregateSignature struct {
 	// this is because otherwise rlp creates a signature with new(blst.BlsSignature)
 	// which causes all sorts of problem because the private inner signature s.s remains nil
 	Signature *blst.BlsSignature `rlp:"nil"`
-	Signers   *QuorumSigners     `rlp:"nil"`
+	Signers   *Signers           `rlp:"nil"`
 }
 
-func NewAggregateSignature(signature *blst.BlsSignature, signers *QuorumSigners) *AggregateSignature {
+func NewAggregateSignature(signature *blst.BlsSignature, signers *Signers) *AggregateSignature {
 	return &AggregateSignature{Signature: signature, Signers: signers}
 }
 
 func (a *AggregateSignature) Copy() *AggregateSignature {
-	return &AggregateSignature{Signature: a.Signature.Copy(), Signers: &QuorumSigners{a.Signers.Copy()}}
+	return &AggregateSignature{Signature: a.Signature.Copy(), Signers: a.Signers.Copy()}
 }
 
 func (a *AggregateSignature) Malformed() bool {
@@ -190,7 +190,7 @@ func (a *AggregateSignature) Malformed() bool {
 // returns map of signers and total power of the signers
 func (a *AggregateSignature) Validate(message common.Hash, committee *Committee, checkQuorum bool) (map[common.Address]struct{}, *big.Int, error) {
 	// validate signers information first
-	distinctSigners, _, maxCoefficient, err := a.Signers.validate(committee.Len())
+	distinctSigners, _, _, err := a.Signers.validate(committee.Len())
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid signers information: %w", err)
 	}
@@ -202,7 +202,7 @@ func (a *AggregateSignature) Validate(message common.Hash, committee *Committee,
 	for i, index := range indexes {
 		keys[i] = committee.Members[index].ConsensusKey
 	}
-	aggregatedKey := a.Signers.aggregatePublicKey(keys, maxCoefficient, distinctSigners)
+	aggregatedKey := a.Signers.aggregatePublicKey(keys, distinctSigners)
 	if !aggregatedKey.Validate() {
 		log.Warn("aggregated public key from committee is zero! Please report the issue!", "signers", a.Signers.String())
 	}

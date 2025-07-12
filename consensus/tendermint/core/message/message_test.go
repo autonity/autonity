@@ -2,15 +2,12 @@ package message
 
 import (
 	"bytes"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"reflect"
 	"testing"
-
-	"github.com/influxdata/influxdb/pkg/deep"
-	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
@@ -20,6 +17,8 @@ import (
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
+	"github.com/influxdata/influxdb/pkg/deep"
+	"github.com/stretchr/testify/require"
 )
 
 // locally created messages are considered as verified, we decode it to simulate a msgs arriving from the wire
@@ -81,21 +80,6 @@ func makeSigner(key blst.SecretKey) func(common.Hash) blst.Signature {
 }
 
 func TestMessageDecode(t *testing.T) {
-	t.Run("evidence", func(t *testing.T) {
-		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), defaultSigner, testCommitteeMember, 1).ToEvidence()
-		decoded := &EvidenceVote{}
-		reader := bytes.NewReader(vote.Payload())
-		if err := rlp.Decode(reader, decoded); err != nil {
-			t.Fatalf("have %v, want nil", err)
-		}
-		require.Equal(t, vote.Code(), decoded.Code())
-		require.Equal(t, vote.R(), decoded.R())
-		require.Equal(t, vote.H(), decoded.H())
-		require.Equal(t, vote.Value(), decoded.Value())
-		require.Equal(t, vote.Signers().Bits, decoded.Signers().Bits)
-		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
-		require.Equal(t, vote.Signature(), decoded.Signature())
-	})
 	t.Run("prevote", func(t *testing.T) {
 		vote := newVote[Prevote](1, 2, common.HexToHash("0x1227"), defaultSigner, testCommitteeMember, 1)
 		decoded := &Prevote{}
@@ -107,7 +91,7 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, vote.R(), decoded.R())
 		require.Equal(t, vote.H(), decoded.H())
 		require.Equal(t, vote.Value(), decoded.Value())
-		require.Equal(t, vote.Signers().Bits, decoded.Signers().Bits)
+		require.Equal(t, vote.Signers().Bitmap, decoded.Signers().Bitmap)
 		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
 		require.Equal(t, vote.Signature(), decoded.Signature())
 	})
@@ -122,7 +106,7 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, vote.R(), decoded.R())
 		require.Equal(t, vote.H(), decoded.H())
 		require.Equal(t, vote.Value(), decoded.Value())
-		require.Equal(t, vote.Signers().Bits, decoded.Signers().Bits)
+		require.Equal(t, vote.Signers().Bitmap, decoded.Signers().Bitmap)
 		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
 		require.Equal(t, vote.Signature(), decoded.Signature())
 	})
@@ -191,14 +175,14 @@ func TestValidate(t *testing.T) {
 			hash[1] = 0xfe
 			return signer1(hash)
 		}, member1, csize)
-		err := msg.PreValidate(committee)
+		err := msg.PreValidate(committee, true)
 		require.NoError(t, err)
 		err = msg.Validate()
 		require.ErrorIs(t, err, ErrBadSignature)
 
 		// if aggregate with a valid signature, resulting signature is still invalid
 		msg2 := NewPrevote(1, 25, header.Hash(), signer2, member2, csize)
-		aggregatedVote := aggregatePrevotes([]Vote{msg, msg2})
+		aggregatedVote := AggregatePrevotesSingle([]Vote{msg, msg2})
 
 		// unverify the aggregated vote
 		unverifiedPrevote := &Prevote{}
@@ -208,21 +192,21 @@ func TestValidate(t *testing.T) {
 		}
 		require.False(t, unverifiedPrevote.verified)
 
-		err = unverifiedPrevote.PreValidate(committee)
+		err = unverifiedPrevote.PreValidate(committee, true)
 		require.NoError(t, err)
 		err = unverifiedPrevote.Validate()
 		require.ErrorIs(t, err, ErrBadSignature)
 	})
 	t.Run("valid signature, no error returned", func(t *testing.T) {
 		msg := newUnverifiedPrevote(1, 25, header.Hash(), signer1, member1, csize)
-		err := msg.PreValidate(committee)
+		err := msg.PreValidate(committee, true)
 		require.NoError(t, err)
 		err = msg.Validate()
 		require.NoError(t, err)
 
 		// if aggregated with a valid signature, resulting signature is still valid
 		msg2 := NewPrevote(1, 25, header.Hash(), signer2, member2, csize)
-		aggregatedVote := aggregatePrevotes([]Vote{msg, msg2})
+		aggregatedVote := AggregatePrevotesSingle([]Vote{msg, msg2})
 
 		// unverify the aggregated vote
 		unverifiedPrevote := &Prevote{}
@@ -232,7 +216,7 @@ func TestValidate(t *testing.T) {
 		}
 		require.False(t, unverifiedPrevote.verified)
 
-		err = unverifiedPrevote.PreValidate(committee)
+		err = unverifiedPrevote.PreValidate(committee, true)
 		require.NoError(t, err)
 		err = unverifiedPrevote.Validate()
 		require.NoError(t, err)
@@ -262,7 +246,7 @@ func TestPreValidate(t *testing.T) {
 		}
 
 		for _, message := range messages {
-			err := message.PreValidate(committee)
+			err := message.PreValidate(committee, true)
 			require.ErrorIs(t, err, ErrUnauthorizedAddress)
 		}
 	})
@@ -276,7 +260,7 @@ func TestPreValidate(t *testing.T) {
 		}
 
 		for _, message := range messages {
-			err := message.PreValidate(committee)
+			err := message.PreValidate(committee, true)
 			require.NoError(t, err)
 		}
 	})
@@ -291,7 +275,7 @@ func TestPreValidate(t *testing.T) {
 		}
 
 		for _, message := range messages {
-			err := message.PreValidate(committee)
+			err := message.PreValidate(committee, true)
 			require.NoError(t, err)
 		}
 	})
@@ -306,13 +290,42 @@ func TestPreValidate(t *testing.T) {
 		}
 
 		// tamper with signers information
-		messages[0].Signers().Bits = make([]byte, 100)
-		messages[1].Signers().Bits = make([]byte, 0)
+		messages[0].Signers().Bitmap = (*types.Bitmap)(new(big.Int).SetUint64(100))
+		messages[1].Signers().Bitmap = types.NewBitmap()
 
 		for _, message := range messages {
-			err := message.PreValidate(committee)
+			err := message.PreValidate(committee, true)
+			t.Log(err)
 			require.Error(t, err)
 		}
+	})
+	t.Run("votes has coefficient with bitlen > 16 but does is a network vote, error is returned", func(t *testing.T) {
+		n := 18
+		committee := new(types.Committee)
+		for i := 0; i < n; i++ {
+			committee.Members = append(committee.Members, *testCommitteeMember)
+		}
+		header := newHeader(25, committee)
+		vote := newUnverifiedPrevote(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 18)
+
+		// make this vote bloated by tweaking the signers (NOTE: this will not pass validate since the signature doesn't actually match the signers)
+		vote.Signers().Coefficients = make([]*big.Int, n)
+		for i := 0; i < n-1; i++ {
+			vote.Signers().Bitmap.Set(i)
+			vote.Signers().Coefficients[i] = new(big.Int).SetUint64(1)
+		}
+		vote.Signers().Bitmap.Set(n - 1)
+		vote.Signers().Coefficients[n-1] = new(big.Int).SetUint64(1 << (n - 2))
+
+		t.Log(vote.Signers().String())
+		err := vote.PreValidate(committee, true)
+		t.Logf("prevalidate failed with error: %v", err)
+		require.True(t, errors.Is(err, types.ErrInvalidCoefficient))
+
+		// should not error out if cap is ignored
+		err = vote.PreValidate(committee, false)
+		t.Logf("prevalidate failed with error: %v", err)
+		require.NoError(t, err)
 	})
 
 }
@@ -325,7 +338,6 @@ func TestMessageEncodeDecode(t *testing.T) {
 		NewPropose(1, 2, -1, types.NewBlockWithHeader(header), defaultSigner, testCommitteeMember),
 		NewPrevote(1, 2, header.Hash(), defaultSigner, testCommitteeMember, 1),
 		NewPrecommit(1, 2, header.Hash(), defaultSigner, testCommitteeMember, 1),
-		NewPrevote(1, 2, header.Hash(), defaultSigner, testCommitteeMember, 1).ToEvidence(),
 	}
 	for i := range messages {
 		buff := new(bytes.Buffer)
@@ -334,7 +346,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 		decoded := reflect.New(reflect.TypeOf(messages[i]).Elem()).Interface().(Msg)
 		err = rlp.Decode(buff, decoded)
 		require.NoError(t, err)
-		err = decoded.PreValidate(committee)
+		err = decoded.PreValidate(committee, true)
 		require.NoError(t, err)
 		err = decoded.Validate()
 		require.NoError(t, err)
@@ -375,9 +387,9 @@ func TestMessageHash(t *testing.T) {
 		vote2 := NewPrevote(r, h, v, makeSigner(key2), &testCommittee.Members[1], csize)
 		vote3 := NewPrevote(r, h, v, makeSigner(key3), &testCommittee.Members[2], csize)
 
-		aggregates1 := aggregatePrevotes([]Vote{vote1, vote2, vote3})
-		aggregates2 := aggregatePrevotes([]Vote{vote2, vote1, vote3})
-		aggregates3 := aggregatePrevotes([]Vote{vote3, vote1, vote2})
+		aggregates1 := AggregatePrevotesSingle([]Vote{vote1, vote2, vote3})
+		aggregates2 := AggregatePrevotesSingle([]Vote{vote2, vote1, vote3})
+		aggregates3 := AggregatePrevotesSingle([]Vote{vote3, vote1, vote2})
 
 		hash := aggregates1.Hash()
 		require.Equal(t, hash, aggregates2.Hash())
@@ -396,15 +408,10 @@ func TestMessageHash(t *testing.T) {
 
 		require.NotEqual(t, vote.Hash(), vote2.Hash())
 	})
-	t.Run("Change in the signers Bits and Coefficients should cause change in hash", func(t *testing.T) {
+	t.Run("Change in the signers Bitmap and Coefficients should cause change in hash", func(t *testing.T) {
 		// change signer
 		vote := NewPrecommit(r, h, v, defaultSigner, &testCommittee.Members[0], csize)
 		vote2 := NewPrecommit(r, h, v, defaultSigner, &testCommittee.Members[1], csize)
-		require.NotEqual(t, vote.Hash(), vote2.Hash())
-
-		// change committee size
-		vote = NewPrecommit(r, h, v, defaultSigner, &testCommittee.Members[0], csize)
-		vote2 = NewPrecommit(r, h, v, defaultSigner, &testCommittee.Members[0], csize+10)
 		require.NotEqual(t, vote.Hash(), vote2.Hash())
 	})
 	t.Run("Change in the signers auxiliary data structures should NOT cause change in hash", func(t *testing.T) {
@@ -413,18 +420,18 @@ func TestMessageHash(t *testing.T) {
 		vote2 := NewPrecommit(r, h, v, defaultSigner, &testCommittee.Members[0], csize)
 
 		// tamper with internal signers data structures of vote2 and recompute hash
-		signers := types.NewVoteSigners(csize)
+		signers := types.NewSigners(csize)
 		signers.AddMember(&testCommittee.Members[0])
 		tamperedPower := make(map[int]*big.Int)
 		tamperedPower[123] = big.NewInt(1234)
 		signers.AssignPower(tamperedPower, big.NewInt(223423))
 
-		payload, _ := rlp.EncodeToBytes(extVote[uint16]{
+		payload, _ := rlp.EncodeToBytes(extVote{
 			Code:      PrecommitCode,
 			Round:     uint64(r), // #nosec
 			Height:    h,
 			Value:     v,
-			Signers:   signers.SignersBase,
+			Signers:   signers,
 			Signature: vote2.Signature().(*blst.BlsSignature),
 		})
 		vote2.hash = crypto.Hash(payload)
@@ -454,21 +461,21 @@ func TestComplexAggregation(t *testing.T) {
 		var votes1 []Vote
 		votes1 = append(votes1, NewPrevote(r, h, v1, defaultSigner, &testCommittee.Members[0], csize))
 		votes1 = append(votes1, NewPrevote(r, h, v1, defaultSigner, &testCommittee.Members[1], csize))
-		aggregate1 := aggregatePrevotes(votes1)
+		aggregate1 := AggregatePrevotesSingle(votes1)
 		require.Equal(t, 2, len(aggregate1.Signers().FlattenUniq()))
 
 		var votes2 []Vote
 		votes2 = append(votes2, NewPrevote(r, h, v1, defaultSigner, &testCommittee.Members[0], csize))
 		votes2 = append(votes2, NewPrevote(r, h, v1, defaultSigner, &testCommittee.Members[2], csize))
-		aggregate2 := aggregatePrevotes(votes2)
+		aggregate2 := AggregatePrevotesSingle(votes2)
 		require.Equal(t, 2, len(aggregate2.Signers().FlattenUniq()))
 
-		aggregate3 := aggregatePrevotes([]Vote{aggregate1, aggregate2})
+		aggregate3 := AggregatePrevotesSingle([]Vote{aggregate1, aggregate2})
 		require.Equal(t, 3, len(aggregate3.signers.FlattenUniq()))
 		require.Equal(t, 3, len(aggregate3.signers.Coefficients))
-		require.Equal(t, uint16(2), aggregate3.signers.Coefficients[0])
+		require.Equal(t, common.Big2.String(), aggregate3.signers.Coefficients[0].String())
 		for _, c := range aggregate3.signers.Coefficients[1:] {
-			require.Equal(t, uint16(1), c)
+			require.Equal(t, common.Big1.String(), c.String())
 		}
 	})
 }
@@ -488,70 +495,72 @@ func TestAggregateVotes(t *testing.T) {
 
 	//NOTE: we can use whatever signer, the aggregation functions do not verify the signature
 
+	toBigInt := func(b *types.Bitmap) *big.Int { return (*big.Int)(b) }
+
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize))
-	aggregate := aggregatePrevotes(votes)
+	aggregate := AggregatePrevotesSingle(votes)
 	t.Log(aggregate.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "00000001")
+	require.Equal(t, fmt.Sprintf("%08b", toBigInt(aggregate.Signers().Bitmap).Bytes()[0]), "00000001")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize))
-	aggregate = aggregatePrevotes(votes)
+	aggregate = AggregatePrevotesSingle(votes)
 	t.Log(aggregate.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "00000001")
+	require.Equal(t, fmt.Sprintf("%08b", toBigInt(aggregate.Signers().Bitmap).Bytes()[0]), "00000001")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize))
-	aggregate = aggregatePrevotes(votes)
+	aggregate = AggregatePrevotesSingle(votes)
 	t.Log(aggregate.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "00000011")
+	require.Equal(t, fmt.Sprintf("%08b", toBigInt(aggregate.Signers().Bitmap).Bytes()[0]), "00000011")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize))
-	aggregate = aggregatePrevotes(votes)
+	aggregate = AggregatePrevotesSingle(votes)
 	t.Log(aggregate.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "00000111")
+	require.Equal(t, fmt.Sprintf("%08b", toBigInt(aggregate.Signers().Bitmap).Bytes()[0]), "00000111")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize))
-	aggregate = aggregatePrevotes(votes)
+	aggregate = AggregatePrevotesSingle(votes)
 	t.Log(aggregate.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate.Signers().Bits[0]), "00001111")
+	require.Equal(t, fmt.Sprintf("%08b", toBigInt(aggregate.Signers().Bitmap).Bytes()[0]), "00001111")
 	require.NoError(t, aggregate.Signers().Validate(csize))
 
-	aggregate2 := aggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
-	aggregate3 := aggregatePrevotes([]Vote{aggregate, aggregate2})
+	aggregate2 := AggregatePrevotesSingle([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
+	aggregate3 := AggregatePrevotesSingle([]Vote{aggregate, aggregate2})
 	t.Log(aggregate3.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate3.Signers().Bits[0]), "00001111")
+	require.Equal(t, fmt.Sprintf("%08b", toBigInt(aggregate3.Signers().Bitmap).Bytes()[0]), "00001111")
 	require.NoError(t, aggregate3.Signers().Validate(csize))
 
-	aggregate4 := aggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize)})
-	aggregate5 := aggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
-	aggregate6 := aggregatePrevotes([]Vote{aggregate4, aggregate5})
+	aggregate4 := AggregatePrevotesSingle([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize)})
+	aggregate5 := AggregatePrevotesSingle([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize)})
+	aggregate6 := AggregatePrevotesSingle([]Vote{aggregate4, aggregate5})
 	t.Log(aggregate6.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate6.Signers().Bits[0]), "00000111")
+	require.Equal(t, fmt.Sprintf("%08b", toBigInt(aggregate6.Signers().Bitmap).Bytes()[0]), "00000111")
 	require.NoError(t, aggregate6.Signers().Validate(csize))
 
-	aggregate7 := aggregatePrevotes([]Vote{aggregate6, aggregate3})
+	aggregate7 := AggregatePrevotesSingle([]Vote{aggregate6, aggregate3})
 	t.Log(aggregate7.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate7.Signers().Bits[0]), "00001111")
+	require.Equal(t, fmt.Sprintf("%08b", toBigInt(aggregate7.Signers().Bitmap).Bytes()[0]), "00001111")
 	require.NoError(t, aggregate7.Signers().Validate(csize))
 
 	// aggregate with artificially inflated contribution from index = 0. validator 0 has already the maximum coefficient.
-	inflatedAggregate := aggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize)})
+	inflatedAggregate := AggregatePrevotesSingle([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[1], csize)})
 
 	t.Log(inflatedAggregate.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", inflatedAggregate.Signers().Bits[0]), "00000011")
+	require.Equal(t, fmt.Sprintf("%08b", toBigInt(inflatedAggregate.Signers().Bitmap).Bytes()[0]), "00000011")
 	require.NoError(t, inflatedAggregate.Signers().Validate(csize))
 
 	// inflatedAggregate has quorum
 	require.True(t, inflatedAggregate.Power().Cmp(bft.Quorum(testCommittee.TotalVotingPower())) >= 0)
 
-	aggregate8 := aggregatePrevotes([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize)})
+	aggregate8 := AggregatePrevotesSingle([]Vote{NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[2], csize), NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[3], csize)})
 	require.NoError(t, aggregate8.Signers().Validate(csize))
 
-	aggregate9 := aggregatePrevotes([]Vote{aggregate8, inflatedAggregate})
+	aggregate9 := AggregatePrevotesSingle([]Vote{aggregate8, inflatedAggregate})
 	t.Log(aggregate9.Signers().String())
-	require.Equal(t, fmt.Sprintf("%08b", aggregate9.Signers().Bits[0]), "00001111")
+	require.Equal(t, fmt.Sprintf("%08b", toBigInt(aggregate9.Signers().Bitmap).Bytes()[0]), "00001111")
 	require.NoError(t, aggregate9.Signers().Validate(csize))
 
 }
@@ -668,12 +677,4 @@ func newHeader(number uint64, c *types.Committee) *types.Header {
 	}
 
 	return header
-}
-
-func aggregatePrevotes(votes []Vote) *Prevote {
-	aggregates := AggregatePrevotes(votes)
-	if len(aggregates) > 1 {
-		panic("complex aggregate more than 1")
-	}
-	return aggregates[0]
 }

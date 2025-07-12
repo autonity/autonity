@@ -466,3 +466,29 @@ func (ma *MixedcaseAddress) ValidChecksum() bool {
 func (ma *MixedcaseAddress) Original() string {
 	return ma.original
 }
+
+/////////// Signers
+
+// coefficients caps in bitsize
+const (
+	VoteCap   = 16
+	QuorumCap = 32
+)
+
+// Contribution checks if any 1s in `contributing` would switch a zero bit of `contributed` to 1
+func Contribution(contributing *big.Int, contributed *big.Int) *big.Int {
+	notContributed := new(big.Int).Not(contributed)
+	contribution := notContributed.And(notContributed, contributing)
+	return contribution
+}
+
+func Max(a, b *big.Int) *big.Int {
+	if a.Cmp(b) >= 0 {
+		return a
+	}
+	return b
+}
+
+func Pow2(exp int) *big.Int {
+	return new(big.Int).Exp(Big2, big.NewInt(int64(exp)), nil)
+}

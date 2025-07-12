@@ -207,9 +207,11 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 	}
 
 	// assign power and bls signer key
-	if err := msg.PreValidate(committee); err != nil {
+	if err := msg.PreValidate(committee, true); err != nil {
 		return true, err
 	}
+
+	disseminated := false // unless proposal, messages are not early disseminated
 
 	// if the sender is jailed, discard its messages
 	switch m := msg.(type) {
@@ -224,9 +226,10 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 			return true, err
 		}
 
-		// current height proposals --> early forward
+		// current height proposals --> early dissemination
 		if sb.core.Height().Uint64() == msg.H() {
-			go sb.router.Forward(committee, msg, sender, nil)
+			go sb.Gossip(committee, msg, sender)
+			disseminated = true
 		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)
@@ -248,10 +251,11 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 	}
 
 	sb.Post(events.UnverifiedMessageEvent{
-		Message: msg,
-		ErrCh:   errCh,
-		Sender:  sender,
-		Posted:  time.Now(),
+		Message:      msg,
+		ErrCh:        errCh,
+		Sender:       sender,
+		Posted:       time.Now(),
+		Disseminated: disseminated,
 	})
 	return true, nil
 }
@@ -328,6 +332,7 @@ func (sb *Backend) ProcessFutureMsgs(height uint64) {
 		if ok {
 			sb.logger.Debug("processing future height messages", "height", h, "n", len(sb.future.messages[h]))
 			for _, e := range evs {
+				// TODO: consider sending the err to ErrCh for future height messages as well
 				sb.handleDecodedMsg(e.Message, e.ErrCh, e.Sender)
 				sb.future.size--
 			}

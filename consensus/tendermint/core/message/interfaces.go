@@ -42,7 +42,7 @@ type Msg interface {
 
 	// PreValidate attaches auxiliary information to the message (e.g. aggregated key and power)
 	// as the name suggests, it needs to be executed before validating the message
-	PreValidate(committee *types.Committee) error
+	PreValidate(committee *types.Committee, shouldRespectCap bool) error
 
 	// Validate verifies the signature of this message
 	Validate() error
@@ -63,11 +63,6 @@ type Msg interface {
 
 // Votes have an additional method, which returns all the available information about the signers
 type Vote interface {
-	Signers() *types.SignersBase[uint16]
-	Msg
-}
-
-type Evidence interface {
-	Signers() *types.SignersBase[uint32]
+	Signers() *types.Signers
 	Msg
 }

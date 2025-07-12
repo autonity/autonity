@@ -93,7 +93,7 @@ func TestMessageSetAggregationAndPower(t *testing.T) {
 
 	// equivocated vote has no influence on power and it is saved
 	equivocatedVote := NewPrevote(r, h, blockHash2, defaultSigner, makeCommitteeMember(1, 0), csize)
-	require.False(t, ms.Add(equivocatedVote))
+	require.True(t, ms.Add(equivocatedVote)) // equivocated vote still brings a contribution to Core and therefore not redundant
 
 	require.Equal(t, common.Big1, ms.TotalPower().Power())
 	require.Equal(t, common.Big1, ms.PowerFor(blockHash).Power())
@@ -112,19 +112,18 @@ func TestMessageSetAggregationAndPower(t *testing.T) {
 	require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(0))
 	require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(1))
 
-	// the following don't add any contribution
-	// // add an aggregate that cannot be merged with the previous one
+	// add an aggregate that cannot be merged with the previous one (boundary check)
+	aggregate := AggregatePrevotes([]Vote{NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize), NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)})
+	aggregate[0].Signers().Coefficients[0] = new(big.Int).SetUint64(1 << common.VoteCap)
+	require.True(t, ms.Add(aggregate[0]))
 
-	// aggregate := AggregatePrevotes([]Vote{NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize), NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)})
-	// require.True(t, ms.Add(aggregate[0]))
-
-	// require.Equal(t, common.Big5, ms.TotalPower().Power())
-	// require.Equal(t, common.Big5, ms.PowerFor(blockHash).Power())
-	// require.Equal(t, 2, len(ms.VotesFor(blockHash)))
-	// require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(0))
-	// require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(1))
-	// require.True(t, ms.VotesFor(blockHash)[1].Signers().Contains(0))
-	// require.True(t, ms.VotesFor(blockHash)[1].Signers().Contains(2))
+	require.Equal(t, common.Big5, ms.TotalPower().Power())
+	require.Equal(t, common.Big5, ms.PowerFor(blockHash).Power())
+	require.Equal(t, 2, len(ms.VotesFor(blockHash)))
+	require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(0))
+	require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(1))
+	require.True(t, ms.VotesFor(blockHash)[1].Signers().Contains(0))
+	require.True(t, ms.VotesFor(blockHash)[1].Signers().Contains(2))
 
 }
 

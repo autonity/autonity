@@ -344,39 +344,28 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPO(p *Proof, committee *types.
 			vote.Value() != common.NilValue {
 			return true
 		}
-	case *message.EvidenceVote:
-		return validatePrevotes(proposal, p.Evidences, committee)
-	}
-	return false
-}
-
-func checkPrevote(proposal *message.LightProposal, pv message.Msg) bool {
-	if pv.R() != proposal.ValidRound() || pv.Value() == proposal.Value() {
-		return false
-	}
-	return true
-}
-
-func validatePrevotes(proposal *message.LightProposal, evidences []message.Msg, committee *types.Committee) bool {
-	// check if there are quorum prevotes for other value than the proposed value at valid round.
-	for _, m := range evidences {
-		switch vote := m.(type) {
-		case *message.EvidenceVote:
-			if !checkPrevote(proposal, vote) {
+	case *message.Prevote:
+		// check if there are quorum prevotes for other value than the proposed value at valid round.
+		for _, m := range p.Evidences {
+			pv, ok := m.(*message.Prevote)
+			if !ok {
 				return false
 			}
-		default:
+			if pv.R() != proposal.ValidRound() || pv.Value() == proposal.Value() {
+				return false
+			}
+		}
+
+		if hasDifferentVoteOfValues(p.Evidences) || hasDuplicatedVotes(p.Evidences) {
 			return false
 		}
-	}
 
-	if hasDifferentVoteOfValues(evidences) || hasDuplicatedVotes(evidences) {
-		return false
-	}
+		// check if preVotes for a not V reaches to quorum.
+		quorum := bft.Quorum(committee.TotalVotingPower())
+		return message.OverQuorumVotes(p.Evidences, quorum) != nil
 
-	// check if preVotes for a not V reaches to quorum.
-	quorum := bft.Quorum(committee.TotalVotingPower())
-	return message.OverQuorumVotes(evidences, quorum) != nil
+	}
+	return false
 }
 
 // check if the Proof of challenge of PVN is valid.
@@ -497,12 +486,11 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfPVO(p *Proof, committee *types
 
 	// check preVotes at evidence.
 	for _, pv := range p.Evidences[1:] {
-
-		if _, ok := pv.(*message.EvidenceVote); !ok {
+		if _, ok := pv.(*message.Prevote); !ok {
 			return false
 		}
 
-		if pv.Code() != message.EvidenceVoteCode || pv.R() != validRound || pv.Value() == common.NilValue ||
+		if pv.Code() != message.PrevoteCode || pv.R() != validRound || pv.Value() == common.NilValue ||
 			pv.Value() == correspondingProposal.Value() || pv.Value() != votedVatVR {
 			return false
 		}
@@ -622,11 +610,10 @@ func (c *MisbehaviourVerifier) validMisbehaviourOfC(p *Proof, committee *types.C
 
 	// check preVotes for not the same V compares to preCommit.
 	for _, m := range p.Evidences {
-		if _, ok := m.(*message.EvidenceVote); !ok {
+		if _, ok := m.(*message.Prevote); !ok {
 			return false
 		}
-
-		if m.Code() != message.EvidenceVoteCode || m.Value() == preCommit.Value() || m.R() != preCommit.R() {
+		if m.Code() != message.PrevoteCode || m.Value() == preCommit.Value() || m.R() != preCommit.R() {
 			return false
 		}
 	}
@@ -710,11 +697,11 @@ func validInnocenceProofOfPO(p *Proof, committee *types.Committee) bool {
 
 	// check the votes match for the corresponding proposal, and there is no vote for other value in the proof.
 	for _, m := range p.Evidences {
-		if _, ok := m.(*message.EvidenceVote); !ok {
+		if _, ok := m.(*message.Prevote); !ok {
 			return false
 		}
 
-		if !(m.Code() == message.EvidenceVoteCode &&
+		if !(m.Code() == message.PrevoteCode &&
 			m.Value() == proposal.Value() &&
 			m.R() == proposal.ValidRound()) {
 			return false
@@ -786,7 +773,7 @@ func validInnocenceProofOfPVO(p *Proof, committee *types.Committee) bool {
 	vr := proposal.ValidRound()
 	// check prevotes for V at the valid round, no vote for other value.
 	for _, m := range p.Evidences[1:] {
-		if !(m.Code() == message.EvidenceVoteCode && m.Value() == proposal.Value() && m.R() == vr) {
+		if !(m.Code() == message.PrevoteCode && m.Value() == proposal.Value() && m.R() == vr) {
 			return false
 		}
 	}
@@ -812,11 +799,10 @@ func validInnocenceProofOfC1(p *Proof, committee *types.Committee) bool {
 	}
 	// check quorum prevotes for V at the same round, there is no vote for other value.
 	for _, m := range p.Evidences {
-		if _, ok := m.(*message.EvidenceVote); !ok {
+		if _, ok := m.(*message.Prevote); !ok {
 			return false
 		}
-
-		if !(m.Code() == message.EvidenceVoteCode && m.Value() == preCommit.Value() &&
+		if !(m.Code() == message.PrevoteCode && m.Value() == preCommit.Value() &&
 			m.R() == preCommit.R()) {
 			return false
 		}
@@ -877,7 +863,7 @@ func verifyProofSignatures(committee *types.Committee, p *Proof) error {
 	}
 
 	// assign power and bls signer key
-	if err := p.Message.PreValidate(committee); err != nil {
+	if err := p.Message.PreValidate(committee, true); err != nil {
 		return err
 	}
 
@@ -897,7 +883,7 @@ func verifyProofSignatures(committee *types.Committee, p *Proof) error {
 			return errBadHeight
 		}
 
-		if err := msg.PreValidate(committee); err != nil {
+		if err := msg.PreValidate(committee, false); err != nil {
 			return err
 		}
 

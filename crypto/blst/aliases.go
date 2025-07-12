@@ -13,3 +13,7 @@ type blstAggregatePublicKey = bind.P1Aggregate
 
 type blstPublicKeySet = bind.P1Affines
 type blstSignatureSet = bind.P2Affines
+
+type blstScalar = bind.Scalar
+
+const BlstScalarBytes = bind.BLST_SCALAR_BYTES

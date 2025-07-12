@@ -181,15 +181,15 @@ func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 }
 
 // Gossip mocks base method.
-func (m *MockBackend) Gossip(committee *types.Committee, arg1 message.Msg, isLocal bool) {
+func (m *MockBackend) Gossip(committee *types.Committee, arg1 message.Msg, sender common.Address) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Gossip", committee, arg1, isLocal)
+	m.ctrl.Call(m, "Gossip", committee, arg1, sender)
 }
 
 // Gossip indicates an expected call of Gossip.
-func (mr *MockBackendMockRecorder) Gossip(committee, arg1, isLocal any) *gomock.Call {
+func (mr *MockBackendMockRecorder) Gossip(committee, arg1, sender any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), committee, arg1, isLocal)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), committee, arg1, sender)
 }
 
 // Gossiper mocks base method.
@@ -429,15 +429,15 @@ func (mr *MockBackendMockRecorder) Sign(hash any) *gomock.Call {
 }
 
 // SlowGossip mocks base method.
-func (m *MockBackend) SlowGossip(committee *types.Committee, arg1 message.Msg, isLocal bool) {
+func (m *MockBackend) SlowGossip(committee *types.Committee, arg1 message.Msg, sender common.Address) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SlowGossip", committee, arg1, isLocal)
+	m.ctrl.Call(m, "SlowGossip", committee, arg1, sender)
 }
 
 // SlowGossip indicates an expected call of SlowGossip.
-func (mr *MockBackendMockRecorder) SlowGossip(committee, arg1, isLocal any) *gomock.Call {
+func (mr *MockBackendMockRecorder) SlowGossip(committee, arg1, sender any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlowGossip", reflect.TypeOf((*MockBackend)(nil).SlowGossip), committee, arg1, isLocal)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlowGossip", reflect.TypeOf((*MockBackend)(nil).SlowGossip), committee, arg1, sender)
 }
 
 // Subscribe mocks base method.

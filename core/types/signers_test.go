@@ -50,14 +50,14 @@ func expectPanic(t *testing.T) {
 	}
 }
 
-func signersAggregation[T uint16 | uint32](
+func signersAggregation(
 	t *testing.T,
 	committee []*CommitteeMember,
 	coeffs []int,
 	signature blst.Signature,
 	msgInput common.Hash,
 ) {
-	signers := NewSigners[T](len(committee))
+	signers := NewSigners(len(committee))
 	keys := make([]blst.PublicKey, 0, len(committee))
 	for i, c := range coeffs {
 		for c > 0 {
@@ -111,67 +111,8 @@ func TestPublicKeyAggregation(t *testing.T) {
 	}
 
 	aggregateSign := blst.AggregateSignatures(signatures)
-	signersAggregation[uint16](t, members, coeffs, aggregateSign, msg)
-	signersAggregation[uint32](t, members, coeffs, aggregateSign, msg)
-}
-
-func TestValidatorBitmap(t *testing.T) {
-	t.Run("Simple bitmap with 8 validators (1 byte)", func(t *testing.T) {
-		// 00000000
-		n := 8
-		bitmap := NewValidatorBitmap(n)
-		require.True(t, bitmap.Valid(n))
-
-		for i := 0; i < n; i++ {
-			require.Equal(t, false, bitmap.HasSigner(i))
-		}
-
-		for i := 0; i < n; i++ {
-			bitmap.setSigner(i)
-			require.Equal(t, true, bitmap.HasSigner(i))
-		}
-	})
-	t.Run("bitmap with 12 validators (2 byte)", func(t *testing.T) {
-		// 00000000 | 00000000
-		n := 12
-		bitmap := NewValidatorBitmap(n)
-		require.True(t, bitmap.Valid(n))
-
-		for i := 0; i < n; i++ {
-			require.Equal(t, false, bitmap.HasSigner(i))
-		}
-
-		// 00000001 | 00000000
-		bitmap.setSigner(0)
-		require.Equal(t, true, bitmap.HasSigner(0))
-
-		// 00000001 | 00000001
-		bitmap.setSigner(8)
-		require.Equal(t, true, bitmap.HasSigner(8))
-
-		// 00000001 | 00000011
-		bitmap.setSigner(9)
-		require.Equal(t, true, bitmap.HasSigner(9))
-	})
-	t.Run("Setting out of bound bit should panic", func(t *testing.T) {
-		defer expectPanic(t)
-		bitmap := NewValidatorBitmap(0)
-		bitmap.setSigner(1)
-	})
-	t.Run("Getting out of bound bit should panic", func(t *testing.T) {
-		defer expectPanic(t)
-		bitmap := NewValidatorBitmap(0)
-		bitmap.HasSigner(1)
-	})
-	t.Run("Valid method", func(t *testing.T) {
-		n := 8
-		bitmap := NewValidatorBitmap(n)
-		require.True(t, bitmap.Valid(n))
-		bitmap = append(bitmap, []byte{0xca, 0xfe}...)
-		require.False(t, bitmap.Valid(n))
-		bitmap = make([]byte, 0)
-		require.False(t, bitmap.Valid(n))
-	})
+	signersAggregation(t, members, coeffs, aggregateSign, msg)
+	signersAggregation(t, members, coeffs, aggregateSign, msg)
 }
 
 func TestSerialization(t *testing.T) {
@@ -180,7 +121,7 @@ func TestSerialization(t *testing.T) {
 
 	t.Run("auxiliary data structures are not serialized on the wire", func(t *testing.T) {
 		// increment some sender info
-		s := NewVoteSigners(committee.Len())
+		s := NewSigners(committee.Len())
 		// 00001111
 		s.AddMember(&committee.Members[0])
 		s.AddMember(&committee.Members[1])
@@ -191,12 +132,12 @@ func TestSerialization(t *testing.T) {
 		s.AddMember(&committee.Members[3])
 
 		// bits, coefficients + auxiliary data structures should be set
-		require.Equal(t, s.Bits[0], byte(0xf))
+		require.Equal(t, (*big.Int)(s.Bitmap).Bytes()[0], byte(0xf))
 		require.Equal(t, len(s.Coefficients), 4)
-		require.Equal(t, s.Coefficients[0], uint16(1))
-		require.Equal(t, s.Coefficients[1], uint16(2))
-		require.Equal(t, s.Coefficients[2], uint16(3))
-		require.Equal(t, s.Coefficients[3], uint16(1))
+		require.Equal(t, s.Coefficients[0].String(), common.Big1.String())
+		require.Equal(t, s.Coefficients[1].String(), common.Big2.String())
+		require.Equal(t, s.Coefficients[2].String(), common.Big3.String())
+		require.Equal(t, s.Coefficients[3].String(), common.Big1.String())
 
 		// one validator is missing from the aggregate
 		require.Equal(t, len(s.Powers()), committee.Len()-1)
@@ -211,17 +152,17 @@ func TestSerialization(t *testing.T) {
 		// encode and decode
 		payload, err := rlp.EncodeToBytes(s)
 		require.NoError(t, err)
-		decoded := &VoteSigners{&SignersBase[uint16]{}}
+		decoded := &Signers{}
 		err = rlp.Decode(bytes.NewBuffer(payload), decoded)
 		require.NoError(t, err)
 
 		// only bits and coefficients should be set, auxiliary data structures should be empty
-		require.Equal(t, decoded.Bits[0], byte(0xf))
+		require.Equal(t, (*big.Int)(decoded.Bitmap).Bytes()[0], byte(0xf))
 		require.Equal(t, len(decoded.Coefficients), 4)
-		require.Equal(t, s.Coefficients[0], uint16(1))
-		require.Equal(t, s.Coefficients[1], uint16(2))
-		require.Equal(t, s.Coefficients[2], uint16(3))
-		require.Equal(t, s.Coefficients[3], uint16(1))
+		require.Equal(t, s.Coefficients[0].String(), common.Big1.String())
+		require.Equal(t, s.Coefficients[1].String(), common.Big2.String())
+		require.Equal(t, s.Coefficients[2].String(), common.Big3.String())
+		require.Equal(t, s.Coefficients[3].String(), common.Big1.String())
 
 		require.False(t, decoded.validated)
 		require.False(t, decoded.powerAssigned)
@@ -243,25 +184,25 @@ func TestSigners(t *testing.T) {
 
 	t.Run("Increment should update the bitmap and the auxiliary maps correctly", func(t *testing.T) {
 		// +10 to avoid hitting the panic in `increment` related to the max allowed coefficient
-		s := NewVoteSigners(committee.Len() + 10)
+		s := NewSigners(committee.Len() + 10)
 		require.Equal(t, s.CommitteeSize(), committee.Len()+10)
 
-		require.Equal(t, s.Bits.HasSigner(0), false)
+		require.False(t, s.Bitmap.IsSet(0))
 
 		s.AddMember(&committee.Members[0])
-		require.Equal(t, s.Bits.HasSigner(0), true)
-		require.Equal(t, s.Coefficients[0], uint16(1))
-		require.Equal(t, len(s.Powers()), 1)
+		require.True(t, s.Bitmap.IsSet(0))
+		require.Equal(t, common.Big1.String(), s.Coefficients[0].String())
+		require.Equal(t, 1, len(s.Powers()))
 		require.Equal(t, s.Power().Uint64(), committee.Members[0].VotingPower.Uint64())
 		require.Equal(t, s.Powers()[0].Uint64(), committee.Members[0].VotingPower.Uint64())
 		require.Equal(t, s.Len(), 1)
 
 		s.AddMember(&committee.Members[0])
-		require.Equal(t, s.Bits.HasSigner(0), true)
-		require.Equal(t, s.Coefficients[0], uint16(2))
+		require.True(t, s.Bitmap.IsSet(0))
+		require.Equal(t, s.Coefficients[0].String(), common.Big2.String())
 		s.AddMember(&committee.Members[0])
-		require.Equal(t, s.Bits.HasSigner(0), true)
-		require.Equal(t, s.Coefficients[0], uint16(3))
+		require.True(t, s.Bitmap.IsSet(0))
+		require.Equal(t, s.Coefficients[0].String(), common.Big3.String())
 
 		require.Equal(t, len(s.Powers()), 1)
 		require.Equal(t, s.Power().Uint64(), committee.Members[0].VotingPower.Uint64())
@@ -269,8 +210,8 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, s.Len(), 1)
 
 		s.AddMember(&committee.Members[1])
-		require.Equal(t, s.Bits.HasSigner(1), true)
-		require.Equal(t, s.Coefficients[1], uint16(1))
+		require.True(t, s.Bitmap.IsSet(1))
+		require.Equal(t, s.Coefficients[1].String(), common.Big1.String())
 
 		require.Equal(t, len(s.Powers()), 2)
 		require.Equal(t, s.Power().Uint64(), committee.Members[0].VotingPower.Uint64()+committee.Members[1].VotingPower.Uint64())
@@ -278,79 +219,79 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, s.Len(), 2)
 
 		s.AddMember(&committee.Members[2])
-		require.Equal(t, s.Bits.HasSigner(2), true)
-		require.Equal(t, s.Coefficients[2], uint16(1))
+		require.True(t, s.Bitmap.IsSet(2))
+		require.Equal(t, s.Coefficients[2].String(), common.Big1.String())
 		s.AddMember(&committee.Members[2])
-		require.Equal(t, s.Bits.HasSigner(2), true)
-		require.Equal(t, s.Coefficients[2], uint16(2))
+		require.True(t, s.Bitmap.IsSet(2))
+		require.Equal(t, s.Coefficients[2].String(), common.Big2.String())
 		s.AddMember(&committee.Members[2])
-		require.Equal(t, s.Bits.HasSigner(2), true)
-		require.Equal(t, s.Coefficients[2], uint16(3))
+		require.True(t, s.Bitmap.IsSet(2))
+		require.Equal(t, s.Coefficients[2].String(), common.Big3.String())
 
 		s.AddMember(&committee.Members[2])
 		s.AddMember(&committee.Members[2])
 		s.AddMember(&committee.Members[2])
-		require.Equal(t, s.Coefficients[2], uint16(6))
+		require.Equal(t, s.Coefficients[2].String(), big.NewInt(6).String())
 
 		s.AddMember(&committee.Members[0])
-		require.Equal(t, s.Coefficients[0], uint16(4))
+		require.Equal(t, s.Coefficients[0].String(), common.Big4.String())
 
 		s.AddMember(&committee.Members[1])
-		require.Equal(t, s.Bits.HasSigner(1), true)
-		require.Equal(t, s.Coefficients[1], uint16(2))
+		require.True(t, s.Bitmap.IsSet(1))
+		require.Equal(t, s.Coefficients[1].String(), common.Big2.String())
 		s.AddMember(&committee.Members[1])
-		require.Equal(t, s.Bits.HasSigner(1), true)
-		require.Equal(t, s.Coefficients[1], uint16(3))
+		require.True(t, s.Bitmap.IsSet(1))
+		require.Equal(t, s.Coefficients[1].String(), common.Big3.String())
 		s.AddMember(&committee.Members[1])
-		require.Equal(t, s.Bits.HasSigner(1), true)
-		require.Equal(t, s.Coefficients[1], uint16(4))
+		require.True(t, s.Bitmap.IsSet(1))
+		require.Equal(t, s.Coefficients[1].String(), common.Big4.String())
 
 		s.AddMember(&committee.Members[1])
-		require.Equal(t, s.Bits.HasSigner(1), true)
-		require.Equal(t, s.Coefficients[1], uint16(5))
+		require.True(t, s.Bitmap.IsSet(1))
+		require.Equal(t, s.Coefficients[1].String(), big.NewInt(5).String())
 	})
 	t.Run("Merge correctly merges two senders info", func(t *testing.T) {
 		// +10 to avoid hitting the panic in `increment` related to the max allowed coefficient
-		s1 := NewVoteSigners(committee.Len() + 10)
+		s1 := NewSigners(committee.Len() + 10)
 		s1.AddMember(&committee.Members[0])
 		s1.AddMember(&committee.Members[1])
-		s2 := NewVoteSigners(committee.Len() + 10)
+		s2 := NewSigners(committee.Len() + 10)
 		s2.AddMember(&committee.Members[2])
 		s2.AddMember(&committee.Members[3])
 		s2.AddMember(&committee.Members[4])
 
-		s1.Merge(s2.SignersBase)
+		s1.Merge(s2)
 
 		require.Equal(t, s1.CommitteeSize(), committee.Len()+10)
 		require.Equal(t, len(s1.Powers()), committee.Len())
 		require.Equal(t, s1.Len(), committee.Len())
 		for i, member := range committee.Members {
-			require.Equal(t, s1.Bits.HasSigner(i), true)
-			require.Equal(t, s1.Coefficients[i], uint16(1))
+			require.True(t, s1.Bitmap.IsSet(i))
+			require.Equal(t, s1.Coefficients[i].String(), common.Big1.String())
 			require.Equal(t, s1.Powers()[i], member.VotingPower)
 		}
 		require.Equal(t, s1.Power().Uint64(), totalPower.Uint64())
 
-		s3 := NewVoteSigners(committee.Len() + 10)
+		s3 := NewSigners(committee.Len() + 10)
 		s3.AddMember(&committee.Members[0])
 		s3.AddMember(&committee.Members[1])
 		s3.AddMember(&committee.Members[2])
 		s3.AddMember(&committee.Members[3])
 		s3.AddMember(&committee.Members[4])
 
-		s1.Merge(s3.SignersBase)
+		s1.Merge(s3)
 
 		require.Equal(t, s1.CommitteeSize(), committee.Len()+10)
 		require.Equal(t, len(s1.Powers()), committee.Len())
 		require.Equal(t, s1.Len(), committee.Len())
 		for i, member := range committee.Members {
-			require.Equal(t, s1.Bits.HasSigner(i), true)
-			require.Equal(t, s1.Coefficients[i], uint16(2))
+			require.True(t, s1.Bitmap.IsSet(i))
+			require.Equal(t, s1.Coefficients[i].String(), common.Big2.String())
 			require.Equal(t, s1.Powers()[i], member.VotingPower)
 		}
 		require.Equal(t, s1.Power().Uint64(), totalPower.Uint64())
 
-		s4 := NewVoteSigners(committee.Len() + 10)
+		s4 := NewSigners(committee.Len() + 10)
 		s4.AddMember(&committee.Members[0])
 		s4.AddMember(&committee.Members[0])
 		s4.AddMember(&committee.Members[0])
@@ -359,26 +300,26 @@ func TestSigners(t *testing.T) {
 		s4.AddMember(&committee.Members[2])
 		s4.AddMember(&committee.Members[2])
 
-		s1.Merge(s4.SignersBase)
+		s1.Merge(s4)
 
-		require.Equal(t, s1.Bits.HasSigner(0), true)
-		require.Equal(t, s1.Coefficients[0], uint16(5))
-		require.Equal(t, s1.Bits.HasSigner(2), true)
-		require.Equal(t, s1.Coefficients[2], uint16(6))
+		require.True(t, s1.Bitmap.IsSet(0))
+		require.Equal(t, s1.Coefficients[0].String(), big.NewInt(5).String())
+		require.True(t, s1.Bitmap.IsSet(2))
+		require.Equal(t, s1.Coefficients[2].String(), big.NewInt(6).String())
 
-		s5 := NewVoteSigners(committee.Len() + 10)
+		s5 := NewSigners(committee.Len() + 10)
 		s5.AddMember(&committee.Members[1])
 
-		s1.Merge(s5.SignersBase)
-		require.Equal(t, s1.Bits.HasSigner(0), true)
-		require.Equal(t, s1.Bits.HasSigner(1), true)
-		require.Equal(t, s1.Bits.HasSigner(2), true)
-		require.Equal(t, s1.Coefficients[0], uint16(5))
-		require.Equal(t, s1.Coefficients[1], uint16(3))
-		require.Equal(t, s1.Coefficients[2], uint16(6))
+		s1.Merge(s5)
+		require.Equal(t, true, s1.Bitmap.IsSet(0))
+		require.Equal(t, true, s1.Bitmap.IsSet(1))
+		require.Equal(t, true, s1.Bitmap.IsSet(2))
+		require.Equal(t, s1.Coefficients[0].String(), big.NewInt(5).String())
+		require.Equal(t, s1.Coefficients[1].String(), common.Big3.String())
+		require.Equal(t, s1.Coefficients[2].String(), big.NewInt(6).String())
 	})
 	t.Run("Power returns the aggregated power of the senders", func(t *testing.T) {
-		s := NewVoteSigners(committee.Len())
+		s := NewSigners(committee.Len())
 		s.AddMember(&committee.Members[0])
 		s.AddMember(&committee.Members[1])
 
@@ -397,7 +338,7 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, s.Power(), totalPower)
 	})
 	t.Run("FlattenUniq returns the indexes of the senders (de-duplicated)", func(t *testing.T) {
-		s := NewVoteSigners(committee.Len())
+		s := NewSigners(committee.Len())
 		s.AddMember(&committee.Members[0])
 		s.AddMember(&committee.Members[1])
 
@@ -414,7 +355,7 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, s.FlattenUniq(), []int{0, 1, 2, 3})
 	})
 	t.Run("Contains returns expected result", func(t *testing.T) {
-		s := NewVoteSigners(committee.Len())
+		s := NewSigners(committee.Len())
 
 		require.False(t, s.Contains(0))
 		require.False(t, s.Contains(1))
@@ -428,41 +369,41 @@ func TestSigners(t *testing.T) {
 		require.True(t, s.Contains(2))
 	})
 	t.Run("AddsInformation, RespectBoundaries return expected results", func(t *testing.T) {
-		s1 := NewVoteSigners(committee.Len())
-		s2 := NewVoteSigners(committee.Len())
+		s1 := NewSigners(committee.Len())
+		s2 := NewSigners(committee.Len())
 
-		require.False(t, s1.AddsInformation(s2.SignersBase))
+		require.False(t, s1.AddsInformation(s2))
 
-		s1.increment(0, 1, common.Big0) //0
+		s1.increment(0, common.Big0) //0
 
-		require.False(t, s1.AddsInformation(s2.SignersBase))
+		require.False(t, s1.AddsInformation(s2))
 
-		s2.increment(0, 1, common.Big0) //0
+		s2.increment(0, common.Big0) //0
 
-		require.False(t, s1.AddsInformation(s2.SignersBase))
+		require.False(t, s1.AddsInformation(s2))
 
-		s2.increment(1, 1, common.Big0) //0,1
+		s2.increment(1, common.Big0) //0,1
 
-		require.True(t, s1.AddsInformation(s2.SignersBase))
+		require.True(t, s1.AddsInformation(s2))
 
-		s2.increment(2, 1, common.Big0) //0,1,2
+		s2.increment(2, common.Big0) //0,1,2
 
-		require.True(t, s1.AddsInformation(s2.SignersBase))
+		require.True(t, s1.AddsInformation(s2))
 
-		s1.increment(0, 1, common.Big0)
-		s1.increment(0, 1, common.Big0) //0,0,0
-		s2.increment(0, 1, common.Big0) //0,0,1,2
+		s1.increment(0, common.Big0)
+		s1.increment(0, common.Big0) //0,0,0
+		s2.increment(0, common.Big0) //0,0,1,2
 
-		require.True(t, s1.AddsInformation(s2.SignersBase))
+		require.True(t, s1.AddsInformation(s2))
 
-		s2.increment(0, 1, common.Big0) //0,0,0,1,2
+		s2.increment(0, common.Big0) //0,0,0,1,2
 
-		require.True(t, s1.AddsInformation(s2.SignersBase))
+		require.True(t, s1.AddsInformation(s2))
 
-		s1.increment(1, 1, common.Big0)
-		s1.increment(2, 1, common.Big0)
+		s1.increment(1, common.Big0)
+		s1.increment(2, common.Big0)
 
-		require.False(t, s1.AddsInformation(s2.SignersBase))
+		require.False(t, s1.AddsInformation(s2))
 
 	})
 }
@@ -470,100 +411,107 @@ func TestSigners(t *testing.T) {
 func TestValidation(t *testing.T) {
 	csize := 10
 
-	nilSigner := &SignersBase[uint16]{
-		Bits:         nil,
+	nilSigner := &Signers{
+		Bitmap:       nil,
 		Coefficients: nil,
 	}
-	require.True(t, errors.Is(nilSigner.Validate(csize), ErrNilSigners))
+	err := nilSigner.SanityCheck()
+	t.Log(err)
+	require.Error(t, err)
 
-	wrongSizeSigner := NewVoteSigners(csize)
-	wrongSizeSigner.Coefficients = make([]uint16, csize+10)
+	wrongSizeSigner := NewSigners(csize)
+	wrongSizeSigner.Coefficients = make([]*big.Int, csize+10)
 	require.True(t, errors.Is(wrongSizeSigner.Validate(csize), ErrWrongSizeSigners))
 
-	s := NewVoteSigners(csize)
+	s := NewSigners(csize)
 	require.True(t, errors.Is(s.Validate(csize), ErrEmptySigners))
 
 	// A
-	s.increment(0, 1, common.Big0)
+	s.increment(0, common.Big0)
 	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	// A + B
-	s.increment(1, 1, common.Big0)
+	s.increment(1, common.Big0)
 	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	// A + B + C
-	s.increment(2, 1, common.Big0)
+	s.increment(2, common.Big0)
 	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	// A + B + C + D
-	s.increment(3, 1, common.Big0)
+	s.increment(3, common.Big0)
 	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	// 2A + B + C + D
-	s.increment(0, 1, common.Big0)
+	s.increment(0, common.Big0)
 	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	// 3A + B + C + D
-	s.increment(0, 1, common.Big0)
+	s.increment(0, common.Big0)
 	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
 	// 4A + 2B + C + D
-	s.increment(0, 1, common.Big0)
-	s.increment(1, 1, common.Big0)
+	s.increment(0, common.Big0)
+	s.increment(1, common.Big0)
 	t.Log(s.String())
 	require.Nil(t, s.Validate(csize))
 
-	s.Coefficients = append(s.Coefficients, []uint16{0xca, 0xfe}...)
+	s.Coefficients = append(s.Coefficients, big.NewInt(0xca), big.NewInt(0xfe))
 	require.True(t, errors.Is(s.Validate(csize), ErrWrongCoefficientLen))
 
-	s = NewVoteSigners(csize)
-	s.increment(0, 1, common.Big0)
-	s.increment(0, 1, common.Big0)
+	s = NewSigners(csize)
+	// 2A
+	s.increment(0, common.Big0)
+	s.increment(0, common.Big0)
 	require.True(t, errors.Is(s.Validate(csize), ErrInvalidSingleSig))
 
-	s.increment(0, 1, common.Big0)
-	s.increment(0, 1, common.Big0)
-	s.increment(1, 1, common.Big0)
+	// 4A + B
+	s.increment(0, common.Big0)
+	s.increment(0, common.Big0)
+	s.increment(1, common.Big0)
 	require.True(t, errors.Is(s.Validate(csize), ErrInvalidCoefficient))
 
-	s = NewVoteSigners(csize)
-	s.increment(0, 1, common.Big0)
+	s = NewSigners(csize)
+	s.increment(0, common.Big0)
 	s.Validate(csize)
 	require.True(t, s.validated)
 	require.Equal(t, csize, s.CommitteeSize())
 	require.Equal(t, 1, s.Len())
 }
 
-func TestLeftmostSigners(t *testing.T) {
+func TestRightmostSigners(t *testing.T) {
 	err := committee.Enrich()
 	require.NoError(t, err)
 
 	s := NewSigners(committee.Len())
-	require.Equal(t, committee.Len(), s.LeftmostSigner())
-	s.Increment(&committee.Members[3])
-	require.Equal(t, 3, s.LeftmostSigner())
-	s.Increment(&committee.Members[4])
-	require.Equal(t, 3, s.LeftmostSigner())
-	s.Increment(&committee.Members[2])
-	require.Equal(t, 2, s.LeftmostSigner())
+	require.Equal(t, committee.Len(), s.RightmostSigner())
+	s.AddMember(&committee.Members[3])
+	t.Log(s.String())
+	require.Equal(t, 3, s.RightmostSigner())
+	s.AddMember(&committee.Members[4])
+	t.Log(s.String())
+	require.Equal(t, 3, s.RightmostSigner())
+	s.AddMember(&committee.Members[2])
+	t.Log(s.String())
+	require.Equal(t, 2, s.RightmostSigner())
 
 	other := NewSigners(committee.Len())
-	other.Increment(&committee.Members[4])
-	other.Increment(&committee.Members[2])
-	other.Increment(&committee.Members[1])
-	require.Equal(t, 1, other.LeftmostSigner())
+	other.AddMember(&committee.Members[4])
+	other.AddMember(&committee.Members[2])
+	other.AddMember(&committee.Members[1])
+	require.Equal(t, 1, other.RightmostSigner())
 
 	s.Merge(other)
-	require.Equal(t, 1, s.LeftmostSigner())
+	require.Equal(t, 1, s.RightmostSigner())
 
 	signerCopy := s.Copy()
-	require.Equal(t, 1, signerCopy.LeftmostSigner())
+	require.Equal(t, 1, signerCopy.RightmostSigner())
 
 	payload, err := rlp.EncodeToBytes(signerCopy)
 	require.NoError(t, err)
@@ -571,15 +519,16 @@ func TestLeftmostSigners(t *testing.T) {
 	err = rlp.Decode(bytes.NewBuffer(payload), decoded)
 	require.NoError(t, err)
 
+	t.Log(decoded.String())
 	err = decoded.Validate(committee.Len())
 	require.NoError(t, err)
 
-	require.Equal(t, 1, decoded.LeftmostSigner())
+	require.Equal(t, 1, decoded.RightmostSigner())
 
 	decoded2 := &Signers{}
 	err = rlp.Decode(bytes.NewBuffer(payload), decoded2)
 	require.NoError(t, err)
 
 	defer expectPanic(t)
-	decoded2.LeftmostSigner()
+	decoded2.RightmostSigner()
 }

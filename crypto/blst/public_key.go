@@ -4,11 +4,10 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/fixsizecache"
 	farmhash "github.com/dgryski/go-farm"
 	"github.com/pkg/errors"
-	blst "github.com/supranational/blst/bindings/go"
-
-	"github.com/autonity/autonity/common/fixsizecache"
 )
 
 func hashKey(key string) uint {
@@ -73,7 +72,7 @@ func AggregatePublicKeys(pubs []PublicKey) (PublicKey, error) {
 	return nil, fmt.Errorf("cannot aggregate public keys")
 }
 
-func ToAffineKeySet(pubkeys []PublicKey) blstPublicKeySet {
+func toAffineKeySet(pubkeys []PublicKey) blstPublicKeySet {
 	var rawKeys blstPublicKeySet
 	for _, pubkey := range pubkeys {
 		rawKeys = append(rawKeys, *pubkey.(*BlsPublicKey).p)
@@ -82,16 +81,12 @@ func ToAffineKeySet(pubkeys []PublicKey) blstPublicKeySet {
 }
 
 // returns aggregated public key by multiplying `pubkeys` with `scalars`.
-// `bitsEntropy` is the number of bits in the `scalars`
-func AggregatePublicKeysMultScalars(
-	pubkeys []PublicKey,
-	scalars []*blst.Scalar,
-	bitsEntropy int,
-) PublicKey {
-	rawkeys := ToAffineKeySet(pubkeys)
+func AggregatePublicKeysMultScalars(pubkeys []PublicKey, scalars []*blstScalar) PublicKey {
+	rawKeys := toAffineKeySet(pubkeys)
 
-	bitsEntropy = max(bitsEntropy, 3)
-	aggregatedKeyAffine := rawkeys.Mult(scalars, bitsEntropy).ToAffine()
+	// TODO: optimize value of nbits. For now fixed to 32, but could probably
+	// 	be set to lower values based on the bitsize of the scalars.
+	aggregatedKeyAffine := rawKeys.Mult(scalars, common.QuorumCap).ToAffine()
 	return &BlsPublicKey{p: aggregatedKeyAffine}
 }
 
