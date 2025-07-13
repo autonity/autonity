@@ -1147,6 +1147,8 @@ func TestAggregatorFullFlow(t *testing.T) {
 
 		// aggregator should process the message, and buffer it
 		waitFor(t, func() bool {
+			a.msgMu.RLock()
+			defer a.msgMu.RUnlock()
 			return a.messages[h] != nil && a.messages[h][r] != nil && len(a.messages[h][r].prevotes) == 1
 		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should have buffered the message")
 
@@ -1156,6 +1158,7 @@ func TestAggregatorFullFlow(t *testing.T) {
 
 		// aggregator should not process the message, as it is redundant
 		waitFor(t, func() bool {
+			a.signerSetCache.filterMu.RLock()
 			filtered := a.signerSetCache.filtered != nil &&
 				a.signerSetCache.filtered[h] != nil &&
 				len(a.signerSetCache.filtered[h][filteredCacheKey{
@@ -1163,7 +1166,10 @@ func TestAggregatorFullFlow(t *testing.T) {
 					round: r,
 					value: value,
 				}]) == 1
+			a.signerSetCache.filterMu.RUnlock()
+			a.msgMu.RLock()
 			notBuffered := a.messages[h] == nil || a.messages[h][r] == nil || len(a.messages[h][r].prevotes) == 1
+			a.msgMu.RUnlock()
 			return filtered && notBuffered
 		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should not have processed the redundant message")
 	})
@@ -1195,6 +1201,8 @@ func TestAggregatorFullFlow(t *testing.T) {
 
 		// aggregator should process the message, and buffer it
 		waitFor(t, func() bool {
+			a.msgMu.RLock()
+			defer a.msgMu.RUnlock()
 			return a.messages[h] != nil && a.messages[h][r] != nil && len(a.messages[h][r].prevotes) == 1
 		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should have buffered the message")
 
@@ -1259,12 +1267,16 @@ func TestAggregatorFullFlow(t *testing.T) {
 		aggregatorMsgChan <- anotherRedundantEvent
 
 		waitFor(t, func() bool {
+			a.msgMu.RLock()
+			defer a.msgMu.RUnlock()
 			return a.messages[h] != nil && a.messages[h][r] != nil && len(a.messages[h][r].prevotes) == 1
 		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should have buffered the message")
 
 		// aggregator should have cached the filtered messages after the bad event
+		a.signerSetCache.filterMu.RLock()
 		require.NotNil(t, a.signerSetCache.filtered[h])
 		require.Equal(t, 2, len(a.signerSetCache.filtered[h][filteredCacheKey{code: message.PrevoteCode, round: r, value: value}]))
+		a.signerSetCache.filterMu.RUnlock()
 
 		waitFor(t, func() bool {
 			select {

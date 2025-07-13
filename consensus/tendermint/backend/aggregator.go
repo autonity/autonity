@@ -112,10 +112,12 @@ type aggregator struct {
 	core    interfaces.Core
 
 	staleMessages map[common.Hash][]events.UnverifiedMessageEvent
-	messages      map[uint64]map[int64]*RoundInfo
 
+	msgMu        sync.RWMutex // protects the messages map and messagesFrom map
+	messages     map[uint64]map[int64]*RoundInfo
 	messagesFrom map[common.Address][]common.Hash
-	toIgnore     map[common.Hash]struct{}
+
+	toIgnore map[common.Hash]struct{}
 
 	knownMessages  *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 	signerSetCache *aggregatorCache
@@ -162,6 +164,8 @@ func tryDisconnect(errorCh chan<- error, err error) {
 }
 
 func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
+	a.msgMu.Lock()
+	defer a.msgMu.Unlock()
 	h := e.Message.H()
 	r := e.Message.R()
 	c := e.Message.Code()
@@ -188,6 +192,8 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 }
 
 func (a *aggregator) empty(h uint64, r int64) bool {
+	a.msgMu.Lock()
+	defer a.msgMu.Unlock()
 	if _, ok := a.messages[h]; !ok {
 		return true
 	}
@@ -203,7 +209,9 @@ func (a *aggregator) processRound(h uint64, r int64) {
 		return
 	}
 
+	a.msgMu.Lock()
 	roundInfo := a.messages[h][r]
+	a.msgMu.Unlock()
 
 	for _, proposalEvent := range roundInfo.proposals {
 		if a.toSkip(proposalEvent.Message) {
@@ -231,7 +239,9 @@ func (a *aggregator) processRound(h uint64, r int64) {
 	a.processBatches(batches, currentHeightEventBuilder)
 
 	//clean up
+	a.msgMu.Lock()
 	delete(a.messages[h], r)
+	a.msgMu.Unlock()
 }
 
 func (a *aggregator) processVotes(h uint64, r int64, c uint8) {
@@ -239,7 +249,9 @@ func (a *aggregator) processVotes(h uint64, r int64, c uint8) {
 		return
 	}
 
+	a.msgMu.Lock()
 	roundInfo := a.messages[h][r]
+	a.msgMu.Unlock()
 
 	// fill up batches matrix
 	switch c {
@@ -282,7 +294,9 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 		return
 	}
 
+	a.msgMu.Lock()
 	roundInfo := a.messages[h][r]
+	a.msgMu.Unlock()
 
 	switch c {
 	case message.PrevoteCode:
