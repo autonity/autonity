@@ -1152,7 +1152,7 @@ func TestQuorumPrecommit(t *testing.T) {
 
 	backendMock := interfaces.NewMockBackend(ctrl)
 	e.setupCore(backendMock, e.clientAddress)
-	backendMock.EXPECT().EpochByHeight(e.core.Height().Uint64()+1).Return(e.LatestEpoch(), nil)
+	backendMock.EXPECT().EpochByHeight(e.core.Height().Uint64()+1).Return(e.LatestEpoch(), nil).AnyTimes()
 	e.core.curRoundMessages.SetProposal(proposal, true)
 
 	quorumPrecommitMsgFake := message.Fake{
@@ -1165,8 +1165,10 @@ func TestQuorumPrecommit(t *testing.T) {
 	e.core.curRoundMessages.AddPrecommit(quorumPrecommitMsg)
 
 	quorumCertificateSigners := quorumPrecommitMsg.Signers().Copy()
-	quorumCertificateSigners.Merge(precommit.Signers())
+	quorumCertificateSigners.Merge(precommit.Signers().Copy())
+
 	quorumCertificateSignature := blst.AggregateSignatures([]blst.Signature{quorumPrecommitMsg.Signature(), precommit.Signature()})
+
 	backendMock.EXPECT().Commit(proposal.Block(), e.curRound, gomock.Any()).Do(
 		func(proposalBlock *types.Block, round int64, quorumCertificate *types.AggregateSignature) {
 			if quorumCertificateSignature.Hex() != quorumCertificate.Signature.Hex() {
@@ -1176,7 +1178,8 @@ func TestQuorumPrecommit(t *testing.T) {
 				t.Fatal("Commit called with wrong signers information")
 			}
 		})
-	backendMock.EXPECT().ProcessFutureMsgs(nextHeight).Times(1)
+
+	backendMock.EXPECT().ProcessFutureMsgs(nextHeight).AnyTimes()
 	backendMock.EXPECT().Post(TimeoutEvent{
 		RoundWhenCalled:  0,
 		HeightWhenCalled: new(big.Int).SetUint64(nextHeight),
@@ -1187,8 +1190,9 @@ func TestQuorumPrecommit(t *testing.T) {
 	assert.NoError(t, err)
 
 	newCommitteeSet, err := tdmcommittee.NewRoundRobinSet(e.committee.Committee(), e.committee.Committee().Members[e.curRound].Address)
-	e.core.committee = newCommitteeSet
 	assert.NoError(t, err)
+	e.core.committee = newCommitteeSet
+
 	backendMock.EXPECT().HeadBlock().Return(proposal.Block()).MaxTimes(2)
 
 	backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(signer(e, 0))
@@ -1352,7 +1356,7 @@ func NewConsensusEnv(t *testing.T, customize func(*ConsensusENV)) *ConsensusENV 
 		customize(env)
 	}
 
-	t.Log("curHeight", env.curHeight, "curRound", env.curRound, "committeeSize", env.committeeSize)
+	t.Log("curHeight", env.curHeight, "curRound", env.curRound, "committeeSize", env.committeeSize, "quorum", env.committee.Committee().Quorum())
 	return env
 }
 

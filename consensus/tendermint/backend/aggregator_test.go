@@ -171,7 +171,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 				return true
 			}
 			return false
-		})).Do(func(ev any) {
+		})).Do(func() {
 			called.Store(true)
 		}).Times(1)
 		backend.coreEventDispatcher = mc
@@ -280,7 +280,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 				return true
 			}
 			return false
-		})).Do(func(ev any) {
+		})).Do(func() {
 			called.Store(true)
 		}).Times(1)
 		backend.coreEventDispatcher = mc
@@ -657,11 +657,11 @@ func TestAggregatorHandleVote(t *testing.T) {
 		backendMock.EXPECT().DispatchToCore(gomock.Any()).Times(0)
 
 		a.signerSetCache.addVote(voteA, stepReceived)
-		a.handleVote(voteAEvent, quorum, true)
+		a.handleVote(voteAEvent, quorum)
 		require.Equal(t, 1, len(a.messages[h][r].prevotes[value]))
 
 		a.signerSetCache.addVote(voteB, stepReceived)
-		a.handleVote(voteBEvent, quorum, true)
+		a.handleVote(voteBEvent, quorum)
 		require.Equal(t, 1, len(a.messages[h][r].prevotes[common.Hash{}]))
 	})
 	t.Run("quorum for v triggers processing", func(t *testing.T) {
@@ -687,7 +687,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 
 		// no quorum reached, vote should be buffered
 		a.signerSetCache.addEvent(singleVoteEvent, stepReceived)
-		a.handleVote(singleVoteEvent, quorum, true)
+		a.handleVote(singleVoteEvent, quorum)
 		require.Equal(t, singleVote.Hash(), a.messages[h][r].precommits[value][0].Message.Hash())
 
 		// simple aggregate with quorum should trigger processing
@@ -700,7 +700,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 
 		a.signerSetCache.markCommittee(h, committee)
 		a.signerSetCache.addVote(vote, stepReceived)
-		a.handleVote(voteEvent, quorum, true)
+		a.handleVote(voteEvent, quorum)
 
 		require.Nil(t, a.messages[h][r].precommits[value])
 	})
@@ -728,7 +728,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		voteEventA := makeBogusEvent(voteA)
 
 		a.signerSetCache.addEvent(voteEventA, stepReceived)
-		a.handleVote(voteEventA, quorum, true)
+		a.handleVote(voteEventA, quorum)
 
 		// quorum for * is not reached, vote should be buffered
 		require.Equal(t, voteA.Hash(), a.messages[h][r].precommits[value][0].Message.Hash())
@@ -739,7 +739,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		voteEventB := makeBogusEvent(voteB)
 		// quorum for * is reached, vote should be processed
 		a.signerSetCache.addEvent(voteEventB, stepReceived)
-		a.handleVote(voteEventB, quorum, true)
+		a.handleVote(voteEventB, quorum)
 		require.Nil(t, a.messages[h][r].precommits[value])
 	})
 	t.Run("quorum for v doesnt trigger processing if already dispatched", func(t *testing.T) {
@@ -778,7 +778,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		voteB.Signers().Increment(&committee.Members[1])
 
 		a.signerSetCache.addEvent(makeBogusEvent(voteB), stepReceived)
-		a.handleVote(makeBogusEvent(voteB), quorum, true)
+		a.handleVote(makeBogusEvent(voteB), quorum)
 		// should be pending
 		require.Equal(t, voteB.Hash(), a.messages[h][r].precommits[v][0].Message.Hash())
 	})
@@ -813,7 +813,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		voteB.Signers().Increment(&committee.Members[4])
 
 		a.signerSetCache.addEvent(makeBogusEvent(voteB), stepReceived)
-		a.handleVote(makeBogusEvent(voteB), quorum, true)
+		a.handleVote(makeBogusEvent(voteB), quorum)
 
 		require.Equal(t, voteB.Hash(), a.messages[h][r].precommits[common.Hash{}][0].Message.Hash())
 	})

@@ -292,8 +292,8 @@ func TestPreValidate(t *testing.T) {
 		}
 
 		// tamper with signers information
-		//messages[0].Signers().Bits = make([]byte, 100)
-		//messages[1].Signers().Bits = make([]byte, 0)
+		messages[0].Signers().Bits = make([]byte, 100)
+		messages[1].Signers().Bits = make([]byte, 0)
 
 		for _, message := range messages {
 			err := message.PreValidate(committee)
@@ -307,8 +307,8 @@ func TestPreValidate(t *testing.T) {
 		vote := newUnverifiedPrevote(1, 25, header.Hash(), defaultSigner, testCommitteeMember, 5)
 
 		// let's make this vote complex by tweaking the signers (NOTE: this will not pass validate since the signature doesn't actually match the signers)
-		//vote.Signers().Bits.Set(0, 2)
-		//vote.Signers().Bits.Set(1, 1)
+		vote.Signers().Bits.Set(0, 2)
+		vote.Signers().Bits.Set(1, 1)
 
 		err := vote.PreValidate(committee)
 		require.True(t, errors.Is(err, ErrInvalidComplexAggregate))

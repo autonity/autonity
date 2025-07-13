@@ -826,8 +826,8 @@ func TestMultipleRestart(t *testing.T) {
 		backend:        b,
 		core:           tendermintC,
 		signerSetCache: newAggregatorCache(),
-		internalCoreCh:   make(chan events.MessageEventer, 1),
-		internalFdCh:     make(chan events.MessageEventer, 1),
+		internalCoreCh: make(chan events.MessageEventer, 1),
+		internalFdCh:   make(chan events.MessageEventer, 1),
 	}
 	b.coreStarting.Store(false)
 

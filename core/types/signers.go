@@ -465,7 +465,7 @@ func (s *Signers) Copy() *Signers {
 		committeeSize: s.committeeSize,
 		length:        s.length,
 		powers:        powers,
-		power:         s.power,
+		power:         new(big.Int).Set(s.power),
 		validated:     s.validated,
 		powerAssigned: s.powerAssigned,
 	}

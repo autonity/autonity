@@ -350,24 +350,19 @@ func (a *aggregator) DispatchFaultDetectorEvents(ctx context.Context) {
 
 // validates a batch of messages, returns valid votes
 func (a *aggregator) validateBatch(batch []events.UnverifiedMessageEvent) (valid []message.Vote, invalid []uint) {
-	var publicKeys []blst.PublicKey
-	var signatures []blst.Signature
-	var messages []message.Vote
-	var senders []common.Address
-	var errChs []chan<- error
+	publicKeys := make([]blst.PublicKey, len(batch))
+	signatures := make([]blst.Signature, len(batch))
+	messages := make([]message.Vote, len(batch))
+	senders := make([]common.Address, len(batch))
+	errChs := make([]chan<- error, len(batch))
 
-	for _, e := range batch {
+	for i, e := range batch {
 		m := e.Message
-		// skip messages to be ignored or that are already in core
-		if a.toSkip(m) {
-			continue
-		}
-
-		messages = append(messages, m.(message.Vote))
-		publicKeys = append(publicKeys, m.SignerKey())
-		signatures = append(signatures, m.Signature())
-		senders = append(senders, e.Sender)
-		errChs = append(errChs, e.ErrCh)
+		messages[i] = m.(message.Vote)
+		publicKeys[i] = m.SignerKey()
+		signatures[i] = m.Signature()
+		senders[i] = e.Sender
+		errChs[i] = e.ErrCh
 	}
 
 	// if all messages in the batch got skipped, move to the next batch
@@ -436,6 +431,19 @@ func (a *aggregator) validateBatch(batch []events.UnverifiedMessageEvent) (valid
 	return validVotes, invalids
 }
 
+func (a *aggregator) filterSkipped(evs []events.UnverifiedMessageEvent) []events.UnverifiedMessageEvent {
+	var filtered []events.UnverifiedMessageEvent
+	for _, e := range evs {
+		m := e.Message
+		// skip messages to be ignored or that are already in core
+		if a.toSkip(m) {
+			continue
+		}
+		filtered = append(filtered, e)
+	}
+	return filtered
+}
+
 // a batch is a set of messages for same (height,round,code,value) ---> can be aggregated using FastAggregateVerify
 func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, eventer eventBuilder) {
 	if len(batches) == 0 {
@@ -452,6 +460,8 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			BatchesBg.Add(int64(len(batch)))
 		}
 		processed += len(batch)
+		// we need to filter first so that invalids indexes will actually be correct
+		batch = a.filterSkipped(batch) // filter out messages that are to be skipped
 		validVotes, invalids := a.validateBatch(batch)
 		sent += len(validVotes)
 		if len(validVotes) > 0 {
@@ -513,16 +523,14 @@ func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent
 // assumes current or old round vote
 // if add == true, the msg is saved in the aggregator.
 // if add == false, the msg is not saved and only the power checks are done.
-func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, quorum *big.Int, add bool) {
+func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, quorum *big.Int) {
 	vote := voteEvent.Message.(message.Vote)
 	height := vote.H()
 	round := vote.R()
 	code := vote.Code()
 	value := vote.Value()
 
-	if add {
-		a.saveMessage(voteEvent)
-	}
+	a.saveMessage(voteEvent)
 
 	//// check if we reached quorum voting power on a specific value
 	votingPowerReceived := a.signerSetCache.presentPowerForValue(height, round, value, code, stepReceived)
@@ -612,7 +620,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	case *message.Propose:
 		// do nothing, proposal already processed
 	case *message.Prevote, *message.Precommit:
-		a.handleVote(event, quorum, true)
+		a.handleVote(event, quorum)
 	default:
 		a.logger.Crit("unknown message type arrived in aggregator")
 	}
