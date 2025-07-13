@@ -15,7 +15,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
@@ -74,22 +73,6 @@ func currentHeightEventBuilder(msg message.Msg, event events.UnverifiedMessageEv
 // function to create the event for old height messages (they get picked up only by the FD)
 func oldHeightEventBuilder(msg message.Msg, event events.UnverifiedMessageEvent) interface{} {
 	return events.NewOldMessageEvent(msg, event.ErrCh, event.Sender, time.Now())
-}
-
-// computes how much new voting power will the messages in the aggregator apport to core
-func powerContribution(aggregatorSigners *big.Int, coreSigners *big.Int, committee *types.Committee) *big.Int {
-	contribution := message.Contribution(aggregatorSigners, coreSigners)
-	if contribution.Cmp(common.Big0) == 0 {
-		return new(big.Int) // no power contribution
-	}
-	// there is a contribution, compute how much
-	contributionPower := new(big.Int)
-	for i, member := range committee.Members {
-		if contribution.Bit(i) == 1 {
-			contributionPower.Add(contributionPower, member.VotingPower)
-		}
-	}
-	return contributionPower
 }
 
 func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger, knownMessages *fixsizecache.Cache[common.Hash, bool], afdDispatchCh chan<- events.MessageEventer) *aggregator {
@@ -151,6 +134,16 @@ func (a *aggregator) start(ctx context.Context) {
 	a.logger.Info("Starting the aggregator routine")
 	ctx, a.cancel = context.WithCancel(ctx)
 	a.wg.Add(1)
+	// if the aggregator was previously stopped, these will be nil, we have to recreate them
+	if a.internalCoreCh == nil {
+		a.internalCoreCh = make(chan events.MessageEventer, 1) // buffered to avoid deadlock
+	}
+	if a.internalFdCh == nil {
+		a.internalFdCh = make(chan events.MessageEventer, 1) // buffered to avoid deadlock
+	}
+	if a.internalBacklogCh == nil {
+		a.internalBacklogCh = make(chan events.UnverifiedMessageEvent, 1000) // buffered to avoid deadlock
+	}
 	go a.loop(ctx)
 }
 
@@ -314,25 +307,29 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 	}
 }
 
-func (a *aggregator) DispatchCoreEvents() {
+func (a *aggregator) DispatchCoreEvents(ctx context.Context) {
 	go func() {
 		for {
 			select {
 			case event, ok := <-a.internalCoreCh:
 				if !ok {
 					a.logger.Warn("Aggregator internal core channel closed, stopping dispatching to core")
+
 					return
 				}
 				// This is the only place that blocks for the Core
 				if ev, ok := event.(events.MessageEvent); ok { // only new message events are send to core
 					a.backend.DispatchToCore(ev)
 				}
+			case <-ctx.Done():
+				a.logger.Info("Aggregator internal core channel context done, stopping dispatching to core")
+				return
 			}
 		}
 	}()
 }
 
-func (a *aggregator) DispatchFaultDetectorEvents() {
+func (a *aggregator) DispatchFaultDetectorEvents(ctx context.Context) {
 	go func() {
 		for {
 			select {
@@ -343,6 +340,9 @@ func (a *aggregator) DispatchFaultDetectorEvents() {
 				}
 				// This is the only place that blocks the fault detector
 				a.backend.DispatchToFD(event)
+			case <-ctx.Done():
+				a.logger.Info("Aggregator internal fault detector channel context done, stopping dispatching to FD")
+				return
 			}
 		}
 	}()
@@ -664,8 +664,8 @@ func (a *aggregator) oldHeightStats() {
 
 func (a *aggregator) loop(ctx context.Context) {
 	defer a.wg.Done()
-	a.DispatchCoreEvents()
-	a.DispatchFaultDetectorEvents()
+	a.DispatchCoreEvents(ctx)
+	a.DispatchFaultDetectorEvents(ctx)
 
 	//ticker := time.NewTicker(aggregationPeriod)
 	//defer ticker.Stop()

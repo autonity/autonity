@@ -13,7 +13,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 )
@@ -32,9 +31,7 @@ func TestSendPrevote(t *testing.T) {
 		// return random signature just to allow prevote encoding
 		backendMock.EXPECT().Sign(gomock.Any()).Times(1).Return(testSignature)
 
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
-			eventCh:          eventCh,
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
 			messages:         messages,
@@ -76,9 +73,7 @@ func TestSendPrevote(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer)
 		backendMock.EXPECT().Broadcast(gomock.Any(), expectedMsg)
 
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
-			eventCh:          eventCh,
 			backend:          backendMock,
 			address:          member.Address,
 			logger:           logger,
@@ -119,9 +114,7 @@ func TestHandlePrevote(t *testing.T) {
 		prevote := message.NewPrevote(1, 2, curRoundMessages.ProposalHash(), signer, &member, csize)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
-			eventCh:          eventCh,
 			address:          member.Address,
 			messages:         messages,
 			curRoundMessages: curRoundMessages,
@@ -177,9 +170,7 @@ func TestHandlePrevote(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), precommit)
 		backendMock.EXPECT().Post(gomock.Any()).MaxTimes(3)
 
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
-			eventCh:          eventCh,
 			address:          member.Address,
 			backend:          backendMock,
 			curRoundMessages: curRoundMessage,
@@ -233,9 +224,7 @@ func TestHandlePrevote(t *testing.T) {
 
 		logger := log.New("backend", "test", "id", 0)
 
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
-			eventCh:          eventCh,
 			address:          member2.Address,
 			backend:          backendMock,
 			messages:         messages,
@@ -291,9 +280,7 @@ func TestHandlePrevote(t *testing.T) {
 		backendMock.EXPECT().Post(gomock.Any()).MaxTimes(4)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[member2.Address].consensus)).AnyTimes()
 
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
-			eventCh:          eventCh,
 			address:          member2.Address,
 			backend:          backendMock,
 			messages:         messages,

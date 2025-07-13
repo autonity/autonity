@@ -89,6 +89,7 @@ func TestTendermintMessage(t *testing.T) {
 	if _, ok := backend.knownMessages.Get(data.Hash()); !ok {
 		t.Fatalf("the cache of messages cannot be found")
 	}
+	require.NoError(t, backend.Close(), "failed to close backend")
 }
 func TestSynchronisationMessage(t *testing.T) {
 	t.Run("engine not running, ignored", func(t *testing.T) {
@@ -183,8 +184,12 @@ func TestNewChainHead(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected <nil>, got %v", err)
 		}
+		tendermintC.EXPECT().Stop().MaxTimes(1)
+		mockRouter.EXPECT().Stop().MaxTimes(1)
+		require.NoError(t, b.Close())
 	})
 }
+
 func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 	size, r, _ := rlp.EncodeToReader(data)
 	var buff bytes.Buffer
@@ -221,6 +226,7 @@ func TestSignerJailed(t *testing.T) {
 	errCh = make(chan error, 1)
 	_, err = backend.HandleMsg(testAddress, msg, errCh)
 	require.Equal(t, ErrJailed, err)
+	require.NoError(t, backend.Close())
 }
 
 func TestFutureHeightMessage(t *testing.T) {
@@ -248,6 +254,8 @@ func TestFutureHeightMessage(t *testing.T) {
 		require.Equal(t, data.Hash(), backend.future.messages[futureHeight][0].Message.Hash())
 		require.Equal(t, futureHeight, backend.future.maxHeight)
 		require.Equal(t, uint64(1), backend.future.size)
+
+		require.NoError(t, backend.Close(), "failed to close backend")
 	})
 	t.Run("if future message buffer is full, messages farther in the future are dropped", func(t *testing.T) {
 		chain, backend := newBlockChain(1)
@@ -270,6 +278,8 @@ func TestFutureHeightMessage(t *testing.T) {
 		defer backend.future.RUnlock()
 		require.Equal(t, maxFutureMsgs, len(backend.future.messages))
 		require.Equal(t, uint64(maxFutureMsgs), backend.future.size) // works because we send only one message per height
+
+		require.NoError(t, backend.Close(), "failed to close backend")
 	})
 	t.Run("When processing future height messages, future height messages are re-injected", func(t *testing.T) {
 		chain, backend := newBlockChain(1)
@@ -296,5 +306,7 @@ func TestFutureHeightMessage(t *testing.T) {
 		backend.future.RLock()
 		require.Equal(t, uint64(0), backend.future.size)
 		backend.future.RUnlock()
+
+		require.NoError(t, backend.Close(), "failed to close backend")
 	})
 }

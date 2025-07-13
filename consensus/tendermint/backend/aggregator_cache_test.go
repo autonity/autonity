@@ -174,7 +174,7 @@ func TestAggregatorCache(t *testing.T) {
 
 func TestAggregatorCachePowerCalculations(t *testing.T) {
 	require.NoError(t, committee.Enrich())
-	mockCommittee := fromCommittee(committee)
+	mc := fromCommittee(committee)
 
 	t.Run("should calculate the correct power for a specific value", func(t *testing.T) {
 		// Initialize the aggregator cache
@@ -188,13 +188,13 @@ func TestAggregatorCachePowerCalculations(t *testing.T) {
 		votersB := []int{0, 1, 4} // Another set of mock voters
 		var votesA []message.Vote
 		for _, voter := range votersA {
-			votesA = append(votesA, message.NewPrevote(r, h, value, mockCommittee[voter].Sign, &committee.Members[voter], committee.Len()))
+			votesA = append(votesA, message.NewPrevote(r, h, value, mc[voter].Sign, &committee.Members[voter], committee.Len()))
 		}
 		voteA := message.AggregatePrevotes(votesA)
 
 		var votesB []message.Vote
 		for _, voter := range votersB {
-			votesB = append(votesB, message.NewPrevote(r, h, value, mockCommittee[voter].Sign, &committee.Members[voter], committee.Len()))
+			votesB = append(votesB, message.NewPrevote(r, h, value, mc[voter].Sign, &committee.Members[voter], committee.Len()))
 		}
 		voteB := message.AggregatePrevotes(votesB)
 
@@ -231,20 +231,20 @@ func TestAggregatorCachePowerCalculations(t *testing.T) {
 			proposal := message.NewPropose(
 				r, h, -1,
 				types.NewBlockWithHeader(&types.Header{Number: big.NewInt(int64(h))}),
-				mockCommittee[proposer].Sign,
+				mc[proposer].Sign,
 				&committee.Members[proposer],
 			)
 			cache.addEvent(events.UnverifiedMessageEvent{Message: proposal}, stepReceived)
 		}
 		var votesA []message.Vote
 		for _, voter := range votersA {
-			votesA = append(votesA, message.NewPrevote(r, h, valueA, mockCommittee[voter].Sign, &committee.Members[voter], committee.Len()))
+			votesA = append(votesA, message.NewPrevote(r, h, valueA, mc[voter].Sign, &committee.Members[voter], committee.Len()))
 		}
 		voteA := message.AggregatePrevotes(votesA)
 
 		var votesB []message.Vote
 		for _, voter := range votersB {
-			votesB = append(votesB, message.NewPrecommit(r, h, valueB, mockCommittee[voter].Sign, &committee.Members[voter], committee.Len()))
+			votesB = append(votesB, message.NewPrecommit(r, h, valueB, mc[voter].Sign, &committee.Members[voter], committee.Len()))
 		}
 		voteB := message.AggregatePrecommits(votesB)
 
@@ -263,9 +263,32 @@ func TestAggregatorCachePowerCalculations(t *testing.T) {
 	})
 
 	t.Run("should calculate the correct power for a specific code", func(t *testing.T) {
+		cache := newAggregatorCache()
 
+		// add a bunch of stuff to the cache
+		r := int64(0)
+		h := uint64(100)
+		value := testrand.Hash()
+
+		cache.markCommittee(h, mockCommittee(mc).ToCommittee())
+		cache.markCommittee(h-1, mockCommittee(mc).ToCommittee())
+
+		voteRound0Prevote := newSignedTestMsg(t, h, r, value, message.PrevoteCode, mc, []int{0, 1, 2})
+		voteRound0PrevoteB := newSignedTestMsg(t, h, r, common.Hash{}, message.PrevoteCode, mc, []int{3, 4})
+		voteRound0Precommit := newSignedTestMsg(t, h, r, value, message.PrecommitCode, mc, []int{0, 1, 4, 5})
+		voteRound1 := newSignedTestMsg(t, h, r+1, value, message.PrevoteCode, mc, []int{0, 1, 2})
+		voteRound2 := newSignedTestMsg(t, h, r+2, value, message.PrevoteCode, mc, []int{0, 1})
+		voteRound3 := newSignedTestMsg(t, h-1, r+3, value, message.PrevoteCode, mc, []int{0})
+
+		for _, event := range []events.UnverifiedMessageEvent{voteRound0Prevote, voteRound0PrevoteB, voteRound0Precommit, voteRound1, voteRound2, voteRound3} {
+			cache.addEvent(event, stepReceived)
+		}
+		powerPrevote := cache.totalPowerForCode(h, r, message.PrevoteCode, stepReceived)
+		require.NotNil(t, powerPrevote, "power should not be nil for prevote")
+
+		// should be 5, as we have 5 members with voting power in the prevote round (for different values)
+		require.Equal(t, big.NewInt(5), powerPrevote, "should match the expected voting power for the prevote code")
 	})
-
 }
 
 func TestBitmapLogic(t *testing.T) {

@@ -3,12 +3,13 @@ package backend
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
 	"github.com/autonity/autonity/rpc"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestGetCommittee(t *testing.T) {

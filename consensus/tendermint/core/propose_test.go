@@ -19,7 +19,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
@@ -352,9 +351,7 @@ func TestHandleProposal(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
-			eventCh:          eventCh,
 			address:          committeeSet.Committee().Members[0].Address,
 			backend:          backendMock,
 			messages:         messages,

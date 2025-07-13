@@ -13,22 +13,17 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/mock/gomock"
 
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
-	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core"
-	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/internal/testrand"
 	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/params"
 )
 
 var (
@@ -195,6 +190,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 		waitFor(t, func() bool {
 			return called.Load()
 		}, time.Millisecond, time.Second, "proposal was not processed by the aggregator")
+		require.NoError(t, backend.Close())
 	})
 	t.Run("current height, future round proposal should be buffered", func(t *testing.T) {
 		h := uint64(1)
@@ -296,62 +292,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 		waitFor(t, func() bool {
 			return called.Load()
 		}, 20*time.Millisecond, 200*time.Millisecond, "prevote was not processed by the time-based aggregation")
-	})
-
-	t.Run("current height, future round prevote should be processed if F voting power is reached", func(t *testing.T) {
-		committeeSize := 4
-		chain, backend := newBlockChain(committeeSize)
-		genesis := chain.Genesis()
-		genesisCommittee := genesis.Header().Epoch.Committee
-
-		h := uint64(1)
-		r := int64(10)
-
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		// send message to the aggregator and wait for time based aggregation to send it to Core
-		value := common.Hash{0xca, 0xfe}
-		prevote := message.NewPrevote(r, h, value, backend.Sign, &genesisCommittee.Members[0], committeeSize)
-		errCh := make(chan error)
-
-		passed := make(chan struct{}, 1)
-		coreEventDispatcherMock := interfaces.NewMockEventDispatcher(ctrl)
-		coreEventDispatcher := backend.coreEventDispatcher
-		backend.coreEventDispatcher = coreEventDispatcherMock
-
-		coreEventDispatcherMock.EXPECT().Post(gomock.Any()).DoAndReturn(func(ev any) {
-			switch ev.(type) {
-			case events.MessageEvent:
-				if ev.(events.MessageEvent).Message().Hash() == prevote.Hash() {
-					t.Log("prevote processed by core")
-					passed <- struct{}{}
-				}
-			}
-			coreEventDispatcher.Post(ev)
-		}).AnyTimes()
-
-		backend.aggregatorMessageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
-		waitFor(t, func() bool {
-			select {
-			case <-passed:
-				return true
-			default:
-				// do nothing
-			}
-			return false
-		}, 20*time.Millisecond, 200*time.Millisecond, "future round prevote has not been processed by time-based aggregation")
-		require.Equal(t, uint64(100), backend.aggregator.signerSetCache.totalPowerForRound(h, r, stepDispatched).Uint64())
-
-		// now send message that will reach quorum (together with the previous msg in Core)
-		prevote = tweakPrevote(message.NewPrevote(r, h, value, backend.Sign, &genesisCommittee.Members[1], committeeSize), backend.consensusKey.PublicKey())
-
-		backend.aggregatorMessageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
-
-		// core should switch to round 10 if message gets processed by it
-		waitFor(t, func() bool {
-			return backend.core.Round() == r
-		}, 1*time.Millisecond, 30*time.Millisecond, "future round messages did not cause round change in core")
+		require.NoError(t, backend.Close())
 	})
 	t.Run("current height, future round complex aggregate carrying quorum should trigger processing", func(t *testing.T) {
 		committeeSize := 4
@@ -379,6 +320,62 @@ func TestAggregatorMessageHandling(t *testing.T) {
 		waitFor(t, func() bool {
 			return backend.core.Round() == r
 		}, 1*time.Millisecond, 30*time.Millisecond, "future round messages did not cause round change in core")
+		require.NoError(t, backend.Close())
+	})
+	t.Run("current height, future round prevote should be processed if F voting power is reached", func(t *testing.T) {
+		committeeSize := 4
+		chain, backend := newBlockChain(committeeSize)
+		genesis := chain.Genesis()
+		genesisCommittee := genesis.Header().Epoch.Committee
+
+		h := uint64(1)
+		r := int64(10)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		// send message to the aggregator and wait for time based aggregation to send it to Core
+		value := testrand.Hash()
+		prevote := message.NewPrevote(r, h, value, backend.Sign, &genesisCommittee.Members[0], committeeSize)
+		errCh := make(chan error)
+		defer close(errCh)
+
+		called := atomic.NewBool(false)
+
+		coreEventDispatcherMock := interfaces.NewMockEventDispatcher(ctrl)
+		coreEventDispatcher := backend.coreEventDispatcher
+		backend.coreEventDispatcher = coreEventDispatcherMock
+
+		coreEventDispatcherMock.EXPECT().Post(gomock.Any()).Do(func(ev any) {
+			if event, ok := ev.(events.MessageEvent); ok {
+				if event.Message().Hash() == prevote.Hash() {
+					called.Store(true)
+				}
+				switch event.Message().(type) {
+				case *message.Prevote:
+					coreEventDispatcher.Post(ev) // re-post to the original dispatcher
+				default:
+					// do nothing, we are only interested in prevote processing
+				}
+			}
+
+		}).AnyTimes()
+
+		backend.aggregatorMessageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
+		waitFor(t, func() bool {
+			return called.Load()
+		}, 20*time.Millisecond, 200*time.Millisecond, "future round prevote has not been processed by time-based aggregation")
+		require.Equal(t, uint64(100), backend.aggregator.signerSetCache.totalPowerForRound(h, r, stepDispatched).Uint64())
+
+		// now send message that will reach quorum (together with the previous msg in Core)
+		prevote = tweakPrevote(message.NewPrevote(r, h, value, backend.Sign, &genesisCommittee.Members[1], committeeSize), backend.consensusKey.PublicKey())
+		backend.aggregatorMessageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
+
+		// core should switch to round 10 if message gets processed by it
+		waitFor(t, func() bool {
+			return backend.core.Round() == r
+		}, 1*time.Millisecond, 30*time.Millisecond, "future round messages did not cause round change in core")
+		require.NoError(t, backend.Close())
 	})
 }
 
@@ -847,7 +844,7 @@ func TestAggregatorProcess(t *testing.T) {
 			internalCoreCh: make(chan events.MessageEventer, 1),
 			signerSetCache: newAggregatorCache(),
 		}
-		a.DispatchCoreEvents()
+		a.DispatchCoreEvents(context.Background())
 		backendMock.EXPECT().DispatchToCore(gomock.Any()).Times(1)
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 		propose := makeBogusPropose(0, 1, 0)
@@ -967,13 +964,15 @@ func TestAggregatorProcess(t *testing.T) {
 			backend:           backendMock,
 			knownMessages:     fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
 			signerSetCache:    newAggregatorCache(),
-			internalFdCh:      make(chan events.MessageEventer, 10),
-			internalCoreCh:    make(chan events.MessageEventer, 10),
+			internalFdCh:      make(chan events.MessageEventer),
+			internalCoreCh:    make(chan events.MessageEventer),
 			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
 			logger:            log.Root(),
 		}
-		a.DispatchCoreEvents()
-		a.DispatchFaultDetectorEvents()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		a.DispatchCoreEvents(ctx)
+		a.DispatchFaultDetectorEvents(ctx)
 
 		var batches [][]events.UnverifiedMessageEvent
 
@@ -1023,8 +1022,10 @@ func TestAggregatorProcess(t *testing.T) {
 			internalCoreCh:    make(chan events.MessageEventer, 10),
 			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
 		}
-		a.DispatchCoreEvents()
-		a.DispatchFaultDetectorEvents()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		a.DispatchCoreEvents(ctx)
+		a.DispatchFaultDetectorEvents(ctx)
 		a.signerSetCache.markCommittee(h, committee)
 
 		var batches [][]events.UnverifiedMessageEvent
@@ -1091,8 +1092,6 @@ func TestAggregatorFullFlow(t *testing.T) {
 		coreMock.EXPECT().Height().Return(big.NewInt(int64(h))).AnyTimes()
 		coreMock.EXPECT().Round().Return(r).AnyTimes()
 
-		a.DispatchCoreEvents()
-		a.DispatchFaultDetectorEvents()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		a.start(ctx)
@@ -1140,8 +1139,6 @@ func TestAggregatorFullFlow(t *testing.T) {
 		coreMock.EXPECT().Height().Return(big.NewInt(int64(h))).AnyTimes()
 		coreMock.EXPECT().Round().Return(r).AnyTimes()
 
-		a.DispatchCoreEvents()
-		a.DispatchFaultDetectorEvents()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		a.start(ctx)
@@ -1197,8 +1194,6 @@ func TestAggregatorFullFlow(t *testing.T) {
 		coreMock.EXPECT().Height().Return(big.NewInt(int64(h))).AnyTimes()
 		coreMock.EXPECT().Round().Return(r).AnyTimes()
 
-		a.DispatchCoreEvents()
-		a.DispatchFaultDetectorEvents()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		a.start(ctx)
@@ -1293,8 +1288,10 @@ func TestAggregatorDosProtection(t *testing.T) {
 		internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
 		signerSetCache:    newAggregatorCache(),
 	}
-	a.DispatchCoreEvents()
-	a.DispatchFaultDetectorEvents()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	a.DispatchCoreEvents(ctx)
+	a.DispatchFaultDetectorEvents(ctx)
 
 	// suppose committee[0] is sending invalid sigs
 
@@ -1338,28 +1335,6 @@ func TestAggregatorDosProtection(t *testing.T) {
 	a.processRound(h, r+1)
 	a.processRound(h+3, r)
 	a.processRound(h, r)
-}
-
-func newTestBlockchain() *core.BlockChain {
-	db := rawdb.NewMemoryDatabase()
-	core.GenesisBlockForTesting(db, common.Address{}, common.Big0)
-	chain, err := core.NewBlockChain(
-		db,
-		nil,
-		params.TestChainConfig,
-		ethash.NewFaker(),
-		vm.Config{},
-		nil,
-		&core.TxSenderCacher{},
-		nil,
-		backends.NewInternalBackend(nil),
-		log.Root(),
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	return chain
 }
 
 func newSignedTestMsg(

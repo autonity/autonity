@@ -161,7 +161,6 @@ func TestHandleMessage(t *testing.T) {
 		messageMap := message.NewMap()
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		engine := Core{
 			logger:           logger,
 			address:          currentValidator.Address,
@@ -177,7 +176,6 @@ func TestHandleMessage(t *testing.T) {
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
 			backend:          backendMock,
-			eventCh:          eventCh,
 		}
 		engine.SetDefaultHandlers()
 
@@ -236,7 +234,6 @@ func TestHandleFutureRound(t *testing.T) {
 	messageMap := message.NewMap()
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
-	eventCh := make(chan events.CoreEvent, EventQueueSize)
 	engine := Core{
 		logger:           logger,
 		address:          sender1.Address,
@@ -252,7 +249,6 @@ func TestHandleFutureRound(t *testing.T) {
 		prevoteTimeout:   NewTimeout(Prevote, logger),
 		precommitTimeout: NewTimeout(Precommit, logger),
 		backend:          backendMock,
-		eventCh:          eventCh,
 	}
 	engine.SetDefaultHandlers()
 
