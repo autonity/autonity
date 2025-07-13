@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -1076,6 +1077,196 @@ func TestAggregatorProcess(t *testing.T) {
 	})
 }
 
+func TestAggregatorFullFlow(t *testing.T) {
+	// Previous tests investigate individual aggregator functions, however, now that we
+	// are relying on caching we need to make sure that messages are being properly filtered
+
+	t.Run("aggregator should discard messages that contain redundant information", func(t *testing.T) {
+		ctrl, a, backendMock, coreMock, aggregatorMsgChan := setupTestAggregator(t)
+		defer waitForExpects(t, ctrl)
+
+		h := uint64(1)
+		r := int64(5)
+
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).MaxTimes(1)
+		backendMock.EXPECT().DispatchToFD(gomock.Any()).MaxTimes(1)
+		coreMock.EXPECT().Height().Return(big.NewInt(int64(h))).AnyTimes()
+		coreMock.EXPECT().Round().Return(r).AnyTimes()
+
+		a.DispatchCoreEvents()
+		a.DispatchFaultDetectorEvents()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		a.start(ctx)
+
+		// create a message
+		mc := fromCommittee(committee)
+		backendMock.EXPECT().CommitteeByHeight(gomock.Any()).Return(mockCommittee(mc).ToCommittee(), nil).AnyTimes()
+
+		value := testrand.Hash()
+		event := newSignedTestMsg(t, 1, 5, value, message.PrevoteCode, mc, []int{0, 1, 2})
+
+		aggregatorMsgChan <- event
+
+		// aggregator should process the message, and buffer it
+		waitFor(t, func() bool {
+			return a.messages[h] != nil && a.messages[h][r] != nil && len(a.messages[h][r].prevotes) == 1
+		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should have buffered the message")
+
+		redundantEvent := newSignedTestMsg(t, 1, 5, value, message.PrevoteCode, mc, []int{0, 1})
+
+		aggregatorMsgChan <- redundantEvent
+
+		// aggregator should not process the message, as it is redundant
+		waitFor(t, func() bool {
+			filtered := a.signerSetCache.filtered != nil &&
+				a.signerSetCache.filtered[h] != nil &&
+				len(a.signerSetCache.filtered[h][filteredCacheKey{
+					code:  message.PrevoteCode,
+					round: r,
+					value: value,
+				}]) == 1
+			notBuffered := a.messages[h] == nil || a.messages[h][r] == nil || len(a.messages[h][r].prevotes) == 1
+			return filtered && notBuffered
+		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should not have processed the redundant message")
+	})
+
+	t.Run("aggregator should dispatch aggregated messages to core once quorum is reached", func(t *testing.T) {
+		ctrl, a, backendMock, coreMock, aggregatorMsgChan := setupTestAggregator(t)
+		defer waitForExpects(t, ctrl)
+
+		h := uint64(1)
+		r := int64(5)
+
+		backendMock.EXPECT().DispatchToFD(gomock.Any()).MaxTimes(1)
+		coreMock.EXPECT().Height().Return(big.NewInt(int64(h))).AnyTimes()
+		coreMock.EXPECT().Round().Return(r).AnyTimes()
+
+		a.DispatchCoreEvents()
+		a.DispatchFaultDetectorEvents()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		a.start(ctx)
+
+		// create a message
+		mc := fromCommittee(committee)
+		backendMock.EXPECT().Address().Return(mc[0].Address).AnyTimes()
+		backendMock.EXPECT().CommitteeByHeight(gomock.Any()).Return(mockCommittee(mc).ToCommittee(), nil).AnyTimes()
+
+		value := testrand.Hash()
+		event := newSignedTestMsg(t, 1, 5, value, message.PrevoteCode, mc, []int{0, 1, 2})
+
+		aggregatorMsgChan <- event
+
+		// aggregator should process the message, and buffer it
+		waitFor(t, func() bool {
+			return a.messages[h] != nil && a.messages[h][r] != nil && len(a.messages[h][r].prevotes) == 1
+		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should have buffered the message")
+
+		// send more messages to reach quorum
+		event2 := newSignedTestMsg(t, 1, 5, value, message.PrevoteCode, mc, []int{3, 4, 5})
+		passed := atomic.NewBool(false)
+		backendMock.EXPECT().DispatchToCore(gomock.Cond(func(ev any) bool {
+			msg, ok := ev.(events.MessageEventer)
+			if !ok {
+				return false
+			}
+			switch msg.Message().Code() {
+			case message.PrevoteCode:
+				correct := msg.Message().(message.Vote).Signers().Len() == 6 && msg.Message().Value() == value
+				if correct {
+					passed.Store(true)
+				}
+				return correct
+			default:
+				return false
+			}
+		})).Times(1)
+		aggregatorMsgChan <- event2
+		waitFor(t, func() bool {
+			return passed.Load()
+		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should have dispatched the aggregated message to core")
+	})
+
+	t.Run("aggregator should reinject messages when an invalid signature is detected", func(t *testing.T) {
+		ctrl, a, backendMock, coreMock, aggregatorMsgChan := setupTestAggregator(t)
+		defer waitForExpects(t, ctrl)
+
+		h := uint64(1)
+		r := int64(5)
+
+		backendMock.EXPECT().DispatchToFD(gomock.Any()).MaxTimes(1)
+		coreMock.EXPECT().Height().Return(big.NewInt(int64(h))).AnyTimes()
+		coreMock.EXPECT().Round().Return(r).AnyTimes()
+
+		a.DispatchCoreEvents()
+		a.DispatchFaultDetectorEvents()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		a.start(ctx)
+
+		mc := fromCommittee(committee)
+		backendMock.EXPECT().Address().Return(mc[0].Address).AnyTimes()
+		backendMock.EXPECT().CommitteeByHeight(gomock.Any()).Return(mockCommittee(mc).ToCommittee(), nil).AnyTimes()
+
+		value := testrand.Hash()
+		badlySignedEvent := newSignedTestMsg(t, 1, 5, value, message.PrevoteCode, mc, []int{0, 1, 2, 3})
+		badKey, err := blst.RandKey()
+		require.NoError(t, err)
+		badlySignedEvent.Message = tweakPrevote(badlySignedEvent.Message.(*message.Prevote), badKey.PublicKey())
+		redundantEvent := newSignedTestMsg(t, 1, 5, value, message.PrevoteCode, mc, []int{0, 1})
+		anotherRedundantEvent := newSignedTestMsg(t, 1, 5, value, message.PrevoteCode, mc, []int{2})
+
+		errChan := make(chan error, 1)
+		badlySignedEvent.ErrCh = errChan
+
+		// send all events to aggregator
+		aggregatorMsgChan <- badlySignedEvent
+		aggregatorMsgChan <- redundantEvent
+		aggregatorMsgChan <- anotherRedundantEvent
+
+		waitFor(t, func() bool {
+			return a.messages[h] != nil && a.messages[h][r] != nil && len(a.messages[h][r].prevotes) == 1
+		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should have buffered the message")
+
+		// aggregator should have cached the filtered messages after the bad event
+		require.NotNil(t, a.signerSetCache.filtered[h])
+		require.Equal(t, 2, len(a.signerSetCache.filtered[h][filteredCacheKey{code: message.PrevoteCode, round: r, value: value}]))
+
+		waitFor(t, func() bool {
+			select {
+			case <-errChan:
+				return true
+			default:
+				return false
+			}
+		}, 10*time.Millisecond, 2*aggregationPeriod, "aggregator should process within the aggregation period")
+
+		// aggregator should reinject the redundant messages
+		passed := atomic.NewBool(false)
+		backendMock.EXPECT().DispatchToCore(gomock.Cond(func(ev any) bool {
+			msg, ok := ev.(events.MessageEventer)
+			if !ok {
+				return false
+			}
+			switch msg.Message().Code() {
+			case message.PrevoteCode:
+				correct := msg.Message().(message.Vote).Signers().Len() == 3 && msg.Message().Value() == value
+				if correct {
+					passed.Store(true)
+				}
+				return correct
+			default:
+				return false
+			}
+		})).Times(1)
+
+		waitFor(t, func() bool {
+			return passed.Load()
+		}, 10*time.Millisecond, 2*aggregationPeriod, "Aggregator should have reinjected the filtered messages to core")
+	})
+}
+
 // if we detect an invalid signatures:
 // 1. peer is disconnected and suspended
 // 2. all the previously buffered messages we received from him are ignored
@@ -1173,30 +1364,67 @@ func newTestBlockchain() *core.BlockChain {
 	return chain
 }
 
-func makeTestCommitteeWithMember(index int, power *big.Int) (*types.Committee, message.Signer) {
-	cc := committee.Copy()
-	cc.Members = make([]types.CommitteeMember, len(committee.Members))
-	var key blst.SecretKey
-	var err error
-	for i, member := range committee.Members {
-		if i == index {
-			key, err = blst.RandKey()
-			if err != nil {
-				panic(err)
-			}
-			cc.Members[i] = types.CommitteeMember{
-				Address:      member.Address,
-				VotingPower:  power,
-				ConsensusKey: key.PublicKey(),
-				Index:        member.Index,
-			}
-		} else {
-			cc.Members[i] = member
+func newSignedTestMsg(
+	t *testing.T,
+	h uint64,
+	r int64,
+	value common.Hash,
+	c uint8,
+	mc []mockCommitteeMember,
+	signers []int,
+) events.UnverifiedMessageEvent {
+	var msg message.Msg
+	switch c {
+	case message.ProposalCode:
+		if len(signers) != 1 {
+			t.Fatalf("proposal must have exactly one signer")
 		}
+		header := &types.Header{Number: new(big.Int).SetUint64(h)}
+		msg = message.NewPropose(r, h, -1, types.NewBlockWithHeader(header), mc[signers[0]].Sign, &mc[signers[0]].CommitteeMember)
+	case message.PrevoteCode:
+		var msgs []message.Vote
+		for _, s := range signers {
+			msgs = append(msgs, message.NewPrevote(r, h, value, mc[s].Sign, &mc[s].CommitteeMember, csize))
+		}
+		msg = message.AggregatePrevotes(msgs)
+	case message.PrecommitCode:
+		var msgs []message.Vote
+		for _, s := range signers {
+			msgs = append(msgs, message.NewPrecommit(r, h, value, mc[s].Sign, &mc[s].CommitteeMember, csize))
+		}
+		msg = message.AggregatePrecommits(msgs)
+	default:
+		t.Fatalf("unknown message code %d", c)
 	}
-	signer := func(data common.Hash) blst.Signature {
-		signature := key.Sign(data[:])
-		return signature
+	return makeBogusEvent(msg)
+}
+
+func setupTestAggregator(t *testing.T) (
+	*gomock.Controller,
+	*aggregator,
+	*interfaces.MockBackend,
+	*interfaces.MockCore,
+	chan events.UnverifiedMessageEvent,
+) {
+	ctrl := gomock.NewController(t)
+	a := &aggregator{
+		messages:          make(map[uint64]map[int64]*RoundInfo),
+		messagesFrom:      make(map[common.Address][]common.Hash),
+		knownMessages:     fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash]),
+		logger:            log.Root(),
+		internalFdCh:      make(chan events.MessageEventer, 10),
+		internalCoreCh:    make(chan events.MessageEventer, 10),
+		internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
+		signerSetCache:    newAggregatorCache(),
+		toIgnore:          make(map[common.Hash]struct{}),
 	}
-	return cc, signer
+	aggregatorMsgChan := make(chan events.UnverifiedMessageEvent, 10)
+
+	backendMock := interfaces.NewMockBackend(ctrl)
+	backendMock.EXPECT().MessageCh().Return(aggregatorMsgChan).AnyTimes()
+	coreMock := interfaces.NewMockCore(ctrl)
+	a.core = coreMock
+	a.backend = backendMock
+
+	return ctrl, a, backendMock, coreMock, aggregatorMsgChan
 }

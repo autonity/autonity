@@ -400,13 +400,8 @@ func (a *aggregator) validateBatch(batch []events.UnverifiedMessageEvent) (valid
 		validVotes = append(validVotes, msg)
 	}
 
-	if len(validVotes) == 0 {
-		// all votes were invalid, return empty slices
-		return nil, invalids
-	}
-
 	var filtered []events.UnverifiedMessageEvent
-	switch validVotes[0].(type) {
+	switch batch[0].Message.(type) {
 	case *message.Prevote, *message.Precommit:
 		filtered = a.signerSetCache.emptyFiltered(
 			batch[0].Message.H(),
