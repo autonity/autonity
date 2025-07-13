@@ -165,16 +165,17 @@ func TestAggregatorMessageHandling(t *testing.T) {
 		defer ctrl.Finish()
 		mc := interfaces.NewMockEventDispatcher(ctrl)
 		called := atomic.NewBool(false)
+		backend.coreEventDispatcher = mc
+
 		mc.EXPECT().Post(gomock.Cond(func(ev any) bool {
 			event := ev.(events.MessageEvent)
 			if propose.Hash() == event.Message().Hash() {
 				return true
 			}
 			return false
-		})).Do(func() {
+		})).Do(func(ev any) {
 			called.Store(true)
 		}).Times(1)
-		backend.coreEventDispatcher = mc
 
 		backend.aggregatorMessageCh <- events.UnverifiedMessageEvent{Message: propose, ErrCh: errCh, Sender: common.Address{}, Posted: time.Now()}
 		defer failIf(t, func() (bool, error) {
@@ -189,8 +190,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		waitFor(t, func() bool {
 			return called.Load()
-		}, time.Millisecond, time.Second, "proposal was not processed by the aggregator")
-		require.NoError(t, backend.Close())
+		}, 10*time.Millisecond, 1*time.Second, "proposal was not processed by the aggregator")
 	})
 	t.Run("current height, future round proposal should be buffered", func(t *testing.T) {
 		h := uint64(1)
@@ -224,9 +224,6 @@ func TestAggregatorMessageHandling(t *testing.T) {
 		roundInfo := a.messages[h][r]
 		require.Equal(t, 1, len(roundInfo.proposals))
 		require.Equal(t, propose.Hash(), roundInfo.proposals[0].Message.Hash())
-
-		close(a.internalCoreCh)
-		close(a.internalFdCh)
 	})
 	t.Run("current height, current round prevote should be buffered", func(t *testing.T) {
 		h := uint64(1)
@@ -280,11 +277,10 @@ func TestAggregatorMessageHandling(t *testing.T) {
 				return true
 			}
 			return false
-		})).Do(func() {
+		})).Do(func(ev any) {
 			called.Store(true)
 		}).Times(1)
 		backend.coreEventDispatcher = mc
-
 		errCh := make(chan error)
 
 		backend.aggregatorMessageCh <- events.UnverifiedMessageEvent{Message: prevote, ErrCh: errCh, Sender: genesisCommittee.Members[0].Address, Posted: time.Now()}
@@ -305,6 +301,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+		backend.aggregator.DispatchCoreEvents(context.Background())
 
 		value := common.Hash{0xca, 0xfe}
 		prevote := message.NewPrevote(r, h, value, backend.Sign, &genesisCommittee.Members[0], committeeSize)

@@ -275,22 +275,22 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate 
 }
 
 func (sb *Backend) Post(ev any) {
-	switch ev := ev.(type) {
+	switch msg := ev.(type) {
 	case events.CommitEvent:
-		sb.coreEventDispatcher.Post(ev)
+		sb.coreEventDispatcher.Post(msg)
 	case events.NewCandidateBlockEvent:
-		sb.coreEventDispatcher.Post(ev)
+		sb.coreEventDispatcher.Post(msg)
 	case events.UnverifiedMessageEvent:
-		sb.aggregatorMessageCh <- ev
+		sb.aggregatorMessageCh <- msg
 	default:
-		sb.eventMux.Post(ev)
+		sb.eventMux.Post(msg)
 	}
 }
 
 func (sb *Backend) DispatchToCore(ev any) {
-	switch ev := ev.(type) {
+	switch msg := ev.(type) {
 	case events.MessageEventer:
-		sb.coreEventDispatcher.Post(ev)
+		sb.coreEventDispatcher.Post(msg)
 	}
 	return
 }

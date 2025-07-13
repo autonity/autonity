@@ -459,13 +459,17 @@ func (s *Signers) Copy() *Signers {
 			powers[index] = new(big.Int).Set(power)
 		}
 	}
+	var power *big.Int
+	if s.power != nil {
+		power = new(big.Int).Set(s.power)
+	}
 	return &Signers{
 		Bits:          append(s.Bits[:0:0], s.Bits...),
 		Coefficients:  append(s.Coefficients[:0:0], s.Coefficients...),
 		committeeSize: s.committeeSize,
 		length:        s.length,
 		powers:        powers,
-		power:         new(big.Int).Set(s.power),
+		power:         power,
 		validated:     s.validated,
 		powerAssigned: s.powerAssigned,
 	}
