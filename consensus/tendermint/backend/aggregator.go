@@ -309,6 +309,7 @@ func (a *aggregator) processVotesFor(h uint64, r int64, c uint8, v common.Hash) 
 
 func (a *aggregator) DispatchCoreEvents(ctx context.Context) {
 	go func() {
+		defer a.wg.Done()
 		for {
 			select {
 			case event, ok := <-a.internalCoreCh:
@@ -331,6 +332,7 @@ func (a *aggregator) DispatchCoreEvents(ctx context.Context) {
 
 func (a *aggregator) DispatchFaultDetectorEvents(ctx context.Context) {
 	go func() {
+		defer a.wg.Done()
 		for {
 			select {
 			case event, ok := <-a.internalFdCh:
@@ -672,6 +674,7 @@ func (a *aggregator) oldHeightStats() {
 
 func (a *aggregator) loop(ctx context.Context) {
 	defer a.wg.Done()
+	a.wg.Add(2)
 	a.DispatchCoreEvents(ctx)
 	a.DispatchFaultDetectorEvents(ctx)
 

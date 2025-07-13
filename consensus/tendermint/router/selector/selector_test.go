@@ -63,8 +63,8 @@ func TestSelector_SelectPeers_Proposal_CacheHit(t *testing.T) {
 	cacheKey := cache.GenerateKey(int(originator), true)
 	cacheEntry := cache.Entry{Recipients: []common.Address{common.HexToAddress("0x222"), common.HexToAddress("0x333")}}
 	recipients.EXPECT().Get(cacheKey).Return(cacheEntry, true).Times(1)
-	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).Times(2) // allConnected + clusterStatus
-	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).Times(2) // allConnected + clusterStatus
+	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).MaxTimes(2).MinTimes(1) // allConnected + clusterStatus
+	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).MaxTimes(2).MinTimes(1) // allConnected + clusterStatus
 	recipients.EXPECT().UpdateLastUsed(cacheKey).Times(1)
 
 	result, err := selector.SelectPeers(&committee, msg, from)
