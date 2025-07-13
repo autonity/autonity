@@ -205,9 +205,8 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		coreMock := interfaces.NewMockCore(ctrl)
 		backendMock := interfaces.NewMockBackend(ctrl)
-		chain := newTestBlockchain()
 
-		backendMock.EXPECT().BlockChain().Return(chain).AnyTimes()
+		backendMock.EXPECT().CommitteeByHeight(gomock.Any()).Return(committee, nil).AnyTimes()
 		coreMock.EXPECT().Height().Return(new(big.Int).SetUint64(h)).Times(1)
 		coreMock.EXPECT().Round().Return(r - 1).Times(1)
 
@@ -242,11 +241,10 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		coreMock := interfaces.NewMockCore(ctrl)
 		backendMock := interfaces.NewMockBackend(ctrl)
-		chain := newTestBlockchain()
 
-		backendMock.EXPECT().BlockChain().Return(chain).AnyTimes()
-		coreMock.EXPECT().Height().Return(new(big.Int).SetUint64(h)).Times(2)
-		coreMock.EXPECT().Round().Return(r).Times(2)
+		backendMock.EXPECT().CommitteeByHeight(gomock.Any()).Return(committee, nil).Times(1)
+		coreMock.EXPECT().Height().Return(new(big.Int).SetUint64(h)).Times(1)
+		coreMock.EXPECT().Round().Return(r).Times(1)
 
 		a := &aggregator{
 			messages:       make(map[uint64]map[int64]*RoundInfo),
@@ -258,7 +256,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 		}
 
 		value := common.Hash{0xca, 0xfe}
-		prevote := message.NewPrevote(r, h, value, testSigner, testCommitteeMember, 1)
+		prevote := message.NewPrevote(r, h, value, testSigner, testCommitteeMember, committee.Len())
 
 		a.handleEvent(makeBogusEvent(prevote))
 
@@ -395,7 +393,7 @@ func TestAggregatorOldHeightMessage(t *testing.T) {
 		coreMock.EXPECT().Height().Return(new(big.Int).SetUint64(h)).Times(1)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().BlockChain().Return(newTestBlockchain()).AnyTimes()
+		backendMock.EXPECT().CommitteeByHeight(gomock.Any()).Return(committee, nil).AnyTimes()
 
 		a := &aggregator{
 			staleMessages:  make(map[common.Hash][]events.UnverifiedMessageEvent),
@@ -405,7 +403,7 @@ func TestAggregatorOldHeightMessage(t *testing.T) {
 			logger:         log.Root(),
 			signerSetCache: newAggregatorCache(),
 		}
-		prevote := message.NewPrevote(0, h-2, common.Hash{0xca, 0xfe}, testSigner, testCommitteeMember, 1)
+		prevote := message.NewPrevote(0, h-2, common.Hash{0xca, 0xfe}, testSigner, testCommitteeMember, committee.Len())
 
 		a.handleEvent(makeBogusEvent(prevote))
 
