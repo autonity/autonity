@@ -18,20 +18,18 @@ var (
 	errPendingReport = errors.New("pending report")
 )
 
-func (fd *FaultDetector) reportEvents(events []*bindings.IAccountabilityEvent) []*bindings.IAccountabilityEvent {
-	var filtered []*bindings.IAccountabilityEvent
-	for i, ev := range events {
+func (fd *FaultDetector) reportEvents() {
+	for addr, ev := range fd.pendingEvents {
 		err := fd.tryReport(ev)
 		switch {
 		case err == nil:
-			return append(filtered, events[i+1:]...)
+			delete(fd.pendingEvents, addr)
 		case errors.Is(err, errInvalidReport):
 			continue
 		default:
-			filtered = append(filtered, ev)
+			continue
 		}
 	}
-	return filtered
 }
 
 func (fd *FaultDetector) tryReport(ev *bindings.IAccountabilityEvent) error {

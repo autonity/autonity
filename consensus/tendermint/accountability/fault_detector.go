@@ -101,7 +101,9 @@ type FaultDetector struct {
 	chainEventSub event.Subscription
 
 	misbehaviourProofCh chan *bindings.IAccountabilityEvent
-	pendingEvents       []*bindings.IAccountabilityEvent // accountability event buffer.
+
+	pendingEvents map[common.Address]*bindings.IAccountabilityEvent // accountability event buffer.
+	//pendingEvents       []*bindings.IAccountabilityEvent // accountability event buffer.
 
 	offChainAccusationsMu sync.RWMutex
 	offChainAccusations   []*Proof // off chain accusations list, ordered in chain height from low to high.
@@ -153,6 +155,7 @@ func NewFaultDetector(
 		misbehaviourProofCh:   make(chan *bindings.IAccountabilityEvent, 100),
 		logger:                logger, // Todo(youssef): remove context
 		scanned:               make(map[uint64]struct{}),
+		pendingEvents:         make(map[common.Address]*bindings.IAccountabilityEvent),
 		saveQueueCh:           make(chan message.Msg, 500), // save queue for messages
 	}
 	// use ChainEvent instead of ChainHeadEvent as we want the relative select cases to ran at every single block.
@@ -169,6 +172,30 @@ func NewFaultDetector(
 	// no need to scan genesis
 	fd.scanned[0] = struct{}{}
 	return fd
+}
+
+func (fd *FaultDetector) onExecution(addr common.Address) bool {
+	lastEvent, ok := fd.pendingEvents[addr]
+	if !ok {
+		return false
+	}
+	if lastEvent.EventType == uint8(autonity.Misbehaviour) {
+		return true
+	}
+	return false
+}
+
+func (fd *FaultDetector) addEvent(e *bindings.IAccountabilityEvent) {
+	lastEvent, ok := fd.pendingEvents[e.Offender]
+	if !ok {
+		fd.pendingEvents[e.Offender] = e
+		return
+	}
+
+	// Misbehaviour event is always prioritized
+	if e.EventType < lastEvent.EventType {
+		fd.pendingEvents[e.Offender] = e
+	}
 }
 
 func (fd *FaultDetector) msgStoreLoop() {
@@ -389,10 +416,12 @@ loop:
 					continue
 				}
 				if events := fd.runRuleEngine(h); len(events) > 0 {
-					fd.pendingEvents = append(fd.pendingEvents, events...)
+					for _, e := range events {
+						fd.addEvent(e)
+					}
 				}
 				if len(fd.pendingEvents) != 0 && fd.canReport(h) {
-					fd.pendingEvents = fd.reportEvents(fd.pendingEvents)
+					fd.reportEvents()
 				}
 				fd.scanned[h] = struct{}{}
 			}
@@ -447,7 +476,9 @@ loop:
 			if !ok {
 				break loop
 			}
-			fd.pendingEvents = append(fd.pendingEvents, m)
+
+			fd.addEvent(m)
+			//fd.pendingEvents = append(fd.pendingEvents, m)
 		case err, ok := <-fd.ruleEngineBlockSub.Err():
 			if ok {
 				// youssef: how can that happen?
@@ -851,17 +882,11 @@ func (fd *FaultDetector) newProposalsAccountabilityCheck(height uint64) (proofs 
 	})
 
 	for _, proposal := range proposalsNew {
+		signer := proposal.Signer()
+		if fd.onExecution(signer) {
+			continue
+		}
 		signerIndex := proposal.SignerIndex()
-
-		// As fault equivocation has the lowest severity, we should allow those higher severity fault to be addressed.
-		/*
-			// Skip if proposal is equivocated
-			proposalsForR := fd.msgStore.GetProposals(height, func(m *message.Propose) bool {
-				return m.R() == proposal.R() && m.SignerIndex() == signerIndex && (m.Value() != proposal.Value() || m.ValidRound() != proposal.ValidRound())
-			})
-			if len(proposalsForR) > 0 {
-				continue
-			}*/
 
 		//check all precommits for previous rounds from this signer are nil
 		precommits := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
@@ -898,18 +923,12 @@ oldProposalLoop:
 		// precommit for v or nil.
 
 		signer := proposal.Signer()
+		if fd.onExecution(signer) {
+			continue oldProposalLoop
+		}
+
 		signerIndex := proposal.SignerIndex()
 		validRound := proposal.ValidRound()
-
-		// As fault equivocation has the lowest severity, we should allow those higher severity fault to be addressed.
-		/*
-			// Skip if proposal is equivocated
-			proposalsForR := fd.msgStore.GetProposals(height, func(m *message.Propose) bool {
-				return m.R() == proposal.R() && m.SignerIndex() == signerIndex && (m.Value() != proposal.Value() || m.ValidRound() != validRound)
-			})
-			if len(proposalsForR) > 0 {
-				continue oldProposalLoop
-			}*/
 
 		// Is there a precommit for a value other than nil or the proposed value by the current proposer in the valid
 		// round? If there is, the proposer has proposed a value for which it is not locked on, thus a Proof of
@@ -1044,6 +1063,11 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 					if fd.blockchain.GetBlock(prevote.Value(), prevote.H()) == nil {
 						for _, signerIndex := range prevote.Signers().FlattenUniq() {
 							signer := committee.Members[signerIndex].Address
+
+							if fd.onExecution(signer) {
+								continue
+							}
+
 							accusation := &Proof{
 								Type:          autonity.Accusation,
 								Rule:          autonity.PVN,
@@ -1069,6 +1093,10 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 			for _, signerIndex := range prevote.Signers().FlattenUniq() {
 				var prevotesProofs []*Proof
 				signer := committee.Members[signerIndex].Address
+				if fd.onExecution(signer) {
+					continue SignersLoop
+				}
+
 				for _, proposal := range correspondingProposals {
 					var proof *Proof
 					if proposal.ValidRound() == -1 {
@@ -1141,16 +1169,6 @@ func (fd *FaultDetector) newPrevotesAccountabilityCheck(height uint64, prevote m
 			if precommitsFromPi[i].Value() != common.NilValue {
 				// we found the latest non-nil precommit and we don't have gaps in the following ones
 				pc := precommitsFromPi[i]
-
-				// As fault equivocation has the lowest severity, we should allow those higher severity fault to be addressed.
-				/*
-					// check for equivocation. If present, bail out on the checking of this rule. Remote peer has already been punished for equivocation
-					precommitsAtRPrime := fd.msgStore.GetPrecommits(height, func(m *message.Precommit) bool {
-						return m.R() == pc.R() && m.Signers().Contains(signerIndex) && m.Value() != pc.Value()
-					})
-					if len(precommitsAtRPrime) > 0 {
-						break
-					}*/
 
 				// if precommit at r' is for V, then all good --> no misbehaviour
 				if pc.Value() == prevote.Value() {
@@ -1369,6 +1387,10 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 				// every signer of this precommit is addressed as misbehaving for rule C.
 				for _, signerIndex := range precommit.Signers().FlattenUniq() {
 					signer := committee.Members[signerIndex].Address
+					if fd.onExecution(signer) {
+						continue
+					}
+
 					// fast aggregate quorum prevotes into single one.
 					evidences := make([]message.Msg, 1)
 					evidences[0] = alternativeQuorum[0]
@@ -1407,6 +1429,10 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 					// every signer of this precommit should be suspected.
 					for _, signerIndex := range precommit.Signers().FlattenUniq() {
 						signer := committee.Members[signerIndex].Address
+						if fd.onExecution(signer) {
+							continue
+						}
+
 						accusation := &Proof{
 							Type:          autonity.Accusation,
 							Rule:          autonity.C1,

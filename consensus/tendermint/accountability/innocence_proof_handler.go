@@ -250,7 +250,7 @@ func (fd *FaultDetector) escalateExpiredAccusations(currentCoreHeight uint64) {
 		fd.removeOffChainAccusation(accusation)
 		p := fd.eventFromProof(accusation, offender)
 		// push it to the on chain accountability event list
-		fd.pendingEvents = append(fd.pendingEvents, p)
+		fd.addEvent(p)
 	}
 }
 
