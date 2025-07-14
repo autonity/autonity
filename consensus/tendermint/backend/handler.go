@@ -11,6 +11,7 @@ import (
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
@@ -187,7 +188,7 @@ func handleConsensusMsg[T any, PT interface {
 	// if the height is so old that it is not useful even for accountability, discard it right away. No need to waste resources on this.
 	accountabilityParams, err := sb.blockchain.AccountabilityParamsByHeight(currentHeight)
 	if err == nil {
-		if sb.isHeightExpired(currentHeight, msg.H(), accountabilityParams.Range.Uint64()) { //nolint:typecheck
+		if helpers.IsHeightExpired(currentHeight, msg.H(), accountabilityParams.Range.Uint64()) { //nolint:typecheck
 			return true, nil
 		}
 	} else {

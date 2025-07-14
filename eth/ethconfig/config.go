@@ -18,7 +18,6 @@
 package ethconfig
 
 import (
-	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
 	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/events"
@@ -243,5 +242,5 @@ func CreateConsensusEngine(db ethdb.Database, ctx *node.Node, chainConfig *param
 	}
 
 	nodeKey, consensusKey := ctx.Config().AutonityKeys()
-	return tendermintBackend.New(db, nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, afdDispatchCh, ctx.Logger(), accountability.MinNonExpiredHeight)
+	return tendermintBackend.New(db, nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, afdDispatchCh, ctx.Logger())
 }

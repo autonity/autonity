@@ -179,17 +179,6 @@ func (fd *FaultDetector) Start() {
 	go fd.consensusMsgHandlerLoop()
 }
 
-func IsHeightExpired(coreHeight uint64, height uint64, heightRange uint64) bool {
-	return height < MinNonExpiredHeight(coreHeight, heightRange)
-}
-
-func MinNonExpiredHeight(coreHeight uint64, heightRange uint64) uint64 {
-	if coreHeight <= heightRange {
-		return 0
-	}
-	return coreHeight - heightRange
-}
-
 func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	fd.broadcaster = broadcaster
 }
@@ -211,7 +200,7 @@ tendermintMsgLoop:
 			currentHeightRange := accountabilityParams.Range.Uint64() //nolint:typecheck
 			switch e := ev.(type) {
 			case events.MessageEvent:
-				if IsHeightExpired(currentCoreHeight, e.Message().H(), currentHeightRange) {
+				if helpers.IsHeightExpired(currentCoreHeight, e.Message().H(), currentHeightRange) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
@@ -227,7 +216,7 @@ tendermintMsgLoop:
 					continue tendermintMsgLoop
 				}
 			case events.OldMessageEvent:
-				if IsHeightExpired(currentCoreHeight, e.Message().H(), currentHeightRange) {
+				if helpers.IsHeightExpired(currentCoreHeight, e.Message().H(), currentHeightRange) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}

@@ -61,7 +61,7 @@ func New(
 	ms *tendermintCore.MsgStore,
 	afdDispatchCh chan<- events.MessageEventer,
 	log log.Logger,
-	minNonExpiredHeight func(headHeight uint64, heightRange uint64) uint64) *Backend {
+) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
@@ -78,7 +78,6 @@ func New(
 		askSyncRateLimiter:  helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		aggregatorMessageCh: make(chan events.UnverifiedMessageEvent, 5000),
 		afdDispatchCh:       afdDispatchCh, // to FD
-		minNonExpiredHeight: minNonExpiredHeight,
 		jailed: jailed{
 			validators: make(map[common.Address]uint64),
 		},
@@ -199,11 +198,7 @@ func (sb *Backend) MinNonExpiredHeight(coreHeight uint64) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return sb.minNonExpiredHeight(coreHeight, heightRange.Range.Uint64()), nil
-}
-
-func (sb *Backend) isHeightExpired(headHeight uint64, height uint64, heightRange uint64) bool {
-	return height < sb.minNonExpiredHeight(headHeight, heightRange)
+	return helpers.MinNonExpiredHeight(coreHeight, heightRange.Range.Uint64()), nil
 }
 
 func (sb *Backend) MessageCh() <-chan events.UnverifiedMessageEvent {

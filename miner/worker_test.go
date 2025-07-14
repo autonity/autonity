@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
@@ -242,7 +241,7 @@ func testGenerateBlockAndImport(t *testing.T, isTendermint bool) {
 		evMux := new(event.TypeMux)
 		msgStore := tendermintcore.NewMsgStore()
 		afdDispatchCh := make(chan events.MessageEventer, 100)
-		engine = tendermintBackend.New(db, testUserKey, testConsensusKey, &vm.Config{}, nil, evMux, msgStore, afdDispatchCh, log.Root(), accountability.MinNonExpiredHeight)
+		engine = tendermintBackend.New(db, testUserKey, testConsensusKey, &vm.Config{}, nil, evMux, msgStore, afdDispatchCh, log.Root())
 	} else {
 		chainConfig = ethashChainConfig
 		engine = ethash.NewFaker()
@@ -300,7 +299,7 @@ func TestEmptyWorkTendermint(t *testing.T) {
 	msgStore := tendermintcore.NewMsgStore()
 	afdDispatchCh := make(chan events.MessageEventer, 100)
 	testEmptyWork(t, tendermintChainConfig,
-		tendermintBackend.New(memDB, testUserKey, testConsensusKey, new(vm.Config), nil, evMux, msgStore, afdDispatchCh, log.Root(), accountability.MinNonExpiredHeight),
+		tendermintBackend.New(memDB, testUserKey, testConsensusKey, new(vm.Config), nil, evMux, msgStore, afdDispatchCh, log.Root()),
 		true)
 }
 
@@ -362,7 +361,7 @@ func TestRegenerateMiningBlockTendermint(t *testing.T) {
 	msgStore := tendermintcore.NewMsgStore()
 	afdDispatchCh := make(chan events.MessageEventer, 100)
 	testRegenerateMiningBlock(t, tendermintChainConfig,
-		tendermintBackend.New(memDB, testUserKey, testConsensusKey, new(vm.Config), nil, evMux, msgStore, afdDispatchCh, log.Root(), accountability.MinNonExpiredHeight),
+		tendermintBackend.New(memDB, testUserKey, testConsensusKey, new(vm.Config), nil, evMux, msgStore, afdDispatchCh, log.Root()),
 		true)
 }
 
@@ -431,7 +430,7 @@ func TestAdjustIntervalClique(t *testing.T) {
 	msgStore := tendermintcore.NewMsgStore()
 	afdDispatchCh := make(chan events.MessageEventer, 100)
 	testAdjustInterval(t, tendermintChainConfig,
-		tendermintBackend.New(memDB, testUserKey, testConsensusKey, new(vm.Config), nil, evMux, msgStore, afdDispatchCh, log.Root(), accountability.MinNonExpiredHeight))
+		tendermintBackend.New(memDB, testUserKey, testConsensusKey, new(vm.Config), nil, evMux, msgStore, afdDispatchCh, log.Root()))
 }
 
 func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {

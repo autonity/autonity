@@ -22,7 +22,6 @@ import (
 
 const (
 	aggregationPeriod            = 150 * time.Millisecond
-	fastAggregationPeriod        = 30 * time.Millisecond
 	oldMessagesAggregationPeriod = 2 * time.Second
 	oldMessagesStatsPeriod       = 2 * time.Second
 )
@@ -38,9 +37,6 @@ var (
 	PrevotePackets   = metrics.NewRegisteredMeter("aggregator/prevote/packets", nil)   //nolint:goconst
 	PrecommitPackets = metrics.NewRegisteredMeter("aggregator/precommit/packets", nil) //nolint:goconst
 
-	RoundBg                    = metrics.NewRegisteredBufferedGauge("aggregator/round", nil, nil)                                   // time it takes to process a round change event
-	PowerBg                    = metrics.NewRegisteredBufferedGauge("aggregator/power", nil, nil)                                   // time it takes to process a power change event
-	FuturePowerBg              = metrics.NewRegisteredBufferedGauge("aggregator/futurepower", nil, nil)                             // time it takes to process a future power change event
 	BatchesBg                  = metrics.NewRegisteredBufferedGauge("aggregator/batches", nil, metrics.GetIntPointer(100))          // size of batches (aggregated together with a single fastAggregateVerify)
 	InvalidBg                  = metrics.NewRegisteredBufferedGauge("aggregator/invalid", nil, metrics.GetIntPointer(100))          // number of invalid sigs
 	BackendAggregatorTransitBg = metrics.NewRegisteredBufferedGauge("aggregator/backend/transit", nil, metrics.GetIntPointer(1000)) // measures time for message passing from backend to aggregator
@@ -395,8 +391,8 @@ func (a *aggregator) validateBatch(batch []events.UnverifiedMessageEvent) (valid
 		return messages, nil
 	}
 
-	var validVotes []message.Vote
-	var invalids []uint
+	validVotes := make([]message.Vote, 0, len(batch))
+	invalids := make([]uint, 0, len(batch))
 
 	// at least one of the signatures is invalid, find at which index
 	invalids = blst.FindInvalid(signatures, publicKeys, hash)
@@ -521,21 +517,9 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 
 func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent, eventer eventBuilder) {
 	proposal := proposalEvent.Message
-	// go routine for core event dispatch as well to avoid deadlock, there is loop between core and aggregator
 	a.signerSetCache.addEvent(proposalEvent, stepDispatched)
-	select {
-	case a.internalCoreCh <- eventer(proposal, proposalEvent).(events.MessageEventer):
-		// successfully sent to core
-	default:
-		log.Warn("Aggregator internal core channel is full, dropping proposal")
-	}
-
-	select {
-	case a.internalFdCh <- eventer(proposal, proposalEvent).(events.MessageEventer):
-		// successfully sent to fault detector
-	default:
-		log.Warn("Aggregator internal fault detector channel is full, dropping proposal")
-	}
+	a.internalCoreCh <- eventer(proposal, proposalEvent).(events.MessageEventer) // send to core
+	a.internalFdCh <- eventer(proposal, proposalEvent).(events.MessageEventer)   // send to fault detector
 }
 
 // assumes current or old round vote
