@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 
+	routerInterfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	"github.com/autonity/autonity/crypto/blst"
 
 	"github.com/autonity/autonity/common"
@@ -199,7 +201,6 @@ type Config struct {
 
 	// AllowUnprotectedTxs allows non EIP-155 protected transactions to be send over RPC.
 	AllowUnprotectedTxs bool `toml:",omitempty"`
-	NoGossip            bool `toml:",omitempty"`
 	tendermintServices  *interfaces.Services
 }
 
@@ -236,6 +237,16 @@ func (c *Config) SetTendermintServices(handler *interfaces.Services) {
 		c.tendermintServices.Gossiper = handler.Gossiper
 	} else {
 		c.tendermintServices.Gossiper = func(b interfaces.Backend) interfaces.Gossiper { return b.Gossiper() }
+	}
+	if handler.Pinger != nil {
+		c.tendermintServices.Pinger = handler.Pinger
+	} else {
+		c.tendermintServices.Pinger = func(r interfaces.Router) ping.Pinger { return r.Pinger() }
+	}
+	if handler.Selector != nil {
+		c.tendermintServices.Selector = handler.Selector
+	} else {
+		c.tendermintServices.Selector = func(r interfaces.Router) routerInterfaces.PeerSelector { return r.Selector() }
 	}
 }
 

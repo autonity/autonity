@@ -156,3 +156,7 @@ func (acn *ACN) PeerInfo(id enode.ID) interface{} {
 	}
 	return nil
 }
+
+func (acn *ACN) CommitteeEnodes() []*enode.Node {
+	return acn.server.Committee()
+}

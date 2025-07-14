@@ -2,12 +2,11 @@ package message
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
+	"fmt"
 	"math/big"
 	"reflect"
-
-	"crypto/rand"
-	"fmt"
 	"testing"
 
 	"github.com/influxdata/influxdb/pkg/deep"
@@ -423,7 +422,7 @@ func TestMessageHash(t *testing.T) {
 
 		payload, _ := rlp.EncodeToBytes(extVote{
 			Code:      PrecommitCode,
-			Round:     uint64(r),
+			Round:     uint64(r), // #nosec
 			Height:    h,
 			Value:     v,
 			Signers:   signers,

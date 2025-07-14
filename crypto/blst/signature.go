@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/autonity/autonity/log"
 	"github.com/pkg/errors"
 	blst "github.com/supranational/blst/bindings/go"
+
+	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/rlp"

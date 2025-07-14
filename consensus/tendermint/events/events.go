@@ -40,19 +40,52 @@ type UnverifiedMessageEvent struct {
 
 // MessageEvent is posted from the aggregator to core and the fault detector
 type MessageEvent struct {
-	Message message.Msg
-	ErrCh   chan<- error
-	Posted  time.Time
+	message      message.Msg
+	errCh        chan<- error
+	posted       time.Time
+	sender       common.Address
+	disseminated bool
+}
+
+func NewMessageEvent(message message.Msg, errCh chan<- error, sender common.Address, posted time.Time, disseminated bool) MessageEvent {
+	return MessageEvent{
+		message:      message,
+		errCh:        errCh,
+		sender:       sender,
+		posted:       posted,
+		disseminated: disseminated,
+	}
+}
+
+func (m MessageEvent) Message() message.Msg {
+	return m.message
+}
+
+func (m MessageEvent) Sender() common.Address {
+	return m.sender
+}
+
+func (m MessageEvent) Posted() time.Time {
+	return m.posted
+}
+
+func (m MessageEvent) ErrCh() chan<- error {
+	return m.errCh
+}
+
+func (m MessageEvent) Disseminated() bool {
+	return m.disseminated
+}
+
+func (m *MessageEvent) SetDisseminated(disseminated bool) {
+	m.disseminated = disseminated
 }
 
 // old messages are posted only to the fault detector
 type OldMessageEvent struct {
 	Message message.Msg
 	ErrCh   chan<- error
-}
-
-type Poster interface {
-	Post(interface{}) error
+	Sender  common.Address
 }
 
 // CommitEvent is posted when a proposal is committed

@@ -3,12 +3,13 @@ package backend
 import (
 	"bytes"
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
+	"errors"
 	"io"
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/stretchr/testify/require"
@@ -30,11 +31,17 @@ func setupMocks(backend *Backend, ctrl *gomock.Controller, t *testing.T) {
 	if err := backend.Close(); err != nil { // close engine to avoid race while updating the broadcaster
 		t.Fatalf("can't stop the engine")
 	}
-	mockedPeer := consensus.NewMockPeer(ctrl)
+	member := backend.blockchain.Genesis().Header().Epoch.Committee.Members[0]
+	sender := consensus.NewMockPeer(ctrl)
+	committeeMember := consensus.NewMockPeer(ctrl)
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	addressCache := fixsizecache.New[common.Hash, bool](1997, 10, fixsizecache.HashKey[common.Hash])
-	mockedPeer.EXPECT().Cache().Return(addressCache).AnyTimes()
-	broadcaster.EXPECT().FindPeer(testAddress).Return(mockedPeer, true).AnyTimes()
+	sender.EXPECT().Cache().Return(addressCache).AnyTimes()
+	committeeMember.EXPECT().Cache().Return(addressCache).AnyTimes()
+	broadcaster.EXPECT().FindPeer(testAddress).Return(sender, true).AnyTimes()
+	broadcaster.EXPECT().FindPeer(member.Address).Return(committeeMember, true).AnyTimes()
+	committeeMember.EXPECT().SendRaw(gomock.Any(), gomock.Any()).AnyTimes()
+
 	backend.SetBroadcaster(broadcaster)
 
 	if err := backend.Start(context.Background()); err != nil {
@@ -46,7 +53,7 @@ func TestTendermintMessage(t *testing.T) {
 	_, backend := newBlockChain(1)
 	// generate one msg
 	data := message.NewPrevote(1, 2, common.Hash{}, testSigner, testCommitteeMember, 1)
-	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -158,15 +165,19 @@ func TestNewChainHead(t *testing.T) {
 		chain, _ := newBlockChain(1)
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
+		mockRouter := interfaces.NewMockRouter(ctrl)
+		mockRouter.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 
 		b := &Backend{
-			database:           rawdb.NewMemoryDatabase(),
-			core:               tendermintC,
-			evDispatcher:       evDispathcer,
-			gossiper:           g,
-			blockchain:         chain,
-			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
-			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
+			database:            rawdb.NewMemoryDatabase(),
+			core:                tendermintC,
+			coreEventDispatcher: evDispathcer,
+			gossiper:            g,
+			blockchain:          chain,
+			eventMux:            event.NewTypeMuxSilent(nil, log.Root()),
+			askSyncRateLimiter:  helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
+			logger:              log.Root(),
+			router:              mockRouter,
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.Start(ctx)
@@ -191,7 +202,7 @@ func TestSignerJailed(t *testing.T) {
 
 	// generate one msg
 	data := message.NewPrevote(0, 1, common.Hash{}, testSigner, &member, 1)
-	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -209,7 +220,7 @@ func TestSignerJailed(t *testing.T) {
 
 	data = message.NewPrevote(0, 1, common.Hash{0xca, 0xfe}, testSigner, &member, 2)
 	data.Signers().Increment(makeBogusMember(1))
-	msg = p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+	msg = p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
 	errCh = make(chan error, 1)
 	_, err = backend.HandleMsg(testAddress, msg, errCh)
 	require.Equal(t, ErrJailed, err)
@@ -224,7 +235,7 @@ func TestFutureHeightMessage(t *testing.T) {
 		// generate one msg
 		futureHeight := uint64(20)
 		data := message.NewPrevote(0, futureHeight, common.Hash{}, testSigner, &member, 1)
-		msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+		msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -252,7 +263,7 @@ func TestFutureHeightMessage(t *testing.T) {
 
 		for h := maxFutureMsgs + 100; h > 0; h-- {
 			data := message.NewPrevote(0, uint64(h), common.Hash{}, testSigner, &member, 1)
-			msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())}
+			msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
 			errCh := make(chan error, 1)
 			_, err := backend.HandleMsg(testAddress, msg, errCh)
 			require.NoError(t, err)
@@ -288,5 +299,26 @@ func TestFutureHeightMessage(t *testing.T) {
 		backend.future.RLock()
 		require.Equal(t, uint64(0), backend.future.size)
 		backend.future.RUnlock()
+	})
+}
+
+// invalid proposal should be caught at handler level
+func TestInvalidProposal(t *testing.T) {
+	t.Run("handler rejects invalid proposal", func(t *testing.T) {
+		_, backend := newBlockChain(1)
+
+		propose := message.NewFakePropose(message.Fake{
+			FakeSignatureInput: common.Hash{0xca, 0xfe},
+			FakeSignerKey:      testKey.PublicKey(),
+			FakeSignature:      testKey.Sign([]byte{0xff, 0xff}), // signature is not on FakeSignatureInput --> invalid
+			FakeVerified:       false,
+			FakeHash:           common.Hash{0xee, 0xee},
+		})
+
+		handled, err := backend.handleDecodedMsg(propose, nil, common.Address{})
+		require.True(t, handled)
+		t.Logf("proposal failed with error: %v", err)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, message.ErrBadSignature))
 	})
 }

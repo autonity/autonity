@@ -35,7 +35,7 @@ func TestGetProposal(t *testing.T) {
 
 	nodeAddr := common.BytesToAddress([]byte("node"))
 	backendMock := interfaces.NewMockBackend(ctrl)
-	core := New(backendMock, nil, nodeAddr, log.Root(), false)
+	core := New(backendMock, nil, nodeAddr, log.Root())
 
 	proposal := randomProposal(t)
 	core.messages.GetOrCreate(proposal.R()).SetProposal(proposal, true)
@@ -50,7 +50,7 @@ func TestGetRoundState(t *testing.T) {
 	defer ctrl.Finish()
 
 	backendMock := interfaces.NewMockBackend(ctrl)
-	c := New(backendMock, nil, sender, log.Root(), false)
+	c := New(backendMock, nil, sender, log.Root())
 	rounds := []int64{0, 1}
 	height := big.NewInt(int64(100) + 1)
 
@@ -84,7 +84,7 @@ func TestGetCoreState(t *testing.T) {
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().KnownMsgHash().Return(knownMsgHash)
 	backendMock.EXPECT().FutureMsgs().Return(nil)
-	c := New(backendMock, nil, sender, log.Root(), false)
+	c := New(backendMock, nil, sender, log.Root())
 
 	var rounds = []int64{0, 1}
 

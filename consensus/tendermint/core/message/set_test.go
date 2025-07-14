@@ -243,7 +243,7 @@ func TestAddReturnValue(t *testing.T) {
 	require.False(t, ms.Add(vote))
 
 	equivocatedVote := NewPrevote(r, h, blockHash2, defaultSigner, makeCommitteeMember(1, 0), csize)
-	require.False(t, ms.Add(equivocatedVote))
+	require.True(t, ms.Add(equivocatedVote))
 
 	// add vote from another validator
 	vote2 := NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 1), csize)

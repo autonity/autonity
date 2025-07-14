@@ -4,12 +4,13 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math"
 	"math/big"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 
 	"github.com/autonity/autonity/autonity/bindings"
 
@@ -201,18 +202,18 @@ tendermintMsgLoop:
 			// handle consensus message or innocence proof messages
 			switch e := ev.Data.(type) {
 			case events.MessageEvent:
-				if IsHeightExpired(currentCoreHeight, e.Message.H(), currentHeightRange) {
+				if IsHeightExpired(currentCoreHeight, e.Message().H(), currentHeightRange) {
 					fd.logger.Debug("Fault detector: discarding old message")
 					continue tendermintMsgLoop
 				}
-				if err := fd.processMsg(e.Message); err != nil {
+				if err := fd.processMsg(e.Message()); err != nil {
 					if !errors.Is(err, errDuplicatedMsg) {
-						fd.logger.Warn("Detected faulty message", "err", err)
+						fd.logger.Warn("Fault detector: Detected faulty message event", "err", err)
 					} else {
 						// duplicated messages can arrive here if we receive an aggregate from a remote peer
 						// and at the same time we computed the same aggregate locally.
 						// No need to raise a warning level log.
-						fd.logger.Debug("Detected faulty message", "err", err)
+						fd.logger.Debug("Fault detector: Detected faulty message event", "err", err)
 					}
 					continue tendermintMsgLoop
 				}
@@ -223,12 +224,12 @@ tendermintMsgLoop:
 				}
 				if err := fd.processMsg(e.Message); err != nil {
 					if !errors.Is(err, errDuplicatedMsg) {
-						fd.logger.Warn("Detected faulty message", "err", err)
+						fd.logger.Warn("Fault detector: Detected faulty old message event", "err", err)
 					} else {
 						// duplicated messages can arrive here if we receive an aggregate from a remote peer
 						// and at the same time we computed the same aggregate locally.
 						// No need to raise a warning level log.
-						fd.logger.Debug("Detected faulty message", "err", err)
+						fd.logger.Debug("Fault detector: Detected faulty old message event", "err", err)
 					}
 					continue tendermintMsgLoop
 				}

@@ -16,7 +16,11 @@
 
 package consensus
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"time"
+)
 
 var (
 	// ErrUnknownAncestor is returned when validating a block requires an ancestor
@@ -51,3 +55,19 @@ var (
 	// ErrInvalidEpochBoundary is return if the bi-direction link of epoch header is broken.
 	ErrInvalidEpochBoundary = errors.New("invalid epoch boundary")
 )
+
+type ErrDelayedProposal struct {
+	delay time.Duration
+}
+
+func NewErrDelayedProposal(delay time.Duration) ErrDelayedProposal {
+	return ErrDelayedProposal{delay: delay}
+}
+
+func (e ErrDelayedProposal) Error() string {
+	return fmt.Sprintf("proposal was delayed of %s", e.delay.String())
+}
+
+func (e ErrDelayedProposal) Delay() time.Duration {
+	return e.delay
+}

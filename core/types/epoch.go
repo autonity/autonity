@@ -11,6 +11,7 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
@@ -253,10 +254,11 @@ type Committee struct {
 	Members []CommitteeMember `json:"members"`
 	// this field is ignored when rlp/json encoding/decoding, it is computed locally from the bytes
 	// mutex to protect internal cached fields of committee from race condition.
-	lock sync.RWMutex `json:"-" rlp:"-"`
 	// cached total voting power.
-	totalVotingPower *big.Int `json:"-" rlp:"-"`
+	totalVotingPower *big.Int  `json:"-" rlp:"-"`
+	votingPowerOnce  sync.Once `json:"-" rlp:"-"`
 	// cached indexing of committee for member lookup
+	lock       sync.RWMutex                        `json:"-" rlp:"-"` // protects only the membersMap
 	membersMap map[common.Address]*CommitteeMember `json:"-" rlp:"-"`
 }
 
@@ -293,12 +295,9 @@ func (c *Committee) Copy() *Committee {
 		}
 	}
 
+	// total voting power should not be copied, it is computed on demand.
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	if c.totalVotingPower != nil {
-		clone.totalVotingPower = new(big.Int).Set(c.totalVotingPower)
-	}
-
 	if c.membersMap != nil {
 		clone.membersMap = make(map[common.Address]*CommitteeMember)
 		for _, v := range clone.Members {
@@ -358,60 +357,20 @@ func (c *Committee) MemberByAddress(address common.Address) *CommitteeMember {
 	return c.membersMap[address]
 }
 
-/*
-func (c *Committee) MemberByAddress(address common.Address) *CommitteeMember {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.membersMap == nil {
-		c.membersMap = make(map[common.Address]*CommitteeMember)
-		for _, member := range c.Members {
-			m := member
-			c.membersMap[member.Address] = &m
-		}
-	}
-	return c.membersMap[address]
-}*/
-
 func (c *Committee) TotalVotingPower() *big.Int {
-	c.lock.RLock() // Acquire read lock
-	if c.totalVotingPower != nil {
-		defer c.lock.RUnlock()                      // Release read lock
-		return new(big.Int).Set(c.totalVotingPower) // Return a copy of the cached value
-	}
-	c.lock.RUnlock() // Release read lock before acquiring write lock
-	c.lock.Lock()    // Acquire write lock
-	defer c.lock.Unlock()
-
-	// Double-check if the value was initialized while waiting for the lock
-	if c.totalVotingPower == nil {
+	c.votingPowerOnce.Do(func() {
 		total := new(big.Int)
 		for _, m := range c.Members {
 			total.Add(total, m.VotingPower)
 		}
 		c.totalVotingPower = total
-	}
-
-	// Return a copy of the cached value
+	})
 	return new(big.Int).Set(c.totalVotingPower)
 }
 
-/*
-// TotalVotingPower returns the total voting power contained in the committee.
-func (c *Committee) TotalVotingPower() *big.Int {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	// compute power only once, then returned cached value
-	if c.totalVotingPower == nil {
-		total := new(big.Int)
-		for _, m := range c.Members {
-			total.Add(total, m.VotingPower)
-		}
-		c.totalVotingPower = total
-	}
-
-	// return a copy of the cached value to prevent un-expected modification of the cached value.
-	return new(big.Int).Set(c.totalVotingPower)
-}*/
+func (c *Committee) Quorum() *big.Int {
+	return bft.Quorum(c.TotalVotingPower())
+}
 
 // Enrich adds some convenience information to the committee member structs
 func (c *Committee) Enrich() error {

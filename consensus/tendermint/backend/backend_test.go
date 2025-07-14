@@ -25,6 +25,7 @@ import (
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/router"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
@@ -95,7 +96,7 @@ func TestAskSync(t *testing.T) {
 
 	peers := make(map[common.Address]consensus.Peer)
 	counter := uint64(0)
-	var remoteAddresses []common.Address
+	var remoteAddresses []common.Address //nolint
 	for _, val := range committee.Members[1:] {
 		mockedPeer := consensus.NewMockPeer(ctrl)
 		mockedPeer.EXPECT().Send(message.SyncNetworkMsg, gomock.Any()).Do(func(_, _ interface{}) {
@@ -108,11 +109,14 @@ func TestAskSync(t *testing.T) {
 	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, fixsizecache.HashKey[common.Hash])
 
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
-	broadcaster.EXPECT().FindPeers(remoteAddresses).Return(peers)
+	broadcaster.EXPECT().FindPeers(gomock.Any()).Return(peers)
+	rt := interfaces.NewMockRouter(ctrl)
+	rt.EXPECT().SetBroadcaster(broadcaster)
+
 	b := &Backend{
 		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
-		gossiper:      NewGossiper(knownMessages, localAddress, log.New(), make(chan struct{})),
+		gossiper:      NewGossiper(knownMessages, localAddress, log.New(), make(chan struct{}), rt),
 		logger:        log.New("backend", "test", "id", 0),
 	}
 	b.SetBroadcaster(broadcaster)
@@ -149,11 +153,16 @@ func BenchmarkGossip(b *testing.B) {
 		mockedPeer.EXPECT().Cache().Return(addressCache).AnyTimes()
 	}
 
+	sender := common.Address{}
+	rt := interfaces.NewMockRouter(ctrl)
+	rt.EXPECT().SetBroadcaster(broadcaster)
+	rt.EXPECT().Forward(committee, gomock.Any(), sender, nil).AnyTimes()
+
 	knownMessages := fixsizecache.New[common.Hash, bool](4997, 20, fixsizecache.HashKey[common.Hash])
 	bk := &Backend{
 		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
-		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{})),
+		gossiper:      NewGossiper(knownMessages, sender, log.New(), make(chan struct{}), rt),
 	}
 	bk.SetBroadcaster(broadcaster)
 
@@ -161,14 +170,14 @@ func BenchmarkGossip(b *testing.B) {
 	for n := 0; n < 1000; n++ {
 		i := n % 1000
 		//n := time.Now()
-		bk.Gossip(committee, msgs[i])
+		bk.Gossip(committee, msgs[i], true)
 		//b.Log("time in 1 gossip", time.Since(n).Nanoseconds())
 	}
 	b.Run("cache checks", func(b *testing.B) {
 		b.ReportAllocs()
 		for n := 0; n < b.N; n++ {
 			i := n % 1000
-			bk.Gossip(committee, msgs[i])
+			bk.Gossip(committee, msgs[i], true)
 		}
 	})
 }
@@ -209,14 +218,16 @@ func TestGossip(t *testing.T) {
 	}
 
 	knownMessages := fixsizecache.New[common.Hash, bool](499, 10, fixsizecache.HashKey[common.Hash])
+	key, _ := crypto.GenerateKey()
+	rt := router.Setup(key, testAddress, log.New())
+	rt.SetBroadcaster(broadcaster)
 	b := &Backend{
 		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,
-		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{})),
+		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{}), rt),
 	}
 	b.SetBroadcaster(broadcaster)
-
-	b.Gossip(committee, msg)
+	b.Gossip(committee, msg, true)
 	<-time.NewTimer(2 * time.Second).C
 	if c := atomic.LoadUint64(&counter); c != 4 {
 		t.Fatal("Gossip message transmission failure", "have", c, "want", 4)
@@ -428,7 +439,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	memDB := rawdb.NewMemoryDatabase()
 	msgStore := tdmcore.NewMsgStore()
 	// Use the first key as private key
-	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), false, fakeExpiryChecker)
+	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), fakeExpiryChecker)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)

@@ -19,6 +19,7 @@ import (
 	state "github.com/autonity/autonity/core/state"
 	types "github.com/autonity/autonity/core/types"
 	p2p "github.com/autonity/autonity/p2p"
+	enode "github.com/autonity/autonity/p2p/enode"
 	params "github.com/autonity/autonity/params"
 	rpc "github.com/autonity/autonity/rpc"
 	gomock "go.uber.org/mock/gomock"
@@ -1181,6 +1182,20 @@ func NewMockBroadcaster(ctrl *gomock.Controller) *MockBroadcaster {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBroadcaster) EXPECT() *MockBroadcasterMockRecorder {
 	return m.recorder
+}
+
+// CommitteeEnodes mocks base method.
+func (m *MockBroadcaster) CommitteeEnodes() []*enode.Node {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitteeEnodes")
+	ret0, _ := ret[0].([]*enode.Node)
+	return ret0
+}
+
+// CommitteeEnodes indicates an expected call of CommitteeEnodes.
+func (mr *MockBroadcasterMockRecorder) CommitteeEnodes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitteeEnodes", reflect.TypeOf((*MockBroadcaster)(nil).CommitteeEnodes))
 }
 
 // FindPeer mocks base method.

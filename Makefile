@@ -222,6 +222,10 @@ mock-gen:
 	mockgen -source=accounts/abi/bind/backend.go -package=bind -destination=accounts/abi/bind/backend_mock.go
 	mockgen -source=consensus/tendermint/core/interfaces/gossiper.go -package=interfaces -destination=consensus/tendermint/core/interfaces/gossiper_mock.go
 	mockgen -source=consensus/tendermint/core/interfaces/broadcaster.go -package=interfaces -destination=consensus/tendermint/core/interfaces/broadcaster_mock.go
+	mockgen -source=consensus/tendermint/router/interfaces/interfaces.go -package=mocks -destination=consensus/tendermint/router/mocks/interfaces_mock.go
+	mockgen -source=consensus/tendermint/router/ping/pinger.go -package=mocks -destination=consensus/tendermint/router/mocks/pinger_mock.go
+	mockgen -source=consensus/tendermint/router/cache/cache.go -package=mocks -destination=consensus/tendermint/router/mocks/cache_mock.go
+	mockgen -source=event/subscription.go -package=mocks -destination=consensus/tendermint/router/mocks/subscription_mock.go
 
 generate:
 	cd core/types/ && go generate
@@ -235,7 +239,6 @@ lint:
 	@./.github/tools/golangci-lint run \
 	    --new-from-rev=$(LATEST_COMMIT) \
 	    --config ./.golangci/step1.yml \
-	    --exclude "which can be annoying to use"
 
 	@./.github/tools/golangci-lint run \
 	    --new-from-rev=$(LATEST_COMMIT) \
@@ -257,7 +260,7 @@ test-deps:
 	cd tests/testdata && git checkout b5eb9900ee2147b40d3e681fe86efa4fd693959a
 
 lint-deps:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./build/bin v1.55.2
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./build/bin v1.64.2
 
 clean:
 	go clean -cache

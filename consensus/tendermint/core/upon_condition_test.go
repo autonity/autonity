@@ -1232,16 +1232,20 @@ func TestFutureRoundChange(t *testing.T) {
 		msg2 := message.NewPrevote(futureRound, e.curHeight.Uint64(), common.Hash{}, signer(e, 2), member(e, 2), e.committeeSize)
 
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+		defer waitForExpects(ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		e.setupCore(backendMock, e.clientAddress)
-		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().MessageToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().Gossip(gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
 
+		// send to handleMsg to check the error, however handleEvent does the actual backlogging
 		err := e.core.handleMsg(context.Background(), msg1)
 		assert.Equal(t, constants.ErrFutureRoundMessage, err)
+		e.core.handleEvent(context.Background(), makeBogusMessageEvent(msg1, false))
 		err = e.core.handleMsg(context.Background(), msg2)
 		assert.Equal(t, constants.ErrFutureRoundMessage, err)
+		e.core.handleEvent(context.Background(), makeBogusMessageEvent(msg2, false))
 
 		e.checkState(t, e.curHeight, futureRound, Propose, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 		assert.Equal(t, 0, len(e.core.futureRound[futureRound]))
@@ -1272,11 +1276,16 @@ func TestFutureRoundChange(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		e.setupCore(backendMock, e.clientAddress)
+		backendMock.EXPECT().Gossip(gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
+
+		// send to handleMsg to check the error, however handleEvent does the actual backlogging
 		err := e.core.handleMsg(context.Background(), prevoteMsg)
 		assert.Equal(t, constants.ErrFutureRoundMessage, err)
+		e.core.handleEvent(context.Background(), makeBogusMessageEvent(prevoteMsg, false))
 
 		err = e.core.handleMsg(context.Background(), precommitMsg)
 		assert.Equal(t, constants.ErrFutureRoundMessage, err)
+		e.core.handleEvent(context.Background(), makeBogusMessageEvent(prevoteMsg, false))
 		e.checkState(t, e.curHeight, e.curRound, e.step, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 		assert.Equal(t, 2, len(e.core.futureRound[futureRound]))
 	})
@@ -1357,7 +1366,7 @@ func NewConsensusEnv(t *testing.T, customize func(*ConsensusENV)) *ConsensusENV 
 }
 
 func (e *ConsensusENV) setupCore(backend interfaces.Backend, address common.Address) {
-	e.core = New(backend, nil, address, log.Root(), false)
+	e.core = New(backend, nil, address, log.Root())
 
 	e.core.epoch = &types.EpochInfo{
 		EpochBlock: common.Big0,

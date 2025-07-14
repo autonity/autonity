@@ -19,9 +19,10 @@ package message
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/metrics"
 	"math/big"
 	"sort"
+
+	"github.com/autonity/autonity/metrics"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
@@ -559,7 +560,7 @@ func newVote[
 
 	payload, _ := rlp.EncodeToBytes(extVote{
 		Code:      code,
-		Round:     uint64(r),
+		Round:     uint64(r), // #nosec
 		Height:    h,
 		Value:     value,
 		Signers:   signers,
@@ -612,7 +613,6 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 
 	// use votes[0] as a set representative
 	representative := votes[0]
-
 	// signers of the aggregate
 	signers := types.NewSigners(representative.Signers().CommitteeSize())
 
@@ -655,7 +655,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
 
 	payload, _ := rlp.EncodeToBytes(extVote{
 		Code:      c,
-		Round:     uint64(r),
+		Round:     uint64(r), // #nosec
 		Height:    h,
 		Value:     value,
 		Signers:   signers,
@@ -691,6 +691,11 @@ func AggregatePrecommitsSimple(votes []Vote) []*Precommit {
 	return AggregateVotesSimple[Precommit](votes)
 }
 
+var (
+	validVotesCounter     = metrics.GetOrRegisterCounter("aggregator/backend/valid", nil)     // measures time for message passing from backend to aggregator
+	aggregateVotesCounter = metrics.GetOrRegisterCounter("aggregator/backend/aggregate", nil) // measures time for message passing from backend to aggregator
+)
+
 // NOTE: this function assumes that:
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been cryptographically verified
@@ -704,6 +709,7 @@ func AggregateVotesSimple[
 	if len(votes) == 0 {
 		panic("Trying to aggregate empty set of votes")
 	}
+
 	code := PE(new(E)).Code()
 
 	csize := votes[0].Signers().CommitteeSize()
@@ -778,7 +784,7 @@ func AggregateVotesSimple[
 
 		payload, _ := rlp.EncodeToBytes(extVote{
 			Code:      code,
-			Round:     uint64(r),
+			Round:     uint64(r), // #nosec
 			Height:    h,
 			Value:     value,
 			Signers:   signersList[i],
@@ -804,6 +810,12 @@ func AggregateVotesSimple[
 		}
 		aggregateVotes[i] = &aggregateVote
 	}
+	// aggregation metrics
+	if metrics.Enabled {
+		validVotesCounter.Inc(int64(len(votes)))
+		aggregateVotesCounter.Inc(int64(len(aggregateVotes)))
+	}
+
 	return aggregateVotes
 }
 

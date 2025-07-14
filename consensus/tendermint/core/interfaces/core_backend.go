@@ -10,6 +10,8 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	routerInterfaces "github.com/autonity/autonity/consensus/tendermint/router/interfaces"
+	"github.com/autonity/autonity/consensus/tendermint/router/ping"
 	ethcore "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
@@ -36,7 +38,10 @@ type Backend interface {
 	GetContractABI() *abi.ABI
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(committee *types.Committee, message message.Msg)
+	Gossip(committee *types.Committee, message message.Msg, isLocal bool)
+
+	// SlowGossip sends a message to a subset of validators
+	SlowGossip(committee *types.Committee, message message.Msg, isLocal bool)
 
 	KnownMsgHash() []common.Hash
 
@@ -46,6 +51,8 @@ type Backend interface {
 	HeadBlock() *types.Block
 
 	Post(ev any)
+
+	MessageToCore(ev any)
 
 	ProposedBlockHash() common.Hash
 	// SetProposedBlockHash is a setter for the proposed block hash
@@ -74,8 +81,14 @@ type Backend interface {
 	// IsJailed returns true if the address belongs to the jailed validator list.
 	IsJailed(address common.Address) bool
 
+	// Jail jails the offender up to the end of the epoch
+	Jail(offender common.Address)
+
 	// Gossiper returns gossiper object
 	Gossiper() Gossiper
+
+	// Router returns router object
+	Router() Router
 
 	// re-injects buffered future height messages
 	ProcessFutureMsgs(height uint64)
@@ -109,6 +122,17 @@ type Core interface {
 	VotesPower(h uint64, r int64, code uint8) *message.AggregatedPower
 	VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *message.AggregatedPower
 	EventCh() <-chan events.CoreEvent
+}
+
+type Router interface {
+	Start(ctx context.Context, chain routerInterfaces.BlockChainProvider)
+	Stop()
+	SetBroadcaster(broadcaster routerInterfaces.PeerFinder)
+	Forward(committee *types.Committee, m message.Msg, sender common.Address, recipients []common.Address)
+	Pinger() ping.Pinger
+	Selector() routerInterfaces.PeerSelector
+	SetPinger(ping.Pinger)
+	SetSelector(routerInterfaces.PeerSelector)
 }
 
 type EventDispatcher interface {

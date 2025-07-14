@@ -57,6 +57,7 @@ type Msg interface {
 
 	// getters for validity flags
 	Verified() bool
+
 	PreVerified() bool
 }
 

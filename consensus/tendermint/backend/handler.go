@@ -86,7 +86,6 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 	case message.PrecommitNetworkMsg:
 		return handleConsensusMsg[message.Precommit](sb, sender, msg, errCh)
 	case message.SyncNetworkMsg:
-
 		if !sb.coreRunning.Load() {
 			sb.logger.Debug("Sync message received but core not running")
 			return true, nil // we return nil as we don't want to shut down the connection if core is stopped
@@ -140,6 +139,7 @@ func handleConsensusMsg[T any, PT interface {
 	if sb.knownMessages.Contains(hash) {
 		return true, nil
 	}
+
 	MessageProcessedBg.Mark(1)
 	bReader.Seek(0, io.SeekStart)
 	p2pMsg.Payload = bReader
@@ -170,10 +170,11 @@ func handleConsensusMsg[T any, PT interface {
 		sb.logger.Error("Error decoding consensus message", "err", err)
 		return true, err
 	}
+
 	// if the message is for a future height wrt to consensus engine, buffer it
 	// it will be re-injected into the handleDecodedMsg function at the right height
 	// TODO: Due to a race condition a message that is considered as future could become current,
-	// but remain stuck into the future message buffer forever
+	// but remain stuck into the future message buffer forever (Lorenzo: I think this got addressed with the ErrNotFuture, verify)
 	currentHeight := sb.core.Height().Uint64()
 	if msg.H() > currentHeight {
 		sb.logger.Debug("Saving future height consensus message for later", "msgHeight", msg.H(), "coreHeight", currentHeight)
@@ -194,6 +195,7 @@ func handleConsensusMsg[T any, PT interface {
 		sb.logger.Error("Failed to fetch accountability params", "height", currentHeight, "err", err)
 		// handle message anyways
 	}
+
 	return sb.handleDecodedMsg(msg, errCh, sender)
 }
 
@@ -215,6 +217,16 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		if sb.IsJailed(m.Signer()) {
 			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer())
 			return true, ErrJailed
+		}
+
+		// early Validation for proposals, so we can forward them to other peers
+		if err := msg.Validate(); err != nil {
+			return true, err
+		}
+
+		// current height proposals --> early forward
+		if sb.core.Height().Uint64() == msg.H() {
+			go sb.router.Forward(committee, msg, sender, nil)
 		}
 	case *message.Prevote, *message.Precommit:
 		vote := m.(message.Vote)

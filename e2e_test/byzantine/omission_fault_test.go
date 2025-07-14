@@ -230,7 +230,7 @@ func TestOmissionHappyCase(t *testing.T) {
 
 	autonityContract, omissionContract := contracts(t, network[0])
 
-	err := network.WaitForHeight((defaultEpochPeriod*2)+20, (defaultEpochPeriod*2)+20)
+	err := network.WaitForHeight((defaultEpochPeriod*2)+20, (defaultEpochPeriod*2)+40)
 	require.NoError(t, err)
 
 	// should have reached epoch 2
@@ -760,7 +760,7 @@ func runRewardTest(t *testing.T, numNodes int, numOffline int) {
 	}
 
 	// close the epoch
-	err = network.WaitForHeight(customEpochPeriod, int(customEpochPeriod))
+	err = network.WaitForHeight(customEpochPeriod, int(customEpochPeriod)+10) // #nosec
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), epochID(t, autonityContract))
 

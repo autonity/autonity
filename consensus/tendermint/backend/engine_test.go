@@ -3,13 +3,14 @@ package backend
 import (
 	"context"
 	"errors"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"math/big"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -215,7 +216,7 @@ func TestVerifyHeader(t *testing.T) {
 
 		memDB := rawdb.NewMemoryDatabase()
 		genesis.MustCommit(memDB)
-		engine := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), tdmcore.NewMsgStore(), log.Root(), false, fakeExpiryChecker)
+		engine := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), tdmcore.NewMsgStore(), log.Root(), fakeExpiryChecker)
 		log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 		chain, err := core.NewBlockChain(memDB, nil, genesis.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher(), nil, backends.NewInternalBackend(nil), log.Root())
 		require.NoError(t, err)
@@ -524,8 +525,7 @@ func fakeAggregator() *aggregator {
 
 func TestClose(t *testing.T) {
 	t.Run("engine is not running, error returned", func(t *testing.T) {
-		b := &Backend{
-			database: rawdb.NewMemoryDatabase()}
+		b := &Backend{database: rawdb.NewMemoryDatabase()}
 
 		err := b.Close()
 		assertError(t, ErrStoppedEngine, err)
@@ -540,12 +540,15 @@ func TestClose(t *testing.T) {
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 		coreEventCh := make(chan events.CoreEvent, 10)
 		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
+		mockRouter := interfaces.NewMockRouter(ctrl)
+		mockRouter.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
 			database:   rawdb.NewMemoryDatabase(),
 			core:       tendermintC,
 			aggregator: fakeAggregator(),
 			stopped:    make(chan struct{}),
+			router:     mockRouter,
 		}
 		b.coreStarting.Store(true)
 		b.coreRunning.Store(true)
@@ -563,12 +566,15 @@ func TestClose(t *testing.T) {
 		coreEventCh := make(chan events.CoreEvent, 10)
 		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		tendermintC.EXPECT().Stop().MaxTimes(1)
+		mockRouter := interfaces.NewMockRouter(ctrl)
+		mockRouter.EXPECT().Stop().MaxTimes(1)
 
 		b := &Backend{
 			database:   rawdb.NewMemoryDatabase(),
 			core:       tendermintC,
 			aggregator: fakeAggregator(),
 			stopped:    make(chan struct{}),
+			router:     mockRouter,
 		}
 		b.coreStarting.Store(true)
 		b.coreRunning.Store(true)
@@ -590,12 +596,15 @@ func TestClose(t *testing.T) {
 		coreEventCh := make(chan events.CoreEvent, 10)
 		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		tendermintC.EXPECT().Stop().MaxTimes(1)
+		mockRouter := interfaces.NewMockRouter(ctrl)
+		mockRouter.EXPECT().Stop().AnyTimes()
 
 		b := &Backend{
 			database:   rawdb.NewMemoryDatabase(),
 			core:       tendermintC,
 			aggregator: fakeAggregator(),
 			stopped:    make(chan struct{}),
+			router:     mockRouter,
 		}
 		b.coreStarting.Store(true)
 		b.coreRunning.Store(true)
@@ -648,7 +657,8 @@ func TestStart(t *testing.T) {
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
-
+		mockRouter := interfaces.NewMockRouter(ctrl)
+		mockRouter.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		b := &Backend{
 			database:           rawdb.NewMemoryDatabase(),
 			core:               tendermintC,
@@ -656,6 +666,8 @@ func TestStart(t *testing.T) {
 			blockchain:         chain,
 			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
 			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
+			logger:             log.Root(),
+			router:             mockRouter,
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 
@@ -690,6 +702,8 @@ func TestStart(t *testing.T) {
 		chain, _ := newBlockChain(1)
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
+		mockRouter := interfaces.NewMockRouter(ctrl)
+		mockRouter.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 
 		b := &Backend{
 			database:           rawdb.NewMemoryDatabase(),
@@ -698,6 +712,8 @@ func TestStart(t *testing.T) {
 			blockchain:         chain,
 			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
+			logger:             log.Root(),
+			router:             mockRouter,
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.coreStarting.Store(false)
@@ -723,6 +739,8 @@ func TestStart(t *testing.T) {
 		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
+		mockRouter := interfaces.NewMockRouter(ctrl)
+		mockRouter.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 
 		b := &Backend{
 			database:           rawdb.NewMemoryDatabase(),
@@ -731,6 +749,8 @@ func TestStart(t *testing.T) {
 			blockchain:         chain,
 			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
+			logger:             log.Root(),
+			router:             mockRouter,
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 		b.coreStarting.Store(false)
@@ -785,6 +805,9 @@ func TestMultipleRestart(t *testing.T) {
 	chain, _ := newBlockChain(1)
 	g := interfaces.NewMockGossiper(ctrl)
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
+	mockRouter := interfaces.NewMockRouter(ctrl)
+	mockRouter.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
+	mockRouter.EXPECT().Stop().AnyTimes()
 
 	b := &Backend{
 		database:           rawdb.NewMemoryDatabase(),
@@ -793,6 +816,8 @@ func TestMultipleRestart(t *testing.T) {
 		blockchain:         chain,
 		askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
+		logger:             log.Root(),
+		router:             mockRouter,
 	}
 	b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
 	b.coreStarting.Store(false)

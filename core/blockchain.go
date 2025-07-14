@@ -1412,6 +1412,7 @@ func (bc *BlockChain) writeBlockAndSetHead(block *types.Block, receipts []*types
 
 		if block.IsEpochHead() {
 			bc.epochHeadFeed.Send(EpochHeadEvent{block.Header()})
+			bc.log.Debug("writeBlockAndSetHead: Set the epoch head", "number", block.Number(), "hash", block.Hash())
 		}
 		// In theory we should fire a ChainHeadEvent when we inject
 		// a canonical block, but sometimes we can insert a batch of
@@ -2232,7 +2233,7 @@ func (bc *BlockChain) SetChainHead(newBlock *types.Block) error {
 
 	if newBlock.IsEpochHead() {
 		bc.epochHeadFeed.Send(EpochHeadEvent{newBlock.Header()})
-		bc.log.Info("Set the epoch head", "number", newBlock.Number(), "hash", newBlock.Hash())
+		bc.log.Debug("SetChainHead: Set the epoch head", "number", newBlock.Number(), "hash", newBlock.Hash())
 	}
 
 	bc.chainHeadFeed.Send(ChainHeadEvent{Block: newBlock})

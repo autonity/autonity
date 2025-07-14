@@ -466,10 +466,11 @@ func (d *dialScheduler) removeFromStaticPool(idx int) {
 func (d *dialScheduler) startDial(task *dialTask) {
 	d.log.Trace("Starting p2p dial", "id", task.dest.ID(), "ip", task.dest.IP(), "flag", task.flags, "server", d.net.String())
 	hkey := string(task.dest.ID().Bytes())
+	randomDelay := time.Duration(mrand.Intn(1000)) * time.Millisecond
 	if d.net == Consensus {
-		d.history.add(hkey, d.clock.Now().Add(acnDialHistoryExpiration))
+		d.history.add(hkey, d.clock.Now().Add(acnDialHistoryExpiration+randomDelay))
 	} else {
-		d.history.add(hkey, d.clock.Now().Add(dialHistoryExpiration))
+		d.history.add(hkey, d.clock.Now().Add(dialHistoryExpiration+randomDelay))
 	}
 	d.dialing[task.dest.ID()] = task
 	go func() {

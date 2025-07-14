@@ -11,17 +11,17 @@ import (
 
 const cleanUpInterval = 60 // 60s
 
-func (b *Backend) startRateLimiterGCRoutine() {
-	b.cleanupTicker = time.NewTicker(time.Second * cleanUpInterval)
-	b.wg.Add(1)
+func (sb *Backend) startRateLimiterGCRoutine() {
+	sb.cleanupTicker = time.NewTicker(time.Second * cleanUpInterval)
+	sb.wg.Add(1)
 	go func() {
-		defer b.wg.Done()
-		defer b.cleanupTicker.Stop()
+		defer sb.wg.Done()
+		defer sb.cleanupTicker.Stop()
 		for {
 			select {
-			case <-b.cleanupTicker.C:
-				b.askSyncRateLimiter.Cleanup()
-			case <-b.stopped:
+			case <-sb.cleanupTicker.C:
+				sb.askSyncRateLimiter.Cleanup()
+			case <-sb.stopped:
 				return
 			}
 		}
@@ -72,22 +72,28 @@ func (sb *Backend) handleAskSyncEvent(payload []byte, sender common.Address) err
 	prevotes := sb.missingPrevotes(askSync)
 	precommits := sb.missingPrecommits(askSync)
 
+	msgCount := 0
 	// prioritize the sending of missing proposals.
 	for _, m := range proposals {
-		sb.logger.Debug("sending missing proposal to remote peer", "value", m.Value(), "H", m.H(), "R", m.R(), "VR", m.ValidRound(), "from", sb.address, "to", sender)
+		msgCount++
 		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 	}
+	sb.logger.Debug("sending missing proposal to remote peer", "peer", sender, "count", msgCount)
 
+	msgCount = 0
 	// then sends the missing precommits, as precommits could trigger round rotation or a commitment of a value.
 	for _, m := range precommits {
-		sb.logger.Debug("sending missing precommits to remote peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", sb.address, "to", sender)
+		msgCount++
 		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 	}
+	sb.logger.Debug("sending missing precommits to remote peer", "peer", sender, "count", msgCount)
 
+	msgCount = 0
 	for _, m := range prevotes {
-		sb.logger.Debug("sending missing prevotes to remote peer", "value", m.Value(), "H", m.H(), "R", m.R(), "from", sb.address, "to", sender)
+		msgCount++
 		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 	}
+	sb.logger.Debug("sending missing prevotes to remote peer", "peer", sender, "count", msgCount)
 
 	return nil
 }

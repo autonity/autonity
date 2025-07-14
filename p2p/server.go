@@ -1266,6 +1266,14 @@ func (srv *Server) runPeer(p *Peer) {
 	})
 }
 
+func (srv *Server) Committee() []*enode.Node {
+	srv.enodeMu.RLock()
+	defer srv.enodeMu.RUnlock()
+	committee := make([]*enode.Node, len(srv.committee))
+	copy(committee, srv.committee)
+	return committee
+}
+
 // NodeInfo represents a short summary of the information known about the host.
 type NodeInfo struct {
 	ID    string `json:"id"`    // Unique node identifier (also the encryption key)

@@ -71,8 +71,12 @@ func getFutureRoundMsgs(c *Core) []*interfaces.MsgForDump {
 	c.futureRoundLock.RLock()
 	defer c.futureRoundLock.RUnlock()
 	result := make([]*interfaces.MsgForDump, 0)
-	for _, msgs := range c.futureRound {
-		result = append(result, msgForDump(msgs)...)
+	for _, evs := range c.futureRound {
+		var messages []message.Msg
+		for _, ev := range evs {
+			messages = append(messages, ev.Message())
+		}
+		result = append(result, msgForDump(messages)...)
 	}
 
 	return result

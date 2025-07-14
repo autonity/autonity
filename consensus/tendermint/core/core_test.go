@@ -3,19 +3,18 @@ package core
 import (
 	"context"
 	"math/big"
-	"reflect"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestCore_MeasureHeightRoundMetrics(t *testing.T) {
@@ -106,7 +105,7 @@ func TestCore_Setters(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	backendMock := interfaces.NewMockBackend(ctrl)
-	c := New(backendMock, nil, common.Address{}, log.Root(), false)
+	c := New(backendMock, nil, common.Address{}, log.Root())
 	t.Run("SetStep", func(t *testing.T) {
 		timeoutDuration := c.timeoutPropose(0)
 		timeoutCallback := func(_ int64, _ *big.Int) {}
@@ -142,90 +141,56 @@ func TestCore_Setters(t *testing.T) {
 // future round message processing
 func TestProcessFuture(t *testing.T) {
 	t.Run("future round msg is processed", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
 		msg := message.NewPropose(1, 2, 1, types.NewBlockWithHeader(&types.Header{}), defaultSigner, testCommitteeMember)
-
-		expected := backlogMessageEvent{
-			msg: msg,
-		}
-
-		evChan := make(chan any, 1)
-
-		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Post(expected).Do(func(ev any) {
-			evChan <- ev
-		})
+		messageCh := make(chan events.MessageEvent, 1)
 
 		c := &Core{
-			logger:      log.New("backend", "test", "id", 0),
-			backend:     backendMock,
-			address:     common.HexToAddress("0x1234567890"),
-			futureRound: make(map[int64][]message.Msg),
-			futurePower: make(map[int64]*message.AggregatedPower),
-			step:        Propose,
-			round:       1,
-			height:      big.NewInt(2),
+			logger:         log.New("backend", "test", "id", 0),
+			address:        common.HexToAddress("0x1234567890"),
+			futureRound:    make(map[int64][]events.MessageEvent),
+			futurePower:    make(map[int64]*message.AggregatedPower),
+			step:           Propose,
+			round:          1,
+			height:         big.NewInt(2),
+			messageEventCh: messageCh,
 		}
 
-		c.futureRound[msg.R()] = append(c.futureRound[msg.R()], msg)
+		c.futureRound[msg.R()] = append(c.futureRound[msg.R()], makeBogusMessageEvent(msg, true))
 		c.processFuture(0, 1) // scenario: we just switched from round 0 --> 1
 
 		timeout := time.NewTimer(2 * time.Second)
 		select {
-		case ev := <-evChan:
-			e, ok := ev.(backlogMessageEvent)
-			if !ok {
-				t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev))
-			}
-			if e.msg.Hash() != msg.Hash() {
-				t.Errorf("message hash mismatch: have %v, want %v", e.msg.Hash(), msg.Hash())
+		case ev := <-messageCh:
+			if ev.Message().Hash() != msg.Hash() {
+				t.Errorf("message hash mismatch: have %v, want %v", ev.Message().Hash(), msg.Hash())
 			}
 		case <-timeout.C:
 			t.Error("unexpected Timeout occurs")
 		}
 	})
 	t.Run("future round messages are processed even if we skip multiple rounds", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
 		msg := message.NewPropose(1, 2, 1, types.NewBlockWithHeader(&types.Header{}), defaultSigner, testCommitteeMember)
-
-		expected := backlogMessageEvent{
-			msg: msg,
-		}
-
-		evChan := make(chan any, 1)
-
-		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().Post(expected).Do(func(ev any) {
-			evChan <- ev
-		})
+		messageCh := make(chan events.MessageEvent, 1)
 
 		c := &Core{
-			logger:      log.New("backend", "test", "id", 0),
-			backend:     backendMock,
-			address:     common.HexToAddress("0x1234567890"),
-			futureRound: make(map[int64][]message.Msg),
-			futurePower: make(map[int64]*message.AggregatedPower),
-			step:        Propose,
-			round:       3,
-			height:      big.NewInt(2),
+			logger:         log.New("backend", "test", "id", 0),
+			address:        common.HexToAddress("0x1234567890"),
+			futureRound:    make(map[int64][]events.MessageEvent),
+			futurePower:    make(map[int64]*message.AggregatedPower),
+			step:           Propose,
+			round:          3,
+			height:         big.NewInt(2),
+			messageEventCh: messageCh,
 		}
 
-		c.futureRound[msg.R()] = append(c.futureRound[msg.R()], msg)
+		c.futureRound[msg.R()] = append(c.futureRound[msg.R()], makeBogusMessageEvent(msg, true))
 		c.processFuture(0, 3) // scenario: we just switched from round 0 --> 3
 
 		timeout := time.NewTimer(2 * time.Second)
 		select {
-		case ev := <-evChan:
-			e, ok := ev.(backlogMessageEvent)
-			if !ok {
-				t.Errorf("unexpected event comes: %v", reflect.TypeOf(ev))
-			}
-			if e.msg.Hash() != msg.Hash() {
-				t.Errorf("message hash mismatch: have %v, want %v", e.msg.Hash(), msg.Hash())
+		case ev := <-messageCh:
+			if ev.Message().Hash() != msg.Hash() {
+				t.Errorf("message hash mismatch: have %v, want %v", ev.Message().Hash(), msg.Hash())
 			}
 		case <-timeout.C:
 			t.Error("unexpected Timeout occurs")
@@ -242,7 +207,7 @@ func TestProcessFuture(t *testing.T) {
 			logger:      log.New("backend", "test", "id", 0),
 			backend:     backendMock,
 			address:     common.HexToAddress("0x1234567890"),
-			futureRound: make(map[int64][]message.Msg),
+			futureRound: make(map[int64][]events.MessageEvent),
 			futurePower: make(map[int64]*message.AggregatedPower),
 			step:        Propose,
 			round:       3,
