@@ -160,8 +160,7 @@ type Backend struct {
 
 	router interfaces.Router
 
-	aggregator          *aggregator
-	minNonExpiredHeight func(headHeight uint64, heightRange uint64) uint64 // pass a function to avoid import loops
+	aggregator *aggregator
 
 	jailed jailed // metadata for p2p jailed validators
 	future future // buffer for future height events and related metadata

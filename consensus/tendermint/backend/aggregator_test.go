@@ -190,7 +190,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 				return true
 			}
 			return false
-		})).Do(func(ev any) {
+		})).Do(func(_ any) {
 			called.Store(true)
 		}).Times(1)
 
@@ -297,7 +297,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 				return true
 			}
 			return false
-		})).Do(func(ev any) {
+		})).Do(func(_ any) {
 			called.Store(true)
 		}).Times(1)
 		backend.coreEventDispatcher = mc

@@ -392,10 +392,9 @@ func (a *aggregator) validateBatch(batch []events.UnverifiedMessageEvent) (valid
 	}
 
 	validVotes := make([]message.Vote, 0, len(batch))
-	invalids := make([]uint, 0, len(batch))
 
 	// at least one of the signatures is invalid, find at which index
-	invalids = blst.FindInvalid(signatures, publicKeys, hash)
+	invalids := blst.FindInvalid(signatures, publicKeys, hash)
 
 	// remove invalid messages and sent the rest of the batch
 	// NOTE: the following loop relies on blst.FindInvalid returning invalid indexes sorted according to ascending order
