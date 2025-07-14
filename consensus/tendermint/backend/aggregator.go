@@ -450,7 +450,7 @@ func (a *aggregator) validateBatch(batch []events.UnverifiedMessageEvent) (valid
 }
 
 func (a *aggregator) filterSkipped(evs []events.UnverifiedMessageEvent) []events.UnverifiedMessageEvent {
-	var filtered []events.UnverifiedMessageEvent
+	filtered := make([]events.UnverifiedMessageEvent, 0, len(evs))
 	for _, e := range evs {
 		m := e.Message
 		// skip messages to be ignored or that are already in core
@@ -765,7 +765,7 @@ loop:
 			// cleanup
 			clear(a.messagesFrom)
 			clear(a.toIgnore)
-			a.signerSetCache.pruneToHeight(a.minHeightMessages())
+			a.cleanUp(coreHeight)
 			aggTimer.Reset(aggregationPeriod)
 		case <-oldMessagesTicker.C:
 			a.logger.Trace("Processing stale messages in the aggregator")
@@ -793,23 +793,31 @@ loop:
 	}
 }
 
-func (a *aggregator) minHeightMessages() uint64 {
-	minHeight := uint64(0)
+func (a *aggregator) cleanUp(coreHeight uint64) {
+	a.msgMu.Lock()
+	defer a.msgMu.Unlock()
+	minHeight, err := a.backend.MinNonExpiredHeight(coreHeight)
+	if err != nil {
+		a.logger.Error("Aggregator: error getting minimum non-expired height", "error", err)
+		return
+	}
+
+	// clean up messages from the aggregator that are older than core height
 	for h := range a.messages {
-		if minHeight == 0 || h < minHeight {
-			minHeight = h
+		if h < minHeight {
+			delete(a.messages, h)
 		}
 	}
-	for hash := range a.staleMessages {
-		if minHeight == 0 || a.staleMessages[hash][0].Message.H() < minHeight {
-			minHeight = a.staleMessages[hash][0].Message.H()
+
+	// clean up stale messages that are older than core height
+	for hash, batch := range a.staleMessages {
+		if batch[0].Message.H() < minHeight {
+			delete(a.staleMessages, hash)
 		}
 	}
-	if minHeight == 0 {
-		// aggregator has no messages
-		return a.core.Height().Uint64()
-	}
-	return minHeight
+
+	// clean up cache
+	a.signerSetCache.pruneToHeight(minHeight)
 }
 
 func (a *aggregator) stop() {

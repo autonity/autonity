@@ -243,5 +243,5 @@ func CreateConsensusEngine(db ethdb.Database, ctx *node.Node, chainConfig *param
 	}
 
 	nodeKey, consensusKey := ctx.Config().AutonityKeys()
-	return tendermintBackend.New(db, nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, afdDispatchCh, ctx.Logger(), accountability.IsHeightExpired)
+	return tendermintBackend.New(db, nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, afdDispatchCh, ctx.Logger(), accountability.MinNonExpiredHeight)
 }

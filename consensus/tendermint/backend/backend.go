@@ -61,7 +61,7 @@ func New(
 	ms *tendermintCore.MsgStore,
 	afdDispatchCh chan<- events.MessageEventer,
 	log log.Logger,
-	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool) *Backend {
+	minNonExpiredHeight func(headHeight uint64, heightRange uint64) uint64) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
@@ -78,7 +78,7 @@ func New(
 		askSyncRateLimiter:  helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		aggregatorMessageCh: make(chan events.UnverifiedMessageEvent, 5000),
 		afdDispatchCh:       afdDispatchCh, // to FD
-		isHeightExpired:     isHeightExpired,
+		minNonExpiredHeight: minNonExpiredHeight,
 		jailed: jailed{
 			validators: make(map[common.Address]uint64),
 		},
@@ -161,8 +161,8 @@ type Backend struct {
 
 	router interfaces.Router
 
-	aggregator      *aggregator
-	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool // pass a function to avoid import loops
+	aggregator          *aggregator
+	minNonExpiredHeight func(headHeight uint64, heightRange uint64) uint64 // pass a function to avoid import loops
 
 	jailed jailed // metadata for p2p jailed validators
 	future future // buffer for future height events and related metadata
@@ -192,6 +192,18 @@ func (sb *Backend) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 
 func (sb *Backend) CommitteeByHeight(height uint64) (*types.Committee, error) {
 	return sb.BlockChain().CommitteeByHeight(height)
+}
+
+func (sb *Backend) MinNonExpiredHeight(coreHeight uint64) (uint64, error) {
+	heightRange, err := sb.blockchain.AccountabilityParamsByHeight(coreHeight)
+	if err != nil {
+		return 0, err
+	}
+	return sb.minNonExpiredHeight(coreHeight, heightRange.Range.Uint64()), nil
+}
+
+func (sb *Backend) isHeightExpired(headHeight uint64, height uint64, heightRange uint64) bool {
+	return height < sb.minNonExpiredHeight(headHeight, heightRange)
 }
 
 func (sb *Backend) MessageCh() <-chan events.UnverifiedMessageEvent {

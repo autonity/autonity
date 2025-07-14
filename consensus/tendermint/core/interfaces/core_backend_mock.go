@@ -341,6 +341,21 @@ func (mr *MockBackendMockRecorder) MessageCh() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MessageCh", reflect.TypeOf((*MockBackend)(nil).MessageCh))
 }
 
+// MinNonExpiredHeight mocks base method.
+func (m *MockBackend) MinNonExpiredHeight(coreHeight uint64) (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MinNonExpiredHeight", coreHeight)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MinNonExpiredHeight indicates an expected call of MinNonExpiredHeight.
+func (mr *MockBackendMockRecorder) MinNonExpiredHeight(coreHeight any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MinNonExpiredHeight", reflect.TypeOf((*MockBackend)(nil).MinNonExpiredHeight), coreHeight)
+}
+
 // Post mocks base method.
 func (m *MockBackend) Post(ev any) {
 	m.ctrl.T.Helper()

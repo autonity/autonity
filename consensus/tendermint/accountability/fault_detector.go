@@ -109,8 +109,7 @@ type FaultDetector struct {
 
 	logger log.Logger
 
-	scanned     map[uint64]struct{}
-	saveQueueCh chan message.Msg
+	scanned map[uint64]struct{}
 }
 
 // NewFaultDetector call by ethereum object to create fd instance.
@@ -153,7 +152,6 @@ func NewFaultDetector(
 		misbehaviourProofCh:   make(chan *bindings.IAccountabilityEvent, 100),
 		logger:                logger, // Todo(youssef): remove context
 		scanned:               make(map[uint64]struct{}),
-		saveQueueCh:           make(chan message.Msg, 500), // save queue for messages
 	}
 	// use ChainEvent instead of ChainHeadEvent as we want the relative select cases to ran at every single block.
 	// ChainHeadEvent might be fired a single time for a batch of inserted blocks.
@@ -171,21 +169,6 @@ func NewFaultDetector(
 	return fd
 }
 
-func (fd *FaultDetector) msgStoreLoop() {
-saverLoop:
-	for {
-		select {
-		case msg, ok := <-fd.saveQueueCh:
-			if !ok {
-				break saverLoop
-			}
-			fd.msgStore.Save(msg)
-		case <-fd.stopRetry:
-			break saverLoop
-		}
-	}
-}
-
 // Start listen for new block events from blockchain, do the tasks like take challenge and provide Proof for innocent, the
 // Fault Detector rule engine could also trigger from here to scan those msgs of msg store by applying rules.
 // TODO: should we start accountability module only once we are in sync with the chain? Right now it is started when the node starts.
@@ -194,11 +177,17 @@ func (fd *FaultDetector) Start() {
 	go fd.eventReporter()
 	go fd.ruleEngine()
 	go fd.consensusMsgHandlerLoop()
-	go fd.msgStoreLoop()
 }
 
 func IsHeightExpired(coreHeight uint64, height uint64, heightRange uint64) bool {
-	return coreHeight > heightRange && height < coreHeight-heightRange
+	return height < MinNonExpiredHeight(coreHeight, heightRange)
+}
+
+func MinNonExpiredHeight(coreHeight uint64, heightRange uint64) uint64 {
+	if coreHeight <= heightRange {
+		return 0
+	}
+	return coreHeight - heightRange
 }
 
 func (fd *FaultDetector) SetBroadcaster(broadcaster consensus.Broadcaster) {
@@ -483,7 +472,6 @@ func (fd *FaultDetector) Stop() {
 	fd.chainEventSub.Unsubscribe()
 	fd.tendermintMsgSub.Unsubscribe()
 	fd.accountabilityEventSub.Unsubscribe()
-	close(fd.saveQueueCh)
 	close(fd.stopRetry)
 	close(fd.eventReporterCh)
 	fd.wg.Wait()
@@ -1503,11 +1491,10 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 		}
 		fd.submitMisbehavior(message.NewLightProposal(proposal), equivocatedMsgs, errEquivocation, proposal.SignerIndex(), proposal.Signer())
 		// we allow the equivocated msg to be stored in msg store.
-		fd.saveQueueCh <- proposal
+		fd.msgStore.Save(proposal)
 		return errEquivocation
 	}
-	fd.saveQueueCh <- proposal
-
+	fd.msgStore.Save(proposal)
 	return nil
 }
 
@@ -1537,8 +1524,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 			}
 		}
 	}, m.Signers().CommitteeSize())
-
-	fd.saveQueueCh <- m
+	fd.msgStore.Save(m)
 	return err
 }
 
@@ -1569,7 +1555,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) e
 		}
 	}, m.Signers().CommitteeSize())
 
-	fd.saveQueueCh <- m
+	fd.msgStore.Save(m)
 	return err
 }
 

@@ -227,7 +227,7 @@ func TestVerifyHeader(t *testing.T) {
 			tdmcore.NewMsgStore(),
 			afdDispatchCh,
 			log.Root(),
-			fakeExpiryChecker,
+			fakeMinNonExpiredHeight,
 		)
 		log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 		chain, err := core.NewBlockChain(memDB, nil, genesis.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher(), nil, backends.NewInternalBackend(nil), log.Root())
@@ -712,14 +712,15 @@ func TestStart(t *testing.T) {
 		mockRouter.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 
 		b := &Backend{
-			database:           rawdb.NewMemoryDatabase(),
-			core:               tendermintC,
-			gossiper:           g,
-			blockchain:         chain,
-			askSyncRateLimiter: helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
-			eventMux:           event.NewTypeMuxSilent(nil, log.Root()),
-			logger:             log.Root(),
-			router:             mockRouter,
+			database:            rawdb.NewMemoryDatabase(),
+			core:                tendermintC,
+			gossiper:            g,
+			blockchain:          chain,
+			askSyncRateLimiter:  helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
+			eventMux:            event.NewTypeMuxSilent(nil, log.Root()),
+			logger:              log.Root(),
+			router:              mockRouter,
+			minNonExpiredHeight: fakeMinNonExpiredHeight,
 		}
 		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC, signerSetCache: newAggregatorCache()}
 		b.coreStarting.Store(false)

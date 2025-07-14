@@ -56,8 +56,8 @@ var (
 	testSignature, _    = blst.SignatureFromBytes(testSignatureBytes)
 )
 
-func fakeExpiryChecker(_ uint64, _ uint64, _ uint64) bool {
-	return false
+func fakeMinNonExpiredHeight(_ uint64, _ uint64) uint64 {
+	return 0
 }
 
 func committeeAndBlsKeys(committeeSize int) (*types.Committee, []blst.SecretKey) {
@@ -441,7 +441,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 	msgStore := tdmcore.NewMsgStore()
 	afdDispatchCh := make(chan events.MessageEventer, 100)
 	// Use the first key as private key
-	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, afdDispatchCh, log.Root(), fakeExpiryChecker)
+	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, afdDispatchCh, log.Root(), fakeMinNonExpiredHeight)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)

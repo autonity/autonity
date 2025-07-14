@@ -1239,6 +1239,7 @@ func TestAggregatorFullFlow(t *testing.T) {
 		r := int64(5)
 
 		backendMock.EXPECT().DispatchToFD(gomock.Any()).MaxTimes(1)
+		backendMock.EXPECT().MinNonExpiredHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
 		coreMock.EXPECT().Height().Return(big.NewInt(int64(h))).AnyTimes()
 		coreMock.EXPECT().Round().Return(r).AnyTimes()
 

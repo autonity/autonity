@@ -78,6 +78,9 @@ type Backend interface {
 	// GetCommitteeByHeight returns the committee for a given height.
 	CommitteeByHeight(height uint64) (*types.Committee, error)
 
+	// MinNonExpiredHeight returns the minimum non-expired height based on the core height.
+	MinNonExpiredHeight(coreHeight uint64) (uint64, error)
+
 	// SetBlockchain is used to set the blockchain on this object
 	SetBlockchain(bc *ethcore.BlockChain)
 
