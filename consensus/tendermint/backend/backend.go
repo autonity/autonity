@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"math"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -76,6 +77,7 @@ func New(
 		MsgStore:            ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
 		askSyncRateLimiter:  helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		aggregatorMessageCh: make(chan events.UnverifiedMessageEvent, 5000),
+		jailingCh:           make(chan common.Address, 1000),
 		isHeightExpired:     isHeightExpired,
 		jailed: jailed{
 			validators: make(map[common.Address]uint64),
@@ -108,7 +110,7 @@ func New(
 	backend.core = consensusCore
 	backend.coreEventDispatcher = consensusCore
 
-	backend.aggregator = newAggregator(backend, consensusCore, log, backend.knownMessages)
+	backend.aggregator = newAggregator(backend, consensusCore, log)
 
 	return backend
 }
@@ -130,6 +132,7 @@ type Backend struct {
 	proposalVerifiedCh  chan<- *types.Block
 	commitCh            chan<- *types.Block
 	aggregatorMessageCh chan events.UnverifiedMessageEvent // to send events to the aggregator
+	jailingCh           chan common.Address
 	proposedBlockHash   common.Hash
 	coreStarting        atomic.Bool
 	coreRunning         atomic.Bool
@@ -200,9 +203,9 @@ func (sb *Backend) Address() common.Address {
 func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	// send to self (directly to Core and FD, no need to verify local messages)
 	// a goroutine is required here to avoid creating a deadlock, broadcast can be called from the messageEventHandler itself
-	go sb.gossiper.Gossip(committee, message)
-	go sb.MessageToCore(events.NewMessageEvent(message, nil, sb.Address(), time.Now())) // core
-	go sb.Post(events.NewMessageEvent(message, nil, sb.Address(), time.Now()))          // FD
+	go sb.gossiper.Gossip(committee, message, true)
+	go sb.MessageToCore(events.NewMessageEvent(message, nil, sb.Address(), time.Now(), true)) // core
+	go sb.Post(events.NewMessageEvent(message, nil, sb.Address(), time.Now(), true))          // FD
 }
 
 func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
@@ -210,12 +213,12 @@ func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncM
 }
 
 // Gossip implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(committee *types.Committee, msg message.Msg) {
-	sb.gossiper.Gossip(committee, msg)
+func (sb *Backend) Gossip(committee *types.Committee, msg message.Msg, isLocal bool) {
+	sb.gossiper.Gossip(committee, msg, isLocal)
 }
 
-func (sb *Backend) SlowGossip(committee *types.Committee, msg message.Msg) {
-	sb.gossiper.SlowGossip(committee, msg)
+func (sb *Backend) SlowGossip(committee *types.Committee, msg message.Msg, isLocal bool) {
+	sb.gossiper.SlowGossip(committee, msg, isLocal)
 }
 
 // UpdateStopChannel implements tendermint.Backend.Gossip
@@ -282,8 +285,12 @@ func (sb *Backend) Post(ev any) {
 
 func (sb *Backend) MessageToCore(ev any) {
 	switch ev := ev.(type) {
-	case events.MessageEventer:
+	case events.MessageEvent:
 		sb.coreEventDispatcher.Post(ev)
+	case events.OldMessageEvent:
+		// ignore old height messages for Core
+	default:
+		panic("unknown event " + reflect.TypeOf(ev).String())
 	}
 	return
 }

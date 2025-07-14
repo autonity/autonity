@@ -3,12 +3,13 @@ package backend
 import (
 	"bytes"
 	"context"
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
+	"errors"
 	"io"
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"go.uber.org/mock/gomock"
 
 	"github.com/stretchr/testify/require"
@@ -298,5 +299,26 @@ func TestFutureHeightMessage(t *testing.T) {
 		backend.future.RLock()
 		require.Equal(t, uint64(0), backend.future.size)
 		backend.future.RUnlock()
+	})
+}
+
+// invalid proposal should be caught at handler level
+func TestInvalidProposal(t *testing.T) {
+	t.Run("handler rejects invalid proposal", func(t *testing.T) {
+		_, backend := newBlockChain(1)
+
+		propose := message.NewFakePropose(message.Fake{
+			FakeSignatureInput: common.Hash{0xca, 0xfe},
+			FakeSignerKey:      testKey.PublicKey(),
+			FakeSignature:      testKey.Sign([]byte{0xff, 0xff}), // signature is not on FakeSignatureInput --> invalid
+			FakeVerified:       false,
+			FakeHash:           common.Hash{0xee, 0xee},
+		})
+
+		handled, err := backend.handleDecodedMsg(propose, nil, common.Address{})
+		require.True(t, handled)
+		t.Logf("proposal failed with error: %v", err)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, message.ErrBadSignature))
 	})
 }

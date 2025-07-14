@@ -218,8 +218,8 @@ func TestHandleProposal(t *testing.T) {
 		fmt.Println(err)
 	})
 
-	t.Run("future proposal given, backlog event posted", func(t *testing.T) {
-		const eventPostingDelay = time.Second
+	t.Run("future proposal given, message event posted after delay", func(t *testing.T) {
+		eventPostingDelay := time.Second
 		ctrl := gomock.NewController(t)
 		block := types.NewBlockWithHeader(&types.Header{
 			Number: new(big.Int).SetUint64(height),
@@ -231,10 +231,8 @@ func TestHandleProposal(t *testing.T) {
 		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(eventPostingDelay, consensus.ErrFutureTimestampBlock)
 		backendMock.EXPECT().IsProposalStateCached(proposal.Block().Hash()).Return(false)
-		event := backlogMessageEvent{
-			msg: proposal,
-		}
-		backendMock.EXPECT().MessageToCore(event).Times(1)
+
+		messageEventCh := make(chan events.MessageEvent, 1)
 		c := &Core{
 			address:          addr,
 			backend:          backendMock,
@@ -245,15 +243,24 @@ func TestHandleProposal(t *testing.T) {
 			committee:        committeeSet,
 			round:            round,
 			height:           new(big.Int).SetUint64(height),
+			messageEventCh:   messageEventCh,
 		}
 
+		errCh := make(chan error, 1)
 		c.SetDefaultHandlers()
-		err := c.proposer.HandleProposal(context.Background(), proposal)
-		require.Error(t, err)
+		c.handleEvent(context.Background(), events.NewMessageEvent(proposal, errCh, common.Address{}, time.Now(), false))
+		select {
+		case e := <-messageEventCh:
+			t.Logf("hash: %s", e.Message().Hash().String())
+			require.Equal(t, e.Message().Hash().String(), proposal.Hash().String())
+		case err := <-errCh:
+			t.Fatalf("unexpected error: %v", err)
 		// We wait here for at least the delay "eventPostingDelay" returned by VerifyProposal :
 		// We expect above that a backlog event containing the future proposal message will be posted
 		// after this amount of time. This being done asynchrounously it is necessary to pause the main thread.
-		<-time.NewTimer(2 * eventPostingDelay).C
+		case <-time.NewTimer(2 * eventPostingDelay).C:
+			t.Fatal("timeout waiting for proposed block")
+		}
 	})
 
 	t.Run("self proposal, no error, no verifyProposal invocation", func(t *testing.T) {

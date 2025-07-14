@@ -710,8 +710,6 @@ func AggregateVotesSimple[
 		panic("Trying to aggregate empty set of votes")
 	}
 
-	validVotesCounter.Inc(int64(len(votes)))
-	// todo: metric for length of validVotes and length of aggregateVotes
 	code := PE(new(E)).Code()
 
 	csize := votes[0].Signers().CommitteeSize()
@@ -812,7 +810,12 @@ func AggregateVotesSimple[
 		}
 		aggregateVotes[i] = &aggregateVote
 	}
-	aggregateVotesCounter.Inc(int64(len(aggregateVotes)))
+	// aggregation metrics
+	if metrics.Enabled {
+		validVotesCounter.Inc(int64(len(votes)))
+		aggregateVotesCounter.Inc(int64(len(aggregateVotes)))
+	}
+
 	return aggregateVotes
 }
 

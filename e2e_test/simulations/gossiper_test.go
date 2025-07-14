@@ -34,7 +34,7 @@ type customGossiper struct {
 
 // this is a test custom gossip function, just to illustrate how to build one
 // it gossips only to a random set of ceil(sqrt(N)). It is not optimized.
-func (cg *customGossiper) Gossip(committee *types.Committee, msg message.Msg) {
+func (cg *customGossiper) Gossip(committee *types.Committee, msg message.Msg, _ bool) {
 	hash := msg.Hash()
 	cg.knownMessages.Add(hash, true)
 

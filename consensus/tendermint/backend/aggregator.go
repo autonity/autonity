@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -63,19 +62,19 @@ func recordMessageProcessingTime(code uint8, start time.Time) {
 	}
 }
 
-type eventBuilder func(msg message.Msg, event events.UnverifiedMessageEvent) interface{}
+type eventBuilder func(msg message.Msg, errCh chan<- error, sender common.Address) interface{}
 
 // function to create the event for current height messages (they get picked up by Core and by the FD)
-func currentHeightEventBuilder(msg message.Msg, event events.UnverifiedMessageEvent) interface{} {
-	return events.NewMessageEvent(msg, event.ErrCh, event.Sender, time.Now())
+func currentHeightEventBuilder(msg message.Msg, errCh chan<- error, sender common.Address) interface{} {
+	return events.NewMessageEvent(msg, errCh, sender, time.Now(), false)
 }
 
 // function to create the event for old height messages (they get picked up only by the FD)
-func oldHeightEventBuilder(msg message.Msg, event events.UnverifiedMessageEvent) interface{} {
+func oldHeightEventBuilder(msg message.Msg, errCh chan<- error, sender common.Address) interface{} {
 	return events.OldMessageEvent{
 		Message: msg,
-		ErrCh:   event.ErrCh,
-		Sender:  event.Sender,
+		ErrCh:   errCh,
+		Sender:  sender,
 	}
 }
 
@@ -95,7 +94,7 @@ func powerContribution(aggregatorSigners *big.Int, coreSigners *big.Int, committ
 	return contributionPower
 }
 
-func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger, knownMessages *fixsizecache.Cache[common.Hash, bool]) *aggregator {
+func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger) *aggregator {
 	return &aggregator{
 		backend:       backend,
 		core:          core,
@@ -104,7 +103,6 @@ func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.
 		logger:        logger,
 		messagesFrom:  make(map[common.Address][]common.Hash),
 		toIgnore:      make(map[common.Hash]struct{}),
-		knownMessages: knownMessages,
 	}
 }
 
@@ -144,8 +142,6 @@ type aggregator struct {
 
 	messagesFrom map[common.Address][]common.Hash
 	toIgnore     map[common.Hash]struct{}
-
-	knownMessages *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -560,16 +556,14 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 			case *message.Prevote:
 				aggregateVotes := message.AggregatePrevotesSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
-					go a.backend.MessageToCore(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
-					go a.backend.Post(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
+					go a.backend.MessageToCore(eventer(aggregateVote, nil, a.backend.Address()))
+					go a.backend.Post(eventer(aggregateVote, nil, a.backend.Address()))
 				}
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommitsSimple(validVotes)
 				for _, aggregateVote := range aggregateVotes {
-					a.knownMessages.Add(aggregateVote.Hash(), true) // prevents processing of the same aggregate computed by another peer
-					go a.backend.MessageToCore(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
-					go a.backend.Post(eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}))
+					go a.backend.MessageToCore(eventer(aggregateVote, nil, a.backend.Address()))
+					go a.backend.Post(eventer(aggregateVote, nil, a.backend.Address()))
 				}
 			default:
 				a.logger.Crit("messages being aggregated are not votes", "type", reflect.TypeOf(validVotes[0]))
@@ -591,8 +585,8 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent, eventer eventBuilder) {
 	proposal := proposalEvent.Message
 	// go routine for core event dispatch as well to avoid deadlock, there is loop between core and aggregator
-	go a.backend.MessageToCore(eventer(proposal, proposalEvent)) // to core
-	go a.backend.Post(eventer(proposal, proposalEvent))          // to FD
+	go a.backend.MessageToCore(eventer(proposal, proposalEvent.ErrCh, proposalEvent.Sender)) // to core
+	go a.backend.Post(eventer(proposal, proposalEvent.ErrCh, proposalEvent.Sender))          // to FD
 }
 
 // assumes current or old round vote
@@ -617,8 +611,8 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 			a.handleInvalidMessage(errCh, err, sender)
 			return
 		}
-		go a.backend.MessageToCore(currentHeightEventBuilder(voteEvent.Message, voteEvent)) // to core
-		go a.backend.Post(currentHeightEventBuilder(voteEvent.Message, voteEvent))          // to FD
+		go a.backend.MessageToCore(currentHeightEventBuilder(voteEvent.Message, voteEvent.ErrCh, voteEvent.Sender)) // to core
+		go a.backend.Post(currentHeightEventBuilder(voteEvent.Message, voteEvent.ErrCh, voteEvent.Sender))          // to FD
 		return
 	}
 
@@ -783,7 +777,6 @@ loop:
 			round := ev.Round()
 			switch e := ev.(type) {
 			case events.RoundChangeEvent:
-				//eventType = "RoundChange"
 				/* a round change happened in Core
 				* messages that we had buffered as future round might now be current round, therefore:
 				* 1. process right away proposals
@@ -870,8 +863,6 @@ loop:
 					PowerBg.Add(time.Since(start).Nanoseconds())
 				}
 			case events.FuturePowerChangeEvent:
-				//eventType = "FuturePowerChange"
-
 				committee, err := a.backend.BlockChain().CommitteeByHeight(height)
 				if err != nil {
 					a.logger.Crit("cannot find epoch head for height", "height", height, "err", err)

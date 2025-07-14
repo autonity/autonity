@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"math/big"
+	"math/rand"
 	"sync"
 	"sync/atomic" // nolint
 	"time"
@@ -21,7 +22,10 @@ import (
 	"github.com/autonity/autonity/metrics"
 )
 
+// channel size between core and other modules (i.e. aggregator)
 const EventQueueSize = 1000
+
+const timeoutRandomizationBoundary = int(5 * time.Second)
 
 // New creates a Tendermint consensus Core
 func New(backend interfaces.Backend, services *interfaces.Services, address common.Address, logger log.Logger) *Core {
@@ -32,7 +36,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		address:                address,
 		logger:                 logger,
 		backend:                backend,
-		futureRound:            make(map[int64][]message.Msg),
+		futureRound:            make(map[int64][]events.MessageEvent),
 		futurePower:            make(map[int64]*message.AggregatedPower),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
@@ -95,7 +99,7 @@ func (s *SyncState) updateSyncTimeout(timeout time.Duration) {
 	if timeout > s.getSyncTimeout() {
 		// as tendermint can generate nil prevote/precomit after round timeout,
 		// thus we add a few buffer seconds to reduce unnecessary ask-syncs.
-		s.setSyncTimeout(timeout + constants.AskSyncBufferTime)
+		s.setSyncTimeout(addRandomness(timeout + constants.AskSyncBufferTime))
 	}
 }
 
@@ -108,7 +112,7 @@ type Core struct {
 	cancel  context.CancelFunc
 
 	stateEventSub       *event.TypeMuxSubscription
-	messageEventCh      chan events.MessageEventer
+	messageEventCh      chan events.MessageEvent
 	candidateBlockCh    chan events.NewCandidateBlockEvent
 	committedCh         chan events.CommitEvent
 	timeoutEventSub     *event.TypeMuxSubscription
@@ -140,7 +144,7 @@ type Core struct {
 
 	// future round messages are accessed also by the backend (to sync other peers) and the aggregator.
 	// they need a lock.
-	futureRound     map[int64][]message.Msg
+	futureRound     map[int64][]events.MessageEvent
 	futurePower     map[int64]*message.AggregatedPower // power cache for future value msgs (per round)
 	futureRoundLock sync.RWMutex
 
@@ -206,7 +210,7 @@ func (c *Core) Post(ev any) {
 		c.committedCh <- ev
 	case events.NewCandidateBlockEvent:
 		c.candidateBlockCh <- ev
-	case events.MessageEventer:
+	case events.MessageEvent:
 		c.messageEventCh <- ev
 	}
 }
@@ -337,24 +341,11 @@ func (c *Core) measureHeightRoundMetrics(round int64) {
 	}
 }
 
-type backlogMessageEvent struct {
-	msg message.Msg
-}
+// add some randomness (in a defined bound) to a duration.
+// used to prevent all nodes asking sync at the same time
+func addRandomness(duration time.Duration) time.Duration {
+	return duration + time.Duration(rand.Intn(timeoutRandomizationBoundary))
 
-func (b backlogMessageEvent) Message() message.Msg {
-	return b.msg
-}
-
-func (b backlogMessageEvent) Sender() common.Address {
-	panic("implement me")
-}
-
-func (b backlogMessageEvent) Posted() time.Time {
-	panic("implement me")
-}
-
-func (b backlogMessageEvent) ErrCh() chan<- error {
-	panic("implement me")
 }
 
 // current round == 0 --> height change
@@ -370,11 +361,8 @@ func (c *Core) processFuture(previousRound int64, currentRound int64) {
 	defer c.futureRoundLock.Unlock()
 
 	for r := previousRound + 1; r <= currentRound; r++ {
-		for _, msg := range c.futureRound[r] {
-			// only to core, should we send to FD ??
-			go c.backend.MessageToCore(backlogMessageEvent{
-				msg: msg,
-			})
+		for _, ev := range c.futureRound[r] {
+			go c.Post(ev)
 		}
 		delete(c.futureRound, r)
 		delete(c.futurePower, r)
@@ -389,7 +377,7 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 
 	// if the node is starting a new height, reset the timeout to the default value
 	if round == 0 {
-		c.syncState.setSyncTimeout(constants.DefaultSyncTimeout)
+		c.syncState.setSyncTimeout(addRandomness(constants.DefaultSyncTimeout))
 	}
 
 	previousRound := c.Round()
@@ -440,7 +428,7 @@ func (c *Core) setInitialState(r int64) {
 		c.committee.SetLastHeader(lastHeader)
 		epoch, err := c.Backend().EpochByHeight(c.Height().Uint64())
 		if err != nil {
-			panic(err)
+			panic("failed to fetch epoch info: " + err.Error())
 		}
 		if c.epoch.EpochBlock.Cmp(epoch.EpochBlock) != 0 {
 			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
@@ -455,7 +443,7 @@ func (c *Core) setInitialState(r int64) {
 		c.validValue = nil
 		c.messages.Reset()
 		c.futureRoundLock.Lock()
-		c.futureRound = make(map[int64][]message.Msg)
+		c.futureRound = make(map[int64][]events.MessageEvent)
 		c.futurePower = make(map[int64]*message.AggregatedPower)
 		c.futureRoundLock.Unlock()
 		// update height duration timer

@@ -174,7 +174,7 @@ func handleConsensusMsg[T any, PT interface {
 	// if the message is for a future height wrt to consensus engine, buffer it
 	// it will be re-injected into the handleDecodedMsg function at the right height
 	// TODO: Due to a race condition a message that is considered as future could become current,
-	// but remain stuck into the future message buffer forever
+	// but remain stuck into the future message buffer forever (Lorenzo: I think this got addressed with the ErrNotFuture, verify)
 	currentHeight := sb.core.Height().Uint64()
 	if msg.H() > currentHeight {
 		sb.logger.Debug("Saving future height consensus message for later", "msgHeight", msg.H(), "coreHeight", currentHeight)
@@ -223,8 +223,9 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		if err := msg.Validate(); err != nil {
 			return true, err
 		}
-		// structured relaying happens after the pre-validation, only unknown msg is relayed.
-		if sb.core.Height().Uint64() == msg.H() { // same height messages early forward
+
+		// current height proposals --> early forward
+		if sb.core.Height().Uint64() == msg.H() {
 			go sb.router.Forward(committee, msg, sender, nil)
 		}
 	case *message.Prevote, *message.Precommit:
@@ -246,7 +247,6 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 		sb.logger.Crit("Tendermint backend processing unknown message")
 	}
 
-	//todo: proposal is already verified, post directly to the core
 	sb.Post(events.UnverifiedMessageEvent{
 		Message: msg,
 		ErrCh:   errCh,

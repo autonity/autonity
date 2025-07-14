@@ -73,7 +73,7 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 	g.stopped = stopCh
 }
 
-func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
+func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg, isLocal bool) {
 	// only gossip to very small committee
 	numTargets := len(committee.Members)
 	targetIndices := rand.Perm(numTargets) // target indices to select from the full committee
@@ -84,19 +84,24 @@ func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg) {
 	for i := 0; i < numTargets; i++ {
 		recipients[i] = committee.Members[targetIndices[i]].Address
 	}
-	if !g.knownMessages.Contains(msg.Hash()) {
+	if isLocal && !g.knownMessages.Contains(msg.Hash()) {
 		g.knownMessages.Add(msg.Hash(), true)
 	}
-	slowGossipCounter.Inc(1)
+	if metrics.Enabled {
+		slowGossipCounter.Inc(1)
+	}
 	g.router.Forward(committee, msg, g.address, recipients)
 }
 
-func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg) {
-	// self message caching
-	if !g.knownMessages.Contains(msg.Hash()) {
+func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg, isLocal bool) {
+	// self message caching only if it is a message that has been locally created.
+	// this can happen for proposals and votes of the local validator + aggregates created locally
+	if isLocal && !g.knownMessages.Contains(msg.Hash()) {
 		g.knownMessages.Add(msg.Hash(), true)
 	}
-	gossipCounter.Inc(1) // increment gossip counter
+	if metrics.Enabled {
+		gossipCounter.Inc(1) // increment gossip counter
+	}
 	g.router.Forward(committee, msg, g.address, nil)
 }
 
@@ -113,8 +118,7 @@ func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncM
 	}
 
 	var numTargets int
-	// send to subset of committee ourselves
-	if committee.Len() >= router.ScaleThresholdForClustering {
+	if committee.Len() > router.ScaleThresholdForClustering {
 		numTargets = int(math.Sqrt(float64(committee.Len())))
 	} else {
 		numTargets = committee.Len()

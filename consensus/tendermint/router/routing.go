@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	ScaleThresholdForClustering = 21
+	ScaleThresholdForClustering = 64
 	latencyDataExpiry           = 5 * time.Minute
 	retryLatencyTimeout         = 30 * time.Second
 	cacheCleanupInterval        = 10 * time.Minute
@@ -32,10 +32,10 @@ const (
 )
 
 var (
-	proposeHashesOut = metrics.GetOrRegisterResettableCounter("router/propose/hash/egress", nil)   //nolint:goconst
-	precommitHashOut = metrics.GetOrRegisterResettableCounter("router/precommit/hash/egress", nil) //nolint:goconst
-	prevoteHashOut   = metrics.GetOrRegisterResettableCounter("router/prevote/hash/egress", nil)   //nolint:goconst
-	forwardCounter   = metrics.GetOrRegisterResettableCounter("router/forward", nil)               //nolint:goconst
+	proposeHashesOut = metrics.GetOrRegisterCounter("router/propose/hash/egress", nil)   //nolint:goconst
+	precommitHashOut = metrics.GetOrRegisterCounter("router/precommit/hash/egress", nil) //nolint:goconst
+	prevoteHashOut   = metrics.GetOrRegisterCounter("router/prevote/hash/egress", nil)   //nolint:goconst
+	forwardCounter   = metrics.GetOrRegisterCounter("router/forward", nil)               //nolint:goconst
 )
 
 func Setup(
@@ -95,7 +95,9 @@ func New(
 		peerSelector:        peerSelector,
 		network:             networkProvider,
 		clusteringThreshold: ScaleThresholdForClustering,
-		hashCache:           fixsizecache.New[common.Hash, bool](5987, 5, fixsizecache.HashKey[common.Hash]),
+	}
+	if metrics.Enabled {
+		router.hashCache = fixsizecache.New[common.Hash, bool](5987, 5, fixsizecache.HashKey[common.Hash])
 	}
 	return router
 }
@@ -137,10 +139,15 @@ func (m *Router) Recipients(committee *types.Committee, msg message.Msg, from co
 }
 
 func (m *Router) recordDistinctHash(msg message.Msg) {
+	if !metrics.Enabled {
+		return
+	}
+
 	if m.hashCache.Contains(msg.Hash()) {
 		return
 	}
 	m.hashCache.Add(msg.Hash(), true)
+
 	switch msg.Code() {
 	case message.ProposalCode:
 		proposeHashesOut.Inc(1)
@@ -152,6 +159,7 @@ func (m *Router) recordDistinctHash(msg message.Msg) {
 	}
 }
 
+// TODO: rename to Send and deal with all the edge cases (full broadcast, forward, slow gossip, etc.) inside this function itself
 func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender common.Address, recipients []common.Address) {
 	if m.peerFinder == nil {
 		log.Info("Router: peer finder not set")
@@ -162,7 +170,7 @@ func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender com
 	}
 
 	m.recordDistinctHash(msg)
-	if sender != m.self {
+	if sender != m.self && metrics.Enabled {
 		// simple forward
 		forwardCounter.Inc(1)
 	}

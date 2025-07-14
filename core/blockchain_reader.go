@@ -66,8 +66,6 @@ func (bc *BlockChain) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 // LatestEpoch retrieves the latest epoch header of the blockchain.
 func (bc *BlockChain) LatestEpoch() (*types.EpochInfo, error) {
 	head := bc.currentBlock.Load().(*types.Block)
-	// if the head is an epoch block, that means the chain step into the new one.
-	// we should return it as the latest epoch, always using the next height
 	return bc.hc.EpochByHeight(head.NumberU64() + 1)
 }
 

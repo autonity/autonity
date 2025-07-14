@@ -78,9 +78,7 @@ func (sb *Backend) handleAskSyncEvent(payload []byte, sender common.Address) err
 		msgCount++
 		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 	}
-	if msgCount > 0 {
-		sb.logger.Debug("sending missing proposal to remote peer", "peer", sender, "count", msgCount)
-	}
+	sb.logger.Debug("sending missing proposal to remote peer", "peer", sender, "count", msgCount)
 
 	msgCount = 0
 	// then sends the missing precommits, as precommits could trigger round rotation or a commitment of a value.
@@ -88,18 +86,14 @@ func (sb *Backend) handleAskSyncEvent(payload []byte, sender common.Address) err
 		msgCount++
 		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 	}
-	if msgCount > 0 {
-		sb.logger.Debug("sending missing precommits to remote peer", "peer", sender, "count", msgCount)
-	}
+	sb.logger.Debug("sending missing precommits to remote peer", "peer", sender, "count", msgCount)
 
 	msgCount = 0
 	for _, m := range prevotes {
 		msgCount++
 		go peer.SendRaw(message.NetworkCodes[m.Code()], m.Payload())
 	}
-	if msgCount > 0 {
-		sb.logger.Debug("sending missing prevotes to remote peer", "peer", sender, "count", msgCount)
-	}
+	sb.logger.Debug("sending missing prevotes to remote peer", "peer", sender, "count", msgCount)
 
 	return nil
 }

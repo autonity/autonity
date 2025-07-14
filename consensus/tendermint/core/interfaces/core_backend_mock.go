@@ -181,15 +181,15 @@ func (mr *MockBackendMockRecorder) GetContractABI() *gomock.Call {
 }
 
 // Gossip mocks base method.
-func (m *MockBackend) Gossip(committee *types.Committee, arg1 message.Msg) {
+func (m *MockBackend) Gossip(committee *types.Committee, arg1 message.Msg, isLocal bool) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Gossip", committee, arg1)
+	m.ctrl.Call(m, "Gossip", committee, arg1, isLocal)
 }
 
 // Gossip indicates an expected call of Gossip.
-func (mr *MockBackendMockRecorder) Gossip(committee, arg1 any) *gomock.Call {
+func (mr *MockBackendMockRecorder) Gossip(committee, arg1, isLocal any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), committee, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gossip", reflect.TypeOf((*MockBackend)(nil).Gossip), committee, arg1, isLocal)
 }
 
 // Gossiper mocks base method.
@@ -258,6 +258,18 @@ func (m *MockBackend) IsProposalStateCached(hash common.Hash) bool {
 func (mr *MockBackendMockRecorder) IsProposalStateCached(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsProposalStateCached", reflect.TypeOf((*MockBackend)(nil).IsProposalStateCached), hash)
+}
+
+// Jail mocks base method.
+func (m *MockBackend) Jail(offender common.Address) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Jail", offender)
+}
+
+// Jail indicates an expected call of Jail.
+func (mr *MockBackendMockRecorder) Jail(offender any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Jail", reflect.TypeOf((*MockBackend)(nil).Jail), offender)
 }
 
 // KnownMsgHash mocks base method.
@@ -417,15 +429,15 @@ func (mr *MockBackendMockRecorder) Sign(hash any) *gomock.Call {
 }
 
 // SlowGossip mocks base method.
-func (m *MockBackend) SlowGossip(committee *types.Committee, arg1 message.Msg) {
+func (m *MockBackend) SlowGossip(committee *types.Committee, arg1 message.Msg, isLocal bool) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SlowGossip", committee, arg1)
+	m.ctrl.Call(m, "SlowGossip", committee, arg1, isLocal)
 }
 
 // SlowGossip indicates an expected call of SlowGossip.
-func (mr *MockBackendMockRecorder) SlowGossip(committee, arg1 any) *gomock.Call {
+func (mr *MockBackendMockRecorder) SlowGossip(committee, arg1, isLocal any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlowGossip", reflect.TypeOf((*MockBackend)(nil).SlowGossip), committee, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlowGossip", reflect.TypeOf((*MockBackend)(nil).SlowGossip), committee, arg1, isLocal)
 }
 
 // Subscribe mocks base method.

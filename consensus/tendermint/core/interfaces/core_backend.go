@@ -38,10 +38,10 @@ type Backend interface {
 	GetContractABI() *abi.ABI
 
 	// Gossip sends a message to all validators (exclude self)
-	Gossip(committee *types.Committee, message message.Msg)
+	Gossip(committee *types.Committee, message message.Msg, isLocal bool)
 
 	// SlowGossip sends a message to a subset of validators
-	SlowGossip(committee *types.Committee, message message.Msg)
+	SlowGossip(committee *types.Committee, message message.Msg, isLocal bool)
 
 	KnownMsgHash() []common.Hash
 
@@ -80,6 +80,9 @@ type Backend interface {
 
 	// IsJailed returns true if the address belongs to the jailed validator list.
 	IsJailed(address common.Address) bool
+
+	// Jail jails the offender up to the end of the epoch
+	Jail(offender common.Address)
 
 	// Gossiper returns gossiper object
 	Gossiper() Gossiper
