@@ -760,7 +760,7 @@ func runRewardTest(t *testing.T, numNodes int, numOffline int) {
 	}
 
 	// close the epoch
-	err = network.WaitForHeight(customEpochPeriod, int(customEpochPeriod)+10)
+	err = network.WaitForHeight(customEpochPeriod, int(customEpochPeriod)+10) // #nosec
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), epochID(t, autonityContract))
 
