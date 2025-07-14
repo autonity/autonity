@@ -654,6 +654,7 @@ func (s *Ethereum) validatorController() {
 					if float64(s.consensusServer.PeerCount()+1) >= (float64(committee.Len()) * (2.7 / 3.0)) {
 						mu.Lock()
 						if pendingStop { // we already exited the committee due to a new epoch head. Must not start mining.
+							mu.Unlock()
 							return
 						}
 						if !wasValidating {
@@ -669,6 +670,7 @@ func (s *Ethereum) validatorController() {
 					s.log.Warn("miner waited to reach required peer count, start mining anyway", "timeout sec", timeOutSec, "current peer count", s.consensusServer.PeerCount(), "required", committee.Len())
 					mu.Lock()
 					if pendingStop { // we already exited the committee due to a new epoch head. Must not start mining.
+						mu.Unlock()
 						return
 					}
 					if !wasValidating {
