@@ -155,14 +155,16 @@ func (sb *Backend) missingPrecommits(askSync *message.AskSyncMsg) []*message.Pre
 		if !knownValue {
 			return true
 		}
+		missing := false
 		// if both the round and value are known, return precommits that have signers that the remote node didn't see
-		for _, idx := range m.Signers().FlattenUniq() {
-			if signers.Bit(idx) == 0 {
-				return true
+		m.Signers().ForEachDistinctSigner(func(signerIndex int) {
+			if signers.Bit(signerIndex) == 0 {
+				missing = true
+				return
 			}
-		}
+		}, m.Signers().CommitteeSize())
 		// otherwise, the node already has this message
-		return false
+		return missing
 	})
 
 	return missingPrecommits

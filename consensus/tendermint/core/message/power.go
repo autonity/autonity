@@ -4,7 +4,8 @@ import "math/big"
 
 // auxiliary data structure to take into account aggregated power of a set of signers
 type AggregatedPower struct {
-	power   *big.Int
+	power *big.Int
+	//todo:(review) => integration with new signer
 	signers *big.Int // used as bitmap, we do not care about coefficients here, only if a validator is present or not
 }
 
@@ -16,6 +17,13 @@ func (p *AggregatedPower) Set(index int, power *big.Int) bool {
 
 	p.signers.SetBit(p.signers, index, 1)
 	p.power.Add(p.power, power)
+	return true
+}
+
+func (p *AggregatedPower) Subtract(other *AggregatedPower) bool {
+	p.power.Sub(p.power, other.power)
+	mask := new(big.Int).Not(other.signers)
+	p.signers.And(p.signers, mask)
 	return true
 }
 

@@ -383,6 +383,15 @@ func (s *Signers) FlattenUniq() []int {
 	return s.flattenUniq(s.length, s.committeeSize)
 }
 
+// ForEachDistinctSigner iterates over each signer and calls the callback function.
+func (s *Signers) ForEachDistinctSigner(callback func(signerIndex int), committeeLen int) {
+	for i := 0; i < committeeLen; i++ {
+		if s.Bitmap.IsSet(i) {
+			callback(i)
+		}
+	}
+}
+
 // it is responsibility of the caller to pass the correct committee size
 func (s *Signers) flattenUniq(distinctSigners, committeeSize int) []int {
 	indexes := make([]int, 0, distinctSigners)

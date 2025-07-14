@@ -55,12 +55,12 @@ func (s *PVNOffChainAccusation) Broadcast(msg message.Msg) {
 			return m.R() == proposal.R() && m.Value() == proposal.Value()
 		})
 		// remove proposal.
-		backEnd.MsgStore.RemoveMsg(proposal.H(), proposal.Code(), proposal.Hash())
+		backEnd.MsgStore.RemoveMsg(proposal.H(), proposal.R(), proposal.Code(), proposal.Hash())
 		// remove over quorum corresponding prevotes.
 		counter := 0
 		for _, prevote := range preVotes {
 			if counter < len(preVotes)/2 {
-				backEnd.MsgStore.RemoveMsg(prevote.H(), prevote.Code(), prevote.Hash())
+				backEnd.MsgStore.RemoveMsg(prevote.H(), prevote.R(), prevote.Code(), prevote.Hash())
 				counter++
 			} else {
 				break
@@ -115,7 +115,7 @@ func (s *C1OffChainAccusation) Broadcast(msg message.Msg) {
 		counter := 0
 		for _, prevote := range preVotes {
 			if counter < len(preVotes)/2 {
-				backEnd.MsgStore.RemoveMsg(prevote.H(), prevote.Code(), prevote.Hash())
+				backEnd.MsgStore.RemoveMsg(prevote.H(), prevote.R(), prevote.Code(), prevote.Hash())
 				counter++
 			} else {
 				break

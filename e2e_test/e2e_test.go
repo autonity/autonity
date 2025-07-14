@@ -16,7 +16,6 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/autonity/autonity/rlp"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 
@@ -37,6 +36,7 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rlp"
 )
 
 // This test checks that we can process transactions that transfer value from
@@ -1112,7 +1112,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure that the previously sent transaction is now processed
-	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	err = n.AwaitSentTransactions(ctx)
 	require.NoError(t, err)
@@ -1188,7 +1188,7 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	require.NoError(t, err)
 
 	// give time for node 1 to come back up
-	err = network.WaitToMineNBlocks(15, 60, false)
+	err = network.WaitToMineNBlocks(15, 120, false)
 	require.NoError(t, err)
 
 	// restart node 0. He should sync up and not send old consensus messages

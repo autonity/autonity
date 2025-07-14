@@ -17,6 +17,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/p2p"
@@ -83,8 +84,13 @@ func TestUnhandledMsgs(t *testing.T) {
 		addressCache := fixsizecache.New[common.Hash, bool](1997, 10, fixsizecache.HashKey[common.Hash])
 		mockedPeer.EXPECT().Cache().Return(addressCache).AnyTimes()
 		broadcaster.EXPECT().FindPeer(gomock.Any()).Return(mockedPeer, true).AnyTimes()
+		mc := interfaces.NewMockEventDispatcher(ctrl)
 
+		afdDispatchChan := make(chan events.MessageEventer, ringCapacity)
 		blockchain, backend := newBlockChain(1)
+
+		backend.afdDispatchCh = afdDispatchChan
+		backend.coreEventDispatcher = mc
 		backend.SetBroadcaster(broadcaster)
 		engine := blockchain.Engine().(consensus.BFT)
 		// we close the engine for enabling cache storing
@@ -101,7 +107,15 @@ func TestUnhandledMsgs(t *testing.T) {
 				t.Fatalf("handleMsg should have been successful")
 			}
 		}
-		sub := backend.eventMux.Subscribe(events.MessageEvent{})
+
+		testCh := make(chan events.MessageEvent, ringCapacity)
+		mc.EXPECT().Post(gomock.Any()).Do(func(ev any) {
+			if _, ok := ev.(events.MessageEvent); !ok {
+				t.Fatalf("expected MessageEvent")
+			}
+			testCh <- ev.(events.MessageEvent)
+		}).AnyTimes()
+
 		if err := backend.Start(context.Background()); err != nil {
 			t.Fatalf("could not restart core")
 		}
@@ -113,18 +127,19 @@ func TestUnhandledMsgs(t *testing.T) {
 	LOOP:
 		for {
 			select {
-			case eve := <-sub.Chan():
-				message := eve.Data.(events.MessageEvent).Message()
-				if message.R() != 1 || message.H() != 1 {
-					t.Fatalf("message not expected")
+			case eve := <-testCh:
+				msg := eve.Message()
+				if msg.R() != 1 || msg.H() != 1 {
+					t.Fatalf("msg not expected")
 				}
 				i++
-				received[message.Value().Big().Uint64()] = true
+				received[msg.Value().Big().Uint64()] = true
 
 			case <-timer.C:
 				if i == ringCapacity {
 					break LOOP
 				}
+				t.Log("received", i, "out of", ringCapacity)
 				t.Fatalf("timeout receiving events")
 			}
 		}

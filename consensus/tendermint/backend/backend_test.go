@@ -25,6 +25,7 @@ import (
 	tdmcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/consensus/tendermint/router"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
@@ -54,10 +55,6 @@ var (
 	testSignatureBytes  = common.Hex2Bytes("8ff38c5915e56029ace231f12e6911587fac4b5618077f3dfe8068138ff1dc7a7ea45a5e0d6a51747cc5f4d990c9d4de1242f4efa93d8165936bfe111f86aaafeea5eda0c38fa3dc2f854576dde63214d7438ea398e48072bc6a0c8e6c2830ef")
 	testSignature, _    = blst.SignatureFromBytes(testSignatureBytes)
 )
-
-func fakeExpiryChecker(_ uint64, _ uint64, _ uint64) bool {
-	return false
-}
 
 func committeeAndBlsKeys(committeeSize int) (*types.Committee, []blst.SecretKey) {
 	committee := new(types.Committee)
@@ -438,8 +435,9 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 
 	memDB := rawdb.NewMemoryDatabase()
 	msgStore := tdmcore.NewMsgStore()
+	afdDispatchCh := make(chan events.MessageEventer, 100)
 	// Use the first key as private key
-	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, log.Root(), fakeExpiryChecker)
+	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, afdDispatchCh, log.Root())
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	genesis.MustCommit(memDB)

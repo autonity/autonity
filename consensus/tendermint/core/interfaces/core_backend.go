@@ -52,7 +52,9 @@ type Backend interface {
 
 	Post(ev any)
 
-	MessageToCore(ev any)
+	DispatchToCore(ev any)
+
+	DispatchToFD(ev any)
 
 	ProposedBlockHash() common.Hash
 	// SetProposedBlockHash is a setter for the proposed block hash
@@ -70,7 +72,14 @@ type Backend interface {
 	// Returns the main blockchain object.
 	BlockChain() *ethcore.BlockChain
 
+	// GetEpochByHeight returns the epoch information for a given height.
 	EpochByHeight(height uint64) (*types.EpochInfo, error)
+
+	// GetCommitteeByHeight returns the committee for a given height.
+	CommitteeByHeight(height uint64) (*types.Committee, error)
+
+	// MinNonExpiredHeight returns the minimum non-expired height based on the core height.
+	MinNonExpiredHeight(coreHeight uint64) (uint64, error)
 
 	// SetBlockchain is used to set the blockchain on this object
 	SetBlockchain(bc *ethcore.BlockChain)
@@ -116,12 +125,6 @@ type Core interface {
 	Precommiter() Precommiter
 	Height() *big.Int
 	Round() int64
-
-	// Used by the aggregator
-	Power(h uint64, r int64) *message.AggregatedPower
-	VotesPower(h uint64, r int64, code uint8) *message.AggregatedPower
-	VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *message.AggregatedPower
-	EventCh() <-chan events.CoreEvent
 }
 
 type Router interface {

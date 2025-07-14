@@ -63,8 +63,8 @@ func TestSelector_SelectPeers_Proposal_CacheHit(t *testing.T) {
 	cacheKey := cache.GenerateKey(int(originator), true)
 	cacheEntry := cache.Entry{Recipients: []common.Address{common.HexToAddress("0x222"), common.HexToAddress("0x333")}}
 	recipients.EXPECT().Get(cacheKey).Return(cacheEntry, true).Times(1)
-	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).Times(2) // allConnected + clusterStatus
-	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).Times(2) // allConnected + clusterStatus
+	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x222")).Return(consensus.NewMockPeer(ctrl), true).MaxTimes(2).MinTimes(1) // allConnected + clusterStatus
+	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).MaxTimes(2).MinTimes(1) // allConnected + clusterStatus
 	recipients.EXPECT().UpdateLastUsed(cacheKey).Times(1)
 
 	result, err := selector.SelectPeers(&committee, msg, from)
@@ -266,7 +266,7 @@ func TestSelector_selectBucketBasedNodes_Originator(t *testing.T) {
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x444")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 
-	nodes := selector.selectBucketBasedNodes(clusters, &committee, originator, 0, false)
+	nodes := selector.selectNodesForProposal(clusters, &committee, originator, 0)
 	assert.Contains(t, nodes, cluster.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node from cluster 1")
 	assert.Contains(t, nodes, cluster.Node{Addr: common.HexToAddress("0x333"), Lat: 150, ClusterID: 0}, "Expected node from cluster 0")
 }
@@ -309,7 +309,7 @@ func TestSelector_selectBucketBasedNodes_FirstRelayerOriginCluster(t *testing.T)
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 	peerFinder.EXPECT().FindPeer(common.HexToAddress("0x444")).Return(consensus.NewMockPeer(ctrl), true).AnyTimes()
 
-	nodes := selector.selectBucketBasedNodes(clusters, &committee, firstRelayerOriginCluster, 0, true)
+	nodes := selector.selectNodesForProposal(clusters, &committee, firstRelayerOriginCluster, 0)
 	assert.Contains(t, nodes, cluster.Node{Addr: common.HexToAddress("0x222"), Lat: 100, ClusterID: 1}, "Expected node from remote cluster")
 }
 

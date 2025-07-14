@@ -51,7 +51,6 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		newHeight:              time.Now(),
 		newRound:               time.Now(),
 		stepChange:             time.Now(),
-		eventCh:                make(chan events.CoreEvent, EventQueueSize),
 		syncState:              &SyncState{},
 	}
 	c.SetDefaultHandlers()
@@ -177,11 +176,6 @@ type Core struct {
 	newHeight          time.Time
 	newRound           time.Time
 	currBlockTimeStamp time.Time
-	eventCh            chan events.CoreEvent // channel to communicate events from core to other modules (aggregator)
-}
-
-func (c *Core) EventCh() <-chan events.CoreEvent {
-	return c.eventCh
 }
 
 func (c *Core) Prevoter() interfaces.Prevoter {
@@ -207,7 +201,11 @@ func (c *Core) Step() Step {
 func (c *Core) Post(ev any) {
 	switch ev := ev.(type) {
 	case events.CommitEvent:
-		c.committedCh <- ev
+		select {
+		case c.committedCh <- ev:
+		default:
+			c.logger.Warn("Commit event channel is full, dropping event", "event", ev)
+		}
 	case events.NewCandidateBlockEvent:
 		c.candidateBlockCh <- ev
 	case events.MessageEvent:
@@ -313,7 +311,7 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 		panic("Core commit called with empty proposal")
 	}
 	proposalHash := proposal.Block().Header().Hash()
-	c.logger.Debug("Committing a block", "hash", proposalHash)
+	c.logger.Debug("Committing a block", "hash", proposalHash, "number", proposal.Block().Number().Uint64())
 
 	precommitWithQuorum := messages.PrecommitFor(proposalHash)
 	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
@@ -360,8 +358,8 @@ func (c *Core) processFuture(previousRound int64, currentRound int64) {
 	defer c.futureRoundLock.Unlock()
 
 	for r := previousRound + 1; r <= currentRound; r++ {
-		for _, ev := range c.futureRound[r] {
-			go c.Post(ev)
+		for _, msg := range c.futureRound[r] {
+			go c.Post(msg)
 		}
 		delete(c.futureRound, r)
 		delete(c.futurePower, r)
@@ -412,7 +410,6 @@ func (c *Core) StartRound(ctx context.Context, round int64) {
 		c.logger.Debug("Scheduled Propose Timeout", "Timeout Duration", timeoutDuration)
 	}
 	c.processFuture(previousRound, round)
-	c.SendEvent(events.NewRoundChangeEvent(c.Height().Uint64(), round))
 }
 
 func (c *Core) setInitialState(r int64) {
@@ -585,84 +582,10 @@ func (c *Core) CommitteeSet() interfaces.Committee {
 	return c.committee
 }
 
-func (c *Core) Power(h uint64, r int64) *message.AggregatedPower {
-	c.roundChangeMu.Lock()
-	defer c.roundChangeMu.Unlock()
-
-	if h != c.Height().Uint64() {
-		return message.NewAggregatedPower()
-	}
-
-	power := message.NewAggregatedPower()
-	if r > c.Round() {
-		// future round
-		c.futureRoundLock.RLock()
-		futurePower, ok := c.futurePower[r]
-		if ok {
-			power = futurePower.Copy()
-		}
-		c.futureRoundLock.RUnlock()
-	} else {
-		// old or current round
-		power = c.messages.GetOrCreate(r).Power()
-	}
-
-	return power
-}
-
-// NOTE: this assumes that r <= currentRound. If not, the returned power will be 0 even if there might be future round messages in c.futureRound
-// This methods should not be used to compute power for future rounds
-func (c *Core) VotesPower(h uint64, r int64, code uint8) *message.AggregatedPower {
-	c.roundChangeMu.Lock()
-	defer c.roundChangeMu.Unlock()
-
-	if h != c.Height().Uint64() {
-		return message.NewAggregatedPower()
-	}
-	roundMessages := c.messages.GetOrCreate(r)
-	var power *message.AggregatedPower
-
-	switch code {
-	case message.ProposalCode:
-		c.logger.Crit("Proposal code passed into VotesPower")
-	case message.PrevoteCode:
-		power = roundMessages.PrevotesTotalAggregatedPower()
-	case message.PrecommitCode:
-		power = roundMessages.PrecommitsTotalAggregatedPower()
-	default:
-		c.logger.Crit("unknown message code", "code", code)
-	}
-	return power
-}
-
-// NOTE: assume r <= currentRound. If not, the returned power will be 0 even if there might be future round messages in c.futureRound
-// This methods should not be used to compute power for future rounds
-func (c *Core) VotesPowerFor(h uint64, r int64, code uint8, v common.Hash) *message.AggregatedPower {
-	c.roundChangeMu.Lock()
-	defer c.roundChangeMu.Unlock()
-
-	if h != c.Height().Uint64() {
-		return message.NewAggregatedPower()
-	}
-	roundMessages := c.messages.GetOrCreate(r)
-	var power *message.AggregatedPower
-
-	switch code {
-	case message.ProposalCode:
-		c.logger.Crit("Proposal code passed into VotesPower")
-	case message.PrevoteCode:
-		power = roundMessages.PrevotesAggregatedPower(v)
-	case message.PrecommitCode:
-		power = roundMessages.PrecommitsAggregatedPower(v)
-	default:
-		c.logger.Crit("unknown message code", "code", code)
-	}
-	return power
-}
-
 func (c *Core) Backend() interfaces.Backend {
 	return c.backend
 }
+
 func (c *Core) Logger() log.Logger {
 	return c.logger
 }

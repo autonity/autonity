@@ -3,10 +3,12 @@ package message
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"math/big"
 	"math/rand"
 	"reflect"
+
+	"crypto/rand"
+	"fmt"
 	"testing"
 
 	"github.com/autonity/autonity/common"

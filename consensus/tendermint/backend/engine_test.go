@@ -216,7 +216,18 @@ func TestVerifyHeader(t *testing.T) {
 
 		memDB := rawdb.NewMemoryDatabase()
 		genesis.MustCommit(memDB)
-		engine := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), tdmcore.NewMsgStore(), log.Root(), fakeExpiryChecker)
+		afdDispatchCh := make(chan events.MessageEventer, 100)
+		engine := New(
+			memDB,
+			nodeKeys[0],
+			consensusKeys[0],
+			&vm.Config{},
+			nil,
+			new(event.TypeMux),
+			tdmcore.NewMsgStore(),
+			afdDispatchCh,
+			log.Root(),
+		)
 		log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 		chain, err := core.NewBlockChain(memDB, nil, genesis.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher(), nil, backends.NewInternalBackend(nil), log.Root())
 		require.NoError(t, err)
@@ -510,7 +521,10 @@ func TestAPIs(t *testing.T) {
 func fakeAggregator() *aggregator {
 	stopped := false
 	fakeAggregator := &aggregator{
-		logger: log.Root(),
+		logger:         log.Root(),
+		internalCoreCh: make(chan events.MessageEventer, 1),
+		internalFdCh:   make(chan events.MessageEventer, 1),
+		signerSetCache: newAggregatorCache(),
 		cancel: func() {
 			if !stopped {
 				stopped = true
@@ -538,8 +552,6 @@ func TestClose(t *testing.T) {
 
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Stop().MaxTimes(1)
-		coreEventCh := make(chan events.CoreEvent, 10)
-		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		mockRouter := interfaces.NewMockRouter(ctrl)
 		mockRouter.EXPECT().Stop().MaxTimes(1)
 
@@ -563,8 +575,6 @@ func TestClose(t *testing.T) {
 		defer ctrl.Finish()
 
 		tendermintC := interfaces.NewMockCore(ctrl)
-		coreEventCh := make(chan events.CoreEvent, 10)
-		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 		mockRouter := interfaces.NewMockRouter(ctrl)
 		mockRouter.EXPECT().Stop().MaxTimes(1)
@@ -593,8 +603,6 @@ func TestClose(t *testing.T) {
 		defer ctrl.Finish()
 
 		tendermintC := interfaces.NewMockCore(ctrl)
-		coreEventCh := make(chan events.CoreEvent, 10)
-		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		tendermintC.EXPECT().Stop().MaxTimes(1)
 		mockRouter := interfaces.NewMockRouter(ctrl)
 		mockRouter.EXPECT().Stop().AnyTimes()
@@ -651,8 +659,6 @@ func TestStart(t *testing.T) {
 		chain, _ := newBlockChain(1)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
-		coreEventCh := make(chan events.CoreEvent, 10)
-		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		g := interfaces.NewMockGossiper(ctrl)
@@ -669,7 +675,7 @@ func TestStart(t *testing.T) {
 			logger:             log.Root(),
 			router:             mockRouter,
 		}
-		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC, signerSetCache: newAggregatorCache()}
 
 		err := b.Start(ctx)
 		assertNilError(t, err)
@@ -693,12 +699,11 @@ func TestStart(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		coreEventCh := make(chan events.CoreEvent, 10)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
-		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
+
 		chain, _ := newBlockChain(1)
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
@@ -715,7 +720,7 @@ func TestStart(t *testing.T) {
 			logger:             log.Root(),
 			router:             mockRouter,
 		}
-		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC, signerSetCache: newAggregatorCache()}
 		b.coreStarting.Store(false)
 
 		err := b.Start(ctx)
@@ -734,9 +739,7 @@ func TestStart(t *testing.T) {
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
-		coreEventCh := make(chan events.CoreEvent, 10)
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
-		tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 		mockRouter := interfaces.NewMockRouter(ctrl)
@@ -752,7 +755,7 @@ func TestStart(t *testing.T) {
 			logger:             log.Root(),
 			router:             mockRouter,
 		}
-		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
+		b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC, signerSetCache: newAggregatorCache()}
 		b.coreStarting.Store(false)
 
 		var wg sync.WaitGroup
@@ -799,9 +802,7 @@ func TestMultipleRestart(t *testing.T) {
 	tendermintC := interfaces.NewMockCore(ctrl)
 	tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
-	coreEventCh := make(chan events.CoreEvent, 10)
 	tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
-	tendermintC.EXPECT().EventCh().Return(coreEventCh).AnyTimes()
 	chain, _ := newBlockChain(1)
 	g := interfaces.NewMockGossiper(ctrl)
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
@@ -819,7 +820,14 @@ func TestMultipleRestart(t *testing.T) {
 		logger:             log.Root(),
 		router:             mockRouter,
 	}
-	b.aggregator = &aggregator{logger: log.Root(), backend: b, core: tendermintC}
+	b.aggregator = &aggregator{
+		logger:         log.Root(),
+		backend:        b,
+		core:           tendermintC,
+		signerSetCache: newAggregatorCache(),
+		internalCoreCh: make(chan events.MessageEventer, 1),
+		internalFdCh:   make(chan events.MessageEventer, 1),
+	}
 	b.coreStarting.Store(false)
 
 	for i := 0; i < times; i++ {

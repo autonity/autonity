@@ -182,10 +182,11 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 
 	evMux := new(event.TypeMux)
 
+	afdDispatchCh := make(chan events.MessageEventer, 10000) // fauld detector needs to process old + new message so double buffer for FD
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
 	consensusEngine := ethconfig.CreateConsensusEngine(chainDb, stack, chainConfig, config, config.Miner.Notify,
-		config.Miner.Noverify, &vmConfig, evMux, msgStore)
+		config.Miner.Noverify, &vmConfig, evMux, msgStore, afdDispatchCh)
 
 	nodeKey, _ := stack.Config().AutonityKeys()
 	eth := &Ethereum{
@@ -234,11 +235,10 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	}
 
 	// temporary solution
-	if be, ok := consensusEngine.(interface {
-		SetBlockchain(*core.BlockChain)
-	}); ok {
+	if be, ok := consensusEngine.(interface{ SetBlockchain(*core.BlockChain) }); ok {
 		be.SetBlockchain(eth.blockchain)
 	}
+
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		eth.log.Warn("Rewinding chain to upgrade configuration", "err", compat)
@@ -293,10 +293,13 @@ func New(stack *node.Node, config *Config) (*Ethereum, error) {
 	eth.accountability = accountability.NewFaultDetector(
 		eth.blockchain,
 		eth.address,
-		evMux.Subscribe(events.MessageEvent{}, events.AccountabilityEvent{}, events.OldMessageEvent{}),
+		evMux.Subscribe(events.AccountabilityEvent{}),
 		msgStore, eth.txPool, eth.APIBackend, nodeKey,
 		eth.blockchain.ProtocolContracts(),
+		afdDispatchCh,
 		eth.log)
+
+	msgStore.SetCommitteeProvider(eth.blockchain)
 
 	// Setup DNS discovery iterators.
 	dnsclient := dnsdisc.NewClient(dnsdisc.Config{})
