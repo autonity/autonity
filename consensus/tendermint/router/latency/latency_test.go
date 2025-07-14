@@ -110,7 +110,7 @@ func TestFetcher_PingPeers(t *testing.T) {
 	assert.Equal(t, 200*time.Millisecond, results[2].Latency, "Expected latency for target 2")
 }
 
-func TestEnodeByAddress(t *testing.T) {
+func TestFindEnode(t *testing.T) {
 	key, _ := crypto.HexToECDSA("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
 	addr1 := crypto.PubkeyToAddress(key.PublicKey)
 	addr2 := common.HexToAddress("0x222")
