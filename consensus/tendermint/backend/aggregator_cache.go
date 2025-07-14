@@ -320,7 +320,7 @@ func (c *aggregatorCache) emptyFiltered(h uint64, r int64, code uint8, value com
 }
 
 func (c *aggregatorCache) markCommittee(height uint64, committee *types.Committee) {
-	if len(c.committeePowers) == committee.Len() {
+	if len(c.committeePowers[height]) == committee.Len() {
 		return // already marked
 	}
 	c.committeePowers[height] = func() []*big.Int {
