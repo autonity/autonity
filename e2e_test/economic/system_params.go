@@ -26,11 +26,11 @@ var (
 		NtnPriceTarget: defNTNPriceInUSD,
 
 		// default atn gas fee market settings.
-		GenesisGasLimit:          20_000_000,
-		GasCeil:                  40_000_000, // The desired maximum gas limit we maintained, thus that we will 50% of it as the blockGasTarget(20M) for baseFee control.
-		InitialBaseFee:           new(big.Int).SetUint64(200_000_000_000),
-		MinBaseFee:               new(big.Int).SetUint64(200_000_000_000),
-		BaseFeeChangeDenominator: 88,
+		GenesisGasLimit:          30_000_000,
+		GasCeil:                  30_000_000, // The desired maximum gas limit we maintained, thus that we will 50% of it as the blockGasTarget(15M) for baseFee control.
+		InitialBaseFee:           new(big.Int).SetUint64(100_000_000_000),
+		MinBaseFee:               new(big.Int).SetUint64(100_000_000_000),
+		BaseFeeChangeDenominator: 64,
 		ElasticityMultiplier:     2,
 
 		// default ntn inflation settings from the latest ADR.
