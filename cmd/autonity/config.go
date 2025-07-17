@@ -208,11 +208,13 @@ func makeFullNode(ctx *cli.Context) *node.Node {
 	utils.SetupMetrics(&cfg.Metrics)
 
 	backend, eth := utils.RegisterEthService(stack, &cfg.Eth)
-	utils.RegisterConsensusService(stack, eth, cfg.Eth.NetworkId)
-	utils.RegisterMonitorService(stack)
+	// The 'eth' backend may be nil in light mode
+	if eth != nil {
+		// Register consensus acn service and the perf monitoring service for none light mode.
+		utils.RegisterConsensusService(stack, eth, cfg.Eth.NetworkId)
+		utils.RegisterMonitorService(stack)
 
-	// Create gauge with geth system and build information
-	if eth != nil { // The 'eth' backend may be nil in light mode
+		// Create gauge with geth system and build information
 		var protos []string
 		for _, p := range eth.Protocols() {
 			protos = append(protos, fmt.Sprintf("%v/%d", p.Name, p.Version))
