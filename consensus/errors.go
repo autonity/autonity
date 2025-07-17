@@ -71,3 +71,7 @@ func (e ErrDelayedProposal) Error() string {
 func (e ErrDelayedProposal) Delay() time.Duration {
 	return e.delay
 }
+
+func (e ErrDelayedProposal) Is(target error) bool {
+	return target == ErrFutureTimestampBlock
+}

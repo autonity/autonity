@@ -10,18 +10,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
-
-	"github.com/autonity/autonity/autonity/bindings"
-
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	engineCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
@@ -530,10 +528,7 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof, committee *types.Committee) 
 
 	// fast aggregate quorum prevotes for V into single one.
 	evidences := make([]message.Msg, 1)
-	evidences[0] = prevotesForV[0]
-	if len(prevotesForV) > 1 {
-		evidences[0] = AggregateSamePrevotes(prevotesForV)
-	}
+	evidences[0] = aggregateSamePrevotes(prevotesForV)
 	p := fd.eventFromProof(&Proof{
 		Type:          autonity.Innocence,
 		Rule:          c.Rule,
@@ -574,10 +569,7 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof, committee *types.Committee) 
 
 	// fast aggregate quorum prevotes into single one.
 	evidences := make([]message.Msg, 1)
-	evidences[0] = prevotes[0]
-	if len(prevotes) > 1 {
-		evidences[0] = AggregateSamePrevotes(prevotes)
-	}
+	evidences[0] = aggregateSamePrevotes(prevotes)
 
 	p := fd.eventFromProof(&Proof{
 		Type:          autonity.Innocence,
@@ -646,10 +638,7 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof, committee *types.Committee)
 
 	// fast aggregate quorum prevotes into single one.
 	evidences := make([]message.Msg, 1)
-	evidences[0] = prevotes[0]
-	if len(prevotes) > 1 {
-		evidences[0] = AggregateSamePrevotes(prevotes)
-	}
+	evidences[0] = aggregateSamePrevotes(prevotes)
 
 	p := fd.eventFromProof(&Proof{
 		Type:          autonity.Innocence,
@@ -870,10 +859,7 @@ oldProposalLoop:
 		if len(alternativeQuorum) > 0 {
 			// fast aggregate quorum prevotes into single one.
 			evidences := make([]message.Msg, 1)
-			evidences[0] = alternativeQuorum[0]
-			if len(alternativeQuorum) > 1 {
-				evidences[0] = AggregateSamePrevotes(alternativeQuorum)
-			}
+			evidences[0] = aggregateSamePrevotes(alternativeQuorum)
 
 			proof := &Proof{
 				Type:          autonity.Misbehaviour,
@@ -1123,10 +1109,7 @@ func (fd *FaultDetector) oldPrevotesAccountabilityCheck(height uint64, quorum *b
 		fd.logger.Info("Misbehaviour detected", "rule", "PV0", "incriminated", signer)
 		// fast aggregate quorum prevotes into single one.
 		evidences := make([]message.Msg, 1)
-		evidences[0] = alternativeQuorum[0]
-		if len(alternativeQuorum) > 1 {
-			evidences[0] = AggregateSamePrevotes(alternativeQuorum)
-		}
+		evidences[0] = aggregateSamePrevotes(alternativeQuorum)
 
 		proof := &Proof{
 			Type:          autonity.Misbehaviour,
@@ -1280,10 +1263,7 @@ func (fd *FaultDetector) precommitsAccountabilityCheck(height uint64, quorum *bi
 			if len(alternativeQuorum) > 0 {
 				// fast aggregate quorum prevotes into single one.
 				evidences := make([]message.Msg, 1)
-				evidences[0] = alternativeQuorum[0]
-				if len(alternativeQuorum) > 1 {
-					evidences[0] = AggregateSamePrevotes(alternativeQuorum)
-				}
+				evidences[0] = aggregateSamePrevotes(alternativeQuorum)
 
 				proof := &Proof{
 					Type:          autonity.Misbehaviour,

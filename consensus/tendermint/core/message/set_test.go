@@ -74,7 +74,7 @@ func TestMessageSetAggregationAndPower(t *testing.T) {
 	ms := NewSet()
 
 	vote := NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize)
-	ms.Add(vote)
+	require.True(t, ms.Add(vote))
 
 	require.Equal(t, common.Big1, ms.TotalPower().Power())
 	require.Equal(t, common.Big1, ms.PowerFor(blockHash).Power())
@@ -82,7 +82,7 @@ func TestMessageSetAggregationAndPower(t *testing.T) {
 	require.Equal(t, vote.Hash(), ms.VotesFor(blockHash)[0].Hash())
 
 	// duplicated vote has no influence on power and is not saved two times
-	ms.Add(vote)
+	require.False(t, ms.Add(vote))
 
 	require.Equal(t, common.Big1, ms.TotalPower().Power())
 	require.Equal(t, common.Big1, ms.PowerFor(blockHash).Power())
@@ -93,7 +93,7 @@ func TestMessageSetAggregationAndPower(t *testing.T) {
 
 	// equivocated vote has no influence on power and it is saved
 	equivocatedVote := NewPrevote(r, h, blockHash2, defaultSigner, makeCommitteeMember(1, 0), csize)
-	ms.Add(equivocatedVote)
+	require.True(t, ms.Add(equivocatedVote)) // equivocated vote still brings a contribution to Core and therefore not redundant
 
 	require.Equal(t, common.Big1, ms.TotalPower().Power())
 	require.Equal(t, common.Big1, ms.PowerFor(blockHash).Power())
@@ -104,7 +104,7 @@ func TestMessageSetAggregationAndPower(t *testing.T) {
 
 	// add vote from another validator, it should get aggregated with the first one
 	vote2 := NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 1), csize)
-	ms.Add(vote2)
+	require.True(t, ms.Add(vote2))
 
 	require.Equal(t, common.Big3, ms.TotalPower().Power())
 	require.Equal(t, common.Big3, ms.PowerFor(blockHash).Power())
@@ -112,10 +112,10 @@ func TestMessageSetAggregationAndPower(t *testing.T) {
 	require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(0))
 	require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(1))
 
-	// add an aggregate that cannot be merged with the previous one
-
-	aggregate := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize), NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)})
-	ms.Add(aggregate[0])
+	// add an aggregate that cannot be merged with the previous one (boundary check)
+	aggregate := AggregatePrevotes([]Vote{NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize), NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)})
+	aggregate[0].Signers().Coefficients[0] = new(big.Int).SetUint64(1 << common.VoteCap)
+	require.True(t, ms.Add(aggregate[0]))
 
 	require.Equal(t, common.Big5, ms.TotalPower().Power())
 	require.Equal(t, common.Big5, ms.PowerFor(blockHash).Power())
@@ -250,7 +250,7 @@ func TestAddReturnValue(t *testing.T) {
 	require.True(t, ms.Add(vote2))
 
 	// add another aggregate
-	aggregate := AggregatePrevotesSimple([]Vote{NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize), NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)})
+	aggregate := AggregatePrevotes([]Vote{NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(1, 0), csize), NewPrevote(r, h, blockHash, defaultSigner, makeCommitteeMember(2, 2), csize)})
 	require.True(t, ms.Add(aggregate[0]))
 
 	// redundant vote

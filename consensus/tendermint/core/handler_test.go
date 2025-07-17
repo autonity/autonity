@@ -211,7 +211,7 @@ func TestHandleMessage(t *testing.T) {
 func TestHandleFutureRound(t *testing.T) {
 	// setup
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer waitForExpects(ctrl)
 
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(10)
 	sender1, _ := committeeSet.MemberByIndex(0)
@@ -259,7 +259,7 @@ func TestHandleFutureRound(t *testing.T) {
 	// same thing for future round proposal
 	propose := message.NewPropose(currentRound+1, currentHeight.Uint64(), -1, generateBlock(currentHeight, lastHeader), makeSigner(keysMap[sender1.Address].consensus), sender1)
 	// proposals are never disseminated in Core
-	engine.handleEvent(context.Background(), makeBogusMessageEvent(propose, false))
+	engine.handleEvent(context.Background(), makeBogusMessageEvent(propose, true))
 
 	found = searchForFutureMsg(&engine, propose)
 	require.True(t, found)

@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
+
 	blst "github.com/supranational/blst/bindings/go"
 )
 

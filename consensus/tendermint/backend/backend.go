@@ -203,7 +203,7 @@ func (sb *Backend) Address() common.Address {
 func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	// send to self (directly to Core and FD, no need to verify local messages)
 	// a goroutine is required here to avoid creating a deadlock, broadcast can be called from the messageEventHandler itself
-	go sb.gossiper.Gossip(committee, message, true)
+	go sb.gossiper.Gossip(committee, message, sb.Address())
 	go sb.MessageToCore(events.NewMessageEvent(message, nil, sb.Address(), time.Now(), true)) // core
 	go sb.Post(events.NewMessageEvent(message, nil, sb.Address(), time.Now(), true))          // FD
 }
@@ -213,12 +213,12 @@ func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncM
 }
 
 // Gossip implements tendermint.Backend.Gossip
-func (sb *Backend) Gossip(committee *types.Committee, msg message.Msg, isLocal bool) {
-	sb.gossiper.Gossip(committee, msg, isLocal)
+func (sb *Backend) Gossip(committee *types.Committee, msg message.Msg, sender common.Address) {
+	sb.gossiper.Gossip(committee, msg, sender)
 }
 
-func (sb *Backend) SlowGossip(committee *types.Committee, msg message.Msg, isLocal bool) {
-	sb.gossiper.SlowGossip(committee, msg, isLocal)
+func (sb *Backend) SlowGossip(committee *types.Committee, msg message.Msg, sender common.Address) {
+	sb.gossiper.SlowGossip(committee, msg, sender)
 }
 
 // UpdateStopChannel implements tendermint.Backend.Gossip

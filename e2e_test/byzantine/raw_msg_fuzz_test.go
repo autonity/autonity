@@ -34,11 +34,11 @@ type rawMSGFuzzer struct {
 }
 
 // Faulty node keeps broadcasting fuzz raw message to committee. Every input message of this interface will be fuzzed.
-func (fg *rawMSGFuzzer) SlowGossip(_ *types.Committee, _ message.Msg, _ bool) {
+func (fg *rawMSGFuzzer) SlowGossip(_ *types.Committee, _ message.Msg, _ common.Address) {
 	// do nothing
 }
 
-func (fg *rawMSGFuzzer) Gossip(committee *types.Committee, msg message.Msg, _ bool) {
+func (fg *rawMSGFuzzer) Gossip(committee *types.Committee, msg message.Msg, _ common.Address) {
 	targets := make([]common.Address, 0)
 	i := 0
 	for _, val := range committee.Members {

@@ -70,9 +70,9 @@ func (c *Core) handleStateDump(e StateRequestEvent) {
 func getFutureRoundMsgs(c *Core) []*interfaces.MsgForDump {
 	c.futureRoundLock.RLock()
 	defer c.futureRoundLock.RUnlock()
-	result := make([]*interfaces.MsgForDump, 0)
+	result := make([]*interfaces.MsgForDump, 0, len(c.futureRound)) // estimated capacity, can have multiple messages for each round
 	for _, evs := range c.futureRound {
-		var messages []message.Msg
+		messages := make([]message.Msg, 0, len(evs))
 		for _, ev := range evs {
 			messages = append(messages, ev.Message())
 		}

@@ -8,18 +8,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/consensus/tendermint/core/constants"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
-	"go.uber.org/mock/gomock"
-
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
@@ -219,7 +218,7 @@ func TestSignerJailed(t *testing.T) {
 	// same should happen for an aggregate containing a single jailed signer
 
 	data = message.NewPrevote(0, 1, common.Hash{0xca, 0xfe}, testSigner, &member, 2)
-	data.Signers().Increment(makeBogusMember(1))
+	data.Signers().AddSigner(makeBogusMember(1))
 	msg = p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
 	errCh = make(chan error, 1)
 	_, err = backend.HandleMsg(testAddress, msg, errCh)

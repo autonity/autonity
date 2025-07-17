@@ -863,7 +863,7 @@ func verifyProofSignatures(committee *types.Committee, p *Proof) error {
 	}
 
 	// assign power and bls signer key
-	if err := p.Message.PreValidate(committee); err != nil {
+	if err := p.Message.PreValidate(committee, true); err != nil {
 		return err
 	}
 
@@ -883,7 +883,7 @@ func verifyProofSignatures(committee *types.Committee, p *Proof) error {
 			return errBadHeight
 		}
 
-		if err := msg.PreValidate(committee); err != nil {
+		if err := msg.PreValidate(committee, false); err != nil {
 			return err
 		}
 

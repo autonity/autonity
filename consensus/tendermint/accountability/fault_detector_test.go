@@ -999,18 +999,18 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	otherPrevoteForB1 := newValidatedPrevote(prevoteForB1.R(), prevoteForB1.H(), prevoteForB1.Value(),
 		makeSigner(keys[prevoterIdx]), &committee.Members[prevoterIdx], cSize)
 
-	aggregatedPrevoteForB := message.AggregatePrevotes([]message.Vote{prevoteForB, otherPrevoteForB})
-	aggregatedPrevoteForB1 := message.AggregatePrevotes([]message.Vote{prevoteForB1, otherPrevoteForB1})
+	aggregatedPrevoteForB := message.AggregatePrevotesSingle([]message.Vote{prevoteForB, otherPrevoteForB})
+	aggregatedPrevoteForB1 := message.AggregatePrevotesSingle([]message.Vote{prevoteForB1, otherPrevoteForB1})
 
 	precommitForB := newValidatedPrecommit(3, height, block.Hash(), signer, self, cSize)
 	otherPrecommitForB := newValidatedPrecommit(precommitForB.R(), precommitForB.H(), precommitForB.Value(),
 		makeSigner(keys[prevoterIdx]), &committee.Members[prevoterIdx], cSize)
-	aggregatedPrecommitForB := message.AggregatePrecommits([]message.Vote{precommitForB, otherPrecommitForB})
+	aggregatedPrecommitForB := message.AggregatePrecommitsSingle([]message.Vote{precommitForB, otherPrecommitForB})
 
 	precommitForB1 := newValidatedPrecommit(4, height, block1.Hash(), signer, self, cSize)
 	otherPrecommitForB1 := newValidatedPrecommit(precommitForB1.R(), precommitForB1.H(), precommitForB1.Hash(),
 		makeSigner(keys[prevoterIdx]), &committee.Members[prevoterIdx], cSize)
-	aggregatedPrecommitForB1 := message.AggregatePrecommits([]message.Vote{precommitForB1, otherPrecommitForB1})
+	aggregatedPrecommitForB1 := message.AggregatePrecommitsSingle([]message.Vote{precommitForB1, otherPrecommitForB1})
 
 	precommitForB1In0 := newValidatedPrecommit(0, height, block1.Hash(), signer, self, cSize)
 	precommitForB1In1 := newValidatedPrecommit(1, height, block1.Hash(), signer, self, cSize)
@@ -1025,12 +1025,12 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 	prevoteForOldB10 := newValidatedPrevote(10, height, block.Hash(), signer, self, cSize)
 	otherPrevoteForOldB10 := newValidatedPrevote(prevoteForOldB10.R(), prevoteForOldB10.H(), prevoteForOldB10.Value(),
 		makeSigner(keys[prevoterIdx]), &committee.Members[prevoterIdx], cSize)
-	aggregatedPrevoteForOldB10 := message.AggregatePrevotes([]message.Vote{prevoteForOldB10, otherPrevoteForOldB10})
+	aggregatedPrevoteForOldB10 := message.AggregatePrevotesSingle([]message.Vote{prevoteForOldB10, otherPrevoteForOldB10})
 
 	precommitForB1In8 := newValidatedPrecommit(8, height, block1.Hash(), signer, self, cSize)
 	otherPrecommitForB1In8 := newValidatedPrecommit(8, height, block1.Hash(), makeSigner(keys[prevoterIdx]),
 		&committee.Members[prevoterIdx], cSize)
-	aggregatedPrecommitForB1In8 := message.AggregatePrecommits([]message.Vote{precommitForB1In8, otherPrecommitForB1In8})
+	aggregatedPrecommitForB1In8 := message.AggregatePrecommitsSingle([]message.Vote{precommitForB1In8, otherPrecommitForB1In8})
 
 	precommitForBIn7 := newValidatedPrecommit(7, height, block.Hash(), signer, self, cSize)
 
@@ -1312,7 +1312,7 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 			vr5Prevotes = append(vr5Prevotes, vr5Prevote)
 			fd.msgStore.Save(vr5Prevote)
 		}
-		aggVr5Votes := message.AggregatePrevotes(vr5Prevotes)
+		aggVr5Votes := message.AggregatePrevotesSingle(vr5Prevotes)
 
 		expectedMisbehaviour1 := &Proof{
 			OffenderIndex: proposerIdx,
@@ -1634,12 +1634,12 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 	precommitForB := newValidatedPrecommit(2, height, block.Hash(), signer, self, cSize)
 	otherPrecommitForB := newValidatedPrecommit(precommitForB.R(), precommitForB.H(), precommitForB.Value(),
 		makeSigner(keys[prevoterIdx]), &committee.Members[prevoterIdx], cSize)
-	aggregatedPrecommitForB := message.AggregatePrecommits([]message.Vote{precommitForB, otherPrecommitForB})
+	aggregatedPrecommitForB := message.AggregatePrecommitsSingle([]message.Vote{precommitForB, otherPrecommitForB})
 
 	precommitForB1 := newValidatedPrecommit(2, height, block1.Hash(), signer, self, cSize)
 	otherPrecommitForB1 := newValidatedPrecommit(2, height, block1.Hash(), makeSigner(keys[prevoterIdx]),
 		&committee.Members[prevoterIdx], cSize)
-	aggregatedPrecommitForB1 := message.AggregatePrecommits([]message.Vote{precommitForB1, otherPrecommitForB1})
+	aggregatedPrecommitForB1 := message.AggregatePrecommitsSingle([]message.Vote{precommitForB1, otherPrecommitForB1})
 
 	precommitForB1In3 := newValidatedPrecommit(3, height, block1.Hash(), signer, self, cSize)
 
@@ -1716,7 +1716,7 @@ func TestPrecommitsAccountabilityCheck(t *testing.T) {
 			votesForB1[i] = p
 		}
 
-		aggVoteForB1 := message.AggregatePrevotes(votesForB1)
+		aggVoteForB1 := message.AggregatePrevotesSingle(votesForB1)
 
 		expectedProof0 := &Proof{
 			OffenderIndex: proposerIdx,
@@ -1816,6 +1816,6 @@ func aggregatedPreVote(numOfSigners int, h uint64, r int64, v common.Hash, keys 
 		preVote := newValidatedPrevote(r, h, v, makeSigner(keys[i]), &committee.Members[i], committee.Len())
 		votes = append(votes, preVote)
 	}
-	aggregatedVote := message.AggregatePrevotes(votes)
+	aggregatedVote := message.AggregatePrevotesSingle(votes)
 	return aggregatedVote
 }

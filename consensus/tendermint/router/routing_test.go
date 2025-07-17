@@ -60,7 +60,7 @@ func TestNew(t *testing.T) {
 	self := common.HexToAddress("0x111")
 	nodeKey := newTestKey(t)
 
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 
 	assert.Equal(t, self, router.self, "Expected self address")
 	assert.Equal(t, nodeKey, router.nodeKey, "Expected node key")
@@ -97,7 +97,7 @@ func TestRouter_Start(t *testing.T) {
 	recipientCache := cache.New()
 
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Mock network.New
@@ -126,7 +126,7 @@ func TestRouter_Stop(t *testing.T) {
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -169,7 +169,7 @@ func TestRouter_Recipients_SmallCommittee(t *testing.T) {
 	recipientCache := cache.New()
 
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 
 	recipients, err := router.Recipients(&committee, msg, self)
 	assert.NoError(t, err, "Expected no error")
@@ -204,7 +204,7 @@ func TestRouter_Recipients_LargeCommittee(t *testing.T) {
 	recipientCache := cache.New()
 
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 	router.clusteringThreshold = 0
 
 	// Successful peer selection
@@ -250,7 +250,7 @@ func TestRouter_Recipients_SelfNotInCommittee(t *testing.T) {
 	recipientCache := cache.New()
 
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 
 	// Small committee: no clustering
 	recipients, err := router.Recipients(&committee, msg, self)
@@ -301,7 +301,7 @@ func TestRouter_Forward(t *testing.T) {
 	peerSelector.EXPECT().SetBroadcaster(broadcaster)
 
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 	router.clusteringThreshold = 0
 	router.SetBroadcaster(broadcaster)
 
@@ -330,7 +330,7 @@ func TestRouter_measureLatency(t *testing.T) {
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 	router.committee = committeeAddrs
 
 	// Successful latency fetch
@@ -362,7 +362,7 @@ func TestRouter_retryLatency(t *testing.T) {
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 	router.committee = committeeAddrs
 	router.nodesToRetry = map[common.Address]struct{}{common.HexToAddress("0x222"): {}}
 	router.latestLatencies = map[common.Address]uint{self: 50}
@@ -415,7 +415,7 @@ func TestRouter_Loop_OverallFlow(t *testing.T) {
 	peerSelector.EXPECT().SetBroadcaster(broadcaster)
 	recipientCache := cache.New()
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 	router.clusteringThreshold = 0
 	router.SetBroadcaster(broadcaster)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -507,7 +507,7 @@ func TestRouter_Loop_Tickers(t *testing.T) {
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 	router.clusteringThreshold = 0
 	router.inCommittee = true
 	router.committee = committeeAddrs
@@ -542,7 +542,7 @@ func TestRouter_SetBroadcaster(t *testing.T) {
 	recipientCache := cache.New()
 	self := common.HexToAddress("0x111")
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 
 	newBroadcaster := consensus.NewMockBroadcaster(ctrl)
 	latencyFetcher.EXPECT().SetBroadcaster(newBroadcaster).Times(1)
@@ -562,7 +562,7 @@ func TestRouter_Latencies(t *testing.T) {
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 
 	latencyMap := map[common.Address]uint{self: 50, common.HexToAddress("0x222"): 100}
 	router.latencyMu.Lock()
@@ -592,7 +592,7 @@ func TestRouter_ConcurrentForward(t *testing.T) {
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
 	recipientCache := cache.New()
 	nodeKey := newTestKey(t)
-	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider)
+	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
 	router.clusteringThreshold = 0
 	latencyFetcher.EXPECT().SetBroadcaster(broadcaster)
 	peerSelector.EXPECT().SetBroadcaster(broadcaster)

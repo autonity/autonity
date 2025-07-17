@@ -7,11 +7,9 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
-	blst "github.com/supranational/blst/bindings/go"
-
-	"github.com/autonity/autonity/log"
 
 	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
 )
 
@@ -157,7 +155,7 @@ func FastAggregateVerifyBatch(sigs []Signature, pubkeys []PublicKey, msg [32]byt
 	}
 
 	// Secure source of RNG
-	randomScalar := func() *blst.Scalar {
+	randomScalar := func() *blstScalar {
 		var rbytes [scalarBytes]byte
 
 		_, err := rand.Read(rbytes[:])
@@ -168,7 +166,7 @@ func FastAggregateVerifyBatch(sigs []Signature, pubkeys []PublicKey, msg [32]byt
 		// Protect against the generator returning 0. Since the scalar value is
 		// derived from a big endian byte slice, we take the last byte.
 		rbytes[len(rbytes)-1] |= 0x01
-		scalar := new(blst.Scalar)
+		scalar := new(blstScalar)
 		scalar.FromBEndian(rbytes[:])
 		return scalar
 	}
@@ -176,7 +174,7 @@ func FastAggregateVerifyBatch(sigs []Signature, pubkeys []PublicKey, msg [32]byt
 	// extract raw signatures and public keys (EC points) and generate random scalars
 	var rawKeys blstPublicKeySet
 	var rawSigs blstSignatureSet
-	var scalars []*blst.Scalar
+	var scalars []*blstScalar
 	for i := 0; i < n; i++ {
 		rawKeys = append(rawKeys, *pubkeys[i].(*BlsPublicKey).p)
 		rawSigs = append(rawSigs, *sigs[i].(*BlsSignature).s)

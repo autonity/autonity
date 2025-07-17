@@ -22,25 +22,19 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/autonity/autonity/metrics"
-
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/rlp"
 )
 
 var (
-	ErrBadSignature            = errors.New("bad signature")
-	ErrUnauthorizedAddress     = errors.New("unauthorized address")
-	ErrInvalidComplexAggregate = errors.New("complex aggregate does not carry quorum")
-	ErrInvalidIndividualVote   = errors.New("individual vote has 0 signature")
-
-	// messages that have been discarded from aggregation due to coefficient breaching
-	boundaryBreaching = metrics.NewRegisteredMeter("aggregation/discarded/boundary", nil)
+	ErrBadSignature          = errors.New("bad signature")
+	ErrUnauthorizedAddress   = errors.New("unauthorized address")
+	ErrInvalidIndividualVote = errors.New("individual vote has 0 signature")
 )
 
 // Internal message codes used by tendermint consensus engine and its accountability module.
@@ -248,7 +242,7 @@ func (p *Propose) SignerIndex() int {
 	return p.signerIndex
 }
 
-func (p *Propose) PreValidate(committee *types.Committee) error {
+func (p *Propose) PreValidate(committee *types.Committee, _ bool) error {
 	if p.preverified {
 		return nil
 	}
@@ -411,7 +405,7 @@ func (p *LightProposal) SignerIndex() int {
 	return p.signerIndex
 }
 
-func (p *LightProposal) PreValidate(committee *types.Committee) error {
+func (p *LightProposal) PreValidate(committee *types.Committee, _ bool) error {
 	if p.preverified {
 		return nil
 	}
@@ -455,7 +449,9 @@ func (v *vote) Power() *big.Int {
 	return v.signers.Power()
 }
 
-func (v *vote) PreValidate(committee *types.Committee) error {
+var maxCoefficientBg = metrics.GetOrRegisterBufferedGauge("votes/maxcoefficient", nil)
+
+func (v *vote) PreValidate(committee *types.Committee, shouldRespectCap bool) error {
 	if v.preverified {
 		return nil
 	}
@@ -470,33 +466,28 @@ func (v *vote) PreValidate(committee *types.Committee) error {
 	}
 
 	// compute aggregated key and auxiliary data structures
-	indexes := v.signers.Flatten()
+	indexes := v.signers.FlattenUniq()
 	keys := make([]blst.PublicKey, len(indexes))
 	powers := make(map[int]*big.Int)
 	power := new(big.Int)
 
 	for i, index := range indexes {
 		member := committee.Members[index]
-
 		keys[i] = member.ConsensusKey
-		_, alreadyPresent := powers[index]
-		if !alreadyPresent {
-			powers[index] = member.VotingPower
-			power.Add(power, member.VotingPower)
-		}
+		powers[index] = member.VotingPower
+		power.Add(power, member.VotingPower)
 	}
 
-	// if the aggregate is a complex aggregate, it needs to carry quorum
-	if v.signers.IsComplex() && power.Cmp(bft.Quorum(committee.TotalVotingPower())) < 0 {
-		return ErrInvalidComplexAggregate
+	maxCoefficient := v.signers.MaxCoefficient()
+	if shouldRespectCap && maxCoefficient.BitLen() > common.VoteCap {
+		return types.ErrInvalidCoefficient
 	}
 
+	if metrics.Enabled {
+		maxCoefficientBg.Add(maxCoefficient.Int64())
+	}
 	v.signers.AssignPower(powers, power)
-	aggregatedKey, err := blst.AggregatePublicKeys(keys)
-	if err != nil {
-		panic("Error while aggregating keys from committee: " + err.Error())
-	}
-	v.signerKey = aggregatedKey
+	v.signerKey = v.signers.AggregatePublicKey(keys)
 	v.preverified = true
 	return nil
 }
@@ -556,7 +547,7 @@ func newVote[
 	signature := signer(signatureInput)
 
 	signers := types.NewSigners(csize)
-	signers.Increment(self)
+	signers.AddSigner(self)
 
 	payload, _ := rlp.EncodeToBytes(extVote{
 		Code:      code,
@@ -594,123 +585,51 @@ func NewPrecommit(r int64, h uint64, value common.Hash, signer Signer, self *typ
 	return newVote[Precommit](r, h, value, signer, self, csize)
 }
 
-// NOTE: these functions allow for the creation of complex aggregates
-func AggregatePrevotes(votes []Vote) *Prevote {
-	return AggregateVotes[Prevote](votes)
-}
-func AggregatePrecommits(votes []Vote) *Precommit {
-	return AggregateVotes[Precommit](votes)
+// NOTE: this function assumes that:
+// 1. all votes are for the same signature input (code,h,r,value)
+// 2. all votes have previously been preverified and cryptographically verified
+func AggregatePrevotes(votes []Vote) []*Prevote {
+	return AggregateVotes[Prevote](votes, false)
 }
 
 // NOTE: this function assumes that:
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been preverified and cryptographically verified
-func AggregateVotes[E Prevote | Precommit](votes []Vote) *E {
-	// length safety checks
-	if len(votes) == 0 {
-		panic("Trying to aggregate empty set of votes")
-	}
-
-	// use votes[0] as a set representative
-	representative := votes[0]
-	// signers of the aggregate
-	signers := types.NewSigners(representative.Signers().CommitteeSize())
-
-	// we want to privilege vote with higher voting power, since we are creating a complex aggregate carrying quorum
-	sort.Slice(votes, func(i, j int) bool {
-		return votes[i].Signers().Power().Cmp(votes[j].Signers().Power()) > 0
-	})
-
-	// compute new aggregated signature and related signers information
-	var signatures []blst.Signature
-	var publicKeys []blst.PublicKey
-	for _, vote := range votes {
-		// do not aggregate votes if they do not add any useful information
-		// e.g. signers contains already at least 1 signature for all signers of vote.Signers()
-		// we would just create and gossip new aggregates that would uselessly flood the network
-		// additionally, we also check if the resulting aggregate respects the coefficient boundaries.
-		// this avoids that we aggregate two complex aggregates together, which can lead to coefficient breaching.
-		if signers.AddsInformation(vote.Signers()) && signers.RespectsBoundaries(vote.Signers()) {
-			signers.Merge(vote.Signers())
-			signatures = append(signatures, vote.Signature())
-			publicKeys = append(publicKeys, vote.SignerKey())
-		} else {
-			// update discarded messages metrics if the vote was not merged due to boundary breaching
-			if !signers.RespectsBoundaries(vote.Signers()) {
-				boundaryBreaching.Mark(1)
-			}
-		}
-	}
-	aggregatedSignature := blst.AggregateSignatures(signatures)
-	aggregatedPublicKey, err := blst.AggregatePublicKeys(publicKeys)
-	if err != nil {
-		panic("Cannot generate aggregate public key from valid votes: " + err.Error()) //nolint
-	}
-
-	c := representative.Code()
-	h := representative.H()
-	r := representative.R()
-	value := representative.Value()
-	signatureInput := representative.SignatureInput()
-
-	payload, _ := rlp.EncodeToBytes(extVote{
-		Code:      c,
-		Round:     uint64(r), // #nosec
-		Height:    h,
-		Value:     value,
-		Signers:   signers,
-		Signature: aggregatedSignature.(*blst.BlsSignature),
-	})
-
-	aggregateVote := E{
-		value: value,
-		vote: vote{
-			signers: signers,
-			base: base{
-				height:         h,
-				round:          r,
-				signatureInput: signatureInput,
-				signature:      aggregatedSignature,
-				payload:        payload,
-				hash:           crypto.Hash(payload),
-				verified:       true, // verified due to all votes being verified
-				preverified:    true,
-				signerKey:      aggregatedPublicKey, // this is not strictly necessary since the vote is already verified
-			},
-		},
-	}
-	return &aggregateVote
+func AggregatePrecommits(votes []Vote) []*Precommit {
+	return AggregateVotes[Precommit](votes, false)
 }
 
-// NOTE: these functions will aggregate votes as much as possible without creating complex aggregates
-func AggregatePrevotesSimple(votes []Vote) []*Prevote {
-	return AggregateVotesSimple[Prevote](votes)
+func AggregatePrevotesSingle(votes []Vote) *Prevote {
+	aggregatedVote := AggregateVotes[Prevote](votes, true)
+	if len(aggregatedVote) != 1 {
+		panic(fmt.Sprintf("aggregation without boundary checking produced %d votes instead of 1", len(aggregatedVote)))
+	}
+	return aggregatedVote[0]
 }
 
-func AggregatePrecommitsSimple(votes []Vote) []*Precommit {
-	return AggregateVotesSimple[Precommit](votes)
+func AggregatePrecommitsSingle(votes []Vote) *Precommit {
+	aggregatedVote := AggregateVotes[Precommit](votes, true)
+	if len(aggregatedVote) != 1 {
+		panic(fmt.Sprintf("aggregation without boundary checking produced %d votes instead of 1", len(aggregatedVote)))
+	}
+	return aggregatedVote[0]
 }
 
 var (
-	validVotesCounter     = metrics.GetOrRegisterCounter("aggregator/backend/valid", nil)     // measures time for message passing from backend to aggregator
-	aggregateVotesCounter = metrics.GetOrRegisterCounter("aggregator/backend/aggregate", nil) // measures time for message passing from backend to aggregator
+	votesIn  = metrics.GetOrRegisterCounter("aggregator/votesin", nil)
+	votesOut = metrics.GetOrRegisterCounter("aggregator/votesout", nil)
 )
 
 // NOTE: this function assumes that:
 // 1. all votes are for the same signature input (code,h,r,value)
 // 2. all votes have previously been cryptographically verified
-func AggregateVotesSimple[
-	E Prevote | Precommit,
-	PE interface {
-		*E
-		Msg
-	}](votes []Vote) []*E {
+func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) []*E {
 	// length safety checks
 	if len(votes) == 0 {
 		panic("Trying to aggregate empty set of votes")
 	}
 
-	code := PE(new(E)).Code()
+	code := votes[0].Code()
 
 	csize := votes[0].Signers().CommitteeSize()
 
@@ -745,7 +664,7 @@ func AggregateVotesSimple[
 				skip[j] = true
 				continue
 			}
-			if !signers.CanMergeSimple(other.Signers()) {
+			if !ignoreBoundaries && !signers.RespectsBoundaries(other.Signers()) {
 				continue
 			}
 			signers.Merge(other.Signers())
@@ -812,8 +731,8 @@ func AggregateVotesSimple[
 	}
 	// aggregation metrics
 	if metrics.Enabled {
-		validVotesCounter.Inc(int64(len(votes)))
-		aggregateVotesCounter.Inc(int64(len(aggregateVotes)))
+		votesIn.Inc(int64(len(votes)))
+		votesOut.Inc(int64(len(aggregateVotes)))
 	}
 
 	return aggregateVotes
@@ -841,7 +760,7 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
-	if encoded.Signers == nil || encoded.Signers.Bits == nil || encoded.Signers.Coefficients == nil {
+	if encoded.Signers == nil || encoded.Signers.Bitmap == nil || encoded.Signers.Coefficients == nil {
 		return constants.ErrInvalidMessage
 	}
 	if encoded.Signers.SanityCheck() != nil {
@@ -882,7 +801,7 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	if encoded.Round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
-	if encoded.Signers == nil || encoded.Signers.Bits == nil || encoded.Signers.Coefficients == nil {
+	if encoded.Signers == nil || encoded.Signers.Bitmap == nil || encoded.Signers.Coefficients == nil {
 		return constants.ErrInvalidMessage
 	}
 	if encoded.Signers.SanityCheck() != nil {
@@ -966,21 +885,21 @@ type Fake struct {
 	FakeVerified      bool // for prevote and precommits this is set to true by default for now
 }
 
-func (f Fake) Code() uint8                          { return f.FakeCode }
-func (f Fake) R() int64                             { return int64(f.FakeRound) }
-func (f Fake) H() uint64                            { return f.FakeHeight }
-func (f Fake) Value() common.Hash                   { return f.FakeValue }
-func (f Fake) Power() *big.Int                      { return f.FakePower }
-func (f Fake) String() string                       { return "{fake}" }
-func (f Fake) Hash() common.Hash                    { return f.FakeHash }
-func (f Fake) Payload() []byte                      { return f.FakePayload }
-func (f Fake) Signature() blst.Signature            { return f.FakeSignature }
-func (f Fake) PreValidate(_ *types.Committee) error { return nil }
-func (f Fake) Validate() error                      { return nil }
-func (f Fake) SignatureInput() common.Hash          { return f.FakeSignatureInput }
-func (f Fake) SignerKey() blst.PublicKey            { return f.FakeSignerKey }
-func (f Fake) Verified() bool                       { return true }
-func (f Fake) PreVerified() bool                    { return true }
+func (f Fake) Code() uint8                                  { return f.FakeCode }
+func (f Fake) R() int64                                     { return int64(f.FakeRound) } //nolint:gosec
+func (f Fake) H() uint64                                    { return f.FakeHeight }
+func (f Fake) Value() common.Hash                           { return f.FakeValue }
+func (f Fake) Power() *big.Int                              { return f.FakePower }
+func (f Fake) String() string                               { return "{fake}" }
+func (f Fake) Hash() common.Hash                            { return f.FakeHash }
+func (f Fake) Payload() []byte                              { return f.FakePayload }
+func (f Fake) Signature() blst.Signature                    { return f.FakeSignature }
+func (f Fake) PreValidate(_ *types.Committee, _ bool) error { return nil }
+func (f Fake) Validate() error                              { return nil }
+func (f Fake) SignatureInput() common.Hash                  { return f.FakeSignatureInput }
+func (f Fake) SignerKey() blst.PublicKey                    { return f.FakeSignerKey }
+func (f Fake) Verified() bool                               { return true }
+func (f Fake) PreVerified() bool                            { return true }
 
 func NewFakePropose(f Fake) *Propose {
 	var vr int64

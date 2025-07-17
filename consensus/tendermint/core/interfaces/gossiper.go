@@ -9,9 +9,9 @@ import (
 )
 
 type Gossiper interface {
-	Gossip(committee *types.Committee, message message.Msg, isLocal bool)
+	Gossip(committee *types.Committee, message message.Msg, sender common.Address)
 	AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error
-	SlowGossip(committee *types.Committee, message message.Msg, isLocal bool)
+	SlowGossip(committee *types.Committee, message message.Msg, sender common.Address)
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 	Broadcaster() consensus.Broadcaster
 	KnownMessages() *fixsizecache.Cache[common.Hash, bool]

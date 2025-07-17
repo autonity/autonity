@@ -58,7 +58,6 @@ func createClusters(
 		clusterID := i % numClusters
 		if addr == self {
 			c.ownClusterID = clusterID
-			c.addressToCluster[addr] = clusterID
 		} else {
 			// latency for self node is not considered
 			if lat, ok := latencyMap[addr]; ok {
@@ -115,14 +114,12 @@ func (c *Clusters) computeLatencyBuckets() {
 	buckets := make([][]Node, bucketCount)
 
 	for _, cluster := range c.base {
-		bucketSet := make(map[int]bool)
 		for _, node := range cluster {
 			if node.Addr == c.self {
 				continue // skip self for bucket assignment
 			}
 			bucketIdx := c.getBucketIndex(node.Lat)
 			buckets[bucketIdx] = append(buckets[bucketIdx], node)
-			bucketSet[bucketIdx] = true
 		}
 	}
 

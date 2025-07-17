@@ -130,20 +130,20 @@ func (c *Core) quorumFor(code uint8, round int64, value common.Hash) bool {
 	return quorum
 }
 
-func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash) {
-	// We re-add the complex aggregate to the prevote set. If we would substitute the entire set with the complex aggregate,
-	// there is a possibility of message loss (if we had multiple un-mergeable complex aggregates in the `messages`).
-	// This loss would not harm consensus (we would still have quorum voting power), however it is better to keep all messages
-	// in case we have to sync another peer. We can consider changing it only if it considerably harms performance.
+func (c *Core) GossipQuorum(code uint8, round int64, value common.Hash) {
+	var votes []message.Vote
+
 	switch code {
 	case message.PrevoteCode:
-		aggregatePrevote := c.messages.GetOrCreate(round).PrevoteFor(value)
-		c.messages.GetOrCreate(round).AddPrevote(aggregatePrevote)
-		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrevote, true)
+		votes = c.messages.GetOrCreate(round).PrevotesFor(value)
 	case message.PrecommitCode:
-		aggregatePrecommit := c.messages.GetOrCreate(round).PrecommitFor(value)
-		c.messages.GetOrCreate(round).AddPrecommit(aggregatePrecommit)
-		go c.backend.Gossip(c.CommitteeSet().Committee(), aggregatePrecommit, true)
+		votes = c.messages.GetOrCreate(round).PrecommitsFor(value)
+	default:
+		panic(fmt.Sprintf("Unknown code: %d", code))
+	}
+
+	for _, vote := range votes {
+		go c.backend.Gossip(c.CommitteeSet().Committee(), vote, c.Address())
 	}
 }
 
@@ -179,9 +179,17 @@ const (
 	gossip
 )
 
-func determineDisseminationStrategy(err error, code uint8, alreadyDisseminated bool, msgRound int64, coreRound int64) disseminationStrategy {
-	// all proposals are already forwarded in backend
-	if alreadyDisseminated || code == message.ProposalCode {
+// canDisseminate makes sure that we are not disseminating future round messages that are too much in the future
+func canDisseminate(msgRound int64, coreRound int64) bool {
+	if msgRound <= coreRound {
+		return true // not a future round message
+	}
+	roundDiff := msgRound - coreRound
+	return roundDiff <= futureRoundDisseminationThreshold
+}
+
+func determineDisseminationStrategy(err error, alreadyDisseminated bool, msgRound int64, coreRound int64) disseminationStrategy {
+	if alreadyDisseminated {
 		return noDissemination
 	}
 	if err == nil {
@@ -189,8 +197,7 @@ func determineDisseminationStrategy(err error, code uint8, alreadyDisseminated b
 	}
 	switch {
 	case errors.Is(err, constants.ErrFutureRoundMessage):
-		// TODO: verify that edge cases where a future msg triggers a round skip do not cause issues
-		if msgRound-coreRound <= futureRoundDisseminationThreshold {
+		if canDisseminate(msgRound, coreRound) {
 			return gossip
 		}
 		// message is too far in the future rounds
@@ -208,7 +215,6 @@ func determineDisseminationStrategy(err error, code uint8, alreadyDisseminated b
 func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error) {
 	delayErr := &consensus.ErrDelayedProposal{}
 	switch {
-	// TODO: can errors.As modify err? it seems like it does some unwrapping
 	case errors.As(err, delayErr):
 		// TODO: implement wiggle time / median time
 		delay := delayErr.Delay()
@@ -224,15 +230,12 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 		msg := e.Message()
 
 		// gossip only "close" future rounds to avoid clogging the network
-		if msg.R()-c.Round() <= futureRoundDisseminationThreshold {
+		if canDisseminate(msg.R(), c.Round()) {
 			// will be disseminated right away in handleEvent, no need to re-disseminate on reprocessing
+			// note that disseminated will be set to true only on the backlogged copy of the event
 			e.SetDisseminated(true)
-		} else {
-			// will not be disseminated right away, but will be disseminated on reprocessing
-			e.SetDisseminated(false) //TODO: might be unnecessary
 		}
 
-		// TODO: use a pointer for e? in general verify Disseminated related logic
 		r := msg.R()
 		c.futureRoundLock.Lock()
 		c.futureRound[r] = append(c.futureRound[r], e)
@@ -254,6 +257,10 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 
 		c.SendEvent(events.NewFuturePowerChangeEvent(c.Height().Uint64(), r))
 
+		// TODO: there is an unhandled edge case which can cause disseminating the same message twice.
+		// Specifically, if we receive a message for a "far" future round (so CanDisseminate() will return false)
+		// but then that message make the node skip that "far" future round, we will actually disseminate it (as it will
+		// become a current round message). Then when reprocessed as part of the future messages backlog, it will be re-disseminated again
 		c.roundSkipCheck(ctx, r)
 	default:
 		// do nothing
@@ -301,6 +308,7 @@ func (c *Core) handleEvent(ctx context.Context, e events.MessageEvent) {
 	// check if we have quorum for message type for this round
 	hadQuorum := c.quorumFor(msg.Code(), msg.R(), msg.Value())
 
+	defer recordMessageProcessingTime(msg.Code(), start)
 	err := c.handleMsg(ctx, msg)
 	if err != nil {
 		c.logger.Debug("core.Handler: consensus message handling returned error", "err", err, "core height", c.Height().Uint64(), "msg", msg.String())
@@ -318,23 +326,21 @@ func (c *Core) handleEvent(ctx context.Context, e events.MessageEvent) {
 
 	// valid message, mark liveness time
 	c.syncState.setLastLivenessTime(time.Now())
-	defer recordMessageProcessingTime(msg.Code(), start)
 
 	// if we did not have quorum and we reached it now
 	// gossip the (complex) aggregate with quorum to everyone instead of the current message
-	if !hadQuorum && c.quorumFor(msg.Code(), msg.R(), msg.Value()) {
-		c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
+	if !errors.Is(err, constants.ErrFutureRoundMessage) && !hadQuorum && c.quorumFor(msg.Code(), msg.R(), msg.Value()) {
+		c.GossipQuorum(msg.Code(), msg.R(), msg.Value())
 		return // do not gossip single message, only complex aggregate
 	}
 
-	isLocal := c.Address() == e.Sender()
-	switch determineDisseminationStrategy(err, msg.Code(), e.Disseminated(), msg.R(), c.Round()) {
+	switch determineDisseminationStrategy(err, e.Disseminated(), msg.R(), c.Round()) {
 	case noDissemination:
 		// do nothing
 	case slowGossip:
-		go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg, isLocal)
+		go c.backend.SlowGossip(c.CommitteeSet().Committee(), msg, e.Sender())
 	case gossip:
-		go c.backend.Gossip(c.CommitteeSet().Committee(), msg, isLocal)
+		go c.backend.Gossip(c.CommitteeSet().Committee(), msg, e.Sender())
 	default:
 		panic("unknown dissemination strategy")
 	}
@@ -350,7 +356,8 @@ eventLoop:
 			if !ok {
 				break eventLoop
 			}
-			c.proposer.HandleNewCandidateBlockMsg(ctx, &ev.NewCandidateBlock)
+			newCandidateBlockEvent := ev
+			c.proposer.HandleNewCandidateBlockMsg(ctx, &newCandidateBlockEvent.NewCandidateBlock)
 			if c.IsProposer() {
 				addValue(CandidateBlockDelayBg, time.Since(ev.CreatedAt).Nanoseconds())
 			}
@@ -472,21 +479,6 @@ func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
 	}
 
 	return err
-}
-
-func tryDisconnect(errorCh chan<- error, err error) {
-	// errorCh can be nil in case the message is:
-	// 1. an aggregated vote (non-complex)
-	// 2. a locally created message
-	// In both cases no error that causes disconnection can be raised anyways.
-	if errorCh == nil {
-		return
-	}
-
-	select {
-	case errorCh <- err:
-	default: // do nothing
-	}
 }
 
 func redundancyError(didContribute bool) error {

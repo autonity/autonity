@@ -311,7 +311,6 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	if proposal == nil {
 		// Should never happen really. Let's panic to catch bugs.
 		panic("Core commit called with empty proposal")
-		return
 	}
 	proposalHash := proposal.Block().Header().Hash()
 	c.logger.Debug("Committing a block", "hash", proposalHash)

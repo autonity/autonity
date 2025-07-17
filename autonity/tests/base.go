@@ -271,7 +271,10 @@ func activityProof(committee []IAutonityValidator, headerSeal common.Hash, absen
 		}
 		signatures = append(signatures, key.Sign(headerSeal[:]))
 
-		signers.Bits.Set(index, 1)
+		signers.AddSigner(&types.CommitteeMember{
+			Index:       uint64(index), //nolint:gosec
+			VotingPower: common.Big1,
+		})
 		numSigners++
 	}
 	// if there are no signers, return an empty proof

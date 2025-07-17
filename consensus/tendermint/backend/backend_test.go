@@ -170,14 +170,14 @@ func BenchmarkGossip(b *testing.B) {
 	for n := 0; n < 1000; n++ {
 		i := n % 1000
 		//n := time.Now()
-		bk.Gossip(committee, msgs[i], true)
+		bk.Gossip(committee, msgs[i], sender)
 		//b.Log("time in 1 gossip", time.Since(n).Nanoseconds())
 	}
 	b.Run("cache checks", func(b *testing.B) {
 		b.ReportAllocs()
 		for n := 0; n < b.N; n++ {
 			i := n % 1000
-			bk.Gossip(committee, msgs[i], true)
+			bk.Gossip(committee, msgs[i], sender)
 		}
 	})
 }
@@ -227,7 +227,7 @@ func TestGossip(t *testing.T) {
 		gossiper:      NewGossiper(knownMessages, common.Address{}, log.New(), make(chan struct{}), rt),
 	}
 	b.SetBroadcaster(broadcaster)
-	b.Gossip(committee, msg, true)
+	b.Gossip(committee, msg, common.Address{})
 	<-time.NewTimer(2 * time.Second).C
 	if c := atomic.LoadUint64(&counter); c != 4 {
 		t.Fatal("Gossip message transmission failure", "have", c, "want", 4)
@@ -269,7 +269,7 @@ func TestVerifyProposal(t *testing.T) {
 			Signature: committedSeal.(*blst.BlsSignature),
 			Signers:   types.NewSigners(committee.Len()),
 		}
-		quorumCertificate.Signers.Increment(&committee.Members[0])
+		quorumCertificate.Signers.AddSigner(&committee.Members[0])
 		header := block.Header()
 		header.QuorumCertificate = quorumCertificate
 		block = block.WithSeal(header)
@@ -326,7 +326,7 @@ func TestCommit(t *testing.T) {
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
 		quorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(4)}
-		quorumCertificate.Signers.Increment(&committee.Members[0])
+		quorumCertificate.Signers.AddSigner(&committee.Members[0])
 
 		chain, engine := newBlockChain(1)
 		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -384,7 +384,7 @@ func TestCommit(t *testing.T) {
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
 		quorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(1)}
-		quorumCertificate.Signers.Increment(&committee.Members[0])
+		quorumCertificate.Signers.AddSigner(&committee.Members[0])
 
 		err = b.Commit(newBlock, 0, quorumCertificate)
 		if err != nil {

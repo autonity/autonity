@@ -408,7 +408,7 @@ func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (
 		votes[i] = p
 	}
 
-	aggregatePrecommit := message.AggregatePrecommits(votes)
+	aggregatePrecommit := message.AggregatePrecommitsSingle(votes)
 
 	// if we do not have enough voting power, leave the proof empty
 	quorum := bft.Quorum(epochInfo.Committee.TotalVotingPower())

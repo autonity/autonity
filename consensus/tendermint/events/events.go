@@ -32,10 +32,11 @@ type NewCandidateBlockEvent struct {
 
 // UnverifiedMessageEvent is posted from the peer handlers to the aggregator
 type UnverifiedMessageEvent struct {
-	Message message.Msg
-	ErrCh   chan<- error
-	Sender  common.Address
-	Posted  time.Time
+	Message      message.Msg
+	ErrCh        chan<- error
+	Sender       common.Address
+	Posted       time.Time
+	Disseminated bool // proposals can be disseminated early
 }
 
 // MessageEvent is posted from the aggregator to core and the fault detector

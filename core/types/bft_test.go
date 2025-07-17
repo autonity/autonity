@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/autonity/autonity/params"
+	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto/blst"
@@ -35,10 +36,11 @@ func TestHeaderHash(t *testing.T) {
 	posHeaderHash := common.HexToHash("0x5cf94f58b040fca7c695f41a18f447f85955cda27247c98ed24d65bc798cc2f5")
 
 	quorumCertificate := &AggregateSignature{}
-	testKey, _ := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
+	testKey, err := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
+	require.NoError(t, err)
 	quorumCertificate.Signature = testKey.Sign([]byte("0xcafe")).(*blst.BlsSignature)
 	quorumCertificate.Signers = NewSigners(1)
-	quorumCertificate.Signers.increment(0)
+	quorumCertificate.Signers.increment(0, common.Big1)
 
 	activityProof := quorumCertificate.Copy()
 
@@ -129,7 +131,7 @@ func TestHeaderHash(t *testing.T) {
 			setExtra(PosHeader, headerExtra{
 				ActivityProof: activityProof,
 			}),
-			common.HexToHash("0xed56b294e28b72c062a85e0d8a6df84f5215fb433d2d66960f27a2c675fa62f4"),
+			common.HexToHash("0xeed7caad41663db464b20656dc1926fac12cacec0f1bd9634d265ecb393e8766"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{
@@ -142,7 +144,7 @@ func TestHeaderHash(t *testing.T) {
 				ActivityProof:      activityProof,
 				ActivityProofRound: uint64(7),
 			}),
-			common.HexToHash("0xd5ceac2d0f738b13bd838f5f8ecf4741c25143bac9b01674118c9596b67ed6f7"),
+			common.HexToHash("0xe87d18029c1cc7e01a500ffde4c8357dad73a7e23f702d045d403bd8d06a399c"),
 		},
 		{
 			setExtra(PosHeader, headerExtra{

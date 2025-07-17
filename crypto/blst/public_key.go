@@ -3,9 +3,11 @@ package blst
 import (
 	"encoding/hex"
 	"fmt"
+
 	farmhash "github.com/dgryski/go-farm"
 	"github.com/pkg/errors"
 
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
 )
 
@@ -69,6 +71,24 @@ func AggregatePublicKeys(pubs []PublicKey) (PublicKey, error) {
 		return &BlsPublicKey{p: agg.ToAffine()}, nil
 	}
 	return nil, fmt.Errorf("cannot aggregate public keys")
+}
+
+func toAffineKeySet(pubkeys []PublicKey) blstPublicKeySet {
+	var rawKeys blstPublicKeySet
+	for _, pubkey := range pubkeys {
+		rawKeys = append(rawKeys, *pubkey.(*BlsPublicKey).p)
+	}
+	return rawKeys
+}
+
+// returns aggregated public key by multiplying `pubkeys` with `scalars`.
+func AggregatePublicKeysMultScalars(pubkeys []PublicKey, scalars []*blstScalar) PublicKey {
+	rawKeys := toAffineKeySet(pubkeys)
+
+	// TODO: optimize value of nbits. For now fixed to 32, but could probably
+	// 	be set to lower values based on the bitsize of the scalars.
+	aggregatedKeyAffine := rawKeys.Mult(scalars, common.QuorumCap).ToAffine()
+	return &BlsPublicKey{p: aggregatedKeyAffine}
 }
 
 // does group check and infinity check on the public key
