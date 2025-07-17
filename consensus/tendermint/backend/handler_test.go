@@ -218,7 +218,7 @@ func TestSignerJailed(t *testing.T) {
 	// same should happen for an aggregate containing a single jailed signer
 
 	data = message.NewPrevote(0, 1, common.Hash{0xca, 0xfe}, testSigner, &member, 2)
-	data.Signers().AddMember(makeBogusMember(1))
+	data.Signers().AddSigner(makeBogusMember(1))
 	msg = p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
 	errCh = make(chan error, 1)
 	_, err = backend.HandleMsg(testAddress, msg, errCh)

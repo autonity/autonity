@@ -248,7 +248,7 @@ func (s *Signers) increment(index int, votingPower *big.Int) {
 
 // This function adds the `member` in signer `s`. This function assumes that `member` is absent in signer `s`.
 // The caller is responsible to check if `member` is already present in `s` or not.
-func (s *Signers) AddMember(member *CommitteeMember) {
+func (s *Signers) AddSigner(member *CommitteeMember) {
 	if !s.validated {
 		panic("Using un-validated signers information")
 	}

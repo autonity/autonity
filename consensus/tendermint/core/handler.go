@@ -130,7 +130,7 @@ func (c *Core) quorumFor(code uint8, round int64, value common.Hash) bool {
 	return quorum
 }
 
-func (c *Core) GossipComplexAggregate(code uint8, round int64, value common.Hash) {
+func (c *Core) GossipQuorum(code uint8, round int64, value common.Hash) {
 	var votes []message.Vote
 
 	switch code {
@@ -330,7 +330,7 @@ func (c *Core) handleEvent(ctx context.Context, e events.MessageEvent) {
 	// if we did not have quorum and we reached it now
 	// gossip the (complex) aggregate with quorum to everyone instead of the current message
 	if !errors.Is(err, constants.ErrFutureRoundMessage) && !hadQuorum && c.quorumFor(msg.Code(), msg.R(), msg.Value()) {
-		c.GossipComplexAggregate(msg.Code(), msg.R(), msg.Value())
+		c.GossipQuorum(msg.Code(), msg.R(), msg.Value())
 		return // do not gossip single message, only complex aggregate
 	}
 
