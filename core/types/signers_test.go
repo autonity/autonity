@@ -101,7 +101,7 @@ func TestPublicKeyAggregation(t *testing.T) {
 			Address:      common.BigToAddress(big.NewInt(int64(i + 1))),
 			ConsensusKey: privateKey.PublicKey(),
 		})
-		coeffs = append(coeffs, 1)
+		coeffs = append(coeffs, i+1)
 
 		signature := privateKey.Sign(msg[:])
 

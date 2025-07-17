@@ -4,10 +4,11 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/fixsizecache"
 	farmhash "github.com/dgryski/go-farm"
 	"github.com/pkg/errors"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/fixsizecache"
 )
 
 func hashKey(key string) uint {

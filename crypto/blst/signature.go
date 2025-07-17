@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/autonity/autonity/log"
 	"github.com/pkg/errors"
 
 	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/rlp"
 )
 
