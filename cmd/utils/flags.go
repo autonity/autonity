@@ -485,10 +485,6 @@ var (
 		Usage:    "Record information useful for VM and contract debugging",
 		Category: flags.VMCategory,
 	}
-	InsecureUnlockAllowedFlag = cli.BoolFlag{
-		Name:  "allow-insecure-unlock",
-		Usage: "Allow insecure account unlocking when account-related RPCs are exposed by http",
-	}
 	VMTraceFlag = &cli.StringFlag{
 		Name:     "vmtrace",
 		Usage:    "Name of tracer which should record internal VM operations (costly)",
@@ -1344,9 +1340,6 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 	if ctx.IsSet(USBFlag.Name) {
 		cfg.USB = ctx.Bool(USBFlag.Name)
-	}
-	if ctx.IsSet(InsecureUnlockAllowedFlag.Name) {
-		log.Warn(fmt.Sprintf("Option %q is deprecated and has no effect", InsecureUnlockAllowedFlag.Name))
 	}
 	if ctx.IsSet(DBEngineFlag.Name) {
 		dbEngine := ctx.String(DBEngineFlag.Name)
