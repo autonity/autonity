@@ -25,7 +25,7 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     // Events
     event AuctionedDebt(address indexed debtor, address indexed biddor, uint256 collateralAmount, uint256 debtAmount);
     event AuctionedInterest(address indexed biddor, uint256 interestAmount, uint256 paymentAmount);
-    event NewInterestAuction(uint256 auctionId, uint256 amount, uint256 startRound);
+    event NewInterestAuction(uint256 auctionId, uint256 amount, uint256 startTimestamp);
     event PriceUnavailable();
 
     // Public state
@@ -86,12 +86,12 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     └────────────────────────┘
     */
 
-    // @notice Place a bid to liquidate a CDP that is undercollateralized
-    // @param debtor The address of the CDP owner
-    // @param liquidatableRound The earliest round in which the CDP was liquidatable
-    // @param ntnAmount The amount of NTN to receive in exchange for paying off the debt
-    // @dev The caller must send the debt amount in ATN (via msg.value), and ntnAmount must be less than or equal to
-    // maxLiquidationReturn for the caller to successfully execute a liquidation.
+    /// @notice Place a bid to liquidate a CDP that is undercollateralized
+    /// @param debtor The address of the CDP owner
+    /// @param liquidatableRound The earliest round in which the CDP was liquidatable
+    /// @param ntnAmount The amount of NTN to receive in exchange for paying off the debt
+    /// @dev The caller must send the debt amount in ATN (via msg.value), and ntnAmount must be less than or equal to
+    /// maxLiquidationReturn for the caller to successfully execute a liquidation.
     function bidDebt(address debtor, uint256 liquidatableRound, uint256 ntnAmount) external payable nonReentrant {
         IStabilization.CDP memory cdp = _stabilization.cdps(debtor);
         IOracle.RoundData memory round = _oracle.getRoundData(liquidatableRound, StabilizationMath.NTN_SYMBOL);
@@ -129,9 +129,9 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         }
     }
 
-    // @notice Place a bid on an interest auction
-    // @param auction The ID of the auction
-    // @param ntnAmount The amount of NTN to pay for the interest (must be greater than or equal to minInterestPayment)
+    /// @notice Place a bid on an interest auction
+    /// @param auction The ID of the auction
+    /// @param ntnAmount The amount of NTN to pay for the interest (must be greater than or equal to minInterestPayment)
     function bidInterest(uint256 auction, uint256 ntnAmount) external nonReentrant {
         AuctionLib.Auction storage interestAuction = auctions.get(auction);
         uint256 ntnToPay = _minInterestPayment(auction);
@@ -174,9 +174,9 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     └────────────────────────┘
     */
 
-    // @notice Deposit interest payments into the contract
-    // @dev This function is called by the stabilization mechanism contract
-    // reentrancy is expected and allowed when liquidating a position.
+    /// @notice Deposit interest payments into the contract
+    /// @dev This function is called by the stabilization mechanism contract
+    /// reentrancy is expected and allowed when liquidating a position.
     function paidInterest() external payable onlyStabilization {
         _pendingAllocatedInterest += msg.value;
         if (_pendingAllocatedInterest < config.interestAuctionThreshold) {
@@ -199,9 +199,9 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     └────────────────────────┘
     */
 
-    // @notice Set the operator address
-    // @param operator_ The address of the operator
-    // @dev This function is restricted to the Autonity contract
+    /// @notice Set the operator address
+    /// @param operator_ The address of the operator
+    /// @dev This function is restricted to the Autonity contract
     function setOperator(address operator_) external onlyAutonity {
         if (operator_ == address(0)) {
             revert InvalidParameter("operator_");
@@ -210,9 +210,9 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         _operator = operator_;
     }
 
-    // @notice Set the stabilization address
-    // @param stabilization_ The address of the stabilization contract
-    // @dev This function is restricted to the Autonity contract
+    /// @notice Set the stabilization address
+    /// @param stabilization_ The address of the stabilization contract
+    /// @dev This function is restricted to the Autonity contract
     function setStabilization(address stabilization_) external onlyAutonity {
         if (stabilization_ == address(0)) {
             revert InvalidParameter("stabilization_");
@@ -221,9 +221,9 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         _stabilization = IStabilization(stabilization_);
     }
 
-    // @notice Set the oracle address
-    // @param oracle_ The address of the oracle
-    // @dev This function is restricted to the Autonity contract
+    /// @notice Set the oracle address
+    /// @param oracle_ The address of the oracle
+    /// @dev This function is restricted to the Autonity contract
     function setOracle(address oracle_) external onlyAutonity {
         if (oracle_ == address(0)) {
             revert InvalidParameter("oracle_");
@@ -238,8 +238,8 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     └────────────────────┘
     */
 
-    // @notice Set the liquidation auction duration
-    // @param duration The duration of the liquidation auction
+    /// @notice Set the liquidation auction duration
+    /// @param duration The duration of the liquidation auction
     function setLiquidationAuctionDuration(uint256 duration) external onlyOperator {
         if (duration == 0) {
             revert InvalidParameter("duration");
@@ -253,8 +253,8 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         config.liquidationAuctionDuration = duration;
     }
 
-    // @notice Set the interest auction duration
-    // @param duration The duration of the interest auction
+    /// @notice Set the interest auction duration
+    /// @param duration The duration of the interest auction
     function setInterestAuctionDuration(uint256 duration) external onlyOperator {
         if (duration == 0) {
             revert InvalidParameter("duration");
@@ -268,9 +268,9 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         config.interestAuctionDuration = duration;
     }
 
-    // @notice Set the interest auction discount
-    // @param discount The discount applied to the interest auction
-    // @dev The discount is a value between [0,1) with SCALE_FACTOR precision
+    /// @notice Set the interest auction discount
+    /// @param discount The discount applied to the interest auction
+    /// @dev The discount is a value between [0,1) with SCALE_FACTOR precision
     function setInterestAuctionDiscount(uint256 discount) external onlyOperator {
         if (discount >= StabilizationMath.SCALE_FACTOR) {
             revert InvalidParameter("discount");
@@ -284,8 +284,8 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         config.interestAuctionDiscount = discount;
     }
 
-    // @notice Set the interest auction threshold
-    // @param threshold The threshold for starting an interest auction
+    /// @notice Set the interest auction threshold
+    /// @param threshold The threshold for starting an interest auction
     function setInterestAuctionThreshold(uint256 threshold) external onlyOperator {
         if (threshold == 0) {
             revert InvalidParameter("threshold");
@@ -299,8 +299,8 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
         config.interestAuctionThreshold = threshold;
     }
 
-    // @notice Set the proceeds address
-    // @param proceedAddress_ The address to send proceeds to
+    /// @notice Set the proceeds address
+    /// @param proceedAddress_ The address to send proceeds to
     function setProceedAddress(address proceedAddress_) external onlyOperator {
         emit IConfigEvents.ConfigUpdateAddress("proceedAddress", proceedAddress, proceedAddress_, block.number);
         proceedAddress = proceedAddress_;
@@ -312,46 +312,46 @@ contract Auctioneer is IAuctioneer, IConfigEvents, ReentrancyGuard {
     └────────────────┘
     */
 
-    // @notice Get all open interest auctions
-    // @return An array of all open interest auctions
+    /// @notice Get all open interest auctions
+    /// @return An array of all open interest auctions
     function openAuctions() external view nonReentrantView returns (AuctionLib.Auction[] memory) {
         return auctions.values();
     }
 
-    // @notice Get an auction by ID
-    // @param auction The ID of the auction
+    /// @notice Get an auction by ID
+    /// @param auction The ID of the auction
     function getAuction(uint256 auction) external view nonReentrantView returns (AuctionLib.Auction memory) {
         return auctions.get(auction);
     }
 
-    // @notice Get the maximum amount of NTN that can be returned to a liquidator for a given CDP
-    // @param debtor The address of the CDP owner
-    // @param liquidatableRound The earliest round in which the CDP was liquidatable
+    /// @notice Get the maximum amount of NTN that can be returned to a liquidator for a given CDP
+    /// @param debtor The address of the CDP owner
+    /// @param liquidatableRound The earliest round in which the CDP was liquidatable
     function maxLiquidationReturn(address debtor, uint256 liquidatableRound) external view nonReentrantView returns (uint256) {
         IOracle.RoundData memory round = _oracle.getRoundData(liquidatableRound, StabilizationMath.NTN_SYMBOL);
         return _maxLiquidationReturn(debtor, round.timestamp);
     }
 
-    // @notice Get the minimum amount of NTN that can be paid for an interest auction
-    // @param auction The ID of the auction
+    /// @notice Get the minimum amount of NTN that can be paid for an interest auction
+    /// @param auction The ID of the auction
     function minInterestPayment(uint256 auction) external view nonReentrantView returns (uint256) {
         return _minInterestPayment(auction);
     }
 
-    // @notice Get the current Auctioneer configuration
-    // @return the current configuration
+    /// @notice Get the current Auctioneer configuration
+    /// @return the current configuration
     function getConfig() external view returns (Config memory) {
         return config;
     }
 
-    // @notice Get the address of the collateral token
-    // @return the address of the collateral token
+    /// @notice Get the address of the collateral token
+    /// @return the address of the collateral token
     function getCollateralToken() external view returns (address) {
         return address(collateralToken);
     }
 
-    // @notice Get the proceed address
-    // @return the proceed address
+    /// @notice Get the proceed address
+    /// @return the proceed address
     function getProceedAddress() external view returns (address) {
         return proceedAddress;
     }
