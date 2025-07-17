@@ -15,7 +15,7 @@ func ToScalars(coefficients []*big.Int) []*blstScalar {
 	for _, c := range coefficients {
 		// coefficients that exceed 4 bytes (uint32) should get filtered before arriving here
 		if c.BitLen() > common.QuorumCap {
-			panic(fmt.Sprintf("coefficient too big: trying to fit %d bytes in %d", c.BitLen(), BlstScalarBytes))
+			panic(fmt.Sprintf("coefficient too big: trying to fit %d bits in %d", c.BitLen(), common.QuorumCap))
 		}
 		// use little endian, as these coefficients need to multiplied as they are
 		binary.LittleEndian.PutUint32(bytes, uint32(c.Uint64())) //nolint:gosec
