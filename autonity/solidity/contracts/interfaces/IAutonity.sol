@@ -241,22 +241,6 @@ interface IAutonity is IERC20, IScheduleController {
     function approveBonding(address _staker, uint256 _amount) external returns (bool);
 
     /**
-     * @notice Returns the remaining number of NTN that `_staker` will be
-     * allowed to unbond from self-bonded-stake on behalf of `_owner` through `unbondFrom`.
-     * This is zero by default.
-     */
-    function selfUnbondingAllowance(address _owner, address _staker) external view returns (uint256);
-
-    /**
-     * @notice Sets `_amount` as the self-unbonding-allowance of `_staker` over the caller's tokens.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits an {SelfUnbondingApproval} event.
-     */
-    function approveSelfUnbonding(address _staker, uint256 _amount) external returns (bool);
-
-    /**
     * @dev Bonds the inflation rewards to the validator's stake at epoch finalization.
     * Restricted to protocol contracts.
     */
@@ -637,12 +621,6 @@ interface IAutonity is IERC20, IScheduleController {
     * @notice Event emitted after EIP-1559 parameters are updated
     */
     event Eip1559ParamsUpdate(Eip1559 oldParams, Eip1559 newParams);
-
-    /**
-     * @notice Emitted when the self-unbonding-allowance of a `staker` for an `owner` is set by
-     * a call to `approveSelfUnbonding`. `value` is the new `selfUnbondingAllowance`.
-     */
-    event SelfUnbondingApproval(address indexed owner, address indexed staker, uint256 value);
 
     /**
      * @notice Emitted when the bonding-allowance (NTN) of a `_staker` for an `_owner` is set by
