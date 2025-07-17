@@ -444,9 +444,10 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	rawdb.WriteEpochHeaderHash(db, block.Hash())
 	rawdb.WriteChainConfig(db, block.Hash(), g.Config)
 	rawdb.WriteContractsConfig(db, block.NumberU64(), &types.ContractsConfig{
-		EpochPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
-		BlockPeriod: new(big.Int).SetUint64(g.Config.AutonityContractConfig.BlockPeriod),
-		GasLimit:    new(big.Int).SetUint64(g.Config.AutonityContractConfig.GasLimit),
+		EpochPeriod:         new(big.Int).SetUint64(g.Config.AutonityContractConfig.EpochPeriod),
+		BlockPeriod:         new(big.Int).SetUint64(g.Config.AutonityContractConfig.BlockPeriod),
+		GasLimit:            new(big.Int).SetUint64(g.Config.AutonityContractConfig.GasLimit),
+		ClusteringThreshold: new(big.Int).SetUint64(g.Config.AutonityContractConfig.ClusteringThreshold),
 		Accountability: types.AccountabilityParams{
 			Range:       new(big.Int).SetUint64(g.Config.AccountabilityConfig.Range),
 			Delta:       new(big.Int).SetUint64(g.Config.AccountabilityConfig.Delta),
@@ -648,6 +649,7 @@ func DeveloperGenesisBlock(gasLimit uint64, faucet *keystore.Key) *Genesis {
 		GasLimitBoundDivisor:     params.DefaultGasLimitBoundDivisor,
 		BaseFeeChangeDenominator: params.DefaultBaseFeeChangeDenominator,
 		ElasticityMultiplier:     params.DefaultElasticityMultiplier,
+		ClusteringThreshold:      params.DefaultClusteringThreshold,
 		DelegationRate:           1200,             // 12%
 		WithholdingThreshold:     0,                // 0%, no tolerance
 		ProposerRewardRate:       1000,             // 10%

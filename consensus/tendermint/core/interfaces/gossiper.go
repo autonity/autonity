@@ -10,8 +10,8 @@ import (
 
 type Gossiper interface {
 	Gossip(committee *types.Committee, message message.Msg, sender common.Address)
-	AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error
-	SlowGossip(committee *types.Committee, message message.Msg, sender common.Address)
+	AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg, clusteringThreshold int64) error
+	SlowGossip(committee *types.Committee, message message.Msg, sender common.Address, clusteringThreshold int64)
 	SetBroadcaster(broadcaster consensus.Broadcaster)
 	Broadcaster() consensus.Broadcaster
 	KnownMessages() *fixsizecache.Cache[common.Hash, bool]

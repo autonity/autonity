@@ -398,7 +398,11 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 
 	// Ask for sync when the engine starts. Retry few times post which the sync tracker loop will take over
 	for i := 0; i < initialAskSyncRetries; i++ {
-		err := c.backend.AskSync(c.CommitteeSet().Committee(), c.createSyncMsg())
+		c.roundChangeMu.Lock()
+		committee := c.CommitteeSet().Committee()
+		syncMsg := c.createSyncMsg()
+		c.roundChangeMu.Unlock()
+		err := c.backend.AskSync(committee, syncMsg)
 		if err == nil {
 			break
 		}
@@ -432,7 +436,11 @@ eventLoop:
 
 			// no liveness for more than currentSyncTimeout --> askSync to the other nodes
 			c.logger.Warn("⚠️ Consensus liveliness lost", "node", c.Address(), "height", c.Height(), "round", c.Round(), "step", c.Step())
-			err := c.backend.AskSync(c.committee.Committee(), c.createSyncMsg())
+			c.roundChangeMu.Lock()
+			committee := c.CommitteeSet().Committee()
+			syncMsg := c.createSyncMsg()
+			c.roundChangeMu.Unlock()
+			err := c.backend.AskSync(committee, syncMsg)
 			if err != nil {
 				c.logger.Warn("Failed to ask consensus sync", "err", err)
 				// will automatically retry at next iteration

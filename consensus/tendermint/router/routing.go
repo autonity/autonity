@@ -24,11 +24,11 @@ import (
 )
 
 const (
-	ScaleThresholdForClustering = 64
-	latencyDataExpiry           = 5 * time.Minute
-	retryLatencyTimeout         = 30 * time.Second
-	cacheCleanupInterval        = 10 * time.Minute
-	latencyMeasurementDelayCap  = 2000
+	DefaultScaleThresholdForClustering = int64(64)
+	latencyDataExpiry                  = 5 * time.Minute
+	retryLatencyTimeout                = 30 * time.Second
+	cacheCleanupInterval               = 10 * time.Minute
+	latencyMeasurementDelayCap         = 2000
 )
 
 var (
@@ -52,14 +52,17 @@ func Setup(
 }
 
 type Router struct {
-	self           common.Address
-	nodeKey        *ecdsa.PrivateKey
-	epochEventChan chan core.EpochHeadEvent
-	epochEventSub  event.Subscription
-	committee      []common.Address
-	inCommittee    bool
-	cancel         context.CancelFunc
-	wg             sync.WaitGroup
+	self                common.Address
+	nodeKey             *ecdsa.PrivateKey
+	epochEventChan      chan core.EpochHeadEvent
+	epochEventSub       event.Subscription
+	chain               interfaces.BlockChainProvider
+	clusteringThreshold int64
+
+	committee   []common.Address
+	inCommittee bool
+	cancel      context.CancelFunc
+	wg          sync.WaitGroup
 
 	latestLatencies map[common.Address]uint
 	latencyMu       sync.RWMutex
@@ -67,13 +70,12 @@ type Router struct {
 	nodesToRetry map[common.Address]struct{}
 	retryMu      sync.RWMutex
 
-	network             interfaces.ClustersProvider
-	peerFinder          interfaces.PeerFinder
-	latencyFetcher      interfaces.LatencyProvider
-	peerSelector        interfaces.PeerSelector
-	recipientCache      cache.Recipients
-	clusteringThreshold int
-	hashCache           *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
+	network        interfaces.ClustersProvider
+	peerFinder     interfaces.PeerFinder
+	latencyFetcher interfaces.LatencyProvider
+	peerSelector   interfaces.PeerSelector
+	recipientCache cache.Recipients
+	hashCache      *fixsizecache.Cache[common.Hash, bool] // the cache of self messages
 
 	logger log.Logger
 }
@@ -97,8 +99,8 @@ func New(
 		self:                self,
 		peerSelector:        peerSelector,
 		network:             networkProvider,
-		clusteringThreshold: ScaleThresholdForClustering,
 		logger:              logger,
+		clusteringThreshold: DefaultScaleThresholdForClustering,
 	}
 	if metrics.Enabled {
 		router.hashCache = fixsizecache.New[common.Hash, bool](5987, 5, fixsizecache.HashKey[common.Hash])
@@ -130,8 +132,17 @@ func (m *Router) committeeAddresses(committee *types.Committee) []common.Address
 	return addresses
 }
 
+func (m *Router) clusteringThresholdByHeight(height uint64) int64 {
+	threshold, err := m.chain.ClusteringThresholdByHeight(height)
+	if err != nil {
+		log.Error("Router: failed to get clustering threshold", "error", err)
+		return DefaultScaleThresholdForClustering
+	}
+	return threshold.Int64()
+}
+
 func (m *Router) Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
-	if committee.Len() <= m.clusteringThreshold {
+	if int64(committee.Len()) <= m.clusteringThreshold {
 		return m.committeeAddresses(committee), nil
 	}
 	recipients, err := m.peerSelector.SelectPeers(committee, msg, from)
@@ -221,6 +232,8 @@ func (m *Router) Start(ctx context.Context, chain interfaces.BlockChainProvider)
 	m.committee = addresses
 	m.inCommittee = curEpoch.Committee.MemberByAddress(m.self) != nil
 	nw, err := cluster.New(addresses, m.latestLatencies, m.self)
+	m.chain = chain
+	m.clusteringThreshold = m.clusteringThresholdByHeight(curEpoch.EpochBlock.Uint64() + 1)
 	if err != nil {
 		m.logger.Error("Router: failed to create network", "err", err)
 	} else {
@@ -338,7 +351,7 @@ func (m *Router) loop(ctx context.Context) {
 	}()
 
 	wasClustering := false
-	if m.inCommittee && len(m.committee) >= m.clusteringThreshold {
+	if m.inCommittee && int64(len(m.committee)) >= m.clusteringThreshold {
 		wasClustering = true
 	}
 
@@ -347,7 +360,7 @@ func (m *Router) loop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-initialMeasurementTimer.C:
-			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < m.clusteringThreshold {
+			if !m.inCommittee || m.peerFinder == nil || int64(len(m.committee)) < m.clusteringThreshold {
 				continue
 			}
 			m.logger.Debug("Router: initial latency measurement started", "threshold", m.clusteringThreshold)
@@ -357,7 +370,7 @@ func (m *Router) loop(ctx context.Context) {
 			initialMeasurementTimer.C = nil
 		case <-time.After(latencyDataExpiry +
 			time.Duration(rand.Intn(latencyMeasurementDelayCap))*time.Millisecond):
-			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < m.clusteringThreshold {
+			if !m.inCommittee || m.peerFinder == nil || int64(len(m.committee)) < m.clusteringThreshold {
 				continue
 			}
 			if err := m.measureLatency(); err != nil {
@@ -365,7 +378,7 @@ func (m *Router) loop(ctx context.Context) {
 			}
 		case <-retryTicker.C:
 			retryTicker = time.NewTicker(retryLatencyTimeout)
-			if !m.inCommittee || m.peerFinder == nil || len(m.committee) < m.clusteringThreshold {
+			if !m.inCommittee || m.peerFinder == nil || int64(len(m.committee)) < m.clusteringThreshold {
 				continue
 			}
 			if err := m.retryLatency(); err != nil {
@@ -378,7 +391,7 @@ func (m *Router) loop(ctx context.Context) {
 			m.logger.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
 			epoch := epochEv.Header.Epoch
 			m.inCommittee = epoch.Committee.MemberByAddress(m.self) != nil
-			if !m.inCommittee || len(m.committee) < m.clusteringThreshold {
+			if !m.inCommittee || int64(len(m.committee)) < m.clusteringThreshold {
 				m.logger.Info("Router: clustering not needed, skipping measurement")
 				if wasClustering {
 					// reset cluster
@@ -389,6 +402,7 @@ func (m *Router) loop(ctx context.Context) {
 			}
 			wasClustering = true
 			m.updateCommittee(epoch)
+			m.clusteringThreshold = m.clusteringThresholdByHeight(epochEv.Header.Number.Uint64() + 1)
 			// we should never fail here, as we already made sure that we are in committee
 			nw, err := cluster.New(m.committee, m.Latencies(), m.self)
 			if err != nil {

@@ -34,7 +34,7 @@ type rawMSGFuzzer struct {
 }
 
 // Faulty node keeps broadcasting fuzz raw message to committee. Every input message of this interface will be fuzzed.
-func (fg *rawMSGFuzzer) SlowGossip(_ *types.Committee, _ message.Msg, _ common.Address) {
+func (fg *rawMSGFuzzer) SlowGossip(_ *types.Committee, _ message.Msg, _ common.Address, _ int64) {
 	// do nothing
 }
 
@@ -69,7 +69,7 @@ func (fg *rawMSGFuzzer) Gossip(committee *types.Committee, msg message.Msg, _ co
 	}
 }
 
-func (fg *rawMSGFuzzer) AskSync(_ *types.Committee, _ *message.AskSyncMsg) error {
+func (fg *rawMSGFuzzer) AskSync(_ *types.Committee, _ *message.AskSyncMsg, _ int64) error {
 	// do nothing
 	return nil
 }

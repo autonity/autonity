@@ -117,6 +117,7 @@ interface IAutonity is IERC20, IScheduleController {
         uint256 maxScheduleDuration;
         uint256 gasLimit;
         uint256 gasLimitBoundDivisor;
+        uint256 clusteringThreshold;
     }
 
     struct Config {
@@ -156,6 +157,7 @@ interface IAutonity is IERC20, IScheduleController {
         uint256 epochPeriod;
         uint256 blockPeriod;
         uint256 gasLimit;
+        uint256 clusteringThreshold;
         Accountability accountability;
         Eip1559 eip1559;
     }

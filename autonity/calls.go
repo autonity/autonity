@@ -146,9 +146,10 @@ func (c *AutonityContract) CallGetClientConfig(state vm.StateDB, header *types.H
 	result := abi.ConvertType(data[0], new(bindings.IAutonityClientAwareConfig)).(*bindings.IAutonityClientAwareConfig)
 
 	return &types.ContractsConfig{
-		EpochPeriod: result.EpochPeriod,
-		BlockPeriod: result.BlockPeriod,
-		GasLimit:    result.GasLimit,
+		EpochPeriod:         result.EpochPeriod,
+		BlockPeriod:         result.BlockPeriod,
+		GasLimit:            result.GasLimit,
+		ClusteringThreshold: result.ClusteringThreshold,
 		Accountability: types.AccountabilityParams{
 			Range:       result.Accountability.Range,
 			Delta:       result.Accountability.Delta,
@@ -255,9 +256,10 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 	recordFinalizeGasUsage(result.EpochEnded, header.Number.Uint64(), int64(usedGas))
 
 	contractsConfig := &types.ContractsConfig{
-		EpochPeriod: result.Config.EpochPeriod,
-		BlockPeriod: result.Config.BlockPeriod,
-		GasLimit:    result.Config.GasLimit,
+		EpochPeriod:         result.Config.EpochPeriod,
+		BlockPeriod:         result.Config.BlockPeriod,
+		GasLimit:            result.Config.GasLimit,
+		ClusteringThreshold: result.Config.ClusteringThreshold,
 		Accountability: types.AccountabilityParams{
 			Range:       result.Config.Accountability.Range,
 			Delta:       result.Config.Accountability.Delta,

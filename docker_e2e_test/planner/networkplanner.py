@@ -142,6 +142,7 @@ class NetworkPlanner(object):
                     "initialInflationReserve": "0x2116545850052128000000",
                     "skipGenesisVerification": True,
                     "validators": [],
+                    "clusteringThreshold": 64,
                 },
                 "oracle": {"votePeriod": 10},
                 "accountability": {

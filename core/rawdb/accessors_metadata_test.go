@@ -4,10 +4,11 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
-	"github.com/stretchr/testify/require"
 )
 
 func TestReadWriteContractsConfig(t *testing.T) {
@@ -16,9 +17,10 @@ func TestReadWriteContractsConfig(t *testing.T) {
 	db := NewMemoryDatabase()
 
 	config := &types.ContractsConfig{
-		BlockPeriod: common.Big1,
-		EpochPeriod: common.Big256,
-		GasLimit:    new(big.Int).SetUint64(20_000_000),
+		BlockPeriod:         common.Big1,
+		EpochPeriod:         common.Big256,
+		GasLimit:            new(big.Int).SetUint64(20_000_000),
+		ClusteringThreshold: new(big.Int).SetUint64(64),
 		Accountability: types.AccountabilityParams{
 			Range:       big.NewInt(100),
 			Delta:       big.NewInt(10),

@@ -174,6 +174,7 @@ func toContractConfig(acg *params.AutonityContractGenesis) bindings.IAutonityCon
 			MaxScheduleDuration:  new(big.Int).SetUint64(acg.MaxScheduleDuration),
 			GasLimit:             new(big.Int).SetUint64(acg.GasLimit),
 			GasLimitBoundDivisor: new(big.Int).SetUint64(acg.GasLimitBoundDivisor),
+			ClusteringThreshold:  new(big.Int).SetUint64(acg.ClusteringThreshold),
 		},
 		ContractVersion: big.NewInt(1),
 	}

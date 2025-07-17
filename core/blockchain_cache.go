@@ -27,6 +27,14 @@ func (bc *BlockChain) GasLimitByHeight(height uint64) (*big.Int, error) {
 	return config.GasLimit, nil
 }
 
+func (bc *BlockChain) ClusteringThresholdByHeight(height uint64) (*big.Int, error) {
+	config, err := bc.readContractsConfigByHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	return config.ClusteringThreshold, nil
+}
+
 func (bc *BlockChain) AccountabilityParamsByHeight(height uint64) (*types.AccountabilityParams, error) {
 	config, err := bc.readContractsConfigByHeight(height)
 	if err != nil {

@@ -222,7 +222,13 @@ func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 }
 
 func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
-	return sb.gossiper.AskSync(committee, syncMsg)
+	clusteringThreshold := router.DefaultScaleThresholdForClustering
+	if threshold, err := sb.blockchain.ClusteringThresholdByHeight(syncMsg.Height); err == nil {
+		clusteringThreshold = threshold.Int64()
+	} else {
+		sb.logger.Error("Failed to get clustering threshold, using default", "err", err, "height", syncMsg.Height)
+	}
+	return sb.gossiper.AskSync(committee, syncMsg, clusteringThreshold)
 }
 
 // Gossip implements tendermint.Backend.Gossip
@@ -231,7 +237,13 @@ func (sb *Backend) Gossip(committee *types.Committee, msg message.Msg, sender co
 }
 
 func (sb *Backend) SlowGossip(committee *types.Committee, msg message.Msg, sender common.Address) {
-	sb.gossiper.SlowGossip(committee, msg, sender)
+	clusteringThreshold := router.DefaultScaleThresholdForClustering
+	if threshold, err := sb.blockchain.ClusteringThresholdByHeight(msg.H()); err == nil {
+		clusteringThreshold = threshold.Int64()
+	} else {
+		sb.logger.Error("Failed to get clustering threshold, using default", "err", err, "height", msg.H())
+	}
+	sb.gossiper.SlowGossip(committee, msg, sender, clusteringThreshold)
 }
 
 // UpdateStopChannel implements tendermint.Backend.Gossip

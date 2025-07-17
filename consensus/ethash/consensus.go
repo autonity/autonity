@@ -603,9 +603,10 @@ func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header
 	accumulateRewards(chain.Config(), state, header, uncles)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	contractsConfig := &types.ContractsConfig{
-		EpochPeriod: new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.EpochPeriod),
-		BlockPeriod: new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.BlockPeriod),
-		GasLimit:    new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.GasLimit),
+		EpochPeriod:         new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.EpochPeriod),
+		BlockPeriod:         new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.BlockPeriod),
+		GasLimit:            new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.GasLimit),
+		ClusteringThreshold: new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.ClusteringThreshold),
 		Accountability: types.AccountabilityParams{
 			Range:       new(big.Int).SetUint64(params.TestChainConfig.AccountabilityConfig.Range),
 			Delta:       new(big.Int).SetUint64(params.TestChainConfig.AccountabilityConfig.Delta),

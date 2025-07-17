@@ -18,9 +18,10 @@ import (
 func TestPrepareChainConfig(t *testing.T) {
 	committeeSize := 21
 	contractConfig := AutonityContractGenesis{
-		Operator:         common.HexToAddress("0xff"),
-		MaxCommitteeSize: uint64(committeeSize),
-		EpochPeriod:      50,
+		Operator:            common.HexToAddress("0xff"),
+		MaxCommitteeSize:    uint64(committeeSize),
+		EpochPeriod:         50,
+		ClusteringThreshold: 64,
 	}
 
 	for i := 0; i < committeeSize; i++ {
@@ -48,9 +49,10 @@ func TestPrepareChainConfig(t *testing.T) {
 
 func TestPrepareChainConfig_ParticipantHaveStake_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
-		Operator:         common.HexToAddress("0xff"),
-		MaxCommitteeSize: 21,
-		EpochPeriod:      50,
+		Operator:            common.HexToAddress("0xff"),
+		MaxCommitteeSize:    21,
+		EpochPeriod:         50,
+		ClusteringThreshold: 64,
 		Validators: []*Validator{
 			{
 				Treasury: common.Address{},
@@ -68,9 +70,10 @@ func TestPrepareChainConfig_InvalidAddrOrEnode_Fail(t *testing.T) {
 	t.Skip("Do we need it?")
 	address := common.HexToAddress("0x123")
 	contractConfig := AutonityContractGenesis{
-		Operator:         common.HexToAddress("0xff"),
-		MaxCommitteeSize: 21,
-		EpochPeriod:      50,
+		Operator:            common.HexToAddress("0xff"),
+		MaxCommitteeSize:    21,
+		EpochPeriod:         50,
+		ClusteringThreshold: 64,
 		Validators: []*Validator{
 			{
 				NodeAddress: &address,
@@ -102,9 +105,10 @@ func TestPrepareChainConfig_GovernanceOperatorNotExisted_Fail(t *testing.T) {
 func TestPrepareChainConfig_EpochPeriod(t *testing.T) {
 	committeeSize := 21
 	contractConfig := AutonityContractGenesis{
-		Operator:         common.HexToAddress("0xff"),
-		MaxCommitteeSize: uint64(committeeSize),
-		EpochPeriod:      30,
+		Operator:            common.HexToAddress("0xff"),
+		MaxCommitteeSize:    uint64(committeeSize),
+		EpochPeriod:         30,
+		ClusteringThreshold: 64,
 	}
 
 	for i := 0; i < committeeSize; i++ {
@@ -165,8 +169,9 @@ func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 	require.NoError(t, err)
 
 	contractConfig := &AutonityContractGenesis{
-		MaxCommitteeSize: 21,
-		EpochPeriod:      50,
+		MaxCommitteeSize:    21,
+		EpochPeriod:         50,
+		ClusteringThreshold: 64,
 		Validators: []*Validator{
 			{
 				Treasury:      crypto.PubkeyToAddress(treasury.PublicKey),
@@ -184,9 +189,10 @@ func TestPrepareAutonityContract_AddsUserAddress(t *testing.T) {
 
 func TestPrepareAutonityContract_CommitteSizeNotProvided_Fail(t *testing.T) {
 	contractConfig := AutonityContractGenesis{
-		Operator:    common.HexToAddress("0xff"),
-		EpochPeriod: 50,
-		Validators:  []*Validator{},
+		Operator:            common.HexToAddress("0xff"),
+		EpochPeriod:         50,
+		ClusteringThreshold: 64,
+		Validators:          []*Validator{},
 	}
 	chainConfig := ChainConfig{AutonityContractConfig: &contractConfig, OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig, AccountabilityConfig: TestAccountabilityConfig}
 	err := chainConfig.Prepare()

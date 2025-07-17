@@ -9,7 +9,6 @@ import (
 	"github.com/autonity/autonity/common/fixsizecache"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/router"
 	"github.com/autonity/autonity/consensus/tendermint/router/interfaces"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
@@ -73,11 +72,11 @@ func (g *Gossiper) UpdateStopChannel(stopCh chan struct{}) {
 	g.stopped = stopCh
 }
 
-func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg, sender common.Address) {
+func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg, sender common.Address, clusteringThreshold int64) {
 	// only gossip to very small committee
 	numTargets := len(committee.Members)
 	targetIndices := rand.Perm(numTargets) // target indices to select from the full committee
-	if numTargets > router.ScaleThresholdForClustering {
+	if int64(numTargets) > clusteringThreshold {
 		numTargets = int(math.Sqrt(float64(numTargets)))
 	}
 	recipients := make([]common.Address, numTargets)
@@ -107,7 +106,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg, sender co
 	g.router.Forward(committee, msg, sender, nil)
 }
 
-func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
+func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg, clusteringThreshold int64) error {
 	// bail out early if we don't have a broadcaster
 	if g.broadcaster == nil {
 		return fmt.Errorf("broadcaster not initialized")
@@ -120,7 +119,7 @@ func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncM
 	}
 
 	var numTargets int
-	if committee.Len() > router.ScaleThresholdForClustering {
+	if int64(committee.Len()) > clusteringThreshold {
 		numTargets = int(math.Sqrt(float64(committee.Len())))
 	} else {
 		numTargets = committee.Len()

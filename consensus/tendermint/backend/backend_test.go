@@ -115,6 +115,7 @@ func TestAskSync(t *testing.T) {
 		knownMessages: knownMessages,
 		gossiper:      NewGossiper(knownMessages, localAddress, log.New(), make(chan struct{}), rt),
 		logger:        log.New("backend", "test", "id", 0),
+		blockchain:    newTestBlockchain(),
 	}
 	b.SetBroadcaster(broadcaster)
 
