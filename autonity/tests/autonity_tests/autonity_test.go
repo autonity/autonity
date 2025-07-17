@@ -308,10 +308,14 @@ func TestBondingAllowance(t *testing.T) {
 	owner := common.HexToAddress("0x123")
 	staker := common.HexToAddress("0x321")
 
-	allow := func(r *tests.Runner, allowance *big.Int) {
+	allow := func(r *tests.Runner, allowance *big.Int, sender ...common.Address) {
+		fundOwner := owner
+		if len(sender) > 0 {
+			fundOwner = sender[0]
+		}
 		r.NoError(
 			r.Autonity.ApproveBonding(
-				tests.FromSender(owner, nil),
+				tests.FromSender(fundOwner, nil),
 				staker,
 				allowance,
 			),
@@ -328,10 +332,14 @@ func TestBondingAllowance(t *testing.T) {
 		)
 	}
 
-	bondFrom := func(r *tests.Runner, bond *big.Int) error {
+	bondFrom := func(r *tests.Runner, bond *big.Int, sender ...common.Address) error {
+		fundOwner := owner
+		if len(sender) > 0 {
+			fundOwner = sender[0]
+		}
 		_, err := r.Autonity.BondFrom(
 			tests.FromSender(staker, nil),
-			owner,
+			fundOwner,
 			validator,
 			bond,
 		)
@@ -451,166 +459,25 @@ func TestBondingAllowance(t *testing.T) {
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: ERC20: transfer amount exceeds allowance", err.Error())
 	})
-}
 
-func TestSelfUnbondingAllowance(t *testing.T) {
-	validator := common.Address{}
-	owner := common.Address{}
-	staker := common.HexToAddress("0x123")
-	var bondedStake *big.Int
+	tests.RunWithSetup("cannot self-bond with allowance", setup, func(r *tests.Runner) {
+		treasury := r.Committee.Validators[0].Treasury
+		allowance := big.NewInt(100)
+		allow(r, allowance, treasury)
+		err := bondFrom(r, allowance, treasury)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: cannot bond PAS using allowance", err.Error())
+	})
 
-	setup := func() *tests.Runner {
-		r := tests.Setup(t, nil)
-		validator = r.Committee.Validators[0].NodeAddress
-		owner = r.Committee.Validators[0].Treasury
-		bondedStake = r.CheckErrorAndGetData(
-			r.Autonity.GetValidator(nil, validator),
-		).(tests.IAutonityValidator).SelfBondedStake
-		return r
-	}
-
-	allow := func(r *tests.Runner, allowance *big.Int) {
-		r.NoError(
-			r.Autonity.ApproveSelfUnbonding(
-				tests.FromSender(owner, nil),
-				staker,
-				allowance,
-			),
-		)
-	}
-
-	checkAllowance := func(r *tests.Runner, expAllowance *big.Int) {
-		actualAllowance := r.CheckErrorAndGetData(r.Autonity.SelfUnbondingAllowance(nil, owner, staker)).(*big.Int)
-		if expAllowance.Cmp(common.Big0) == 0 {
-			require.True(r.T, actualAllowance.Cmp(common.Big0) == 0)
-		} else {
-			require.Equal(
-				r.T,
-				expAllowance,
-				actualAllowance,
-			)
-		}
-	}
-
-	unbondFrom := func(r *tests.Runner, unbond *big.Int) error {
+	tests.RunWithSetup("cannot call unbondFrom from the treasury", setup, func(r *tests.Runner) {
+		treasury := r.Committee.Validators[0].Treasury
 		_, err := r.Autonity.UnbondFrom(
 			tests.FromSender(staker, nil),
-			owner,
+			treasury,
 			validator,
-			unbond,
-		)
-		return err
-	}
-
-	unbondWithNoError := func(r *tests.Runner, allowance, unbond *big.Int) {
-		allow(r, allowance)
-		err := unbondFrom(r, unbond)
-		require.NoError(r.T, err)
-	}
-
-	tests.RunWithSetup("can approve any amount", setup, func(r *tests.Runner) {
-		allowance := new(big.Int).Add(bondedStake, common.Big1)
-		allow(r, allowance)
-		checkAllowance(r, allowance)
-	})
-
-	tests.RunWithSetup("cannot unbond more than allowed", setup, func(r *tests.Runner) {
-		allowance := new(big.Int).Sub(bondedStake, common.Big1)
-		allow(r, allowance)
-		err := unbondFrom(r, bondedStake)
-		require.Error(r.T, err)
-		require.Equal(
-			r.T,
-			"execution reverted: amount exceeds allowance",
-			err.Error(),
-		)
-	})
-
-	tests.RunWithSetup("can unbond allowance", setup, func(r *tests.Runner) {
-		unbondWithNoError(r, bondedStake, bondedStake)
-	})
-
-	tests.RunWithSetup("unbonding change allowance", setup, func(r *tests.Runner) {
-		spare := big.NewInt(100)
-		unbond := big.NewInt(100)
-		allowance := new(big.Int).Add(spare, unbond)
-		unbondWithNoError(r, allowance, unbond)
-		checkAllowance(r, spare)
-	})
-
-	tests.RunWithSetup("unbonding from allowance goes to proper owner", setup, func(r *tests.Runner) {
-		ownerBalance := r.CheckErrorAndGetData(
-			r.Autonity.BalanceOf(nil, owner),
-		).(*big.Int)
-		stakerBalance := r.CheckErrorAndGetData(
-			r.Autonity.BalanceOf(nil, staker),
-		).(*big.Int)
-
-		unbond := big.NewInt(100)
-		unbondWithNoError(r, unbond, unbond)
-		unbondingID := common.Big0
-
-		r.WaitNextEpoch()
-		for {
-			r.WaitNextEpoch()
-			isReleased := r.CheckErrorAndGetData(
-				r.Autonity.IsUnbondingReleased(nil, unbondingID),
-			).(bool)
-			if isReleased {
-				break
-			}
-		}
-
-		require.Equal(
-			r.T,
-			stakerBalance,
-			r.CheckErrorAndGetData(
-				r.Autonity.BalanceOf(nil, staker),
-			).(*big.Int),
-		)
-
-		require.Equal(
-			r.T,
-			new(big.Int).Add(ownerBalance, unbond),
-			r.CheckErrorAndGetData(
-				r.Autonity.BalanceOf(nil, owner),
-			).(*big.Int),
-		)
-	})
-
-	tests.RunWithSetup("can reset allowance", setup, func(r *tests.Runner) {
-		allowance := big.NewInt(100)
-		allow(r, allowance)
-		checkAllowance(r, allowance)
-
-		allowance = big.NewInt(200)
-		allow(r, allowance)
-		checkAllowance(r, allowance)
-
-		allowance = big.NewInt(0)
-		allow(r, allowance)
-		checkAllowance(r, allowance)
-	})
-
-	tests.RunWithSetup("cannot transfer allowance", setup, func(r *tests.Runner) {
-		allowance := big.NewInt(100)
-		allow(r, allowance)
-
-		_, err := r.Autonity.Transfer(
-			tests.FromSender(staker, nil),
-			owner,
-			allowance,
+			big.NewInt(100),
 		)
 		require.Error(r.T, err)
-		require.Equal(r.T, "execution reverted: amount exceeds balance", err.Error())
-
-		_, err = r.Autonity.TransferFrom(
-			tests.FromSender(staker, nil),
-			owner,
-			staker,
-			allowance,
-		)
-		require.Error(r.T, err)
-		require.Equal(r.T, "execution reverted: ERC20: transfer amount exceeds allowance", err.Error())
+		require.Equal(r.T, "execution reverted: cannot unbond PAS using allowance", err.Error())
 	})
 }
