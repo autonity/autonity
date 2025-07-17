@@ -54,8 +54,8 @@ func VerifyEip1559Header(config *params.ChainConfig, feeGetter BaseFeeGetter, pa
 		//  corresponding eip-1559 params for each block from the epoch object.
 		expectedBaseFee := CalcBaseFee(config, parent, feeGetter)
 		if header.BaseFee.Cmp(expectedBaseFee) != 0 {
-			return fmt.Errorf("invalid baseFee: have %s, want %s, parentBaseFee %s, parentGasUsed %d",
-				expectedBaseFee, header.BaseFee, parent.BaseFee, parent.GasUsed)
+			return fmt.Errorf("invalid baseFee: expected %s, have %s, parentBaseFee %s, parentGasUsed %d, parentGasLimit %d",
+				expectedBaseFee, header.BaseFee, parent.BaseFee, parent.GasUsed, parent.GasLimit)
 		}
 	}
 	return nil
