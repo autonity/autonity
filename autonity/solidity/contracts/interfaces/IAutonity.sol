@@ -216,7 +216,7 @@ interface IAutonity is IERC20, IScheduleController {
 
     /**
     * @notice Create an unbonding request with the `_account` as delegator. The caller needs to have required
-    * unbonding-allowance (self-unbonding-allowance) to unbond LNTN (NTN) from the `_account`.
+    * unbonding-allowance to unbond LNTN from the `_account`.
     * @param _account address of the delegator.
     * @param _validator address of the validator to unbond stake to.
     * @param _amount total amount of LNTN (or NTN if self delegated) to unbond.
@@ -225,20 +225,20 @@ interface IAutonity is IERC20, IScheduleController {
     function unbondFrom(address _account, address _validator, uint256 _amount) external returns (uint256);
 
     /**
-     * @notice Returns the remaining number of NTN that `_staker` will be
+     * @notice Returns the remaining number of NTN that `_caller` will be
      * allowed to bond on behalf of `_owner` through `bondFrom`.
      * This is zero by default.
      */
-    function bondingAllowance(address _owner, address _staker) external view returns (uint256);
+    function bondingAllowance(address _owner, address _caller) external view returns (uint256);
 
     /**
-     * @notice Sets `_amount` as the bonding-allowance (NTN) of `_staker` over the caller's tokens.
+     * @notice Sets `_amount` as the bonding-allowance (NTN) of `_caller` over the caller's tokens.
      *
      * Returns a boolean value indicating whether the operation succeeded.
      *
      * Emits an {BondingApproval} event.
      */
-    function approveBonding(address _staker, uint256 _amount) external returns (bool);
+    function approveBonding(address _caller, uint256 _amount) external returns (bool);
 
     /**
     * @dev Bonds the inflation rewards to the validator's stake at epoch finalization.
@@ -526,12 +526,12 @@ interface IAutonity is IERC20, IScheduleController {
     * put in custody immediately from the delegator's account.
     * @param validator The validator node account.
     * @param delegator The recipient of the bonding request.
-    * @param staker The caller.
+    * @param caller The caller.
     * @param selfBonded True if the validator treasury initiated the request. No LNEW will be issued.
     * @param amount The amount of NEWTON to be delegated.
     * @param headBondingID  id of the request in bonding map
     */
-    event NewBondingRequest(address indexed validator, address indexed delegator, address indexed staker,
+    event NewBondingRequest(address indexed validator, address indexed delegator, address indexed caller,
         bool selfBonded, uint256 amount, uint256 headBondingID);
 
     /**
@@ -550,12 +550,12 @@ interface IAutonity is IERC20, IScheduleController {
     * may or may not be correspond to the amount requested.
     * @param validator The validator node account.
     * @param delegator The recipient of the unbonding request.
-    * @param staker The caller.
+    * @param caller The caller.
     * @param selfBonded True if the validator treasury initiated the request.
     * @param amount If self-bonded this is the requested amount of NEWTON to be unbonded.
     * @param headUnbondingID id of the request in unbonding map
     */
-    event NewUnbondingRequest(address indexed validator, address indexed delegator, address indexed staker, bool selfBonded, uint256 amount, uint256 headUnbondingID);
+    event NewUnbondingRequest(address indexed validator, address indexed delegator, address indexed caller, bool selfBonded, uint256 amount, uint256 headUnbondingID);
 
     /**
     * @notice emitted when a new validator is registered
@@ -625,9 +625,9 @@ interface IAutonity is IERC20, IScheduleController {
     event Eip1559ParamsUpdate(Eip1559 oldParams, Eip1559 newParams);
 
     /**
-     * @notice Emitted when the bonding-allowance (NTN) of a `_staker` for an `_owner` is set by
+     * @notice Emitted when the bonding-allowance (NTN) of a `_caller` for an `_owner` is set by
      * a call to `approveBonding`. `_value` is the new `bondingAllowance` (NTN).
      */
-    event BondingApproval(address indexed _owner, address indexed _staker, uint256 _value);
+    event BondingApproval(address indexed _owner, address indexed _caller, uint256 _value);
 
 }

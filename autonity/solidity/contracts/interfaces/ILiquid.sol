@@ -19,10 +19,10 @@ interface ILiquid is IERC20 {
     function lock(address _account, uint256 _amount) external;
 
     /**
-     * @notice Lock LNTN from `_account` to unbond at the epoch end. `_staker` is the caller
+     * @notice Lock LNTN from `_account` to unbond at the epoch end. `_caller` is the caller
      * and must have enough `unbondingAllowance`.
      */
-    function lockFrom(address _account, address _staker, uint256 _amount) external;
+    function lockFrom(address _account, address _caller, uint256 _amount) external;
 
     /**
      * @notice Change validator commission rate.
@@ -86,24 +86,24 @@ interface ILiquid is IERC20 {
     function getTreasuryUnclaimedATN() external view returns (uint256);
 
     /**
-     * @notice Returns the remaining number of LNTN that `_staker` will be
+     * @notice Returns the remaining number of LNTN that `_caller` will be
      * allowed to unbond on behalf of `_owner` through `unbondFrom`.
      * This is zero by default.
      */
-    function unbondingAllowance(address _owner, address _staker) external view returns (uint256);
+    function unbondingAllowance(address _owner, address _caller) external view returns (uint256);
 
     /**
-     * @notice Sets `_amount` as the unbond-allowance (LNTN) of `_staker` over the caller's tokens.
+     * @notice Sets `_amount` as the unbond-allowance (LNTN) of `_caller` over the caller's tokens.
      *
      * Returns a boolean value indicating whether the operation succeeded.
      *
      * Emits an {UnbondingApproval} event.
      */
-    function approveUnbonding(address _staker, uint256 _amount) external returns (bool);
+    function approveUnbonding(address _caller, uint256 _amount) external returns (bool);
 
     /**
-     * @notice Emitted when the unbond-allowance (LNTN) of a `_staker` for an `_owner` is set by
+     * @notice Emitted when the unbond-allowance (LNTN) of a `_caller` for an `_owner` is set by
      * a call to `approveUnbonding`. `_value` is the new unbond-allowance (LNTN).
      */
-    event UnbondingApproval(address indexed _owner, address indexed _staker, uint256 _value);
+    event UnbondingApproval(address indexed _owner, address indexed _caller, uint256 _value);
 }
