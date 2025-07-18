@@ -75,7 +75,7 @@ func TestAggregatorCache(t *testing.T) {
 		cache.addVote(prevote, stepReceived)
 
 		require.True(t, cache.voteCaches[message.PrevoteCode][stepReceived].contains(
-			h, r, value, prevote.Signers().Bits.ToSingleBitmap(committee.Len()),
+			h, r, value, prevote.Signers().Bitmap,
 		))
 	})
 
@@ -94,19 +94,19 @@ func TestAggregatorCache(t *testing.T) {
 		aggregatedVote := message.AggregatePrevotes([]message.Vote{prevote1, prevote2})
 
 		cache.markCommittee(h, committee)
-		cache.addVote(aggregatedVote, stepReceived)
+		cache.addVote(aggregatedVote[0], stepReceived)
 
 		require.True(t, cache.voteCaches[message.PrevoteCode][stepReceived].contains(
 			h,
 			r,
 			prevote1.Value(),
-			prevote1.Signers().Bits.ToSingleBitmap(committee.Len()),
+			prevote1.Signers().Bitmap,
 		))
 		require.True(t, cache.voteCaches[message.PrevoteCode][stepReceived].contains(
 			h,
 			r,
 			prevote2.Value(),
-			prevote2.Signers().Bits.ToSingleBitmap(committee.Len()),
+			prevote2.Signers().Bitmap,
 		))
 
 		// This should filter the prevote, as the signer is already included in the aggregated vote
@@ -114,7 +114,6 @@ func TestAggregatorCache(t *testing.T) {
 		defer close(errCh)
 
 		prevoteFiltered := cache.filter(
-			committee.Len(),
 			events.UnverifiedMessageEvent{
 				Message: prevote1,
 				Sender:  committee.Members[0].Address,
@@ -147,20 +146,19 @@ func TestAggregatorCache(t *testing.T) {
 			h,
 			r,
 			prevote.Value(),
-			prevote.Signers().Bits.ToSingleBitmap(committee.Len()),
+			prevote.Signers().Bitmap,
 		))
 		require.True(t, cache.voteCaches[message.PrevoteCode][stepDispatched].contains(
 			h,
 			r,
 			prevote.Value(),
-			prevote.Signers().Bits.ToSingleBitmap(committee.Len()),
+			prevote.Signers().Bitmap,
 		))
 
 		errCh := make(chan<- error)
 		defer close(errCh)
 
 		require.True(t, cache.filter(
-			committee.Len(),
 			events.UnverifiedMessageEvent{
 				Message: prevote,
 				Sender:  committee.Members[0].Address,
@@ -200,8 +198,8 @@ func TestAggregatorCachePowerCalculations(t *testing.T) {
 
 		cache.markCommittee(h, committee)
 
-		cache.addVote(voteA, stepReceived)
-		cache.addVote(voteB, stepReceived)
+		cache.addVote(voteA[0], stepReceived)
+		cache.addVote(voteB[0], stepReceived)
 
 		power := cache.presentPowerForValue(h, r, value, message.PrevoteCode, stepReceived)
 		require.NotNil(t, power, "power should not be nil")
@@ -248,8 +246,8 @@ func TestAggregatorCachePowerCalculations(t *testing.T) {
 		}
 		voteB := message.AggregatePrecommits(votesB)
 
-		cache.addEvent(events.UnverifiedMessageEvent{Message: voteA}, stepReceived)
-		cache.addEvent(events.UnverifiedMessageEvent{Message: voteB}, stepReceived)
+		cache.addEvent(events.UnverifiedMessageEvent{Message: voteA[0]}, stepReceived)
+		cache.addEvent(events.UnverifiedMessageEvent{Message: voteB[0]}, stepReceived)
 
 		power := cache.totalPowerForRound(h, r, stepReceived)
 		require.NotNil(t, power, "power should not be nil")
@@ -294,37 +292,37 @@ func TestAggregatorCachePowerCalculations(t *testing.T) {
 func TestBitmapLogic(t *testing.T) {
 	t.Run("signers should align with bitmap indexes", func(t *testing.T) {
 		signers := types.NewSigners(committee.Len())
-		signers.Increment(&committee.Members[0])
-		signers.Increment(&committee.Members[3])
-		signers.Increment(&committee.Members[5])
+		signers.AddSigner(&committee.Members[0])
+		signers.AddSigner(&committee.Members[3])
+		signers.AddSigner(&committee.Members[5])
 
-		bm := oneBitmap(signers.Bits.ToSingleBitmap(committee.Len()))
-		indexes := bm.presentIndexes()
+		bm := signers.Bitmap
+		indexes := bm.Indexes()
 		require.Equal(t, 3, len(indexes), "should have 3 indexes present in the bitmap")
 		require.Equal(t, []int{0, 3, 5}, indexes, "indexes should match the signers present in the bitmap")
 	})
 
 	t.Run("should properly merge bitmaps with different sets", func(t *testing.T) {
 		signersA := types.NewSigners(committee.Len())
-		signersA.Increment(&committee.Members[0])
-		signersA.Increment(&committee.Members[3])
-		signersA.Increment(&committee.Members[5])
+		signersA.AddSigner(&committee.Members[0])
+		signersA.AddSigner(&committee.Members[3])
+		signersA.AddSigner(&committee.Members[5])
 
-		bmA := oneBitmap(signersA.Bits.ToSingleBitmap(committee.Len()))
+		bmA := signersA.Bitmap
 
 		signersB := types.NewSigners(committee.Len())
-		signersB.Increment(&committee.Members[1])
-		signersB.Increment(&committee.Members[4])
-		signersB.Increment(&committee.Members[5])
-		bmB := oneBitmap(signersB.Bits.ToSingleBitmap(committee.Len()))
+		signersB.AddSigner(&committee.Members[1])
+		signersB.AddSigner(&committee.Members[4])
+		signersB.AddSigner(&committee.Members[5])
+		bmB := signersB.Bitmap
 
-		require.False(t, bmA.contains(bmB))
+		require.False(t, bmA.Contains(bmB))
 
-		merged := bmA.merge(bmB)
-		require.True(t, merged.contains(bmA), "merged bitmap should contain the first bitmap")
-		require.True(t, merged.contains(bmB), "merged bitmap should contain the second bitmap")
+		merged := bmA.Merge(bmB)
+		require.True(t, merged.Contains(bmA), "merged bitmap should contain the first bitmap")
+		require.True(t, merged.Contains(bmB), "merged bitmap should contain the second bitmap")
 
-		indexes := merged.presentIndexes()
+		indexes := merged.Indexes()
 		require.Equal(t, []int{0, 1, 3, 4, 5}, indexes, "merged bitmap should have indexes from both bitmaps")
 	})
 

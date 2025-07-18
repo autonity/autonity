@@ -14,7 +14,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
@@ -565,7 +564,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	if err != nil {
 		panic(fmt.Sprintf("cannot get committee of height: %d", msg.H()))
 	}
-	if a.signerSetCache.filter(committee.Len(), event) {
+	if a.signerSetCache.filter(event) {
 		return // already processed a message with more signers
 	}
 	// mark committee size for the height to avoid any more calls to CommitteeByHeight

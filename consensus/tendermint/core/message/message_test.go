@@ -2,14 +2,15 @@ package message
 
 import (
 	"bytes"
-	"errors"
-	"math/big"
-	"math/rand"
-	"reflect"
-
 	"crypto/rand"
+	"errors"
 	"fmt"
+	"math/big"
+	"reflect"
 	"testing"
+
+	"github.com/influxdata/influxdb/pkg/deep"
+	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
@@ -19,8 +20,6 @@ import (
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
-	"github.com/influxdata/influxdb/pkg/deep"
-	"github.com/stretchr/testify/require"
 )
 
 // locally created messages are considered as verified, we decode it to simulate a msgs arriving from the wire

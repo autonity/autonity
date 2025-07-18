@@ -1026,7 +1026,8 @@ func TestAggregatorProcess(t *testing.T) {
 			makeBogusEvent(message.NewPrecommit(r, h, otherValue, testSigner, &committee.Members[4], csize)),
 			makeBogusEvent(message.NewPrecommit(r, h, otherValue, testSigner, &committee.Members[5], csize)),
 		})
-		aggregate1 := message.AggregatePrecommits([]message.Vote{message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize), message.NewPrecommit(r, h, value, testSigner, &committee.Members[3], csize)})
+		aggregate1 := message.AggregatePrecommits([]message.Vote{message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize),
+			message.NewPrecommit(r, h, value, testSigner, &committee.Members[3], csize)})
 		aggregate2 := message.AggregatePrecommits([]message.Vote{message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], csize), message.NewPrecommit(r, h, value, testSigner, &committee.Members[4], csize)})
 		batches = append(batches, []events.UnverifiedMessageEvent{
 			makeBogusEvent(aggregate1[0]),
@@ -1107,7 +1108,7 @@ func TestAggregatorProcess(t *testing.T) {
 			if vote.Signers().Contains(3) || vote.Signers().Contains(6) {
 				t.Fatalf("Invalid message has been posted")
 			}
-			return currentHeightEventBuilder(m, ev)
+			return currentHeightEventBuilder(m, ev, false)
 		})
 	})
 }
@@ -1407,13 +1408,15 @@ func newSignedTestMsg(
 		for _, s := range signers {
 			msgs = append(msgs, message.NewPrevote(r, h, value, mc[s].Sign, &mc[s].CommitteeMember, csize))
 		}
-		msg = message.AggregatePrevotes(msgs)
+		prevotes := message.AggregatePrevotes(msgs)
+		msg = prevotes[0]
 	case message.PrecommitCode:
 		var msgs []message.Vote
 		for _, s := range signers {
 			msgs = append(msgs, message.NewPrecommit(r, h, value, mc[s].Sign, &mc[s].CommitteeMember, csize))
 		}
-		msg = message.AggregatePrecommits(msgs)
+		precommits := message.AggregatePrecommits(msgs)
+		msg = precommits[0]
 	default:
 		t.Fatalf("unknown message code %d", c)
 	}
