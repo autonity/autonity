@@ -631,10 +631,6 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof, committee *types.Committee)
 		return nil, errNoEvidenceForPVO
 	}
 
-	//prevotes := fd.msgStore.GetPrevotes(height, func(m *message.Prevote) bool {
-	//	return m.Value() == oldProposal.Value() && m.R() == validRound
-	//})
-
 	prevotes, err := fd.msgStore.GetPrevotesByRoundAndValue(height, validRound, oldProposal.Value())
 	if err != nil {
 		return nil, errNoEvidenceForPVO
@@ -955,10 +951,6 @@ oldProposalLoop:
 
 func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.Int, committee *types.Committee) (proofs []*Proof) {
 	// ------------New and Old prevotes------------
-
-	//prevotes := fd.msgStore.GetPrevotes(height, func(m *message.Prevote) bool {
-	//	return m.Value() != common.NilValue
-	//})
 
 	maxRoundForHeight := fd.msgStore.GetMaxRoundSeen(height)
 	if maxRoundForHeight == -1 {
