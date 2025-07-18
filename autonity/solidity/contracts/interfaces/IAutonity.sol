@@ -525,12 +525,13 @@ interface IAutonity is IERC20, IScheduleController {
     * This request will only be effective at the end of the current epoch however the stake will be
     * put in custody immediately from the delegator's account.
     * @param validator The validator node account.
-    * @param delegator The caller.
+    * @param delegator The recipient of the bonding request.
+    * @param staker The caller.
     * @param selfBonded True if the validator treasury initiated the request. No LNEW will be issued.
     * @param amount The amount of NEWTON to be delegated.
     * @param headBondingID  id of the request in bonding map
     */
-    event NewBondingRequest(address indexed validator, address indexed delegator,
+    event NewBondingRequest(address indexed validator, address indexed delegator, address indexed staker,
         bool selfBonded, uint256 amount, uint256 headBondingID);
 
     /**
@@ -548,12 +549,13 @@ interface IAutonity is IERC20, IScheduleController {
     * Please note that because of potential slashing events during this delay period, the released amount
     * may or may not be correspond to the amount requested.
     * @param validator The validator node account.
-    * @param delegator The caller.
+    * @param delegator The recipient of the unbonding request.
+    * @param staker The caller.
     * @param selfBonded True if the validator treasury initiated the request.
     * @param amount If self-bonded this is the requested amount of NEWTON to be unbonded.
     * @param headUnbondingID id of the request in unbonding map
     */
-    event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount, uint256 headUnbondingID);
+    event NewUnbondingRequest(address indexed validator, address indexed delegator, address indexed staker, bool selfBonded, uint256 amount, uint256 headUnbondingID);
 
     /**
     * @notice emitted when a new validator is registered

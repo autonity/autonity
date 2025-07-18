@@ -181,7 +181,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             stakeCirculating += _bondedStake;
             emit RegisteredValidator(_validators[i].treasury, _validators[i].nodeAddress, _validators[i].oracleAddress,
                 _validators[i].enode, address(_validators[i].liquidStateContract));
-            _bond(_validators[i].nodeAddress, _bondedStake, payable(_validators[i].treasury));
+            _bond(_validators[i].nodeAddress, _bondedStake, payable(_validators[i].treasury), _validators[i].treasury);
         }
     }
 
@@ -322,7 +322,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         uint _allowed = bondingAllowances[_account][msg.sender];
         require(_allowed >= _amount, "amount exceeded allowance");
         _approveBonding(_account, msg.sender, _allowed - _amount);
-        return _bond(_validator, _amount, payable(_account));
+        return _bond(_validator, _amount, payable(_account), msg.sender);
     }
 
     /**
@@ -336,7 +336,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     * @inheritdoc IAutonity
     */
     function bond(address _validator, uint256 _amount) external virtual nonReentrant returns (uint256) {
-        return _bond(_validator, _amount, payable(msg.sender));
+        return _bond(_validator, _amount, payable(msg.sender), msg.sender);
     }
 
     /**
@@ -1759,7 +1759,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
      *
      * This function assume that `_validator` is a valid validator address.
      */
-    function _bond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
+    function _bond(address _validatorAddress, uint256 _amount, address payable _recipient, address _staker) internal virtual returns (uint256) {
         Validator storage _validator = validators[_validatorAddress];
         require(_validatorAddress != address(0) && _validator.nodeAddress == _validatorAddress, "validator not registered");
         require(_validator.state == ValidatorState.active, "validator need to be active");
@@ -1772,7 +1772,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         bondingMap[headBondingID] = _bonding;
 
         bool _selfBonded = _validator.treasury == _recipient;
-        emit NewBondingRequest(_validatorAddress, _recipient, _selfBonded, _amount, headBondingID);
+        emit NewBondingRequest(_validatorAddress, _recipient, _staker, _selfBonded, _amount, headBondingID);
         headBondingID++;
         return headBondingID - 1;
     }
@@ -1848,7 +1848,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             );
             _validator.selfUnbondingStakeLocked += _amount;
         }
-        emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount, headUnbondingID);
+        emit NewUnbondingRequest(_validatorAddress, _recipient, _staker, selfDelegation, _amount, headUnbondingID);
         unbondingMap[headUnbondingID] = UnbondingRequest(
             _recipient, _validatorAddress, _amount, 0, block.number, false, false, selfDelegation
         );
