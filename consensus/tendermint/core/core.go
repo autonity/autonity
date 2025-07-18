@@ -201,11 +201,7 @@ func (c *Core) Step() Step {
 func (c *Core) Post(ev any) {
 	switch ev := ev.(type) {
 	case events.CommitEvent:
-		select {
-		case c.committedCh <- ev:
-		default:
-			c.logger.Warn("Commit event channel is full, dropping event", "event", ev)
-		}
+		c.committedCh <- ev
 	case events.NewCandidateBlockEvent:
 		c.candidateBlockCh <- ev
 	case events.MessageEvent:

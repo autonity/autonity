@@ -384,8 +384,11 @@ func (s *Signers) FlattenUniq() []int {
 }
 
 // ForEachDistinctSigner iterates over each signer and calls the callback function.
-func (s *Signers) ForEachDistinctSigner(callback func(signerIndex int), committeeLen int) {
-	for i := 0; i < committeeLen; i++ {
+func (s *Signers) ForEachDistinctSigner(callback func(signerIndex int)) {
+	if !s.validated {
+		panic("Using un-validated signers information")
+	}
+	for i := 0; i < s.CommitteeSize(); i++ {
 		if s.Bitmap.IsSet(i) {
 			callback(i)
 		}

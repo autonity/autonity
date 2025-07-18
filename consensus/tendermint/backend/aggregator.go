@@ -176,6 +176,7 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 
 	switch c {
 	case message.ProposalCode:
+		// unreachable ??
 		roundInfo.proposals = append(roundInfo.proposals, e)
 	case message.PrevoteCode:
 		roundInfo.prevotes[v] = append(roundInfo.prevotes[v], e)

@@ -466,17 +466,16 @@ func (v *vote) PreValidate(committee *types.Committee, shouldRespectCap bool) er
 	}
 
 	// compute aggregated key and auxiliary data structures
-	indexes := v.signers.FlattenUniq()
-	keys := make([]blst.PublicKey, len(indexes))
+	keys := make([]blst.PublicKey, 0, v.signers.Len())
 	powers := make(map[int]*big.Int)
 	power := new(big.Int)
 
-	for i, index := range indexes {
-		member := committee.Members[index]
-		keys[i] = member.ConsensusKey
-		powers[index] = member.VotingPower
+	v.signers.ForEachDistinctSigner(func(signerIndex int) {
+		member := committee.Members[signerIndex]
+		keys = append(keys, member.ConsensusKey)
+		powers[signerIndex] = member.VotingPower
 		power.Add(power, member.VotingPower)
-	}
+	})
 
 	maxCoefficient := v.signers.MaxCoefficient()
 	if shouldRespectCap && maxCoefficient.BitLen() > common.VoteCap {

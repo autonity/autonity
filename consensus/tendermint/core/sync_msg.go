@@ -48,7 +48,7 @@ func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 				}
 				m.(message.Vote).Signers().ForEachDistinctSigner(func(signerIndex int) {
 					preVoteSigners[value].SetBit(preVoteSigners[value], signerIndex, 1)
-				}, m.(message.Vote).Signers().CommitteeSize())
+				})
 			}
 
 			if m.Code() == message.PrecommitCode {
@@ -59,7 +59,7 @@ func (c *Core) futureRoundMsgView() []*message.RoundMsgView {
 				}
 				m.(message.Vote).Signers().ForEachDistinctSigner(func(signerIndex int) {
 					preCommitSigners[value].SetBit(preCommitSigners[value], signerIndex, 1)
-				}, m.(message.Vote).Signers().CommitteeSize())
+				})
 			}
 		}
 

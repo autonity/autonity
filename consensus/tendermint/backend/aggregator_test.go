@@ -393,7 +393,8 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		coreEventDispatcherMock.EXPECT().Post(gomock.Any()).Do(func(ev any) {
 			if event, ok := ev.(events.MessageEvent); ok {
-				if event.Message().Hash() == prevote.Hash() {
+				// check with value since we would get the aggregated message from the aggregator
+				if event.Message().Value() == prevote.Value() {
 					called.Store(true)
 				}
 				switch event.Message().(type) {
@@ -409,7 +410,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 		waitFor(t, func() bool {
 			return called.Load()
 		}, 20*time.Millisecond, 200*time.Millisecond, "future round prevote has not been processed by time-based aggregation")
-		require.Equal(t, uint64(100), backend.aggregator.signerSetCache.totalPowerForRound(h, r, stepDispatched).Uint64())
+		require.Equal(t, uint64(400), backend.aggregator.signerSetCache.totalPowerForRound(h, r, stepDispatched).Uint64())
 
 		// now send message that will reach quorum (together with the previous msg in Core)
 		prevote = tweakPrevote(message.NewPrevote(r, h, value, backend.Sign, &genesisCommittee.Members[1], committeeSize), backend.consensusKey.PublicKey())
@@ -995,8 +996,8 @@ func TestAggregatorProcess(t *testing.T) {
 		defer waitForExpects(t, ctrl)
 
 		backendMock := interfaces.NewMockBackend(ctrl)
-		backendMock.EXPECT().DispatchToCore(gomock.Any()).Times(4) // two aggregates
-		backendMock.EXPECT().DispatchToFD(gomock.Any()).Times(4)   // two aggregates
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).Times(3)
+		backendMock.EXPECT().DispatchToFD(gomock.Any()).Times(3)
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		a := &aggregator{

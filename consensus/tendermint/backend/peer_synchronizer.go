@@ -131,8 +131,14 @@ func (sb *Backend) missingPrevotes(askSync *message.AskSyncMsg) []*message.Prevo
 				return true
 			}
 		}
+		missing := false
+		m.Signers().ForEachDistinctSigner(func(signerIndex int) {
+			if signers.Bit(signerIndex) == 0 {
+				missing = true
+			}
+		})
 		// otherwise, the node already has this message
-		return false
+		return missing
 	})
 
 	return missingPrevotes
@@ -160,9 +166,8 @@ func (sb *Backend) missingPrecommits(askSync *message.AskSyncMsg) []*message.Pre
 		m.Signers().ForEachDistinctSigner(func(signerIndex int) {
 			if signers.Bit(signerIndex) == 0 {
 				missing = true
-				return
 			}
-		}, m.Signers().CommitteeSize())
+		})
 		// otherwise, the node already has this message
 		return missing
 	})

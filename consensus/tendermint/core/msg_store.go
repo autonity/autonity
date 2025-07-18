@@ -274,7 +274,7 @@ func (ms *MsgStore) updateSignerIndex(rs *roundStore, vote message.Vote) {
 			rs.votesBySigner[signerIndex] = make(map[common.Hash]message.Vote)
 		}
 		rs.votesBySigner[signerIndex][vote.Value()] = vote
-	}, vote.Signers().CommitteeSize())
+	})
 }
 
 func (ms *MsgStore) updatePrevotePower(rs *roundStore, msg *message.Prevote) {

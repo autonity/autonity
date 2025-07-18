@@ -974,22 +974,22 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 	SignersLoop:
 		// for each signer look at their action
 		for signerIndex := 0; signerIndex < committee.Len(); signerIndex++ {
-			voteForSigner := make(map[common.Hash]*message.Prevote)
+			votesFromSigner := make(map[common.Hash]*message.Prevote)
 			// this should be quick
 			for _, prevote := range prevotesR {
 				if prevote.Signers().Contains(signerIndex) {
 					// there should be only one prevote per value
-					if _, ok := voteForSigner[prevote.Value()]; !ok {
-						voteForSigner[prevote.Value()] = prevote
+					if _, ok := votesFromSigner[prevote.Value()]; !ok {
+						votesFromSigner[prevote.Value()] = prevote
 					}
 				}
 			}
 
-			if len(voteForSigner) > 1 { // skip equivocations
+			if len(votesFromSigner) > 1 { // skip equivocations
 				continue SignersLoop
 			}
 
-			for value, prevoteForValue := range voteForSigner {
+			for value, prevoteForValue := range votesFromSigner {
 				if value == common.NilValue {
 					continue SignersLoop
 				}
@@ -1484,7 +1484,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 				return
 			}
 		}
-	}, m.Signers().CommitteeSize())
+	})
 	fd.msgStore.Save(m)
 	return err
 }
@@ -1514,7 +1514,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) e
 				return
 			}
 		}
-	}, m.Signers().CommitteeSize())
+	})
 
 	fd.msgStore.Save(m)
 	return err

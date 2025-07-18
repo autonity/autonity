@@ -239,16 +239,8 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 			signer := committee.Members[signerIndex].Address
 			if !sb.IsJailed(signer) {
 				allJailed = false
-				return
 			}
-		}, vote.Signers().CommitteeSize())
-		//for _, signerIndex := range vote.Signers().FlattenUniq() {
-		//	signer := committee.Members[signerIndex].Address
-		//	if !sb.IsJailed(signer) {
-		//		allJailed = false
-		//		break
-		//	}
-		//}
+		})
 		// unless all signers are jailed, we still process aggregates
 		if allJailed {
 			sb.logger.Debug("Vote message contains only signatures from jailed validators, ignoring message", "signers", vote.Signers().String())
