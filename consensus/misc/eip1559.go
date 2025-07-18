@@ -63,6 +63,10 @@ func VerifyEip1559Header(config *params.ChainConfig, feeGetter BaseFeeGetter, pa
 
 // CalcBaseFee calculates the basefee of the header.
 func CalcBaseFee(config *params.ChainConfig, parent *types.Header, feeGetter BaseFeeGetter) *big.Int {
+
+	// todo: rebase below function with devleop branch, the change is just used for perf test.
+	return new(big.Int).SetUint64(params.InitialBaseFee)
+
 	// If the current block is the first EIP-1559 block, return the InitialBaseFee.
 	if !config.IsLondon(parent.Number) {
 		return new(big.Int).SetUint64(params.InitialBaseFee)
