@@ -84,99 +84,50 @@ func (m *MessageEvent) SetDisseminated(disseminated bool) {
 
 // old messages are posted only to the fault detector
 type OldMessageEvent struct {
-	Message message.Msg
-	ErrCh   chan<- error
-	Sender  common.Address
+	message message.Msg
+	errCh   chan<- error
+	sender  common.Address
+	posted  time.Time
+}
+
+func NewOldMessageEvent(message message.Msg, errCh chan<- error, sender common.Address, posted time.Time) OldMessageEvent {
+	return OldMessageEvent{
+		message: message,
+		errCh:   errCh,
+		sender:  sender,
+		posted:  posted,
+	}
+}
+
+func (o OldMessageEvent) Message() message.Msg {
+	return o.message
+}
+
+func (o OldMessageEvent) Sender() common.Address {
+	return o.sender
+}
+
+func (o OldMessageEvent) Posted() time.Time {
+	return o.posted
+}
+
+func (o OldMessageEvent) ErrCh() chan<- error {
+	return o.errCh
+}
+
+type MessageEventer interface {
+	Message() message.Msg
+	Sender() common.Address
+	Posted() time.Time
+	ErrCh() chan<- error
+}
+
+type Poster interface {
+	Post(interface{}) error
 }
 
 // CommitEvent is posted when a proposal is committed
 type CommitEvent struct{}
-
-type CoreEvent interface {
-	Height() uint64
-	Round() int64
-	Code() uint8
-	Value() common.Hash
-}
-
-type RoundChangeEvent struct {
-	height uint64
-	round  int64
-}
-
-func NewRoundChangeEvent(height uint64, round int64) RoundChangeEvent {
-	return RoundChangeEvent{height: height, round: round}
-}
-
-func (r RoundChangeEvent) Height() uint64 {
-	return r.height
-}
-
-func (r RoundChangeEvent) Round() int64 {
-	return r.round
-}
-
-func (r RoundChangeEvent) Code() uint8 {
-	panic("not implemented")
-}
-
-func (r RoundChangeEvent) Value() common.Hash {
-	panic("not implemented")
-}
-
-// change in voting power
-type PowerChangeEvent struct {
-	height uint64
-	round  int64
-	code   uint8
-	value  common.Hash
-}
-
-func NewPowerChangeEvent(code uint8, height uint64, round int64, value common.Hash) PowerChangeEvent {
-	return PowerChangeEvent{code: code, height: height, round: round, value: value}
-}
-
-func (p PowerChangeEvent) Height() uint64 {
-	return p.height
-}
-
-func (p PowerChangeEvent) Round() int64 {
-	return p.round
-}
-
-func (p PowerChangeEvent) Code() uint8 {
-	return p.code
-}
-
-func (p PowerChangeEvent) Value() common.Hash {
-	return p.value
-}
-
-// change in future round voting power
-type FuturePowerChangeEvent struct {
-	height uint64
-	round  int64
-}
-
-func NewFuturePowerChangeEvent(height uint64, round int64) FuturePowerChangeEvent {
-	return FuturePowerChangeEvent{height: height, round: round}
-}
-
-func (f FuturePowerChangeEvent) Height() uint64 {
-	return f.height
-}
-
-func (f FuturePowerChangeEvent) Round() int64 {
-	return f.round
-}
-
-func (f FuturePowerChangeEvent) Code() uint8 {
-	panic("not implemented")
-}
-
-func (f FuturePowerChangeEvent) Value() common.Hash {
-	panic("not implemented")
-}
 
 type AccountabilityEvent struct {
 	Sender  common.Address

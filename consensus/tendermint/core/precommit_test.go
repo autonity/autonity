@@ -15,7 +15,6 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/committee"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 )
@@ -29,7 +28,6 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), gomock.Any()).Times(0)
 
 		messages := message.NewMap()
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
 			logger:           log.New("backend", "test", "id", 0),
 			backend:          backendMock,
@@ -37,7 +35,6 @@ func TestSendPrecommit(t *testing.T) {
 			curRoundMessages: messages.GetOrCreate(0),
 			round:            2,
 			height:           big.NewInt(3),
-			eventCh:          eventCh,
 		}
 		c.SetDefaultHandlers()
 		c.precommiter.SendPrecommit(context.Background(), false)
@@ -71,9 +68,7 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), preCommit)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[addr].consensus))
 
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
-			eventCh:          eventCh,
 			backend:          backendMock,
 			address:          addr,
 			logger:           logger,
@@ -113,9 +108,7 @@ func TestSendPrecommit(t *testing.T) {
 		backendMock.EXPECT().Broadcast(gomock.Any(), preCommit)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[addr].consensus))
 
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
-			eventCh:          eventCh,
 			backend:          backendMock,
 			address:          addr,
 			logger:           logger,
@@ -145,9 +138,7 @@ func TestHandlePrecommit(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).MaxTimes(1)
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
-			eventCh:          eventCh,
 			backend:          backendMock,
 			address:          member.Address,
 			round:            2,
@@ -203,7 +194,6 @@ func TestHandlePrecommit(t *testing.T) {
 				}
 			})
 
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
 			address:          member.Address,
 			backend:          backendMock,
@@ -217,7 +207,6 @@ func TestHandlePrecommit(t *testing.T) {
 			proposeTimeout:   NewTimeout(Propose, logger),
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
-			eventCh:          eventCh,
 			syncState:        &SyncState{},
 		}
 
@@ -247,7 +236,6 @@ func TestHandlePrecommit(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(2)
 		curRoundMessages.SetProposal(proposal, true)
 
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
 			address:          me.Address,
 			backend:          backendMock,
@@ -260,7 +248,6 @@ func TestHandlePrecommit(t *testing.T) {
 			committee:        committeeSet,
 			precommitTimeout: NewTimeout(Precommit, logger),
 			syncState:        &SyncState{},
-			eventCh:          eventCh,
 		}
 		c.SetDefaultHandlers()
 		backendMock.EXPECT().Post(gomock.Any()).Times(1)
@@ -304,7 +291,6 @@ func TestHandleCommit(t *testing.T) {
 			Committee:          committeeSet.Committee(),
 		},
 	}
-	eventCh := make(chan events.CoreEvent, EventQueueSize)
 	backendMock := interfaces.NewMockBackend(ctrl)
 	c := &Core{
 		epoch:            epoch,
@@ -319,7 +305,6 @@ func TestHandleCommit(t *testing.T) {
 		precommitTimeout: NewTimeout(Precommit, logger),
 		syncState:        &SyncState{},
 		committee:        committeeSet,
-		eventCh:          eventCh,
 	}
 	backendMock.EXPECT().EpochByHeight(c.Height().Uint64()+1).AnyTimes().Return(epoch, nil)
 	backendMock.EXPECT().HeadBlock().MinTimes(1).Return(block)

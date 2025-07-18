@@ -156,7 +156,6 @@ func TestHandleMessage(t *testing.T) {
 		messageMap := message.NewMap()
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		engine := Core{
 			logger:           logger,
 			address:          currentValidator.Address,
@@ -172,7 +171,6 @@ func TestHandleMessage(t *testing.T) {
 			prevoteTimeout:   NewTimeout(Prevote, logger),
 			precommitTimeout: NewTimeout(Precommit, logger),
 			backend:          backendMock,
-			eventCh:          eventCh,
 		}
 		engine.SetDefaultHandlers()
 
@@ -223,7 +221,6 @@ func TestHandleFutureRound(t *testing.T) {
 	messageMap := message.NewMap()
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
-	eventCh := make(chan events.CoreEvent, EventQueueSize)
 	engine := Core{
 		logger:           logger,
 		address:          sender1.Address,
@@ -239,7 +236,6 @@ func TestHandleFutureRound(t *testing.T) {
 		prevoteTimeout:   NewTimeout(Prevote, logger),
 		precommitTimeout: NewTimeout(Precommit, logger),
 		backend:          backendMock,
-		eventCh:          eventCh,
 		syncState:        &SyncState{},
 	}
 	engine.SetDefaultHandlers()
@@ -247,7 +243,7 @@ func TestHandleFutureRound(t *testing.T) {
 	// handling vote
 	vote := message.NewPrevote(currentRound+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender2.Address].consensus), sender2, 4)
 	// future round messages are forwarded right away
-	backendMock.EXPECT().Gossip(gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
+	backendMock.EXPECT().Gossip(gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(1) // called in a goroutine
 	engine.handleEvent(context.Background(), makeBogusMessageEvent(vote, false))
 
 	// check that vote was saved in the future messages and power was updated accordingly

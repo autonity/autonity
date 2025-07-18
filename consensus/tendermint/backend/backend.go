@@ -60,8 +60,9 @@ func New(
 	services *interfaces.Services,
 	evMux *event.TypeMux,
 	ms *tendermintCore.MsgStore,
+	afdDispatchCh chan<- events.MessageEventer,
 	log log.Logger,
-	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool) *Backend {
+) *Backend {
 
 	knownMessages := fixsizecache.New[common.Hash, bool](numBuckets, numEntries, fixsizecache.HashKey[common.Hash])
 
@@ -78,7 +79,7 @@ func New(
 		askSyncRateLimiter:  helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
 		aggregatorMessageCh: make(chan events.UnverifiedMessageEvent, 5000),
 		jailingCh:           make(chan common.Address, 1000),
-		isHeightExpired:     isHeightExpired,
+		afdDispatchCh:       afdDispatchCh, // to FD
 		jailed: jailed{
 			validators: make(map[common.Address]uint64),
 		},
@@ -110,7 +111,7 @@ func New(
 	backend.core = consensusCore
 	backend.coreEventDispatcher = consensusCore
 
-	backend.aggregator = newAggregator(backend, consensusCore, log)
+	backend.aggregator = newAggregator(backend, consensusCore, log, afdDispatchCh)
 
 	return backend
 }
@@ -132,6 +133,7 @@ type Backend struct {
 	proposalVerifiedCh  chan<- *types.Block
 	commitCh            chan<- *types.Block
 	aggregatorMessageCh chan events.UnverifiedMessageEvent // to send events to the aggregator
+	afdDispatchCh       chan<- events.MessageEventer       // to send events to the fault detector
 	jailingCh           chan common.Address
 	proposedBlockHash   common.Hash
 	coreStarting        atomic.Bool
@@ -161,8 +163,7 @@ type Backend struct {
 
 	router interfaces.Router
 
-	aggregator      *aggregator
-	isHeightExpired func(headHeight uint64, height uint64, heightRange uint64) bool // pass a function to avoid import loops
+	aggregator *aggregator
 
 	jailed jailed // metadata for p2p jailed validators
 	future future // buffer for future height events and related metadata
@@ -190,6 +191,18 @@ func (sb *Backend) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 	return sb.BlockChain().EpochByHeight(height)
 }
 
+func (sb *Backend) CommitteeByHeight(height uint64) (*types.Committee, error) {
+	return sb.BlockChain().CommitteeByHeight(height)
+}
+
+func (sb *Backend) MinNonExpiredHeight(coreHeight uint64) (uint64, error) {
+	heightRange, err := sb.blockchain.AccountabilityParamsByHeight(coreHeight)
+	if err != nil {
+		return 0, err
+	}
+	return helpers.MinNonExpiredHeight(coreHeight, heightRange.Range.Uint64()), nil
+}
+
 func (sb *Backend) MessageCh() <-chan events.UnverifiedMessageEvent {
 	return sb.aggregatorMessageCh
 }
@@ -202,10 +215,10 @@ func (sb *Backend) Address() common.Address {
 // Broadcast implements tendermint.Backend.Broadcast
 func (sb *Backend) Broadcast(committee *types.Committee, message message.Msg) {
 	// send to self (directly to Core and FD, no need to verify local messages)
-	// a goroutine is required here to avoid creating a deadlock, broadcast can be called from the messageEventHandler itself
 	go sb.gossiper.Gossip(committee, message, sb.Address())
-	go sb.MessageToCore(events.NewMessageEvent(message, nil, sb.Address(), time.Now(), true)) // core
-	go sb.Post(events.NewMessageEvent(message, nil, sb.Address(), time.Now(), true))          // FD
+	// a goroutine is required here to avoid creating a deadlock, broadcast can be called from the messageEventHandler itself
+	go sb.DispatchToCore(events.NewMessageEvent(message, nil, sb.Address(), time.Now(), true)) // core
+	sb.DispatchToFD(events.NewMessageEvent(message, nil, sb.Address(), time.Now(), true))      // FD
 }
 
 func (sb *Backend) AskSync(committee *types.Committee, syncMsg *message.AskSyncMsg) error {
@@ -271,19 +284,19 @@ func (sb *Backend) Commit(proposal *types.Block, round int64, quorumCertificate 
 }
 
 func (sb *Backend) Post(ev any) {
-	switch ev := ev.(type) {
+	switch msg := ev.(type) {
 	case events.CommitEvent:
-		sb.coreEventDispatcher.Post(ev)
+		sb.coreEventDispatcher.Post(msg)
 	case events.NewCandidateBlockEvent:
-		sb.coreEventDispatcher.Post(ev)
+		sb.coreEventDispatcher.Post(msg)
 	case events.UnverifiedMessageEvent:
-		sb.aggregatorMessageCh <- ev
+		sb.aggregatorMessageCh <- msg
 	default:
-		sb.eventMux.Post(ev)
+		sb.eventMux.Post(msg)
 	}
 }
 
-func (sb *Backend) MessageToCore(ev any) {
+func (sb *Backend) DispatchToCore(ev any) {
 	switch ev := ev.(type) {
 	case events.MessageEvent:
 		sb.coreEventDispatcher.Post(ev)
@@ -291,6 +304,14 @@ func (sb *Backend) MessageToCore(ev any) {
 		// ignore old height messages for Core
 	default:
 		panic("unknown event " + reflect.TypeOf(ev).String())
+	}
+	return
+}
+
+func (sb *Backend) DispatchToFD(ev any) {
+	switch ev := ev.(type) {
+	case events.MessageEventer:
+		sb.afdDispatchCh <- ev
 	}
 	return
 }

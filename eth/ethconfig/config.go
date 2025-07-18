@@ -18,9 +18,9 @@
 package ethconfig
 
 import (
-	"github.com/autonity/autonity/consensus/tendermint/accountability"
 	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
 	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
+	"github.com/autonity/autonity/consensus/tendermint/events"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
@@ -215,7 +215,7 @@ type Config struct {
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
 func CreateConsensusEngine(db ethdb.Database, ctx *node.Node, chainConfig *params.ChainConfig, config *Config, notify []string, noverify bool,
-	vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore) consensus.Engine {
+	vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore, afdDispatchCh chan<- events.MessageEventer) consensus.Engine {
 	if chainConfig.Ethash != nil {
 		ethConfig := config.Ethash
 		switch ethConfig.PowMode {
@@ -242,5 +242,5 @@ func CreateConsensusEngine(db ethdb.Database, ctx *node.Node, chainConfig *param
 	}
 
 	nodeKey, consensusKey := ctx.Config().AutonityKeys()
-	return tendermintBackend.New(db, nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, ctx.Logger(), accountability.IsHeightExpired)
+	return tendermintBackend.New(db, nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, afdDispatchCh, ctx.Logger())
 }

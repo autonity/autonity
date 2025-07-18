@@ -359,9 +359,7 @@ func TestHandleProposal(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 
-		eventCh := make(chan events.CoreEvent, EventQueueSize)
 		c := &Core{
-			eventCh:          eventCh,
 			address:          committeeSet.Committee().Members[0].Address,
 			backend:          backendMock,
 			messages:         messages,

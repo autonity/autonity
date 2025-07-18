@@ -74,6 +74,23 @@ func (b *Bitmap) Merge(c *Bitmap) *Bitmap {
 	return (*Bitmap)(merged)
 }
 
+func (b *Bitmap) AndNot(c *Bitmap) *Bitmap {
+	bBig := (*big.Int)(b)
+	cBig := (*big.Int)(c)
+	return (*Bitmap)(new(big.Int).AndNot(bBig, cBig))
+}
+
+func (b *Bitmap) Indexes() []int {
+	var indexes []int // nolint:prealloc
+	bBig := (*big.Int)(b)
+	for i := 0; i < bBig.BitLen(); i++ {
+		if bBig.Bit(i) == 1 {
+			indexes = append(indexes, i)
+		}
+	}
+	return indexes
+}
+
 func (b *Bitmap) Len() int {
 	return (*big.Int)(b).BitLen()
 }

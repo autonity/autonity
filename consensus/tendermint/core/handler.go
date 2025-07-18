@@ -255,7 +255,6 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 		}
 		c.futureRoundLock.Unlock()
 
-		c.SendEvent(events.NewFuturePowerChangeEvent(c.Height().Uint64(), r))
 
 		// TODO: there is an unhandled edge case which can cause disseminating the same message twice.
 		// Specifically, if we receive a message for a "far" future round (so CanDisseminate() will return false)
@@ -447,14 +446,7 @@ eventLoop:
 
 // SendEvent sends event to mux
 func (c *Core) SendEvent(ev any) {
-	switch ev := ev.(type) {
-	case events.CoreEvent:
-		// todo: temporary
-		return
-		//c.eventCh <- ev
-	default:
-		c.backend.Post(ev)
-	}
+	c.backend.Post(ev)
 }
 
 func (c *Core) handleMsg(ctx context.Context, msg message.Msg) error {
