@@ -139,7 +139,7 @@ func NewFaultDetector(
 		txOpts:                txOpts,
 		tendermintMsgSub:      sub,
 		ruleEngineBlockCh:     make(chan core.ChainEvent, 300),
-		messageEventCh:        messageEventCh, //todo size
+		messageEventCh:        messageEventCh,
 		accountabilityEventCh: make(chan *bindings.AccountabilityNewAccusation),
 		blockchain:            chain,
 		address:               nodeAddress,
