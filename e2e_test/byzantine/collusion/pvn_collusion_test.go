@@ -2,18 +2,26 @@ package collusion
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
+	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
 )
+
+const collusionHeight = 5
 
 /*
 *
@@ -22,7 +30,6 @@ import (
     being, thus we cannot expect the proposer is slashed, however we can slash those followers by PVN accusation rule.
 */
 func TestCollusionPVN(t *testing.T) {
-	t.Skip("Flaky test")
 	numOfNodes := 8
 	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
@@ -34,8 +41,16 @@ func TestCollusionPVN(t *testing.T) {
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 
+	accContract, err := autonity.NewAccountability(params.AccountabilityContractAddress, network[0].WsClient)
+	require.NoError(t, err)
+
+	transactor, err := bind.NewKeyedTransactorWithChainID(users[0].NodeKey, params.TestChainConfig.ChainID)
+	require.NoError(t, err)
+	_, err = accContract.SetInnocenceProofSubmissionWindow(transactor, big.NewInt(80))
+	require.NoError(t, err)
+
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(120, 150, false)
+	err = network.WaitToMineNBlocks(80, 100, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	// Accusation of PVN should rise since followers prevote for the planed invalid value.
@@ -60,13 +75,13 @@ func newCollusionPVNPlaner() *collusionPVNPlanner {
 func (p *collusionPVNPlanner) setupRoles(leader *gengen.Validator, followers []*gengen.Validator) {
 	// To simulate PVN collusion, we ask a member to be leader to propose an invalid new proposal,
 	// and the followers should pre-vote for the invalid proposal as a valid one.
-	leader.TendermintServices = &interfaces.Services{Broadcaster: newColludedPVNLeader}
+	leader.TendermintServices = &interfaces.Services{Prevoter: newColludedPVNNode}
 	for _, f := range followers {
-		f.TendermintServices = &interfaces.Services{Prevoter: newColludedPVNFollower}
+		f.TendermintServices = &interfaces.Services{Prevoter: newColludedPVNNode}
 	}
 }
 
-func newColludedPVNFollower(c interfaces.Core) interfaces.Prevoter {
+func newColludedPVNNode(c interfaces.Core) interfaces.Prevoter {
 	return &colludedPVNFollower{c.(*core.Core), c.Prevoter()}
 }
 
@@ -76,23 +91,28 @@ type colludedPVNFollower struct {
 }
 
 func (c *colludedPVNFollower) SendPrevote(_ context.Context, _ bool) {
-	sendPrevote(c.Core, autonity.PVN)
-}
-
-func newColludedPVNLeader(c interfaces.Core) interfaces.Broadcaster {
-	return &colludedPVNLeader{c.(*core.Core), c.Broadcaster()}
-}
-
-type colludedPVNLeader struct {
-	*core.Core
-	interfaces.Broadcaster
-}
-
-func (c *colludedPVNLeader) Broadcast(msg message.Msg) {
-	sendProposal(c, autonity.PVN, msg)
-}
-
-// setupContext, it resolves a future height and round for the colludedPVNLeader to set up the collusion context.
-func (c *colludedPVNLeader) SetupCollusionContext() {
-	setupCollusionContext(c, autonity.PVN)
+	// send prevote for the planned invalid proposal for PVN
+	h := c.Height().Uint64()
+	r := c.Round()
+	var value common.Hash
+	if h != collusionHeight {
+		proposal := c.CurRoundMessages().Proposal()
+		if proposal == nil {
+			return
+		}
+		value = proposal.Block().Hash()
+	} else {
+		b := types.NewBlockWithHeader(newBlockHeader(h))
+		e2e.FuzBlock(b, new(big.Int).SetUint64(h))
+		value = b.Hash()
+	}
+	// send prevote for the planned invalid proposal.
+	committee, err := c.Backend().BlockChain().CommitteeByHeight(h)
+	if err != nil {
+		panic(err)
+	}
+	log.Debug("prevote collusion simulated", "rule", c.Height(), "r", r, "v", value, "node", c.Address())
+	vote := message.NewPrevote(r, h, value, c.Backend().Sign, committee.MemberByAddress(c.Address()), committee.Len())
+	c.SetSentPrevote(true)
+	c.BroadcastAll(vote)
 }

@@ -946,7 +946,7 @@ func (fd *FaultDetector) prevotesAccountabilityCheck(height uint64, quorum *big.
 							OffenderIndex: signerIndex,
 						}
 						proofs = append(proofs, accusation)
-						fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVN", "suspect", signer)
+						fd.logger.Info("🕵️ Suspicious behavior detected", "rule", "PVN", "suspect", signer, "height", height)
 					}
 				}
 				continue signersLoop // we have no corresponding proposal, so we cannot check new and old prevote rules
