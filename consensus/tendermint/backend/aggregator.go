@@ -730,9 +730,6 @@ loop:
 					// if current height, process them
 					a.processRound(h, r)
 				}
-				if h < coreHeight {
-					delete(a.messages, h)
-				}
 			}
 			// cleanup
 			clear(a.messagesFrom)
@@ -770,23 +767,20 @@ loop:
 func (a *aggregator) cleanUp(coreHeight uint64) {
 	a.msgMu.Lock()
 	defer a.msgMu.Unlock()
-	minHeight, err := a.backend.MinNonExpiredHeight(coreHeight)
-	if err != nil {
-		a.logger.Error("Aggregator: error getting minimum non-expired height", "error", err)
-		return
-	}
+	minHeight := coreHeight
 
 	// clean up messages from the aggregator that are older than core height
 	for h := range a.messages {
-		if h < minHeight {
+		if h < coreHeight {
+			// remove messages from the aggregator that are older than core height
 			delete(a.messages, h)
 		}
 	}
 
 	// clean up stale messages that are older than core height
-	for hash, batch := range a.staleMessages {
+	for _, batch := range a.staleMessages {
 		if batch[0].Message.H() < minHeight {
-			delete(a.staleMessages, hash)
+			minHeight = batch[0].Message.H()
 		}
 	}
 
