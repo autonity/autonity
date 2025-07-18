@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -633,4 +634,14 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	}
 
 	return block, nil
+}
+
+func newTestBlockchain() *core.BlockChain {
+	db := rawdb.NewMemoryDatabase()
+	core.GenesisBlockForTesting(db, common.Address{}, common.Big0)
+	chain, err := core.NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, &core.TxSenderCacher{}, nil, backends.NewInternalBackend(nil), log.Root())
+	if err != nil {
+		panic(err)
+	}
+	return chain
 }

@@ -19,8 +19,6 @@ import (
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 
-	"github.com/autonity/autonity/rlp"
-
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
