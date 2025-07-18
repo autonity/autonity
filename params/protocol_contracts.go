@@ -154,6 +154,7 @@ type AutonityContractGenesis struct {
 	GasLimitBoundDivisor     uint64                `json:"gasLimitBoundDivisor"`
 	BaseFeeChangeDenominator uint64                `json:"baseFeeChangeDenominator"`
 	ElasticityMultiplier     uint64                `json:"elasticityMultiplier"`
+	ClusteringThreshold      uint64                `json:"clusteringThreshold"`
 	Operator                 common.Address        `json:"operator"`
 	Treasury                 common.Address        `json:"treasury"`
 	WithheldRewardsPool      common.Address        `json:"withheldRewardsPool"`

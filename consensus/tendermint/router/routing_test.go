@@ -85,11 +85,14 @@ func TestRouter_Start(t *testing.T) {
 			{Address: common.HexToAddress("0x222"), VotingPower: big.NewInt(1)},
 		},
 	}
-	epoch := &types.EpochInfo{Epoch: types.Epoch{Committee: &committee}}
+	epoch := &types.EpochInfo{Epoch: types.Epoch{Committee: &committee}, EpochBlock: big.NewInt(0)}
 	chain := mocks.NewMockBlockChainProvider(ctrl)
 	chain.EXPECT().LatestEpoch().Return(epoch, nil).Times(1)
 	sub := mocks.NewMockSubscription(ctrl)
 	chain.EXPECT().SubscribeEpochHeadEvent(gomock.Any()).Return(sub).Times(1)
+	chain.EXPECT().
+		ClusteringThresholdByHeight(gomock.Any()).
+		Return(big.NewInt(DefaultScaleThresholdForClustering), nil).AnyTimes()
 	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	networkProvider.EXPECT().UpdateClusters(gomock.Any()).Times(1)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
@@ -107,6 +110,7 @@ func TestRouter_Start(t *testing.T) {
 	networkProvider.EXPECT().Clusters().Return(clusters).AnyTimes()
 
 	go router.Start(ctx, chain)
+
 	time.Sleep(50 * time.Millisecond) // Allow goroutine to start
 	cancel()
 	router.wg.Wait()
@@ -133,7 +137,10 @@ func TestRouter_Stop(t *testing.T) {
 	sub := mocks.NewMockSubscription(ctrl)
 	sub.EXPECT().Unsubscribe().Times(1)
 	chain.EXPECT().SubscribeEpochHeadEvent(gomock.Any()).Return(sub).Times(1)
-	epoch := &types.EpochInfo{Epoch: types.Epoch{Committee: &types.Committee{}}}
+	chain.EXPECT().
+		ClusteringThresholdByHeight(gomock.Any()).
+		Return(big.NewInt(DefaultScaleThresholdForClustering), nil).AnyTimes()
+	epoch := &types.EpochInfo{Epoch: types.Epoch{Committee: &types.Committee{}}, EpochBlock: big.NewInt(0)}
 	chain.EXPECT().LatestEpoch().Return(epoch, nil).Times(1)
 
 	router.Start(ctx, chain)
@@ -166,10 +173,15 @@ func TestRouter_Recipients_SmallCommittee(t *testing.T) {
 	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
+	chain := mocks.NewMockBlockChainProvider(ctrl)
+	chain.EXPECT().
+		ClusteringThresholdByHeight(gomock.Any()).
+		Return(big.NewInt(DefaultScaleThresholdForClustering), nil).AnyTimes()
 	recipientCache := cache.New()
 
 	nodeKey := newTestKey(t)
 	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
+	router.chain = chain
 
 	recipients, err := router.Recipients(&committee, msg, self)
 	assert.NoError(t, err, "Expected no error")
@@ -181,8 +193,8 @@ func TestRouter_Recipients_LargeCommittee(t *testing.T) {
 	defer ctrl.Finish()
 
 	self := common.HexToAddress("0x111")
-	committeeAddrs := make([]common.Address, ScaleThresholdForClustering+1)
-	for i := 0; i <= ScaleThresholdForClustering; i++ {
+	committeeAddrs := make([]common.Address, DefaultScaleThresholdForClustering+1)
+	for i := 0; int64(i) <= DefaultScaleThresholdForClustering; i++ {
 		committeeAddrs[i] = common.HexToAddress(fmt.Sprintf("0x%03d", i+1))
 	}
 	committee := types.Committee{Members: make([]types.CommitteeMember, len(committeeAddrs))}
@@ -258,7 +270,7 @@ func TestRouter_Recipients_SelfNotInCommittee(t *testing.T) {
 	assert.Equal(t, committeeAddrs, recipients, "Expected all committee members")
 
 	// Large committee: clustering with error
-	committeeAddrs = append(committeeAddrs, make([]common.Address, ScaleThresholdForClustering-1)...)
+	committeeAddrs = append(committeeAddrs, make([]common.Address, DefaultScaleThresholdForClustering-1)...)
 	committee.Members = make([]types.CommitteeMember, len(committeeAddrs))
 	for i, addr := range committeeAddrs {
 		committee.Members[i] = types.CommitteeMember{Address: addr, VotingPower: big.NewInt(1)}
@@ -402,9 +414,12 @@ func TestRouter_Loop_OverallFlow(t *testing.T) {
 			{Address: common.HexToAddress("0x333"), VotingPower: big.NewInt(1)},
 		},
 	}
-	epoch := &types.EpochInfo{Epoch: types.Epoch{Committee: &committee}}
+	epoch := &types.EpochInfo{Epoch: types.Epoch{Committee: &committee}, EpochBlock: big.NewInt(0)}
 	chain := mocks.NewMockBlockChainProvider(ctrl)
 	chain.EXPECT().LatestEpoch().Return(epoch, nil).Times(1)
+	chain.EXPECT().
+		ClusteringThresholdByHeight(gomock.Any()).
+		Return(big.NewInt(0), nil).Times(2)
 	sub := mocks.NewMockSubscription(ctrl)
 	chain.EXPECT().SubscribeEpochHeadEvent(gomock.Any()).Return(sub).Times(1)
 	networkProvider := mocks.NewMockClustersProvider(ctrl)
@@ -497,9 +512,12 @@ func TestRouter_Loop_Tickers(t *testing.T) {
 			{Address: common.HexToAddress("0x222"), VotingPower: big.NewInt(1)},
 		},
 	}
-	epoch := &types.EpochInfo{Epoch: types.Epoch{Committee: &committee}}
+	epoch := &types.EpochInfo{Epoch: types.Epoch{Committee: &committee}, EpochBlock: big.NewInt(0)}
 	chain := mocks.NewMockBlockChainProvider(ctrl)
 	chain.EXPECT().LatestEpoch().Return(epoch, nil).Times(1)
+	chain.EXPECT().
+		ClusteringThresholdByHeight(gomock.Any()).
+		Return(big.NewInt(0), nil).Times(1)
 	sub := mocks.NewMockSubscription(ctrl)
 	chain.EXPECT().SubscribeEpochHeadEvent(gomock.Any()).Return(sub).Times(1)
 	networkProvider := mocks.NewMockClustersProvider(ctrl)

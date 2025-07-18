@@ -20,6 +20,7 @@ const VERSION = 0;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const SLASHING_RATE_PRECISION = 10000; // needs to match the slashing rate precision in Slasher.sol
 const ORACLE_REWARD_RATE = 0; // tests for oracle rewards are outside of the Truffle tests
+const CLUSTERING_THRESHOLD = 64; // 64 validators before clustering kicks in
 
 const ACCOUNTABILITY_CONFIG = {
         "innocenceProofSubmissionWindow": 30,
@@ -146,6 +147,7 @@ function autonityConfig(operator, treasuryAccount) {
             "gasLimit": GAS_LIMIT,
             "maxScheduleDuration": MAX_SCHEDULE_DURATION,
             "gasLimitBoundDivisor": GAS_LIMIT_BOUND_DIVISOR,
+            "clusteringThreshold": CLUSTERING_THRESHOLD,
         },
         "contractVersion": VERSION,
     };

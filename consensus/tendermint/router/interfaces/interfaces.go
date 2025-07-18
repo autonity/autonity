@@ -1,6 +1,8 @@
 package interfaces
 
 import (
+	"math/big"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -38,4 +40,5 @@ type PeerSelector interface {
 type BlockChainProvider interface {
 	LatestEpoch() (*types.EpochInfo, error)
 	SubscribeEpochHeadEvent(chan<- core.EpochHeadEvent) event.Subscription
+	ClusteringThresholdByHeight(height uint64) (*big.Int, error)
 }

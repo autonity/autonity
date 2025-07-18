@@ -65,6 +65,7 @@ var genesis = `{
 					"elasticityMultiplier": 2,
 					"initialInflationReserve": "0x20000000000",
 					"withholdingThreshold": 0,
+					"clusteringThreshold": 64,
 					"proposerRewardRate": 1000,
 					"skipGenesisVerification": true,
 					"validators" : [

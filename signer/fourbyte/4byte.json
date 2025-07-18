@@ -213,5 +213,6 @@
   "a9a7d7c9": "unbondFrom(address,address,uint256)",
   "bf99b73e": "approveUnbonding(address,uint256)",
   "708e91e5": "lockFrom(address,address,uint256)",
-  "d768d578": "unbondingAllowance(address,address)"
+  "d768d578": "unbondingAllowance(address,address)",
+  "12e7b45d": "setClusteringThreshold(uint256)"
 }

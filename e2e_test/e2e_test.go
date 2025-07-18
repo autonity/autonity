@@ -754,12 +754,15 @@ func assembleClientConfig(t *testing.T, node *Node, target uint64) *types.Contra
 	require.NoError(t, err)
 	gasLimit, err := node.Eth.BlockChain().GasLimitByHeight(target)
 	require.NoError(t, err)
+	clusteringThreshold, err := node.Eth.BlockChain().ClusteringThresholdByHeight(target)
+	require.NoError(t, err)
 	return &types.ContractsConfig{
-		EpochPeriod:    epochPeriod,
-		BlockPeriod:    new(big.Int).SetUint64(1), // for now block period is hardcoded to 1s always
-		GasLimit:       gasLimit,
-		Accountability: *accountabilityParams,
-		Eip1559:        *eip1559Params,
+		EpochPeriod:         epochPeriod,
+		BlockPeriod:         new(big.Int).SetUint64(1), // for now block period is hardcoded to 1s always
+		GasLimit:            gasLimit,
+		ClusteringThreshold: clusteringThreshold,
+		Accountability:      *accountabilityParams,
+		Eip1559:             *eip1559Params,
 	}
 }
 

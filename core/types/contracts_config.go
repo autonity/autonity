@@ -22,11 +22,12 @@ func (ap AccountabilityParams) Equal(other AccountabilityParams) bool {
 }
 
 type ContractsConfig struct {
-	EpochPeriod    *big.Int
-	BlockPeriod    *big.Int
-	GasLimit       *big.Int
-	Accountability AccountabilityParams
-	Eip1559        Eip1559Params
+	EpochPeriod         *big.Int
+	BlockPeriod         *big.Int
+	GasLimit            *big.Int
+	ClusteringThreshold *big.Int
+	Accountability      AccountabilityParams
+	Eip1559             Eip1559Params
 }
 
 func (cc *ContractsConfig) Copy() *ContractsConfig {
@@ -34,9 +35,10 @@ func (cc *ContractsConfig) Copy() *ContractsConfig {
 		return nil
 	}
 	return &ContractsConfig{
-		EpochPeriod: new(big.Int).Set(cc.EpochPeriod),
-		BlockPeriod: new(big.Int).Set(cc.BlockPeriod),
-		GasLimit:    new(big.Int).Set(cc.GasLimit),
+		EpochPeriod:         new(big.Int).Set(cc.EpochPeriod),
+		BlockPeriod:         new(big.Int).Set(cc.BlockPeriod),
+		GasLimit:            new(big.Int).Set(cc.GasLimit),
+		ClusteringThreshold: new(big.Int).Set(cc.ClusteringThreshold),
 		Accountability: AccountabilityParams{
 			Range:       new(big.Int).Set(cc.Accountability.Range),
 			Delta:       new(big.Int).Set(cc.Accountability.Delta),
@@ -59,6 +61,9 @@ func (cc *ContractsConfig) Equal(cc2 *ContractsConfig) bool {
 		return false
 	}
 	if cc.GasLimit.Cmp(cc2.GasLimit) != 0 {
+		return false
+	}
+	if cc.ClusteringThreshold.Cmp(cc2.ClusteringThreshold) != 0 {
 		return false
 	}
 

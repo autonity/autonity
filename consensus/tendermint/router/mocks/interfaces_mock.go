@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	big "math/big"
 	reflect "reflect"
 
 	common "github.com/autonity/autonity/common"
@@ -293,6 +294,21 @@ func NewMockBlockChainProvider(ctrl *gomock.Controller) *MockBlockChainProvider 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBlockChainProvider) EXPECT() *MockBlockChainProviderMockRecorder {
 	return m.recorder
+}
+
+// ClusteringThresholdByHeight mocks base method.
+func (m *MockBlockChainProvider) ClusteringThresholdByHeight(height uint64) (*big.Int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClusteringThresholdByHeight", height)
+	ret0, _ := ret[0].(*big.Int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ClusteringThresholdByHeight indicates an expected call of ClusteringThresholdByHeight.
+func (mr *MockBlockChainProviderMockRecorder) ClusteringThresholdByHeight(height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClusteringThresholdByHeight", reflect.TypeOf((*MockBlockChainProvider)(nil).ClusteringThresholdByHeight), height)
 }
 
 // LatestEpoch mocks base method.

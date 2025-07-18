@@ -83,6 +83,8 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     // updated at finalize to ensure client aware config consistency
     uint256 internal newGasLimit;
 
+    uint256 internal newClusteringThreshold;
+
     uint256 internal configuredCommitteeSize;
 
     // epochInfos, save epoch info per epoch in the history
@@ -136,6 +138,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     ) internal {
         config = _config;
         newEpochPeriod = config.protocol.epochPeriod;
+        newClusteringThreshold = config.protocol.clusteringThreshold;
         newEip1559Params = Eip1559 (
             config.policy.minBaseFee,
             config.policy.baseFeeChangeDenominator,
@@ -519,6 +522,16 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     }
 
     /*
+    * @notice Set the clustering threshold for consensus messaging. Restricted to the Operator account.
+    * @param _threshold Positive integer - the committee size at which clustering becomes active.
+    */
+    function setClusteringThreshold(uint256 _threshold) external virtual onlyOperator {
+        require(_threshold > 0, "clustering threshold cannot be 0");
+        emit ConfigUpdateUint("clusteringThreshold", config.protocol.clusteringThreshold, _threshold, block.number);
+        newClusteringThreshold = _threshold;
+    }
+
+    /*
     * @notice Set the Operator account. Restricted to the Operator account.
     * @param _account the new operator account.
     */
@@ -815,6 +828,9 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             config.policy.elasticityMultiplier = newEip1559Params.elasticityMultiplier;
             config.protocol.gasLimitBoundDivisor = newEip1559Params.gasLimitBoundDivisor;
 
+            // apply new clustering threshold
+            config.protocol.clusteringThreshold = newClusteringThreshold;
+
             // update epoch information
             config.contracts.omissionAccountabilityContract.setEpochBlock(block.number);
             uint256 _previousEpochBlock = epochInfos[epochID].epochBlock;
@@ -851,6 +867,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             config.protocol.epochPeriod,
             config.protocol.blockPeriod,
             config.protocol.gasLimit,
+        config.protocol.clusteringThreshold,
             Accountability (
                 accountabilityRange,
                 accountabilityDelta,
@@ -1025,6 +1042,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             config.protocol.epochPeriod,
             config.protocol.blockPeriod,
             config.protocol.gasLimit,
+            config.protocol.clusteringThreshold,
             Accountability (
                 accountabilityConfig.range,
                 accountabilityConfig.delta,

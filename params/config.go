@@ -73,6 +73,7 @@ var (
 	DefaultBaseFeeChangeDenominator = uint64(8)
 	DefaultElasticityMultiplier     = uint64(2)
 	DefaultGasLimitBoundDivisor     = uint64(1024)
+	DefaultClusteringThreshold      = uint64(64)
 	NtnPrecision                    = big.NewInt(1_000_000_000_000_000_000)
 	Ntn1                            = new(big.Int).Mul(big.NewInt(1), NtnPrecision)
 	Ntn10000                        = new(big.Int).Mul(big.NewInt(10_000), NtnPrecision)
@@ -485,6 +486,7 @@ var (
 		GasLimitBoundDivisor:     DefaultGasLimitBoundDivisor,
 		BaseFeeChangeDenominator: DefaultBaseFeeChangeDenominator,
 		ElasticityMultiplier:     DefaultElasticityMultiplier,
+		ClusteringThreshold:      DefaultClusteringThreshold,
 		SkipGenesisVerification:  true,
 		TokenBond:                (*math.HexOrDecimal256)(common.Big0),
 		TokenMint:                (*math.HexOrDecimal256)(common.Big0),
@@ -765,6 +767,9 @@ func (c *ChainConfig) Prepare() error {
 		if err := s.Validate(); err != nil {
 			return fmt.Errorf("error parsing schedule %d, err: %v", i+1, err)
 		}
+	}
+	if c.AutonityContractConfig.ClusteringThreshold == 0 {
+		return errors.New("clustering threshold must be greater than 0")
 	}
 
 	// Omission accountability preparation

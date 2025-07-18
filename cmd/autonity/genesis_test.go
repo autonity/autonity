@@ -58,6 +58,7 @@ var genesisTest = struct {
 					"baseFeeChangeDenominator": 8,
 					"elasticityMultiplier": 2,
 					"withholdingThreshold": 0,
+					"clusteringThreshold": 64,
 					"proposerRewardRate": 1000,
 					"skipGenesisVerification": true,
 					"validators" : [ 
@@ -134,6 +135,7 @@ var genesisTest = struct {
 					"minBaseFee":100000000,
 					"initialInflationReserve": "0x20000000000",
 					"withholdingThreshold": 0,
+					"clusteringThreshold": 64,
 					"proposerRewardRate": 1000,
 					"skipGenesisVerification": true,
 					"validators" : [ 
@@ -198,6 +200,7 @@ var genesisTest = struct {
 					"maxCommitteeSize":7,
 					"initialInflationReserve": "0x20000000000",
 					"withholdingThreshold": 0,
+					"clusteringThreshold": 64,
 					"proposerRewardRate": 1000,
 					"skipGenesisVerification": true,
 					"validators" : [ 
