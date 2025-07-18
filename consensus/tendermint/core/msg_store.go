@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"math/big"
 	"sync"
 
@@ -380,13 +379,13 @@ func (ms *MsgStore) RemoveMsg(height uint64, round int64, code uint8, hash commo
 	}
 }
 
-func (ms *MsgStore) GetPrevotesByRoundAndValue(height uint64, round int64, value common.Hash) ([]*message.Prevote, error) {
+func (ms *MsgStore) GetPrevotesByRoundAndValue(height uint64, round int64, value common.Hash) []*message.Prevote {
 	if round < 0 || round > constants.MaxRound {
-		return nil, fmt.Errorf("round is out of bounds")
+		return nil
 	}
 	hs, err := ms.getOrCreateHeightStore(height)
 	if err != nil {
-		return nil, err
+		return nil
 	}
 	rs := hs.getOrCreateRoundStore(round)
 	rs.RLock()
@@ -399,7 +398,7 @@ func (ms *MsgStore) GetPrevotesByRoundAndValue(height uint64, round int64, value
 		result = make([]*message.Prevote, len(p))
 		copy(result, p)
 	}
-	return result, nil
+	return result
 }
 
 func (ms *MsgStore) SearchQuorum(height uint64, round int64, excludedValue common.Hash, quorum *big.Int) []*message.Prevote {

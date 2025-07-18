@@ -521,10 +521,7 @@ func (fd *FaultDetector) innocenceProofC1(c *Proof, committee *types.Committee) 
 		return nil, errNoEvidenceForC1
 	}
 
-	prevotesForV, err := fd.msgStore.GetPrevotesByRoundAndValue(height, precommit.R(), precommit.Value())
-	if err != nil {
-		return nil, errNoEvidenceForC1
-	}
+	prevotesForV := fd.msgStore.GetPrevotesByRoundAndValue(height, precommit.R(), precommit.Value())
 
 	// although we checked over quorum prevotes for V at the round of precommit, however due to
 	// off-chain accusation handler can run in different routine, thus GC of msg store could potentially
@@ -563,10 +560,7 @@ func (fd *FaultDetector) innocenceProofPO(c *Proof, committee *types.Committee) 
 		return nil, errNoEvidenceForPO
 	}
 
-	prevotes, err := fd.msgStore.GetPrevotesByRoundAndValue(height, validRound, liteProposal.Value())
-	if err != nil {
-		return nil, errNoEvidenceForPO
-	}
+	prevotes := fd.msgStore.GetPrevotesByRoundAndValue(height, validRound, liteProposal.Value())
 
 	// although we checked over quorum prevotes for the lite proposal at vr, however due to
 	// off-chain accusation handler runs in different routine, thus GC of msg store could potentially
@@ -631,11 +625,7 @@ func (fd *FaultDetector) innocenceProofPVO(c *Proof, committee *types.Committee)
 		return nil, errNoEvidenceForPVO
 	}
 
-	prevotes, err := fd.msgStore.GetPrevotesByRoundAndValue(height, validRound, oldProposal.Value())
-	if err != nil {
-		return nil, errNoEvidenceForPVO
-	}
-
+	prevotes := fd.msgStore.GetPrevotesByRoundAndValue(height, validRound, oldProposal.Value())
 	// although we checked over quorum prevotes for old proposal at vr, however due to
 	// off-chain accusation handler runs in different routine, thus GC of msg store could potentially
 	// delete the prevotes.
@@ -784,10 +774,6 @@ func (fd *FaultDetector) runRulesOverHeight(height uint64, quorum *big.Int, comm
 		}
 	}()
 	wg.Wait()
-	//proofs = append(proofs, fd.newProposalsAccountabilityCheck(height)...)
-	//proofs = append(proofs, fd.oldProposalsAccountabilityCheck(height, quorum)...)
-	//proofs = append(proofs, fd.prevotesAccountabilityCheck(height, quorum, committee)...)
-	//proofs = append(proofs, fd.precommitsAccountabilityCheck(height, quorum, committee)...)
 	return proofs
 }
 
