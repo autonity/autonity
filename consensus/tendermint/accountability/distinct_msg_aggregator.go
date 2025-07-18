@@ -278,12 +278,11 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregat
 	var precommitsToBeAggregated []*message.Precommit
 
 	presentedMsgs := make(map[int64]map[common.Hash]struct{})
-
-	precommitsToBeAggregated = append(precommitsToBeAggregated, precommits[0])
 	height := precommits[0].H()
 
-	// skip duplicated msg
-	for i := 1; i < len(precommits); i++ {
+	// skip duplicated precommits as aggregation can produce multiple instance of precommit
+	// with the same signer and value, to a single signer, one instance of precommit is sufficient to prove its behaviour.
+	for i := 0; i < len(precommits); i++ {
 		roundMap, ok := presentedMsgs[precommits[i].R()]
 		if !ok {
 			roundMap = make(map[common.Hash]struct{})
