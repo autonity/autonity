@@ -189,9 +189,7 @@ interface IAutonity is IERC20, IScheduleController {
     function updateEnode(address _nodeAddress, string memory _enode) external;
 
     /**
-    * @notice Create a bonding(delegation) request with the caller as delegator. In case the caller is a contract, it needs
-    * to send some gas so autonity can notify the caller about staking operations. In case autonity fails to notify
-    * the caller (contract), the applied request is reverted.
+    * @notice Create a bonding(delegation) request with the caller as delegator.
     * @param _validator address of the validator to delegate stake to.
     * @param _amount total amount of NTN to bond.
     * @return uint256 id of the bonding request in the bonding queue
@@ -199,14 +197,48 @@ interface IAutonity is IERC20, IScheduleController {
     function bond(address _validator, uint256 _amount) external returns (uint256);
 
     /**
-    * @notice Create an unbonding request with the caller as delegator. In case the caller is a contract, it needs
-    * to send some gas so autonity can notify the caller about staking operations. In case autonity fails to notify
-    * the caller (contract), the applied request is reverted.
+    * @notice Create an unbonding request with the caller as delegator.
     * @param _validator address of the validator to unbond stake to.
     * @param _amount total amount of LNTN (or NTN if self delegated) to unbond.
     * @return uint256 id of the unbonding request in the unbonding queue
     */
     function unbond(address _validator, uint256 _amount) external returns (uint256);
+
+    /**
+    * @notice Create a bonding(delegation) request with the `_account` as delegator. The caller needs to have required
+    * bonding-allowance (NTN) from the `_account`.
+    * @param _account address of the delegator.
+    * @param _validator address of the validator to delegate stake to.
+    * @param _amount total amount of NTN to bond.
+    * @return uint256 id of the bonding request in the bonding queue
+    */
+    function bondFrom(address _account, address _validator, uint256 _amount) external returns (uint256);
+
+    /**
+    * @notice Create an unbonding request with the `_account` as delegator. The caller needs to have required
+    * unbonding-allowance to unbond LNTN from the `_account`.
+    * @param _account address of the delegator.
+    * @param _validator address of the validator to unbond stake to.
+    * @param _amount total amount of LNTN (or NTN if self delegated) to unbond.
+    * @return uint256 id of the unbonding request in the unbonding queue
+    */
+    function unbondFrom(address _account, address _validator, uint256 _amount) external returns (uint256);
+
+    /**
+     * @notice Returns the remaining number of NTN that `_caller` will be
+     * allowed to bond on behalf of `_owner` through `bondFrom`.
+     * This is zero by default.
+     */
+    function bondingAllowance(address _owner, address _caller) external view returns (uint256);
+
+    /**
+     * @notice Sets `_amount` as the bonding-allowance (NTN) of `_caller` over the caller's tokens.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * Emits an {BondingApproval} event.
+     */
+    function approveBonding(address _caller, uint256 _amount) external returns (bool);
 
     /**
     * @dev Bonds the inflation rewards to the validator's stake at epoch finalization.
@@ -493,12 +525,13 @@ interface IAutonity is IERC20, IScheduleController {
     * This request will only be effective at the end of the current epoch however the stake will be
     * put in custody immediately from the delegator's account.
     * @param validator The validator node account.
-    * @param delegator The caller.
+    * @param delegator The recipient of the bonding request.
+    * @param caller The caller.
     * @param selfBonded True if the validator treasury initiated the request. No LNEW will be issued.
     * @param amount The amount of NEWTON to be delegated.
     * @param headBondingID  id of the request in bonding map
     */
-    event NewBondingRequest(address indexed validator, address indexed delegator,
+    event NewBondingRequest(address indexed validator, address indexed delegator, address indexed caller,
         bool selfBonded, uint256 amount, uint256 headBondingID);
 
     /**
@@ -516,12 +549,13 @@ interface IAutonity is IERC20, IScheduleController {
     * Please note that because of potential slashing events during this delay period, the released amount
     * may or may not be correspond to the amount requested.
     * @param validator The validator node account.
-    * @param delegator The caller.
+    * @param delegator The recipient of the unbonding request.
+    * @param caller The caller.
     * @param selfBonded True if the validator treasury initiated the request.
     * @param amount If self-bonded this is the requested amount of NEWTON to be unbonded.
     * @param headUnbondingID id of the request in unbonding map
     */
-    event NewUnbondingRequest(address indexed validator, address indexed delegator, bool selfBonded, uint256 amount, uint256 headUnbondingID);
+    event NewUnbondingRequest(address indexed validator, address indexed delegator, address indexed caller, bool selfBonded, uint256 amount, uint256 headUnbondingID);
 
     /**
     * @notice emitted when a new validator is registered
@@ -589,5 +623,11 @@ interface IAutonity is IERC20, IScheduleController {
     * @notice Event emitted after EIP-1559 parameters are updated
     */
     event Eip1559ParamsUpdate(Eip1559 oldParams, Eip1559 newParams);
+
+    /**
+     * @notice Emitted when the bonding-allowance (NTN) of a `_caller` for an `_owner` is set by
+     * a call to `approveBonding`. `_value` is the new `bondingAllowance` (NTN).
+     */
+    event BondingApproval(address indexed _owner, address indexed _caller, uint256 _value);
 
 }

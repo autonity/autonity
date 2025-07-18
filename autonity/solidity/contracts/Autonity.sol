@@ -92,6 +92,8 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     string[] internal committeeNodes;
     mapping(address => mapping(address => uint256)) internal allowances;
 
+    mapping(address => mapping (address => uint256)) internal bondingAllowances;
+
     /* Newton ERC-20. */
     mapping(address => uint256) internal accounts;
     mapping(address => Validator) internal validators;
@@ -179,7 +181,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             stakeCirculating += _bondedStake;
             emit RegisteredValidator(_validators[i].treasury, _validators[i].nodeAddress, _validators[i].oracleAddress,
                 _validators[i].enode, address(_validators[i].liquidStateContract));
-            _bond(_validators[i].nodeAddress, _bondedStake, payable(_validators[i].treasury));
+            _bond(_validators[i].nodeAddress, _bondedStake, payable(_validators[i].treasury), _validators[i].treasury);
         }
     }
 
@@ -315,19 +317,33 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     /**
     * @inheritdoc IAutonity
     */
+    function bondFrom(address _account, address _validator, uint256 _amount) external virtual nonReentrant returns (uint256) {
+        require(validators[_validator].treasury != _account, "cannot bond PAS using allowance");
+        uint _allowed = bondingAllowances[_account][msg.sender];
+        require(_allowed >= _amount, "amount exceeded allowance");
+        _approveBonding(_account, msg.sender, _allowed - _amount);
+        return _bond(_validator, _amount, payable(_account), msg.sender);
+    }
+
+    /**
+    * @inheritdoc IAutonity
+    */
+    function unbondFrom(address _account, address _validator, uint256 _amount) external virtual nonReentrant returns (uint256) {
+        return _unbond(_validator, _amount, payable(_account), msg.sender);
+    }
+
+    /**
+    * @inheritdoc IAutonity
+    */
     function bond(address _validator, uint256 _amount) external virtual nonReentrant returns (uint256) {
-        require(validators[_validator].nodeAddress == _validator, "validator not registered");
-        require(validators[_validator].state == ValidatorState.active, "validator need to be active");
-        return _bond(_validator, _amount, payable(msg.sender));
+        return _bond(_validator, _amount, payable(msg.sender), msg.sender);
     }
 
     /**
     * @inheritdoc IAutonity
     */
     function unbond(address _validator, uint256 _amount) external virtual nonReentrant returns (uint256) {
-        require(validators[_validator].nodeAddress == _validator, "validator not registered");
-        require(_amount > 0, "unbonding amount is 0");
-        return _unbond(_validator, _amount, payable(msg.sender));
+        return _unbond(_validator, _amount, payable(msg.sender), msg.sender);
     }
 
     /**
@@ -674,6 +690,14 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
     }
 
     /**
+    * @inheritdoc IAutonity
+    */
+    function approveBonding(address _caller, uint256 _amount) external virtual override nonReentrant returns (bool) {
+        _approveBonding(msg.sender, _caller, _amount);
+        return true;
+    }
+
+    /**
     * @notice Moves `amount` NTN stake tokens from the caller's account to `recipient`.
     *
     * @return Returns a boolean value indicating whether the operation succeeded.
@@ -969,6 +993,13 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         Getters
     ============================================================
     */
+
+    /**
+    * @inheritdoc IAutonity
+    */
+    function bondingAllowance(address _owner, address _caller) public view virtual nonReentrantView returns (uint256) {
+        return bondingAllowances[_owner][_caller];
+    }
 
     /**
     * @notice Returns the slasher contract address
@@ -1614,6 +1645,14 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         emit MintedStake(_addr, _amount);
     }
 
+    function _approveBonding(address _owner, address _caller, uint256 _amount) internal virtual {
+        require(_owner != address(0), "approve from the zero address");
+        require(_caller != address(0), "approve to the zero address");
+
+        bondingAllowances[_owner][_caller] = _amount;
+        emit BondingApproval(_owner, _caller, _amount);
+    }
+
     /**
      * @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
      *
@@ -1720,16 +1759,20 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
      *
      * This function assume that `_validator` is a valid validator address.
      */
-    function _bond(address _validator, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
+    function _bond(address _validatorAddress, uint256 _amount, address payable _recipient, address _caller) internal virtual returns (uint256) {
+        Validator storage _validator = validators[_validatorAddress];
+        require(_validatorAddress != address(0) && _validator.nodeAddress == _validatorAddress, "validator not registered");
+        require(_validator.state == ValidatorState.active, "validator need to be active");
+
         require(_amount > 0, "amount need to be strictly positive");
         require(accounts[_recipient] >= _amount, "insufficient Newton balance");
 
         accounts[_recipient] -= _amount;
-        BondingRequest memory _bonding = BondingRequest(_recipient, _validator, _amount, block.number);
+        BondingRequest memory _bonding = BondingRequest(_recipient, _validatorAddress, _amount, block.number);
         bondingMap[headBondingID] = _bonding;
 
-        bool _selfBonded = validators[_validator].treasury == _recipient;
-        emit NewBondingRequest(_validator, _recipient, _selfBonded, _amount, headBondingID);
+        bool _selfBonded = _validator.treasury == _recipient;
+        emit NewBondingRequest(_validatorAddress, _recipient, _caller, _selfBonded, _amount, headBondingID);
         headBondingID++;
         return headBondingID - 1;
     }
@@ -1781,22 +1824,31 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
         _updateConversionRatio(_val);
     }
 
-    function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient) internal virtual returns (uint256) {
+    function _unbond(address _validatorAddress, uint256 _amount, address payable _recipient, address _caller) internal virtual returns (uint256) {
         Validator storage _validator = validators[_validatorAddress];
+        require(_validatorAddress != address(0) && _validator.nodeAddress == _validatorAddress, "validator not registered");
+        require(_amount > 0, "unbonding amount is 0");
+
         bool selfDelegation = _recipient == _validator.treasury;
         if (!selfDelegation) {
             // Lock LNTN if it was issued (non self-delegated stake case)
             uint256 liqBalance = _validator.liquidStateContract.unlockedBalanceOf(_recipient);
             require(liqBalance >= _amount, "insufficient unlocked Liquid Newton balance");
-            _validator.liquidStateContract.lock(_recipient, _amount);
+            
+            if (_caller == _recipient) {
+                _validator.liquidStateContract.lock(_recipient, _amount);
+            } else {
+                _validator.liquidStateContract.lockFrom(_recipient, _caller, _amount);
+            }
         } else {
+            require(_caller == _recipient, "cannot unbond PAS using allowance");
             require(
                 _validator.selfBondedStake - _validator.selfUnbondingStakeLocked >= _amount,
                 "insufficient self bonded newton balance"
             );
             _validator.selfUnbondingStakeLocked += _amount;
         }
-        emit NewUnbondingRequest(_validatorAddress, _recipient, selfDelegation, _amount, headUnbondingID);
+        emit NewUnbondingRequest(_validatorAddress, _recipient, _caller, selfDelegation, _amount, headUnbondingID);
         unbondingMap[headUnbondingID] = UnbondingRequest(
             _recipient, _validatorAddress, _amount, 0, block.number, false, false, selfDelegation
         );
@@ -1842,7 +1894,7 @@ contract Autonity is IAutonity, ReentrancyGuard, ScheduleController, Upgradeable
             _newtonAmount = (_liquidAmount * _delegatedStake) / _validator.liquidSupply;
             _validator.liquidSupply -= _liquidAmount;
 
-            // Step 3: Calculate the amount of shares the staker will get in the unbonding pool.
+            // Step 3: Calculate the amount of shares the recipient will get in the unbonding pool.
             // Note : This accounting extra-complication is due to the possibility of slashing unbonding funds.
             if (_validator.unbondingStake == 0) {
                 _unbonding.unbondingShare = _newtonAmount;

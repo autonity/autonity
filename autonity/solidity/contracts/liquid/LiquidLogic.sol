@@ -155,6 +155,14 @@ contract LiquidLogic is ILiquid, LiquidStorage {
     }
 
     /**
+    * @inheritdoc ILiquid
+    */
+    function approveUnbonding(address _caller, uint256 _amount) external virtual nonReentrant returns (bool) {
+        _approveUnbonding(msg.sender, _caller, _amount);
+        return true;
+    }
+
+    /**
      * @dev See {IERC20-transferFrom}.
      *
      * Emits an {Approval} event indicating the updated allowance.
@@ -191,9 +199,18 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      * @param _account address of the account to lock funds .
               _amount LNTN amount of tokens to lock.
      */
-    function lock(address _account, uint256 _amount) external virtual nonReentrant onlyAutonity {
-        require(balances[_account] - lockedBalances[_account] >= _amount, "can't lock more funds than available");
-        lockedBalances[_account] += _amount;
+    function lock(address _account, uint256 _amount) public virtual nonReentrant onlyAutonity {
+        _lock(_account, _amount);
+    }
+
+    /**
+    * @inheritdoc ILiquid
+    */
+    function lockFrom(address _account, address _caller, uint256 _amount) external virtual nonReentrant onlyAutonity {
+        uint _allowed = unbondingAllowances[_account][_caller];
+        require(_allowed >= _amount, "amount exceeds allowance");
+        _approveUnbonding(_account, _caller, _allowed - _amount);
+        _lock(_account, _amount);
     }
 
     /**
@@ -225,6 +242,11 @@ contract LiquidLogic is ILiquid, LiquidStorage {
 
      ============================================================
      */
+
+    function _lock(address _account, uint256 _amount) internal virtual {
+        require(balances[_account] - lockedBalances[_account] >= _amount, "can't lock more funds than available");
+        lockedBalances[_account] += _amount;
+    }
 
     function _increaseBalance(address _delegator, uint256 _value) private {
         _realiseFees(_delegator); //always updates fee factor
@@ -314,6 +336,14 @@ contract LiquidLogic is ILiquid, LiquidStorage {
         emit Approval(_owner, _spender, _amount);
     }
 
+    function _approveUnbonding(address _owner, address _caller, uint256 _amount) internal virtual {
+        require(_owner != address(0), "approve from the zero address");
+        require(_caller != address(0), "approve to the zero address");
+
+        unbondingAllowances[_owner][_caller] = _amount;
+        emit UnbondingApproval(_owner, _caller, _amount);
+    }
+
     function _calculateValidatorCommission(uint256 _reward) internal virtual view returns (uint256) {
         uint256 _commission = (_reward * commissionRate) / COMMISSION_RATE_SCALE_FACTOR;
         return _commission;
@@ -376,6 +406,13 @@ contract LiquidLogic is ILiquid, LiquidStorage {
      */
     function allowance(address _owner, address _spender) external virtual view nonReentrantView returns (uint256) {
         return allowances[_owner][_spender];
+    }
+
+    /**
+    * @inheritdoc ILiquid
+    */
+    function unbondingAllowance(address _owner, address _caller) public virtual view nonReentrantView returns (uint256) {
+        return unbondingAllowances[_owner][_caller];
     }
 
     /**

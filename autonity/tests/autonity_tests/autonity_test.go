@@ -296,3 +296,188 @@ func TestConversionRatio(t *testing.T) {
 	require.Equal(t, uint64(1e18), val.ConversionRatio.Uint64())
 
 }
+
+func TestBondingAllowance(t *testing.T) {
+	validator := common.Address{}
+	setup := func() *tests.Runner {
+		r := tests.Setup(t, nil)
+		validator = r.Committee.Validators[0].NodeAddress
+		return r
+	}
+
+	owner := common.HexToAddress("0x123")
+	staker := common.HexToAddress("0x321")
+
+	allow := func(r *tests.Runner, allowance *big.Int, sender ...common.Address) {
+		fundOwner := owner
+		if len(sender) > 0 {
+			fundOwner = sender[0]
+		}
+		r.NoError(
+			r.Autonity.ApproveBonding(
+				tests.FromSender(fundOwner, nil),
+				staker,
+				allowance,
+			),
+		)
+	}
+
+	getMoney := func(r *tests.Runner, money *big.Int) {
+		r.NoError(
+			r.Autonity.Mint(
+				r.Operator,
+				owner,
+				money,
+			),
+		)
+	}
+
+	bondFrom := func(r *tests.Runner, bond *big.Int, sender ...common.Address) error {
+		fundOwner := owner
+		if len(sender) > 0 {
+			fundOwner = sender[0]
+		}
+		_, err := r.Autonity.BondFrom(
+			tests.FromSender(staker, nil),
+			fundOwner,
+			validator,
+			bond,
+		)
+		return err
+	}
+
+	checkAllowance := func(r *tests.Runner, expAllowance *big.Int) {
+		actualAllowance := r.CheckErrorAndGetData(r.Autonity.BondingAllowance(nil, owner, staker)).(*big.Int)
+		if expAllowance.Cmp(common.Big0) == 0 {
+			require.True(r.T, actualAllowance.Cmp(common.Big0) == 0)
+		} else {
+			require.Equal(
+				r.T,
+				expAllowance,
+				actualAllowance,
+			)
+		}
+	}
+
+	bondWithNoError := func(r *tests.Runner, allowance, bond *big.Int) {
+		getMoney(r, allowance)
+		allow(r, allowance)
+		err := bondFrom(r, bond)
+		require.NoError(r.T, err)
+	}
+
+	bond := big.NewInt(100)
+
+	tests.RunWithSetup("can approve any amount", setup, func(r *tests.Runner) {
+		balance := r.CheckErrorAndGetData(r.Autonity.BalanceOf(nil, owner)).(*big.Int)
+		allowance := new(big.Int).Add(balance, common.Big1)
+		allow(r, allowance)
+		checkAllowance(r, allowance)
+	})
+
+	tests.RunWithSetup("cannot bond more than allowed", setup, func(r *tests.Runner) {
+		getMoney(r, bond)
+		allow(r, bond)
+		err := bondFrom(r, new(big.Int).Add(bond, common.Big1))
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: amount exceeded allowance", err.Error())
+	})
+
+	tests.RunWithSetup("can bond allowance", setup, func(r *tests.Runner) {
+		bondWithNoError(r, bond, bond)
+	})
+
+	tests.RunWithSetup("bonding change allowance", setup, func(r *tests.Runner) {
+		spare := big.NewInt(200)
+		total := new(big.Int).Add(bond, spare)
+		bondWithNoError(r, total, bond)
+		checkAllowance(r, spare)
+	})
+
+	tests.RunWithSetup("bonding from allowance goes to proper owner", setup, func(r *tests.Runner) {
+		liquidContract := r.LiquidStateContract(validator)
+		ownerBalance := r.CheckErrorAndGetData(
+			liquidContract.BalanceOf(nil, owner),
+		).(*big.Int)
+		stakerBalance := r.CheckErrorAndGetData(
+			liquidContract.BalanceOf(nil, staker),
+		).(*big.Int)
+
+		bondWithNoError(r, bond, bond)
+		r.WaitNextEpoch()
+
+		require.Equal(
+			r.T,
+			stakerBalance,
+			r.CheckErrorAndGetData(
+				liquidContract.BalanceOf(nil, staker),
+			).(*big.Int),
+		)
+
+		require.Equal(
+			r.T,
+			new(big.Int).Add(ownerBalance, bond),
+			r.CheckErrorAndGetData(
+				liquidContract.BalanceOf(nil, owner),
+			).(*big.Int),
+		)
+	})
+
+	tests.RunWithSetup("can reset allowance", setup, func(r *tests.Runner) {
+		allowance := big.NewInt(100)
+		allow(r, allowance)
+		checkAllowance(r, allowance)
+
+		allowance = big.NewInt(200)
+		allow(r, allowance)
+		checkAllowance(r, allowance)
+
+		allowance = new(big.Int)
+		allow(r, allowance)
+		checkAllowance(r, allowance)
+	})
+
+	tests.RunWithSetup("cannot transfer allowance", setup, func(r *tests.Runner) {
+		allowance := big.NewInt(100)
+		allow(r, allowance)
+		checkAllowance(r, allowance)
+
+		_, err := r.Autonity.Transfer(
+			tests.FromSender(staker, nil),
+			owner,
+			allowance,
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: amount exceeds balance", err.Error())
+
+		_, err = r.Autonity.TransferFrom(
+			tests.FromSender(staker, nil),
+			owner,
+			staker,
+			allowance,
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: ERC20: transfer amount exceeds allowance", err.Error())
+	})
+
+	tests.RunWithSetup("cannot self-bond with allowance", setup, func(r *tests.Runner) {
+		treasury := r.Committee.Validators[0].Treasury
+		allowance := big.NewInt(100)
+		allow(r, allowance, treasury)
+		err := bondFrom(r, allowance, treasury)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: cannot bond PAS using allowance", err.Error())
+	})
+
+	tests.RunWithSetup("cannot call unbondFrom from the treasury", setup, func(r *tests.Runner) {
+		treasury := r.Committee.Validators[0].Treasury
+		_, err := r.Autonity.UnbondFrom(
+			tests.FromSender(staker, nil),
+			treasury,
+			validator,
+			big.NewInt(100),
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: cannot unbond PAS using allowance", err.Error())
+	})
+}

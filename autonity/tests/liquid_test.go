@@ -599,6 +599,208 @@ func TestFunctions(t *testing.T) {
 	})
 }
 
+func TestUnbondingAllowance(t *testing.T) {
+	var liquidContract *ILiquid
+	var validator common.Address
+	owner := common.HexToAddress("0x123")
+	var bonded *big.Int
+
+	setup := func() *Runner {
+		r := Setup(t, nil)
+		validator = r.Committee.Validators[0].NodeAddress
+		liquidContract = r.Committee.LiquidStateContracts[0]
+
+		bonded = big.NewInt(1000)
+		r.NoError(
+			r.Autonity.Mint(
+				r.Operator,
+				owner,
+				bonded,
+			),
+		)
+		r.NoError(
+			r.Autonity.Bond(
+				FromSender(owner, nil),
+				validator,
+				bonded,
+			),
+		)
+		r.WaitNextEpoch()
+		return r
+	}
+
+	staker := common.HexToAddress("0x321")
+
+	allow := func(r *Runner, allowance *big.Int) {
+		r.NoError(
+			liquidContract.ApproveUnbonding(
+				FromSender(owner, nil),
+				staker,
+				allowance,
+			),
+		)
+	}
+
+	checkAllowance := func(r *Runner, expAllowance *big.Int) {
+		actualAllowance := r.CheckErrorAndGetData(liquidContract.UnbondingAllowance(nil, owner, staker)).(*big.Int)
+		if expAllowance.Cmp(common.Big0) == 0 {
+			require.True(r.T, actualAllowance.Cmp(common.Big0) == 0)
+		} else {
+			require.Equal(
+				r.T,
+				expAllowance,
+				actualAllowance,
+			)
+		}
+	}
+
+	unbondFrom := func(r *Runner, unbond *big.Int) error {
+		_, err := r.Autonity.UnbondFrom(
+			FromSender(staker, nil),
+			owner,
+			validator,
+			unbond,
+		)
+		return err
+	}
+
+	unbondWithNoError := func(r *Runner, allowance, unbond *big.Int) {
+		allow(r, allowance)
+		err := unbondFrom(r, unbond)
+		require.NoError(r.T, err)
+	}
+
+	RunWithSetup("can approve any amount", setup, func(r *Runner) {
+		allowance := new(big.Int).Add(bonded, common.Big1)
+		allow(r, allowance)
+		checkAllowance(r, allowance)
+	})
+
+	RunWithSetup("cannot unbond more than allowed", setup, func(r *Runner) {
+		allowance := new(big.Int).Sub(bonded, common.Big1)
+		allow(r, allowance)
+		err := unbondFrom(r, bonded)
+		require.Error(r.T, err)
+		require.Equal(
+			r.T,
+			"execution reverted: amount exceeds allowance",
+			err.Error(),
+		)
+	})
+
+	RunWithSetup("can unbond allowance", setup, func(r *Runner) {
+		unbondWithNoError(r, bonded, bonded)
+	})
+
+	RunWithSetup("unbonding change allowance", setup, func(r *Runner) {
+		spare := big.NewInt(100)
+		unbond := big.NewInt(100)
+		allowance := new(big.Int).Add(spare, unbond)
+		unbondWithNoError(r, allowance, unbond)
+		checkAllowance(r, spare)
+	})
+
+	RunWithSetup("unbonding from allowance goes to proper owner", setup, func(r *Runner) {
+		ownerLntnBalance := r.CheckErrorAndGetData(
+			liquidContract.BalanceOf(nil, owner),
+		).(*big.Int)
+		stakerLntnBalance := r.CheckErrorAndGetData(
+			liquidContract.BalanceOf(nil, staker),
+		).(*big.Int)
+
+		ownerNtnBalance := r.CheckErrorAndGetData(
+			r.Autonity.BalanceOf(nil, owner),
+		).(*big.Int)
+		stakerNtnBalance := r.CheckErrorAndGetData(
+			r.Autonity.BalanceOf(nil, staker),
+		).(*big.Int)
+
+		unbond := big.NewInt(100)
+		unbondWithNoError(r, unbond, unbond)
+		unbondingID := common.Big0
+
+		r.WaitNextEpoch()
+
+		require.Equal(
+			r.T,
+			stakerLntnBalance,
+			r.CheckErrorAndGetData(
+				liquidContract.BalanceOf(nil, staker),
+			).(*big.Int),
+		)
+
+		require.Equal(
+			r.T,
+			new(big.Int).Sub(ownerLntnBalance, unbond),
+			r.CheckErrorAndGetData(
+				liquidContract.BalanceOf(nil, owner),
+			).(*big.Int),
+		)
+
+		for {
+			r.WaitNextEpoch()
+			isReleased := r.CheckErrorAndGetData(
+				r.Autonity.IsUnbondingReleased(nil, unbondingID),
+			).(bool)
+			if isReleased {
+				break
+			}
+		}
+
+		require.Equal(
+			r.T,
+			stakerNtnBalance,
+			r.CheckErrorAndGetData(
+				r.Autonity.BalanceOf(nil, staker),
+			).(*big.Int),
+		)
+
+		require.Equal(
+			r.T,
+			new(big.Int).Add(ownerNtnBalance, unbond),
+			r.CheckErrorAndGetData(
+				r.Autonity.BalanceOf(nil, owner),
+			).(*big.Int),
+		)
+	})
+
+	RunWithSetup("can reset allowance", setup, func(r *Runner) {
+		allowance := big.NewInt(100)
+		allow(r, allowance)
+		checkAllowance(r, allowance)
+
+		allowance = big.NewInt(200)
+		allow(r, allowance)
+		checkAllowance(r, allowance)
+
+		allowance = big.NewInt(0)
+		allow(r, allowance)
+		checkAllowance(r, allowance)
+	})
+
+	RunWithSetup("cannot transfer allowance", setup, func(r *Runner) {
+		allowance := big.NewInt(100)
+		allow(r, allowance)
+
+		_, err := liquidContract.Transfer(
+			FromSender(staker, nil),
+			owner,
+			allowance,
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: insufficient unlocked funds", err.Error())
+
+		_, err = liquidContract.TransferFrom(
+			FromSender(staker, nil),
+			owner,
+			staker,
+			allowance,
+		)
+		require.Error(r.T, err)
+		require.Equal(r.T, "execution reverted: ERC20: transfer amount exceeds allowance", err.Error())
+	})
+}
+
 func checkLiquidBalance(r *Runner, liquidState *ILiquid, user common.Address, expecedBalance *big.Int) {
 	balance, _, err := liquidState.BalanceOf(nil, user)
 	require.NoError(r.T, err)
