@@ -182,7 +182,7 @@ contract Accountability is IAccountability, AccessAutonity, IConfigEvents, Reent
         } else if (validatorAccusation[_offender] != 0){
             Event storage _accusation =  events[validatorAccusation[_offender] - 1];
             _result = false;
-            _deadline = _accusation.block + config.innocenceProofSubmissionWindow;
+            _deadline = _accusation.reportingBlock + config.innocenceProofSubmissionWindow;
         } else {
             _result = true;
             _deadline = 0;

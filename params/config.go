@@ -797,9 +797,9 @@ func (c *ChainConfig) Prepare() error {
 		return fmt.Errorf("epoch period cannot be lower or equal than delta+lookbackWindow-1. epoch period: %d, delta: %d, lookback: %d", c.AutonityContractConfig.EpochPeriod, delta, lookbackWindow)
 	}
 
-	// provable fault accountability check
-	if c.AccountabilityConfig.Range <= c.AccountabilityConfig.Delta {
-		return fmt.Errorf("accountability height range cannot be lower or equal than delta")
+	// provable fault and omission accountability check
+	if c.AccountabilityConfig.Range <= c.AccountabilityConfig.Delta || c.AccountabilityConfig.Range <= c.OmissionAccountabilityConfig.Delta {
+		return fmt.Errorf("accountability height range cannot be lower or equal than delta or omission delta")
 	}
 
 	if c.AccountabilityConfig.Range%4 != 0 {
