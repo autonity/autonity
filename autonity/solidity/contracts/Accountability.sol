@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity ^0.8.19;
+pragma solidity 0.8.30;
 
 import {AccessAutonity} from "./AccessAutonity.sol";
 import {SLASHING_RATE_SCALE_FACTOR} from "./ProtocolConstants.sol";

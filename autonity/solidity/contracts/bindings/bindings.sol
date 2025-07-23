@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
-pragma solidity ^0.8.3;
+pragma solidity 0.8.30;
 
 // a dummy bindings contract. It imports all other contracts so the bindings can be generated for all of them, since abigen works on only one .sol file.
 // I also considered to simply call abigen for every contract separately, but it compiles contract and it's dependencies,
