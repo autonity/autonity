@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.0;
+pragma solidity 0.8.30;
 
 import {SD59x18, sd, convert} from "./lib/prb-math-4.0.1/SD59x18.sol";
 import {IInflationController} from "./interfaces/IInflationController.sol";

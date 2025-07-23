@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.19;
+pragma solidity 0.8.30;
 
 import { SD59x18 } from "./ValueType.sol";
 

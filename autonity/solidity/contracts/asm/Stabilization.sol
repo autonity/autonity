@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity ^0.8.19;
+pragma solidity 0.8.30;
 
 import {IConfigEvents} from "../interfaces/IConfigEvents.sol";
 import {IERC20} from "../interfaces/IERC20.sol";

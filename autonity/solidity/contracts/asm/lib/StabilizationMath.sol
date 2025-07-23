@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-only
-pragma solidity ^0.8.19;
+pragma solidity 0.8.30;
 
 import "./ASMErrors.sol";
 import {UD60x18, ud} from "../../lib/prb-math-4.0.1/UD60x18.sol";
