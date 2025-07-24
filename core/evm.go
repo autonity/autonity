@@ -18,11 +18,13 @@ package core
 
 import (
 	"math/big"
+	"os"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/eth/tracers/logger"
 )
 
 // ChainContext supports retrieving headers and consensus parameters from the
@@ -99,16 +101,16 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 		evm := vm.NewEVM(evmContext, txContext, statedb, chain.chainConfig,
 			vm.Config{
 				//// Uncomment this to get EVM debugging logs
-				//Debug: true,
-				//Tracer: logger.NewMarkdownLogger(&logger.Config{
-				//	EnableMemory:     true,
-				//	DisableStack:     false,
-				//	DisableStorage:   false,
-				//	EnableReturnData: true,
-				//	Debug:            true,
-				//	Limit:            0,
-				//	Overrides:        nil,
-				//}, os.Stdout),
+				Debug: true,
+				Tracer: logger.NewMarkdownLogger(&logger.Config{
+					EnableMemory:     true,
+					DisableStack:     false,
+					DisableStorage:   false,
+					EnableReturnData: true,
+					Debug:            true,
+					Limit:            0,
+					Overrides:        nil,
+				}, os.Stdout),
 			},
 		)
 		return evm
