@@ -85,8 +85,8 @@ func (r *Signers) DecodeRLP(stream *rlp.Stream) error {
 		if coefficient.Sign() <= 0 {
 			return fmt.Errorf("invalid coefficient. Sign: %d", coefficient.Sign())
 		}
-		// coefficient cannot exceed QuorumVote bitsize in any situation
-		if coefficient.BitLen() > common.QuorumCap {
+		// coefficient cannot exceed VoteCap bitsize as they are "normal" network messages (not aggregated further)
+		if coefficient.BitLen() > common.VoteCap {
 			return fmt.Errorf("coefficient too big. BitLen: %d", coefficient.BitLen())
 		}
 		index := ext.SignersIndex[i]
@@ -280,8 +280,8 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregat
 	presentedMsgs := make(map[int64]map[common.Hash]struct{})
 	height := precommits[0].H()
 
-	// skip duplicated precommits as aggregation can produce multiple instance of precommit
-	// with the same signer and value, to a single signer, one instance of precommit is sufficient to prove its behaviour.
+	// skip precommits for same r and value but different signers set. This function assumes all precommits include
+	// the offender/accused, therefore a single one including it is enough to prove its behaviour.
 	for _, m := range precommits {
 		roundMap, ok := presentedMsgs[m.R()]
 		if !ok {

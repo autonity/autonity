@@ -482,7 +482,7 @@ contract('Accountability', function (accounts) {
       
       canAccuse = await accountability.canAccuse(offender.nodeAddress,PNrule,event.block+1);
       assert.strictEqual(canAccuse._result,false);
-      assert.strictEqual(canAccuse._deadline.toNumber(),event.block + accountabilityConfig.innocenceProofSubmissionWindow);
+      assert.strictEqual(canAccuse._deadline.toNumber(),event.reportingBlock + accountabilityConfig.innocenceProofSubmissionWindow);
 
       await truffleAssert.fails(
         accountability.handleValidAccusation(event),
