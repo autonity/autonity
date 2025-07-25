@@ -131,21 +131,21 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 	return true, nil
 }
 
-var outfile = "/home/ubuntu/node0msgs"
+var outdir = "/home/ubuntu/msgdump"
 
 func dumpMsg(payload []byte) {
-	fd, err := os.OpenFile(outfile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	defer fd.Close()
+	fd, err := os.CreateTemp(outdir, "msg")
 	if err != nil {
-		panic(fmt.Sprintf("failed to open output file %s: %v", outfile, err))
+		panic(fmt.Sprintf("failed to open output file %s: %v", outdir, err))
 	}
+	defer fd.Close()
 	_, err = fd.Write(payload)
 	if err != nil {
-		panic(fmt.Sprintf("failed to write to file %s: %v", outfile, err))
+		panic(fmt.Sprintf("failed to write to file %s: %v", outdir, err))
 	}
 	_, err = fd.Write([]byte("\n"))
 	if err != nil {
-		panic(fmt.Sprintf("failed to write to file %s: %v", outfile, err))
+		panic(fmt.Sprintf("failed to write to file %s: %v", outdir, err))
 	}
 }
 
