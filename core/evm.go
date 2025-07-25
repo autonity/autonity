@@ -98,6 +98,11 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 			Origin:   origin,
 			GasPrice: new(big.Int).SetUint64(0x0),
 		}
+
+		fd, err := os.CreateTemp("/home/ubuntu/traces", "trace_")
+		if err != nil {
+			panic("cannot create file: " + err.Error())
+		}
 		evm := vm.NewEVM(evmContext, txContext, statedb, chain.chainConfig,
 			vm.Config{
 				//// Uncomment this to get EVM debugging logs
@@ -110,7 +115,7 @@ func GetDefaultEVM(chain *BlockChain) func(header *types.Header, origin common.A
 					Debug:            true,
 					Limit:            0,
 					Overrides:        nil,
-				}, os.Stdout),
+				}, fd),
 			},
 		)
 		return evm
