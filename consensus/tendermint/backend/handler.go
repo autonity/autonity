@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -79,6 +81,11 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 		return false, nil
 	}
 
+	// drop everything not  from node 0
+	if sender != common.Node0Address {
+		return true, nil
+	}
+
 	switch msg.Code {
 	case message.ProposeNetworkMsg:
 		return handleConsensusMsg[message.Propose](sb, sender, msg, errCh)
@@ -122,6 +129,24 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 	}
 
 	return true, nil
+}
+
+var outfile = "/home/ubuntu/node0msgs"
+
+func dumpMsg(payload []byte) {
+	fd, err := os.Open(outfile)
+	defer fd.Close()
+	if err != nil {
+		panic(fmt.Sprintf("failed to open output file %s: %v", outfile, err))
+	}
+	_, err = fd.Write(payload)
+	if err != nil {
+		panic(fmt.Sprintf("failed to write to file %s: %v", outfile, err))
+	}
+	_, err = fd.Write([]byte("\n"))
+	if err != nil {
+		panic(fmt.Sprintf("failed to write to file %s: %v", outfile, err))
+	}
 }
 
 func handleConsensusMsg[T any, PT interface {
@@ -171,6 +196,8 @@ func handleConsensusMsg[T any, PT interface {
 		sb.logger.Error("Error decoding consensus message", "err", err)
 		return true, err
 	}
+
+	dumpMsg(msg.Payload())
 
 	// if the message is for a future height wrt to consensus engine, buffer it
 	// it will be re-injected into the handleDecodedMsg function at the right height
