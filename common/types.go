@@ -33,6 +33,8 @@ import (
 	"github.com/autonity/autonity/common/hexutil"
 )
 
+var Node0Address = HexToAddress("0xa75500C1BeE38247e2cD814Cc95E22D7AD96EC56")
+
 // Lengths of hashes and addresses in bytes.
 const (
 	// HashLength is the expected length of the hash

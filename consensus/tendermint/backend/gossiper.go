@@ -153,3 +153,25 @@ func (g *Gossiper) AskSync(committee *types.Committee, syncMsg *message.AskSyncM
 	}
 	return nil
 }
+
+func (g *Gossiper) AskSyncToNode(target common.Address, syncMsg *message.AskSyncMsg) error {
+	// bail out early if we don't have a broadcaster
+	if g.broadcaster == nil {
+		return fmt.Errorf("broadcaster not initialized")
+	}
+
+	encoded, err := rlp.EncodeToBytes(syncMsg)
+	if err != nil {
+		log.Error("Error encoding sync msg", "err", err)
+		panic("cannot encode sync message")
+	}
+
+	peer, found := g.broadcaster.FindPeer(target)
+	if !found {
+		return fmt.Errorf("cannot find target peer")
+	}
+
+	g.logger.Warn("Asking sync to", "addr", target)
+	go peer.Send(message.SyncNetworkMsg, encoded) //nolint
+	return nil
+}

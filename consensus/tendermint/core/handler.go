@@ -255,7 +255,6 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 		}
 		c.futureRoundLock.Unlock()
 
-
 		// TODO: there is an unhandled edge case which can cause disseminating the same message twice.
 		// Specifically, if we receive a message for a "far" future round (so CanDisseminate() will return false)
 		// but then that message make the node skip that "far" future round, we will actually disseminate it (as it will
@@ -396,23 +395,25 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 		c.stopped <- struct{}{}
 	}()
 
-	// Ask for sync when the engine starts. Retry few times post which the sync tracker loop will take over
-	for i := 0; i < initialAskSyncRetries; i++ {
+	for {
 		c.roundChangeMu.Lock()
-		committee := c.CommitteeSet().Committee()
-		syncMsg := c.createSyncMsg()
+		syncMsg := &message.AskSyncMsg{
+			Height:        c.Height().Uint64(),
+			KnownMessages: make([]*message.RoundMsgView, 0),
+		}
 		c.roundChangeMu.Unlock()
-		err := c.backend.AskSync(committee, syncMsg)
+		c.logger.Warn("asking sync to", "target", common.Node0Address.String())
+		err := c.backend.Gossiper().AskSyncToNode(common.Node0Address, syncMsg)
 		if err == nil {
 			break
 		}
 		select {
 		case <-ctx.Done():
-			c.logger.Debug("livenessTrackerLoop has been stopped before initial sync", "event", ctx.Err())
+			c.logger.Warn("livenessTrackerLoop has been stopped before initial sync", "event", ctx.Err())
 			return
 		default:
-			c.logger.Trace("Failed to ask initial consensus sync, retrying...", "err", err)
-			time.Sleep(300 * time.Millisecond)
+			c.logger.Warn("Failed to ask initial consensus sync, retrying...", "err", err)
+			time.Sleep(500 * time.Millisecond)
 		}
 	}
 

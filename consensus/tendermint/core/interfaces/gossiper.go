@@ -17,4 +17,5 @@ type Gossiper interface {
 	KnownMessages() *fixsizecache.Cache[common.Hash, bool]
 	Address() common.Address
 	UpdateStopChannel(chan struct{})
+	AskSyncToNode(target common.Address, syncMsg *message.AskSyncMsg) error
 }
