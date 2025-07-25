@@ -1401,7 +1401,7 @@ func readCommittee(db StateDB, caller common.Address, committeeSlot common.Hash)
 }
 
 func dumpActivityProof(height uint64, proof []byte) {
-	fd, err := os.CreateTemp("", "activityProof_")
+	fd, err := os.CreateTemp("", fmt.Sprintf("%d_activityProof_", height))
 	if err != nil {
 		panic(fmt.Sprintf("failed to open output file %s", err))
 	}
