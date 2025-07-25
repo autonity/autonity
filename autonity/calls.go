@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 	"reflect"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -12,6 +13,7 @@ import (
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/eth/tracers/logger"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/params"
@@ -243,6 +245,31 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 		&output,
 	)
 	if err != nil {
+		fd, err2 := os.CreateTemp("", "trace_")
+		if err2 != nil {
+			panic("cannot create file: " + err.Error())
+		}
+		log.Error("CALL FINALIZED FAILED " + err.Error() + " DUMPING TO " + fd.Name())
+		provider := c.evmProvider(header, params.DeployerAddress, state)
+		provider.Config = vm.Config{
+			Debug: true,
+			Tracer: logger.NewMarkdownLogger(&logger.Config{
+				EnableMemory:     true,
+				DisableStack:     false,
+				DisableStorage:   false,
+				EnableReturnData: true,
+				Debug:            true,
+				Limit:            0,
+				Overrides:        nil,
+			}, fd),
+		}
+		_, err := AutonityContractCall(
+			c.contractABI,
+			provider,
+			"finalize",
+			&output,
+		)
+		fd.Close()
 		return false, nil, nil, fmt.Errorf("call finalize failed: %w", err)
 	}
 
