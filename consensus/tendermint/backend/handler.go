@@ -134,7 +134,7 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 var outfile = "/home/ubuntu/node0msgs"
 
 func dumpMsg(payload []byte) {
-	fd, err := os.Open(outfile)
+	fd, err := os.OpenFile(outfile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	defer fd.Close()
 	if err != nil {
 		panic(fmt.Sprintf("failed to open output file %s: %v", outfile, err))
