@@ -133,8 +133,17 @@ func (sb *Backend) HandleMsg(sender common.Address, msg p2p.Msg, errCh chan<- er
 
 var outdir = "/home/ubuntu/msgdump"
 
-func dumpMsg(payload []byte) {
-	fd, err := os.CreateTemp(outdir, "msg")
+func dumpMsg(code uint8, payload []byte) {
+	codeString := "unknown_"
+	switch code {
+	case message.ProposalCode:
+		codeString = "proposal_"
+	case message.PrevoteCode:
+		codeString = "prevote_"
+	case message.PrecommitCode:
+		codeString = "precommit_"
+	}
+	fd, err := os.CreateTemp(outdir, codeString)
 	if err != nil {
 		panic(fmt.Sprintf("failed to open output file %s: %v", outdir, err))
 	}
@@ -197,7 +206,7 @@ func handleConsensusMsg[T any, PT interface {
 		return true, err
 	}
 
-	dumpMsg(msg.Payload())
+	dumpMsg(msg.Code(), msg.Payload())
 
 	// if the message is for a future height wrt to consensus engine, buffer it
 	// it will be re-injected into the handleDecodedMsg function at the right height

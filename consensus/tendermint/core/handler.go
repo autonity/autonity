@@ -398,7 +398,7 @@ func (c *Core) livenessTrackerLoop(ctx context.Context) {
 	for {
 		c.roundChangeMu.Lock()
 		syncMsg := &message.AskSyncMsg{
-			Height:        c.Height().Uint64(),
+			Height:        140409,
 			KnownMessages: make([]*message.RoundMsgView, 0),
 		}
 		c.roundChangeMu.Unlock()
