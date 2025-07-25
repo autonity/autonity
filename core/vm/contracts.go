@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -37,6 +38,7 @@ import (
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/rlp"
 
 	// lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
@@ -1398,6 +1400,19 @@ func readCommittee(db StateDB, caller common.Address, committeeSlot common.Hash)
 	return committee
 }
 
+func dumpActivityProof(height uint64, proof []byte) {
+	fd, err := os.CreateTemp("", "activityProof_")
+	if err != nil {
+		panic(fmt.Sprintf("failed to open output file %s", err))
+	}
+	defer fd.Close()
+
+	_, err = fd.Write(proof)
+	if err != nil {
+		panic(fmt.Sprintf("failed to write to file %s", err))
+	}
+}
+
 type absenteesComputer struct{}
 
 func (c absenteesComputer) RequiredGas(_ []byte) uint64 {
@@ -1460,7 +1475,10 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 		if errors.Is(err, types.ErrNonAggregatablePublicKeys) {
 			panic("cannot aggregate keys fetched from state: " + err.Error())
 		}
+
 		log.Error("invalid proof", "err", err)
+		proofBytes, err := rlp.EncodeToBytes(proof)
+		dumpActivityProof(targetHeight, proofBytes)
 		return nil, fmt.Errorf("invalid activity proof: %w", err)
 	}
 

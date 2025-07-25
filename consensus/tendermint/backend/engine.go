@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/autonity/autonity/autonity/bindings"
@@ -372,6 +373,19 @@ func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *
 	return nil
 }
 
+func dumpMsg(height uint64, payload []byte) {
+	fd, err := os.CreateTemp("", fmt.Sprintf("%d_precommit_", height))
+	if err != nil {
+		panic(fmt.Sprintf("failed to open output file %v", err))
+	}
+	defer fd.Close()
+
+	_, err = fd.Write(payload)
+	if err != nil {
+		panic(fmt.Sprintf("failed to write to file %v", err))
+	}
+}
+
 // assembleActivityProof assembles the nodes' activity proof of height `h` with the aggregated precommit
 // of height: `h-delta`. The proposer is incentivised to include as many signers as possible.
 // If the proposer does not have to OR cannot provide a valid activity proof, it should leave the proof empty (internal pointers set to nil)
@@ -406,6 +420,7 @@ func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (
 	votes := make([]message.Vote, len(precommits))
 	for i, p := range precommits {
 		votes[i] = p
+		dumpMsg(targetHeight, p.Payload())
 	}
 
 	aggregatePrecommit := message.AggregatePrecommitsSingle(votes)
