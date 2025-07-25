@@ -420,7 +420,7 @@ func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (
 	votes := make([]message.Vote, len(precommits))
 	for i, p := range precommits {
 		votes[i] = p
-		dumpMsg(targetHeight, p.Payload())
+		//dumpMsg(targetHeight, p.Payload())
 	}
 
 	aggregatePrecommit := message.AggregatePrecommitsSingle(votes)
