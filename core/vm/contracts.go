@@ -34,6 +34,7 @@ import (
 	"github.com/autonity/autonity/crypto/bls12381"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/crypto/bn256"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
 
@@ -1406,19 +1407,23 @@ func (c absenteesComputer) RequiredGas(_ []byte) uint64 {
 func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, caller common.Address) ([]byte, error) {
 	// if we are in testMode (used by truffle tests) just return no absents and zero effort
 	if evm.chainConfig.TestMode {
+		log.Error("chain is in test mode")
 		return makeReturnData(false, common.Big0, []common.Address{}), nil
 	}
 
 	if caller != params.OmissionAccountabilityContractAddress {
+		log.Error("unauthorized call to absenteesComputer")
 		return nil, errUnauthorized
 	}
 
 	// input is always one packed boolean (1 byte) + 2 uint256 (32 bytes each)
 	if len(input) != 1+DataLen+DataLen {
 		// TODO(lorenzo): should we panic here? incorrect input --> we have a programming error. However other precompiles deal with it this way
+		log.Error("bad input")
 		return nil, errBadInput
 	}
 	if !(input[0] == byte(0) || input[0] == byte(1)) {
+		log.Error("bad input 2")
 		return nil, errBadInput
 	}
 	mustBeEmpty := input[0] == byte(1)
@@ -1431,13 +1436,16 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 	// during the first delta blocks of the epoch, the proof should be empty. If not, reject proposal
 	if mustBeEmpty {
 		if proof != nil {
+			log.Error("non empty proof when it should have been empty")
 			return nil, errNonEmptyProof
 		}
+		log.Warn("empty proof (correct)")
 		return makeReturnData(false, new(big.Int), []common.Address{}), nil
 	}
 
 	// at this point the proof should not be empty and should contain at least quorum voting power, otherwise the proposer is faulty
 	if proof == nil {
+		log.Error("empty proof 2 (correct but faulty proposer)")
 		return makeReturnData(true, new(big.Int), []common.Address{}), nil
 	}
 
@@ -1452,6 +1460,7 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 		if errors.Is(err, types.ErrNonAggregatablePublicKeys) {
 			panic("cannot aggregate keys fetched from state: " + err.Error())
 		}
+		log.Error("invalid proof", "err", err)
 		return nil, fmt.Errorf("invalid activity proof: %w", err)
 	}
 
@@ -1459,6 +1468,7 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 	proposerEffort.Sub(proposerEffort, bft.Quorum(committee.TotalVotingPower()))
 
 	absentees := deriveAbsentees(signers, committee)
+	log.Warn("proof is valid")
 	return makeReturnData(false, proposerEffort, absentees), nil
 }
 
