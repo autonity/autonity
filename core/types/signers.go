@@ -243,7 +243,7 @@ func (s *Signers) increment(index int, votingPower *big.Int) {
 		}
 	}
 
-	s.addOrUpdate(index, count, new(big.Int).SetUint64(1), votingPower)
+	s.addOrUpdate(index, count, common.Big1, votingPower)
 }
 
 // This function adds the `member` in signer `s`. This function assumes that `member` is absent in signer `s`.
