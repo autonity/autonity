@@ -465,6 +465,7 @@ func (sb *Backend) AutonityContractFinalize(
 	receipt, epochInfo, contractsConfig, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
 	if err != nil {
 		sb.logger.Error("Autonity Contract finalize", "err", err)
+		panic("finalize reverted")
 		return nil, nil, nil, err
 	}
 
