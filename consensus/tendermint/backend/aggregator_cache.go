@@ -347,9 +347,9 @@ func (c *aggregatorCache) totalPowerForRound(height uint64, round int64, step ca
 }
 
 func (c *aggregatorCache) pruneToHeight(height uint64) {
-	for code := range c.voteCaches {
-		for step := range c.voteCaches[code] {
-			c.voteCaches[code][step].pruneToHeight(height)
+	for _, stepMap := range c.voteCaches {
+		for _, msgCache := range stepMap {
+			msgCache.pruneToHeight(height)
 		}
 	}
 
