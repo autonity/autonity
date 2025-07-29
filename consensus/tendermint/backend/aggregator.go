@@ -599,7 +599,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 		receivedPowerForRound := a.signerSetCache.totalPowerForRound(msg.H(), msg.R(), stepReceived)
 		if receivedPowerForRound.Cmp(bft.F(committee.TotalVotingPower())) > 0 {
 			dispatchedPowerForRound := a.signerSetCache.totalPowerForRound(msg.H(), msg.R(), stepDispatched)
-			if dispatchedPowerForRound.Cmp(bft.F(committee.TotalVotingPower())) < 0 {
+			if dispatchedPowerForRound.Cmp(bft.F(committee.TotalVotingPower())) <= 0 {
 				a.processRound(msg.H(), msg.R())
 			}
 		}
