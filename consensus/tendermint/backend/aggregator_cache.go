@@ -347,11 +347,11 @@ func (c *aggregatorCache) totalPowerForRound(height uint64, round int64, step ca
 }
 
 func (c *aggregatorCache) pruneToHeight(height uint64) {
-	c.voteCaches[message.PrecommitCode][stepReceived].pruneToHeight(height)
-	c.voteCaches[message.PrecommitCode][stepDispatched].pruneToHeight(height)
-
-	c.voteCaches[message.PrevoteCode][stepReceived].pruneToHeight(height)
-	c.voteCaches[message.PrevoteCode][stepDispatched].pruneToHeight(height)
+	for _, stepMap := range c.voteCaches {
+		for _, msgCache := range stepMap {
+			msgCache.pruneToHeight(height)
+		}
+	}
 
 	c.filterMu.Lock()
 	defer c.filterMu.Unlock()
