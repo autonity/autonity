@@ -220,10 +220,10 @@ func (s *Signers) addOrUpdate(
 	s.Bitmap.Set(validatorIndex)
 
 	if coeffIndex == len(s.Coefficients) {
-		s.Coefficients = append(s.Coefficients, coefficient)
+		s.Coefficients = append(s.Coefficients, new(big.Int).Set(coefficient))
 	} else {
 		s.Coefficients = append(s.Coefficients[:coeffIndex+1], s.Coefficients[coeffIndex:]...)
-		s.Coefficients[coeffIndex] = coefficient
+		s.Coefficients[coeffIndex] = new(big.Int).Set(coefficient)
 	}
 	s.maxCoefficient = new(big.Int).Set(common.Max(s.Coefficients[coeffIndex], s.maxCoefficient))
 
@@ -243,7 +243,7 @@ func (s *Signers) increment(index int, votingPower *big.Int) {
 		}
 	}
 
-	s.addOrUpdate(index, count, new(big.Int).SetUint64(1), votingPower)
+	s.addOrUpdate(index, count, common.Big1, votingPower)
 }
 
 // This function adds the `member` in signer `s`. This function assumes that `member` is absent in signer `s`.

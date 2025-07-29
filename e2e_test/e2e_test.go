@@ -1115,7 +1115,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure that the previously sent transaction is now processed
-	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	err = n.AwaitSentTransactions(ctx)
 	require.NoError(t, err)
@@ -1191,7 +1191,7 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	require.NoError(t, err)
 
 	// give time for node 1 to come back up
-	err = network.WaitToMineNBlocks(15, 120, false)
+	err = network.WaitToMineNBlocks(15, 60, false)
 	require.NoError(t, err)
 
 	// restart node 0. He should sync up and not send old consensus messages
