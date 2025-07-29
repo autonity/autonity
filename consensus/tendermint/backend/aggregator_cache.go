@@ -209,7 +209,7 @@ func (c *aggregatorCache) contains(height uint64, round int64, event events.Unve
 func (c *aggregatorCache) filter(event events.UnverifiedMessageEvent) bool {
 	msg := event.Message
 	switch msg.(type) {
-	case *message.Propose, *message.Precommit, *message.Prevote:
+	case *message.Precommit, *message.Prevote:
 		received, dispatched := c.contains(msg.H(), msg.R(), event)
 		if dispatched {
 			return true
@@ -230,6 +230,8 @@ func (c *aggregatorCache) filter(event events.UnverifiedMessageEvent) bool {
 		}
 		return received && dispatched
 	default:
+		// proposals are never filtered as they are validated in the backend, and
+		// duplicated proposals should already be filtered by the backend itself.
 		return false
 	}
 }
