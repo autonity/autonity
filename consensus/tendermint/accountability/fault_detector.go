@@ -1439,7 +1439,7 @@ func (fd *FaultDetector) checkSelfIncriminatingProposal(proposal *message.Propos
 
 func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error {
 	// skip process duplicated for votes.
-	if fd.msgStore.HasVote(m.H(), m.R(), m.Hash()) {
+	if fd.msgStore.HasHash(m.H(), m.R(), m.Hash()) {
 		return errDuplicatedMsg
 	}
 
@@ -1469,7 +1469,7 @@ func (fd *FaultDetector) checkSelfIncriminatingPrevote(m *message.Prevote) error
 
 func (fd *FaultDetector) checkSelfIncriminatingPrecommit(m *message.Precommit) error {
 	// skip process duplicated for votes.
-	if fd.msgStore.HasVote(m.H(), m.R(), m.Hash()) {
+	if fd.msgStore.HasHash(m.H(), m.R(), m.Hash()) {
 		return errDuplicatedMsg
 	}
 
