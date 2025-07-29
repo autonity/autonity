@@ -34,6 +34,7 @@ interface IConfigEvents {
     * @param name configuration name
     * @param oldValue old value of configuration
     * @param newValue new value of configuration
+    * @param appliesAtHeight block at which the change will apply
     */
     event ConfigUpdateBool(string name, bool oldValue, bool newValue, uint256 appliesAtHeight);
 }
