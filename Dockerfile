@@ -20,7 +20,7 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /autonity/build/bin/autonity /usr/local/bin/
 
-EXPOSE 8545 8546 8547 30303 30303/udp
+EXPOSE 8545 8546 20203 30303 30303/udp
 ENTRYPOINT ["autonity"]
 
 # Add some metadata labels to help programatic image consumption
