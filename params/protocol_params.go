@@ -118,7 +118,7 @@ const (
 	// Introduced in Tangerine Whistle (Eip 150)
 	CreateBySelfdestructGas uint64 = 25000
 
-	InitialBaseFee = 1000000000 // Initial base fee for EIP-1559 blocks.
+	InitialBaseFee = 1_000_000_000 // Initial base fee for EIP-1559 blocks.
 
 	// changes of parameters were recorded at: https://github.com/autonity/autonity-wiki/wiki/Autonity-Chain-Parameter-Highlights
 	MaxCodeSize = 2457600 // Maximum bytecode to permit for a contract

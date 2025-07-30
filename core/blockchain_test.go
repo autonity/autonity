@@ -2758,7 +2758,7 @@ func TestDeleteRecreateSlots(t *testing.T) {
 		// A sender who makes transactions, has some funds
 		key, _    = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		address   = crypto.PubkeyToAddress(key.PublicKey)
-		funds     = big.NewInt(1000000000000000)
+		funds     = big.NewInt(10000000000000000)
 		bb        = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 		aaStorage = make(map[common.Hash]common.Hash)          // Initial storage in AA
 		aaCode    = []byte{byte(vm.PC), byte(vm.SELFDESTRUCT)} // Code for AA (simple selfdestruct)
@@ -2885,7 +2885,7 @@ func TestDeleteRecreateAccount(t *testing.T) {
 		// A sender who makes transactions, has some funds
 		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		address = crypto.PubkeyToAddress(key.PublicKey)
-		funds   = big.NewInt(1000000000000000)
+		funds   = big.NewInt(10000000000000000)
 
 		aa        = common.HexToAddress("0x7217d81b76bdd8707601e959454e3d776aee5f43")
 		aaStorage = make(map[common.Hash]common.Hash)          // Initial storage in AA
@@ -3162,7 +3162,7 @@ func TestInitThenFailCreateContract(t *testing.T) {
 		// A sender who makes transactions, has some funds
 		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		address = crypto.PubkeyToAddress(key.PublicKey)
-		funds   = big.NewInt(1000000000000000)
+		funds   = big.NewInt(10000000000000000)
 		bb      = common.HexToAddress("0x000000000000000000000000000000000000bbbb")
 	)
 
@@ -3382,7 +3382,8 @@ func TestEIP1559Transition(t *testing.T) {
 			},
 		}
 	)
-
+	gspec.BaseFee = big.NewInt(1000000000)
+	gspec.GasLimit = 4712388
 	gspec.Config.BerlinBlock = common.Big0
 	gspec.Config.LondonBlock = common.Big0
 	genesis := gspec.MustCommit(db)

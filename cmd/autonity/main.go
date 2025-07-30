@@ -250,7 +250,10 @@ func prepare(ctx *cli.Context) {
 	// If we're running a known preset, log it for convenience.
 	switch {
 	case ctx.GlobalIsSet(utils.PiccadillyFlag.Name):
-		log.Info(`Starting Autonity on Piccadilly Testnet
+		log.Warn("Autonity Piccadilly testnet is currently disabled")
+		os.Exit(1)
+	case ctx.GlobalIsSet(utils.BakerlooFlag.Name):
+		log.Info(`Starting Autonity on Bakerloo Testnet
 
 ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα		
 ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
@@ -270,16 +273,11 @@ func prepare(ctx *cli.Context) {
 ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
 ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
 
-Take part in the Piccadilly Tiber Challenges! More infos @ https://autonity.org
-Please remain tuned to our social channels for announcements
 Discord:  https://discord.com/invite/autonity 
 Telegram: https://t.me/autonity
 X:        https://twitter.com/autonity_
 
-
 `)
-	case ctx.GlobalIsSet(utils.BakerlooFlag.Name):
-		log.Info("Starting Autonity on Bakerloo testnet")
 	case ctx.IsSet(utils.DeveloperFlag.Name):
 		log.Info("Starting Autonity in ephemeral dev mode")
 		log.Warn(`You are running autonity in --dev mode. Please note the following:
@@ -300,7 +298,7 @@ X:        https://twitter.com/autonity_
 	--password <password file path>
 	--keystore <account's keystore directory path>
 `)
-	case !ctx.GlobalIsSet(utils.NetworkIdFlag.Name):
+	case !ctx.GlobalIsSet(utils.NetworkIdFlag.Name) && !ctx.GlobalIsSet(utils.InitGenesisFlag.Name) && !ctx.GlobalIsSet(utils.DataDirFlag.Name):
 		log.Warn("Autonity Mainnet default configuration is currently disabled")
 		log.Warn("Network id must be set manually or with testnet flags")
 		os.Exit(1)
