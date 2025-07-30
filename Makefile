@@ -2,6 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
+.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre test-contracts-fast generate
 
 BINDIR = ./build/bin
 GO ?= latest
@@ -19,8 +20,6 @@ CONTRACTS_BASE_DIR = ./autonity/solidity
 CONTRACTS_DIR = $(CONTRACTS_BASE_DIR)/contracts
 CONTRACTS_TEST_DIR = $(CONTRACTS_BASE_DIR)/test
 GENERATED_CONTRACT_DIR = ./params/generated
-
-.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre test-contracts-fast generate $(ABIGEN_BINARY)
 
 # DOCKER_SUDO is set to either the empty string or "sudo" and is used to
 # control whether docker is executed with sudo or not. If the user is root or
