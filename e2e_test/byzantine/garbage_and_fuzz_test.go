@@ -127,19 +127,27 @@ func (c *fuzzPrecommitSender) SendPrecommit(_ context.Context, isNil bool) {
 	var precommit *message.Precommit
 	r := rand.Int63()
 	h := rand.Uint64()
-	csize := rand.Intn((1 << 16))
-	self := &types.CommitteeMember{Index: uint64(rand.Intn(csize)), VotingPower: common.Big1} // other fields are compute locally by the remote peer
+	self := &types.CommitteeMember{Index: 0, VotingPower: common.Big1} // other fields are compute locally by the remote peer
 	if isNil {
-		precommit = message.NewPrecommit(r, h, common.Hash{}, c.Backend().Sign, self, csize)
+		precommit = message.NewPrecommit(r, h, common.Hash{}, c.Backend().Sign, self, c.CommitteeSet().Committee())
 	} else {
-		precommit = message.NewPrecommit(r, h, randHash(), c.Backend().Sign, self, csize)
+		precommit = message.NewPrecommit(r, h, randHash(), c.Backend().Sign, self, c.CommitteeSet().Committee())
 	}
-	for i := 0; i < rand.Intn(10); i++ {
-		precommit.Signers().AddSigner(&types.CommitteeMember{
-			Index:       uint64(rand.Intn(csize)), // nolint:gosec
-			VotingPower: common.Big1,
-		})
-	}
+
+	fakeSigners := &types.Signers{}
+	fuzz.New().Fuzz(fakeSigners)
+	message.NewFakePrecommit(message.Fake{
+		FakeRound:   uint64(precommit.R()),
+		FakeHeight:  precommit.H(),
+		FakeSigners: fakeSigners,
+	})
+
+	//for i := 0; i < rand.Intn(10); i++ {
+	//	precommit.Signers().AddSigner(&types.CommitteeMember{
+	//		Index:       uint64(rand.Intn(csize)), // nolint:gosec
+	//		VotingPower: common.Big1,
+	//	})
+	//}
 	c.SetSentPrecommit(true)
 	c.Backend().Gossip(c.CommitteeSet().Committee(), precommit, c.Address())
 }
@@ -180,22 +188,22 @@ func (c *fuzzPrevoter) SendPrevote(_ context.Context, isNil bool) {
 	var prevote *message.Prevote
 	r := rand.Int63()
 	h := rand.Uint64()
-	csize := rand.Intn((1 << 16))
 	self := &types.CommitteeMember{
-		Index:       uint64(rand.Intn(csize)), //nolint:gosec
+		Index:       0, //nolint:gosec
 		VotingPower: common.Big1,
 	} // other fields are compute locally by the remote peer
 	if isNil {
-		prevote = message.NewPrevote(r, h, common.Hash{}, c.Backend().Sign, self, csize)
+		prevote = message.NewPrevote(r, h, common.Hash{}, c.Backend().Sign, self, c.CommitteeSet().Committee())
 	} else {
-		prevote = message.NewPrevote(r, h, randHash(), c.Backend().Sign, self, csize)
+		prevote = message.NewPrevote(r, h, randHash(), c.Backend().Sign, self, c.CommitteeSet().Committee())
 	}
-	for i := 0; i < rand.Intn(10); i++ {
-		prevote.Signers().AddSigner(&types.CommitteeMember{
-			Index:       uint64(rand.Intn(csize)), //nolint:gosec
-			VotingPower: common.Big1,
-		})
-	}
+	fakeSigners := &types.Signers{}
+	fuzz.New().Fuzz(fakeSigners)
+	message.NewFakePrevote(message.Fake{
+		FakeRound:   uint64(prevote.R()),
+		FakeHeight:  prevote.H(),
+		FakeSigners: fakeSigners,
+	})
 	c.SetSentPrevote(true)
 	c.Backend().Gossip(c.CommitteeSet().Committee(), prevote, c.Address())
 }
@@ -267,7 +275,7 @@ func (c *fuzzProposer) SendProposal(_ context.Context, p *types.Block) {
 	var num big.Int
 	f.Fuzz(&num)
 	e2e.FuzBlock(p, &num)
-	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
+	self, _ := selfAndCommittee(c.Core, c.Height().Uint64())
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())

@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
@@ -13,7 +15,6 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/rlp"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -84,7 +85,7 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 	var precommits []*message.Precommit
 	for n := 0; n < numOfFastAggPrecommits; n++ {
 		value := values[n%len(values)]
-		precommits = append(precommits, aggregatedPrecommit(height, int64(n), value, randomSigners(cSize), committee, keys))
+		precommits = append(precommits, aggregatedPrecommit(height, int64(n), value, randomSigners(committee.Len()), committee, keys))
 	}
 
 	t.Run("with wrong height", func(t *testing.T) {
@@ -143,7 +144,7 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 		if len(wrongSigners) > 1 {
 			wrongSigners[0], wrongSigners[1] = wrongSigners[1], wrongSigners[0]
 		} else {
-			wrongSigners[0] = (wrongSigners[0] + 1) % cSize
+			wrongSigners[0] = (wrongSigners[0] + 1) % committee.Len()
 		}
 		aggPrecommits := maliciousAggregatePrecommits(precommits, nil, nil, nil, wrongSigners)
 		payload, err := rlp.EncodeToBytes(aggPrecommits)
@@ -165,7 +166,7 @@ func TestVerifyMaliciousAggregatedPrecommits(t *testing.T) {
 func aggregatedPrecommit(h uint64, r int64, v common.Hash, signers []int, committee *types.Committee, keys []blst.SecretKey) *message.Precommit {
 	precommits := make([]message.Vote, len(signers))
 	for i, s := range signers {
-		precommits[i] = newValidatedPrecommit(r, h, v, makeSigner(keys[s]), &committee.Members[s], committee.Len())
+		precommits[i] = newValidatedPrecommit(r, h, v, makeSigner(keys[s]), &committee.Members[s], committee)
 	}
 	return message.AggregatePrecommitsSingle(precommits)
 }
@@ -187,7 +188,7 @@ func randomHighlyAggregatedPrecommits(height uint64, round int64) HighlyAggregat
 	for n := 0; n < numOfFastAggPrecommits; n++ {
 		value := values[n%len(values)]
 		// add duplicated msg but with different signers, thus the aggregation need to do a further fast aggregate.
-		precommits = append(precommits, aggregatedPrecommit(height, round+int64(n), value, randomSigners(cSize), committee, keys))
+		precommits = append(precommits, aggregatedPrecommit(height, round+int64(n), value, randomSigners(committee.Len()), committee, keys))
 	}
 	return AggregateDistinctPrecommits(precommits)
 }
@@ -304,8 +305,8 @@ func TestDistinctPrecommitsWithZeroes(t *testing.T) {
 
 	t.Run("1 zero key/sig in the set", func(t *testing.T) {
 		var precommits []*message.Precommit
-		precommits = append(precommits, aggregatedPrecommit(h, r, values[0], randomSigners(cSize), tweakedCommittee, blsKeys))
-		precommits = append(precommits, aggregatedPrecommit(h, r, values[1], randomSigners(cSize), tweakedCommittee, blsKeys))
+		precommits = append(precommits, aggregatedPrecommit(h, r, values[0], randomSigners(committee.Len()), tweakedCommittee, blsKeys))
+		precommits = append(precommits, aggregatedPrecommit(h, r, values[1], randomSigners(committee.Len()), tweakedCommittee, blsKeys))
 
 		// add a precommit with zero signature
 		precommits = append(precommits, aggregatedPrecommit(h, r, values[2], []int{csize - 1, csize - 2}, tweakedCommittee, blsKeys))

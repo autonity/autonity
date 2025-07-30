@@ -5,8 +5,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/autonity/autonity/params"
 	"github.com/stretchr/testify/require"
+
+	"github.com/autonity/autonity/params"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto/blst"
@@ -39,7 +40,7 @@ func TestHeaderHash(t *testing.T) {
 	testKey, err := blst.SecretKeyFromHex("667e85b8b64622c4b8deadf59964e4c6ae38768a54dbbbc8bbd926777b896584")
 	require.NoError(t, err)
 	quorumCertificate.Signature = testKey.Sign([]byte("0xcafe")).(*blst.BlsSignature)
-	quorumCertificate.Signers = NewSigners(1)
+	quorumCertificate.Signers = NewSigners(committee)
 	quorumCertificate.Signers.increment(0, common.Big1)
 
 	activityProof := quorumCertificate.Copy()

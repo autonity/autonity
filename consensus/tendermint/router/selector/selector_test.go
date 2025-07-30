@@ -166,7 +166,7 @@ func TestSelector_SelectPeers_NonProposal_NoCache(t *testing.T) {
 		common.HexToAddress("0x333"): 150,
 	}
 
-	fakeSigners := types.NewSigners(committee.Len())
+	fakeSigners := types.NewSigners(&committee)
 	fakeSigners.AddSigner(&committee.Members[0])
 	fake := message.Fake{
 		FakeCode:    message.PrevoteCode,

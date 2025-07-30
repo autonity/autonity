@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"sync"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
@@ -439,6 +440,30 @@ type extVote struct {
 type vote struct {
 	signers *types.Signers
 	base
+	signerKeyOnce sync.Once `rlp:"-"` // ensures that the signerKey is computed only once
+}
+
+func (v *vote) SignerKey() blst.PublicKey {
+	v.signerKeyOnce.Do(func() {
+		keys := make([]blst.PublicKey, 0, v.signers.Len())
+		v.signers.ForEachDistinctSigner(func(signerIndex int) {
+			member := v.signers.Committee().MemberByIndex(signerIndex)
+			if member != nil {
+				keys = append(keys, member.ConsensusKey)
+			}
+		})
+
+		if len(keys) == 0 {
+			return
+		}
+
+		if len(keys) == 1 {
+			v.base.signerKey = keys[0]
+		} else {
+			v.base.signerKey = v.signers.AggregatePublicKey(keys)
+		}
+	})
+	return v.base.signerKey
 }
 
 func (v *vote) Signers() *types.Signers {
@@ -456,7 +481,7 @@ func (v *vote) PreValidate(committee *types.Committee, shouldRespectCap bool) er
 		return nil
 	}
 
-	if err := v.signers.Validate(committee.Len()); err != nil {
+	if err := v.signers.Validate(committee); err != nil {
 		return fmt.Errorf("invalid signers information: %w", err)
 	}
 
@@ -464,18 +489,6 @@ func (v *vote) PreValidate(committee *types.Committee, shouldRespectCap bool) er
 	if v.signers.Len() == 1 && v.signature.IsZero() {
 		return ErrInvalidIndividualVote
 	}
-
-	// compute aggregated key and auxiliary data structures
-	keys := make([]blst.PublicKey, 0, v.signers.Len())
-	powers := make(map[int]*big.Int)
-	power := new(big.Int)
-
-	v.signers.ForEachDistinctSigner(func(signerIndex int) {
-		member := committee.Members[signerIndex]
-		keys = append(keys, member.ConsensusKey)
-		powers[signerIndex] = member.VotingPower
-		power.Add(power, member.VotingPower)
-	})
 
 	maxCoefficient := v.signers.MaxCoefficient()
 	if shouldRespectCap && maxCoefficient.BitLen() > common.VoteCap {
@@ -485,10 +498,15 @@ func (v *vote) PreValidate(committee *types.Committee, shouldRespectCap bool) er
 	if metrics.Enabled {
 		maxCoefficientBg.Add(maxCoefficient.Int64())
 	}
-	v.signers.AssignPower(powers, power)
-	v.signerKey = v.signers.AggregatePublicKey(keys)
+
 	v.preverified = true
 	return nil
+}
+
+func (v *vote) Validate() error {
+	// loads Signer key if not already done
+	v.SignerKey()
+	return v.base.Validate()
 }
 
 func (v *vote) String() string {
@@ -537,7 +555,7 @@ func newVote[
 	PE interface {
 		*E
 		Msg
-	}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *E {
+	}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, committee *types.Committee) *E {
 	code := PE(new(E)).Code()
 
 	// Pay attention that we're adding the message Code to the signature input data.
@@ -545,7 +563,7 @@ func newVote[
 	signatureInput := crypto.Hash(signaturePayload)
 	signature := signer(signatureInput)
 
-	signers := types.NewSigners(csize)
+	signers := types.NewSigners(committee)
 	signers.AddSigner(self)
 
 	payload, _ := rlp.EncodeToBytes(extVote{
@@ -576,12 +594,12 @@ func newVote[
 	return &vote
 }
 
-func NewPrevote(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *Prevote {
-	return newVote[Prevote](r, h, value, signer, self, csize)
+func NewPrevote(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, committee *types.Committee) *Prevote {
+	return newVote[Prevote](r, h, value, signer, self, committee)
 }
 
-func NewPrecommit(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, csize int) *Precommit {
-	return newVote[Precommit](r, h, value, signer, self, csize)
+func NewPrecommit(r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, committee *types.Committee) *Precommit {
+	return newVote[Precommit](r, h, value, signer, self, committee)
 }
 
 // NOTE: this function assumes that:
@@ -628,14 +646,9 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 		panic("Trying to aggregate empty set of votes")
 	}
 
-	code := votes[0].Code()
-
-	csize := votes[0].Signers().CommitteeSize()
-
-	skip := make([]bool, len(votes))
-	var signersList []*types.Signers      //nolint
-	var signaturesList [][]blst.Signature //nolint
-	var publicKeysList [][]blst.PublicKey //nolint
+	if metrics.Enabled {
+		votesIn.Inc(int64(len(votes)))
+	}
 
 	// order votes by decreasing number of distinct signers.
 	// This ensures that we reduce as much as possible the number of duplicated signatures for the same validator
@@ -643,98 +656,67 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 		return votes[i].Signers().Len() > votes[j].Signers().Len()
 	})
 
-	//TODO: I think we can have a more optimized version
-	for i, vote := range votes {
-		if skip[i] {
-			continue
-		}
-		signers := types.NewSigners(csize)
-		signers.Merge(vote.Signers())
-		signatures := []blst.Signature{vote.Signature()}
-		publicKeys := []blst.PublicKey{vote.SignerKey()}
-		for j := i + 1; j < len(votes); j++ {
-			if skip[j] {
-				continue
-			}
-			other := votes[j]
-			if !signers.AddsInformation(other.Signers()) {
-				// this vote could potentially still aggregate with other votes.
-				// however we don't care much since its signers are a subset of another vote.
-				skip[j] = true
-				continue
-			}
-			if !ignoreBoundaries && !signers.RespectsBoundaries(other.Signers()) {
-				continue
-			}
-			signers.Merge(other.Signers())
-			signatures = append(signatures, other.Signature())
-			publicKeys = append(publicKeys, other.SignerKey())
-			skip[j] = true
-		}
-		signersList = append(signersList, signers)
-		signaturesList = append(signaturesList, signatures)
-		publicKeysList = append(publicKeysList, publicKeys)
-	}
+	results := make([]*E, 0)
+	votesToProcess := votes
 
-	// build aggregates
-	representative := votes[0]
-	h := representative.H()
-	r := representative.R()
-	value := representative.Value()
-	signatureInput := representative.SignatureInput()
+	for len(votesToProcess) > 0 { // this loop should never run more than once, if there is no maxCoefficient cap breach
+		representative := votesToProcess[0]
+		aggregateSigner := representative.Signers().Copy()
+		signaturesToAggregate := []blst.Signature{representative.Signature()}
 
-	n := len(signersList)
-	aggregateVotes := make([]*E, n)
-	for i := 0; i < n; i++ {
-		var aggregatedSignature blst.Signature
-		var aggregatedPublicKey blst.PublicKey
-		var err error
-		if len(signaturesList[i]) == 1 {
-			aggregatedSignature = signaturesList[i][0]
-			aggregatedPublicKey = publicKeysList[i][0]
-		} else {
-			aggregatedSignature = blst.AggregateSignatures(signaturesList[i])
-			aggregatedPublicKey, err = blst.AggregatePublicKeys(publicKeysList[i])
-			if err != nil {
-				panic("Cannot generate aggregate public key from valid votes: " + err.Error()) //nolint
+		var nextVotesToProcess []Vote
+		for _, otherVote := range votesToProcess[1:] {
+			if !aggregateSigner.AddsInformation(otherVote.Signers()) {
+				// aggregate signer is super set of otherVote
+				continue
+			}
+			// since we sort first we should never have other vote as super set of aggregateSignerW
+			// overlapping signers, we can aggregate them
+			if ignoreBoundaries || aggregateSigner.RespectsBoundaries(otherVote.Signers()) {
+				aggregateSigner.Merge(otherVote.Signers())
+				signaturesToAggregate = append(signaturesToAggregate, otherVote.Signature())
+			} else {
+				// unmergeable due to coefficient cap breach, Rare case
+				nextVotesToProcess = append(nextVotesToProcess, otherVote)
 			}
 		}
 
+		aggregatedSignature := blst.AggregateSignatures(signaturesToAggregate)
 		payload, _ := rlp.EncodeToBytes(extVote{
-			Code:      code,
-			Round:     uint64(r), // #nosec
-			Height:    h,
-			Value:     value,
-			Signers:   signersList[i],
+			Code:      representative.Code(),
+			Round:     uint64(representative.R()), // nolint
+			Height:    representative.H(),
+			Value:     representative.Value(),
+			Signers:   aggregateSigner,
 			Signature: aggregatedSignature.(*blst.BlsSignature),
 		})
-
-		aggregateVote := E{
-			value: value,
-			vote: vote{
-				signers: signersList[i],
-				base: base{
-					height:         h,
-					round:          r,
-					signatureInput: signatureInput,
-					signature:      aggregatedSignature,
-					payload:        payload,
-					hash:           crypto.Hash(payload),
-					verified:       true, // verified due to all votes being verified
-					preverified:    true,
-					signerKey:      aggregatedPublicKey, // this is not strictly necessary since the vote is already verified
-				},
+		v := vote{
+			signers: aggregateSigner,
+			base: base{
+				height:         representative.H(),
+				round:          representative.R(),
+				signatureInput: representative.SignatureInput(),
+				signature:      aggregatedSignature,
+				payload:        payload,
+				hash:           crypto.Hash(payload),
+				verified:       true,
+				preverified:    true,
 			},
 		}
-		aggregateVotes[i] = &aggregateVote
-	}
-	// aggregation metrics
-	if metrics.Enabled {
-		votesIn.Inc(int64(len(votes)))
-		votesOut.Inc(int64(len(aggregateVotes)))
+		mainAggregate := E{
+			value: representative.Value(),
+			vote:  v, // nolint
+		}
+
+		results = append(results, &mainAggregate)
+		votesToProcess = nextVotesToProcess
 	}
 
-	return aggregateVotes
+	if metrics.Enabled {
+		votesOut.Inc(int64(len(results)))
+	}
+
+	return results
 }
 
 func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
@@ -841,9 +823,10 @@ func Power(messages []Msg) *big.Int {
 		case *Propose:
 			power.Set(m.SignerIndex(), m.Power())
 		case *Prevote, *Precommit:
-			vote := m.(Vote)
-			for index, signerPower := range vote.Signers().Powers() {
-				power.Set(index, signerPower)
+			signers := m.(Vote).Signers()
+			it := signers.NewIterator()
+			for it.Next() {
+				power.Set(it.Index(), signers.PowerByIndex(it.Index()))
 			}
 		default:
 			panic("unknown message type")
@@ -928,7 +911,7 @@ func NewFakePropose(f Fake) *Propose {
 }
 
 func NewFakePrevote(f Fake) *Prevote {
-	return &Prevote{
+	prevote := &Prevote{
 		value: f.FakeValue,
 		vote: vote{
 			signers: f.FakeSigners,
@@ -939,16 +922,20 @@ func NewFakePrevote(f Fake) *Prevote {
 				signature:      f.FakeSignature,
 				payload:        f.FakePayload,
 				hash:           f.FakeHash,
-				signerKey:      f.FakeSignerKey,
 				preverified:    true,
 				verified:       true,
 			},
 		},
 	}
+	if f.FakeSignerKey != nil {
+		prevote.SignerKey() // executes the one time real signer key computation
+	}
+	prevote.signerKey = f.FakeSignerKey
+	return prevote
 }
 
 func NewFakePrecommit(f Fake) *Precommit {
-	return &Precommit{
+	precommit := &Precommit{
 		value: f.FakeValue,
 		vote: vote{
 			signers: f.FakeSigners,
@@ -965,4 +952,9 @@ func NewFakePrecommit(f Fake) *Precommit {
 			},
 		},
 	}
+	if f.FakeSignerKey != nil {
+		precommit.SignerKey() // executes the one time real signer key computation
+	}
+	precommit.signerKey = f.FakeSignerKey
+	return precommit
 }

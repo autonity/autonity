@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto/blst"
@@ -29,40 +30,39 @@ type Signers struct {
 	Coefficients []*big.Int
 
 	// these fields are not serialized, but instead computed at preValidate steps
-	committeeSize   int      `rlp:"-"`
+	committee     *Committee   `rlp:"-"`
+	powerMu       sync.RWMutex `rlp:"-"`
+	computedPower *big.Int     `rlp:"-"`
+
 	length          int      `rlp:"-"` // number of distinct signers
 	rightmostSigner int      `rlp:"-"` // last (LSB) > 0 index in Bitmap
 	maxCoefficient  *big.Int `rlp:"-"`
-
-	powers map[int]*big.Int `rlp:"-"`
-	power  *big.Int         `rlp:"-"` // aggregated power of all senders
 
 	// auxiliary data structures flags
 	// if validated = true -->
 	// 1. Bitmap and Coefficients have been validated
 	// 2. committeeSize, length, rightmostSigner and maxCoefficient are assigned
 	validated bool `rlp:"-"`
-	// if powerAssigned = true --> powers and power assigned
-	powerAssigned bool `rlp:"-"`
 }
 
-func NewSigners(committeeSize int) *Signers {
+func NewSigners(committee *Committee) *Signers {
 	return &Signers{
 		Bitmap:       NewBitmap(),
 		Coefficients: make([]*big.Int, 0),
+		committee:    committee,
 
-		committeeSize:   committeeSize,
 		length:          0,
-		rightmostSigner: committeeSize, // means no signers
+		rightmostSigner: committee.Len(), // means no signers
 		maxCoefficient:  new(big.Int),
-
-		powers: make(map[int]*big.Int),
-		power:  new(big.Int),
-
-		validated:     true,
-		powerAssigned: true, // when we are locally creating a sender info, we are ok with power being 0 initially
-
+		validated:       true,
 	}
+}
+
+func (s *Signers) Committee() *Committee {
+	if !s.validated {
+		panic("Using un-validated signers information")
+	}
+	return s.committee
 }
 
 // Correct full validation cannot be done until we know the committee size of this block,
@@ -98,13 +98,16 @@ func (s *Signers) SanityCheck() error {
 }
 
 // validates the sender info, used to ensure received aggregates have correctly sized buffers
-func (s *Signers) Validate(committeeSize int) error {
-	distinctSigners, rightmostSigner, maxCoefficient, err := s.validate(committeeSize)
+func (s *Signers) Validate(committee *Committee) error {
+	if committee == nil {
+		return errors.New("committee cannot be nil")
+	}
+	distinctSigners, rightmostSigner, maxCoefficient, err := s.validate(committee.Len())
 	if err != nil {
 		return err
 	}
 
-	s.committeeSize = committeeSize
+	s.committee = committee
 	s.length = distinctSigners
 	s.rightmostSigner = rightmostSigner
 	s.maxCoefficient = maxCoefficient
@@ -169,7 +172,7 @@ func (s *Signers) Contains(index int) bool {
 	if !s.validated {
 		panic("Trying to use not validated signer information")
 	}
-	if index >= s.committeeSize {
+	if index >= s.committee.Len() {
 		panic("trying to call contains on non-existent committee member")
 	}
 	return s.Bitmap.IsSet(index)
@@ -179,7 +182,7 @@ func safetyCheck(first *Signers, second *Signers) error {
 	if !first.validated || !second.validated {
 		return ErrNotValidated
 	}
-	if first.committeeSize != second.committeeSize {
+	if first.committee.Len() != second.committee.Len() {
 		return ErrDifferentSize
 	}
 	return nil
@@ -202,11 +205,7 @@ func (s *Signers) AddsInformation(other *Signers) bool {
 
 // this function will add the `coefficient` in `s.Coefficient` and will update the `s.Bitmap` if needed
 // the caller is responsible to check if the coefficient does not overflow
-func (s *Signers) addOrUpdate(
-	validatorIndex, coeffIndex int,
-	coefficient *big.Int,
-	votingPower *big.Int,
-) {
+func (s *Signers) addOrUpdate(validatorIndex, coeffIndex int, coefficient *big.Int) {
 	if s.Bitmap.IsSet(validatorIndex) {
 		s.Coefficients[coeffIndex].Add(s.Coefficients[coeffIndex], coefficient)
 		s.maxCoefficient = new(big.Int).Set(common.Max(s.Coefficients[coeffIndex], s.maxCoefficient))
@@ -226,9 +225,9 @@ func (s *Signers) addOrUpdate(
 		s.Coefficients[coeffIndex] = new(big.Int).Set(coefficient)
 	}
 	s.maxCoefficient = new(big.Int).Set(common.Max(s.Coefficients[coeffIndex], s.maxCoefficient))
-
-	s.powers[validatorIndex] = votingPower
-	s.power.Add(s.power, votingPower)
+	s.powerMu.Lock()
+	s.computedPower = nil // reset computed power, as it is no longer valid
+	s.powerMu.Unlock()
 }
 
 // this function adds `index` in signer `s`. It assumes the signer is prevalidated.
@@ -243,7 +242,17 @@ func (s *Signers) increment(index int, votingPower *big.Int) {
 		}
 	}
 
-	s.addOrUpdate(index, count, common.Big1, votingPower)
+	s.addOrUpdate(index, count, common.Big1)
+}
+
+func (s *Signers) PowerByIndex(index int) *big.Int {
+	if !s.validated {
+		panic("Power has not been assigned in signers information")
+	}
+	if index >= s.committee.Len() {
+		return common.Big0
+	}
+	return s.committee.MemberByIndex(index).VotingPower
 }
 
 // This function adds the `member` in signer `s`. This function assumes that `member` is absent in signer `s`.
@@ -252,11 +261,8 @@ func (s *Signers) AddSigner(member *CommitteeMember) {
 	if !s.validated {
 		panic("Using un-validated signers information")
 	}
-	if !s.powerAssigned {
-		panic("Power has not been assigned in signers information")
-	}
 	index := int(member.Index)
-	if index >= s.committeeSize {
+	if index >= s.committee.Len() {
 		panic("trying to increment signer information of non-existent committee member")
 	}
 
@@ -270,16 +276,13 @@ func (s *Signers) Merge(other *Signers) {
 	if err := safetyCheck(s, other); err != nil {
 		panic(err.Error())
 	}
-	if !s.powerAssigned || !other.powerAssigned {
-		panic("Power has not been assigned in signers information")
-	}
 
 	count1 := 0 // count of signers in `s`
 	count2 := 0 // count of signers in `other`
 
-	for i := 0; i < s.committeeSize; i++ {
+	for i := 0; i < s.committee.Len(); i++ {
 		if other.Bitmap.IsSet(i) {
-			s.addOrUpdate(i, count1, other.Coefficients[count2], other.powers[i])
+			s.addOrUpdate(i, count1, other.Coefficients[count2])
 			count2++
 		}
 		if s.Bitmap.IsSet(i) {
@@ -290,16 +293,28 @@ func (s *Signers) Merge(other *Signers) {
 
 // returns aggregated power of all senders
 func (s *Signers) Power() *big.Int {
-	if !s.powerAssigned {
-		panic("Power has not been assigned in signers information")
+	if !s.validated {
+		panic(ErrNotValidated.Error())
 	}
-	return s.power
-}
+	s.powerMu.RLock()
+	if s.computedPower != nil {
+		power := new(big.Int).Set(s.computedPower)
+		s.powerMu.RUnlock()
+		return power
+	}
+	s.powerMu.RUnlock()
 
-func (s *Signers) AssignPower(powers map[int]*big.Int, power *big.Int) {
-	s.powers = powers
-	s.power = power
-	s.powerAssigned = true
+	s.powerMu.Lock() // for writing
+	if s.computedPower == nil {
+		s.computedPower = new(big.Int)
+		it := s.NewIterator()
+		for it.Next() {
+			s.computedPower.Add(s.computedPower, s.PowerByIndex(it.index))
+		}
+	}
+	power := new(big.Int).Set(s.computedPower)
+	s.powerMu.Unlock()
+	return power
 }
 
 func (s *Signers) RespectsBoundaries(other *Signers) bool {
@@ -312,7 +327,7 @@ func (s *Signers) RespectsBoundaries(other *Signers) bool {
 	var secondCoefficient *big.Int
 	var secondCount int
 
-	for i := 0; i < s.committeeSize; i++ {
+	for i := 0; i < s.committee.Len(); i++ {
 		firstCoefficient = common.Big0
 		if s.Bitmap.IsSet(i) {
 			firstCoefficient = s.Coefficients[firstCount]
@@ -336,17 +351,6 @@ func (s *Signers) RespectsBoundaries(other *Signers) bool {
 }
 
 func (s *Signers) Copy() *Signers {
-	var powers map[int]*big.Int
-	if s.powers != nil {
-		powers = make(map[int]*big.Int, len(s.powers))
-		for index, power := range s.powers {
-			powers[index] = new(big.Int).Set(power)
-		}
-	}
-	var power *big.Int
-	if s.power != nil {
-		power = new(big.Int).Set(s.power)
-	}
 	coefficients := make([]*big.Int, 0, len(s.Coefficients))
 	for _, coefficient := range s.Coefficients {
 		coefficients = append(coefficients, new(big.Int).Set(coefficient))
@@ -355,13 +359,10 @@ func (s *Signers) Copy() *Signers {
 		Bitmap:          s.Bitmap.Copy(),
 		Coefficients:    coefficients,
 		maxCoefficient:  s.maxCoefficient,
-		committeeSize:   s.committeeSize,
 		length:          s.length,
 		rightmostSigner: s.rightmostSigner,
-		powers:          powers,
-		power:           power,
+		committee:       s.committee,
 		validated:       s.validated,
-		powerAssigned:   s.powerAssigned,
 	}
 }
 
@@ -380,7 +381,7 @@ func (s *Signers) FlattenUniq() []int {
 	if !s.validated {
 		panic("Using un-validated signers information")
 	}
-	return s.flattenUniq(s.length, s.committeeSize)
+	return s.flattenUniq(s.length, s.committee.Len())
 }
 
 // ForEachDistinctSigner iterates over each signer and calls the callback function.
@@ -388,10 +389,10 @@ func (s *Signers) ForEachDistinctSigner(callback func(signerIndex int)) {
 	if !s.validated {
 		panic("Using un-validated signers information")
 	}
-	for i := 0; i < s.CommitteeSize(); i++ {
-		if s.Bitmap.IsSet(i) {
-			callback(i)
-		}
+
+	it := s.NewIterator()
+	for it.Next() {
+		callback(it.index)
 	}
 }
 
@@ -416,21 +417,14 @@ func (s *Signers) Len() int {
 }
 
 func (s *Signers) String() string {
-	return fmt.Sprintf("Bitmap: %s, Coefficients: %v, power: %v, validated: %v, powerAssigned: %v", s.Bitmap.String(), s.Coefficients, s.power, s.validated, s.powerAssigned)
-}
-
-func (s *Signers) Powers() map[int]*big.Int {
-	if !s.powerAssigned {
-		panic("Power has not been assigned in signers information")
-	}
-	return s.powers
+	return fmt.Sprintf("Bitmap: %s, Coefficients: %v, power: %v, validated: %v", s.Bitmap.String(), s.Coefficients, s.computedPower, s.validated)
 }
 
 func (s *Signers) CommitteeSize() int {
 	if !s.validated {
 		panic("Using un-validated signers information")
 	}
-	return s.committeeSize
+	return s.committee.Len()
 }
 
 func (s *Signers) MaxCoefficient() *big.Int {
@@ -453,4 +447,8 @@ func (s *Signers) aggregatePublicKey(keys []blst.PublicKey, length int) blst.Pub
 	}
 
 	return blst.AggregatePublicKeysMultScalars(keys, blst.ToScalars(s.Coefficients))
+}
+
+func (s *Signers) NewIterator() *BitmapIterator {
+	return NewBitmapIterator(s.Bitmap)
 }

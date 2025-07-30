@@ -1832,8 +1832,7 @@ func (s *PrevoteEquivocator) Broadcast(msg message.Msg) {
 	}
 
 	self := committee.MemberByAddress(s.Core.Address())
-	csize := committee.Len()
-	msgEq := message.NewPrevote(msg.R(), msg.H(), NonNilValue, s.Backend().Sign, self, csize)
+	msgEq := message.NewPrevote(msg.R(), msg.H(), NonNilValue, s.Backend().Sign, self, committee)
 	s.Logger().Info("Equivocation simulation", "height", msg.H())
 	s.BroadcastAll(msgEq)
 	s.hasEquivocated = true

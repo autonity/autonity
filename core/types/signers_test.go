@@ -50,21 +50,28 @@ func expectPanic(t *testing.T) {
 	}
 }
 
+func newCommitte(members []CommitteeMember) *Committee {
+	return &Committee{
+		Members: members,
+	}
+}
+
 func signersAggregation(
 	t *testing.T,
-	committee []*CommitteeMember,
+	members []CommitteeMember,
 	coeffs []int,
 	signature blst.Signature,
 	msgInput common.Hash,
 ) {
-	signers := NewSigners(len(committee))
-	keys := make([]blst.PublicKey, 0, len(committee))
+	lc := newCommitte(members)
+	signers := NewSigners(lc)
+	keys := make([]blst.PublicKey, 0, lc.Len())
 	for i, c := range coeffs {
 		for c > 0 {
-			signers.AddSigner(committee[i])
+			signers.AddSigner(lc.MemberByIndex(i))
 			c--
 		}
-		keys = append(keys, committee[i].ConsensusKey)
+		keys = append(keys, lc.MemberByIndex(i).ConsensusKey)
 	}
 
 	publicKey := signers.AggregatePublicKey(keys)
@@ -74,7 +81,7 @@ func signersAggregation(
 
 func TestPublicKeyAggregation(t *testing.T) {
 	csize := 33 // at least 4
-	members := make([]*CommitteeMember, 0, csize)
+	members := make([]CommitteeMember, 0, csize)
 	privateKeyMap := make(map[blst.SecretKey]struct{})
 	coeffs := make([]int, 0, csize)
 
@@ -95,7 +102,7 @@ func TestPublicKeyAggregation(t *testing.T) {
 			break
 		}
 
-		members = append(members, &CommitteeMember{
+		members = append(members, CommitteeMember{
 			Index:        uint64(i),
 			VotingPower:  big.NewInt(1),
 			Address:      common.BigToAddress(big.NewInt(int64(i + 1))),
@@ -121,7 +128,7 @@ func TestSerialization(t *testing.T) {
 
 	t.Run("auxiliary data structures are not serialized on the wire", func(t *testing.T) {
 		// increment some sender info
-		s := NewSigners(committee.Len())
+		s := NewSigners(committee)
 		// 00001111
 		s.AddSigner(&committee.Members[0])
 		s.AddSigner(&committee.Members[1])
@@ -140,14 +147,12 @@ func TestSerialization(t *testing.T) {
 		require.Equal(t, s.Coefficients[3].String(), common.Big1.String())
 
 		// one validator is missing from the aggregate
-		require.Equal(t, len(s.Powers()), committee.Len()-1)
 		require.Equal(t, s.Len(), committee.Len()-1)
 		expectedVotingPower := committee.Members[0].VotingPower.Uint64() + committee.Members[1].VotingPower.Uint64() +
 			committee.Members[2].VotingPower.Uint64() + committee.Members[3].VotingPower.Uint64()
 		require.Equal(t, s.Power().Uint64(), expectedVotingPower)
 		require.Equal(t, s.CommitteeSize(), committee.Len())
 		require.True(t, s.validated)
-		require.True(t, s.powerAssigned)
 
 		// encode and decode
 		payload, err := rlp.EncodeToBytes(s)
@@ -165,11 +170,10 @@ func TestSerialization(t *testing.T) {
 		require.Equal(t, s.Coefficients[3].String(), common.Big1.String())
 
 		require.False(t, decoded.validated)
-		require.False(t, decoded.powerAssigned)
 
 		// accessing auxiliary data structure should panic
 		defer expectPanic(t)
-		require.Nil(t, decoded.Powers())
+		require.Nil(t, decoded.Power())
 	})
 }
 
@@ -184,17 +188,15 @@ func TestSigners(t *testing.T) {
 
 	t.Run("Increment should update the bitmap and the auxiliary maps correctly", func(t *testing.T) {
 		// +10 to avoid hitting the panic in `increment` related to the max allowed coefficient
-		s := NewSigners(committee.Len() + 10)
-		require.Equal(t, s.CommitteeSize(), committee.Len()+10)
+		s := NewSigners(committee)
+		require.Equal(t, s.CommitteeSize(), committee.Len())
 
 		require.False(t, s.Bitmap.IsSet(0))
 
 		s.AddSigner(&committee.Members[0])
 		require.True(t, s.Bitmap.IsSet(0))
 		require.Equal(t, common.Big1.String(), s.Coefficients[0].String())
-		require.Equal(t, 1, len(s.Powers()))
 		require.Equal(t, s.Power().Uint64(), committee.Members[0].VotingPower.Uint64())
-		require.Equal(t, s.Powers()[0].Uint64(), committee.Members[0].VotingPower.Uint64())
 		require.Equal(t, s.Len(), 1)
 
 		s.AddSigner(&committee.Members[0])
@@ -204,18 +206,14 @@ func TestSigners(t *testing.T) {
 		require.True(t, s.Bitmap.IsSet(0))
 		require.Equal(t, s.Coefficients[0].String(), common.Big3.String())
 
-		require.Equal(t, len(s.Powers()), 1)
 		require.Equal(t, s.Power().Uint64(), committee.Members[0].VotingPower.Uint64())
-		require.Equal(t, s.Powers()[0].Uint64(), committee.Members[0].VotingPower.Uint64())
 		require.Equal(t, s.Len(), 1)
 
 		s.AddSigner(&committee.Members[1])
 		require.True(t, s.Bitmap.IsSet(1))
 		require.Equal(t, s.Coefficients[1].String(), common.Big1.String())
 
-		require.Equal(t, len(s.Powers()), 2)
 		require.Equal(t, s.Power().Uint64(), committee.Members[0].VotingPower.Uint64()+committee.Members[1].VotingPower.Uint64())
-		require.Equal(t, s.Powers()[0].Uint64(), committee.Members[0].VotingPower.Uint64())
 		require.Equal(t, s.Len(), 2)
 
 		s.AddSigner(&committee.Members[2])
@@ -252,27 +250,25 @@ func TestSigners(t *testing.T) {
 	})
 	t.Run("Merge correctly merges two senders info", func(t *testing.T) {
 		// +10 to avoid hitting the panic in `increment` related to the max allowed coefficient
-		s1 := NewSigners(committee.Len() + 10)
+		s1 := NewSigners(committee)
 		s1.AddSigner(&committee.Members[0])
 		s1.AddSigner(&committee.Members[1])
-		s2 := NewSigners(committee.Len() + 10)
+		s2 := NewSigners(committee)
 		s2.AddSigner(&committee.Members[2])
 		s2.AddSigner(&committee.Members[3])
 		s2.AddSigner(&committee.Members[4])
 
 		s1.Merge(s2)
 
-		require.Equal(t, s1.CommitteeSize(), committee.Len()+10)
-		require.Equal(t, len(s1.Powers()), committee.Len())
+		require.Equal(t, s1.CommitteeSize(), committee.Len())
 		require.Equal(t, s1.Len(), committee.Len())
-		for i, member := range committee.Members {
+		for i := range committee.Members {
 			require.True(t, s1.Bitmap.IsSet(i))
 			require.Equal(t, s1.Coefficients[i].String(), common.Big1.String())
-			require.Equal(t, s1.Powers()[i], member.VotingPower)
 		}
 		require.Equal(t, s1.Power().Uint64(), totalPower.Uint64())
 
-		s3 := NewSigners(committee.Len() + 10)
+		s3 := NewSigners(committee)
 		s3.AddSigner(&committee.Members[0])
 		s3.AddSigner(&committee.Members[1])
 		s3.AddSigner(&committee.Members[2])
@@ -281,17 +277,15 @@ func TestSigners(t *testing.T) {
 
 		s1.Merge(s3)
 
-		require.Equal(t, s1.CommitteeSize(), committee.Len()+10)
-		require.Equal(t, len(s1.Powers()), committee.Len())
+		require.Equal(t, s1.CommitteeSize(), committee.Len())
 		require.Equal(t, s1.Len(), committee.Len())
-		for i, member := range committee.Members {
+		for i := range committee.Members {
 			require.True(t, s1.Bitmap.IsSet(i))
 			require.Equal(t, s1.Coefficients[i].String(), common.Big2.String())
-			require.Equal(t, s1.Powers()[i], member.VotingPower)
 		}
 		require.Equal(t, s1.Power().Uint64(), totalPower.Uint64())
 
-		s4 := NewSigners(committee.Len() + 10)
+		s4 := NewSigners(committee)
 		s4.AddSigner(&committee.Members[0])
 		s4.AddSigner(&committee.Members[0])
 		s4.AddSigner(&committee.Members[0])
@@ -307,7 +301,7 @@ func TestSigners(t *testing.T) {
 		require.True(t, s1.Bitmap.IsSet(2))
 		require.Equal(t, s1.Coefficients[2].String(), big.NewInt(6).String())
 
-		s5 := NewSigners(committee.Len() + 10)
+		s5 := NewSigners(committee)
 		s5.AddSigner(&committee.Members[1])
 
 		s1.Merge(s5)
@@ -319,7 +313,7 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, s1.Coefficients[2].String(), big.NewInt(6).String())
 	})
 	t.Run("Power returns the aggregated power of the senders", func(t *testing.T) {
-		s := NewSigners(committee.Len())
+		s := NewSigners(committee)
 		s.AddSigner(&committee.Members[0])
 		s.AddSigner(&committee.Members[1])
 
@@ -338,7 +332,7 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, s.Power(), totalPower)
 	})
 	t.Run("FlattenUniq returns the indexes of the senders (de-duplicated)", func(t *testing.T) {
-		s := NewSigners(committee.Len())
+		s := NewSigners(committee)
 		s.AddSigner(&committee.Members[0])
 		s.AddSigner(&committee.Members[1])
 
@@ -355,7 +349,7 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, s.FlattenUniq(), []int{0, 1, 2, 3})
 	})
 	t.Run("Contains returns expected result", func(t *testing.T) {
-		s := NewSigners(committee.Len())
+		s := NewSigners(committee)
 
 		require.False(t, s.Contains(0))
 		require.False(t, s.Contains(1))
@@ -369,8 +363,8 @@ func TestSigners(t *testing.T) {
 		require.True(t, s.Contains(2))
 	})
 	t.Run("AddsInformation, RespectBoundaries return expected results", func(t *testing.T) {
-		s1 := NewSigners(committee.Len())
-		s2 := NewSigners(committee.Len())
+		s1 := NewSigners(committee)
+		s2 := NewSigners(committee)
 
 		require.False(t, s1.AddsInformation(s2))
 
@@ -409,7 +403,6 @@ func TestSigners(t *testing.T) {
 }
 
 func TestValidation(t *testing.T) {
-	csize := 10
 
 	nilSigner := &Signers{
 		Bitmap:       nil,
@@ -419,67 +412,68 @@ func TestValidation(t *testing.T) {
 	t.Log(err)
 	require.Error(t, err)
 
-	wrongSizeSigner := NewSigners(csize)
+	csize := committee.Len()
+	wrongSizeSigner := NewSigners(committee)
 	wrongSizeSigner.Coefficients = make([]*big.Int, csize+10)
-	require.True(t, errors.Is(wrongSizeSigner.Validate(csize), ErrWrongSizeSigners))
+	require.True(t, errors.Is(wrongSizeSigner.Validate(committee), ErrWrongSizeSigners))
 
-	s := NewSigners(csize)
-	require.True(t, errors.Is(s.Validate(csize), ErrEmptySigners))
+	s := NewSigners(committee)
+	require.True(t, errors.Is(s.Validate(committee), ErrEmptySigners))
 
 	// A
 	s.increment(0, common.Big0)
 	t.Log(s.String())
-	require.Nil(t, s.Validate(csize))
+	require.Nil(t, s.Validate(committee))
 
 	// A + B
 	s.increment(1, common.Big0)
 	t.Log(s.String())
-	require.Nil(t, s.Validate(csize))
+	require.Nil(t, s.Validate(committee))
 
 	// A + B + C
 	s.increment(2, common.Big0)
 	t.Log(s.String())
-	require.Nil(t, s.Validate(csize))
+	require.Nil(t, s.Validate(committee))
 
 	// A + B + C + D
 	s.increment(3, common.Big0)
 	t.Log(s.String())
-	require.Nil(t, s.Validate(csize))
+	require.Nil(t, s.Validate(committee))
 
 	// 2A + B + C + D
 	s.increment(0, common.Big0)
 	t.Log(s.String())
-	require.Nil(t, s.Validate(csize))
+	require.Nil(t, s.Validate(committee))
 
 	// 3A + B + C + D
 	s.increment(0, common.Big0)
 	t.Log(s.String())
-	require.Nil(t, s.Validate(csize))
+	require.Nil(t, s.Validate(committee))
 
 	// 4A + 2B + C + D
 	s.increment(0, common.Big0)
 	s.increment(1, common.Big0)
 	t.Log(s.String())
-	require.Nil(t, s.Validate(csize))
+	require.Nil(t, s.Validate(committee))
 
-	s.Coefficients = append(s.Coefficients, big.NewInt(0xca), big.NewInt(0xfe))
-	require.True(t, errors.Is(s.Validate(csize), ErrWrongCoefficientLen))
+	s.Coefficients = append(s.Coefficients, big.NewInt(0xca))
+	require.True(t, errors.Is(s.Validate(committee), ErrWrongCoefficientLen))
 
-	s = NewSigners(csize)
+	s = NewSigners(committee)
 	// 2A
 	s.increment(0, common.Big0)
 	s.increment(0, common.Big0)
-	require.True(t, errors.Is(s.Validate(csize), ErrInvalidSingleSig))
+	require.True(t, errors.Is(s.Validate(committee), ErrInvalidSingleSig))
 
 	// 4A + B
 	s.increment(0, common.Big0)
 	s.increment(0, common.Big0)
 	s.increment(1, common.Big0)
-	require.True(t, errors.Is(s.Validate(csize), ErrInvalidCoefficient))
+	require.True(t, errors.Is(s.Validate(committee), ErrInvalidCoefficient))
 
-	s = NewSigners(csize)
+	s = NewSigners(committee)
 	s.increment(0, common.Big0)
-	s.Validate(csize)
+	s.Validate(committee)
 	require.True(t, s.validated)
 	require.Equal(t, csize, s.CommitteeSize())
 	require.Equal(t, 1, s.Len())
@@ -489,7 +483,7 @@ func TestRightmostSigners(t *testing.T) {
 	err := committee.Enrich()
 	require.NoError(t, err)
 
-	s := NewSigners(committee.Len())
+	s := NewSigners(committee)
 	require.Equal(t, committee.Len(), s.RightmostSigner())
 	s.AddSigner(&committee.Members[3])
 	t.Log(s.String())
@@ -501,7 +495,7 @@ func TestRightmostSigners(t *testing.T) {
 	t.Log(s.String())
 	require.Equal(t, 2, s.RightmostSigner())
 
-	other := NewSigners(committee.Len())
+	other := NewSigners(committee)
 	other.AddSigner(&committee.Members[4])
 	other.AddSigner(&committee.Members[2])
 	other.AddSigner(&committee.Members[1])
@@ -520,7 +514,7 @@ func TestRightmostSigners(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Log(decoded.String())
-	err = decoded.Validate(committee.Len())
+	err = decoded.Validate(committee)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, decoded.RightmostSigner())

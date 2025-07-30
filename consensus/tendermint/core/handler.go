@@ -249,12 +249,14 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 		case *message.Propose:
 			c.futurePower[r].Set(m.SignerIndex(), m.Power())
 		case *message.Prevote, *message.Precommit:
-			for index, power := range m.(message.Vote).Signers().Powers() {
-				c.futurePower[r].Set(index, power)
+			signers := m.(message.Vote).Signers()
+			it := signers.NewIterator()
+			for it.Next() {
+				power := signers.Committee().MemberByIndex(it.Index()).VotingPower
+				c.futurePower[r].Set(it.Index(), power)
 			}
 		}
 		c.futureRoundLock.Unlock()
-
 
 		// TODO: there is an unhandled edge case which can cause disseminating the same message twice.
 		// Specifically, if we receive a message for a "far" future round (so CanDisseminate() will return false)

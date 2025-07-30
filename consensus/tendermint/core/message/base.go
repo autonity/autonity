@@ -19,7 +19,7 @@ type base struct {
 	verified       bool
 	preverified    bool
 
-	// populated at PreValidate() phase
+	// populated on demand
 	signerKey blst.PublicKey
 }
 

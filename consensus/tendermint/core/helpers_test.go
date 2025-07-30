@@ -53,10 +53,28 @@ func defaultSigner(h common.Hash) blst.Signature {
 }
 
 // creates a signers data structure that carries the requested power
-func signersWithPower(index uint64, committeeSize int, requestedPower *big.Int) *types.Signers {
-	signers := types.NewSigners(committeeSize)
-	fakeMember := &types.CommitteeMember{Index: index, VotingPower: requestedPower}
-	signers.AddSigner(fakeMember)
+func signersWithPower(skipIdx *[]int, committee *types.Committee, requestedPower *big.Int) *types.Signers {
+	signers := types.NewSigners(committee)
+	contains := func(idx int) bool {
+		for _, i := range *skipIdx {
+			if i == idx {
+				return true
+			}
+		}
+		return false
+	}
+	totalPower := big.NewInt(0)
+	for i := 0; i < committee.Len(); i++ {
+		if contains(i) {
+			continue
+		}
+		if totalPower.Cmp(requestedPower) >= 0 {
+			return signers
+		}
+		*skipIdx = append(*skipIdx, i)
+		totalPower.Add(totalPower, committee.MemberByIndex(i).VotingPower)
+		signers.AddSigner(committee.MemberByIndex(i))
+	}
 	return signers
 }
 
@@ -159,8 +177,8 @@ func generateBlock(height *big.Int, parentHeader *types.Header) *types.Block {
 	return block
 }
 
-func newUnverifiedPrecommit(r int64, h uint64, value common.Hash, signer message.Signer, self *types.CommitteeMember, csize int) *message.Precommit {
-	precommit := message.NewPrecommit(r, h, value, signer, self, csize)
+func newUnverifiedPrecommit(r int64, h uint64, value common.Hash, signer message.Signer, self *types.CommitteeMember, committee *types.Committee) *message.Precommit {
+	precommit := message.NewPrecommit(r, h, value, signer, self, committee)
 	unverifiedPrecommit := &message.Precommit{}
 	reader := bytes.NewReader(precommit.Payload())
 	if err := rlp.Decode(reader, unverifiedPrecommit); err != nil {

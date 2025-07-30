@@ -13,13 +13,13 @@ import (
 	e2e "github.com/autonity/autonity/e2e_test"
 )
 
-func selfAndCsize(c *core.Core, h uint64) (*types.CommitteeMember, int) {
+func selfAndCommittee(c *core.Core, h uint64) (*types.CommitteeMember, *types.Committee) {
 	committee, err := c.Backend().BlockChain().CommitteeByHeight(h)
 	if err != nil {
 		panic(err)
 	}
 
-	return committee.MemberByAddress(c.Address()), committee.Len()
+	return committee.MemberByAddress(c.Address()), committee
 }
 
 type AccusationPO struct {
@@ -41,7 +41,7 @@ func (s *AccusationPO) Broadcast(msg message.Msg) {
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
 	vR := nPR - 1
 
-	self, _ := selfAndCsize(s.Core, msg.H())
+	self, _ := selfAndCommittee(s.Core, msg.H())
 
 	// change header nonce to a random value to have a different block hash
 	header := proposal.Block().Header()
@@ -73,7 +73,7 @@ func (s *AccusationPVN) Broadcast(msg message.Msg) {
 		s.BroadcastAll(msg)
 		return
 	}
-	self, csize := selfAndCsize(s.Core, msg.H())
+	self, csize := selfAndCommittee(s.Core, msg.H())
 	preVote := message.NewPrevote(msg.R()+1, msg.H(), e2e.NonNilValue, s.Backend().Sign, self, csize)
 
 	s.Logger().Info("PVN Accusation rule simulation")
@@ -109,7 +109,7 @@ func (s *AccusationPVO) Broadcast(msg message.Msg) {
 	}
 
 	// simulate a proposal at round: nPR, and with a valid round: nPR-2
-	self, csize := selfAndCsize(s.Core, msg.H())
+	self, csize := selfAndCommittee(s.Core, msg.H())
 	newProposal := message.NewPropose(nPR, msg.H(), validRound, proposal.Block(), s.Backend().Sign, self)
 
 	// simulate a preVote at round nPR, for value v, this preVote for new value break PVO1.
@@ -137,7 +137,7 @@ func (s *AccusationC1) Broadcast(msg message.Msg) {
 		return
 	}
 
-	self, csize := selfAndCsize(s.Core, msg.H())
+	self, csize := selfAndCommittee(s.Core, msg.H())
 
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
 	if s.IsProposer() { // youssef: probably not needed

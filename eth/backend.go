@@ -644,8 +644,8 @@ func (s *Ethereum) validatorController() {
 	startMiningWhenReady := func(ctx context.Context, committee *types.Committee) {
 		go func() {
 			ticker := time.NewTicker(1 * time.Second)
-			timeOutSec := int(math.Min(float64(committee.Len())/2, 60))
-			timeout := time.After(time.Duration(timeOutSec) * time.Second) // max wait one minute
+			timeOutSec := int(math.Max(float64(committee.Len())/2, 30))
+			timeout := time.After(time.Duration(timeOutSec) * time.Second) // max wait 30 sec
 			defer ticker.Stop()
 
 			for {

@@ -53,7 +53,6 @@ func TestSendPrevote(t *testing.T) {
 		member := committeeSet.Committee().Members[0]
 		signer := makeSigner(keys[member.Address].consensus)
 		logger := log.New("backend", "test", "id", 0)
-		csize := committeeSet.Committee().Len()
 
 		proposal := message.NewPropose(
 			1,
@@ -67,7 +66,7 @@ func TestSendPrevote(t *testing.T) {
 		curMessages := messages.GetOrCreate(2)
 		curMessages.SetProposal(proposal, true)
 
-		expectedMsg := message.NewPrevote(1, 2, curMessages.ProposalHash(), signer, &member, csize)
+		expectedMsg := message.NewPrevote(1, 2, curMessages.ProposalHash(), signer, &member, committeeSet.Committee())
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer)
@@ -94,7 +93,6 @@ func TestHandlePrevote(t *testing.T) {
 	committeeSet, keys := NewTestCommitteeSetWithKeys(4)
 	member := committeeSet.Committee().Members[0]
 	signer := makeSigner(keys[member.Address].consensus)
-	csize := committeeSet.Committee().Len()
 
 	t.Run("pre-vote given with no errors, pre-vote added", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -111,7 +109,7 @@ func TestHandlePrevote(t *testing.T) {
 			&member)
 
 		curRoundMessages.SetProposal(proposal, true)
-		prevote := message.NewPrevote(1, 2, curRoundMessages.ProposalHash(), signer, &member, csize)
+		prevote := message.NewPrevote(1, 2, curRoundMessages.ProposalHash(), signer, &member, committeeSet.Committee())
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		c := &Core{
@@ -159,13 +157,13 @@ func TestHandlePrevote(t *testing.T) {
 		var prevotes []*message.Prevote
 		for i := 0; i < 3; i++ {
 			val := committeeSet.Committee().Members[i]
-			prevote := message.NewPrevote(2, 3, curRoundMessage.ProposalHash(), makeSigner(keys[val.Address].consensus), &val, csize)
+			prevote := message.NewPrevote(2, 3, curRoundMessage.ProposalHash(), makeSigner(keys[val.Address].consensus), &val, committeeSet.Committee())
 			prevotes = append(prevotes, prevote)
 		}
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer).AnyTimes()
 
-		precommit := message.NewPrecommit(2, 3, curRoundMessage.ProposalHash(), signer, &member, csize)
+		precommit := message.NewPrecommit(2, 3, curRoundMessage.ProposalHash(), signer, &member, committeeSet.Committee())
 
 		backendMock.EXPECT().Broadcast(gomock.Any(), precommit)
 		backendMock.EXPECT().Post(gomock.Any()).MaxTimes(3)
@@ -211,14 +209,14 @@ func TestHandlePrevote(t *testing.T) {
 		var prevotes []*message.Prevote
 		for i := 0; i < 3; i++ {
 			val := committeeSet.Committee().Members[i]
-			prevote := message.NewPrevote(2, 3, common.Hash{}, makeSigner(keys[val.Address].consensus), &val, csize)
+			prevote := message.NewPrevote(2, 3, common.Hash{}, makeSigner(keys[val.Address].consensus), &val, committeeSet.Committee())
 			prevotes = append(prevotes, prevote)
 		}
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(keys[member2.Address].consensus)).AnyTimes()
 		backendMock.EXPECT().Post(gomock.Any()).MaxTimes(3)
 
-		precommit := message.NewPrecommit(2, 3, common.Hash{}, makeSigner(keys[member2.Address].consensus), &member2, csize)
+		precommit := message.NewPrecommit(2, 3, common.Hash{}, makeSigner(keys[member2.Address].consensus), &member2, committeeSet.Committee())
 
 		backendMock.EXPECT().Broadcast(gomock.Any(), precommit)
 
@@ -268,11 +266,11 @@ func TestHandlePrevote(t *testing.T) {
 		// 2 prevotes for nil, 1 for v
 		var prevotes []*message.Prevote
 		val := committeeSet.Committee().Members[0]
-		prevotes = append(prevotes, message.NewPrevote(2, 2, curRoundMessages.ProposalHash(), makeSigner(keys[val.Address].consensus), &val, csize))
+		prevotes = append(prevotes, message.NewPrevote(2, 2, curRoundMessages.ProposalHash(), makeSigner(keys[val.Address].consensus), &val, committeeSet.Committee()))
 		val2 := committeeSet.Committee().Members[1]
-		prevotes = append(prevotes, message.NewPrevote(2, 2, common.Hash{}, makeSigner(keys[val2.Address].consensus), &val2, csize))
+		prevotes = append(prevotes, message.NewPrevote(2, 2, common.Hash{}, makeSigner(keys[val2.Address].consensus), &val2, committeeSet.Committee()))
 		val3 := committeeSet.Committee().Members[2]
-		prevotes = append(prevotes, message.NewPrevote(2, 2, common.Hash{}, makeSigner(keys[val3.Address].consensus), &val3, csize))
+		prevotes = append(prevotes, message.NewPrevote(2, 2, common.Hash{}, makeSigner(keys[val3.Address].consensus), &val3, committeeSet.Committee()))
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Address().AnyTimes().Return(member2.Address)

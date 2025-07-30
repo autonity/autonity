@@ -207,27 +207,17 @@ func (a *aggregator) processRound(h uint64, r int64) {
 	roundInfo := a.messages[h][r]
 	a.msgMu.Unlock()
 
-	for _, proposalEvent := range roundInfo.proposals {
-		if a.toSkip(proposalEvent.Message) {
-			continue
-		}
-		a.processProposal(proposalEvent, currentHeightEventBuilder)
-	}
-
 	nBatches := len(roundInfo.prevotes) + len(roundInfo.precommits)
-	batches := make([][]events.UnverifiedMessageEvent, nBatches)
-	i := 0
+	batches := make([][]events.UnverifiedMessageEvent, 0, nBatches)
 
 	// batch prevotes
-	for _, events := range roundInfo.prevotes {
-		batches[i] = events
-		i++
+	for _, evs := range roundInfo.prevotes {
+		batches = append(batches, evs)
 	}
 
 	// batch precommits
-	for _, events := range roundInfo.precommits {
-		batches[i] = events
-		i++
+	for _, evs := range roundInfo.precommits {
+		batches = append(batches, evs)
 	}
 
 	a.processBatches(batches, currentHeightEventBuilder)
@@ -365,6 +355,7 @@ func (a *aggregator) validateBatch(batch []events.UnverifiedMessageEvent) (valid
 	for i, e := range batch {
 		m := e.Message
 		messages[i] = m.(message.Vote)
+		//todo: could do the signerKey calculation before hand - in parallel
 		publicKeys[i] = m.SignerKey()
 		signatures[i] = m.Signature()
 		senders[i] = e.Sender
@@ -730,6 +721,10 @@ loop:
 					// if current height, process them
 					a.processRound(h, r)
 				}
+				if h < coreHeight {
+					// remove messages from the aggregator that are older than core height
+					delete(a.messages, h)
+				}
 			}
 			// cleanup
 			clear(a.messagesFrom)
@@ -765,17 +760,7 @@ loop:
 }
 
 func (a *aggregator) cleanUp(coreHeight uint64) {
-	a.msgMu.Lock()
-	defer a.msgMu.Unlock()
 	minHeight := coreHeight
-
-	// clean up messages from the aggregator that are older than core height
-	for h := range a.messages {
-		if h < coreHeight {
-			// remove messages from the aggregator that are older than core height
-			delete(a.messages, h)
-		}
-	}
 
 	// clean up stale messages that are older than core height
 	for _, batch := range a.staleMessages {

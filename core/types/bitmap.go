@@ -118,3 +118,30 @@ func (b *Bitmap) MarshalJSON() ([]byte, error) {
 func (b *Bitmap) UnmarshalJSON(data []byte) error {
 	return (*big.Int)(b).UnmarshalJSON(data)
 }
+
+type BitmapIterator struct {
+	bitmap *Bitmap
+	index  int
+}
+
+func NewBitmapIterator(b *Bitmap) *BitmapIterator {
+	return &BitmapIterator{
+		bitmap: b,
+		index:  -1,
+	}
+}
+
+func (it *BitmapIterator) Next() bool {
+	for i := it.index + 1; i < it.bitmap.Len(); i++ {
+		if it.bitmap.IsSet(i) {
+			it.index = i
+			return true
+		}
+	}
+	it.index = it.bitmap.Len() // no more bits set, so we set index to the end
+	return false
+}
+
+func (it *BitmapIterator) Index() int {
+	return it.index
+}

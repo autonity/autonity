@@ -69,7 +69,7 @@ func TestAggregatorCache(t *testing.T) {
 		h := uint64(100)
 		value := testrand.Hash()
 		signer := mockCommittee[0].Sign
-		prevote := message.NewPrevote(r, h, value, signer, &committee.Members[0], committee.Len())
+		prevote := message.NewPrevote(r, h, value, signer, &committee.Members[0], committee)
 
 		cache.markCommittee(h, committee)
 		cache.addVote(prevote, stepReceived)
@@ -88,8 +88,8 @@ func TestAggregatorCache(t *testing.T) {
 		h := uint64(100)
 		value := testrand.Hash()
 
-		prevote1 := message.NewPrevote(r, h, value, mockCommittee[0].Sign, &committee.Members[0], committee.Len())
-		prevote2 := message.NewPrevote(r, h, value, mockCommittee[1].Sign, &committee.Members[1], committee.Len())
+		prevote1 := message.NewPrevote(r, h, value, mockCommittee[0].Sign, &committee.Members[0], committee)
+		prevote2 := message.NewPrevote(r, h, value, mockCommittee[1].Sign, &committee.Members[1], committee)
 
 		aggregatedVote := message.AggregatePrevotes([]message.Vote{prevote1, prevote2})
 
@@ -137,7 +137,7 @@ func TestAggregatorCache(t *testing.T) {
 		h := uint64(100)
 		value := testrand.Hash()
 		signer := mockCommittee[0].Sign
-		prevote := message.NewPrevote(r, h, value, signer, &committee.Members[0], committee.Len())
+		prevote := message.NewPrevote(r, h, value, signer, &committee.Members[0], committee)
 
 		cache.markCommittee(h, committee)
 		cache.addVote(prevote, stepDispatched)
@@ -186,13 +186,13 @@ func TestAggregatorCachePowerCalculations(t *testing.T) {
 		votersB := []int{0, 1, 4} // Another set of mock voters
 		var votesA []message.Vote
 		for _, voter := range votersA {
-			votesA = append(votesA, message.NewPrevote(r, h, value, mc[voter].Sign, &committee.Members[voter], committee.Len()))
+			votesA = append(votesA, message.NewPrevote(r, h, value, mc[voter].Sign, &committee.Members[voter], committee))
 		}
 		voteA := message.AggregatePrevotes(votesA)
 
 		var votesB []message.Vote
 		for _, voter := range votersB {
-			votesB = append(votesB, message.NewPrevote(r, h, value, mc[voter].Sign, &committee.Members[voter], committee.Len()))
+			votesB = append(votesB, message.NewPrevote(r, h, value, mc[voter].Sign, &committee.Members[voter], committee))
 		}
 		voteB := message.AggregatePrevotes(votesB)
 
@@ -236,13 +236,13 @@ func TestAggregatorCachePowerCalculations(t *testing.T) {
 		}
 		var votesA []message.Vote
 		for _, voter := range votersA {
-			votesA = append(votesA, message.NewPrevote(r, h, valueA, mc[voter].Sign, &committee.Members[voter], committee.Len()))
+			votesA = append(votesA, message.NewPrevote(r, h, valueA, mc[voter].Sign, &committee.Members[voter], committee))
 		}
 		voteA := message.AggregatePrevotes(votesA)
 
 		var votesB []message.Vote
 		for _, voter := range votersB {
-			votesB = append(votesB, message.NewPrecommit(r, h, valueB, mc[voter].Sign, &committee.Members[voter], committee.Len()))
+			votesB = append(votesB, message.NewPrecommit(r, h, valueB, mc[voter].Sign, &committee.Members[voter], committee))
 		}
 		voteB := message.AggregatePrecommits(votesB)
 
@@ -291,7 +291,7 @@ func TestAggregatorCachePowerCalculations(t *testing.T) {
 
 func TestBitmapLogic(t *testing.T) {
 	t.Run("signers should align with bitmap indexes", func(t *testing.T) {
-		signers := types.NewSigners(committee.Len())
+		signers := types.NewSigners(committee)
 		signers.AddSigner(&committee.Members[0])
 		signers.AddSigner(&committee.Members[3])
 		signers.AddSigner(&committee.Members[5])
@@ -303,14 +303,14 @@ func TestBitmapLogic(t *testing.T) {
 	})
 
 	t.Run("should properly merge bitmaps with different sets", func(t *testing.T) {
-		signersA := types.NewSigners(committee.Len())
+		signersA := types.NewSigners(committee)
 		signersA.AddSigner(&committee.Members[0])
 		signersA.AddSigner(&committee.Members[3])
 		signersA.AddSigner(&committee.Members[5])
 
 		bmA := signersA.Bitmap
 
-		signersB := types.NewSigners(committee.Len())
+		signersB := types.NewSigners(committee)
 		signersB.AddSigner(&committee.Members[1])
 		signersB.AddSigner(&committee.Members[4])
 		signersB.AddSigner(&committee.Members[5])
