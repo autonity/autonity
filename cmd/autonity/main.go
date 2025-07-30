@@ -300,6 +300,10 @@ X:        https://twitter.com/autonity_
 	--password <password file path>
 	--keystore <account's keystore directory path>
 `)
+	case !ctx.GlobalIsSet(utils.NetworkIdFlag.Name):
+		log.Warn("Autonity Mainnet default configuration is currently disabled")
+		log.Warn("Network id must be set manually or with testnet flags")
+		os.Exit(1)
 	default:
 		log.Info("Starting the Autonity node client", "version", params.Version, "networkid", ctx.GlobalInt(utils.NetworkIdFlag.Name))
 	}
