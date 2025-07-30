@@ -20,9 +20,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/autonity/autonity/core/rawdb"
-	"github.com/autonity/autonity/core/state"
-	"github.com/autonity/autonity/core/types"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -30,8 +27,13 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/params"
 	"github.com/stretchr/testify/require"
 )
 
@@ -531,4 +533,56 @@ func TestReadCommittee(t *testing.T) {
 
 	require.Equal(t, expectedCommittee, committee)
 
+}
+
+// todo(youssef) We need to properly test the upgrade precompile, happy path is missing
+func TestUpgradeContract(t *testing.T) {
+	createInput := func(target common.Address) []byte {
+		in := target[:]
+		return append(in, common.Hex2Bytes("00")...)
+	}
+	t.Run("caller other than upgrademanager is refused", func(t *testing.T) {
+		tests := []common.Address{
+			common.HexToAddress("0xdeadbeef000000000000000000000000deadbeef"),
+			params.AutonityContractAddress,
+			params.DeployerAddress,
+			common.HexToAddress("0x00000000000000000000000000000000000000000"),
+		}
+		for i := range tests {
+			_, _, err := RunPrecompiledContract(&Upgrader{}, createInput(params.AutonityContractAddress), math.MaxUint64, 3, nil, tests[i])
+			require.Error(t, err, errUnauthorized)
+		}
+		statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		_, _, err := RunPrecompiledContract(&Upgrader{},
+			createInput(params.AutonityContractAddress),
+			math.MaxUint64, 3,
+			NewEVM(BlockContext{}, TxContext{}, statedb, params.TestChainConfig, Config{}),
+			params.UpgradeManagerContractAddress,
+		)
+		require.NoError(t, err)
+	})
+
+	t.Run("protocols contracts can be upgraded", func(t *testing.T) {
+
+		for i := range params.ProtocolContracts {
+			statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+			evm := NewEVM(BlockContext{}, TxContext{}, statedb, params.TestChainConfig, Config{})
+			_, _, err := RunPrecompiledContract(&Upgrader{}, createInput(params.ProtocolContracts[i]), math.MaxUint64, 3, evm, params.UpgradeManagerContractAddress)
+			require.NoError(t, err)
+		}
+	})
+
+	t.Run("non-protocols contracts cannot be upgraded", func(t *testing.T) {
+		tests := []common.Address{
+			common.HexToAddress("0xdeadbeef000000000000000000000000deadbeef"),
+			params.DeployerAddress,
+			common.HexToAddress("0x00000000000000000000000000000000000000000"),
+		}
+		for i := range tests {
+			statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+			evm := NewEVM(BlockContext{}, TxContext{}, statedb, params.TestChainConfig, Config{})
+			_, _, err := RunPrecompiledContract(&Upgrader{}, createInput(tests[i]), math.MaxUint64, 3, evm, params.UpgradeManagerContractAddress)
+			require.Error(t, err, errBadUpgradeTarget)
+		}
+	})
 }
