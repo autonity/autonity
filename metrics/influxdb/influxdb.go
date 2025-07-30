@@ -7,7 +7,7 @@ import (
 
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
-	"github.com/influxdata/influxdb/client"
+	client "github.com/influxdata/influxdb1-client"
 )
 
 type reporter struct {

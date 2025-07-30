@@ -4,11 +4,11 @@ ARG VERSION=""
 ARG BUILDNUM=""
 
 # Build Autonity in a stock Go builder container
-FROM golang:1.21-alpine as builder
+FROM golang:1.24-alpine AS builder
 
-LABEL org.opencontainers.image.source https://github.com/autonity/autonity
+LABEL org.opencontainers.image.source=https://github.com/autonity/autonity
 
-RUN apk add --no-cache make gcc musl-dev linux-headers libc-dev git perl-utils
+RUN apk add --no-cache make git gcc libc-dev linux-headers
 
 ADD . /autonity
 RUN cd /autonity && make autonity-docker

@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/influxdata/influxdb/pkg/deep"
-
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
@@ -350,7 +348,7 @@ func (v *Validator) Validate() error {
 	}
 	v.NodeAddress = &nodeAddr
 
-	if deep.Equal(v.OracleAddress, common.Address{}) {
+	if v.OracleAddress == common.ZeroAddress {
 		return fmt.Errorf("missing oracle address from genesis for node %q", nodeAddr.String())
 	}
 
@@ -591,7 +589,7 @@ func (s *Schedule) Validate() error {
 	if s.Amount == nil {
 		return errors.New("amount must be specified")
 	}
-	if deep.Equal(s.VaultAddress, common.Address{}) {
+	if s.VaultAddress == common.ZeroAddress {
 		return errors.New("vault address must be specified")
 	}
 	return nil

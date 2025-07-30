@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/influxdata/influxdb/pkg/deep"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
@@ -356,9 +355,9 @@ func TestMessageEncodeDecode(t *testing.T) {
 			decoded.H() != messages[i].H() ||
 			decoded.Code() != messages[i].Code() ||
 			decoded.Value() != messages[i].Value() ||
-			!deep.Equal(decoded.SignerKey().Marshal(), messages[i].SignerKey().Marshal()) ||
+			!bytes.Equal(decoded.SignerKey().Marshal(), messages[i].SignerKey().Marshal()) ||
 			decoded.Hash() != messages[i].Hash() ||
-			!deep.Equal(decoded.Payload(), messages[i].Payload()) {
+			!bytes.Equal(decoded.Payload(), messages[i].Payload()) {
 			t.Error("does not match", i)
 		}
 	}
