@@ -324,7 +324,9 @@ func (g *Genesis) ToBlock(db ethdb.Database) (*types.Block, error) {
 		panic(err)
 	}
 	for addr, account := range g.Alloc {
-		statedb.AddBalance(addr, account.Balance)
+		if account.Balance != nil {
+			statedb.AddBalance(addr, account.Balance)
+		}
 		statedb.SetCode(addr, account.Code)
 		statedb.SetNonce(addr, account.Nonce)
 		for key, value := range account.Storage {
@@ -584,19 +586,78 @@ func DefaultPiccadillyGenesisBlock() *Genesis {
 }
 
 func DefaultBakerlooGenesisBlock() *Genesis {
+	var (
+		sdpAccount     = common.HexToAddress("0xC1122BEb440E68c4c85415DBEF80ef97247aac85")
+		genesisTime, _ = time.Parse(time.RFC3339, "2025-08-06T13:00:00Z")
+	)
+	params.BakerlooChainConfig.AutonityContractConfig.Schedules = params.BakerlooSchedules()
 	g := &Genesis{
 		Config:     params.BakerlooChainConfig,
+		Timestamp:  uint64(genesisTime.Unix()), //nolint
 		Nonce:      0,
 		GasLimit:   30_000_000,
+		BaseFee:    big.NewInt(10_000_000_000),
 		Difficulty: big.NewInt(0),
 		Mixhash:    types.BFTDigest,
 		Alloc: map[common.Address]GenesisAccount{
-			params.BakerlooChainConfig.AutonityContractConfig.Operator: {Balance: new(big.Int).Mul(big.NewInt(3), big.NewInt(params.Ether))},
+			// EXT01-BAK
+			common.HexToAddress("D1d46d82a92AfA9EC1AE3d83Ae23250D8b4D6317"): {
+				NewtonBalance: new(big.Int).Mul(big.NewInt(25000), params.NtnPrecision),
+				Balance:       new(big.Int).Mul(big.NewInt(2), params.ATNPrecision),
+			},
+			// CTL-VAULT-BAK1
+			common.HexToAddress("0x001f0994E8Fc36D123A461B8995948E9F01054C8"): {
+				NewtonBalance: new(big.Int).Mul(big.NewInt(1000000), params.NtnPrecision),
+				Balance:       new(big.Int).Mul(big.NewInt(10), params.ATNPrecision),
+			},
+			// CTL-VAULT-BAK2
+			common.HexToAddress("0xd0C72d80B0D24f329a5405A3aEF2E1B93551fc6d"): {
+				NewtonBalance: new(big.Int).Mul(big.NewInt(1000000), params.NtnPrecision),
+			},
+			// LC-OPS-BAK
+			common.HexToAddress("0x879417AFBB552D64000E0F1Ae449615983b94633"): {
+				NewtonBalance: new(big.Int).Mul(big.NewInt(2000000), params.NtnPrecision),
+			},
+			// BOOTSTRAP-BAK
+			common.HexToAddress("0x298550A7e719dca9C2F8E01a70c1Fe31345A9da8"): {
+				NewtonBalance: new(big.Int).Mul(big.NewInt(208000), params.NtnPrecision),
+				Balance:       new(big.Int).Mul(big.NewInt(100), params.ATNPrecision),
+			},
+			// SDP-OPS-BAK
+			sdpAccount: {
+				NewtonBalance: new(big.Int).Mul(big.NewInt(162000), params.NtnPrecision),
+				Balance:       new(big.Int).Mul(big.NewInt(100), params.ATNPrecision),
+				Bonds:         make(map[common.Address]*big.Int),
+			},
+			// AT-VAULT1-BAK
+			common.HexToAddress("0x0EB1a6E69ce1b9Cb8540863EC32e483d819704D2"): {
+				NewtonBalance: new(big.Int).Mul(big.NewInt(1257955633333332), big.NewInt(10000000000)),
+				Balance:       new(big.Int).Mul(big.NewInt(100), params.ATNPrecision),
+			},
+			// AT-VAULT2-BAK
+			common.HexToAddress("0xb8056F4fFBffe5c42637208286D7e7067Ed879C4"): {
+				NewtonBalance: new(big.Int).Mul(big.NewInt(10000000), params.NtnPrecision),
+			},
+			// PO-BAK
+			common.HexToAddress("0x83e5e0eab996Bb894814fa8F0AC96a0D314f06F3"): {
+				Balance: new(big.Int).Mul(big.NewInt(10), params.ATNPrecision),
+			},
+			// Safe Singleton Factory
+			common.HexToAddress("914d7Fec6aaC8cd542e72Bca78B30650d45643d7"): {
+				Code: common.Hex2Bytes("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"),
+			},
 		},
 	}
-	for _, v := range g.Config.AutonityContractConfig.Validators {
+
+	// GVs initial ATN Allocs
+	for _, v := range params.BakerlooValidators {
 		g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
 		g.Alloc[v.OracleAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+		g.Alloc[v.Treasury] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+	}
+	// SDP allocations
+	for _, v := range params.BakerlooValidators {
+		g.Alloc[sdpAccount].Bonds[*v.NodeAddress] = new(big.Int).Mul(big.NewInt(60_000), params.NtnPrecision)
 	}
 	return g
 }

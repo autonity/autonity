@@ -75,6 +75,7 @@ var (
 	DefaultGasLimitBoundDivisor     = uint64(1024)
 	DefaultClusteringThreshold      = uint64(64)
 	NtnPrecision                    = big.NewInt(1_000_000_000_000_000_000)
+	ATNPrecision                    = big.NewInt(1_000_000_000_000_000_000)
 	Ntn1                            = new(big.Int).Mul(big.NewInt(1), NtnPrecision)
 	Ntn10000                        = new(big.Int).Mul(big.NewInt(10_000), NtnPrecision)
 	Ntn40000                        = new(big.Int).Mul(big.NewInt(40_000), NtnPrecision)
@@ -149,106 +150,6 @@ var (
 		AccountabilityConfig:         DefaultAccountabilityConfig,
 		OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig,
 		InflationContractConfig:      DefaultInflationControllerGenesis,
-	}
-
-	// BakerlooChainConfig contains the chain parameters to run a node on the Bakerloo test network.
-	BakerlooChainConfig = &ChainConfig{
-		ChainID:                 big.NewInt(65_010_003),
-		HomesteadBlock:          common.Big0,
-		DAOForkBlock:            common.Big0,
-		DAOForkSupport:          true,
-		EIP150Block:             common.Big0,
-		EIP150Hash:              common.Hash{},
-		EIP155Block:             common.Big0,
-		EIP158Block:             common.Big0,
-		ByzantiumBlock:          common.Big0,
-		ConstantinopleBlock:     common.Big0,
-		PetersburgBlock:         common.Big0,
-		IstanbulBlock:           common.Big0,
-		MuirGlacierBlock:        common.Big0,
-		BerlinBlock:             common.Big0,
-		LondonBlock:             common.Big0,
-		ArrowGlacierBlock:       common.Big0,
-		MergeForkBlock:          nil,
-		TerminalTotalDifficulty: nil,
-		Ethash:                  nil,
-		AutonityContractConfig: &AutonityContractGenesis{
-			MinBaseFee:               500_000_000,
-			EpochPeriod:              DefaultEpochPeriod,
-			GasLimit:                 DefaultGenesisGasLimit,
-			GasLimitBoundDivisor:     DefaultGasLimitBoundDivisor,
-			BaseFeeChangeDenominator: DefaultBaseFeeChangeDenominator,
-			ElasticityMultiplier:     DefaultElasticityMultiplier,
-			UnbondingPeriod:          6 * 60 * 60,
-			BlockPeriod:              1,
-			MaxCommitteeSize:         50,
-			Operator:                 common.HexToAddress("0x293039dDC627B1dF9562380c0E5377848F94325A"),
-			Treasury:                 common.HexToAddress("0x7f1B212dcDc119a395Ec2B245ce86e9eE551043E"),
-			WithheldRewardsPool:      common.HexToAddress("0x7f1B212dcDc119a395Ec2B245ce86e9eE551043E"), // TODO: set to another account if we do not want to send withheld rewards to the AC treasury
-			TreasuryFee:              10_000_000_000_000_000,
-			InitialInflationReserve:  (*math.HexOrDecimal256)(new(big.Int).Mul(big.NewInt(40_000_000), NtnPrecision)),
-			DelegationRate:           1000,
-			WithholdingThreshold:     0,    // 0%, no tolerance
-			ProposerRewardRate:       1000, // 10% TODO: is this enough?
-			OracleRewardRate:         1000, // 10%
-			Validators: []*Validator{{
-				Treasury:      common.HexToAddress("0x3e08FEc6ABaf669BD8Da54abEe30b2B8B5024013"),
-				OracleAddress: common.HexToAddress("0x4D8387E38F42084aa24CE7DA137222786fF23A3E"),
-				ConsensusKey:  common.Hex2Bytes("89d04918f676554704f833d193b0819ef171784309bc4573cc2eeaaef78e3881bba3b7cc9bc8b8c3ff5678c355626a7d"),
-				Enode:         "enode://ebd47c61fa3b0125240654f7b73abeb188dd8c954385e2b75dd0b46efc341b801ae4593be77a954120bcff97a5282ff8f9485306976f8541b2fa971066cd37be@35.246.21.247:30303",
-				BondedStake:   Ntn10000,
-			}, {
-				Treasury:      common.HexToAddress("0xf1859D9feD50514F9D805BeC7a30623d061f40B7"),
-				OracleAddress: common.HexToAddress("0x22F1e6eA5d67Bef19C6953bdBCFA03320ECd015A"),
-				ConsensusKey:  common.Hex2Bytes("8df1b499f3a7acd89cd36ef96ceb931a2455751c5e676000e378bec03f2008c6a321cd833132204f46e43ee719dac5c4"),
-				Enode:         "enode://1cbd580027a2d21c114c75720115c4c04524952231f66607514fd6bcb5979f20181066383a7a15f1382aa637f6470170c67f74bf1f95271f2abc4ae08c8a11fb@35.189.64.207:30303",
-				BondedStake:   Ntn10000,
-			}, {
-				Treasury:      common.HexToAddress("0x1B441084736B80f273e498E646b0bEA86B4eC6AB"),
-				OracleAddress: common.HexToAddress("0xC81B686402395A83938452DF8398DA9b2649281A"),
-				ConsensusKey:  common.Hex2Bytes("a648a602bf8ad04b07cf2cbffcb70eccb2bfe9500dca99c599998f5b8cae950e99ab0e7247a03c1ca731fe7c6fc257f8"),
-				Enode:         "enode://28136dd78f976e8fbcbd2c8222cee3f6ac45ac01ceea4a43946d476c03f4971cea23d8c30f0e1a2cbcfde5310a0117ae36ba15c6028e036f637141f330040f62@34.105.163.137:30303",
-				BondedStake:   Ntn10000,
-			}, {
-
-				Treasury:      common.HexToAddress("0xB5C49d50470743D8dE43bB6822AC4505E64648Da"),
-				OracleAddress: common.HexToAddress("0x4c35544931E2Cea6eD41102197685704917F72C3"),
-				ConsensusKey:  common.Hex2Bytes("897bef2c488b7bf696d8f4595790233e7ced50bb10bfb33c3e82d8526ce147a70bc6152842eeeeacbc044ebe43c64b27"),
-				Enode:         "enode://e4dacdb0170bc1baaf7a90935c8d35e75aeec639087320b19ffdd6eb8e6f3b967dd696b1c2f3f99a6a1fea003f7c2a0bb9d8228c06b31ae6c5fec863b8745a2d@35.177.8.113:30303",
-				BondedStake:   Ntn10000,
-			}, {
-				Treasury:      common.HexToAddress("0x31e1dE659A26F7638FAaFEfD94D47258FE361823"),
-				OracleAddress: common.HexToAddress("0xC0bB231711470a92DE3B57DE2Ca04727048f5580"),
-				ConsensusKey:  common.Hex2Bytes("b6c83a5bfd23f6b2043e89bf5a774e41428151b913dd842efac094f04ac41bec8f5110e313c38ccc115f916108769c40"),
-				Enode:         "enode://07ea9eaa469d07695d6855089ad1e0fda35933b779f5907c6edbb77365eef2297b56039fa021e31183675c201855bd95275852d4b1ff9251cce558d1a3611240@35.179.46.181:30303",
-				BondedStake:   Ntn10000,
-			}, {
-				Treasury:      common.HexToAddress("0xe22617BD2a4e1Fe3938F84060D8a6be7A18a2ef9"),
-				OracleAddress: common.HexToAddress("0x82C3E23Aa626Ca1556938bCA38f52B329A99b9d8"),
-				ConsensusKey:  common.Hex2Bytes("80293a218b081704b25d6b1db351246472b111e42e73998d34a9783f1439eba2cdd4fb832cc9d018986c59a398fd0e69"),
-				Enode:         "enode://fb6f5556df35da18c1ecac878fd44a84a0cc302952e1172871dfc48c996c9940b182df374586722212ecb92a8771cafcf48b21657832316423e33f7dbc0b4e7f@3.9.98.39:30303",
-				BondedStake:   Ntn10000,
-			}},
-			SkipGenesisVerification: true,
-			TokenBond:               (*math.HexOrDecimal256)(common.Big0),
-			TokenMint:               (*math.HexOrDecimal256)(common.Big0),
-		},
-		OracleContractConfig: &OracleContractGenesis{
-			VotePeriod: OracleVotePeriod,
-			Symbols:    OracleInitialSymbols,
-		},
-		ASM: AsmConfig{
-			ACUContractConfig:           DefaultAcuContractGenesis,
-			StabilizationContractConfig: DefaultStabilizationGenesis,
-			SupplyControlConfig: &SupplyControlGenesis{
-				InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Sub(
-					new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), // 2^256
-					new(big.Int).Mul(big.NewInt(16), big.NewInt(Ether)),   // 16 * 10^18
-				)),
-			},
-		},
-		AccountabilityConfig:         DefaultAccountabilityConfig,
-		OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig,
 	}
 
 	// MainnetChainConfig is the chain parameters to run a node on the main network.

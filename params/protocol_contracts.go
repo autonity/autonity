@@ -62,11 +62,10 @@ var (
 
 	// ToDo: Add the real default values for the Auctioneer contract
 	DefaultAuctioneerGenesis = &AuctioneerContractGenesis{
-		LiquidationAuctionDuration: big.NewInt(60), // 60 blocks
-
-		InterestAuctionDuration:  big.NewInt(60),                                        // 60 blocks
-		InterestAuctionDiscount:  new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil), // 0.1
-		InterestAuctionThreshold: new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil), // 1 ATN
+		LiquidationAuctionDuration: big.NewInt(60),                                        // 60 blocks
+		InterestAuctionDuration:    big.NewInt(60),                                        // 60 blocks
+		InterestAuctionDiscount:    new(big.Int).Exp(big.NewInt(10), big.NewInt(17), nil), // 0.1
+		InterestAuctionThreshold:   new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil), // 1 ATN
 	}
 
 	DefaultSupplyControlGenesis = &SupplyControlGenesis{
@@ -83,14 +82,14 @@ var (
 
 	// all percentage parameters needs to be scaled according to SLASHING_RATE_PRECISION
 	DefaultAccountabilityConfig = &AccountabilityGenesis{
-		InnocenceProofSubmissionWindow: 100, // 100 blocks
+		InnocenceProofSubmissionWindow: 120, // 120 blocks
 		Delta:                          10,  // 10 blocks
-		Range:                          256, // 256 blocks
-		BaseSlashingRateLow:            400, // 4%
-		BaseSlashingRateMid:            600, // 6%
-		BaseSlashingRateHigh:           800, // 8%
-		CollusionFactor:                200, // 2%
-		HistoryFactor:                  500, // 5%
+		Range:                          128, // 256 blocks
+		BaseSlashingRateLow:            50,  // 0.5%
+		BaseSlashingRateMid:            100, // 1%
+		BaseSlashingRateHigh:           200, // 2%
+		CollusionFactor:                25,  // 0.25%
+		HistoryFactor:                  150, // 1.5%
 		JailFactor:                     48,  // 48 epochs, i.e. 1 day with 30 mins epoch
 	}
 
@@ -104,15 +103,14 @@ var (
 	* 5. delta needs to be >= 2
 	 */
 	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
-		InactivityThreshold:    1000,   // 10%
-		LookbackWindow:         40,     // 40 blocks
+		InactivityThreshold:    1000,   // 15%
+		LookbackWindow:         40,     // 60 blocks
 		PastPerformanceWeight:  1000,   // 10%
 		InitialJailingPeriod:   10_000, // 10000 blocks
-		InitialProbationPeriod: 24,     // 24 epochs
-		InitialSlashingRate:    25,     // 0.25%
+		InitialProbationPeriod: 24,     // 8 epochs
+		InitialSlashingRate:    25,     // 0.05%
 		Delta:                  5,      // 5 blocks
 	}
-
 	// same as the previous one, but with InactivityThreshold raised to 50%.
 	// This is a very conservative threshold, and should be used for the first testnet we will run with omission enabled.
 	// the idea is to avoid mass jailings at network startup. We can then lower down the threshold to 10% gradually at network runtime.
