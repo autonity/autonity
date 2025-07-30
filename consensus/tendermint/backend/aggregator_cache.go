@@ -230,6 +230,8 @@ func (c *aggregatorCache) filter(event events.UnverifiedMessageEvent) bool {
 		}
 		return received && dispatched
 	default:
+		// proposals are never filtered as they are validated in the backend, and
+		// duplicated proposals should already be filtered by the backend itself.
 		return false
 	}
 }
