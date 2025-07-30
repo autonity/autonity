@@ -4,11 +4,11 @@ ARG VERSION=""
 ARG BUILDNUM=""
 
 # Build Autonity in a stock Go builder container
-FROM golang:1.21-alpine as builder
+FROM golang:1.24-alpine AS builder
 
-LABEL org.opencontainers.image.source https://github.com/autonity/autonity
+LABEL org.opencontainers.image.source=https://github.com/autonity/autonity
 
-RUN apk add --no-cache make gcc musl-dev linux-headers libc-dev git perl-utils
+RUN apk add --no-cache make git gcc libc-dev linux-headers
 
 ADD . /autonity
 RUN cd /autonity && make autonity-docker
@@ -20,7 +20,7 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /autonity/build/bin/autonity /usr/local/bin/
 
-EXPOSE 8545 8546 8547 30303 30303/udp
+EXPOSE 8545 8546 20203 30303 30303/udp
 ENTRYPOINT ["autonity"]
 
 # Add some metadata labels to help programatic image consumption

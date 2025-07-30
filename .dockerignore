@@ -2,4 +2,5 @@
 
 build/_workspace
 build/_bin
+build/bin
 tests/testdata

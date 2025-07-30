@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 SOLC_BIN="$1"
 echo "{" > signer/fourbyte/autonity_4byte.json
 $SOLC_BIN --hashes autonity/solidity/contracts/Autonity.sol 2>/dev/null | grep -E --color=never "^[0-9a-f]{8}: .*" | sed -E 's/^([0-9a-f]{8}): (.*)$/"\1": "\2",/' >> signer/fourbyte/autonity_4byte.json
