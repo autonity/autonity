@@ -68,8 +68,14 @@ func TestUpgrade(t *testing.T) {
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted) // maybe check revert reason
 	})
 	r.Run("upgrade target contract", func(r *Runner) {
+		// reset deployment params to fake a whitelisted protocol contract
+		r.Evm.StateDB.SetNonce(common.Address{}, 0)
+		r.Evm.StateDB.SetCode(params.AutonityContractAddress, []byte{})
+		r.Evm.StateDB.SetNonce(params.AutonityContractAddress, 0)
+
 		// deploy first dummy contract
-		_, _, base, err := r.DeployTestBase(r.Operator, "v1")
+		_, _, base, err := r.DeployTestBase(&runOptions{origin: common.Address{}, value: new(big.Int)}, "v1")
+
 		require.NoError(r.T, err, base)
 		v1string, _, _ := base.Foo(nil)
 		require.Equal(r.T, v1string, "v1")

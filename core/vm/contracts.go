@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -229,6 +230,7 @@ const (
 
 var (
 	errUnauthorized       = errors.New("caller address not authorized")
+	errBadUpgradeTarget   = errors.New("target address not authorized")
 	errBadInput           = errors.New("input is invalid")
 	errBadCommitteeSize   = errors.New("invalid max committee size")
 	errBadValidatorSize   = errors.New("invalid size of validator list")
@@ -251,9 +253,15 @@ func (u *Upgrader) Run(input []byte, _ uint64, evm *EVM, caller common.Address) 
 	if len(input) < common.AddressLength+1 {
 		return nil, errBadInput
 	}
-	targetContract := common.Address(input[:common.AddressLength])
+	var (
+		targetContract = common.Address(input[:common.AddressLength])
+		code           = input[common.AddressLength:]
+	)
+	if !slices.Contains(params.ProtocolContracts, targetContract) {
+		return nil, errBadUpgradeTarget
+	}
 	// input is TARGET_ADDRESS + DEPLOY_CALLDATA
-	_, _, _, err := evm.Replace(AccountRef(params.DeployerAddress), input[common.AddressLength:], targetContract)
+	_, _, _, err := evm.Replace(AccountRef(params.DeployerAddress), code, targetContract)
 	return nil, err
 }
 

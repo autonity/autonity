@@ -137,6 +137,19 @@ var (
 	InflationControllerContractAddress    = crypto.CreateAddress(DeployerAddress, 7)
 	OmissionAccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 8)
 	AuctioneerContractAddress             = crypto.CreateAddress(DeployerAddress, 9)
+
+	ProtocolContracts = []common.Address{
+		AutonityContractAddress,
+		AccountabilityContractAddress,
+		OracleContractAddress,
+		ACUContractAddress,
+		SupplyControlContractAddress,
+		StabilizationContractAddress,
+		UpgradeManagerContractAddress,
+		InflationControllerContractAddress,
+		OmissionAccountabilityContractAddress,
+		AuctioneerContractAddress,
+	}
 )
 
 type AutonityContractGenesis struct {
