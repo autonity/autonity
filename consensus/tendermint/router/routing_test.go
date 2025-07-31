@@ -92,7 +92,7 @@ func TestRouter_Start(t *testing.T) {
 	chain.EXPECT().SubscribeEpochHeadEvent(gomock.Any()).Return(sub).Times(1)
 	chain.EXPECT().
 		ClusteringThresholdByHeight(gomock.Any()).
-		Return(big.NewInt(2), nil).AnyTimes()
+		Return(len(committeeAddrs), nil).AnyTimes()
 	networkProvider := mocks.NewMockClustersProvider(ctrl)
 	networkProvider.EXPECT().UpdateClusters(gomock.Any()).Times(1)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
