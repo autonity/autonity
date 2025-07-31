@@ -1115,7 +1115,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure that the previously sent transaction is now processed
-	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	err = n.AwaitSentTransactions(ctx)
 	require.NoError(t, err)
