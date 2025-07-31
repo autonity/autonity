@@ -258,6 +258,11 @@ func (m *Router) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 	m.peerSelector.SetBroadcaster(broadcaster)
 }
 
+// used only as a test helper
+func (m *Router) SetChain(chain interfaces.BlockChainProvider) {
+	m.chain = chain
+}
+
 func (m *Router) refreshClustersLatencies(latMap map[common.Address]uint) {
 	nw, err := cluster.New(m.committee, latMap, m.self)
 	if err != nil {

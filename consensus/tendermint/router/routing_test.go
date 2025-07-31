@@ -217,7 +217,9 @@ func TestRouter_Recipients_LargeCommittee(t *testing.T) {
 
 	nodeKey := newTestKey(t)
 	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
-	router.clusteringThreshold = 0
+	chain := mocks.NewMockBlockChainProvider(ctrl)
+	chain.EXPECT().ClusteringThresholdByHeight(gomock.Any()).Return(new(big.Int), nil).AnyTimes()
+	router.chain = chain
 
 	// Successful peer selection
 	selected := []common.Address{common.HexToAddress("0x002"), common.HexToAddress("0x003")}
@@ -263,6 +265,9 @@ func TestRouter_Recipients_SelfNotInCommittee(t *testing.T) {
 
 	nodeKey := newTestKey(t)
 	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
+	chain := mocks.NewMockBlockChainProvider(ctrl)
+	chain.EXPECT().ClusteringThresholdByHeight(gomock.Any()).Return(new(big.Int).SetInt64(DefaultScaleThresholdForClustering), nil).AnyTimes()
+	router.chain = chain
 
 	// Small committee: no clustering
 	recipients, err := router.Recipients(&committee, msg, self)
@@ -314,7 +319,9 @@ func TestRouter_Forward(t *testing.T) {
 
 	nodeKey := newTestKey(t)
 	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
-	router.clusteringThreshold = 0
+	chain := mocks.NewMockBlockChainProvider(ctrl)
+	chain.EXPECT().ClusteringThresholdByHeight(gomock.Any()).Return(new(big.Int), nil).Times(1)
+	router.chain = chain
 	router.SetBroadcaster(broadcaster)
 
 	// Mock peerSelector
@@ -419,7 +426,7 @@ func TestRouter_Loop_OverallFlow(t *testing.T) {
 	chain.EXPECT().LatestEpoch().Return(epoch, nil).Times(1)
 	chain.EXPECT().
 		ClusteringThresholdByHeight(gomock.Any()).
-		Return(big.NewInt(0), nil).Times(2)
+		Return(big.NewInt(0), nil).AnyTimes()
 	sub := mocks.NewMockSubscription(ctrl)
 	chain.EXPECT().SubscribeEpochHeadEvent(gomock.Any()).Return(sub).Times(1)
 	networkProvider := mocks.NewMockClustersProvider(ctrl)
@@ -431,7 +438,7 @@ func TestRouter_Loop_OverallFlow(t *testing.T) {
 	recipientCache := cache.New()
 	nodeKey := newTestKey(t)
 	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
-	router.clusteringThreshold = 0
+	router.chain = chain
 	router.SetBroadcaster(broadcaster)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -611,7 +618,9 @@ func TestRouter_ConcurrentForward(t *testing.T) {
 	recipientCache := cache.New()
 	nodeKey := newTestKey(t)
 	router := New(nodeKey, self, recipientCache, latencyFetcher, peerSelector, networkProvider, log.Root())
-	router.clusteringThreshold = 0
+	chain := mocks.NewMockBlockChainProvider(ctrl)
+	chain.EXPECT().ClusteringThresholdByHeight(gomock.Any()).Return(new(big.Int), nil).AnyTimes()
+	router.chain = chain
 	latencyFetcher.EXPECT().SetBroadcaster(broadcaster)
 	peerSelector.EXPECT().SetBroadcaster(broadcaster)
 	router.SetBroadcaster(broadcaster)
