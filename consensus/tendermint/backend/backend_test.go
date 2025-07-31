@@ -220,6 +220,7 @@ func TestGossip(t *testing.T) {
 	key, _ := crypto.GenerateKey()
 	rt := router.Setup(key, testAddress, log.New())
 	rt.SetBroadcaster(broadcaster)
+	rt.SetChain(newTestBlockchain())
 	b := &Backend{
 		database:      rawdb.NewMemoryDatabase(),
 		knownMessages: knownMessages,

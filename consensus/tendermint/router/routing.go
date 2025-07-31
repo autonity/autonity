@@ -142,12 +142,12 @@ func (m *Router) clusteringThresholdByHeight(height uint64) int64 {
 }
 
 func (m *Router) Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
-	if int64(committee.Len()) <= m.clusteringThreshold {
+	if int64(committee.Len()) < m.clusteringThresholdByHeight(msg.H()) {
 		return m.committeeAddresses(committee), nil
 	}
 	recipients, err := m.peerSelector.SelectPeers(committee, msg, from)
 	if err != nil {
-		m.logger.Debug("selector: no clusters, falling back to all committee members")
+		m.logger.Error("selector: no clusters, falling back to all committee members", "err", err)
 		return m.committeeAddresses(committee), nil
 	}
 	return recipients, nil
@@ -231,13 +231,15 @@ func (m *Router) Start(ctx context.Context, chain interfaces.BlockChainProvider)
 	}
 	m.committee = addresses
 	m.inCommittee = curEpoch.Committee.MemberByAddress(m.self) != nil
-	nw, err := cluster.New(addresses, m.latestLatencies, m.self)
 	m.chain = chain
 	m.clusteringThreshold = m.clusteringThresholdByHeight(curEpoch.EpochBlock.Uint64() + 1)
-	if err != nil {
-		m.logger.Error("Router: failed to create network", "err", err)
-	} else {
-		m.updateNetwork(nw)
+	if m.inCommittee && int64(len(m.committee)) >= m.clusteringThreshold {
+		nw, err := cluster.New(addresses, m.latestLatencies, m.self)
+		if err != nil {
+			m.logger.Error("Router: failed to create network", "err", err)
+		} else {
+			m.updateNetwork(nw)
+		}
 	}
 	ctx, m.cancel = context.WithCancel(ctx)
 	m.wg.Add(1)
@@ -254,6 +256,11 @@ func (m *Router) SetBroadcaster(broadcaster interfaces.PeerFinder) {
 	m.peerFinder = broadcaster
 	m.latencyFetcher.SetBroadcaster(broadcaster)
 	m.peerSelector.SetBroadcaster(broadcaster)
+}
+
+// used only as a test helper
+func (m *Router) SetChain(chain interfaces.BlockChainProvider) {
+	m.chain = chain
 }
 
 func (m *Router) refreshClustersLatencies(latMap map[common.Address]uint) {
@@ -391,8 +398,10 @@ func (m *Router) loop(ctx context.Context) {
 			m.logger.Info("Router: new epoch detected", "height", epochEv.Header.Number.String())
 			epoch := epochEv.Header.Epoch
 			m.inCommittee = epoch.Committee.MemberByAddress(m.self) != nil
+			m.updateCommittee(epoch)
+			m.clusteringThreshold = m.clusteringThresholdByHeight(epochEv.Header.Number.Uint64() + 1)
 			if !m.inCommittee || int64(len(m.committee)) < m.clusteringThreshold {
-				m.logger.Info("Router: clustering not needed, skipping measurement")
+				m.logger.Info("Router: clustering not needed, skipping measurement", "committee len", len(m.committee), "clusteringThreshold", m.clusteringThreshold)
 				if wasClustering {
 					// reset cluster
 					m.updateNetwork(cluster.Clusters{})
@@ -401,8 +410,6 @@ func (m *Router) loop(ctx context.Context) {
 				continue
 			}
 			wasClustering = true
-			m.updateCommittee(epoch)
-			m.clusteringThreshold = m.clusteringThresholdByHeight(epochEv.Header.Number.Uint64() + 1)
 			// we should never fail here, as we already made sure that we are in committee
 			nw, err := cluster.New(m.committee, m.Latencies(), m.self)
 			if err != nil {
