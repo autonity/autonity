@@ -142,7 +142,7 @@ func (m *Router) clusteringThresholdByHeight(height uint64) int64 {
 }
 
 func (m *Router) Recipients(committee *types.Committee, msg message.Msg, from common.Address) ([]common.Address, error) {
-	if int64(committee.Len()) <= m.clusteringThreshold {
+	if int64(committee.Len()) <= m.clusteringThresholdByHeight(msg.H()) {
 		return m.committeeAddresses(committee), nil
 	}
 	recipients, err := m.peerSelector.SelectPeers(committee, msg, from)
