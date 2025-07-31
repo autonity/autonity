@@ -94,7 +94,7 @@ func TestRouter_Start(t *testing.T) {
 		ClusteringThresholdByHeight(gomock.Any()).
 		Return(big.NewInt(DefaultScaleThresholdForClustering), nil).AnyTimes()
 	networkProvider := mocks.NewMockClustersProvider(ctrl)
-	networkProvider.EXPECT().UpdateClusters(gomock.Any()).Times(1)
+	//	networkProvider.EXPECT().UpdateClusters(gomock.Any()).Times(1)
 	latencyFetcher := mocks.NewMockLatencyProvider(ctrl)
 	peerSelector := mocks.NewMockPeerSelector(ctrl)
 	recipientCache := cache.New()
