@@ -61,9 +61,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install pkg-config
-        run: go install github.com/influxdata/pkg-config@latest
-
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -113,9 +110,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install pkg-config
-        run: go install github.com/influxdata/pkg-config@latest
-
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -138,8 +132,6 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
-      - name: Install pkg-config
-        run: go install github.com/influxdata/pkg-config@latest
       - uses: actions/checkout@v3
       - name: Go cache
         uses: actions/cache@v4
@@ -167,8 +159,6 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
-      - name: Install pkg-config
-        run: go install github.com/influxdata/pkg-config@latest
       - uses: actions/checkout@v3
       - name: Go cache
         uses: actions/cache@v4
@@ -221,9 +211,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install pkg-config
-        run: go install github.com/influxdata/pkg-config@latest
-
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -257,9 +244,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install pkg-config
-        run: go install github.com/influxdata/pkg-config@latest
-
       - uses: actions/checkout@v3
 
       - name: Go cache
@@ -291,9 +275,6 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Install pkg-config
-        run: go install github.com/influxdata/pkg-config@latest
-
       - uses: actions/checkout@v3
         with:
           fetch-depth: '2'
@@ -319,9 +300,6 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Install pkg-config
-        run: go install github.com/influxdata/pkg-config@latest
 
       - uses: actions/checkout@v3
 
