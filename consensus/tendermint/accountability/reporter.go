@@ -38,7 +38,7 @@ func (fd *FaultDetector) onDutyDetector(height uint64) bool {
 		return false
 	}
 
-	committeeSize := uint64(committee.Len())
+	committeeSize := uint64(committee.Len()) //nolint
 	// All members run rule engine in a small scale network.
 	if committeeSize <= SmallScaleNetSize {
 		return true
@@ -86,7 +86,7 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 	}
 
 	// each validator is assigned a reporting slot
-	primary := primaryIndex(height, uint64(committee.Len()))
+	primary := primaryIndex(height, uint64(committee.Len())) //nolint
 
 	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
 	// slot, then it is time to report the collected events by this validator.
