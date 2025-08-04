@@ -2,11 +2,12 @@ package accountability
 
 import (
 	"errors"
-
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/core/types"
+	"math/big"
 )
 
 const (
@@ -19,9 +20,9 @@ var (
 	errPendingReport = errors.New("pending report")
 )
 
-// primaryIndex returns the index of the validator which is assigned with a reporting block period.
-func primaryIndex(height uint64, committeeSize uint64) int {
-	return int((height / reportingSlotPeriod) % committeeSize) //nolint
+// primaryIndex returns the index of the validator which is the primary reporter of a specific 20-blocks reporting window.
+func primaryIndex(height uint64, committeeSize uint64) uint64 {
+	return (height / reportingSlotPeriod) % committeeSize
 }
 
 // isRuleEngineRunner check if client is a rule engine runner, as to reduce the performance cost in a large scale
@@ -35,43 +36,43 @@ func (fd *FaultDetector) isRuleEngineRunner(height uint64) bool {
 		return false
 	}
 
+	committeeSize := uint64(committee.Len())
 	// All members run rule engine in a small scale network.
-	if committee.Len() <= SmallScaleNetSize {
+	if committeeSize <= SmallScaleNetSize {
 		return true
 	}
 
-	validator := committee.MemberByAddress(fd.address)
-	if validator == nil {
+	currClient := committee.MemberByAddress(fd.address)
+	if currClient == nil {
 		return false
 	}
 
 	// With a larger network, we select primary and backups reporters.
 	// Return true if node is the primary reporter.
-	primary := primaryIndex(height, uint64(committee.Len())) //nolint
-	if committee.Members[primary].Address == fd.address {
+	pri := primaryIndex(height, committeeSize)
+	if committee.Members[pri].Address == fd.address {
 		return true
 	}
 
-	// Beside the primary, we select other 1/3 nodes as backups, thus there
-	// will be at least 1 honest node runs rule engine.
-	numBackups := committee.Len() / 3
-	startIdx := primary + 1
-	endIdx := primary + numBackups
-	validatorIdx := int(validator.Index) //nolint
+	// If the client is not the primary reporter, check if they are backup reporters.
+	total := new(big.Int).SetUint64(committeeSize)
+	f := bft.F(total).Uint64()
+	startIdx := pri + 1
+	endIdx := pri + f
+	valIdx := currClient.Index
 
-	if endIdx < committee.Len() {
-		return validatorIdx >= startIdx && validatorIdx <= endIdx
+	if endIdx < committeeSize {
+		return valIdx >= startIdx && valIdx <= endIdx
 	}
 
-	if startIdx == committee.Len() {
-		endIdx = endIdx % committee.Len()
-		return validatorIdx >= 0 && validatorIdx <= endIdx
+	if startIdx == committeeSize {
+		endIdx = endIdx % committeeSize
+		return valIdx >= 0 && valIdx <= endIdx
 	}
 
-	wrappedEndIdx := endIdx % committee.Len()
-	startIdx = (primary + 1) % committee.Len()
-	return (validatorIdx >= startIdx && validatorIdx < committee.Len()) ||
-		(validatorIdx >= 0 && validatorIdx <= wrappedEndIdx)
+	wrappedEndIdx := endIdx % committeeSize
+	startIdx = (pri + 1) % committeeSize
+	return (valIdx >= startIdx && valIdx < committeeSize) || (valIdx >= 0 && valIdx <= wrappedEndIdx)
 }
 
 // canReport assign the validator a dedicated time-window to submit the accountability event, if the primary fails to
@@ -83,7 +84,7 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 	}
 
 	// each validator is assigned a reporting slot
-	primary := primaryIndex(height, uint64(committee.Len())) //nolint
+	primary := primaryIndex(height, uint64(committee.Len()))
 
 	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
 	// slot, then it is time to report the collected events by this validator.
