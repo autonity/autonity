@@ -2,6 +2,8 @@ package accountability
 
 import (
 	"errors"
+	"github.com/autonity/autonity/consensus/tendermint/bft"
+	"math/big"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/autonity/bindings"
@@ -10,13 +12,89 @@ import (
 )
 
 const (
-	MaxEventSize = 20480 // 20KB
+	MaxEventSize      = 20480 // 20KB
+	SmallScaleNetSize = 32    // in a small scale network, every validator node runs rule engine.
 )
 
 var (
 	errInvalidReport = errors.New("invalid report")
 	errPendingReport = errors.New("pending report")
 )
+
+// primaryIndex returns the index of the validator which is the primary reporter of a specific 20-blocks reporting window.
+func primaryIndex(height uint64, committeeSize uint64) uint64 {
+	return (height / reportingSlotPeriod) % committeeSize
+}
+
+// onDutyDetector check if client is a scheduled on duty detector, as the protocol schedules reporting slots for
+// validators in the queue, thus we just keep at least F+1 node to be on duty for a certain height's rule execution.
+// The primary of the on duty detectors has the highest priority to detect and report the events, if the primary is off,
+// The primary of the next slot of the duty set will submit the events.
+func (fd *FaultDetector) onDutyDetector(height uint64) bool {
+
+	committee, err := fd.blockchain.CommitteeByHeight(height)
+	if err != nil {
+		fd.logger.Error("Failed to get committee for height %d: %v", height, err)
+		return false
+	}
+
+	committeeSize := uint64(committee.Len())
+	// All members run rule engine in a small scale network.
+	if committeeSize <= SmallScaleNetSize {
+		return true
+	}
+
+	currClient := committee.MemberByAddress(fd.address)
+	if currClient == nil {
+		return false
+	}
+
+	// With a larger network, we select primary and backups reporters.
+	// Return true if node is the primary reporter.
+	pri := primaryIndex(height, committeeSize)
+	if committee.Members[pri].Address == fd.address {
+		return true
+	}
+
+	// If the client is not the primary reporter, check if they are backup reporters.
+	total := new(big.Int).SetUint64(committeeSize)
+	f := bft.F(total).Uint64()
+	startIdx := pri + 1
+	endIdx := pri + f
+	valIdx := currClient.Index
+
+	if endIdx < committeeSize {
+		return valIdx >= startIdx && valIdx <= endIdx
+	}
+
+	if startIdx == committeeSize {
+		endIdx = endIdx % committeeSize
+		return valIdx >= 0 && valIdx <= endIdx
+	}
+
+	wrappedEndIdx := endIdx % committeeSize
+	startIdx = (pri + 1) % committeeSize
+	return (valIdx >= startIdx && valIdx < committeeSize) || (valIdx >= 0 && valIdx <= wrappedEndIdx)
+}
+
+// canReport assign the validator a dedicated time-window to submit the accountability event, if the primary fails to
+// report, those backups will report once they become to primary at next dedicated time-window.
+func (fd *FaultDetector) canReport(height uint64) bool {
+	committee, err := fd.blockchain.CommitteeByHeight(height)
+	if err != nil {
+		fd.logger.Crit("Can't retrieve committee for message", "err", err, "height", height)
+	}
+
+	// each validator is assigned a reporting slot
+	primary := primaryIndex(height, uint64(committee.Len()))
+
+	// if validator is the reporter of the slot period, and if checkpoint block is the end block of the
+	// slot, then it is time to report the collected events by this validator.
+	if height%reportingSlotPeriod != 0 {
+		return false
+	}
+	return committee.Members[primary].Address == fd.address
+}
 
 func (fd *FaultDetector) reportEvents(events []*bindings.IAccountabilityEvent) []*bindings.IAccountabilityEvent {
 	var filtered []*bindings.IAccountabilityEvent
