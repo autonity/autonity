@@ -22,8 +22,8 @@ if __name__ == '__main__':
     autonity_path = args.autonity
     start_id = args.id
 
-    # Generate 3 consecutive test IDs
-    batch_size = 3
+    # Generate 2 consecutive test IDs
+    batch_size = 2
     test_ids = range(start_id, start_id + batch_size)
     LG.debug(f"Running tests: {list(test_ids)}")
 

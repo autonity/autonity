@@ -301,7 +301,7 @@ if __name__ == "__main__":
         utility.execute("cp {} ./test_bin/".format(bootnode_bin))
         utility.execute("cp {} ./test_bin/".format(key_inspector_bin))
 
-        # tyr to build autonity client image if the image hasn't being built.
+        # try to build autonity client image if the image hasn't being built.
         check_to_build_client_images()
 
         # create the network infra for the test.
