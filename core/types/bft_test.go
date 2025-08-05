@@ -41,7 +41,7 @@ func TestHeaderHash(t *testing.T) {
 	require.NoError(t, err)
 	quorumCertificate.Signature = testKey.Sign([]byte("0xcafe")).(*blst.BlsSignature)
 	quorumCertificate.Signers = NewSigners(committee)
-	quorumCertificate.Signers.increment(0, common.Big1)
+	quorumCertificate.Signers.increment(0)
 
 	activityProof := quorumCertificate.Copy()
 

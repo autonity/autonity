@@ -232,7 +232,7 @@ func (s *Signers) addOrUpdate(validatorIndex, coeffIndex int, coefficient *big.I
 
 // this function adds `index` in signer `s`. It assumes the signer is prevalidated.
 // The caller is responsible to check so the coefficient doesn't overflow.
-func (s *Signers) increment(index int, votingPower *big.Int) {
+func (s *Signers) increment(index int) {
 
 	count := 0 // count of signers present before `index`
 
@@ -257,16 +257,16 @@ func (s *Signers) PowerByIndex(index int) *big.Int {
 
 // This function adds the `member` in signer `s`. This function assumes that `member` is absent in signer `s`.
 // The caller is responsible to check if `member` is already present in `s` or not.
-func (s *Signers) AddSigner(member *CommitteeMember) {
+func (s *Signers) AddSigner(memberIndex uint64) {
 	if !s.validated {
 		panic("Using un-validated signers information")
 	}
-	index := int(member.Index)
+	index := int(memberIndex) // nolint
 	if index >= s.committee.Len() {
 		panic("trying to increment signer information of non-existent committee member")
 	}
 
-	s.increment(index, member.VotingPower)
+	s.increment(index)
 }
 
 // Iterates over the signers present in `other` and merge it with `s`.

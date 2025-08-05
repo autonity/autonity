@@ -73,7 +73,7 @@ func signersWithPower(skipIdx *[]int, committee *types.Committee, requestedPower
 		}
 		*skipIdx = append(*skipIdx, i)
 		totalPower.Add(totalPower, committee.MemberByIndex(i).VotingPower)
-		signers.AddSigner(committee.MemberByIndex(i))
+		signers.AddSigner(uint64(i)) //nolint
 	}
 	return signers
 }

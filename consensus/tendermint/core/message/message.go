@@ -564,7 +564,7 @@ func newVote[
 	signature := signer(signatureInput)
 
 	signers := types.NewSigners(committee)
-	signers.AddSigner(self)
+	signers.AddSigner(self.Index)
 
 	payload, _ := rlp.EncodeToBytes(extVote{
 		Code:      code,

@@ -292,9 +292,9 @@ func TestAggregatorCachePowerCalculations(t *testing.T) {
 func TestBitmapLogic(t *testing.T) {
 	t.Run("signers should align with bitmap indexes", func(t *testing.T) {
 		signers := types.NewSigners(committee)
-		signers.AddSigner(&committee.Members[0])
-		signers.AddSigner(&committee.Members[3])
-		signers.AddSigner(&committee.Members[5])
+		signers.AddSigner(0)
+		signers.AddSigner(3)
+		signers.AddSigner(5)
 
 		bm := signers.Bitmap
 		indexes := bm.Indexes()
@@ -304,16 +304,16 @@ func TestBitmapLogic(t *testing.T) {
 
 	t.Run("should properly merge bitmaps with different sets", func(t *testing.T) {
 		signersA := types.NewSigners(committee)
-		signersA.AddSigner(&committee.Members[0])
-		signersA.AddSigner(&committee.Members[3])
-		signersA.AddSigner(&committee.Members[5])
+		signersA.AddSigner(0)
+		signersA.AddSigner(3)
+		signersA.AddSigner(5)
 
 		bmA := signersA.Bitmap
 
 		signersB := types.NewSigners(committee)
-		signersB.AddSigner(&committee.Members[1])
-		signersB.AddSigner(&committee.Members[4])
-		signersB.AddSigner(&committee.Members[5])
+		signersB.AddSigner(1)
+		signersB.AddSigner(4)
+		signersB.AddSigner(5)
 		bmB := signersB.Bitmap
 
 		require.False(t, bmA.Contains(bmB))

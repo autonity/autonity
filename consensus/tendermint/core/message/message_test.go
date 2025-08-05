@@ -419,7 +419,7 @@ func TestMessageHash(t *testing.T) {
 
 		// tamper with internal signers data structures of vote2 and recompute hash
 		signers := types.NewSigners(&testCommittee)
-		signers.AddSigner(&testCommittee.Members[0])
+		signers.AddSigner(0)
 
 		payload, _ := rlp.EncodeToBytes(extVote{
 			Code:      PrecommitCode,
@@ -576,14 +576,14 @@ func TestPower(t *testing.T) {
 	power = Power([]Msg{proposal, vote})
 	require.Equal(t, testCommittee.Members[0].VotingPower.Uint64(), power.Uint64())
 
-	vote.Signers().AddSigner(&testCommittee.Members[0])
-	vote.Signers().AddSigner(&testCommittee.Members[1])
+	vote.Signers().AddSigner(0)
+	vote.Signers().AddSigner(1)
 
 	power = Power([]Msg{proposal, vote})
 	require.Equal(t, testCommittee.Members[0].VotingPower.Uint64()+testCommittee.Members[1].VotingPower.Uint64(), power.Uint64())
 
 	vote2 := NewPrecommit(r, h, block.Hash(), defaultSigner, &testCommittee.Members[0], &testCommittee)
-	vote2.Signers().AddSigner(&testCommittee.Members[3])
+	vote2.Signers().AddSigner(3)
 
 	power = Power([]Msg{proposal, vote, vote2})
 	require.Equal(t, testCommittee.Members[0].VotingPower.Uint64()+testCommittee.Members[1].VotingPower.Uint64()+testCommittee.Members[3].VotingPower.Uint64(), power.Uint64())
@@ -617,7 +617,7 @@ func TestOverQuorumVotes(t *testing.T) {
 	require.Equal(t, vote.Hash(), result[0].Hash())
 	require.Equal(t, vote2.Hash(), result[1].Hash())
 
-	vote.Signers().AddSigner(&testCommittee.Members[1])
+	vote.Signers().AddSigner(1)
 	result = OverQuorumVotes([]Msg{vote}, quorum)
 	require.NotNil(t, result)
 	require.Equal(t, 1, len(result))

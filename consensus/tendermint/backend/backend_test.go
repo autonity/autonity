@@ -277,7 +277,7 @@ func TestVerifyProposal(t *testing.T) {
 			Signature: committedSeal.(*blst.BlsSignature),
 			Signers:   types.NewSigners(committee),
 		}
-		quorumCertificate.Signers.AddSigner(&committee.Members[0])
+		quorumCertificate.Signers.AddSigner(0)
 		header := block.Header()
 		header.QuorumCertificate = quorumCertificate
 		block = block.WithSeal(header)
@@ -334,7 +334,7 @@ func TestCommit(t *testing.T) {
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
 		quorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(committee)}
-		quorumCertificate.Signers.AddSigner(&committee.Members[0])
+		quorumCertificate.Signers.AddSigner(0)
 
 		chain, engine, _ := newBlockChain(1)
 		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -392,7 +392,7 @@ func TestCommit(t *testing.T) {
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
 		quorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(committee)}
-		quorumCertificate.Signers.AddSigner(&committee.Members[0])
+		quorumCertificate.Signers.AddSigner(0)
 
 		err = b.Commit(newBlock, 0, quorumCertificate)
 		if err != nil {

@@ -667,14 +667,14 @@ func TestAggregatorHandleVote(t *testing.T) {
 		a.signerSetCache.markCommittee(h, committee)
 
 		voteA := message.NewPrevote(r, h, value, testSigner, &committee.Members[0], committee)
-		voteA.Signers().AddSigner(&committee.Members[0])
-		voteA.Signers().AddSigner(&committee.Members[1])
+		voteA.Signers().AddSigner(0)
+		voteA.Signers().AddSigner(1)
 		voteAEvent := makeBogusEvent(voteA)
 
 		voteB := message.NewPrevote(r, h, common.Hash{}, testSigner, &committee.Members[0], committee)
-		voteB.Signers().AddSigner(&committee.Members[0])
-		voteB.Signers().AddSigner(&committee.Members[1])
-		voteB.Signers().AddSigner(&committee.Members[2])
+		voteB.Signers().AddSigner(0)
+		voteB.Signers().AddSigner(1)
+		voteB.Signers().AddSigner(2)
 		voteBEvent := makeBogusEvent(voteB)
 
 		backendMock.EXPECT().DispatchToCore(gomock.Any()).Times(0)
@@ -705,7 +705,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		singleVote := message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], committee)
-		singleVote.Signers().AddSigner(&committee.Members[0])
+		singleVote.Signers().AddSigner(0)
 		singleVoteEvent := makeBogusEvent(singleVote)
 
 		// no quorum reached, vote should be buffered
@@ -715,10 +715,10 @@ func TestAggregatorHandleVote(t *testing.T) {
 
 		// simple aggregate with quorum should trigger processing
 		vote := message.NewPrecommit(r, h, value, testSigner, &committee.Members[1], committee)
-		vote.Signers().AddSigner(&committee.Members[1])
-		vote.Signers().AddSigner(&committee.Members[2])
-		vote.Signers().AddSigner(&committee.Members[3])
-		vote.Signers().AddSigner(&committee.Members[4])
+		vote.Signers().AddSigner(1)
+		vote.Signers().AddSigner(2)
+		vote.Signers().AddSigner(3)
+		vote.Signers().AddSigner(4)
 		voteEvent := makeBogusEvent(vote)
 
 		a.signerSetCache.markCommittee(h, committee)
@@ -745,9 +745,9 @@ func TestAggregatorHandleVote(t *testing.T) {
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 
 		voteA := message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], committee)
-		voteA.Signers().AddSigner(&committee.Members[0])
-		voteA.Signers().AddSigner(&committee.Members[1])
-		voteA.Signers().AddSigner(&committee.Members[2])
+		voteA.Signers().AddSigner(0)
+		voteA.Signers().AddSigner(1)
+		voteA.Signers().AddSigner(2)
 		voteEventA := makeBogusEvent(voteA)
 
 		a.signerSetCache.addEvent(voteEventA, stepReceived)
@@ -757,8 +757,8 @@ func TestAggregatorHandleVote(t *testing.T) {
 		require.Equal(t, voteA.Hash(), a.messages[h][r].precommits[value][0].Message.Hash())
 
 		voteB := message.NewPrecommit(r, h, common.Hash{}, testSigner, &committee.Members[3], committee)
-		voteB.Signers().AddSigner(&committee.Members[3])
-		voteB.Signers().AddSigner(&committee.Members[4])
+		voteB.Signers().AddSigner(3)
+		voteB.Signers().AddSigner(4)
 		voteEventB := makeBogusEvent(voteB)
 		// quorum for * is reached, vote should be processed
 		a.signerSetCache.addEvent(voteEventB, stepReceived)
@@ -781,11 +781,11 @@ func TestAggregatorHandleVote(t *testing.T) {
 
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 		voteA := message.NewPrecommit(r, h, v, testSigner, &committee.Members[0], committee)
-		voteA.Signers().AddSigner(&committee.Members[0])
-		voteA.Signers().AddSigner(&committee.Members[1])
-		voteA.Signers().AddSigner(&committee.Members[2])
-		voteA.Signers().AddSigner(&committee.Members[3])
-		voteA.Signers().AddSigner(&committee.Members[4])
+		voteA.Signers().AddSigner(0)
+		voteA.Signers().AddSigner(1)
+		voteA.Signers().AddSigner(2)
+		voteA.Signers().AddSigner(3)
+		voteA.Signers().AddSigner(4)
 
 		voteEventA := makeBogusEvent(voteA)
 		// this signals that the event has already been processed for [0-4]
@@ -794,11 +794,11 @@ func TestAggregatorHandleVote(t *testing.T) {
 
 		// this vote has new signers (mainly committee[5]) and quorum
 		voteB := message.NewPrecommit(r, h, v, testSigner, &committee.Members[5], committee)
-		voteB.Signers().AddSigner(&committee.Members[5])
-		voteB.Signers().AddSigner(&committee.Members[4])
-		voteB.Signers().AddSigner(&committee.Members[3])
-		voteB.Signers().AddSigner(&committee.Members[2])
-		voteB.Signers().AddSigner(&committee.Members[1])
+		voteB.Signers().AddSigner(5)
+		voteB.Signers().AddSigner(4)
+		voteB.Signers().AddSigner(3)
+		voteB.Signers().AddSigner(2)
+		voteB.Signers().AddSigner(1)
 
 		a.signerSetCache.addEvent(makeBogusEvent(voteB), stepReceived)
 		a.handleVote(makeBogusEvent(voteB), quorum)
@@ -821,19 +821,19 @@ func TestAggregatorHandleVote(t *testing.T) {
 
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
 		voteA := message.NewPrecommit(r, h, v, testSigner, &committee.Members[0], committee)
-		voteA.Signers().AddSigner(&committee.Members[0])
-		voteA.Signers().AddSigner(&committee.Members[1])
-		voteA.Signers().AddSigner(&committee.Members[2])
-		voteA.Signers().AddSigner(&committee.Members[3])
-		voteA.Signers().AddSigner(&committee.Members[4])
+		voteA.Signers().AddSigner(0)
+		voteA.Signers().AddSigner(1)
+		voteA.Signers().AddSigner(2)
+		voteA.Signers().AddSigner(3)
+		voteA.Signers().AddSigner(4)
 
 		voteEventA := makeBogusEvent(voteA)
 		a.signerSetCache.addEvent(voteEventA, stepReceived)
 		a.signerSetCache.addEvent(voteEventA, stepDispatched)
 
 		voteB := message.NewPrecommit(r, h, common.Hash{}, testSigner, &committee.Members[5], committee)
-		voteB.Signers().AddSigner(&committee.Members[5])
-		voteB.Signers().AddSigner(&committee.Members[4])
+		voteB.Signers().AddSigner(5)
+		voteB.Signers().AddSigner(4)
 
 		a.signerSetCache.addEvent(makeBogusEvent(voteB), stepReceived)
 		a.handleVote(makeBogusEvent(voteB), quorum)
@@ -1055,7 +1055,7 @@ func TestAggregatorProcess(t *testing.T) {
 		})
 		// message is correctly signed only by committee[3], but signers include also committee[0]
 		invalidSignersPrevote := message.NewPrevote(r, h, value, testSigner, &committee.Members[3], committee)
-		invalidSignersPrevote.Signers().AddSigner(&committee.Members[0])
+		invalidSignersPrevote.Signers().AddSigner(0)
 		aggKey, err := blst.AggregatePublicKeys([]blst.PublicKey{committee.Members[3].ConsensusKey, committee.Members[0].ConsensusKey})
 		require.NoError(t, err)
 		invalidSignersPrevote = tweakPrevote(invalidSignersPrevote, aggKey)
