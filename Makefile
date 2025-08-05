@@ -68,9 +68,12 @@ define gen-contract
 
 	@echo Generating bytecode for $(2)
 	@echo 'package generated' > $(GENERATED_CONTRACT_DIR)/$(2).go
-	@echo 'import "strings"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@echo 'import "github.com/autonity/autonity/accounts/abi"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@echo 'import "github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo 'import (' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo '	"strings"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo '' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo '	"github.com/autonity/autonity/accounts/abi"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo '	"github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo ')' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
 	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@cat $(GENERATED_CONTRACT_DIR)/$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(2).go
