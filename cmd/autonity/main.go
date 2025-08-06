@@ -250,34 +250,11 @@ func prepare(ctx *cli.Context) {
 	// If we're running a known preset, log it for convenience.
 	switch {
 	case ctx.GlobalIsSet(utils.PiccadillyFlag.Name):
-		log.Warn("Autonity Piccadilly testnet is currently disabled")
+		log.Warn("Autonity Piccadilly testnet is currently disabled", "version", params.Version)
 		os.Exit(1)
 	case ctx.GlobalIsSet(utils.BakerlooFlag.Name):
-		log.Info(`Starting Autonity on Bakerloo Testnet
-
-ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα		
-ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
-
-                        888                     d8b 888             
-                        888                     Y8P 888             
-                        888                         888             
-       8888b.  888  888 888888 .d88b.  88888b.  888 888888 888  888 
-          "88b 888  888 888   d88""88b 888 "88b 888 888    888  888 
-      .d888888 888  888 888   888  888 888  888 888 888    888  888 
-      888  888 Y88b 888 Y88b. Y88..88P 888  888 888 Y88b.  Y88b 888 
-      "Y888888  "Y88888  "Y888 "Y88P"  888  888 888  "Y888  "Y88888 
-                                                                888 
-                         autonity.org                      Y8b d88P 
-                                                            "Y88P"  
-
-ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
-ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
-
-Discord:  https://discord.com/invite/autonity 
-Telegram: https://t.me/autonity
-X:        https://twitter.com/autonity_
-
-`)
+		log.Info(`Starting Autonity on Bakerloo Testnet`, "version", params.Version)
+		log.Info(banner)
 	case ctx.IsSet(utils.DeveloperFlag.Name):
 		log.Info("Starting Autonity in ephemeral dev mode")
 		log.Warn(`You are running autonity in --dev mode. Please note the following:
@@ -298,10 +275,9 @@ X:        https://twitter.com/autonity_
 	--password <password file path>
 	--keystore <account's keystore directory path>
 `)
-	case !ctx.GlobalIsSet(utils.NetworkIdFlag.Name) && !ctx.GlobalIsSet(utils.InitGenesisFlag.Name) && !ctx.GlobalIsSet(utils.DataDirFlag.Name):
-		log.Warn("Autonity Mainnet default configuration is currently disabled")
-		log.Warn("Network id must be set manually or with testnet flags")
-		os.Exit(1)
+	case !ctx.GlobalIsSet(utils.NetworkIdFlag.Name):
+		log.Info(`Starting Autonity on Mainnet`, "version", params.Version)
+		log.Info(banner)
 	default:
 		log.Info("Starting the Autonity node client", "version", params.Version, "networkid", ctx.GlobalInt(utils.NetworkIdFlag.Name))
 	}
@@ -467,3 +443,29 @@ func unlockAccounts(ctx *cli.Context, stack *node.Node) {
 		unlockAccount(ks, account, i, passwords)
 	}
 }
+
+const banner = `
+
+ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα		
+ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
+
+                        888                     d8b 888             
+                        888                     Y8P 888             
+                        888                         888             
+       8888b.  888  888 888888 .d88b.  88888b.  888 888888 888  888 
+          "88b 888  888 888   d88""88b 888 "88b 888 888    888  888 
+      .d888888 888  888 888   888  888 888  888 888 888    888  888 
+      888  888 Y88b 888 Y88b. Y88..88P 888  888 888 Y88b.  Y88b 888 
+      "Y888888  "Y88888  "Y888 "Y88P"  888  888 888  "Y888  "Y88888 
+                                                                888 
+                         autonity.org                      Y8b d88P 
+                                                            "Y88P"  
+
+ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
+ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
+
+Discord:  https://discord.com/invite/autonity 
+Telegram: https://t.me/autonity
+X:        https://twitter.com/autonity_
+
+`

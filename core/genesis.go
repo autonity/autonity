@@ -201,8 +201,8 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, genesis *Genesis, override
 	stored := rawdb.ReadCanonicalHash(db, 0)
 	if (stored == common.Hash{}) {
 		if genesis == nil {
-			// No genesis from DB and configuration, don't start node with GETH main-net genesis block.
-			return nil, common.Hash{}, fmt.Errorf("DB has no genesis block and there is no genesis file set by user")
+			log.Info("Writing default main-net genesis block")
+			genesis = DefaultMainnetGenesisBlock()
 		} else {
 			log.Info("Writing custom genesis block")
 		}
@@ -662,6 +662,248 @@ func DefaultBakerlooGenesisBlock() *Genesis {
 	return g
 }
 
+func DefaultMainnetGenesisBlock() *Genesis {
+	var (
+		sdpAccount     = common.HexToAddress("0x3AFcA309da96E9C55da6A9B34f172C76f5CB857c")
+		genesisTime, _ = time.Parse(time.RFC3339, "2025-08-12T13:00:00Z")
+	)
+	params.AutMainnetChainConfig.AutonityContractConfig.Schedules = params.MainnetSchedules()
+	g := &Genesis{
+		Config:     params.AutMainnetChainConfig,
+		Timestamp:  uint64(genesisTime.Unix()), //nolint
+		Nonce:      0,
+		GasLimit:   30_000_000,
+		BaseFee:    big.NewInt(10_000_000_000),
+		Difficulty: big.NewInt(0),
+		Mixhash:    types.BFTDigest,
+		Alloc: map[common.Address]GenesisAccount{
+			// 82
+			common.HexToAddress("0x3CE366baf7167e2f5A228b3f9ae27c6dD42F5DF6"): {
+				NewtonBalance: tokenToBig(25000, 0),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 83
+			common.HexToAddress("0xa06596342d532601ac2A56D9A222fddcA0030Db5"): {
+				NewtonBalance: tokenToBig(100000, 0),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 84
+			common.HexToAddress("0xB4ddd87536ac80d8Ed6c8295eD9475aa5516E184"): {
+				NewtonBalance: tokenToBig(100000, 0),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 85
+			common.HexToAddress("0x4ad5E2D166590bC59065d2848a5b20cE073DD702"): {
+				NewtonBalance: tokenToBig(62018553506, 8),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 86
+			common.HexToAddress("0xE3793Ce105661f13d637C544ef1236EE53BCf920"): {
+				NewtonBalance: tokenToBig(25000, 0),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 87
+			common.HexToAddress("0xcbFd1903A6C73190b459758E942D319043a42141"): {
+				NewtonBalance: tokenToBig(50000, 0),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 88
+			common.HexToAddress("0xa644A95eEDa1CfCE135dE1e81781254eABE89c1F"): {
+				NewtonBalance: tokenToBig(100000, 0),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 89
+			common.HexToAddress("0xD16689903C878dCd81F03bDe25E2841d0A399792"): {
+				NewtonBalance: tokenToBig(1985007023835, 8),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 90
+			common.HexToAddress("0xB8FaB011db3d31ba8437EFE783b087743B627B0A"): {
+				NewtonBalance: tokenToBig(25000, 0),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 91
+			common.HexToAddress("0x2e2dFb3fc658AD6E64b08370dBB8FF27Fb3758bf"): {
+				NewtonBalance: tokenToBig(404806029861, 8),
+				Balance:       tokenToBig(2, 0)},
+			// 92
+			common.HexToAddress("0x2f3133Fbfa33D9DdB5C5C4BdbDB9Bcb6393D5507"): {
+				NewtonBalance: tokenToBig(2397197789349, 8),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 93
+			common.HexToAddress("0xA39DbbDbC5225aB9A4b9A08Efdf1a5fdd3D97452"): {
+				NewtonBalance: tokenToBig(1865472199569, 8),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 94
+			common.HexToAddress("0x490E99D342482dC1e12843787904DbCC8bA02052"): {
+				NewtonBalance: tokenToBig(50000, 0),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 95
+			common.HexToAddress("0x08042E939a9dD38A71D4b5c548EC2a0cEb6eFeCb"): {
+				NewtonBalance: tokenToBig(854224389593, 8),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 96
+			common.HexToAddress("0x3abCDd9932E47Bb43552a404a7958C26AC065bb0"): {
+				NewtonBalance: tokenToBig(1389607347619, 8),
+				Balance:       tokenToBig(2, 0),
+			},
+			// 97
+			common.HexToAddress("0xA079FD9bFdcb13402b4d805FF7810C0eb8458fbd"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 98
+			common.HexToAddress("0x21dA5579c46C6A20324f20246c5F709D5a964975"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 99
+			common.HexToAddress("0x2f8F16D2CbA5F02A3cFF144C26cc1252610f2EdF"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 100
+			common.HexToAddress("0x1af6100F63b9e534D306FF895C319Fa91EDfD4e4"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 101
+			common.HexToAddress("0xE631fAf0A8a738bc73D2Df4088909A3ebda92A35"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 102
+			common.HexToAddress("0x189b26e54C747e2998D3D5e0d8A7EaA98945e0b7"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 103
+			common.HexToAddress("0x4B2B38BdB50d7AAE589bC980c57C7EDEF550b1ad"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 104
+			common.HexToAddress("0x24ef0F90B69c5E5710cCB30e1558e92B1cd86871"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 105
+			common.HexToAddress("0x5A2ABf6eDcF95515ae0d07DBd286a6c907462276"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 106
+			common.HexToAddress("0x1246C78d3CdDBD7BD391ad2fA35e450DB5A302A4"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 107
+			common.HexToAddress("0xF639Dc6580732fBcCE32438a089Ab8c3A27Fd648"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 108
+			common.HexToAddress("0xE710d8c5d85B5c318ff54d8158Cf092906D306B5"): {
+				NewtonBalance: tokenToBig(100000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 109
+			common.HexToAddress("0xA58dE4900B2284503fb61DC5CcdC0aBa605d0fF4"): {
+				NewtonBalance: tokenToBig(30000, 0),
+				Balance:       tokenToBig(10, 0),
+			},
+			// 111
+			common.HexToAddress("0x946b4f0e4593F630Dac3F6100A154B7D417709cC"): {
+				NewtonBalance: tokenToBig(4000000, 0),
+			},
+			// 112
+			common.HexToAddress("0x930e9Ec3A2C3E496973cA547fc2F10245F44727d"): {
+				NewtonBalance: tokenToBig(379000, 0),
+				Balance:       tokenToBig(100, 0),
+			},
+			// 113
+			sdpAccount: {
+				NewtonBalance: tokenToBig(162000, 0),
+				Balance:       tokenToBig(100, 0),
+				Bonds:         make(map[common.Address]*big.Int),
+			},
+			// 134
+			common.HexToAddress("0x051B6eD709C72961e2b061b4d07d4a1D407CA39d"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+			},
+			// 135
+			common.HexToAddress("0x8387C4cE6Ce1E56E151F241a50A805a9402b857A"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+			},
+			// 136
+			common.HexToAddress("0xd1564bF2A7748da79d79EAC1fE050Aed96271a12"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+			},
+			// 137
+			common.HexToAddress("0x408B1994Ebf30b8F2aA150B73Ae03D4B2E1A83Be"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+			},
+			// 138
+			common.HexToAddress("0x2BFeda4efC5a379E5C9CEbE169352a7527222f7F"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+			},
+			// 139
+			common.HexToAddress("0xc6d8c3fc26C251db394E745e2405c20C1d33Cf72"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+			},
+			// 140
+			common.HexToAddress("0x4A3d8e78B8DbA425d97b5b3eBb3b6dde33F4De39"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+			},
+			// 141
+			common.HexToAddress("0x7C6A432125E52ca197EAEfA6fE4C444B97B11770"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+			},
+			// 142
+			common.HexToAddress("0x5124EA7CaA3dFc1e3bfCd0839Cb060Ae57174255"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+			},
+			// 143
+			common.HexToAddress("0xF7e2c4A224429f8E7BEB042e239Ca743F5E36Dcf"): {
+				NewtonBalance: tokenToBig(1000000, 0),
+			},
+			// 144
+			common.HexToAddress("0x43fFDB2DF482b12D2dbbCeaA2A9B2F730cC98b65"): {
+				NewtonBalance: tokenToBig(500000, 0),
+			},
+			// 145
+			common.HexToAddress("0x4F4CA7Bf349Cd3BC312ce4aAfA6D42eA25a8AA6b"): {
+				NewtonBalance: tokenToBig(238973, 0),
+				Balance:       tokenToBig(100, 0),
+			},
+			// 146
+			common.HexToAddress("0x5fB82096CdFc95755b7b766E94F80265C9Fc4bFC"): {
+				Balance: tokenToBig(10, 0),
+			},
+			// Safe Singleton Factory
+			common.HexToAddress("914d7Fec6aaC8cd542e72Bca78B30650d45643d7"): {
+				Code: common.Hex2Bytes("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"),
+			},
+		},
+	}
+
+	// GVs initial ATN Allocs
+	for _, v := range params.MainnetValidators {
+		g.Alloc[*v.NodeAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+		g.Alloc[v.OracleAddress] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+		g.Alloc[v.Treasury] = GenesisAccount{Balance: big.NewInt(params.Ether)}
+	}
+	// SDP allocations
+	for _, v := range params.MainnetValidators {
+		g.Alloc[sdpAccount].Bonds[*v.NodeAddress] = new(big.Int).Mul(big.NewInt(60_000), params.NtnPrecision)
+	}
+	return g
+}
+
 // DefaultRopstenGenesisBlock returns the Ropsten network genesis block.
 func DefaultRopstenGenesisBlock() *Genesis {
 	return &Genesis{
@@ -779,4 +1021,9 @@ func decodePrealloc(data string) GenesisAlloc {
 		ga[common.BigToAddress(account.Addr)] = GenesisAccount{Balance: account.Balance}
 	}
 	return ga
+}
+
+func tokenToBig(num int64, scale int64) *big.Int {
+	s := new(big.Int).Exp(big.NewInt(10), big.NewInt(18-scale), nil)
+	return new(big.Int).Mul(big.NewInt(num), s)
 }
