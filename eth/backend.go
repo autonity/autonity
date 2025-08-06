@@ -566,7 +566,7 @@ func (s *Ethereum) Start() error {
 	// let only tendermint bft engine to start its sub modules
 	switch s.engine.(type) {
 	case *backend.Backend:
-		s.log.Info("starting sub modules for Tendermint BFT engine")
+		s.log.Info("Starting consensus sub-modules")
 		go s.accountability.Start()
 		go func() {
 			header := s.blockchain.CurrentHeader()
@@ -765,11 +765,20 @@ func (s *Ethereum) Stop() error {
 
 func (s *Ethereum) genesisCountdown() {
 	genesisTime := time.Unix(int64(s.blockchain.Genesis().Time()), 0)
-	s.log.Info(fmt.Sprintf("Chain genesis time: %v", genesisTime))
+	prettyTime := genesisTime.Format("2006-01-02 15:04:05 MST")
+	if s.networkID == params.AutMainnetNetworkID {
+		s.log.Info(fmt.Sprintf("Mainnet genesis time: %v", prettyTime))
+	} else {
+		s.log.Info(fmt.Sprintf("Chain genesis time: %v", prettyTime))
+	}
 	committee := s.blockchain.Genesis().Header().Epoch.Committee
 	if committee.MemberByAddress(s.address) != nil {
 		s.log.Warn("**************************************************************")
-		s.log.Warn("Local node is detected GENESIS VALIDATOR")
+		if s.networkID == params.AutMainnetNetworkID {
+			s.log.Warn("Local node is detected MAINNET GENESIS VALIDATOR")
+		} else {
+			s.log.Warn("Local node is detected GENESIS VALIDATOR")
+		}
 		s.log.Warn("Please remain tuned to our Telegram/Discord channels for announcements")
 		s.log.Warn("**************************************************************")
 	}
@@ -804,7 +813,7 @@ func (s *Ethereum) genesisCountdown() {
 				lastDays = days
 				s.log.Info(fmt.Sprintf("%d day(s) remaining before genesis", days))
 			}
-		case (hours == 1 || hours == 2 || hours == 6 || hours == 12) && days == 0:
+		case (hours == 1 || hours == 2 || hours == 6 || hours == 12) && days == 0 && minutes == 0 && seconds == 0:
 			if hours != lastHours {
 				lastHours = hours
 				s.log.Info(fmt.Sprintf("%d hour(s) remaining before genesis", hours))

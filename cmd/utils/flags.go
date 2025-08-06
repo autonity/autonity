@@ -841,6 +841,9 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 		urls = params.PiccadillyBootnodes
 	case ctx.GlobalBool(BakerlooFlag.Name):
 		urls = params.BakerlooBootnodes
+	case !ctx.GlobalIsSet(NetworkIdFlag.Name):
+		log.Info("Using mainnet bootnodes")
+		urls = params.MainnetBootnodes
 	case cfg.BootstrapNodes != nil:
 		return // already set, don't apply defaults.
 	}
@@ -1783,7 +1786,7 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 	if ctx.GlobalBool(BakerlooFlag.Name) {
 		return core.DefaultBakerlooGenesisBlock()
 	}
-	return nil
+	return core.DefaultMainnetGenesisBlock()
 }
 
 // MakeChain creates a chain manager from set command line flags.
