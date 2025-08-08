@@ -91,11 +91,14 @@ func TestDuplicateOracleAddress(t *testing.T) {
 
 	tests.RunWithSetup("no duplicate oracle address in validator registration", setup, func(r *tests.Runner) {
 		// register validator with genesis validator oracle address
-		validator, signature, nodeKey, blsKey, err := tests.RandomValidator()
+		validator, originalPop, nodeKey, oracleKey, blsKey, err := tests.RandomValidator()
 		require.NoError(r.T, err)
-		duplicateOracleKey, err := crypto.HexToECDSA(params.TestNodeKeys[0])
+
+		duplicateOracleKey, err := crypto.HexToECDSA(params.TestOracleKeys[0])
 		require.NoError(r.T, err)
-		pop, err := crypto.AutonityPOPProof(nodeKey, duplicateOracleKey, validator.Treasury.Hex(), blsKey)
+
+		// regenerate pop with the correct oracle key and update the oracle address
+		tweakedPop, err := crypto.AutonityPOPProof(nodeKey, duplicateOracleKey, validator.Treasury.Hex(), blsKey)
 		require.NoError(r.T, err)
 		validator.OracleAddress = crypto.PubkeyToAddress(duplicateOracleKey.PublicKey)
 		_, err = r.Autonity.RegisterValidator(
@@ -103,27 +106,27 @@ func TestDuplicateOracleAddress(t *testing.T) {
 			validator.Enode,
 			validator.OracleAddress,
 			validator.ConsensusKey,
-			pop,
+			tweakedPop,
 		)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: oracle server exists", err.Error())
 
-		validator.OracleAddress = validator.Treasury
+		// registration with original key and pop should work
+		validator.OracleAddress = crypto.PubkeyToAddress(oracleKey.PublicKey)
 		r.NoError(
 			r.Autonity.RegisterValidator(
 				tests.FromSender(validator.Treasury, nil),
 				validator.Enode,
 				validator.OracleAddress,
 				validator.ConsensusKey,
-				signature,
+				originalPop,
 			),
 		)
 
-		// register validator with existing validator oracle address
-		newValidator, signature, newNodeKey, blsKey, err := tests.RandomValidator()
+		// register validator with existing validator oracle address (the one we just registered)
+		newValidator, newOriginalPop, newNodeKey, newOracleKey, blsKey, err := tests.RandomValidator()
 		require.NoError(r.T, err)
-		require.NotEqual(r.T, nodeKey, newNodeKey)
-		pop, err = crypto.AutonityPOPProof(newNodeKey, nodeKey, newValidator.Treasury.Hex(), blsKey)
+		tweakedPop, err = crypto.AutonityPOPProof(newNodeKey, oracleKey, newValidator.Treasury.Hex(), blsKey)
 		require.NoError(r.T, err)
 		newValidator.OracleAddress = validator.OracleAddress
 		_, err = r.Autonity.RegisterValidator(
@@ -131,19 +134,19 @@ func TestDuplicateOracleAddress(t *testing.T) {
 			newValidator.Enode,
 			newValidator.OracleAddress,
 			newValidator.ConsensusKey,
-			pop,
+			tweakedPop,
 		)
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: oracle server exists", err.Error())
 
-		newValidator.OracleAddress = newValidator.Treasury
+		newValidator.OracleAddress = crypto.PubkeyToAddress(newOracleKey.PublicKey)
 		r.NoError(
 			r.Autonity.RegisterValidator(
 				tests.FromSender(newValidator.Treasury, nil),
 				newValidator.Enode,
 				newValidator.OracleAddress,
 				newValidator.ConsensusKey,
-				signature,
+				newOriginalPop,
 			),
 		)
 	})
