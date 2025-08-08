@@ -248,7 +248,6 @@ def receive_signal(signal_number, frame):
     print('Signal Received: ', signal_number)
     for job in JOB_IDS:
         clean_containers(job)
-    prune_unused_docker_resources()
     raise SystemExit('Exiting')
 
 
@@ -329,5 +328,4 @@ if __name__ == "__main__":
     finally:
         for job in JOB_IDS:
             clean_containers(job)
-        prune_unused_docker_resources()
         exit(exit_code)
