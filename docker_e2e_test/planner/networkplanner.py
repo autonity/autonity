@@ -7,7 +7,7 @@ from conf import conf
 
 
 class NetworkPlanner(object):
-    def __init__(self, autonity_path):
+    def __init__(self, autonity_path, val_ips):
         self.logger = log.get_logger()
         self.autonity_path = autonity_path
         path_list = autonity_path.split("/")
@@ -15,32 +15,16 @@ class NetworkPlanner(object):
         self.bootnode_path = "/".join(path_list)
         path_list[len(path_list) - 1] = "ethkey"
         self.key_inspector_path = "/".join(path_list)
-        self.validator_ip_list = []
-        self.participant_ip_list = []
+        self.validator_ip_list = val_ips
         self.clients = []
 
     def get_clients(self):
         return self.clients
 
-    def prepare_network_ips(self):
-        engine_conf = conf.get_engine_conf()
-        if engine_conf is None:
-            return
-        if engine_conf["local_mode"]:
-            for i in range(0, engine_conf["default_scalability"]):
-                # use loop-back addresses for local different clients.
-                self.validator_ip_list.append("127.0.0.{}".format(i+1))
-            return
-        if engine_conf["local_mode"] is False:
-            self.validator_ip_list, self.participant_ip_list = conf.get_client_ips()
-
     def prepare_client_instances(self):
         for index, ip in enumerate(self.validator_ip_list):
             self.clients.append(Client(ip, role="validator", autonity_path=self.autonity_path,
                                        bootnode_path=self.bootnode_path, key_inspector_path=self.key_inspector_path, index=index))
-        for index, ip in enumerate(self.participant_ip_list):
-            self.clients.append(Client(ip, role="participant", autonity_path=self.autonity_path,
-                                       bootnode_path=self.bootnode_path, key_inspector_path=self.key_inspector_path, index=index+len(self.validator_ip_list)))
 
     def create_work_dir(self):
         self.logger.info("===== SETUP INITIALIZATION =====")
@@ -205,7 +189,6 @@ class NetworkPlanner(object):
             client.generate_package()
 
     def plan(self):
-        self.prepare_network_ips()
         self.prepare_client_instances()
         self.create_work_dir()
         self.generate_accounts()

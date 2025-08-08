@@ -1,6 +1,4 @@
 log_conf_file: "./etc/logconf.yaml"
-validator_ip_file: "./etc/validator.ip"
-participant_ip_file: "./etc/participant.ip"
 generate_testbed_conf_at: "./etc/testbedconf.yml"
 generate_testcase_conf_at: "./etc/testcaseconf.yml"
 network_data_dir: "./network-data"
