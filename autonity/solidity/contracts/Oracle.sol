@@ -860,7 +860,7 @@ contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
                 emit NoRevealPenalty(_voter, round, _voterInfo.nonRevealCount);
                 _voterInfo.nonRevealCount = 0;
                 // penalize with highest
-                config.autonity.slash(_voter, config.slashingRateCap);
+                config.autonity.slash(voterValidators[_voter], config.slashingRateCap);
             }
         }
         return penalizedVoters;
