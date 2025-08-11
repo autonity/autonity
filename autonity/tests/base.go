@@ -706,20 +706,24 @@ func RandomValidator() (params.Validator, []byte, *ecdsa.PrivateKey, *ecdsa.Priv
 	if err != nil {
 		return params.Validator{}, nil, nil, nil, nil, err
 	}
+	treasuryKey, err := crypto.GenerateKey()
+	if err != nil {
+		return params.Validator{}, nil, nil, nil, nil, err
+	}
 	consensusKey, err := blst.RandKey()
 	if err != nil {
 		return params.Validator{}, nil, nil, nil, nil, err
 	}
 	enode := "enode://" + string(crypto.PubECDSAToHex(&nodeKey.PublicKey)[2:]) + "@3.209.45.79:30303"
-	nodeAddress := crypto.PubkeyToAddress(nodeKey.PublicKey)
 	oracleAddress := crypto.PubkeyToAddress(oracleKey.PublicKey)
+	treasuryAddress := crypto.PubkeyToAddress(treasuryKey.PublicKey)
 	validator := params.Validator{
-		Treasury:      nodeAddress,
+		Treasury:      treasuryAddress,
 		Enode:         enode,
 		OracleAddress: oracleAddress,
 		ConsensusKey:  consensusKey.PublicKey().Marshal(),
 	}
-	pop, err := crypto.AutonityPOPProof(nodeKey, oracleKey, nodeAddress.Hex(), consensusKey)
+	pop, err := crypto.AutonityPOPProof(nodeKey, oracleKey, treasuryAddress.Hex(), consensusKey)
 	if err != nil {
 		return params.Validator{}, nil, nil, nil, nil, err
 	}
