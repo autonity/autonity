@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -60,6 +61,9 @@ func TestUpgrade(t *testing.T) {
 		parsed, _ := newContract.GetAbi()
 		packedArgs, _ := parsed.Pack("", args...)
 		calldata = append(calldata, packedArgs...)
+
+		packedArgs2, _ := parsed.Pack("")
+		fmt.Println(packedArgs2)
 		return
 	}
 	r := Setup(t, nil)

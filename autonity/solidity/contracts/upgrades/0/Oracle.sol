@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 pragma solidity 0.8.30;
 
-import {ReentrancyGuard} from "./ReentrancyGuard.sol";
-import "./interfaces/IAutonity.sol";
-import {IConfigEvents} from "./interfaces/IConfigEvents.sol";
-import "./interfaces/IOracle.sol";
-import {EnumerableSet} from "./utils/Set.sol";
+import {ReentrancyGuard} from "./../../ReentrancyGuard.sol";
+import "./../../interfaces/IAutonity.sol";
+import {IConfigEvents} from "./../../interfaces/IConfigEvents.sol";
+import "./../../interfaces/IOracle.sol";
+import {EnumerableSet} from "./../../utils/Set.sol";
 
 /**
  * @title Autonity Protocol - Oracle Contract

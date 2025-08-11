@@ -60,7 +60,9 @@ func (c *contract) call(opts *runOptions, method string, params ...any) ([]byte,
 		tracer, _ = tracers.New("callTracer", new(tracers.Context))
 		c.r.Evm.Config = vm.Config{Debug: true, Tracer: tracer}
 	}
+	fmt.Println(method)
 	input, err := c.abi.Pack(method, params...)
+	fmt.Println(common.Bytes2Hex(input))
 	require.NoError(c.r.T, err)
 	out, consumed, err := c.r.call(opts, c.address, input)
 	if c.r.Tracing {

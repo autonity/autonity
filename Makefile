@@ -284,6 +284,9 @@ devtools:
 	@type "solc" 2> /dev/null || echo 'Please install solc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
 
+upcheck: $(SOLC_BINARY)
+	go build -o $(BINDIR)/upcheck ./cmd/upcheck
+
 release: autonity contracts
 	mkdir -p ./build/release/$(VERSION)
 	cd ./build/bin && tar -czvf ../release/$(VERSION)/autonity-linux-amd64-$(VERSION).tar.gz autonity
