@@ -23,7 +23,6 @@ require (
 	github.com/docker/docker v28.0.0+incompatible
 	github.com/dop251/goja v0.0.0-20250125213203-5ef83b82af17
 	github.com/edsrzf/mmap-go v1.2.0
-	github.com/ethereum/go-ethereum v1.10.26
 	github.com/fatih/color v1.18.0
 	github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08
 	github.com/go-stack/stack v1.8.1
@@ -102,6 +101,7 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
+	github.com/golang-jwt/jwt/v4 v4.3.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/pprof v0.0.0-20250208200701-d0013a598941 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
