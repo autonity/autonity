@@ -73,8 +73,8 @@ func (s *AccusationPVN) Broadcast(msg message.Msg) {
 		s.BroadcastAll(msg)
 		return
 	}
-	self, csize := selfAndCommittee(s.Core, msg.H())
-	preVote := message.NewPrevote(msg.R()+1, msg.H(), e2e.NonNilValue, s.Backend().Sign, self, csize)
+	self, committee := selfAndCommittee(s.Core, msg.H())
+	preVote := message.NewPrevote(msg.R()+1, msg.H(), e2e.NonNilValue, s.Backend().Sign, self, committee)
 
 	s.Logger().Info("PVN Accusation rule simulation")
 	s.BroadcastAll(proposal)
@@ -109,11 +109,11 @@ func (s *AccusationPVO) Broadcast(msg message.Msg) {
 	}
 
 	// simulate a proposal at round: nPR, and with a valid round: nPR-2
-	self, csize := selfAndCommittee(s.Core, msg.H())
+	self, committee := selfAndCommittee(s.Core, msg.H())
 	newProposal := message.NewPropose(nPR, msg.H(), validRound, proposal.Block(), s.Backend().Sign, self)
 
 	// simulate a preVote at round nPR, for value v, this preVote for new value break PVO1.
-	prevote := message.NewPrevote(nPR, msg.H(), proposal.Block().Hash(), s.Backend().Sign, self, csize)
+	prevote := message.NewPrevote(nPR, msg.H(), proposal.Block().Hash(), s.Backend().Sign, self, committee)
 
 	s.Logger().Info("PVO accusation rule simulation")
 	s.BroadcastAll(proposal)
@@ -137,11 +137,11 @@ func (s *AccusationC1) Broadcast(msg message.Msg) {
 		return
 	}
 
-	self, csize := selfAndCommittee(s.Core, msg.H())
+	self, committee := selfAndCommittee(s.Core, msg.H())
 
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
 	if s.IsProposer() { // youssef: probably not needed
-		preCommit := message.NewPrecommit(nPR, msg.H(), common.Hash{0xca, 0xfe}, s.Backend().Sign, self, csize)
+		preCommit := message.NewPrecommit(nPR, msg.H(), common.Hash{0xca, 0xfe}, s.Backend().Sign, self, committee)
 		s.Logger().Info("C1 accusation rule simulation")
 		s.BroadcastAll(preCommit)
 	}

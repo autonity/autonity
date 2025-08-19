@@ -187,7 +187,6 @@ func TestSigners(t *testing.T) {
 	}
 
 	t.Run("Increment should update the bitmap and the auxiliary maps correctly", func(t *testing.T) {
-		// +10 to avoid hitting the panic in `increment` related to the max allowed coefficient
 		s := NewSigners(committee)
 		require.Equal(t, s.CommitteeSize(), committee.Len())
 

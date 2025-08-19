@@ -690,22 +690,21 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 			Signers:   aggregateSigner,
 			Signature: aggregatedSignature.(*blst.BlsSignature),
 		})
-		v := vote{
-			signers: aggregateSigner,
-			base: base{
-				height:         representative.H(),
-				round:          representative.R(),
-				signatureInput: representative.SignatureInput(),
-				signature:      aggregatedSignature,
-				payload:        payload,
-				hash:           crypto.Hash(payload),
-				verified:       true,
-				preverified:    true,
-			},
-		}
 		mainAggregate := E{
 			value: representative.Value(),
-			vote:  v, // nolint
+			vote: vote{
+				signers: aggregateSigner,
+				base: base{
+					height:         representative.H(),
+					round:          representative.R(),
+					signatureInput: representative.SignatureInput(),
+					signature:      aggregatedSignature,
+					payload:        payload,
+					hash:           crypto.Hash(payload),
+					verified:       true,
+					preverified:    true,
+				},
+			},
 		}
 
 		results = append(results, &mainAggregate)

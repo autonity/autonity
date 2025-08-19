@@ -72,16 +72,17 @@ func committeeSigner(key blst.SecretKey) Signer {
 	}
 }
 
-func updateTestCommittee() []blst.SecretKey {
+func copyTestCommittee() (*types.Committee, []blst.SecretKey) {
+	committeeCopy := testCommittee.Copy()
 	privateKeys := make([]blst.SecretKey, 0)
-	for i := range testCommittee.Members {
+	for i := range committeeCopy.Members {
 		key, _ := blst.RandKey()
-		testCommittee.Members[i].ConsensusKey = key.PublicKey()
-		testCommittee.Members[i].Index = uint64(i)
-		testCommittee.Members[i].ConsensusKeyBytes = key.PublicKey().Marshal()
+		committeeCopy.Members[i].ConsensusKey = key.PublicKey()
+		committeeCopy.Members[i].Index = uint64(i)
+		committeeCopy.Members[i].ConsensusKeyBytes = key.PublicKey().Marshal()
 		privateKeys = append(privateKeys, key)
 	}
-	return privateKeys
+	return committeeCopy, privateKeys
 }
 
 func TestMessageSetAggregationAndPower(t *testing.T) {
@@ -89,9 +90,9 @@ func TestMessageSetAggregationAndPower(t *testing.T) {
 	h := uint64(1)
 
 	ms := NewSet()
-	privateKeys := updateTestCommittee()
-	testMember0 := &testCommittee.Members[0]
-	vote := NewPrevote(r, h, blockHash, defaultSigner, testMember0, &testCommittee)
+	committeeCopy, privateKeys := copyTestCommittee()
+	testMember0 := &committeeCopy.Members[0]
+	vote := NewPrevote(r, h, blockHash, defaultSigner, testMember0, committeeCopy)
 	require.True(t, ms.Add(vote))
 
 	require.Equal(t, testMember0.VotingPower, ms.TotalPower().Power())
@@ -110,7 +111,7 @@ func TestMessageSetAggregationAndPower(t *testing.T) {
 	require.Equal(t, 1, len(ms.VotesFor(blockHash)))
 
 	// equivocated vote has no influence on power and it is saved
-	equivocatedVote := NewPrevote(r, h, blockHash2, defaultSigner, testMember0, &testCommittee)
+	equivocatedVote := NewPrevote(r, h, blockHash2, defaultSigner, testMember0, committeeCopy)
 	require.True(t, ms.Add(equivocatedVote)) // equivocated vote still brings a contribution to Core and therefore not redundant
 
 	require.Equal(t, testMember0.VotingPower, ms.TotalPower().Power())
@@ -121,8 +122,8 @@ func TestMessageSetAggregationAndPower(t *testing.T) {
 	require.Equal(t, 1, len(ms.VotesFor(blockHash2)))
 
 	// add vote from another validator, it should get aggregated with the first one
-	testMember1 := &testCommittee.Members[1]
-	vote2 := NewPrevote(r, h, blockHash, committeeSigner(privateKeys[1]), testMember1, &testCommittee)
+	testMember1 := committeeCopy.Members[1]
+	vote2 := NewPrevote(r, h, blockHash, committeeSigner(privateKeys[1]), &testMember1, committeeCopy)
 	require.True(t, ms.Add(vote2))
 
 	t0t1 := new(big.Int).Add(testMember0.VotingPower, testMember1.VotingPower)
@@ -133,8 +134,8 @@ func TestMessageSetAggregationAndPower(t *testing.T) {
 	require.True(t, ms.VotesFor(blockHash)[0].Signers().Contains(1))
 
 	// add an aggregate that cannot be merged with the previous one (boundary check)
-	testMember2 := &testCommittee.Members[2]
-	aggregate := AggregatePrevotes([]Vote{NewPrevote(r, h, blockHash, defaultSigner, testMember0, &testCommittee), NewPrevote(r, h, blockHash, committeeSigner(privateKeys[2]), testMember2, &testCommittee)})
+	testMember2 := committeeCopy.Members[2]
+	aggregate := AggregatePrevotes([]Vote{NewPrevote(r, h, blockHash, defaultSigner, testMember0, committeeCopy), NewPrevote(r, h, blockHash, committeeSigner(privateKeys[2]), &testMember2, committeeCopy)})
 	aggregate[0].Signers().Coefficients[0] = new(big.Int).SetUint64(1 << common.VoteCap)
 	require.True(t, ms.Add(aggregate[0]))
 
@@ -176,37 +177,37 @@ func TestMessageSetAddNilVote(t *testing.T) {
 }
 
 func TestMessageSetTotalSize(t *testing.T) {
-	privateKeys := updateTestCommittee()
+	committeeCopy, privateKeys := copyTestCommittee()
 	testCases := []struct {
 		voteList      []Vote
 		expectedPower *big.Int
 	}{{
 		[]Vote{
-			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[0]), &testCommittee.Members[0], &testCommittee),
-			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[1]), &testCommittee.Members[1], &testCommittee),
+			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[0]), &committeeCopy.Members[0], committeeCopy),
+			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[1]), &committeeCopy.Members[1], committeeCopy),
 		},
-		new(big.Int).Add(testCommittee.Members[0].VotingPower, testCommittee.Members[1].VotingPower),
+		new(big.Int).Add(committeeCopy.Members[0].VotingPower, committeeCopy.Members[1].VotingPower),
 	}, {
 		[]Vote{
-			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[0]), &testCommittee.Members[0], &testCommittee),
-			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[3]), &testCommittee.Members[3], &testCommittee),
+			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[0]), &committeeCopy.Members[0], committeeCopy),
+			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[3]), &committeeCopy.Members[3], committeeCopy),
 		},
-		new(big.Int).Add(testCommittee.Members[0].VotingPower, testCommittee.Members[3].VotingPower),
+		new(big.Int).Add(committeeCopy.Members[0].VotingPower, committeeCopy.Members[3].VotingPower),
 	}, {
 		[]Vote{
-			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[0]), &testCommittee.Members[0], &testCommittee),
-			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[1]), &testCommittee.Members[1], &testCommittee),
-			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[2]), &testCommittee.Members[2], &testCommittee),
-			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[3]), &testCommittee.Members[3], &testCommittee),
+			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[0]), &committeeCopy.Members[0], committeeCopy),
+			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[1]), &committeeCopy.Members[1], committeeCopy),
+			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[2]), &committeeCopy.Members[2], committeeCopy),
+			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[3]), &committeeCopy.Members[3], committeeCopy),
 		},
-		new(big.Int).Add(new(big.Int).Add(testCommittee.Members[0].VotingPower, testCommittee.Members[1].VotingPower),
-			new(big.Int).Add(testCommittee.Members[2].VotingPower, testCommittee.Members[3].VotingPower)),
+		new(big.Int).Add(new(big.Int).Add(committeeCopy.Members[0].VotingPower, committeeCopy.Members[1].VotingPower),
+			new(big.Int).Add(committeeCopy.Members[2].VotingPower, committeeCopy.Members[3].VotingPower)),
 	}, {
 		[]Vote{
-			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[0]), &testCommittee.Members[0], &testCommittee),
-			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[0]), &testCommittee.Members[0], &testCommittee),
+			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[0]), &committeeCopy.Members[0], committeeCopy),
+			NewPrevote(1, 1, blockHash, committeeSigner(privateKeys[0]), &committeeCopy.Members[0], committeeCopy),
 		},
-		testCommittee.Members[0].VotingPower,
+		committeeCopy.Members[0].VotingPower,
 	}}
 
 	for _, test := range testCases {

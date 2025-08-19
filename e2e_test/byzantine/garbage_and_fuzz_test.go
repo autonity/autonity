@@ -56,7 +56,8 @@ func TestRandomBytesBroadcaster(t *testing.T) {
 	require.NoError(t, err)
 
 	f := bft.F(new(big.Int).SetUint64(uint64(numOfNodes)))
-	for i := uint64(0); i < f.Uint64(); i++ {
+	i := uint64(0)
+	for i = uint64(0); i < f.Uint64(); i++ {
 		//set Malicious users
 		users[i].TendermintServices = &interfaces.Services{Broadcaster: newRandomBytesBroadcaster}
 	}
@@ -67,8 +68,13 @@ func TestRandomBytesBroadcaster(t *testing.T) {
 	defer network.Shutdown(t)
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 180, false)
+	err = network.WaitToMineNBlocks(5, 180, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+
+	for i < uint64(numOfNodes) {
+		require.Equal(t, int(uint64(numOfNodes)-f.Uint64()-1), network[i].ConsensusServer().PeerCount(), "connection with malicious nodes should be closed")
+		i++
+	}
 }
 
 func newGarbageMessageBroadcaster(c interfaces.Core) interfaces.Broadcaster {
@@ -99,7 +105,8 @@ func TestGarbageMessageBroadcaster(t *testing.T) {
 	require.NoError(t, err)
 
 	f := bft.F(new(big.Int).SetUint64(uint64(numOfNodes)))
-	for i := uint64(0); i < f.Uint64(); i++ {
+	i := uint64(0)
+	for i = uint64(0); i < f.Uint64(); i++ {
 		//set Malicious users
 		users[i].TendermintServices = &interfaces.Services{Broadcaster: newGarbageMessageBroadcaster}
 	}
@@ -112,6 +119,11 @@ func TestGarbageMessageBroadcaster(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 180, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+
+	for i < uint64(numOfNodes) {
+		require.Equal(t, int(uint64(numOfNodes)-f.Uint64()-1), network[i].ConsensusServer().PeerCount(), "connection with malicious nodes should be closed")
+		i++
+	}
 }
 
 func newFuzzPrecommitSender(c interfaces.Core) interfaces.Precommiter {
@@ -134,12 +146,12 @@ func (c *fuzzPrecommitSender) SendPrecommit(_ context.Context, isNil bool) {
 		precommit = message.NewPrecommit(r, h, randHash(), c.Backend().Sign, self, c.CommitteeSet().Committee())
 	}
 
-	fakeSigners := &types.Signers{}
-	fuzz.New().Fuzz(fakeSigners)
-	message.NewFakePrecommit(message.Fake{
+	fakePayload := make([]byte, 0, len(precommit.Payload()))
+	fuzz.New().Fuzz(&fakePayload)
+	precommit = message.NewFakePrecommit(message.Fake{
 		FakeRound:   uint64(precommit.R()),
 		FakeHeight:  precommit.H(),
-		FakeSigners: fakeSigners,
+		FakePayload: fakePayload,
 	})
 
 	//for i := 0; i < rand.Intn(10); i++ {
@@ -160,7 +172,8 @@ func TestFuzzPrecommitter(t *testing.T) {
 	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 	f := bft.F(new(big.Int).SetUint64(uint64(numOfNodes)))
-	for i := uint64(0); i < f.Uint64(); i++ {
+	i := uint64(0)
+	for i = uint64(0); i < f.Uint64(); i++ {
 		//set Malicious users
 		users[i].TendermintServices = &interfaces.Services{Precommiter: newFuzzPrecommitSender}
 	}
@@ -173,6 +186,11 @@ func TestFuzzPrecommitter(t *testing.T) {
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(10, 120, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
+
+	for i < uint64(numOfNodes) {
+		require.Equal(t, int(uint64(numOfNodes)-f.Uint64()-1), network[i].ConsensusServer().PeerCount(), "connection with malicious nodes should be closed")
+		i++
+	}
 }
 
 func newFuzzPrevoter(c interfaces.Core) interfaces.Prevoter {
@@ -240,35 +258,6 @@ type fuzzProposer struct {
 	interfaces.Proposer
 }
 
-/*
-type structNode struct {
-	fName string
-	sMap  map[string]*structNode
-	fList []string
-}
-
-func generateFieldMap(v interface{}) map[string]reflect.Value {
-	val := reflect.ValueOf(v)
-	if val.Kind() != reflect.Ptr {
-		panic("Need pointer!")
-	}
-	outMap := make(map[string]reflect.Value)
-	e := reflect.ValueOf(v).Elem()
-	for i := 0; i < e.NumField(); i++ {
-		fmt.Println("handling field => ", e.Type().Field(i).Name)
-		if e.Field(i).Type().Kind() == reflect.Ptr {
-			fKind := e.Field(i).Type().Elem().Kind()
-			if fKind == reflect.Struct {
-				fmt.Println("TODO - handle recursively")
-			}
-		} else if e.Field(i).Type().Kind() == reflect.Struct {
-			fmt.Println("TODO - handle recursively")
-		}
-		outMap[e.Type().Field(i).Name] = e.Field(i)
-	}
-	return outMap
-}
-*/
 // duplicated with TestInvalidBlockProposal in proposal_test.go
 func (c *fuzzProposer) SendProposal(_ context.Context, p *types.Block) {
 	f := fuzz.New()

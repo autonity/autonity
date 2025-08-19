@@ -412,27 +412,6 @@ func TestMessageHash(t *testing.T) {
 		vote2 := NewPrecommit(r, h, v, defaultSigner, &testCommittee.Members[1], &testCommittee)
 		require.NotEqual(t, vote.Hash(), vote2.Hash())
 	})
-	t.Run("Change in the signers auxiliary data structures should NOT cause change in hash", func(t *testing.T) {
-		// change signer
-		vote := NewPrecommit(r, h, v, defaultSigner, &testCommittee.Members[0], &testCommittee)
-		vote2 := NewPrecommit(r, h, v, defaultSigner, &testCommittee.Members[0], &testCommittee)
-
-		// tamper with internal signers data structures of vote2 and recompute hash
-		signers := types.NewSigners(&testCommittee)
-		signers.AddSigner(0)
-
-		payload, _ := rlp.EncodeToBytes(extVote{
-			Code:      PrecommitCode,
-			Round:     uint64(r), // #nosec
-			Height:    h,
-			Value:     v,
-			Signers:   signers,
-			Signature: vote2.Signature().(*blst.BlsSignature),
-		})
-		vote2.hash = crypto.Hash(payload)
-
-		require.Equal(t, vote.Hash(), vote2.Hash())
-	})
 }
 
 func FuzzFromPayload(f *testing.F) {

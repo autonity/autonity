@@ -355,6 +355,9 @@ func (s *Signers) Copy() *Signers {
 	for _, coefficient := range s.Coefficients {
 		coefficients = append(coefficients, new(big.Int).Set(coefficient))
 	}
+	// note: skip copying computedPower as it will be recomputed on demand,
+	// committee is not copied as well because it is not meant to be altered and
+	// only a reference in signers object, The idea is to keep the copy a lean operation
 	return &Signers{
 		Bitmap:          s.Bitmap.Copy(),
 		Coefficients:    coefficients,
@@ -417,7 +420,7 @@ func (s *Signers) Len() int {
 }
 
 func (s *Signers) String() string {
-	return fmt.Sprintf("Bitmap: %s, Coefficients: %v, power: %v, validated: %v", s.Bitmap.String(), s.Coefficients, s.computedPower, s.validated)
+	return fmt.Sprintf("Bitmap: %s, Coefficients: %v, validated: %v", s.Bitmap.String(), s.Coefficients, s.validated)
 }
 
 func (s *Signers) CommitteeSize() int {

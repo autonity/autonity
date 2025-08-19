@@ -176,7 +176,6 @@ func (a *aggregator) saveMessage(e events.UnverifiedMessageEvent) {
 
 	switch c {
 	case message.ProposalCode:
-		// unreachable ??
 		roundInfo.proposals = append(roundInfo.proposals, e)
 	case message.PrevoteCode:
 		roundInfo.prevotes[v] = append(roundInfo.prevotes[v], e)
@@ -576,6 +575,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	switch msg.(type) {
 	case *message.Propose:
 		a.processProposal(event, currentHeightEventBuilder)
+		//todo: why not return here?
 	}
 
 	quorum := bft.Quorum(committee.TotalVotingPower())
@@ -721,12 +721,9 @@ loop:
 					// if current height, process them
 					a.processRound(h, r)
 				}
-				if h < coreHeight {
-					// remove messages from the aggregator that are older than core height
-					delete(a.messages, h)
-				}
 			}
 			// cleanup
+			clear(a.messages)
 			clear(a.messagesFrom)
 			clear(a.toIgnore)
 			a.cleanUp(coreHeight)
