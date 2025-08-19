@@ -850,10 +850,9 @@ func TestQuorumPrevote(t *testing.T) {
 		e.core.curRoundMessages.SetProposal(e.curProposal, true)
 
 		fakePrevote := message.Fake{
-			FakeValue:  e.curProposal.Block().Hash(),
-			FakeRound:  uint64(e.curRound),
-			FakeHeight: e.curHeight.Uint64(),
-			//FakeSigners:   signersWithPower(uint64(int(e.curRound+1)%e.committeeSize), e.committee.Committee(), new(big.Int).Sub(e.core.CommitteeSet().Quorum(), common.Big1)),
+			FakeValue:     e.curProposal.Block().Hash(),
+			FakeRound:     uint64(e.curRound),
+			FakeHeight:    e.curHeight.Uint64(),
 			FakeSigners:   signersWithPower(&usedIdx, e.committee.Committee(), new(big.Int).Sub(e.core.CommitteeSet().Quorum(), common.Big1)),
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
@@ -1289,17 +1288,21 @@ func TestFutureRoundChange(t *testing.T) {
 	t.Run("different messages from the same sender cannot cause round change", func(t *testing.T) {
 		customizer := func(e *ConsensusENV) {
 			e.step = Step(rand.Intn(3))
+			// csize 4 so that members[1] has F voting power
+			e.committee, e.keys = prepareCommittee(t, 4)
+			require.Equal(t, 0, e.committee.Committee().Members[1].VotingPower.Cmp(e.committee.F()))
 		}
 		e := NewConsensusEnv(t, customizer)
 		futureRound := e.curRound + 1
 
-		usedIdx := make([]int, 0)
-		usedIdx = append(usedIdx, 1)
+		fakeSigners := types.NewSigners(e.committee.Committee())
+		fakeSigners.AddSigner(1)
+
 		// The collective power of the 2 messages  is more than roundChangeThreshold
 		fakePrevote := message.Fake{
 			FakeRound:     uint64(futureRound),
 			FakeHeight:    e.curHeight.Uint64(),
-			FakeSigners:   signersWithPower(&usedIdx, e.committee.Committee(), new(big.Int).Set(e.committee.F())),
+			FakeSigners:   fakeSigners,
 			FakeSignerKey: testConsensusKey.PublicKey(), // whatever key is fine
 			FakeSignature: testSignature,                // whatever signature is fine
 			FakeValue:     common.Hash{},
@@ -1322,7 +1325,7 @@ func TestFutureRoundChange(t *testing.T) {
 
 		err = e.core.handleMsg(context.Background(), precommitMsg)
 		assert.Equal(t, constants.ErrFutureRoundMessage, err)
-		e.core.handleEvent(context.Background(), makeBogusMessageEvent(prevoteMsg, false))
+		e.core.handleEvent(context.Background(), makeBogusMessageEvent(precommitMsg, false))
 		e.checkState(t, e.curHeight, e.curRound, e.step, e.lockedValue, e.lockedRound, e.validValue, e.validRound)
 		assert.Equal(t, 2, len(e.core.futureRound[futureRound]))
 	})

@@ -103,19 +103,7 @@ var (
 	* 5. delta needs to be >= 2
 	 */
 	DefaultOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
-		InactivityThreshold:    1000,   // 15%
-		LookbackWindow:         40,     // 60 blocks
-		PastPerformanceWeight:  1000,   // 10%
-		InitialJailingPeriod:   10_000, // 10000 blocks
-		InitialProbationPeriod: 24,     // 8 epochs
-		InitialSlashingRate:    25,     // 0.05%
-		Delta:                  5,      // 5 blocks
-	}
-	// same as the previous one, but with InactivityThreshold raised to 50%.
-	// This is a very conservative threshold, and should be used for the first testnet we will run with omission enabled.
-	// the idea is to avoid mass jailings at network startup. We can then lower down the threshold to 10% gradually at network runtime.
-	ConservativeOmissionAccountabilityConfig = &OmissionAccountabilityGenesis{
-		InactivityThreshold:    5000,   // 50%
+		InactivityThreshold:    1000,   // 10%
 		LookbackWindow:         40,     // 40 blocks
 		PastPerformanceWeight:  1000,   // 10%
 		InitialJailingPeriod:   10_000, // 10000 blocks

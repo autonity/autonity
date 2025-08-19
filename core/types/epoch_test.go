@@ -376,7 +376,7 @@ func TestElectProposer(t *testing.T) {
 	linearPowers := []int{100, 200, 400, 800}
 
 	t.Run("Proposer election should be deterministic", func(t *testing.T) {
-		c := generateCommittee(samePowers)
+		c, _ := generateCommittee(samePowers)
 		for h := uint64(0); h < uint64(100); h++ {
 			for r := int64(0); r <= int64(3); r++ {
 				proposer1 := c.Proposer(h, r)
@@ -387,7 +387,7 @@ func TestElectProposer(t *testing.T) {
 	})
 
 	t.Run("Proposer selection, print and compare the scheduling rate with same stake", func(t *testing.T) {
-		c := generateCommittee(samePowers)
+		c, _ := generateCommittee(samePowers)
 		maxHeight := uint64(10000)
 		maxRound := int64(4)
 		//expectedRatioDelta := float64(0.01)
@@ -418,7 +418,7 @@ func TestElectProposer(t *testing.T) {
 	})
 
 	t.Run("Proposer selection, print and compare the scheduling rate with liner increasing stake", func(t *testing.T) {
-		c := generateCommittee(linearPowers)
+		c, _ := generateCommittee(linearPowers)
 		maxHeight := uint64(1000000)
 		maxRound := int64(4)
 		//expectedRatioDelta := float64(0.01)
@@ -449,17 +449,25 @@ func TestElectProposer(t *testing.T) {
 	})
 }
 
-func generateCommittee(powers []int) *Committee {
+func generateCommittee(powers []int) (*Committee, []blst.SecretKey) {
 	vals := make([]CommitteeMember, len(powers))
+	blsKeys := make([]blst.SecretKey, len(powers))
 	for i, p := range powers {
 		privateKey, _ := crypto.GenerateKey()
+		blsKey, _ := blst.RandKey()
 		committeeMember := CommitteeMember{
-			Address:     crypto.PubkeyToAddress(privateKey.PublicKey),
-			VotingPower: new(big.Int).SetInt64(int64(p)),
+			Address:           crypto.PubkeyToAddress(privateKey.PublicKey),
+			VotingPower:       new(big.Int).SetInt64(int64(p)),
+			ConsensusKeyBytes: blsKey.PublicKey().Marshal(),
 		}
 		vals[i] = committeeMember
+		blsKeys[i] = blsKey
 	}
 	c := &Committee{Members: vals}
 	SortCommitteeMembers(c.Members)
-	return c
+	err := c.Enrich()
+	if err != nil {
+		panic(err)
+	}
+	return c, blsKeys
 }

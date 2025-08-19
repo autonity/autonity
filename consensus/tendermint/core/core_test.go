@@ -146,14 +146,15 @@ func TestProcessFuture(t *testing.T) {
 		messageCh := make(chan events.MessageEvent, 1)
 
 		c := &Core{
-			logger:         log.New("backend", "test", "id", 0),
-			address:        common.HexToAddress("0x1234567890"),
-			futureRound:    make(map[int64][]events.MessageEvent),
-			futurePower:    make(map[int64]*message.AggregatedPower),
-			step:           Propose,
-			round:          1,
-			height:         big.NewInt(2),
-			messageEventCh: messageCh,
+			logger:            log.New("backend", "test", "id", 0),
+			address:           common.HexToAddress("0x1234567890"),
+			futureRound:       make(map[int64][]events.MessageEvent),
+			futurePowerByCode: make(map[int64]map[uint8]*message.AggregatedPower),
+			futurePower:       make(map[int64]*message.AggregatedPower),
+			step:              Propose,
+			round:             1,
+			height:            big.NewInt(2),
+			messageEventCh:    messageCh,
 		}
 
 		c.futureRound[msg.R()] = append(c.futureRound[msg.R()], makeBogusMessageEvent(msg, true))
@@ -174,14 +175,15 @@ func TestProcessFuture(t *testing.T) {
 		messageCh := make(chan events.MessageEvent, 1)
 
 		c := &Core{
-			logger:         log.New("backend", "test", "id", 0),
-			address:        common.HexToAddress("0x1234567890"),
-			futureRound:    make(map[int64][]events.MessageEvent),
-			futurePower:    make(map[int64]*message.AggregatedPower),
-			step:           Propose,
-			round:          3,
-			height:         big.NewInt(2),
-			messageEventCh: messageCh,
+			logger:            log.New("backend", "test", "id", 0),
+			address:           common.HexToAddress("0x1234567890"),
+			futureRound:       make(map[int64][]events.MessageEvent),
+			futurePowerByCode: make(map[int64]map[uint8]*message.AggregatedPower),
+			futurePower:       make(map[int64]*message.AggregatedPower),
+			step:              Propose,
+			round:             3,
+			height:            big.NewInt(2),
+			messageEventCh:    messageCh,
 		}
 
 		c.futureRound[msg.R()] = append(c.futureRound[msg.R()], makeBogusMessageEvent(msg, true))
@@ -205,14 +207,15 @@ func TestProcessFuture(t *testing.T) {
 		backendMock.EXPECT().ProcessFutureMsgs(uint64(2)).Times(1) // should execute only once (when we switch height)
 
 		c := &Core{
-			logger:      log.New("backend", "test", "id", 0),
-			backend:     backendMock,
-			address:     common.HexToAddress("0x1234567890"),
-			futureRound: make(map[int64][]events.MessageEvent),
-			futurePower: make(map[int64]*message.AggregatedPower),
-			step:        Propose,
-			round:       3,
-			height:      big.NewInt(2),
+			logger:            log.New("backend", "test", "id", 0),
+			backend:           backendMock,
+			address:           common.HexToAddress("0x1234567890"),
+			futureRound:       make(map[int64][]events.MessageEvent),
+			futurePowerByCode: make(map[int64]map[uint8]*message.AggregatedPower),
+			futurePower:       make(map[int64]*message.AggregatedPower),
+			step:              Propose,
+			round:             3,
+			height:            big.NewInt(2),
 		}
 
 		// scenario: we just switched from round 0 --> 3. Future height messages shouldn't be processed

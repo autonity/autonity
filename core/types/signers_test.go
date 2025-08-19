@@ -411,6 +411,16 @@ func TestValidation(t *testing.T) {
 	t.Log(err)
 	require.Error(t, err)
 
+	tooLargeSigner := &Signers{
+		Bitmap:       NewBitmap(),
+		Coefficients: make([]*big.Int, 1),
+	}
+	tooLargeSigner.Bitmap.Set(0)
+	tooLargeSigner.Coefficients[0] = new(big.Int).SetUint64(1 << common.QuorumCap)
+	err = tooLargeSigner.SanityCheck()
+	t.Log(err)
+	require.Error(t, err)
+
 	csize := committee.Len()
 	wrongSizeSigner := NewSigners(committee)
 	wrongSizeSigner.Coefficients = make([]*big.Int, csize+10)

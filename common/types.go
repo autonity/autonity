@@ -477,13 +477,7 @@ const (
 	QuorumCap = 32
 )
 
-// Contribution checks if any 1s in `contributing` would switch a zero bit of `contributed` to 1
-func Contribution(contributing *big.Int, contributed *big.Int) *big.Int {
-	notContributed := new(big.Int).Not(contributed)
-	contribution := notContributed.And(notContributed, contributing)
-	return contribution
-}
-
+// NOTE: doesn't do deep copy
 func Max(a, b *big.Int) *big.Int {
 	if a.Cmp(b) >= 0 {
 		return a

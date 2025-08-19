@@ -2,6 +2,7 @@ package backend
 
 import (
 	"math/big"
+	"reflect"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -202,7 +203,7 @@ func (c *aggregatorCache) contains(height uint64, round int64, event events.Unve
 		dispatched = c.voteCaches[msg.Code()][stepDispatched].contains(height, round, msg.Value(), bm)
 		return received, dispatched
 	default:
-		return false, false
+		panic("unknown message type: " + reflect.TypeOf(msg).String())
 	}
 }
 
@@ -212,8 +213,12 @@ func (c *aggregatorCache) filter(event events.UnverifiedMessageEvent) bool {
 	case *message.Precommit, *message.Prevote:
 		received, dispatched := c.contains(msg.H(), msg.R(), event)
 		if dispatched {
+			// superset already sent to Core, this message can be discarded
 			return true
-		} else if received && !dispatched {
+		}
+		if received {
+			// superset already stored in the Aggregator, but not yet sent to Core
+			// store this message in case buffered messages have invalid signature
 			c.filterMu.Lock()
 			defer c.filterMu.Unlock()
 			if _, ok := c.filtered[msg.H()]; !ok {
@@ -228,7 +233,8 @@ func (c *aggregatorCache) filter(event events.UnverifiedMessageEvent) bool {
 			c.filtered[msg.H()][key] = append(c.filtered[msg.H()][key], event)
 			return true
 		}
-		return received && dispatched
+		// new message, do not filter
+		return false
 	default:
 		// proposals are never filtered as they are validated in the backend, and
 		// duplicated proposals should already be filtered by the backend itself.

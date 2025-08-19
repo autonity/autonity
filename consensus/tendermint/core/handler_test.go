@@ -157,20 +157,21 @@ func TestHandleMessage(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
 		engine := Core{
-			logger:           logger,
-			address:          currentValidator.Address,
-			round:            tc.round,
-			height:           tc.height,
-			step:             tc.step,
-			futureRound:      make(map[int64][]events.MessageEvent),
-			futurePower:      make(map[int64]*message.AggregatedPower),
-			messages:         messageMap,
-			curRoundMessages: messageMap.GetOrCreate(0),
-			committee:        committeeSet,
-			proposeTimeout:   NewTimeout(Propose, logger),
-			prevoteTimeout:   NewTimeout(Prevote, logger),
-			precommitTimeout: NewTimeout(Precommit, logger),
-			backend:          backendMock,
+			logger:            logger,
+			address:           currentValidator.Address,
+			round:             tc.round,
+			height:            tc.height,
+			step:              tc.step,
+			futureRound:       make(map[int64][]events.MessageEvent),
+			futurePowerByCode: make(map[int64]map[uint8]*message.AggregatedPower),
+			futurePower:       make(map[int64]*message.AggregatedPower),
+			messages:          messageMap,
+			curRoundMessages:  messageMap.GetOrCreate(0),
+			committee:         committeeSet,
+			proposeTimeout:    NewTimeout(Propose, logger),
+			prevoteTimeout:    NewTimeout(Prevote, logger),
+			precommitTimeout:  NewTimeout(Precommit, logger),
+			backend:           backendMock,
 		}
 		engine.SetDefaultHandlers()
 
@@ -222,21 +223,22 @@ func TestHandleFutureRound(t *testing.T) {
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
 	engine := Core{
-		logger:           logger,
-		address:          sender1.Address,
-		round:            currentRound,
-		height:           currentHeight,
-		step:             Propose,
-		futureRound:      make(map[int64][]events.MessageEvent),
-		futurePower:      make(map[int64]*message.AggregatedPower),
-		messages:         messageMap,
-		curRoundMessages: messageMap.GetOrCreate(0),
-		committee:        committeeSet,
-		proposeTimeout:   NewTimeout(Propose, logger),
-		prevoteTimeout:   NewTimeout(Prevote, logger),
-		precommitTimeout: NewTimeout(Precommit, logger),
-		backend:          backendMock,
-		syncState:        &SyncState{},
+		logger:            logger,
+		address:           sender1.Address,
+		round:             currentRound,
+		height:            currentHeight,
+		step:              Propose,
+		futureRound:       make(map[int64][]events.MessageEvent),
+		futurePowerByCode: make(map[int64]map[uint8]*message.AggregatedPower),
+		futurePower:       make(map[int64]*message.AggregatedPower),
+		messages:          messageMap,
+		curRoundMessages:  messageMap.GetOrCreate(0),
+		committee:         committeeSet,
+		proposeTimeout:    NewTimeout(Propose, logger),
+		prevoteTimeout:    NewTimeout(Prevote, logger),
+		precommitTimeout:  NewTimeout(Precommit, logger),
+		backend:           backendMock,
+		syncState:         &SyncState{},
 	}
 	engine.SetDefaultHandlers()
 

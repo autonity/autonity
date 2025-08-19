@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/log"
 )
 
 // need committee hight to make the pre-allocations - optional
@@ -152,9 +154,8 @@ func (ms *MsgStore) GetMaxRoundSeen(height uint64) int64 {
 }
 
 func (ms *MsgStore) HasHash(height uint64, round int64, hash common.Hash) bool {
-	if round < 0 || round >= constants.MaxRound {
-		return false
-	}
+	sanityCheck(round)
+
 	hs := ms.getHeightStore(height)
 	if hs == nil {
 		return false
@@ -170,9 +171,8 @@ func (ms *MsgStore) HasHash(height uint64, round int64, hash common.Hash) bool {
 }
 
 func (ms *MsgStore) GetSignerPrevotesByRound(height uint64, round int64, signerIndex int) map[common.Hash]*message.Prevote {
-	if round < 0 || round >= constants.MaxRound {
-		return nil
-	}
+	sanityCheck(round)
+
 	hs := ms.getHeightStore(height)
 	if hs == nil {
 		return nil
@@ -194,9 +194,8 @@ func (ms *MsgStore) GetSignerPrevotesByRound(height uint64, round int64, signerI
 }
 
 func (ms *MsgStore) GetSignerPrecommitsByRound(height uint64, round int64, signerIndex int) map[common.Hash]*message.Precommit {
-	if round < 0 || round >= constants.MaxRound {
-		return nil
-	}
+	sanityCheck(round)
+
 	hs := ms.getHeightStore(height)
 	if hs == nil {
 		return nil
@@ -224,12 +223,12 @@ func (ms *MsgStore) SetCommitteeProvider(provider committeeProvider) {
 	ms.committeeProvider = provider
 }
 
-func (ms *MsgStore) getOrCreateHeightStore(height uint64) (*heightStore, error) {
+func (ms *MsgStore) getOrCreateHeightStore(height uint64) *heightStore {
 	ms.storeLock.RLock()
 	store, ok := ms.store[height]
 	ms.storeLock.RUnlock()
 	if ok {
-		return store, nil
+		return store
 	}
 
 	// relock, check and create
@@ -237,7 +236,7 @@ func (ms *MsgStore) getOrCreateHeightStore(height uint64) (*heightStore, error) 
 	defer ms.storeLock.Unlock()
 	store, ok = ms.store[height]
 	if ok {
-		return store, nil
+		return store
 	}
 
 	storeCapacity := 50
@@ -246,21 +245,22 @@ func (ms *MsgStore) getOrCreateHeightStore(height uint64) (*heightStore, error) 
 		committee, err := ms.committeeProvider.CommitteeByHeight(height)
 		if err == nil {
 			storeCapacity = committee.Len()
+		} else {
+			// this should never happen
+			log.Error("cannot fetch committee for non future height", "height", height, "err", err)
 		}
 	}
 
 	store = newHeightStore(storeCapacity)
 	ms.store[height] = store
 
-	return store, nil
+	return store
 }
 
 // Save messages
-func (ms *MsgStore) Save(m message.Msg) error {
+func (ms *MsgStore) Save(m message.Msg) {
 	height, round := m.H(), m.R()
-	if round < 0 || round > constants.MaxRound {
-		panic("round is out of bounds")
-	}
+	sanityCheck(round)
 
 	ms.storeLock.Lock()
 	if ms.firstHeight == 0 {
@@ -268,10 +268,7 @@ func (ms *MsgStore) Save(m message.Msg) error {
 	}
 	ms.storeLock.Unlock()
 
-	hs, err := ms.getOrCreateHeightStore(height)
-	if err != nil {
-		return err
-	}
+	hs := ms.getOrCreateHeightStore(height)
 	rs := hs.getOrCreateRoundStore(round)
 
 	rs.Lock()
@@ -289,7 +286,6 @@ func (ms *MsgStore) Save(m message.Msg) error {
 		rs.precommits = append(rs.precommits, msg)
 		ms.updateSignerIndex(rs, msg)
 	}
-	return nil
 }
 
 func (ms *MsgStore) updateSignerIndex(rs *roundStore, vote message.Vote) {
@@ -340,9 +336,8 @@ func (ms *MsgStore) updatePrevotePower(rs *roundStore, msg *message.Prevote) {
 
 // RemoveMsg only for testing
 func (ms *MsgStore) RemoveMsg(height uint64, round int64, code uint8, hash common.Hash) {
-	if round < 0 || round > constants.MaxRound {
-		return
-	}
+	sanityCheck(round)
+
 	hs := ms.getHeightStore(height)
 	if hs == nil {
 		return
@@ -410,9 +405,8 @@ func (ms *MsgStore) RemoveMsg(height uint64, round int64, code uint8, hash commo
 }
 
 func (ms *MsgStore) GetPrevotesByRoundAndValue(height uint64, round int64, value common.Hash) []*message.Prevote {
-	if round < 0 || round > constants.MaxRound {
-		return nil
-	}
+	sanityCheck(round)
+
 	hs := ms.getHeightStore(height)
 	if hs == nil {
 		return nil
@@ -435,9 +429,8 @@ func (ms *MsgStore) GetPrevotesByRoundAndValue(height uint64, round int64, value
 }
 
 func (ms *MsgStore) SearchQuorum(height uint64, round int64, excludedValue common.Hash, quorum *big.Int) []*message.Prevote {
-	if round < 0 || round > constants.MaxRound {
-		return nil
-	}
+	sanityCheck(round)
+
 	hs := ms.getHeightStore(height)
 	if hs == nil {
 		return nil
@@ -479,9 +472,8 @@ func (ms *MsgStore) SearchQuorum(height uint64, round int64, excludedValue commo
 }
 
 func (ms *MsgStore) GetProposalsByRound(height uint64, round int64, query func(*message.Propose) bool) []*message.Propose {
-	if round < 0 || round > constants.MaxRound {
-		return nil
-	}
+	sanityCheck(round)
+
 	hs := ms.getHeightStore(height)
 	if hs == nil {
 		return nil
@@ -508,9 +500,8 @@ func (ms *MsgStore) GetProposalsByRound(height uint64, round int64, query func(*
 }
 
 func (ms *MsgStore) GetPrevotesByRound(height uint64, round int64, query func(prevote *message.Prevote) bool) []*message.Prevote {
-	if round < 0 || round > constants.MaxRound {
-		return nil
-	}
+	sanityCheck(round)
+
 	hs := ms.getHeightStore(height)
 	if hs == nil {
 		return nil
@@ -535,10 +526,15 @@ func (ms *MsgStore) GetPrevotesByRound(height uint64, round int64, query func(pr
 	return result
 }
 
-func (ms *MsgStore) GetPrecommitsByRound(height uint64, round int64, query func(precommit *message.Precommit) bool) []*message.Precommit {
+func sanityCheck(round int64) {
 	if round < 0 || round > constants.MaxRound {
-		return nil
+		panic(fmt.Sprintf("invalid round in msg store: %d", round))
 	}
+}
+
+func (ms *MsgStore) GetPrecommitsByRound(height uint64, round int64, query func(precommit *message.Precommit) bool) []*message.Precommit {
+	sanityCheck(round)
+
 	hs := ms.getHeightStore(height)
 	if hs == nil {
 		return nil
@@ -654,9 +650,8 @@ func (ms *MsgStore) GetPrecommits(height uint64, query func(*message.Precommit) 
 }
 
 func (ms *MsgStore) PrevotesPowerFor(height uint64, round int64, value common.Hash) *big.Int {
-	if round < 0 || round > constants.MaxRound {
-		return new(big.Int)
-	}
+	sanityCheck(round)
+
 	hs := ms.getHeightStore(height)
 	if hs == nil {
 		return new(big.Int)

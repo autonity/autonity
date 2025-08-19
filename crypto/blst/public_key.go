@@ -74,7 +74,7 @@ func AggregatePublicKeys(pubs []PublicKey) (PublicKey, error) {
 }
 
 func toAffineKeySet(pubkeys []PublicKey) blstPublicKeySet {
-	var rawKeys blstPublicKeySet
+	rawKeys := make(blstPublicKeySet, 0, len(pubkeys))
 	for _, pubkey := range pubkeys {
 		rawKeys = append(rawKeys, *pubkey.(*BlsPublicKey).p)
 	}
@@ -83,6 +83,16 @@ func toAffineKeySet(pubkeys []PublicKey) blstPublicKeySet {
 
 // returns aggregated public key by multiplying `pubkeys` with `scalars`.
 func AggregatePublicKeysMultScalars(pubkeys []PublicKey, scalars []*blstScalar) PublicKey {
+	// all these cases cause the `Mult` function to go into an infinite loop.
+	// panic before that so that we can identify the error
+	if pubkeys == nil || scalars == nil || len(pubkeys) == 0 || len(scalars) == 0 {
+		panic(fmt.Sprintf("invalid parameters: %v %v", pubkeys, scalars))
+	}
+	// this is a programming error
+	if len(pubkeys) != len(scalars) {
+		panic(fmt.Sprintf("invalid number of scalars: %d != %d", len(pubkeys), len(scalars)))
+	}
+
 	rawKeys := toAffineKeySet(pubkeys)
 
 	// TODO: optimize value of nbits. For now fixed to 32, but could probably

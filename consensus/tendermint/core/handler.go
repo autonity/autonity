@@ -212,8 +212,10 @@ func determineDisseminationStrategy(err error, alreadyDisseminated bool, msgRoun
 
 // handleError takes the appropriate actions based on the error (e.g. backlog the event)
 // assumes err != nil
-func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error) {
+// returns nil or ErrRedundantVote if the future msg is redundant
+func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error) error {
 	delayErr := &consensus.ErrDelayedProposal{}
+	var internalErr error // either == nil or == ErrRedundantVote in case of redundant future msg
 	switch {
 	case errors.As(err, delayErr):
 		// TODO: implement wiggle time / median time
@@ -225,36 +227,54 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 		})
 	case errors.Is(err, constants.ErrFutureRoundMessage):
 		// Store the message if it is a future round message
-		c.logger.Debug("Storing future round message")
-
 		msg := e.Message()
-
-		// gossip only "close" future rounds to avoid clogging the network
-		if canDisseminate(msg.R(), c.Round()) {
-			// will be disseminated right away in handleEvent, no need to re-disseminate on reprocessing
-			// note that disseminated will be set to true only on the backlogged copy of the event
-			e.SetDisseminated(true)
-		}
-
 		r := msg.R()
-		c.futureRoundLock.Lock()
-		c.futureRound[r] = append(c.futureRound[r], e)
 
-		// update future power
+		c.logger.Debug("Storing future round message", "r", r)
+
+		c.futureRoundLock.Lock()
+		_, roundExists := c.futurePowerByCode[r]
+		if !roundExists {
+			c.futurePowerByCode[r] = make(map[uint8]*message.AggregatedPower)
+		}
+		_, codeExists := c.futurePowerByCode[r][msg.Code()]
+		if !codeExists {
+			c.futurePowerByCode[r][msg.Code()] = message.NewAggregatedPower()
+		}
 		_, ok := c.futurePower[r]
 		if !ok {
 			c.futurePower[r] = message.NewAggregatedPower()
 		}
+
+		msgContributed := false
 		switch m := msg.(type) {
 		case *message.Propose:
+			msgContributed = c.futurePowerByCode[r][m.Code()].Set(m.SignerIndex(), m.Power())
 			c.futurePower[r].Set(m.SignerIndex(), m.Power())
 		case *message.Prevote, *message.Precommit:
 			signers := m.(message.Vote).Signers()
 			it := signers.NewIterator()
 			for it.Next() {
+				signerContributed := c.futurePowerByCode[r][m.Code()].Set(it.Index(), signers.PowerByIndex(it.Index()))
+				msgContributed = msgContributed || signerContributed
 				c.futurePower[r].Set(it.Index(), signers.PowerByIndex(it.Index()))
 			}
 		}
+
+		if msgContributed {
+			// gossip only "close" future rounds to avoid clogging the network
+			if canDisseminate(msg.R(), c.Round()) {
+				// will be disseminated right away in handleEvent, no need to re-disseminate on reprocessing
+				// note that disseminated will be set to true only on the backlogged copy of the event
+				e.SetDisseminated(true)
+			}
+			// backlog message only if useful
+			c.futureRound[r] = append(c.futureRound[r], e)
+		} else {
+			// mark the message as redundant if it did not contribute to the future power
+			internalErr = constants.ErrRedundantVote
+		}
+
 		c.futureRoundLock.Unlock()
 
 		// TODO: there is an unhandled edge case which can cause disseminating the same message twice.
@@ -265,7 +285,7 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 	default:
 		// do nothing
 	}
-
+	return internalErr
 }
 
 // filters out messages that we don't consider for liveness tracking and p2p dissemination
@@ -274,9 +294,9 @@ func shouldQuit(err error) bool {
 		return false
 	}
 	switch {
-	case errors.Is(err, constants.ErrOldRoundMessage):
-		fallthrough
-	case errors.Is(err, constants.ErrFutureRoundMessage):
+	case errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote):
+		return false
+	case errors.Is(err, constants.ErrFutureRoundMessage) && !errors.Is(err, constants.ErrRedundantVote):
 		return false
 	default:
 		// note: redundant votes are not disseminated
@@ -312,7 +332,7 @@ func (c *Core) handleEvent(ctx context.Context, e events.MessageEvent) {
 	err := c.handleMsg(ctx, msg)
 	if err != nil {
 		c.logger.Debug("core.Handler: consensus message handling returned error", "err", err, "core height", c.Height().Uint64(), "msg", msg.String())
-		c.handleError(ctx, e, err)
+		err = errors.Join(err, c.handleError(ctx, e, err)) // handleError could detect a future round redundant msg
 		// filter errors which needs signer jailing
 		if msg.Code() == message.ProposalCode && shouldJailSigner(err) {
 			c.backend.Jail(msg.(*message.Propose).Signer())
@@ -328,10 +348,12 @@ func (c *Core) handleEvent(ctx context.Context, e events.MessageEvent) {
 	c.syncState.setLastLivenessTime(time.Now())
 
 	// if we did not have quorum and we reached it now
-	// gossip the (complex) aggregate with quorum to everyone instead of the current message
+	// gossip the aggregates with quorum to everyone instead of the current message
+	// note: future round messages are filtered out because they are saved into a specific buffer up to reprocessing
+	// 		 therefore it doesn't make sense to check for quorum in Core msg store.
 	if !errors.Is(err, constants.ErrFutureRoundMessage) && !hadQuorum && c.quorumFor(msg.Code(), msg.R(), msg.Value()) {
 		c.GossipQuorum(msg.Code(), msg.R(), msg.Value())
-		return // do not gossip single message, only complex aggregate
+		return // do not gossip the message being processed, rather only gossip the aggregates
 	}
 
 	switch determineDisseminationStrategy(err, e.Disseminated(), msg.R(), c.Round()) {

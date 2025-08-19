@@ -172,9 +172,9 @@ func FastAggregateVerifyBatch(sigs []Signature, pubkeys []PublicKey, msg [32]byt
 	}
 
 	// extract raw signatures and public keys (EC points) and generate random scalars
-	var rawKeys blstPublicKeySet
-	var rawSigs blstSignatureSet
-	var scalars []*blstScalar
+	rawKeys := make(blstPublicKeySet, 0, n)
+	rawSigs := make(blstSignatureSet, 0, n)
+	scalars := make([]*blstScalar, 0, n)
 	for i := 0; i < n; i++ {
 		rawKeys = append(rawKeys, *pubkeys[i].(*BlsPublicKey).p)
 		rawSigs = append(rawSigs, *sigs[i].(*BlsSignature).s)

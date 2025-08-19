@@ -37,6 +37,7 @@ func New(backend interfaces.Backend, services *interfaces.Services, address comm
 		logger:                 logger,
 		backend:                backend,
 		futureRound:            make(map[int64][]events.MessageEvent),
+		futurePowerByCode:      make(map[int64]map[uint8]*message.AggregatedPower),
 		futurePower:            make(map[int64]*message.AggregatedPower),
 		pendingCandidateBlocks: make(map[uint64]*types.Block),
 		stopped:                make(chan struct{}, 4),
@@ -143,9 +144,10 @@ type Core struct {
 
 	// future round messages are accessed also by the backend (to sync other peers) and the aggregator.
 	// they need a lock.
-	futureRound     map[int64][]events.MessageEvent
-	futurePower     map[int64]*message.AggregatedPower // power cache for future value msgs (per round)
-	futureRoundLock sync.RWMutex
+	futureRound       map[int64][]events.MessageEvent
+	futurePowerByCode map[int64]map[uint8]*message.AggregatedPower // power cache for future value msgs (per round and code)
+	futurePower       map[int64]*message.AggregatedPower           // power cache for future value msgs (per round only)
+	futureRoundLock   sync.RWMutex
 
 	sentProposal          bool
 	sentPrevote           bool
@@ -359,6 +361,7 @@ func (c *Core) processFuture(previousRound int64, currentRound int64) {
 		}
 		delete(c.futureRound, r)
 		delete(c.futurePower, r)
+		delete(c.futurePowerByCode, r)
 	}
 }
 
@@ -436,6 +439,7 @@ func (c *Core) setInitialState(r int64) {
 		c.messages.Reset()
 		c.futureRoundLock.Lock()
 		c.futureRound = make(map[int64][]events.MessageEvent)
+		c.futurePowerByCode = make(map[int64]map[uint8]*message.AggregatedPower)
 		c.futurePower = make(map[int64]*message.AggregatedPower)
 		c.futureRoundLock.Unlock()
 		// update height duration timer

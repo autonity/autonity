@@ -111,7 +111,7 @@ func New(
 	backend.core = consensusCore
 	backend.coreEventDispatcher = consensusCore
 
-	backend.aggregator = newAggregator(backend, consensusCore, log, afdDispatchCh)
+	backend.aggregator = newAggregator(backend, consensusCore, log)
 
 	return backend
 }

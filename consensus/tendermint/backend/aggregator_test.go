@@ -1023,13 +1023,13 @@ func TestAggregatorProcess(t *testing.T) {
 			makeBogusEvent(message.NewPrecommit(r, h, value, testSigner, &committee.Members[5], committee)),
 		})
 
-		a.processBatches(batches, func(m message.Msg, ev events.UnverifiedMessageEvent, _ bool) interface{} {
+		a.processBatches(batches, func(m message.Msg, errCh chan<- error, sender common.Address, _ bool) interface{} {
 			vote, ok := m.(message.Vote)
 			require.True(t, ok)
 			if vote.Signers().Contains(3) || vote.Signers().Contains(6) {
 				t.Fatalf("Invalid message has been posted")
 			}
-			return currentHeightEventBuilder(m, ev, false)
+			return currentHeightEventBuilder(m, errCh, sender, false)
 		})
 	})
 }
@@ -1339,6 +1339,7 @@ func newSignedTestMsg(
 			msgs = append(msgs, message.NewPrevote(r, h, value, mc[s].Sign, &mc[s].CommitteeMember, mockCommittee(mc).ToCommittee()))
 		}
 		prevotes := message.AggregatePrevotes(msgs)
+		require.Equal(t, 1, len(prevotes))
 		msg = prevotes[0]
 	case message.PrecommitCode:
 		var msgs []message.Vote
@@ -1346,6 +1347,7 @@ func newSignedTestMsg(
 			msgs = append(msgs, message.NewPrecommit(r, h, value, mc[s].Sign, &mc[s].CommitteeMember, mockCommittee(mc).ToCommittee()))
 		}
 		precommits := message.AggregatePrecommits(msgs)
+		require.Equal(t, 1, len(precommits))
 		msg = precommits[0]
 	default:
 		t.Fatalf("unknown message code %d", c)
