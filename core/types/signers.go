@@ -247,7 +247,7 @@ func (s *Signers) PowerByIndex(index int) *big.Int {
 		panic("Power has not been assigned in signers information")
 	}
 	if index >= s.committee.Len() || !s.Bitmap.IsSet(index) {
-		panic( "invalid index")
+		panic("invalid index")
 	}
 	return s.committee.MemberByIndex(index).VotingPower
 }
