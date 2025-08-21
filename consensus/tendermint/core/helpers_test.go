@@ -68,8 +68,10 @@ func signersWithPower(skipIdx *[]int, committee *types.Committee, requestedPower
 		if contains(i) {
 			continue
 		}
-		if totalPower.Cmp(requestedPower) >= 0 {
+		if totalPower.Cmp(requestedPower) == 0 {
 			return signers
+		} else if totalPower.Cmp(requestedPower) > 0 {
+			panic("signersWithPower: total power exceeds requested power")
 		}
 		*skipIdx = append(*skipIdx, i)
 		totalPower.Add(totalPower, committee.MemberByIndex(i).VotingPower)

@@ -243,6 +243,13 @@ func (p *Propose) SignerIndex() int {
 	return p.signerIndex
 }
 
+func (p *Propose) SignerKey() blst.PublicKey {
+	if !p.preverified {
+		panic("Trying to access signer key on not preverified message")
+	}
+	return p.base.signerKey
+}
+
 func (p *Propose) PreValidate(committee *types.Committee, _ bool) error {
 	if p.preverified {
 		return nil
@@ -300,6 +307,13 @@ func (p *LightProposal) Power() *big.Int {
 
 func (p *LightProposal) String() string {
 	return fmt.Sprintf("{code: %v, %s, ValidRound: %v, BlockHash: %v, signer: %v, power: %v}", p.Code(), p.base.String(), p.validRound, p.blockHash, p.signer, p.power)
+}
+
+func (p *LightProposal) SignerKey() blst.PublicKey {
+	if !p.preverified {
+		panic("Trying to access signer key on not preverified message")
+	}
+	return p.base.signerKey
 }
 
 func NewLightProposal(proposal *Propose) *LightProposal {
@@ -444,19 +458,17 @@ type vote struct {
 }
 
 func (v *vote) SignerKey() blst.PublicKey {
+	if !v.preverified {
+		panic("Trying to access signer key on not preverified message")
+	}
 	v.signerKeyOnce.Do(func() {
 		keys := make([]blst.PublicKey, 0, v.signers.Len())
-		v.signers.ForEachDistinctSigner(func(signerIndex int) {
-			member := v.signers.Committee().MemberByIndex(signerIndex)
-			if member != nil {
-				keys = append(keys, member.ConsensusKey)
-			}
-		})
-
-		if len(keys) == 0 {
-			return
+		it := v.signers.NewIterator()
+		for it.Next() {
+			member := v.signers.Committee().MemberByIndex(it.Index())
+			keys = append(keys, member.ConsensusKey)
 		}
-
+		// keys can't be zero as they are validated in PreValidate
 		if len(keys) == 1 {
 			v.base.signerKey = keys[0]
 		} else {
@@ -680,8 +692,13 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 				nextVotesToProcess = append(nextVotesToProcess, otherVote)
 			}
 		}
+		var aggregatedSignature blst.Signature
+		if len(signaturesToAggregate) == 1 {
+			aggregatedSignature = signaturesToAggregate[0]
+		} else {
+			aggregatedSignature = blst.AggregateSignatures(signaturesToAggregate)
+		}
 
-		aggregatedSignature := blst.AggregateSignatures(signaturesToAggregate)
 		payload, _ := rlp.EncodeToBytes(extVote{
 			Code:      representative.Code(),
 			Round:     uint64(representative.R()), // nolint

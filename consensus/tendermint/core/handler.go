@@ -252,8 +252,7 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 			signers := m.(message.Vote).Signers()
 			it := signers.NewIterator()
 			for it.Next() {
-				power := signers.Committee().MemberByIndex(it.Index()).VotingPower
-				c.futurePower[r].Set(it.Index(), power)
+				c.futurePower[r].Set(it.Index(), signers.PowerByIndex(it.Index()))
 			}
 		}
 		c.futureRoundLock.Unlock()

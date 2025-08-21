@@ -474,9 +474,6 @@ func TestQuorumCertificateDeserialization(t *testing.T) {
 
 	err = headerDecoded.QuorumCertificate.Signers.Validate(committee)
 	require.NoError(t, err)
-	//powers := make(map[int]*big.Int)
-	//powers[0] = big.NewInt(1)
-	//headerDecoded.QuorumCertificate.Signers.AssignPower(powers, powers[0])
 	require.Equal(t, header, headerDecoded)
 }
 

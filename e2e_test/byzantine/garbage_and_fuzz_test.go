@@ -72,7 +72,10 @@ func TestRandomBytesBroadcaster(t *testing.T) {
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	for i < uint64(numOfNodes) {
-		require.Equal(t, int(uint64(numOfNodes)-f.Uint64()-1), network[i].ConsensusServer().PeerCount(), "connection with malicious nodes should be closed")
+		for j := uint64(0); j < f.Uint64(); j++ {
+			id := network[j].ConsensusServer().LocalNode().ID().String()
+			require.True(t, network[i].ConsensusServer().IsSuspended(id), "malicious node should be suspended")
+		}
 		i++
 	}
 }
@@ -121,7 +124,10 @@ func TestGarbageMessageBroadcaster(t *testing.T) {
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	for i < uint64(numOfNodes) {
-		require.Equal(t, int(uint64(numOfNodes)-f.Uint64()-1), network[i].ConsensusServer().PeerCount(), "connection with malicious nodes should be closed")
+		for j := uint64(0); j < f.Uint64(); j++ {
+			id := network[j].ConsensusServer().LocalNode().ID().String()
+			require.True(t, network[i].ConsensusServer().IsSuspended(id), "malicious node should be suspended")
+		}
 		i++
 	}
 }
@@ -152,14 +158,9 @@ func (c *fuzzPrecommitSender) SendPrecommit(_ context.Context, isNil bool) {
 		FakeRound:   uint64(precommit.R()),
 		FakeHeight:  precommit.H(),
 		FakePayload: fakePayload,
+		FakeHash:    precommit.Hash(),
 	})
 
-	//for i := 0; i < rand.Intn(10); i++ {
-	//	precommit.Signers().AddSigner(&types.CommitteeMember{
-	//		Index:       uint64(rand.Intn(csize)), // nolint:gosec
-	//		VotingPower: common.Big1,
-	//	})
-	//}
 	c.SetSentPrecommit(true)
 	c.Backend().Gossip(c.CommitteeSet().Committee(), precommit, c.Address())
 }
@@ -188,7 +189,10 @@ func TestFuzzPrecommitter(t *testing.T) {
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	for i < uint64(numOfNodes) {
-		require.Equal(t, int(uint64(numOfNodes)-f.Uint64()-1), network[i].ConsensusServer().PeerCount(), "connection with malicious nodes should be closed")
+		for j := uint64(0); j < f.Uint64(); j++ {
+			id := network[j].ConsensusServer().LocalNode().ID().String()
+			require.True(t, network[i].ConsensusServer().IsSuspended(id), "malicious node should be suspended")
+		}
 		i++
 	}
 }

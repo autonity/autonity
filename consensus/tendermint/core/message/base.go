@@ -60,14 +60,6 @@ func (b *base) Hash() common.Hash {
 	return b.hash
 }
 
-// Bls key that needs to be used to verify the signature. Can be an aggregated key.
-func (b *base) SignerKey() blst.PublicKey {
-	if !b.preverified {
-		panic("Trying to access signer key on not preverified message")
-	}
-	return b.signerKey
-}
-
 func (b *base) Validate() error {
 	if !b.preverified {
 		panic("Trying to verify a message that was not previously pre-verified")

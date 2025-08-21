@@ -99,9 +99,6 @@ func (s *Signers) SanityCheck() error {
 
 // validates the sender info, used to ensure received aggregates have correctly sized buffers
 func (s *Signers) Validate(committee *Committee) error {
-	if committee == nil {
-		return errors.New("committee cannot be nil")
-	}
 	distinctSigners, rightmostSigner, maxCoefficient, err := s.validate(committee.Len())
 	if err != nil {
 		return err
@@ -249,8 +246,8 @@ func (s *Signers) PowerByIndex(index int) *big.Int {
 	if !s.validated {
 		panic("Power has not been assigned in signers information")
 	}
-	if index >= s.committee.Len() {
-		return common.Big0
+	if index >= s.committee.Len() || !s.Bitmap.IsSet(index) {
+		panic( "invalid index")
 	}
 	return s.committee.MemberByIndex(index).VotingPower
 }

@@ -208,39 +208,6 @@ func TestAggregatorMessageHandling(t *testing.T) {
 			return called.Load()
 		}, 10*time.Millisecond, 1*time.Second, "proposal was not processed by the aggregator")
 	})
-	t.Run("current height, future round proposal should be buffered", func(t *testing.T) {
-		h := uint64(1)
-		r := int64(10)
-
-		ctrl := gomock.NewController(t)
-		defer waitForExpects(t, ctrl)
-
-		coreMock := interfaces.NewMockCore(ctrl)
-		backendMock := interfaces.NewMockBackend(ctrl)
-
-		backendMock.EXPECT().CommitteeByHeight(gomock.Any()).Return(committee, nil).AnyTimes()
-		coreMock.EXPECT().Height().Return(new(big.Int).SetUint64(h)).Times(1)
-		coreMock.EXPECT().Round().Return(r - 1).Times(1)
-
-		a := &aggregator{
-			messages:       make(map[uint64]map[int64]*RoundInfo),
-			messagesFrom:   make(map[common.Address][]common.Hash),
-			core:           coreMock,
-			backend:        backendMock,
-			logger:         log.Root(),
-			signerSetCache: newAggregatorCache(),
-			internalCoreCh: make(chan events.MessageEventer, 1),
-			internalFdCh:   make(chan events.MessageEventer, 1),
-		}
-
-		propose := makeBogusPropose(r, h, 0)
-
-		a.handleEvent(makeBogusEvent(propose))
-
-		roundInfo := a.messages[h][r]
-		require.Equal(t, 1, len(roundInfo.proposals))
-		require.Equal(t, propose.Hash(), roundInfo.proposals[0].Message.Hash())
-	})
 	t.Run("current height, current round prevote should be buffered", func(t *testing.T) {
 		h := uint64(1)
 		r := int64(0)
@@ -499,25 +466,6 @@ func TestAggregatorOldHeightMessage(t *testing.T) {
 }
 
 func TestAggregatorSaveMessage(t *testing.T) {
-	t.Run("Save proposal", func(t *testing.T) {
-		a := &aggregator{
-			messages:       make(map[uint64]map[int64]*RoundInfo),
-			signerSetCache: newAggregatorCache(),
-		}
-
-		r := int64(4)
-		h := uint64(2)
-
-		propose := makeBogusPropose(r, h, 0)
-
-		proposeEvent := makeBogusEvent(propose)
-
-		a.saveMessage(proposeEvent)
-
-		roundInfo := a.messages[h][r]
-
-		require.Equal(t, propose.Hash(), roundInfo.proposals[0].Message.Hash())
-	})
 	t.Run("Save prevote", func(t *testing.T) {
 		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo)}
 
@@ -566,13 +514,8 @@ func TestAggregatorSaveMessage(t *testing.T) {
 		a.saveMessage(proposeEvent)
 
 		roundInfo := a.messages[h][r]
-		require.Equal(t, propose.Hash(), roundInfo.proposals[0].Message.Hash())
-
-		// save again the same proposal
-		a.saveMessage(proposeEvent)
 
 		roundInfo = a.messages[h][r]
-		require.Equal(t, propose.Hash(), roundInfo.proposals[1].Message.Hash())
 
 		// save precommit for same (h,r) from the same guy
 
@@ -597,15 +540,6 @@ func TestAggregatorSaveMessage(t *testing.T) {
 
 		require.Equal(t, voteEvent.Message.Hash(), roundInfo.prevotes[otherValue][0].Message.Hash())
 
-		// save proposal from index 3
-		propose = makeBogusPropose(r, h, 3)
-		proposeEvent = events.UnverifiedMessageEvent{Message: propose, ErrCh: nil, Sender: common.Address{}, Posted: time.Now()}
-		a.saveMessage(proposeEvent)
-		roundInfo = a.messages[h][r]
-
-		require.Equal(t, propose.Hash(), roundInfo.proposals[2].Message.Hash())
-
-		// save aggregated vote for same (h,r), different value
 		voteEvent = newSignedTestMsg(t, h, r, otherValue, message.PrecommitCode, mc, []int{0, 1, 2, 3})
 		a.saveMessage(voteEvent)
 		roundInfo = a.messages[h][r]
@@ -661,6 +595,8 @@ func TestAggregatorHandleVote(t *testing.T) {
 		a.backend = backendMock
 		a.signerSetCache = newAggregatorCache()
 
+		coreMock.EXPECT().Round().Return(int64(5)).AnyTimes()
+
 		r := int64(5)
 		h := uint64(10)
 		value := testrand.Hash()
@@ -680,11 +616,11 @@ func TestAggregatorHandleVote(t *testing.T) {
 		backendMock.EXPECT().DispatchToCore(gomock.Any()).Times(0)
 
 		a.signerSetCache.addVote(voteA, stepReceived)
-		a.handleVote(voteAEvent, quorum)
+		a.handleVote(voteAEvent, committee)
 		require.Equal(t, 1, len(a.messages[h][r].prevotes[value]))
 
 		a.signerSetCache.addVote(voteB, stepReceived)
-		a.handleVote(voteBEvent, quorum)
+		a.handleVote(voteBEvent, committee)
 		require.Equal(t, 1, len(a.messages[h][r].prevotes[common.Hash{}]))
 	})
 	t.Run("quorum for v triggers processing", func(t *testing.T) {
@@ -697,6 +633,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		a.backend = backendMock
 		a.signerSetCache = newAggregatorCache()
 
+		coreMock.EXPECT().Round().Return(int64(5)).AnyTimes()
 		r := int64(5)
 		h := uint64(0)
 		value := testrand.Hash()
@@ -710,7 +647,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 
 		// no quorum reached, vote should be buffered
 		a.signerSetCache.addEvent(singleVoteEvent, stepReceived)
-		a.handleVote(singleVoteEvent, quorum)
+		a.handleVote(singleVoteEvent, committee)
 		require.Equal(t, singleVote.Hash(), a.messages[h][r].precommits[value][0].Message.Hash())
 
 		// simple aggregate with quorum should trigger processing
@@ -723,7 +660,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 
 		a.signerSetCache.markCommittee(h, committee)
 		a.signerSetCache.addVote(vote, stepReceived)
-		a.handleVote(voteEvent, quorum)
+		a.handleVote(voteEvent, committee)
 
 		require.Nil(t, a.messages[h][r].precommits[value])
 	})
@@ -737,6 +674,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		a.backend = backendMock
 		a.signerSetCache = newAggregatorCache()
 
+		coreMock.EXPECT().Round().Return(int64(5)).AnyTimes()
 		r := int64(5)
 		h := uint64(0)
 		value := testrand.Hash()
@@ -751,7 +689,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		voteEventA := makeBogusEvent(voteA)
 
 		a.signerSetCache.addEvent(voteEventA, stepReceived)
-		a.handleVote(voteEventA, quorum)
+		a.handleVote(voteEventA, committee)
 
 		// quorum for * is not reached, vote should be buffered
 		require.Equal(t, voteA.Hash(), a.messages[h][r].precommits[value][0].Message.Hash())
@@ -762,7 +700,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		voteEventB := makeBogusEvent(voteB)
 		// quorum for * is reached, vote should be processed
 		a.signerSetCache.addEvent(voteEventB, stepReceived)
-		a.handleVote(voteEventB, quorum)
+		a.handleVote(voteEventB, committee)
 		require.Nil(t, a.messages[h][r].precommits[value])
 	})
 	t.Run("quorum for v doesnt trigger processing if already dispatched", func(t *testing.T) {
@@ -774,6 +712,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		a.backend = backendMock
 		a.signerSetCache = newAggregatorCache()
 
+		coreMock.EXPECT().Round().Return(int64(5)).AnyTimes()
 		r := int64(5)
 		h := uint64(0)
 		v := testrand.Hash()
@@ -801,7 +740,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		voteB.Signers().AddSigner(1)
 
 		a.signerSetCache.addEvent(makeBogusEvent(voteB), stepReceived)
-		a.handleVote(makeBogusEvent(voteB), quorum)
+		a.handleVote(makeBogusEvent(voteB), committee)
 		// should be pending
 		require.Equal(t, voteB.Hash(), a.messages[h][r].precommits[v][0].Message.Hash())
 	})
@@ -814,6 +753,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		a.backend = backendMock
 		a.signerSetCache = newAggregatorCache()
 
+		coreMock.EXPECT().Round().Return(int64(5)).AnyTimes()
 		r := int64(5)
 		h := uint64(0)
 		v := testrand.Hash()
@@ -836,7 +776,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		voteB.Signers().AddSigner(4)
 
 		a.signerSetCache.addEvent(makeBogusEvent(voteB), stepReceived)
-		a.handleVote(makeBogusEvent(voteB), quorum)
+		a.handleVote(makeBogusEvent(voteB), committee)
 
 		require.Equal(t, voteB.Hash(), a.messages[h][r].precommits[common.Hash{}][0].Message.Hash())
 	})
@@ -901,7 +841,7 @@ func TestAggregatorProcess(t *testing.T) {
 		}
 
 		// NOTE: checking a.messages[h][r].precommits (or prevotes) is not really semantically exact as we are checking the number of different values, rather than the number of actual votes.
-		require.Equal(t, 5, len(a.messages[h][r].proposals)+len(a.messages[h][r].prevotes)+len(a.messages[h][r].precommits))
+		require.Equal(t, 3, len(a.messages[h][r].prevotes)+len(a.messages[h][r].precommits))
 
 		a.processRound(h, r)
 
