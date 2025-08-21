@@ -1065,9 +1065,8 @@ func TestAggregatorFullFlow(t *testing.T) {
 
 		// aggregator should process the message, and buffer it
 		waitFor(t, func() bool {
-			a.msgMu.RLock()
-			defer a.msgMu.RUnlock()
-			return a.messages[h] != nil && a.messages[h][r] != nil && len(a.messages[h][r].prevotes) == 1
+			// check message is buffered by looking at the cached power
+			return big.NewInt(3).Cmp(a.signerSetCache.presentPowerForValue(h, r, value, message.PrevoteCode, stepReceived)) == 0
 		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should have buffered the message")
 
 		redundantEvent := newSignedTestMsg(t, 1, 5, value, message.PrevoteCode, mc, []int{0, 1})
@@ -1085,9 +1084,8 @@ func TestAggregatorFullFlow(t *testing.T) {
 					value: value,
 				}]) == 1
 			a.signerSetCache.filterMu.RUnlock()
-			a.msgMu.RLock()
-			notBuffered := a.messages[h] == nil || a.messages[h][r] == nil || len(a.messages[h][r].prevotes) == 1
-			a.msgMu.RUnlock()
+			// power unchanged for discarded message
+			notBuffered := big.NewInt(3).Cmp(a.signerSetCache.presentPowerForValue(h, r, value, message.PrevoteCode, stepReceived)) == 0
 			return filtered && notBuffered
 		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should not have processed the redundant message")
 	})
@@ -1120,9 +1118,7 @@ func TestAggregatorFullFlow(t *testing.T) {
 
 		// aggregator should process the message, and buffer it
 		waitFor(t, func() bool {
-			a.msgMu.RLock()
-			defer a.msgMu.RUnlock()
-			return a.messages[h] != nil && a.messages[h][r] != nil && len(a.messages[h][r].prevotes) == 1
+			return big.NewInt(3).Cmp(a.signerSetCache.presentPowerForValue(h, r, value, message.PrevoteCode, stepReceived)) == 0
 		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should have buffered the message")
 
 		// send more messages to reach quorum
@@ -1188,11 +1184,8 @@ func TestAggregatorFullFlow(t *testing.T) {
 		aggregatorMsgChan <- anotherRedundantEvent
 
 		waitFor(t, func() bool {
-			a.msgMu.RLock()
-			defer a.msgMu.RUnlock()
-			return a.messages[h] != nil &&
-				a.messages[h][r] != nil &&
-				len(a.messages[h][r].prevotes) == 1
+			// Only bad one buffered
+			return big.NewInt(4).Cmp(a.signerSetCache.presentPowerForValue(h, r, value, message.PrevoteCode, stepReceived)) == 0
 		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should have buffered the message")
 
 		wg := sync.WaitGroup{}
