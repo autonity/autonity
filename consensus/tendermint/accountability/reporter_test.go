@@ -129,7 +129,7 @@ func TestOnDutyDetector(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			fd := createFD(t, ctrl, tt.committeeSize, tt.clientIndex, tt.height)
+			fd := createFD(ctrl, tt.committeeSize, tt.clientIndex, tt.height)
 			t.Log("height ", tt.height)
 			result := fd.onDutyDetector(tt.height)
 			assert.Equal(t, tt.expected, result,
@@ -139,7 +139,7 @@ func TestOnDutyDetector(t *testing.T) {
 	}
 }
 
-func createFD(t *testing.T, ctrl *gomock.Controller, committeeSize, clientIndex, height uint64) *FaultDetector {
+func createFD(ctrl *gomock.Controller, committeeSize, clientIndex, height uint64) *FaultDetector {
 	com := genCommittee(committeeSize)
 	chainMock := NewMockChainContext(ctrl)
 	chainMock.EXPECT().CommitteeByHeight(height).Return(com, nil)
