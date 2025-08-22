@@ -1039,7 +1039,7 @@ func TestAggregatorFullFlow(t *testing.T) {
 	// are relying on caching we need to make sure that messages are being properly filtered
 
 	t.Run("aggregator should discard messages that contain redundant information", func(t *testing.T) {
-		ctrl, a, backendMock, coreMock, aggregatorMsgChan := setupTestAggregator(t)
+		ctrl, a, backendMock, coreMock, _ := setupTestAggregator(t)
 		defer waitForExpects(t, ctrl)
 
 		h := uint64(1)
@@ -1061,7 +1061,7 @@ func TestAggregatorFullFlow(t *testing.T) {
 		value := testrand.Hash()
 		event := newSignedTestMsg(t, 1, 5, value, message.PrevoteCode, mc, []int{0, 1, 2})
 
-		aggregatorMsgChan <- event
+		a.handleEvent(event)
 
 		// aggregator should process the message, and buffer it
 		waitFor(t, func() bool {
@@ -1071,7 +1071,7 @@ func TestAggregatorFullFlow(t *testing.T) {
 
 		redundantEvent := newSignedTestMsg(t, 1, 5, value, message.PrevoteCode, mc, []int{0, 1})
 
-		aggregatorMsgChan <- redundantEvent
+		a.handleEvent(redundantEvent)
 
 		// aggregator should not process the message, as it is redundant
 		waitFor(t, func() bool {
@@ -1091,7 +1091,7 @@ func TestAggregatorFullFlow(t *testing.T) {
 	})
 
 	t.Run("aggregator should dispatch aggregated messages to core once quorum is reached", func(t *testing.T) {
-		ctrl, a, backendMock, coreMock, aggregatorMsgChan := setupTestAggregator(t)
+		ctrl, a, backendMock, coreMock, _ := setupTestAggregator(t)
 		defer waitForExpects(t, ctrl)
 
 		h := uint64(1)
@@ -1114,7 +1114,7 @@ func TestAggregatorFullFlow(t *testing.T) {
 		event := newSignedTestMsg(t, h, r, value, message.PrevoteCode, mc, []int{0, 1, 2})
 		event.Sender = mc[0].Address
 
-		aggregatorMsgChan <- event
+		a.handleEvent(event)
 
 		// aggregator should process the message, and buffer it
 		waitFor(t, func() bool {
@@ -1141,14 +1141,14 @@ func TestAggregatorFullFlow(t *testing.T) {
 				return false
 			}
 		})).Times(1)
-		aggregatorMsgChan <- event2
+		a.handleEvent(event2)
 		waitFor(t, func() bool {
 			return passed.Load()
 		}, 10*time.Millisecond, 100*time.Millisecond, "Aggregator should have dispatched the aggregated message to core")
 	})
 
 	t.Run("aggregator should reinject messages when an invalid signature is detected", func(t *testing.T) {
-		ctrl, a, backendMock, coreMock, aggregatorMsgChan := setupTestAggregator(t)
+		ctrl, a, backendMock, coreMock, _ := setupTestAggregator(t)
 		defer waitForExpects(t, ctrl)
 
 		h := uint64(1)
@@ -1179,9 +1179,9 @@ func TestAggregatorFullFlow(t *testing.T) {
 		badlySignedEvent.ErrCh = errChan
 
 		// send all events to aggregator
-		aggregatorMsgChan <- badlySignedEvent
-		aggregatorMsgChan <- redundantEvent
-		aggregatorMsgChan <- anotherRedundantEvent
+		a.handleEvent(badlySignedEvent)
+		a.handleEvent(redundantEvent)
+		a.handleEvent(anotherRedundantEvent)
 
 		waitFor(t, func() bool {
 			// Only bad one buffered
