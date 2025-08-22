@@ -2,8 +2,10 @@ package accountability
 
 import (
 	"errors"
-	"github.com/autonity/autonity/consensus/tendermint/bft"
+	"fmt"
 	"math/big"
+
+	"github.com/autonity/autonity/consensus/tendermint/bft"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/autonity/bindings"
@@ -34,8 +36,7 @@ func (fd *FaultDetector) onDutyDetector(height uint64) bool {
 
 	committee, err := fd.blockchain.CommitteeByHeight(height)
 	if err != nil {
-		fd.logger.Error("Failed to get committee for height %d: %v", height, err)
-		return false
+		panic(fmt.Sprintf("cannot get committee for height: %d", height))
 	}
 
 	committeeSize := uint64(committee.Len()) //nolint
@@ -44,36 +45,39 @@ func (fd *FaultDetector) onDutyDetector(height uint64) bool {
 		return true
 	}
 
-	currClient := committee.MemberByAddress(fd.address)
-	if currClient == nil {
+	self := committee.MemberByAddress(fd.address)
+	if self == nil {
 		return false
 	}
 
 	// With a larger network, we select primary and backups reporters.
 	// Return true if node is the primary reporter.
-	pri := primaryIndex(height, committeeSize)
-	if committee.Members[pri].Address == fd.address {
+	primary := primaryIndex(height, committeeSize)
+	if committee.Members[primary].Address == fd.address {
 		return true
 	}
 
 	// If the client is not the primary reporter, check if they are backup reporters.
 	total := new(big.Int).SetUint64(committeeSize)
 	f := bft.F(total).Uint64()
-	startIdx := pri + 1
-	endIdx := pri + f
-	valIdx := currClient.Index
+	startIdx := primary + 1
+	endIdx := primary + f
+	valIdx := self.Index
 
+	// No wrapping happens,
 	if endIdx < committeeSize {
 		return valIdx >= startIdx && valIdx <= endIdx
 	}
 
+	// Wrapping happens, the 1st backup should rotate to the 1st member of committee
 	if startIdx == committeeSize {
 		endIdx = endIdx % committeeSize
 		return valIdx >= 0 && valIdx <= endIdx
 	}
 
+	// Wrapping happens, some of the backup rotate to the head of committee.
 	wrappedEndIdx := endIdx % committeeSize
-	startIdx = (pri + 1) % committeeSize
+	startIdx = (primary + 1) % committeeSize
 	return (valIdx >= startIdx && valIdx < committeeSize) || (valIdx >= 0 && valIdx <= wrappedEndIdx)
 }
 
