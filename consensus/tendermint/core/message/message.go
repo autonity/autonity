@@ -462,6 +462,9 @@ func (v *vote) SignerKey() blst.PublicKey {
 		panic("Trying to access signer key on not preverified message")
 	}
 	v.signerKeyOnce.Do(func() {
+		if v.base.signerKey != nil {
+			return
+		}
 		keys := make([]blst.PublicKey, 0, v.signers.Len())
 		it := v.signers.NewIterator()
 		for it.Next() {
@@ -936,6 +939,7 @@ func NewFakePrevote(f Fake) *Prevote {
 				height:         f.FakeHeight,
 				signatureInput: f.FakeSignatureInput,
 				signature:      f.FakeSignature,
+				signerKey:      f.FakeSignerKey,
 				payload:        f.FakePayload,
 				hash:           f.FakeHash,
 				preverified:    true,
@@ -943,10 +947,6 @@ func NewFakePrevote(f Fake) *Prevote {
 			},
 		},
 	}
-	if f.FakeSignerKey != nil {
-		prevote.SignerKey() // executes the one time real signer key computation
-	}
-	prevote.signerKey = f.FakeSignerKey
 	return prevote
 }
 
@@ -960,17 +960,13 @@ func NewFakePrecommit(f Fake) *Precommit {
 				height:         f.FakeHeight,
 				signatureInput: f.FakeSignatureInput,
 				signature:      f.FakeSignature,
+				signerKey:      f.FakeSignerKey,
 				payload:        f.FakePayload,
 				hash:           f.FakeHash,
-				signerKey:      f.FakeSignerKey,
 				preverified:    true,
 				verified:       true,
 			},
 		},
 	}
-	if f.FakeSignerKey != nil {
-		precommit.SignerKey() // executes the one time real signer key computation
-	}
-	precommit.signerKey = f.FakeSignerKey
 	return precommit
 }
