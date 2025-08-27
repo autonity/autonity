@@ -497,12 +497,12 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 
 	a.saveMessage(voteEvent)
 
-	quorum := bft.Quorum(committee.TotalVotingPower())
 	if round > a.core.Round() {
 		a.processFutureRound(committee, voteEvent.Message)
 		return
 	}
 
+	quorum := bft.Quorum(committee.TotalVotingPower())
 	//// check if we reached quorum voting power on a specific value
 	votingPowerReceived := a.signerSetCache.presentPowerForValue(height, round, value, code, stepReceived)
 	if votingPowerReceived.Cmp(quorum) >= 0 {
@@ -541,6 +541,7 @@ func (a *aggregator) processFutureRound(committee *types.Committee, msg message.
 		}
 	}
 }
+
 func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	start := time.Now()
 	msg := event.Message
