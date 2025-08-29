@@ -13,7 +13,7 @@ import (
 )
 
 func TestGetCommittee(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine, _ := newBlockChain(1)
 	want := chain.Genesis().Header().Epoch.Committee
 	bn := rpc.BlockNumber(0)
 	api := &API{
@@ -28,7 +28,7 @@ func TestGetCommittee(t *testing.T) {
 func TestGetCommitteeAtHash(t *testing.T) {
 	t.Run("unknown block given, error returned", func(t *testing.T) {
 		hash := common.HexToHash("0x0123456789")
-		chain, engine := newBlockChain(1)
+		chain, engine, _ := newBlockChain(1)
 		api := &API{
 			chain:      chain,
 			tendermint: engine,
@@ -40,7 +40,7 @@ func TestGetCommitteeAtHash(t *testing.T) {
 	})
 
 	t.Run("valid block given, committee returned", func(t *testing.T) {
-		chain, engine := newBlockChain(1)
+		chain, engine, _ := newBlockChain(1)
 		api := &API{
 			chain:      chain,
 			tendermint: engine,
@@ -55,7 +55,7 @@ func TestGetCommitteeAtHash(t *testing.T) {
 }
 
 func TestAPIGetContractABI(t *testing.T) {
-	_, engine := newBlockChain(1)
+	_, engine, _ := newBlockChain(1)
 	api := &API{
 		tendermint: engine,
 	}
@@ -65,7 +65,7 @@ func TestAPIGetContractABI(t *testing.T) {
 }
 
 func TestAPIGetContractAddress(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine, _ := newBlockChain(1)
 	block, err := makeBlock(chain, engine, chain.Genesis())
 	assert.Nil(t, err)
 	_, err = chain.InsertChain(types.Blocks{block})

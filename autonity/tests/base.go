@@ -240,13 +240,29 @@ func (r *Runner) deployContract(
 	return contractAddress, gas - leftOverGas, &contract{contractAddress, contractAbi, r}, out, err
 }
 
+func makeCommitteeFromTestKeys() *types.Committee {
+	members := make([]types.CommitteeMember, len(params.TestConsensusKeys))
+	for i, key := range params.TestConsensusKeys {
+		privateKey, _ := blst.SecretKeyFromHex(key)
+		member := types.CommitteeMember{
+			Index:        uint64(i), //nolint:gosec
+			VotingPower:  common.Big1,
+			ConsensusKey: privateKey.PublicKey(),
+		}
+		members[i] = member
+	}
+	return &types.Committee{Members: members}
+}
+
 // generates an activity proof signed by all committee members, `absentees` excluded
 // NOTE: if additional validators whose key is not in params.TestConsensusKey are registered in the tests,
 // then this func needs to be modified to add their signatures as well.
 func activityProof(committee []IAutonityValidator, headerSeal common.Hash, absentees map[common.Address]struct{}) *types.AggregateSignature {
 	var signatures []blst.Signature //nolint
-	signers := types.NewSigners(len(committee))
+	consensusCommittee := makeCommitteeFromTestKeys()
+	signers := types.NewSigners(consensusCommittee)
 	numSigners := 0
+
 	for _, keyHex := range params.TestConsensusKeys {
 		// deserialize key
 		key, err := blst.SecretKeyFromHex(keyHex)
@@ -271,10 +287,7 @@ func activityProof(committee []IAutonityValidator, headerSeal common.Hash, absen
 		}
 		signatures = append(signatures, key.Sign(headerSeal[:]))
 
-		signers.AddSigner(&types.CommitteeMember{
-			Index:       uint64(index), //nolint:gosec
-			VotingPower: common.Big1,
-		})
+		signers.AddSigner(uint64(index)) //nolint
 		numSigners++
 	}
 	// if there are no signers, return an empty proof
@@ -670,7 +683,8 @@ func NewAccusationEvent(height uint64, value common.Hash, reporter common.Addres
 	signer := func(hash common.Hash) blst.Signature {
 		return offenderConsensusKey.Sign(hash[:])
 	}
-	prevote := message.NewPrevote(0, height, value, signer, &cm, len(params.TestNodeKeys))
+	committee := makeCommitteeFromTestKeys()
+	prevote := message.NewPrevote(0, height, value, signer, &cm, committee)
 
 	p := &accountability.Proof{
 		Type:          autonity.Accusation,

@@ -58,11 +58,11 @@ func (s *PN) Broadcast(msg message.Msg) {
 		s.BroadcastAll(msg)
 		return
 	}
-	self, csize := selfAndCsize(s.Core, msg.H())
+	self, committee := selfAndCommittee(s.Core, msg.H())
 	nPR := e2e.NextProposeRound(msg.R(), s.Core)
 	s.Logger().Info("Simulating PN fault", "h", s.Core.Height(), "r", s.Core.Round(), "npr", nPR)
 	// simulate a preCommit msg that locked a value at previous round than next proposing round.
-	msgEvidence := message.NewPrecommit(nPR-1, msg.H(), e2e.NonNilValue, s.Backend().Sign, self, csize)
+	msgEvidence := message.NewPrecommit(nPR-1, msg.H(), e2e.NonNilValue, s.Backend().Sign, self, committee)
 	printMessage(msgEvidence)
 	// simulate a proposal that propose a new value with -1 as the valid round.
 	//msgPN := message.NewPropose(proposal.ProposalBlock, decodedMsg.H(), nPR, -1, s.Core)
@@ -95,8 +95,8 @@ func (s *PO) Broadcast(msg message.Msg) {
 	vR := nPR - 1
 	s.Logger().Info("Simulating PO fault", "h", s.Core.Height(), "r", s.Core.Round(), "npr", nPR)
 	// simulate a preCommit proposal that locked a value at vR.
-	self, csize := selfAndCsize(s.Core, proposal.H())
-	msgEvidence := message.NewPrecommit(vR, proposal.H(), e2e.NonNilValue, s.Backend().Sign, self, csize)
+	self, committee := selfAndCommittee(s.Core, proposal.H())
+	msgEvidence := message.NewPrecommit(vR, proposal.H(), e2e.NonNilValue, s.Backend().Sign, self, committee)
 	printMessage(msgEvidence)
 	// simulate a proposal that node propose for an old value which it is not the one it locked.
 	msgPO := message.NewPropose(nPR, proposal.H(), vR, proposal.Block(), s.Core.Backend().Sign, self)
@@ -133,19 +133,19 @@ func (s *PVN) Broadcast(msg message.Msg) {
 	newHeader := proposal.Block().Header()
 	newHeader.Time = 1337
 	newBlock := types.NewBlockWithHeader(newHeader)
-	self, csize := selfAndCsize(s.Core, proposal.H())
+	self, committee := selfAndCommittee(s.Core, proposal.H())
 	newProposal := message.NewPropose(nPR, proposal.H(), -1, newBlock, s.Core.Backend().Sign, self)
 	fmt.Println("BYZ PROPOSAL HASH", "old", proposal.Value(), "new", newProposal.Value())
 	s.BroadcastAll(newProposal)
 	// simulate a preCommit at round r, for value v1.
-	precommit := message.NewPrecommit(proposal.R(), proposal.H(), proposal.Block().Hash(), s.Backend().Sign, self, csize)
+	precommit := message.NewPrecommit(proposal.R(), proposal.H(), proposal.Block().Hash(), s.Backend().Sign, self, committee)
 	// simulate nil precommits until nPr to get contiguous precommits
 	for i := proposal.R() + 1; i < nPR; i++ {
-		nilPrecommit := message.NewPrecommit(i, proposal.H(), common.NilValue, s.Backend().Sign, self, csize) //nolint
+		nilPrecommit := message.NewPrecommit(i, proposal.H(), common.NilValue, s.Backend().Sign, self, committee) //nolint
 		s.BroadcastAll(nilPrecommit)
 	}
 	// simulate a preVote at round nPR, for value v2, this preVote for new value break PVN.
-	evidence := message.NewPrecommit(nPR, proposal.H(), newProposal.Value(), s.Backend().Sign, self, csize)
+	evidence := message.NewPrecommit(nPR, proposal.H(), newProposal.Value(), s.Backend().Sign, self, committee)
 	s.BroadcastAll(precommit)
 	s.BroadcastAll(evidence)
 	s.done = true
@@ -176,7 +176,7 @@ func (s *PVO1) Broadcast(msg message.Msg) {
 	// set a valid round.
 	validRound := round - 5
 
-	self, csize := selfAndCsize(s.Core, msg.H())
+	self, committee := selfAndCommittee(s.Core, msg.H())
 	newProposal := message.NewPropose(round, msg.H(), validRound, proposal.Block(), s.Backend().Sign, self)
 	s.BroadcastAll(newProposal)
 
@@ -186,10 +186,10 @@ func (s *PVO1) Broadcast(msg message.Msg) {
 		if r == round-1 {
 			val = e2e.NonNilValue
 		}
-		precommit := message.NewPrecommit(r, newProposal.H(), val, s.Backend().Sign, self, csize)
+		precommit := message.NewPrecommit(r, newProposal.H(), val, s.Backend().Sign, self, committee)
 		s.BroadcastAll(precommit)
 	}
-	evidence := message.NewPrecommit(round, newProposal.H(), newProposal.Value(), s.Backend().Sign, self, csize)
+	evidence := message.NewPrecommit(round, newProposal.H(), newProposal.Value(), s.Backend().Sign, self, committee)
 	s.BroadcastAll(evidence)
 	s.done = true
 }
@@ -212,7 +212,7 @@ func (s *InvalidProposal) Broadcast(msg message.Msg) {
 	// a proposal with invalid header of missing metas.
 	header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}
 	block := types.NewBlockWithHeader(header)
-	self, _ := selfAndCsize(s.Core, msg.H())
+	self, _ := selfAndCommittee(s.Core, msg.H())
 	newProposal := message.NewPropose(nextPR, msg.H(), proposal.ValidRound(), block, s.Backend().Sign, self)
 
 	s.Logger().Info("Misbehaviour of invalid proposal rule is simulated.")
@@ -237,7 +237,7 @@ func (s *InvalidProposer) Broadcast(msg message.Msg) {
 	// current node is not the proposer of current round, propose a proposal.
 	header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}
 	block := types.NewBlockWithHeader(header)
-	self, _ := selfAndCsize(s.Core, msg.H())
+	self, _ := selfAndCommittee(s.Core, msg.H())
 	msgP := message.NewPropose(msg.R(), msg.H(), -1, block, s.Backend().Sign, self)
 
 	s.Logger().Info("Invalid proposer simulation")
@@ -260,8 +260,8 @@ func (s *Equivocation) Broadcast(msg message.Msg) {
 	}
 	// let proposer of the round send equivocated preVote.
 	if s.IsProposer() {
-		self, csize := selfAndCsize(s.Core, msg.H())
-		msgEq := message.NewPrevote(msg.R(), msg.H(), e2e.NonNilValue, s.Backend().Sign, self, csize)
+		self, committee := selfAndCommittee(s.Core, msg.H())
+		msgEq := message.NewPrevote(msg.R(), msg.H(), e2e.NonNilValue, s.Backend().Sign, self, committee)
 		s.Logger().Info("Equivocation simulation")
 		s.BroadcastAll(msgEq)
 	}

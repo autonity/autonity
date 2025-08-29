@@ -25,7 +25,7 @@ import (
 
 func TestUnhandledMsgs(t *testing.T) {
 	t.Run("core not running, unhandled messages are saved", func(t *testing.T) {
-		blockchain, backend := newBlockChain(1)
+		blockchain, backend, _ := newBlockChain(1)
 		engine := blockchain.Engine().(consensus.BFT)
 
 		ctrl := gomock.NewController(t)
@@ -87,7 +87,7 @@ func TestUnhandledMsgs(t *testing.T) {
 		mc := interfaces.NewMockEventDispatcher(ctrl)
 
 		afdDispatchChan := make(chan events.MessageEventer, ringCapacity)
-		blockchain, backend := newBlockChain(1)
+		blockchain, backend, _ := newBlockChain(1)
 
 		backend.afdDispatchCh = afdDispatchChan
 		backend.coreEventDispatcher = mc
@@ -100,7 +100,7 @@ func TestUnhandledMsgs(t *testing.T) {
 
 		for i := int64(0); i < ringCapacity; i++ {
 			counter := big.NewInt(i).Bytes()
-			vote := message.NewPrevote(1, 1, common.BigToHash(big.NewInt(i)), backend.Sign, &blockchain.Genesis().Header().Epoch.Committee.Members[0], 1)
+			vote := message.NewPrevote(1, 1, common.BigToHash(big.NewInt(i)), backend.Sign, &blockchain.Genesis().Header().Epoch.Committee.Members[0], blockchain.Genesis().Header().Epoch.Committee)
 			msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(vote.Payload())), Payload: bytes.NewReader(vote.Payload())} // #nosec
 			addr := common.BytesToAddress(append(counter, []byte("addr")...))
 			if result, err := backend.HandleMsg(addr, msg, nil); !result || err != nil {

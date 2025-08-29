@@ -94,7 +94,6 @@ func TestHandleProposal(t *testing.T) {
 	round := int64(3)
 	signer := makeSigner(keys[addr].consensus)
 	signerMember := &committeeSet.Committee().Members[0]
-	csize := committeeSet.Committee().Len()
 
 	t.Run("2 proposals received, only first one is accepted", func(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{
@@ -382,7 +381,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock.EXPECT().Post(gomock.Any()).MaxTimes(3)
 		for i := 0; i < 3; i++ {
 			val, _ := committeeSet.MemberByIndex(i)
-			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address].consensus), val, csize)
+			precommitMsg := message.NewPrecommit(2, 1, proposalBlock.Hash(), makeSigner(keys[val.Address].consensus), val, committeeSet.Committee())
 			err = c.precommiter.HandlePrecommit(context.Background(), precommitMsg)
 			require.NoError(t, err)
 		}
@@ -413,7 +412,7 @@ func TestHandleProposal(t *testing.T) {
 		curRoundMessages := messages.GetOrCreate(round)
 		logger := log.New("backend", "test", "id", 0)
 		proposal := message.NewPropose(round, height, -1, block, signer, signerMember)
-		prevote := message.NewPrevote(round, height, block.Hash(), signer, signerMember, csize)
+		prevote := message.NewPrevote(round, height, block.Hash(), signer, signerMember, committeeSet.Committee())
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().VerifyProposal(proposal.Block())
 		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
@@ -460,7 +459,7 @@ func TestHandleProposal(t *testing.T) {
 
 		for i := 0; i < 3; i++ {
 			val, _ := committeeSet.MemberByIndex(i)
-			prevote := message.NewPrevote(round-1, height, proposal.Block().Hash(), makeSigner(keys[val.Address].consensus), val, csize)
+			prevote := message.NewPrevote(round-1, height, proposal.Block().Hash(), makeSigner(keys[val.Address].consensus), val, committeeSet.Committee())
 			messages.GetOrCreate(round - 1).AddPrevote(prevote)
 		}
 
@@ -471,7 +470,7 @@ func TestHandleProposal(t *testing.T) {
 		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().ProposalVerified(proposal.Block()).Do(func(i any) { wg.Done() })
 		backendMock.EXPECT().IsProposalStateCached(proposal.Block().Hash()).Return(false)
-		backendMock.EXPECT().Broadcast(gomock.Any(), message.NewPrevote(round, height, proposal.Block().Hash(), signer, signerMember, csize))
+		backendMock.EXPECT().Broadcast(gomock.Any(), message.NewPrevote(round, height, proposal.Block().Hash(), signer, signerMember, committeeSet.Committee()))
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(signer)
 
 		c := &Core{

@@ -167,8 +167,8 @@ func prepareRoundMsgs(c *Core, r int64, h *big.Int) (*message.Propose, common.Ad
 
 	lastHeader := &types.Header{Number: big.NewInt(h.Int64()).Sub(h, common.Big1)}
 	proposal := generateBlockProposal(r, h, 0, false, makeSigner(testConsensusKey), testCommitteeMember, lastHeader)
-	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey), testCommitteeMember, 1)
-	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey), testCommitteeMember, 1)
+	prevoteMsg := message.NewPrevote(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey), testCommitteeMember, &types.Committee{Members: []types.CommitteeMember{*testCommitteeMember}})
+	precommitMsg := message.NewPrecommit(r, h.Uint64(), proposal.Block().Hash(), makeSigner(testConsensusKey), testCommitteeMember, &types.Committee{Members: []types.CommitteeMember{*testCommitteeMember}})
 	c.messages.GetOrCreate(r).SetProposal(proposal, true)
 	c.messages.GetOrCreate(r).AddPrevote(prevoteMsg)
 	c.messages.GetOrCreate(r).AddPrecommit(precommitMsg)

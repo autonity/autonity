@@ -28,7 +28,7 @@ type duplicateProposalSender struct {
 
 // SendProposal overrides core.sendProposal and send multiple proposals
 func (c *duplicateProposalSender) SendProposal(_ context.Context, p *types.Block) {
-	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
+	self, _ := selfAndCommittee(c.Core, c.Height().Uint64())
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
 	proposal2 := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound()-1, p, c.Backend().Sign, self)
 
@@ -78,7 +78,7 @@ func (c *malProposalSender) Broadcast(msg message.Msg) {
 	header := &types.Header{Number: new(big.Int).SetUint64(height)}
 	block := types.NewBlockWithHeader(header)
 	// create a new proposal message
-	self, _ := selfAndCsize(c.Core, height)
+	self, _ := selfAndCommittee(c.Core, height)
 	propose := message.NewPropose(round, height, -1, block, c.Backend().Sign, self)
 	c.BroadcastAll(propose)
 }
@@ -164,7 +164,7 @@ func (c *partialProposalSender) SendProposal(_ context.Context, p *types.Block) 
 		fakeTransactions = append(fakeTransactions, &fakeTransaction)
 	}
 	p.SetTransactions(fakeTransactions)
-	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
+	self, _ := selfAndCommittee(c.Core, c.Height().Uint64())
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())
@@ -225,7 +225,7 @@ func (c *invalidBlockProposer) SendProposal(_ context.Context, p *types.Block) {
 	var num big.Int
 	f.Fuzz(&num)
 	p.SetHeaderNumber(&num)
-	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
+	self, _ := selfAndCommittee(c.Core, c.Height().Uint64())
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
 
 	c.SetSentProposal(true)

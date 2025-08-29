@@ -25,7 +25,7 @@ type preVoteSpammer struct {
 
 func (c *preVoteSpammer) SendPrevote(_ context.Context, isNil bool) {
 	var prevote *message.Prevote
-	self, csize := selfAndCsize(c.Core, c.Height().Uint64())
+	self, csize := selfAndCommittee(c.Core, c.Height().Uint64())
 	if isNil {
 		prevote = message.NewPrevote(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign, self, csize)
 	} else {
@@ -72,7 +72,7 @@ func newPrecommitSpammer(c interfaces.Core) interfaces.Precommiter {
 
 func (c *precommitSpammer) SendPrecommit(_ context.Context, isNil bool) {
 	var precommit *message.Precommit
-	self, csize := selfAndCsize(c.Core, c.Height().Uint64())
+	self, csize := selfAndCommittee(c.Core, c.Height().Uint64())
 	if isNil {
 		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign, self, csize)
 	} else {
@@ -116,7 +116,7 @@ func newProposalSpammer(c interfaces.Core) interfaces.Proposer {
 }
 
 func (c *proposalSpammer) SendProposal(_ context.Context, p *types.Block) {
-	self, _ := selfAndCsize(c.Core, c.Height().Uint64())
+	self, _ := selfAndCommittee(c.Core, c.Height().Uint64())
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())

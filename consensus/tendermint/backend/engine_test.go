@@ -33,7 +33,7 @@ import (
 )
 
 func TestSealCommitted(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine, _ := newBlockChain(1)
 	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 	require.NoError(t, err)
 	expectedBlock, err := engine.AddSeal(block)
@@ -51,7 +51,7 @@ func TestSealCommitted(t *testing.T) {
 
 func TestVerifyHeader(t *testing.T) {
 	t.Run("miscellaneous cases", func(t *testing.T) {
-		chain, engine := newBlockChain(1)
+		chain, engine, _ := newBlockChain(1)
 
 		// errEmptyQuorumCertificate case
 		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -128,8 +128,9 @@ func TestVerifyHeader(t *testing.T) {
 		t.Log(err.Error())
 	})
 	t.Run("activity proof related cases", func(t *testing.T) {
-		chain, engine := newBlockChain(1)
+		chain, engine, _ := newBlockChain(1)
 
+		committee := chain.Genesis().Header().Epoch.Committee
 		// proof should be empty at the first delta block of the epoch
 		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 		require.NoError(t, err)
@@ -143,7 +144,7 @@ func TestVerifyHeader(t *testing.T) {
 		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
 		require.NoError(t, err)
 		header := block.Header()
-		header.ActivityProof = types.NewAggregateSignature(testSignature.(*blst.BlsSignature), types.NewSigners(1))
+		header.ActivityProof = types.NewAggregateSignature(testSignature.(*blst.BlsSignature), types.NewSigners(committee))
 		modifiedBlock := types.NewBlockWithHeader(header)
 		sealedBlock, err = engine.AddSeal(modifiedBlock)
 		require.NoError(t, err)
@@ -185,7 +186,8 @@ func TestVerifyHeader(t *testing.T) {
 		require.NoError(t, err)
 		header = block.Header()
 		header.ActivityProof = chain.GetHeaderByNumber(targetHeight).QuorumCertificate.Copy()
-		header.ActivityProof.Signers = types.NewSigners(10)
+		cm, _ := chain.CommitteeByHeight(targetHeight)
+		header.ActivityProof.Signers = types.NewSigners(cm)
 		modifiedBlock = types.NewBlockWithHeader(header)
 		sealedBlock, err = engine.AddSeal(modifiedBlock)
 		require.NoError(t, err)
@@ -250,10 +252,11 @@ func TestVerifyHeader(t *testing.T) {
 		// insert only signature from validator[1] in activity proof
 		targetHeight := engine.core.Height().Uint64() - delta
 		targetHeader := chain.GetHeaderByNumber(targetHeight)
+		cm, _ := chain.CommitteeByHeight(targetHeight)
 		headerSeal := message.PrepareCommittedSeal(targetHeader.Hash(), int64(targetHeader.Round), targetHeader.Number)
 		header.ActivityProof = new(types.AggregateSignature)
 		header.ActivityProof.Signature = consensusKeys[1].Sign(headerSeal[:]).(*blst.BlsSignature)
-		header.ActivityProof.Signers = types.NewSigners(2)
+		header.ActivityProof.Signers = types.NewSigners(cm)
 		header.ActivityProof.Signers.Bitmap.Set(1)
 		header.ActivityProofRound = targetHeader.Round
 		modifiedBlock := types.NewBlockWithHeader(header)
@@ -275,7 +278,7 @@ func addQuorumCertificate(chain *core.BlockChain, engine *Backend, b *types.Bloc
 	self := &info.Committee.Members[0]
 
 	header := b.Header()
-	precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), engine.Sign, self, 1)
+	precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), engine.Sign, self, info.Committee)
 	header.QuorumCertificate = types.NewAggregateSignature(precommit.Signature().(*blst.BlsSignature), precommit.Signers())
 	blockWithCertificate := b.WithSeal(header) // improper use, we use the WithSeal function to substitute the header with the one with quorumCertificate set
 	return blockWithCertificate, precommit
@@ -298,7 +301,7 @@ func insertBlock(t *testing.T, chain *core.BlockChain, engine *Backend, b *types
 
 // The logic of this needs to change with respect of Autonity contact
 func TestVerifyHeaders(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine, _ := newBlockChain(1)
 
 	// success case
 	var headers []*types.Header
@@ -358,7 +361,7 @@ OUT1:
 
 // The logic of this needs to change with respect of Autonity contact
 func TestVerifyHeadersAbortValidation(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine, _ := newBlockChain(1)
 
 	// success case
 	var headers []*types.Header
@@ -423,7 +426,7 @@ OUT2:
 
 // The logic of this needs to change with respect of Autonity contact
 func TestVerifyErrorHeaders(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine, _ := newBlockChain(1)
 
 	epochPeriodBig, errFetch := chain.EpochPeriodByHeight(0)
 	require.NoError(t, errFetch)
@@ -656,7 +659,7 @@ func TestStart(t *testing.T) {
 	t.Run("engine is not running, no errors", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		chain, _ := newBlockChain(1)
+		chain, _, _ := newBlockChain(1)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
@@ -704,7 +707,7 @@ func TestStart(t *testing.T) {
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(1)
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 
-		chain, _ := newBlockChain(1)
+		chain, _, _ := newBlockChain(1)
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 		mockRouter := interfaces.NewMockRouter(ctrl)
@@ -735,7 +738,7 @@ func TestStart(t *testing.T) {
 	t.Run("engine is not running, started from multiple goroutines", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		chain, _ := newBlockChain(1)
+		chain, _, _ := newBlockChain(1)
 		ctx := context.Background()
 		tendermintC := interfaces.NewMockCore(ctrl)
 		tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).AnyTimes()
@@ -803,7 +806,7 @@ func TestMultipleRestart(t *testing.T) {
 	tendermintC.EXPECT().Start(gomock.Any(), gomock.Any()).MaxTimes(times)
 	tendermintC.EXPECT().Stop().MaxTimes(5)
 	tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
-	chain, _ := newBlockChain(1)
+	chain, _, _ := newBlockChain(1)
 	g := interfaces.NewMockGossiper(ctrl)
 	g.EXPECT().UpdateStopChannel(gomock.Any()).MaxTimes(5)
 	mockRouter := interfaces.NewMockRouter(ctrl)
@@ -881,7 +884,7 @@ func TestBackendSealHash(t *testing.T) {
 
 func TestAssembleProof(t *testing.T) {
 	t.Run("for the first delta blocks of the epoch, assembling should return empty proof", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend, _ := newBlockChain(1)
 
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
@@ -902,9 +905,10 @@ func TestAssembleProof(t *testing.T) {
 		require.Equal(t, err, nil)
 	})
 	t.Run("from block OmissionDelta+1 of the epoch, assembling should return a valid proof", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend, _ := newBlockChain(1)
 
-		self := &chain.Genesis().Header().Epoch.Committee.Members[0]
+		committee := chain.Genesis().Header().Epoch.Committee
+		self := &committee.Members[0]
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
 		delta := epoch.OmissionDelta.Uint64()
@@ -914,7 +918,7 @@ func TestAssembleProof(t *testing.T) {
 			header := chain.CurrentHeader()
 
 			// insert precommit in msgStore to be able to assemble proof later
-			precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), backend.Sign, self, 1)
+			precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), backend.Sign, self, committee)
 			backend.MsgStore.Save(precommit)
 		}
 
@@ -929,7 +933,7 @@ func TestAssembleProof(t *testing.T) {
 			header := chain.CurrentHeader()
 
 			// insert precommit in msgStore to be able to assemble proof later
-			precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), backend.Sign, self, 1)
+			precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), backend.Sign, self, committee)
 			backend.MsgStore.Save(precommit)
 		}
 
@@ -952,9 +956,10 @@ func TestAssembleProof(t *testing.T) {
 
 	})
 	t.Run("proof should be empty if we do not have quorum precommits to provide", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend, _ := newBlockChain(1)
 
-		self := &chain.Genesis().Header().Epoch.Committee.Members[0]
+		committee := chain.Genesis().Header().Epoch.Committee
+		self := &committee.Members[0]
 		epoch, err := chain.LatestEpoch()
 		require.NoError(t, err)
 		delta := epoch.OmissionDelta.Uint64()
@@ -964,11 +969,8 @@ func TestAssembleProof(t *testing.T) {
 			header := chain.CurrentHeader()
 
 			// add fake precommit with low voting power, to simulate not enough voting power to build activity proof
-			precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), backend.Sign, self, 1)
-			signers := precommit.Signers()
-			powers := make(map[int]*big.Int)
-			powers[0] = common.Big0
-			signers.AssignPower(powers, common.Big1)
+			committee.Members[0].VotingPower = new(big.Int).SetUint64(0)
+			precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), backend.Sign, self, committee)
 			precommitWithLowPower := message.NewFakePrecommit(message.Fake{
 				FakeCode:           message.PrecommitCode,
 				FakeRound:          uint64(precommit.R()),
