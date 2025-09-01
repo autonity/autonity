@@ -270,12 +270,12 @@ def run_test_case(case, COMMIT_HASH, job):
 
         if thd is not None:
             thd.join(timeout=300)
-
+    print("run test case in thread returns: ", exit_code)
     return exit_code
 
 
 if __name__ == "__main__":
-    exit_code = 1
+    exit_code = 0
     parser = argparse.ArgumentParser()
     parser.add_argument("autonity", help="Autonity WorkDir Path")
     parser.add_argument("-id", help='Test Case ID', type=int, required=True, default=0)
@@ -320,11 +320,13 @@ if __name__ == "__main__":
 
             # Wait for all tests to complete and check results
             for future in futures:
+                print("future return code: ", future.result())
                 if future.result() != 0:
                     exit_code = 1  # If any test fails, set exit code to 1
 
     except Exception as e:
         print("e2e testing failed: ", e)
+        exit_code = 1  # If any test fails, set exit code to 1
     finally:
         for job in JOB_IDS:
             clean_containers(job)
