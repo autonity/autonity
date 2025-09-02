@@ -65,10 +65,10 @@ class TestCase:
     def do_context_clean_up(self):
         # clean up scheduled events.
         self.scheduler.stop_scheduling_events()
-        # recover disasters simulated in the test bed.
-        self.start_recover_time = time.time()
-        self.end_chain_height_before_recover = self.get_chain_height()
-        self.recover()
+        # recover disasters simulated in the test bed is not longer required.
+        # self.start_recover_time = time.time()
+        # self.end_chain_height_before_recover = self.get_chain_height()
+        # self.recover()
 
     def tx_send(self):
         try:
@@ -219,7 +219,7 @@ class TestCase:
         return True
 
     def run(self):
-        """run the test case, and tear down the test case with network recovery."""
+        """run the test case in each isolated environment, recovery is not required anymore."""
         self.logger.debug("before running test case, thread: %d.", threading.active_count())
         self.start_chain_height = self.get_chain_height()
         self.logger.debug("start schedule events...")
@@ -231,11 +231,6 @@ class TestCase:
         if self.is_engine_state_expected() is not True:
             self.do_context_clean_up()
             return False
-        if self.is_block_in_consistent_state() is not True:
-            self.do_context_clean_up()
-            return False
-        # just trigger the recover without waiting for it since the chain lifecycle will be terminated for each test.
-        self.recover()
         self.scheduler.try_join()
         return True
 

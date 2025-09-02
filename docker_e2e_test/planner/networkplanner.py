@@ -2,6 +2,7 @@ import copy
 import json
 import utility
 import log
+import concurrent.futures
 from client.client import Client
 from conf import conf
 
@@ -199,22 +200,57 @@ class NetworkPlanner(object):
         self.logger.info("===== SETUP FINISHED =====")
 
     def deploy_all_nodes(self):
-        for client in self.clients:
-            client.deploy_client()
+        """
+        deploy all nodes concurrently and wait for the tasks to be finished
+        """
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(client.deploy_client) for client in self.clients]
+            concurrent.futures.wait(futures)
+            for future in futures:
+                if future.exception():
+                    self.logger.info("failed to deploy nodes %s", {future.exception()})
 
     def stop_all_nodes(self):
-        for client in self.clients:
-            client.stop_client()
+        """
+        stop all nodes concurrently, and wait for the tasks to be finished.
+        """
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(client.stop_client) for client in self.clients]
+            concurrent.futures.wait(futures)
+            for future in futures:
+                if future.exception():
+                    self.logger.info("failed to stop nodes %s", {future.exception()})
 
     def start_all_nodes(self):
-        for client in self.clients:
-            if client.start_client() is not True:
-                return False
-        return True
+        """
+        start all nodes concurrently, and wait for the tasks to be finished.
+        """
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(client.start_client) for client in self.clients]
+            concurrent.futures.wait(futures)
+
+            all_success = True
+            for future in futures:
+                try:
+                    result = future.result()
+                    if result is not True:
+                        all_success = False
+                except Exception as e:
+                    self.logger.info("fail to start nodes %s", e)
+                    all_success = False
+
+            return all_success
 
     def clean_all_nodes_data(self):
-        for client in self.clients:
-            client.clean_chain_data()
+        """
+        clean up all node data concurrently and wait for all the tasks to be finished.
+        """
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(client.clean_chain_data) for client in self.clients]
+            concurrent.futures.wait(futures)
+            for future in futures:
+                if future.exception():
+                    self.logger.info("fail to start nodes %s", {future.exception()})
 
     def re_genesis_network(self):
         self.stop_all_nodes()

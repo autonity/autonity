@@ -230,20 +230,6 @@ def prune_unused_docker_resources():
     prune_unused_network()
 
 
-def thread_func_copy_system_logs(container, job_id, path):
-    try:
-        print("***: start collecting logs from test engine container.")
-        with open(FAILED_TEST_LOGS.format(job_id), 'wb') as f:
-            bits, stat = container.get_archive(path)
-            print(stat)
-            for chunk in bits:
-                f.write(chunk)
-    except Exception as e:
-        print("***: collecting system logs failed. ", e)
-    finally:
-        print("***: log was collected at: ", FAILED_TEST_LOGS.format(job_id))
-
-
 def receive_signal(signal_number, frame):
     print('Signal Received: ', signal_number)
     for job in JOB_IDS:
@@ -258,18 +244,14 @@ def run_test_case(case, COMMIT_HASH, job):
     container = start_test_engine_container(COMMIT_HASH, job, case, ",".join(ips))
 
     if container is not None:
-        thd = None
+        # print logs of the test engine into the std out thus the logs can be rendered from CI console.
         for line in container.logs(stdout=True, stderr=True, stream=True):
             print(line.decode())
-            if line == b"INFO - [TEST PASSED]\n":
-                exit_code = 0
-            if line == b"INFO - [TEST FAILED]\n":
-                exit_code = 1
-                thd = threading.Thread(target=thread_func_copy_system_logs, args=(container, job, SYSTEM_LOG_PATH))
-                thd.start()
 
-        if thd is not None:
-            thd.join(timeout=300)
+        # get the exit code of the test result, it does not block or rise any error if the container is already stopped.
+        wait_result = container.wait()
+        exit_code = wait_result.get('StatusCode', 1)
+
     print("run test case in thread returns: ", exit_code)
     return exit_code
 
