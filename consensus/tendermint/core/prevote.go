@@ -38,7 +38,7 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 		c.logger.Error("Validator is no longer in current committee", "err", err, "validator", c.address.String())
 		return
 	}
-	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, c.CommitteeSet().Committee().Len())
+	prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), value, c.backend.Sign, self, c.CommitteeSet().Committee())
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote)
 	c.sentPrevote = true
 	c.Broadcaster().Broadcast(prevote)

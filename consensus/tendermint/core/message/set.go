@@ -48,9 +48,10 @@ func (s *Set) Add(vote Vote) bool {
 	}
 
 	// update total power and power for value
-	for index, power := range vote.Signers().Powers() {
-		signerContributed := s.totalPower.Set(index, power)
-		signerContributedToValue := s.powers[value].Set(index, power)
+	it := vote.Signers().NewIterator()
+	for it.Next() {
+		signerContributed := s.totalPower.Set(it.Index(), vote.Signers().PowerByIndex(it.Index()))
+		signerContributedToValue := s.powers[value].Set(it.Index(), vote.Signers().PowerByIndex(it.Index()))
 		voteContributed = voteContributed || signerContributed || signerContributedToValue
 	}
 

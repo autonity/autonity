@@ -983,6 +983,13 @@ func (srv *Server) postHandshakeChecks(peers map[enode.ID]*Peer, inboundCount in
 	}
 }
 
+// IsSuspended checks if a peer is currently suspended. However, Always call expire first to ensure
+// that the suspension list is up to date.
+func (srv *Server) IsSuspended(id string) bool {
+	return srv.suspendedForBlocks.contains(id) ||
+		srv.suspendedForTimespan.contains(id)
+}
+
 func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *conn) error {
 	// Drop connections with no matching protocols.
 	if len(srv.Protocols) > 0 && countMatchingProtocols(srv.Protocols, c.caps) == 0 {

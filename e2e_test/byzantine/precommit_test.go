@@ -24,7 +24,7 @@ type malPrecommitService struct {
 
 func (c *malPrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 	var precommit *message.Precommit
-	self, csize := selfAndCsize(c.Core, c.Height().Uint64())
+	self, csize := selfAndCommittee(c.Core, c.Height().Uint64())
 	if isNil {
 		precommit = message.NewPrecommit(c.Round(), c.Height().Uint64(), common.Hash{}, c.Backend().Sign, self, csize)
 	} else {

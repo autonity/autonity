@@ -14,9 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+
+	"github.com/autonity/autonity/consensus/ethash"
 
 	"github.com/autonity/autonity/accounts/abi/bind/backends"
 	"github.com/autonity/autonity/common"
@@ -53,9 +54,16 @@ var (
 		return signature
 	}
 	testCommitteeMember = &types.CommitteeMember{Address: testAddress, VotingPower: common.Big1, ConsensusKeyBytes: testKey.PublicKey().Marshal(), ConsensusKey: testKey.PublicKey(), Index: 0}
+	testCommittee       = newTestCommittee(testCommitteeMember)
 	testSignatureBytes  = common.Hex2Bytes("8ff38c5915e56029ace231f12e6911587fac4b5618077f3dfe8068138ff1dc7a7ea45a5e0d6a51747cc5f4d990c9d4de1242f4efa93d8165936bfe111f86aaafeea5eda0c38fa3dc2f854576dde63214d7438ea398e48072bc6a0c8e6c2830ef")
 	testSignature, _    = blst.SignatureFromBytes(testSignatureBytes)
 )
+
+func newTestCommittee(member *types.CommitteeMember) *types.Committee {
+	committee := new(types.Committee)
+	committee.Members = append(committee.Members, *member)
+	return committee
+}
 
 func committeeAndBlsKeys(committeeSize int) (*types.Committee, []blst.SecretKey) {
 	committee := new(types.Committee)
@@ -139,7 +147,7 @@ func BenchmarkGossip(b *testing.B) {
 	for i := 0; i < 1000; i++ {
 		b := [32]byte{}
 		rand.Read(b[:])
-		msg := message.NewPrevote(1, 1, b, testSigner, testCommitteeMember, 10)
+		msg := message.NewPrevote(1, 1, b, testSigner, testCommitteeMember, testCommittee)
 		msgs = append(msgs, msg)
 	}
 
@@ -187,7 +195,7 @@ func TestGossip(t *testing.T) {
 
 	csize := 5
 	committee, blsKeys := committeeAndBlsKeys(csize)
-	msg := message.NewPrevote(1, 1, common.Hash{}, makeSigner(blsKeys[0]), &committee.Members[0], 5)
+	msg := message.NewPrevote(1, 1, common.Hash{}, makeSigner(blsKeys[0]), &committee.Members[0], committee)
 
 	addresses := make([]common.Address, 0, committee.Len())
 	peers := make(map[common.Address]consensus.Peer)
@@ -235,7 +243,7 @@ func TestGossip(t *testing.T) {
 }
 
 func TestVerifyProposal(t *testing.T) {
-	blockchain, backend := newBlockChain(1)
+	blockchain, backend, _ := newBlockChain(1)
 	blocks := make([]*types.Block, 5)
 	committee, err := blockchain.CommitteeByHeight(0)
 	require.NoError(t, err)
@@ -267,9 +275,9 @@ func TestVerifyProposal(t *testing.T) {
 		// Append quorum certificate into extra-data
 		quorumCertificate := &types.AggregateSignature{
 			Signature: committedSeal.(*blst.BlsSignature),
-			Signers:   types.NewSigners(committee.Len()),
+			Signers:   types.NewSigners(committee),
 		}
-		quorumCertificate.Signers.AddSigner(&committee.Members[0])
+		quorumCertificate.Signers.AddSigner(0)
 		header := block.Header()
 		header.QuorumCertificate = quorumCertificate
 		block = block.WithSeal(header)
@@ -305,7 +313,7 @@ func TestHasBadProposal(t *testing.T) {
 }
 
 func TestSign(t *testing.T) {
-	_, b := newBlockChain(4)
+	_, b, _ := newBlockChain(4)
 	data := common.HexToHash("0x12345")
 	sig := b.Sign(data)
 
@@ -317,7 +325,7 @@ func TestSign(t *testing.T) {
 
 func TestCommit(t *testing.T) {
 	t.Run("Broadcaster is not set", func(t *testing.T) {
-		chain, backend := newBlockChain(4)
+		chain, backend, _ := newBlockChain(4)
 		committee, err := chain.CommitteeByHeight(0)
 		require.NoError(t, err)
 
@@ -325,10 +333,10 @@ func TestCommit(t *testing.T) {
 		backend.SetResultChan(commitCh)
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
-		quorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(4)}
-		quorumCertificate.Signers.AddSigner(&committee.Members[0])
+		quorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(committee)}
+		quorumCertificate.Signers.AddSigner(0)
 
-		chain, engine := newBlockChain(1)
+		chain, engine, _ := newBlockChain(1)
 		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
 		if err != nil {
 			t.Fatal(err)
@@ -355,7 +363,7 @@ func TestCommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		chain, engine := newBlockChain(1)
+		chain, engine, _ := newBlockChain(1)
 		committee, err := chain.CommitteeByHeight(0)
 		require.NoError(t, err)
 		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
@@ -383,8 +391,8 @@ func TestCommit(t *testing.T) {
 		b.SetEnqueuer(enqueuer)
 
 		// signature is not verified when committing, therefore we can just insert a bogus sig
-		quorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(1)}
-		quorumCertificate.Signers.AddSigner(&committee.Members[0])
+		quorumCertificate := &types.AggregateSignature{Signature: testSignature.(*blst.BlsSignature), Signers: types.NewSigners(committee)}
+		quorumCertificate.Signers.AddSigner(0)
 
 		err = b.Commit(newBlock, 0, quorumCertificate)
 		if err != nil {
@@ -414,7 +422,7 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 
 // Test get contract ABI, it should have the default abi before contract upgrade.
 func TestBackendGetContractABI(t *testing.T) {
-	chain, engine := newBlockChain(1)
+	chain, engine, _ := newBlockChain(1)
 	block, err := makeBlock(chain, engine, chain.Genesis())
 	if err != nil {
 		t.Fatal(err)
@@ -433,7 +441,7 @@ func TestBackendGetContractABI(t *testing.T) {
 // in this test, we can set n to 1, and it means we can process Istanbul and commit a
 // block by one node. Otherwise, if n is larger than 1, we have to generate
 // other fake events to process Istanbul.
-func newBlockChain(n int) (*core.BlockChain, *Backend) {
+func newBlockChain(n int) (*core.BlockChain, *Backend, []blst.SecretKey) {
 	genesis, nodeKeys, consensusKeys := getGenesisAndKeys(n)
 
 	memDB := rawdb.NewMemoryDatabase()
@@ -454,7 +462,7 @@ func newBlockChain(n int) (*core.BlockChain, *Backend) {
 		panic(err)
 	}
 
-	return blockchain, b
+	return blockchain, b, consensusKeys
 }
 
 func copyConfig(original *params.ChainConfig) *params.ChainConfig {

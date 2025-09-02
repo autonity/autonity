@@ -50,10 +50,10 @@ func TestMsgStore(t *testing.T) {
 	t.Run("save equivocation msgs in msg store", func(t *testing.T) {
 		ms := NewMsgStore()
 		ms.SetCommitteeProvider(cp)
-		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
+		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cp.committee)
 		ms.Save(preVoteNil)
 
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cp.committee)
 		ms.Save(preVoteNoneNil)
 		// check equivocated msg is also stored at msg store.
 		votes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
@@ -71,7 +71,7 @@ func TestMsgStore(t *testing.T) {
 		var prevotes []message.Vote
 		for _, member := range committee.Members {
 			m := member
-			preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(keys[member.Address].consensus), &m, cSize)
+			preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(keys[member.Address].consensus), &m, cp.committee)
 			prevotes = append(prevotes, preVoteNil)
 		}
 
@@ -100,7 +100,7 @@ func TestMsgStore(t *testing.T) {
 	t.Run("query a presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
 		ms.SetCommitteeProvider(cp)
-		preVote := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
+		preVote := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cp.committee)
 		ms.Save(preVote)
 
 		votes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
@@ -119,10 +119,10 @@ func TestMsgStore(t *testing.T) {
 	t.Run("query multiple presented preVote from msg store", func(t *testing.T) {
 		ms := NewMsgStore()
 		ms.SetCommitteeProvider(cp)
-		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
+		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cp.committee)
 		ms.Save(preVoteNil)
 
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee.Members[1], cSize)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee.Members[1], cp.committee)
 		ms.Save(preVoteNoneNil)
 
 		votes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
@@ -143,9 +143,9 @@ func TestMsgStore(t *testing.T) {
 	t.Run("delete msgs at a specific height", func(t *testing.T) {
 		ms := NewMsgStore()
 		ms.SetCommitteeProvider(cp)
-		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
+		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cp.committee)
 		ms.Save(preVoteNil)
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee.Members[1], cSize)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee.Members[1], cp.committee)
 		ms.Save(preVoteNoneNil)
 		ms.DeleteOlds(height + 1)
 		prevotes := ms.GetPrevotes(height, func(m *message.Prevote) bool {
@@ -158,10 +158,10 @@ func TestMsgStore(t *testing.T) {
 	t.Run("get equivocated votes", func(t *testing.T) {
 		ms := NewMsgStore()
 		ms.SetCommitteeProvider(cp)
-		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
+		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cp.committee)
 		ms.Save(preVoteNil)
 
-		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
+		preVoteNoneNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cp.committee)
 		ms.Save(preVoteNoneNil)
 
 		v := common.Hash{0x23}
@@ -183,18 +183,18 @@ func TestMsgStore(t *testing.T) {
 	t.Run("SearchQuorum correctly detects quorum of prevotes", func(t *testing.T) {
 		ms := NewMsgStore()
 		ms.SetCommitteeProvider(cp)
-		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
+		preVoteNil := message.NewPrevote(round, height, common.NilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cp.committee)
 		ms.Save(preVoteNil)
 
 		require.Equal(t, 0, len(ms.SearchQuorum(height, round, common.NilValue, common.Big1)))
 
-		preVoteNotNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cSize)
+		preVoteNotNil := message.NewPrevote(round, height, notNilValue, makeSigner(proposerKey), &committee.Members[proposerIdx], cp.committee)
 		ms.Save(preVoteNotNil)
 
 		require.Equal(t, 1, len(ms.SearchQuorum(height, round, common.NilValue, common.Big1)))
 		require.Equal(t, preVoteNotNil.Hash(), ms.SearchQuorum(height, round, common.NilValue, common.Big1)[0].Hash())
 
-		preVoteNotNil = message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee.Members[indexBob], cSize)
+		preVoteNotNil = message.NewPrevote(round, height, notNilValue, makeSigner(keyBob), &committee.Members[indexBob], cp.committee)
 		ms.Save(preVoteNotNil)
 
 		require.Equal(t, 2, len(ms.SearchQuorum(height, round, common.NilValue, common.Big1)))

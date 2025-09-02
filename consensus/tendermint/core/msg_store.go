@@ -332,8 +332,9 @@ func (ms *MsgStore) updatePrevotePower(rs *roundStore, msg *message.Prevote) {
 		rs.prevoteByValue[value] = append(rs.prevoteByValue[value], msg)
 	}
 
-	for index, power := range msg.Signers().Powers() {
-		targetPower.Set(index, power)
+	it := msg.Signers().NewIterator()
+	for it.Next() {
+		targetPower.Set(it.Index(), msg.Signers().PowerByIndex(it.Index()))
 	}
 }
 

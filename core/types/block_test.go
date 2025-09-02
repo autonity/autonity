@@ -23,6 +23,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/sha3"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/common/math"
@@ -30,8 +33,6 @@ import (
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/sha3"
 )
 
 // from bcValidBlockTest.json, "SimpleTx"
@@ -437,7 +438,7 @@ func TestQuorumCertificateDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
-	header = headerWithQuorumCertificate(&AggregateSignature{Signature: nil, Signers: NewSigners(10)})
+	header = headerWithQuorumCertificate(&AggregateSignature{Signature: nil, Signers: NewSigners(committee)})
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
 	headerDecoded = &Header{}
@@ -456,8 +457,8 @@ func TestQuorumCertificateDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
-	validQuorumCertificate := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewSigners(10)}
-	validQuorumCertificate.Signers.increment(0, common.Big1)
+	validQuorumCertificate := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewSigners(committee)}
+	validQuorumCertificate.Signers.increment(0)
 	header = headerWithQuorumCertificate(validQuorumCertificate)
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
@@ -471,11 +472,8 @@ func TestQuorumCertificateDeserialization(t *testing.T) {
 	require.Equal(t, validQuorumCertificate.Signers.Bitmap, headerDecoded.QuorumCertificate.Signers.Bitmap)
 	require.Equal(t, validQuorumCertificate.Signers.Coefficients, headerDecoded.QuorumCertificate.Signers.Coefficients)
 
-	err = headerDecoded.QuorumCertificate.Signers.Validate(10)
+	err = headerDecoded.QuorumCertificate.Signers.Validate(committee)
 	require.NoError(t, err)
-	powers := make(map[int]*big.Int)
-	powers[0] = big.NewInt(1)
-	headerDecoded.QuorumCertificate.Signers.AssignPower(powers, powers[0])
 	require.Equal(t, header, headerDecoded)
 }
 
@@ -535,7 +533,7 @@ func TestActivityProofDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
-	header = headerWithActivityProof(&AggregateSignature{Signature: nil, Signers: NewSigners(10)}, 0)
+	header = headerWithActivityProof(&AggregateSignature{Signature: nil, Signers: NewSigners(committee)}, 0)
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
 	headerDecoded = &Header{}
@@ -554,8 +552,8 @@ func TestActivityProofDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
-	validActivityProof := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewSigners(10)}
-	validActivityProof.Signers.increment(0, common.Big1)
+	validActivityProof := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewSigners(committee)}
+	validActivityProof.Signers.increment(0)
 	header = headerWithActivityProof(validActivityProof, 4)
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
@@ -570,11 +568,8 @@ func TestActivityProofDeserialization(t *testing.T) {
 	require.Equal(t, validActivityProof.Signers.Coefficients, headerDecoded.ActivityProof.Signers.Coefficients)
 	require.Equal(t, uint64(4), headerDecoded.ActivityProofRound)
 
-	err = headerDecoded.ActivityProof.Signers.Validate(10)
+	err = headerDecoded.ActivityProof.Signers.Validate(committee)
 	require.NoError(t, err)
-	powers := make(map[int]*big.Int)
-	powers[0] = big.NewInt(1)
-	headerDecoded.ActivityProof.Signers.AssignPower(powers, powers[0])
 	require.Equal(t, header.ActivityProof.Signers, headerDecoded.ActivityProof.Signers)
 	require.Equal(t, header, headerDecoded)
 }

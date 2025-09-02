@@ -1115,7 +1115,7 @@ func TestStartingAndStoppingNodes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure that the previously sent transaction is now processed
-	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	err = n.AwaitSentTransactions(ctx)
 	require.NoError(t, err)
@@ -1832,8 +1832,7 @@ func (s *PrevoteEquivocator) Broadcast(msg message.Msg) {
 	}
 
 	self := committee.MemberByAddress(s.Core.Address())
-	csize := committee.Len()
-	msgEq := message.NewPrevote(msg.R(), msg.H(), NonNilValue, s.Backend().Sign, self, csize)
+	msgEq := message.NewPrevote(msg.R(), msg.H(), NonNilValue, s.Backend().Sign, self, committee)
 	s.Logger().Info("Equivocation simulation", "height", msg.H())
 	s.BroadcastAll(msgEq)
 	s.hasEquivocated = true

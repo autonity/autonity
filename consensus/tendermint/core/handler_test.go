@@ -61,11 +61,11 @@ func TestHandleMessage(t *testing.T) {
 	senderKey := keysMap[sender.Address].consensus
 
 	createPrevote := func(round int64, height int64) message.Msg {
-		return message.NewPrevote(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey), sender, 4)
+		return message.NewPrevote(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey), sender, committeeSet.Committee())
 	}
 
 	createPrecommit := func(round int64, height int64) message.Msg {
-		return message.NewPrecommit(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey), sender, 4)
+		return message.NewPrecommit(round, uint64(height), common.BytesToHash([]byte{0x1}), makeSigner(senderKey), sender, committeeSet.Committee())
 	}
 
 	cases := []testCase{
@@ -241,7 +241,7 @@ func TestHandleFutureRound(t *testing.T) {
 	engine.SetDefaultHandlers()
 
 	// handling vote
-	vote := message.NewPrevote(currentRound+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender2.Address].consensus), sender2, 4)
+	vote := message.NewPrevote(currentRound+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender2.Address].consensus), sender2, committeeSet.Committee())
 	// future round messages are forwarded right away
 	backendMock.EXPECT().Gossip(gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(1) // called in a goroutine
 	engine.handleEvent(context.Background(), makeBogusMessageEvent(vote, false))

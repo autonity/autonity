@@ -154,9 +154,11 @@ func (s *RoundMessages) AddPrevote(prevote *Prevote) bool {
 	defer s.Unlock()
 	voteContributed := s.prevotes.Add(prevote)
 	// update round power cache
-	for index, power := range prevote.Signers().Powers() {
-		s.power.Set(index, power)
+	it := prevote.signers.NewIterator()
+	for it.Next() {
+		s.power.Set(it.Index(), prevote.signers.PowerByIndex(it.Index()))
 	}
+
 	return voteContributed
 }
 
@@ -174,8 +176,9 @@ func (s *RoundMessages) AddPrecommit(precommit *Precommit) bool {
 	defer s.Unlock()
 	voteContributed := s.precommits.Add(precommit)
 	// update round power cache
-	for index, power := range precommit.Signers().Powers() {
-		s.power.Set(index, power)
+	it := precommit.signers.NewIterator()
+	for it.Next() {
+		s.power.Set(it.Index(), precommit.Signers().PowerByIndex(it.Index()))
 	}
 	return voteContributed
 }

@@ -29,7 +29,7 @@ func setupMocks(backend *Backend, ctrl *gomock.Controller, t *testing.T) {
 	if err := backend.Close(); err != nil { // close engine to avoid race while updating the broadcaster
 		t.Fatalf("can't stop the engine")
 	}
-	member := backend.blockchain.Genesis().Header().Epoch.Committee.Members[0]
+	memberCommittee := backend.blockchain.Genesis().Header().Epoch.Committee
 	sender := consensus.NewMockPeer(ctrl)
 	committeeMember := consensus.NewMockPeer(ctrl)
 	broadcaster := consensus.NewMockBroadcaster(ctrl)
@@ -37,7 +37,10 @@ func setupMocks(backend *Backend, ctrl *gomock.Controller, t *testing.T) {
 	sender.EXPECT().Cache().Return(addressCache).AnyTimes()
 	committeeMember.EXPECT().Cache().Return(addressCache).AnyTimes()
 	broadcaster.EXPECT().FindPeer(testAddress).Return(sender, true).AnyTimes()
-	broadcaster.EXPECT().FindPeer(member.Address).Return(committeeMember, true).AnyTimes()
+	for _, member := range memberCommittee.Members {
+		broadcaster.EXPECT().FindPeer(member.Address).Return(committeeMember, true).AnyTimes()
+	}
+	broadcaster.EXPECT().FindPeers(gomock.Any()).AnyTimes()
 	committeeMember.EXPECT().SendRaw(gomock.Any(), gomock.Any()).AnyTimes()
 
 	backend.SetBroadcaster(broadcaster)
@@ -48,9 +51,9 @@ func setupMocks(backend *Backend, ctrl *gomock.Controller, t *testing.T) {
 }
 
 func TestTendermintMessage(t *testing.T) {
-	_, backend := newBlockChain(1)
+	_, backend, _ := newBlockChain(1)
 	// generate one msg
-	data := message.NewPrevote(1, 2, common.Hash{}, testSigner, testCommitteeMember, 1)
+	data := message.NewPrevote(1, 2, common.Hash{}, testSigner, testCommitteeMember, testCommittee)
 	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
 
 	ctrl := gomock.NewController(t)
@@ -159,7 +162,7 @@ func TestNewChainHead(t *testing.T) {
 		tendermintC.EXPECT().Height().Return(common.Big1).AnyTimes()
 		evDispathcer := interfaces.NewMockEventDispatcher(ctrl)
 		evDispathcer.EXPECT().Post(gomock.Any()).MaxTimes(1)
-		chain, _ := newBlockChain(1)
+		chain, _, _ := newBlockChain(1)
 		g := interfaces.NewMockGossiper(ctrl)
 		g.EXPECT().UpdateStopChannel(gomock.Any())
 		mockRouter := interfaces.NewMockRouter(ctrl)
@@ -197,12 +200,14 @@ func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 }
 
 func TestSignerJailed(t *testing.T) {
-	chain, backend := newBlockChain(1)
+	chain, backend, pkeys := newBlockChain(2)
 
-	member := chain.Genesis().Header().Epoch.Committee.Members[0]
+	member0 := chain.Genesis().Header().Epoch.Committee.Members[0]
+	member1 := chain.Genesis().Header().Epoch.Committee.Members[1]
+	com := chain.Genesis().Header().Epoch.Committee
 
 	// generate one msg
-	data := message.NewPrevote(0, 1, common.Hash{}, testSigner, &member, 1)
+	data := message.NewPrevote(0, 1, common.Hash{}, makeSigner(pkeys[0]), &member0, com)
 	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
 
 	ctrl := gomock.NewController(t)
@@ -210,33 +215,34 @@ func TestSignerJailed(t *testing.T) {
 	setupMocks(backend, ctrl, t)
 
 	backend.jailed.Lock()
-	backend.jailed.validators[member.Address] = 0
+	backend.jailed.validators[member0.Address] = 0
 	backend.jailed.Unlock()
 
 	errCh := make(chan error, 1)
 	_, err := backend.HandleMsg(testAddress, msg, errCh)
 	require.Equal(t, ErrJailed, err)
 
-	// same should happen for an aggregate containing a single jailed signer
-
-	data = message.NewPrevote(0, 1, common.Hash{0xca, 0xfe}, testSigner, &member, 2)
-	data.Signers().AddSigner(makeBogusMember(1))
+	// an aggregate containing Jailed and non-jailed validator should be processed successfully
+	p1 := message.NewPrevote(0, 1, common.Hash{0xca, 0xfe}, makeSigner(pkeys[0]), &member0, com)
+	p2 := message.NewPrevote(0, 1, common.Hash{0xca, 0xfe}, makeSigner(pkeys[1]), &member1, com)
+	data = message.AggregatePrevotes([]message.Vote{p1, p2})[0]
 	msg = p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
 	errCh = make(chan error, 1)
 	_, err = backend.HandleMsg(testAddress, msg, errCh)
-	require.Equal(t, ErrJailed, err)
+	require.Equal(t, nil, err)
 	require.NoError(t, backend.Close())
 }
 
 func TestFutureHeightMessage(t *testing.T) {
 	t.Run("received future height message is buffered", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend, _ := newBlockChain(1)
 
 		member := chain.Genesis().Header().Epoch.Committee.Members[0]
+		com := chain.Genesis().Header().Epoch.Committee
 
 		// generate one msg
 		futureHeight := uint64(20)
-		data := message.NewPrevote(0, futureHeight, common.Hash{}, testSigner, &member, 1)
+		data := message.NewPrevote(0, futureHeight, common.Hash{}, testSigner, &member, com)
 		msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
 
 		ctrl := gomock.NewController(t)
@@ -257,16 +263,17 @@ func TestFutureHeightMessage(t *testing.T) {
 		require.NoError(t, backend.Close(), "failed to close backend")
 	})
 	t.Run("if future message buffer is full, messages farther in the future are dropped", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend, _ := newBlockChain(1)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		setupMocks(backend, ctrl, t)
 
 		member := chain.Genesis().Header().Epoch.Committee.Members[0]
+		com := chain.Genesis().Header().Epoch.Committee
 
 		for h := maxFutureMsgs + 100; h > 0; h-- {
-			data := message.NewPrevote(0, uint64(h), common.Hash{}, testSigner, &member, 1)
+			data := message.NewPrevote(0, uint64(h), common.Hash{}, testSigner, &member, com)
 			msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
 			errCh := make(chan error, 1)
 			_, err := backend.HandleMsg(testAddress, msg, errCh)
@@ -281,15 +288,16 @@ func TestFutureHeightMessage(t *testing.T) {
 		require.NoError(t, backend.Close(), "failed to close backend")
 	})
 	t.Run("When processing future height messages, future height messages are re-injected", func(t *testing.T) {
-		chain, backend := newBlockChain(1)
+		chain, backend, _ := newBlockChain(1)
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		setupMocks(backend, ctrl, t)
 
 		member := chain.Genesis().Header().Epoch.Committee.Members[0]
+		com := chain.Genesis().Header().Epoch.Committee
 
-		vote := message.NewPrevote(0, 1, common.Hash{}, testSigner, &member, 1)
+		vote := message.NewPrevote(0, 1, common.Hash{}, testSigner, &member, com)
 		errCh := make(chan error, 1)
 		backend.saveFutureMsg(vote, errCh, common.Address{})
 		backend.saveFutureMsg(vote, errCh, common.Address{})
@@ -313,7 +321,7 @@ func TestFutureHeightMessage(t *testing.T) {
 // invalid proposal should be caught at handler level
 func TestInvalidProposal(t *testing.T) {
 	t.Run("handler rejects invalid proposal", func(t *testing.T) {
-		_, backend := newBlockChain(1)
+		_, backend, _ := newBlockChain(1)
 
 		propose := message.NewFakePropose(message.Fake{
 			FakeSignatureInput: common.Hash{0xca, 0xfe},
