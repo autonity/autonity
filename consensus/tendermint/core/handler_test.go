@@ -215,6 +215,7 @@ func TestHandleFutureRound(t *testing.T) {
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(10)
 	sender1, _ := committeeSet.MemberByIndex(0)
 	sender2, _ := committeeSet.MemberByIndex(1)
+	sender3, _ := committeeSet.MemberByIndex(2)
 
 	currentHeight := big.NewInt(1)
 	currentRound := int64(0)
@@ -242,9 +243,8 @@ func TestHandleFutureRound(t *testing.T) {
 	}
 	engine.SetDefaultHandlers()
 
-	// handling vote
+	// "close" future round messages are forwarded right away
 	vote := message.NewPrevote(currentRound+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender2.Address].consensus), sender2, committeeSet.Committee())
-	// future round messages are forwarded right away
 	backendMock.EXPECT().Gossip(gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(1) // called in a goroutine
 	engine.handleEvent(context.Background(), makeBogusMessageEvent(vote, false))
 
@@ -253,10 +253,22 @@ func TestHandleFutureRound(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, common.Big1, engine.futurePower[vote.R()].Power())
 
+	// "far" future round messages are not forwarded to avoid network clogging
+	farVote := message.NewPrevote(currentRound+futureRoundDisseminationThreshold+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender3.Address].consensus), sender3, committeeSet.Committee())
+	engine.handleEvent(context.Background(), makeBogusMessageEvent(farVote, false))
+
+	// "far" future round vote is still saved in Core
+	found = searchForFutureMsg(&engine, farVote)
+	require.True(t, found)
+	require.Equal(t, common.Big1, engine.futurePower[farVote.R()].Power())
+
+	// "close" but redundant future round messages are not forwarded to avoid network clogging
+	engine.handleEvent(context.Background(), makeBogusMessageEvent(vote, false))
+
 	lastHeader := &types.Header{Number: currentHeight.Sub(currentHeight, common.Big1)}
 	// same thing for future round proposal
 	propose := message.NewPropose(currentRound+1, currentHeight.Uint64(), -1, generateBlock(currentHeight, lastHeader), makeSigner(keysMap[sender1.Address].consensus), sender1)
-	// proposals are never disseminated in Core
+	// proposals are never disseminated in Core, they are forwarded in the backend
 	engine.handleEvent(context.Background(), makeBogusMessageEvent(propose, true))
 
 	found = searchForFutureMsg(&engine, propose)
