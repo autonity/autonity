@@ -31,8 +31,12 @@ type invalidSignatureBroadcaster struct {
 
 // when sending a prevote, do the standard behaviour + send an invalid signature prevote
 func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil bool) {
-	// send invalid sig
-	if !c.sent {
+	// send invalid sig.
+	// leave some buffer to wait for all the nodes get started,
+	// otherwise some slow node may cannot receive the invalid
+	// signature to trigger the disconnection.
+	delta := common.Big5
+	if !c.sent && c.Height().Cmp(delta) > 0 {
 		invalidSigner := func(hash common.Hash) blst.Signature {
 			var h common.Hash
 			rand.Read(h[:])
