@@ -3,6 +3,7 @@ package byzantine
 import (
 	"context"
 	"crypto/rand"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -35,7 +36,7 @@ func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil boo
 	// leave some buffer to wait for all the nodes get started,
 	// otherwise some slow node may cannot receive the invalid
 	// signature to trigger the disconnection.
-	delta := common.Big5
+	delta := new(big.Int).SetUint64(10)
 	if !c.sent && c.Height().Cmp(delta) > 0 {
 		invalidSigner := func(hash common.Hash) blst.Signature {
 			var h common.Hash
