@@ -189,13 +189,11 @@ func canDisseminate(msgRound int64, coreRound int64) bool {
 }
 
 func determineDisseminationStrategy(err error, alreadyDisseminated bool, msgRound int64, coreRound int64) disseminationStrategy {
-	if alreadyDisseminated {
-		return noDissemination
-	}
-	if err == nil {
-		return gossip
-	}
 	switch {
+	case alreadyDisseminated:
+		return noDissemination
+	case err == nil:
+		return gossip
 	case errors.Is(err, constants.ErrFutureRoundMessage):
 		if canDisseminate(msgRound, coreRound) {
 			return gossip
@@ -290,10 +288,9 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 
 // filters out messages that we don't consider for liveness tracking and p2p dissemination
 func shouldQuit(err error) bool {
-	if err == nil {
-		return false
-	}
 	switch {
+	case err == nil:
+		return false
 	case errors.Is(err, constants.ErrOldRoundMessage) && !errors.Is(err, constants.ErrRedundantVote):
 		return false
 	case errors.Is(err, constants.ErrFutureRoundMessage) && !errors.Is(err, constants.ErrRedundantVote):

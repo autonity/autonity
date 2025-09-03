@@ -282,3 +282,47 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 
 	c.Stop()
 }
+
+func TestDisseminationStrategy(t *testing.T) {
+	// if already disseminated result should always be to not redisseminate again
+	require.Equal(t, noDissemination, determineDisseminationStrategy(nil, true, 0, 0))
+	require.Equal(t, noDissemination, determineDisseminationStrategy(constants.ErrOldRoundMessage, true, 0, 1))
+	require.Equal(t, noDissemination, determineDisseminationStrategy(constants.ErrFutureRoundMessage, true, 4, 1))
+
+	// if err == nil (current round and not redundant) always gossip
+	require.Equal(t, gossip, determineDisseminationStrategy(nil, false, 0, 0))
+	require.Equal(t, gossip, determineDisseminationStrategy(nil, false, 0, 1))
+	require.Equal(t, gossip, determineDisseminationStrategy(nil, false, 4, 1))
+
+	// if future round, gossip only if not too far in the future
+	require.Equal(t, gossip, determineDisseminationStrategy(constants.ErrFutureRoundMessage, false, 2, 1))
+	require.Equal(t, gossip, determineDisseminationStrategy(constants.ErrFutureRoundMessage, false, 4, 1))
+	require.Equal(t, noDissemination, determineDisseminationStrategy(constants.ErrFutureRoundMessage, false, 5, 1))
+	require.Equal(t, noDissemination, determineDisseminationStrategy(constants.ErrFutureRoundMessage, false, 100, 1))
+
+	// old round, slow gossip
+	require.Equal(t, slowGossip, determineDisseminationStrategy(constants.ErrOldRoundMessage, false, 1, 5))
+}
+
+func TestCanDisseminate(t *testing.T) {
+	require.True(t, canDisseminate(0, 1))
+	require.True(t, canDisseminate(0, 100))
+	require.True(t, canDisseminate(0, 0))
+	require.True(t, canDisseminate(1, 0))
+	require.True(t, canDisseminate(5, 4))
+	require.True(t, canDisseminate(4+futureRoundDisseminationThreshold, 4))
+
+	require.False(t, canDisseminate(4+futureRoundDisseminationThreshold+1, 4))
+	require.False(t, canDisseminate(4+futureRoundDisseminationThreshold+100, 4))
+}
+
+func TestShouldQuit(t *testing.T) {
+	require.False(t, shouldQuit(nil))
+	require.False(t, shouldQuit(constants.ErrOldRoundMessage))
+	require.False(t, shouldQuit(constants.ErrFutureRoundMessage))
+
+	require.True(t, shouldQuit(constants.ErrRedundantVote))
+	require.True(t, shouldQuit(errors.Join(constants.ErrOldRoundMessage, constants.ErrRedundantVote)))
+	require.True(t, shouldQuit(errors.Join(constants.ErrFutureRoundMessage, constants.ErrRedundantVote)))
+	require.True(t, shouldQuit(constants.ErrAlreadyHaveProposal))
+}

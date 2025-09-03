@@ -267,3 +267,35 @@ func TestAddReturnValue(t *testing.T) {
 	require.False(t, ms.Add(vote3))
 
 }
+
+func TestIsAggregatable(t *testing.T) {
+	h := uint64(100)
+	r := int64(0)
+	committeeCopy, privateKeys := copyTestCommittee()
+
+	vote1 := NewPrevote(r, h, blockHash, makeSigner(privateKeys[0]), &committeeCopy.Members[0], committeeCopy)
+	vote2 := NewPrevote(r, h, blockHash, makeSigner(privateKeys[1]), &committeeCopy.Members[1], committeeCopy)
+	vote3 := NewPrevote(r, h, blockHash, makeSigner(privateKeys[2]), &committeeCopy.Members[2], committeeCopy)
+	require.Equal(t, 0, isAggregatable([]Vote{vote1}, vote2))
+	require.Equal(t, 0, isAggregatable([]Vote{vote1, vote2}, vote3))
+
+	// artificially increase coefficients
+	bigVote := NewPrevote(r, h, blockHash, makeSigner(privateKeys[0]), &committeeCopy.Members[0], committeeCopy)
+	require.Equal(t, uint64(1), bigVote.Signers().Coefficients[0].Uint64())
+	bigVote.Signers().Coefficients[0].SetUint64((1 << common.VoteCap) - 2)
+	require.Equal(t, common.VoteCap, bigVote.Signers().Coefficients[0].BitLen())
+
+	require.Equal(t, 0, isAggregatable([]Vote{vote1}, bigVote))
+
+	bigVote.Signers().Coefficients[0].SetUint64((1 << common.VoteCap) - 1)
+	require.Equal(t, common.VoteCap, bigVote.Signers().Coefficients[0].BitLen())
+
+	require.Equal(t, -1, isAggregatable([]Vote{vote1}, bigVote))
+
+	require.Equal(t, 1, isAggregatable([]Vote{vote1, vote2, vote3}, bigVote))
+
+	bigVote.Signers().Coefficients[0].SetUint64(1 << common.VoteCap)
+	require.Equal(t, common.VoteCap+1, bigVote.Signers().Coefficients[0].BitLen())
+
+	require.Equal(t, -1, isAggregatable([]Vote{vote1, vote2, vote3}, bigVote))
+}
