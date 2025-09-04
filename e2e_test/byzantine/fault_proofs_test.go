@@ -221,11 +221,12 @@ func (s *InvalidProposal) Broadcast(msg message.Msg) {
 }
 
 func newInvalidProposer(c interfaces.Core) interfaces.Broadcaster {
-	return &InvalidProposer{c.(*core.Core)}
+	return &InvalidProposer{c.(*core.Core), false}
 }
 
 type InvalidProposer struct {
 	*core.Core
+	sent bool
 }
 
 func (s *InvalidProposer) Broadcast(msg message.Msg) {
@@ -234,15 +235,22 @@ func (s *InvalidProposer) Broadcast(msg message.Msg) {
 		s.BroadcastAll(msg)
 		return
 	}
-	// current node is not the proposer of current round, propose a proposal.
-	header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}
-	block := types.NewBlockWithHeader(header)
-	self, _ := selfAndCommittee(s.Core, msg.H())
-	msgP := message.NewPropose(msg.R(), msg.H(), -1, block, s.Backend().Sign, self)
 
-	s.Logger().Info("Invalid proposer simulation")
+	if !s.sent {
+		// current node is not the proposer of current round, propose a proposal.
+		header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}
+		block := types.NewBlockWithHeader(header)
+		self, _ := selfAndCommittee(s.Core, msg.H())
+		msgP := message.NewPropose(msg.R(), msg.H(), -1, block, s.Backend().Sign, self)
+
+		s.Logger().Info("Invalid proposer simulation")
+		s.BroadcastAll(msg)
+		s.BroadcastAll(msgP)
+		s.sent = true
+	}
+
+	// normal behaviour
 	s.BroadcastAll(msg)
-	s.BroadcastAll(msgP)
 }
 
 func newEquivocation(c interfaces.Core) interfaces.Broadcaster {
