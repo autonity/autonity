@@ -258,8 +258,8 @@ type Committee struct {
 	totalVotingPower *big.Int  `json:"-" rlp:"-"`
 	votingPowerOnce  sync.Once `json:"-" rlp:"-"`
 	// cached indexing of committee for member lookup
-	lock       sync.RWMutex                        `json:"-" rlp:"-"` // protects only the membersMap
-	membersMap map[common.Address]*CommitteeMember `json:"-" rlp:"-"`
+	membersMapOnce sync.Once                           `json:"-" rlp:"-"`
+	membersMap     map[common.Address]*CommitteeMember `json:"-" rlp:"-"`
 }
 
 func (c *Committee) String() string {
@@ -295,16 +295,7 @@ func (c *Committee) Copy() *Committee {
 		}
 	}
 
-	// total voting power should not be copied, it is computed on demand.
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	if c.membersMap != nil {
-		clone.membersMap = make(map[common.Address]*CommitteeMember)
-		for _, v := range clone.Members {
-			member := v
-			clone.membersMap[v.Address] = &member
-		}
-	}
+	// total voting power and members map is not copied since it is computed on demand.
 	return clone
 }
 
@@ -339,21 +330,12 @@ func (c *Committee) MemberByIndex(index int) *CommitteeMember {
 }
 
 func (c *Committee) MemberByAddress(address common.Address) *CommitteeMember {
-	c.lock.RLock()
-	if c.membersMap != nil {
-		defer c.lock.RUnlock()
-		return c.membersMap[address]
-	}
-	c.lock.RUnlock() // Release read lock before acquiring write lock
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	// Double-check if the map was initialized while waiting for the lock
-	if c.membersMap == nil {
-		c.membersMap = make(map[common.Address]*CommitteeMember)
+	c.membersMapOnce.Do(func() {
+		c.membersMap = make(map[common.Address]*CommitteeMember, len(c.Members))
 		for i := range c.Members {
 			c.membersMap[c.Members[i].Address] = &c.Members[i]
 		}
-	}
+	})
 	return c.membersMap[address]
 }
 
@@ -399,8 +381,6 @@ func (c *Committee) Proposer(height uint64, round int64) common.Address {
 	// find the index hit which committee member which line up in the committee list.
 	// we assume there is no 0 stake/power validators.
 	counter := new(big.Int).SetUint64(0)
-	c.lock.RLock()
-	defer c.lock.RUnlock()
 	for _, member := range c.Members {
 		counter.Add(counter, member.VotingPower)
 		if index.Cmp(counter) == -1 {
