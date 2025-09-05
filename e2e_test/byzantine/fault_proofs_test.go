@@ -220,6 +220,7 @@ func (s *InvalidProposal) Broadcast(msg message.Msg) {
 	s.BroadcastAll(newProposal)
 }
 
+// MultipleOffenceProposer being used for those context that invalid proposer keeps sending proposals.
 func newMultipleOffenceProposer(c interfaces.Core) interfaces.Broadcaster {
 	return &MultipleOffenceProposer{c.(*core.Core)}
 }
@@ -255,6 +256,9 @@ type OnceOffenceProposer struct {
 	sent bool
 }
 
+// OnceOffenceProposer simulates once offence of the invalid proposer fault, it would be flaky to keep
+// sending invalid proposals all the time, as it would slow down the block period making some timeout
+// in those flaky test. So for those simple test, just need to simulate one offence in the context.
 func (s *OnceOffenceProposer) Broadcast(msg message.Msg) {
 	// if current node is the proposer of current round, skip and return.
 	if s.CommitteeSet().GetProposer(msg.R()).Address == s.Address() {
