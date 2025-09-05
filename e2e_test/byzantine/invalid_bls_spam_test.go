@@ -35,7 +35,7 @@ func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil boo
 	// send invalid sig.
 	// leave some buffer to wait for all nodes in the test to be started, otherwise slow node
 	// which not receive the invalid msg, can make the disconnection test flaky.
-	delta := new(big.Int).SetUint64(10)
+	delta := new(big.Int).SetUint64(20)
 	if !c.sent && c.Height().Cmp(delta) > 0 {
 		invalidSigner := func(hash common.Hash) blst.Signature {
 			var h common.Hash
