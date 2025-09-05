@@ -456,12 +456,12 @@ playbook:
         engineAlive: true # false means consensus engine should on-hold.
 
     - name: "TC-22: Bootstrap from scratch, start n1 to n4 for mining, shutdown all then to start n3,n4,n5,n6. Overlapped n3, n4 like: <<n1, n2, {{n3, n4>> , n5, n6}}"
+      re-deploy: true
       condition:
         crashNodes: [0, 1, 2, 3] # contain the node domain name we want to crash.
         scenario:
-          - delay: 20
-            action: "stop"
-            target: [0, 1, 2, 3, 5, 4]
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
           - delay: 60 # seconds
             action: "start"
             target: [0, 1, 2, 3] # start the specific nodes within 30s after test case start.
@@ -486,17 +486,17 @@ playbook:
       condition:
         crashNodes: [0] # contain the nodes which leave the main party.
         scenario:
-          - delay: 20 # on the 10th second, disconnect peers.
+          - delay: 70 # on the 10th second, disconnect peers.
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[4,3], [4, 5], [4,2], [4,1], [5, 1], [5, 2], [5,3], [3, 1], [3,2], [2, 1]]
-          - delay: 40 # on the 30th second, stop central node.
+          - delay: 90 # on the 30th second, stop central node.
             action: "stop" # it apply p2p connection by managing ip-tables in linux kernel.
             target: [0]
-          - delay: 10 # on the 150th second, start central node.
+          - delay: 100 # on the 150th second, start central node.
             action: "start" # it apply p2p connection by managing ip-tables in linux kernel.
             target: [0]
       input:
-        duration: 200 # num of seconds the transaction sending duration.
+        duration: 300 # num of seconds the transaction sending duration.
         senderNode: 1  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
