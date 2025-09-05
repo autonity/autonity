@@ -220,16 +220,42 @@ func (s *InvalidProposal) Broadcast(msg message.Msg) {
 	s.BroadcastAll(newProposal)
 }
 
-func newInvalidProposer(c interfaces.Core) interfaces.Broadcaster {
-	return &InvalidProposer{c.(*core.Core), false}
+func newMultipleOffenceProposer(c interfaces.Core) interfaces.Broadcaster {
+	return &MultipleOffenceProposer{c.(*core.Core)}
 }
 
-type InvalidProposer struct {
+type MultipleOffenceProposer struct {
+	*core.Core
+}
+
+func (s *MultipleOffenceProposer) Broadcast(msg message.Msg) {
+	// if current node is the proposer of current round, skip and return.
+	if s.CommitteeSet().GetProposer(msg.R()).Address == s.Address() {
+		s.BroadcastAll(msg)
+		return
+	}
+
+	// current node is not the proposer of current round, propose a proposal.
+	header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}
+	block := types.NewBlockWithHeader(header)
+	self, _ := selfAndCommittee(s.Core, msg.H())
+	msgP := message.NewPropose(msg.R(), msg.H(), -1, block, s.Backend().Sign, self)
+
+	s.Logger().Info("Invalid proposer simulation")
+	s.BroadcastAll(msg)
+	s.BroadcastAll(msgP)
+}
+
+func newOnceOffenceProposer(c interfaces.Core) interfaces.Broadcaster {
+	return &OnceOffenceProposer{c.(*core.Core), false}
+}
+
+type OnceOffenceProposer struct {
 	*core.Core
 	sent bool
 }
 
-func (s *InvalidProposer) Broadcast(msg message.Msg) {
+func (s *OnceOffenceProposer) Broadcast(msg message.Msg) {
 	// if current node is the proposer of current round, skip and return.
 	if s.CommitteeSet().GetProposer(msg.R()).Address == s.Address() {
 		s.BroadcastAll(msg)
@@ -286,8 +312,8 @@ func TestFaultProofs(t *testing.T) {
 		// {"PVN", newPVNBroadcaster, autonity.PVN}, //Not supported, need multiple byzantine validators
 		// {"PVO1", newPVO1Broadcaster, autonity.PVO12}, Not supported currently, need multiple byzantine validators to generate.
 		// {"InvalidProposal", newInvalidProposalBroadcaster, autonity.InvalidProposal}, Invalid proposals are not currently supported
-		{"InvalidProposer", newInvalidProposer, autonity.InvalidProposer}, // Pass with 120
-		{"Equivocation", newEquivocation, autonity.Equivocation},          // Pass with 120
+		{"InvalidProposer", newOnceOffenceProposer, autonity.InvalidProposer}, // Pass with 120
+		{"Equivocation", newEquivocation, autonity.Equivocation},              // Pass with 120
 	}
 
 	for _, test := range testCases {
