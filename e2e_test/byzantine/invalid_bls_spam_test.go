@@ -3,6 +3,7 @@ package byzantine
 import (
 	"context"
 	"crypto/rand"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,8 +32,11 @@ type invalidSignatureBroadcaster struct {
 
 // when sending a prevote, do the standard behaviour + send an invalid signature prevote
 func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil bool) {
-	// send invalid sig
-	if !c.sent {
+	// send invalid sig.
+	// leave some buffer to wait for all nodes in the test to be started, otherwise slow node
+	// which not receive the invalid msg, can make the disconnection test flaky.
+	delta := new(big.Int).SetUint64(30)
+	if !c.sent && c.Height().Cmp(delta) > 0 {
 		invalidSigner := func(hash common.Hash) blst.Signature {
 			var h common.Hash
 			rand.Read(h[:])
@@ -51,7 +55,7 @@ func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil boo
 
 func TestInvalidBlsSignatureDisconnection(t *testing.T) {
 	t.Run("Malicious peer sending an invalid BLS signature should be disconnect for at least 1 epoch", func(t *testing.T) {
-		n := 4
+		n := 3
 		validators, err := e2e.Validators(t, n, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
 		require.NoError(t, err)
 
@@ -59,7 +63,7 @@ func TestInvalidBlsSignatureDisconnection(t *testing.T) {
 		malicious := 0
 		validators[malicious].TendermintServices = &interfaces.Services{Prevoter: newInvalidSignatureBroadcaster}
 
-		// creates a network of 4 validators and starts all the nodes in it
+		// creates a network of 3 validators and starts all the nodes in it
 		// modify epoch period to ensure that it is > standard p2p suspension period (60 blocks currently)
 		// we also modify the PastPerformanceWeight to be 100%, so that validator inactivity always remain 0.
 		// We do not want omission jailing to interfere in this test.
