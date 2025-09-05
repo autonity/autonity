@@ -349,18 +349,18 @@ playbook:
 
     ########################bootstrap test#######################################
     - name: "TC-18: Bootstrap from scratch, with all node start in the same time."
+      re-deploy: true
       condition:
         crashNodes: [] # contain the node domain name we want to crash.
         scenario:
-          - delay: 20 # stop the network.
-            action: "stop"
-            target: [0, 1, 2, 3, 5, 4]
-          - delay: 30 # start all node in 120s later than start time.
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
+          - delay: 60 # start all node in 120s later than start time.
             action: "start"
             target: [0, 1, 2, 3, 5, 4]
       input:
-        startAt: 60  # start the TX issuing from 180th seconds.
-        duration: 60 # num of seconds the transaction sending duration.
+        startAt: 90  # start the TX issuing from 180th seconds.
+        duration: 90 # num of seconds the transaction sending duration.
         senderNode: 0  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
