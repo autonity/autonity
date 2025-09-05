@@ -369,12 +369,12 @@ playbook:
         engineAlive: true # false means consensus engine should on-hold.
 
     - name: "TC-19: Bootstrap from scratch with 1 node crashed and recover later during the bootstrap."
+      re-deploy: true
       condition:
         crashNodes: [0] # contain the node domain name we want to crash.
         scenario:
-          - delay: 20
-            action: "stop"
-            target: [0, 1, 2, 3, 5, 4]
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
           - delay: 30 # seconds
             action: "start"
             target: [0] # start the specific node within 30s after test case start.
@@ -401,12 +401,12 @@ playbook:
         engineAlive: true # false means consensus engine should on-hold.
 
     - name: "TC-20: Bootstrap from scratch with 2 nodes crashed and 2 nodes recover later during the bootstrap."
+      re-deploy: true
       condition:
         crashNodes: [0, 1] # contain the node domain name we want to crash.
         scenario:
-          - delay: 20
-            action: "stop"
-            target: [0, 1, 2, 3, 5, 4]
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
           - delay: 60 # seconds
             action: "start"
             target: [0, 1, 2] # start the specific node within 30s after test case start.
@@ -430,12 +430,12 @@ playbook:
         engineAlive: true # false means consensus engine should on-hold.
 
     - name: "TC-21: Bootstrap from scratch with 3 node crashed and 1 node recover later during the bootstrap. Consensus should not no-hold."
+      re-deploy: true
       condition:
         crashNodes: [0, 1, 2] # contain the node domain name we want to crash.
         scenario:
-          - delay: 20
-            action: "stop"
-            target: [0, 1, 2, 3, 5, 4]
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
           - delay: 60 # seconds
             action: "start"
             target: [0, 1, 2, 3, 5, 4] # start the specific node within 30s after test case start.
