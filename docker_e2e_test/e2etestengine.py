@@ -51,9 +51,9 @@ if __name__ == '__main__':
         result = test.start_test()
 
         if result:
-            LG.info(f"[TEST {test_id} PASSED]")
+            LG.info(f"[TEST {test_id+1} PASSED]")
         else:
-            LG.error(f"[TEST {test_id} FAILED]")
+            LG.error(f"[TEST {test_id+1} FAILED]")
             passed = False
 
     except (KeyError, TypeError, IndexError) as e:

@@ -372,7 +372,7 @@ playbook:
       condition:
         crashNodes: [0] # contain the node domain name we want to crash.
         scenario:
-          - delay: 1
+          - delay: 20
             action: "stop"
             target: [0, 1, 2, 3, 5, 4]
           - delay: 30 # seconds
@@ -404,7 +404,7 @@ playbook:
       condition:
         crashNodes: [0, 1] # contain the node domain name we want to crash.
         scenario:
-          - delay: 1
+          - delay: 20
             action: "stop"
             target: [0, 1, 2, 3, 5, 4]
           - delay: 60 # seconds
@@ -433,7 +433,7 @@ playbook:
       condition:
         crashNodes: [0, 1, 2] # contain the node domain name we want to crash.
         scenario:
-          - delay: 1
+          - delay: 20
             action: "stop"
             target: [0, 1, 2, 3, 5, 4]
           - delay: 60 # seconds
