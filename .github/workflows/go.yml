@@ -102,6 +102,32 @@ jobs:
           go build ./...
           go test -c ./eth
 
+  # docker e2e test binary construction, shared by docker tests, thus we don't have
+  # duplicated constructions in each of test context.
+  docker-e2e-build:
+    runs-on: ubuntu-24.04
+    needs: [ prepare-cache ]
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Restore Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - name: Build binaries
+        run: make all
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-binaries
+          path: ./build/bin/**
+          retention-days: 1
+
   # tests runs most of the tests for the project, we use a matrix to run multiple configurations.
   tests:
     needs: prepare-cache
@@ -312,29 +338,23 @@ jobs:
   # Since the single job of docker test makes a few of tests be pending there, thus we create multiple job to reduce
   # the waiting time in the CI.
   docker-e2e-batch-a:
-    needs: [prepare-cache, generate-ids]
+    needs: [docker-e2e-build, generate-ids]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
        case_id: ${{ fromJson(needs.generate-ids.outputs.ids_a) }}
     steps:
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
       - uses: actions/checkout@v3
-
-      - name: Go cache
-        uses: actions/cache@v4
+      - name: Ensure target directory exists
+        run: mkdir -p ./build/bin
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Build
-        run: make all
+          name: built-binaries
+          path: ./build/bin/
+      - name: Make binaries executable
+        run: chmod +x ./build/bin/*
 
       - name: Run batch test
         run: |
@@ -342,29 +362,23 @@ jobs:
           make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.event.pull_request.head.sha }}
 
   docker-e2e-batch-b:
-    needs: [prepare-cache, generate-ids]
+    needs: [docker-e2e-build, generate-ids]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         case_id: ${{ fromJson(needs.generate-ids.outputs.ids_b) }}
     steps:
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
       - uses: actions/checkout@v3
-
-      - name: Go cache
-        uses: actions/cache@v4
+      - name: Ensure target directory exists
+        run: mkdir -p ./build/bin
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Build
-        run: make all
+          name: built-binaries
+          path: ./build/bin/
+      - name: Make binaries executable
+        run: chmod +x ./build/bin/*
 
       - name: Run batch test
         run: |
@@ -372,29 +386,23 @@ jobs:
           make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.event.pull_request.head.sha }}
 
   docker-e2e-batch-c:
-    needs: [prepare-cache, generate-ids]
+    needs: [docker-e2e-build, generate-ids]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         case_id: ${{ fromJson(needs.generate-ids.outputs.ids_c) }}
     steps:
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
       - uses: actions/checkout@v3
-
-      - name: Go cache
-        uses: actions/cache@v4
+      - name: Ensure target directory exists
+        run: mkdir -p ./build/bin
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Build
-        run: make all
+          name: built-binaries
+          path: ./build/bin/
+      - name: Make binaries executable
+        run: chmod +x ./build/bin/*
 
       - name: Run batch test
         run: |
