@@ -401,5 +401,4 @@ jobs:
       - name: Run batch test
         run: |
           cd docker_e2e_test && \
-          make install-prerequisites-linux && \
           make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.event.pull_request.head.sha }}
