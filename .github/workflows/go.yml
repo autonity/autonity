@@ -103,8 +103,8 @@ jobs:
           go test -c ./eth
 
   # docker e2e test binary construction, shared by docker tests, thus we don't have
-  # duplicated constructions in each of test context.
-  docker-e2e-build:
+  # duplicated constructions in each test context.
+  build-docker-artifacts:
     runs-on: ubuntu-24.04
     needs: [ prepare-cache ]
     steps:
@@ -335,10 +335,10 @@ jobs:
         run: make lint-ci
         shell: bash
 
-  # Since the single job of docker test makes a few of tests be pending there, thus we create multiple job to reduce
+  # Since using single job for docker test makes a few tests be pending there, thus we create multiple job to reduce
   # the waiting time in the CI.
-  docker-e2e-batch-a:
-    needs: [docker-e2e-build, generate-ids]
+  docker-e2e-test-a:
+    needs: [build-docker-artifacts, generate-ids]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -356,13 +356,13 @@ jobs:
       - name: Make binaries executable
         run: chmod +x ./build/bin/*
 
-      - name: Run batch test
+      - name: Run batch A tests
         run: |
           cd docker_e2e_test && \
           make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.event.pull_request.head.sha }}
 
-  docker-e2e-batch-b:
-    needs: [docker-e2e-build, generate-ids]
+  docker-e2e-test-b:
+    needs: [build-docker-artifacts, generate-ids]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -380,13 +380,13 @@ jobs:
       - name: Make binaries executable
         run: chmod +x ./build/bin/*
 
-      - name: Run batch test
+      - name: Run batch B tests
         run: |
           cd docker_e2e_test && \
           make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.event.pull_request.head.sha }}
 
-  docker-e2e-batch-c:
-    needs: [docker-e2e-build, generate-ids]
+  docker-e2e-test-c:
+    needs: [build-docker-artifacts, generate-ids]
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -404,7 +404,7 @@ jobs:
       - name: Make binaries executable
         run: chmod +x ./build/bin/*
 
-      - name: Run batch test
+      - name: Run batch C tests
         run: |
           cd docker_e2e_test && \
           make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.event.pull_request.head.sha }}
