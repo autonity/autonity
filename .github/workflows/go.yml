@@ -42,8 +42,8 @@ jobs:
   generate-ids:
     runs-on: ubuntu-24.04
     outputs:
-      ids_a: ${{ steps.set-ids-a.outputs.ids }}
-      ids_b: ${{ steps.set-ids-b.outputs.ids }}
+      ids_a: ${{ steps.set-ids.outputs.ids_a }}
+      ids_b: ${{ steps.set-ids.outputs.ids_b }}
     steps:
       - name: Generate test IDs
         id: set-ids
@@ -298,6 +298,7 @@ jobs:
       - name: Run linting
         run: make lint-ci
         shell: bash
+
   # Since the single job of docker test makes a few of tests be pending there, thus we create multiple job to reduce
   # the waiting time in the CI.
   docker-e2e-batch-a:
