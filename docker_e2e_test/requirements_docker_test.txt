@@ -1,7 +1,8 @@
 certifi==2020.4.5.1
+chardet
 docker==4.2.0
 idna==2.9
-requests==2.23.0
+requests
 six==1.14.0
 testresources==2.0.1
 urllib3==1.25.11
