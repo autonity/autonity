@@ -42,12 +42,21 @@ jobs:
   generate-ids:
     runs-on: ubuntu-24.04
     outputs:
-      ids: ${{ steps.set-ids.outputs.ids }}
+      ids_a: ${{ steps.set-ids-a.outputs.ids }}
+      ids_b: ${{ steps.set-ids-b.outputs.ids }}
     steps:
       - name: Generate test IDs
         id: set-ids
         run: |
-          echo "ids=[$(seq -s ',' 0 3 26)]" >> $GITHUB_OUTPUT
+          ALL_IDS=($(seq 0 3 26))
+          LENGTH=${#ALL_IDS[@]}
+          HALF=$((LENGTH / 2))
+          
+          FIRST_HALF=$(IFS=,; echo "${ALL_IDS[*]:0:$HALF}")
+          echo "ids_a=[$FIRST_HALF]" >> $GITHUB_OUTPUT
+          
+          SECOND_HALF=$(IFS=,; echo "${ALL_IDS[*]:$HALF}")
+          echo "ids_b=[$SECOND_HALF]" >> $GITHUB_OUTPUT
   # prepare-cache fills the gocache with the source code for all modules and
   # attempts to fill the build cache with as much as possible intermediately
   # compiled source. Most other jobs depend on this job and so this serves to
@@ -289,13 +298,46 @@ jobs:
       - name: Run linting
         run: make lint-ci
         shell: bash
-
-  docker-e2e-batch-tests:
+  # Since the single job of docker test makes a few of tests be pending there, thus we create multiple job to reduce
+  # the waiting time in the CI.
+  docker-e2e-batch-a:
     needs: [prepare-cache, generate-ids]
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
-        case_id: ${{ fromJson(needs.generate-ids.outputs.ids) }}
+       case_id: ${{ fromJson(needs.generate-ids.outputs.ids_a) }}
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/checkout@v3
+
+      - name: Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+
+      - name: Build
+        run: make all
+
+      - name: Run batch test
+        run: |
+          cd docker_e2e_test && \
+          make install-prerequisites-linux && \
+          make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.event.pull_request.head.sha }}
+
+  docker-e2e-batch-b:
+    needs: [prepare-cache, generate-ids]
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        case_id: ${{ fromJson(needs.generate-ids.outputs.ids_b) }}
     steps:
       - uses: actions/setup-go@v4
         with:
