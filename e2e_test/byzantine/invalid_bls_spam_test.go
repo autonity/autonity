@@ -35,7 +35,7 @@ func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil boo
 	// send invalid sig.
 	// leave some buffer to wait for all nodes in the test to be started, otherwise slow node
 	// which not receive the invalid msg, can make the disconnection test flaky.
-	delta := new(big.Int).SetUint64(30)
+	delta := new(big.Int).SetUint64(50)
 	if !c.sent && c.Height().Cmp(delta) > 0 {
 		invalidSigner := func(hash common.Hash) blst.Signature {
 			var h common.Hash
@@ -55,7 +55,7 @@ func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil boo
 
 func TestInvalidBlsSignatureDisconnection(t *testing.T) {
 	t.Run("Malicious peer sending an invalid BLS signature should be disconnect for at least 1 epoch", func(t *testing.T) {
-		n := 3
+		n := 4
 		validators, err := e2e.Validators(t, n, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
 		require.NoError(t, err)
 
