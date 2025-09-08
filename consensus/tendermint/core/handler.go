@@ -227,17 +227,14 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 		// Store the message if it is a future round message
 		msg := e.Message()
 		r := msg.R()
+		code := msg.Code()
 
 		c.logger.Debug("Storing future round message", "r", r)
 
 		c.futureRoundLock.Lock()
-		_, roundExists := c.futurePowerByCode[r]
-		if !roundExists {
-			c.futurePowerByCode[r] = make(map[uint8]*message.AggregatedPower)
-		}
-		_, codeExists := c.futurePowerByCode[r][msg.Code()]
-		if !codeExists {
-			c.futurePowerByCode[r][msg.Code()] = message.NewAggregatedPower()
+		powerByCode := c.futurePowerByCode[r]
+		if powerByCode[code] == nil {
+			powerByCode[code] = message.NewAggregatedPower()
 		}
 		_, ok := c.futurePower[r]
 		if !ok {
@@ -247,17 +244,18 @@ func (c *Core) handleError(ctx context.Context, e events.MessageEvent, err error
 		msgContributed := false
 		switch m := msg.(type) {
 		case *message.Propose:
-			msgContributed = c.futurePowerByCode[r][m.Code()].Set(m.SignerIndex(), m.Power())
+			msgContributed = powerByCode[code].Set(m.SignerIndex(), m.Power())
 			c.futurePower[r].Set(m.SignerIndex(), m.Power())
 		case *message.Prevote, *message.Precommit:
 			signers := m.(message.Vote).Signers()
 			it := signers.NewIterator()
 			for it.Next() {
-				signerContributed := c.futurePowerByCode[r][m.Code()].Set(it.Index(), signers.PowerByIndex(it.Index()))
+				signerContributed := powerByCode[code].Set(it.Index(), signers.PowerByIndex(it.Index()))
 				msgContributed = msgContributed || signerContributed
 				c.futurePower[r].Set(it.Index(), signers.PowerByIndex(it.Index()))
 			}
 		}
+		c.futurePowerByCode[r] = powerByCode
 
 		if msgContributed {
 			// gossip only "close" future rounds to avoid clogging the network
