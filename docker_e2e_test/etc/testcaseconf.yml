@@ -235,6 +235,7 @@ playbook:
 
     - name: "TC-13: Network partition. 6 break into 4 and 2, main party(4 validator) should not on-hold."
       condition:
+        crashNodes: []
         scenario:
           - delay: 30 # on the 5th second, disconnect peers.
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
