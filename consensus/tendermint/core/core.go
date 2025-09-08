@@ -438,9 +438,9 @@ func (c *Core) setInitialState(r int64) {
 		c.validValue = nil
 		c.messages.Reset()
 		c.futureRoundLock.Lock()
-		c.futureRound = make(map[int64][]events.MessageEvent)
-		c.futurePowerByCode = make(map[int64][3]*message.AggregatedPower)
-		c.futurePower = make(map[int64]*message.AggregatedPower)
+		clear(c.futureRound)
+		clear(c.futurePowerByCode)
+		clear(c.futurePower)
 		c.futureRoundLock.Unlock()
 		// update height duration timer
 		if metrics.Enabled {
