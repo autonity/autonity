@@ -82,7 +82,7 @@ class TestCase:
         self.tx_start_chain_height = self.get_chain_height()
         try:
             start = timer()
-            duration = 60
+            duration = 90
             sender_index = self.test_case_conf["input"]["senderNode"]
             receiver_index = self.test_case_conf["input"]["receiverNode"]
             amount_per_tx = self.test_case_conf["input"]["amountperTX"]

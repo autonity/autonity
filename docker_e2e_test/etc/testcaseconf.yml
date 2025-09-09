@@ -491,7 +491,7 @@ playbook:
           - delay: 90 # on the 30th second, stop central node.
             action: "stop" # it apply p2p connection by managing ip-tables in linux kernel.
             target: [0]
-          - delay: 150 # on the 150th second, start central node.
+          - delay: 100 # on the 100th second, start central node.
             action: "start" # it apply p2p connection by managing ip-tables in linux kernel.
             target: [0]
       input:
