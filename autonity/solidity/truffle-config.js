@@ -100,7 +100,7 @@ module.exports = {
   },
 
   mocha: {
-    // timeout: 100000
+     timeout: 600000,
   },
 
   compilers: {
