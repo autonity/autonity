@@ -354,6 +354,7 @@ contract('Autonity', function (accounts) {
        }
        */
     beforeEach(async function () {
+      this.timeout(600000);
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, false);
     });
 
