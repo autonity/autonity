@@ -72,17 +72,8 @@ class TestCase:
 
     def tx_send(self):
         try:
-            if 'startAt' in self.test_case_conf['input']:
-                start_point = self.test_case_conf['input']['startAt']
-                start = timer()
-                while True:
-                    gap = start_point - (timer() - start)
-                    if gap > 0:
-                        time.sleep(1)
-                        self.logger.debug('Waiting for %ds to start sending TX.', gap)
-                    else:
-                        break
-
+            while self.scheduler.is_scheduling_events():
+                time.sleep(1)
         except (KeyError, TypeError) as e:
             self.logger.error("Wrong configuration file. %s", e)
             return None
@@ -91,14 +82,14 @@ class TestCase:
         self.tx_start_chain_height = self.get_chain_height()
         try:
             start = timer()
-            duration = self.test_case_conf["input"]["duration"]
+            duration = 60
             sender_index = self.test_case_conf["input"]["senderNode"]
             receiver_index = self.test_case_conf["input"]["receiverNode"]
             amount_per_tx = self.test_case_conf["input"]["amountperTX"]
 
             if sender_index not in self.clients or receiver_index not in self.clients:
                 return None
-            while (timer() - start) < duration or self.scheduler.is_scheduling_events():
+            while (timer() - start) < duration:
                 time.sleep(1)
                 try:
                     txn_hash = self.clients[sender_index].send_transaction(
