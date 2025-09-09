@@ -8,7 +8,6 @@ playbook:
         crashNodes: [] # contain the node domain name we want to crash.
         scenario: [] # leave it empty for no disaster happens.
       input:
-        duration: 60 # num of seconds the transaction sending duration.
         senderNode: 0  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address will be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -27,7 +26,6 @@ playbook:
             action: "start"
             target: [2] # select candidates from crashNodes.
       input:
-        duration: 60 # num of seconds the transaction sending duration.
         senderNode: 1  # node coin_base address will be used as default sender address.
         receiverNode: 0  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -43,8 +41,6 @@ playbook:
             action: "stop"
             target: [0, 1] # select candidates from crashNodes.
       input:
-        startAt: 20
-        duration: 60 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -63,8 +59,6 @@ playbook:
             action: "start"
             target: [0] # select candidates from crashNodes.
       input:
-        startAt: 20
-        duration: 100 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -83,8 +77,6 @@ playbook:
             action: "start"
             target: [0, 1] # select candidates from crashNodes.
       input:
-        startAt: 60
-        duration: 120 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -100,8 +92,6 @@ playbook:
             action: "stop"
             target: [0, 1, 4] # select candidates from crashNodes.
       input:
-        startAt: 20
-        duration: 60 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -120,8 +110,6 @@ playbook:
             action: "start"
             target: [0] # select candidates from crashNodes.
       input:
-        startAt: 45
-        duration: 120 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -140,8 +128,6 @@ playbook:
             action: "start"
             target: [0, 1] # select candidates from crashNodes.
       input:
-        startAt: 60
-        duration: 120 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -160,8 +146,6 @@ playbook:
             action: "start"
             target: [0, 1, 4] # stop the specific node within 40s after test case start.
       input:
-        startAt: 60
-        duration: 60 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -193,8 +177,6 @@ playbook:
             action: "start"
             target: [ 0, 5, 4 ] # start the specific node within 30s after test case start.
       input:
-        startAt: 130  # start the TX issuing from 180th seconds.
-        duration: 300 # once we have WAL, this duration could be reduced to 200.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -219,8 +201,6 @@ playbook:
             action: "start"
             target: [4, 5] # start the specific node within 30s after test case start.
       input:
-        startAt: 70  # start the TX issuing from 180th seconds.
-        duration: 90 # num of seconds the transaction sending duration.
         senderNode: 0  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -237,7 +217,6 @@ playbook:
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[4, 0], [4, 1], [4, 2], [5, 0], [5, 1], [5, 2], [3, 0], [3, 1], [3, 2]]
       input:
-        duration: 60 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -256,7 +235,6 @@ playbook:
             action: "connect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[4, 0], [4, 1], [4, 2], [5, 0], [5, 1], [5, 2], [3, 0], [3, 1], [3, 2]]
       input:
-        duration: 120 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -272,8 +250,6 @@ playbook:
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[1, 0], [1, 4], [1, 5], [1,3], [2, 0], [2, 4], [2, 5], [2,3]]
       input:
-        startAt: 80
-        duration: 120 # num of seconds the transaction sending duration.
         senderNode: 0  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -290,8 +266,6 @@ playbook:
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[2, 0], [2, 4], [2, 5], [1, 4], [1, 5], [1, 3], [0, 5], [0, 3], [4,3]]
       input:
-        startAt: 30
-        duration: 60 # num of seconds the transaction sending duration.
         senderNode: 0  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -307,7 +281,6 @@ playbook:
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[2, 0], [2, 4], [2, 5], [1, 4], [1, 5], [1,3], [0, 5], [0,3], [4,3], [4, 0]]
       input:
-        duration: 90 # num of seconds the transaction sending duration.
         senderNode: 0  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -323,7 +296,6 @@ playbook:
             action: "disconnect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[4,3], [4, 5], [4,2], [4,1], [5, 1], [5, 2], [5,3], [3, 1], [3,2], [2, 1]]
       input:
-        duration: 90 # num of seconds the transaction sending duration.
         senderNode: 0  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -370,7 +342,6 @@ playbook:
             action: "un-delay" # recover the traffic delay applied for target nodes.
             target: [0, 1]
       input:
-        duration: 90 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 4  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -390,8 +361,6 @@ playbook:
             action: "start"
             target: [0, 1, 2, 3, 5, 4]
       input:
-        startAt: 90  # start the TX issuing from 180th seconds.
-        duration: 90 # num of seconds the transaction sending duration.
         senderNode: 0  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -419,8 +388,6 @@ playbook:
             action: "start"
             target: [4, 1] # start the specific node within 210s after test case start. action: "start"
       input:
-        startAt: 150  # start the TX issuing from 180th seconds.
-        duration:  120 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -445,8 +412,6 @@ playbook:
             action: "start"
             target: [2] # start the specific node within 120s after test case start.
       input:
-        startAt: 90 # start the TX issuing from 180th seconds.
-        duration: 90 # num of seconds the transaction sending duration.
         senderNode: 5  # node coin_base address will be used as default sender address.
         receiverNode: 4  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -471,8 +436,6 @@ playbook:
             action: "start"
             target: [2, 3, 5, 4] # start the specific node within 120s after test case start.
       input:
-        startAt: 80  # start the TX issuing from 180th seconds.
-        duration: 120 # num of seconds the transaction sending duration.
         senderNode: 4  # node coin_base address will be used as default sender address.
         receiverNode: 5  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -495,7 +458,6 @@ playbook:
             action: "start" # it apply p2p connection by managing ip-tables in linux kernel.
             target: [0]
       input:
-        duration: 300 # num of seconds the transaction sending duration.
         senderNode: 1  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -538,7 +500,6 @@ playbook:
             action: "un-delay" # recover the traffic delay applied for target nodes.
             target: [0]
       input:
-        duration: 180 # num of seconds the transaction sending duration.
         senderNode: 1  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -575,7 +536,6 @@ playbook:
             action: "un-delay" # recover the traffic delay applied for target nodes.
             target: [0]
       input:
-        duration: 180 # num of seconds the transaction sending duration.
         senderNode: 1  # node coin_base address will be used as default sender address.
         receiverNode: 3  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -595,7 +555,6 @@ playbook:
             action: "connect" # it apply p2p disconnection by managing ip-tables in linux kernel.
             peers: [[4, 0]]
       input:
-        duration: 260 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
@@ -624,7 +583,6 @@ playbook:
             action: "connect" # it apply p2p connection by managing ip-tables in linux kernel.
             peers: [[0, 1], [4, 0]]
       input:
-        duration: 200 # num of seconds the transaction sending duration.
         senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
