@@ -468,9 +468,12 @@ func TestRouter_Loop_OverallFlow(t *testing.T) {
 	networkProvider.EXPECT().UpdateClusters(gomock.Any()).AnyTimes() // For new epoch
 	latencyFetcher.EXPECT().Fetch(newCommitteeAddrs, self).Return(latencyMap, nil, nil).Times(1)
 
+	var chainLock sync.RWMutex
 	// Start router
 	go func() {
+		chainLock.Lock()
 		router.Start(ctx, chain)
+		chainLock.Unlock()
 		time.Sleep(50 * time.Millisecond)
 		router.epochEventChan <- epochEvent
 		//time.Sleep(200 * time.Millisecond)
@@ -495,7 +498,9 @@ func TestRouter_Loop_OverallFlow(t *testing.T) {
 	broadcaster.EXPECT().FindPeer(common.HexToAddress("0x333")).Return(nil, false).Times(1)
 	broadcaster.EXPECT().FindPeer(common.HexToAddress("0x444")).Return(nil, false).Times(1)
 
+	chainLock.RLock()
 	router.Forward(&newCommittee, msg, self, nil)
+	chainLock.RUnlock()
 
 	// Wait for goroutine to process
 	time.Sleep(500 * time.Millisecond)
