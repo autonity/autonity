@@ -281,7 +281,6 @@ contract('Protocol', function (accounts) {
 
   describe('After effects of slashing 1', function () {
     beforeEach(async function () {
-      this.timeout(600000);
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
       accountability = await AccountabilityTest.new(autonity.address, accountabilityConfig, {from: deployer});
       await autonity.setAccountabilityContract(accountability.address, {from: operator});

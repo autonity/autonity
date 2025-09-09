@@ -354,7 +354,6 @@ contract('Autonity', function (accounts) {
        }
        */
     beforeEach(async function () {
-      this.timeout(600000);
       autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, false);
     });
 
@@ -651,7 +650,6 @@ contract('Autonity', function (accounts) {
 
   describe('Bonding and unbonding requests - 1', function () {
     beforeEach(async function () {
-        this.timeout(600000);
         autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
     });
 
@@ -753,7 +751,6 @@ contract('Autonity', function (accounts) {
 
   describe('Bonding and unbonding requests - 2', function () {
     beforeEach(async function () {
-        this.timeout(600000);
         autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
     });
 
@@ -881,7 +878,6 @@ contract('Autonity', function (accounts) {
 
   describe('Bonding and unbonding requests - 3', function () {
     beforeEach(async function () {
-      this.timeout(600000);
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
     });
 
@@ -979,7 +975,6 @@ contract('Autonity', function (accounts) {
 
   describe('Bonding and unbonding requests - 4', function () {
     beforeEach(async function () {
-      this.timeout(600000);
       autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
     });
 
