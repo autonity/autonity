@@ -169,9 +169,40 @@ playbook:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
         engineAlive: true # false means consensus engine should on-hold.
 
-
     ###################################bootstrap tests########################
-    - name: "TC-10: Bootstrap from scratch, 2 by 2 on 5 seconds interval"
+    - name: "TC-10: Bootstrap from scratch with 1 node crashed and recover later during the bootstrap."
+      re-deploy: true
+      condition:
+        crashNodes: [ 0 ] # contain the node domain name we want to crash.
+        scenario:
+          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+            action: "re-deploy"
+          - delay: 30 # seconds
+            action: "start"
+            target: [ 0 ] # start the specific node within 30s after test case start.
+          - delay: 90 # seconds
+            action: "start"
+            target: [ 1, 2 ] # start the specific node within 90s after test case start.
+          - delay: 95 # seconds
+            action: "stop"
+            target: [ 0 ] # start the specific node within 120s after test case start.
+          - delay: 100 # seconds
+            action: "start"
+            target: [ 3 ] # start the specific node within 150s after test case start.
+          - delay: 130 # seconds
+            action: "start"
+            target: [ 0, 5, 4 ] # start the specific node within 30s after test case start.
+      input:
+        startAt: 130  # start the TX issuing from 180th seconds.
+        duration: 300 # once we have WAL, this duration could be reduced to 200.
+        senderNode: 2  # node coin_base address will be used as default sender address.
+        receiverNode: 1  # node coin_base address wil be used as default receiver address.
+        amountperTX: 10 # 10 tokens to be transfer per transaction.
+      output:
+        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
+        engineAlive: true # false means consensus engine should on-hold.
+
+    - name: "TC-11: Bootstrap from scratch, 2 by 2 on 5 seconds interval"
       re-deploy: true
       condition:
         crashNodes: [] # contain the node domain name we want to crash.
@@ -198,7 +229,7 @@ playbook:
         engineAlive: true # false means consensus engine should on-hold.
 
     ###################################partitioning tests#####################
-    - name: "TC-11: Network partition. 6 break into 2 slices with 3 node each slice, engine should on-hold."
+    - name: "TC-12: Network partition. 6 break into 2 slices with 3 node each slice, engine should on-hold."
       condition:
         crashNodes: [] # contain the node domain name we want to crash.
         scenario:
@@ -214,7 +245,7 @@ playbook:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
         engineAlive: false # false means consensus engine should on-hold.
 
-    - name: "TC-12: Network partition. 6 break into 3 and 3, then the two slices recovers, engine recovers too."
+    - name: "TC-13: Network partition. 6 break into 3 and 3, then the two slices recovers, engine recovers too."
       condition:
         crashNodes: [] # contain the node domain name we want to crash.
         scenario:
@@ -233,7 +264,7 @@ playbook:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
         engineAlive: true # false means consensus engine should on-hold.
 
-    - name: "TC-13: Network partition. 6 break into 4 and 2, main party(4 validator) should not on-hold."
+    - name: "TC-14: Network partition. 6 break into 4 and 2, main party(4 validator) should not on-hold."
       condition:
         crashNodes: []
         scenario:
@@ -251,7 +282,7 @@ playbook:
         engineAlive: true # false means consensus engine should on-hold.
 
     #################special topologies#######################################
-    - name: "TC-14: 6 nodes in Ring network topology, should not on-hold."
+    - name: "TC-15: 6 nodes in Ring network topology, should not on-hold."
       condition:
         crashNodes: [] # contain the nodes which leave the main party.
         scenario:
@@ -268,7 +299,7 @@ playbook:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
         engineAlive: true # false means consensus engine should on-hold.
 
-    - name: "TC-15: 6 nodes in bus line network topology, should not on-hold."
+    - name: "TC-16: 6 nodes in bus line network topology, should not on-hold."
       condition:
         crashNodes: [] # contain the nodes which leave the main party.
         scenario:
@@ -284,7 +315,7 @@ playbook:
         # In any case, engine should promise block consistent between nodes, and correct balance for each account.
         engineAlive: true # false means consensus engine should on-hold.
 
-    - name: "TC-16: 6 nodes in star network topology, should not on-hold."
+    - name: "TC-17: 6 nodes in star network topology, should not on-hold."
       condition:
         crashNodes: [] # contain the nodes which leave the main party.
         scenario:
@@ -301,7 +332,7 @@ playbook:
         engineAlive: true # false means consensus engine should on-hold.
 
     #############################traffic quality and latency tests############################
-    - name: "TC-17: network traffic control with package delay, loss, duplication, reordering, corruption."
+    - name: "TC-18: network traffic control with package delay, loss, duplication, reordering, corruption."
       condition:
         crashNodes: [] # contain the node domain name we want to crash.
         scenario:
@@ -348,7 +379,7 @@ playbook:
         engineAlive: true # false means consensus engine should on-hold.
 
     ########################bootstrap test#######################################
-    - name: "TC-18: Bootstrap from scratch, with all node start in the same time."
+    - name: "TC-19: Bootstrap from scratch, with all node start in the same time."
       re-deploy: true
       condition:
         crashNodes: [] # contain the node domain name we want to crash.
@@ -362,38 +393,6 @@ playbook:
         startAt: 90  # start the TX issuing from 180th seconds.
         duration: 90 # num of seconds the transaction sending duration.
         senderNode: 0  # node coin_base address will be used as default sender address.
-        receiverNode: 1  # node coin_base address wil be used as default receiver address.
-        amountperTX: 10 # 10 tokens to be transfer per transaction.
-      output:
-        # In any case, engine should promise block consistent between nodes, and correct balance for each account.
-        engineAlive: true # false means consensus engine should on-hold.
-
-    - name: "TC-19: Bootstrap from scratch with 1 node crashed and recover later during the bootstrap."
-      re-deploy: true
-      condition:
-        crashNodes: [0] # contain the node domain name we want to crash.
-        scenario:
-          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
-            action: "re-deploy"
-          - delay: 30 # seconds
-            action: "start"
-            target: [0] # start the specific node within 30s after test case start.
-          - delay: 90 # seconds
-            action: "start"
-            target: [1, 2] # start the specific node within 90s after test case start.
-          - delay: 95 # seconds
-            action: "stop"
-            target: [0] # start the specific node within 120s after test case start.
-          - delay: 100 # seconds
-            action: "start"
-            target: [3] # start the specific node within 150s after test case start.
-          - delay: 130 # seconds
-            action: "start"
-            target: [0, 5, 4] # start the specific node within 30s after test case start.
-      input:
-        startAt: 130  # start the TX issuing from 180th seconds.
-        duration: 300 # once we have WAL, this duration could be reduced to 200.
-        senderNode: 2  # node coin_base address will be used as default sender address.
         receiverNode: 1  # node coin_base address wil be used as default receiver address.
         amountperTX: 10 # 10 tokens to be transfer per transaction.
       output:
