@@ -12,6 +12,7 @@ HEAL_TIME_OUT = 60 * 5  # 5 minutes
 TX_HISTORY_FILE = './TXs_Per_TC_{}'
 BLOCK_CONSISTENT_CHECKING_DURATION = 2
 ENGINE_STATE_CHECKING_DURATION = 60
+POST_CHECK_DURATION = 100
 TEST_CASE_CONTEXT_FILE_NAME = './system_log/{}/test_case_context.log'
 SYSTEM_LOG_DIR = './system_log/'
 TEST_CASE_SYSTEM_LOG_DIR = './system_log/{}'
@@ -82,7 +83,7 @@ class TestCase:
         self.tx_start_chain_height = self.get_chain_height()
         try:
             start = timer()
-            duration = 90
+            duration = POST_CHECK_DURATION
             sender_index = self.test_case_conf["input"]["senderNode"]
             receiver_index = self.test_case_conf["input"]["receiverNode"]
             amount_per_tx = self.test_case_conf["input"]["amountperTX"]
