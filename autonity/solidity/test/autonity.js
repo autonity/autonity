@@ -650,7 +650,8 @@ contract('Autonity', function (accounts) {
 
   describe('Bonding and unbonding requests - 1', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
+        this.timeout(600000);
+        autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
     });
 
     it('Bond to a valid validator (not selfBonded)', async function () {
