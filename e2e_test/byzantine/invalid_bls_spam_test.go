@@ -21,13 +21,12 @@ import (
 // to test invalid bls signature spamming and related disconnection efficacy
 
 func newInvalidSignatureBroadcaster(c interfaces.Core) interfaces.Prevoter {
-	return &invalidSignatureBroadcaster{c.(*core.Core), c.Prevoter(), false}
+	return &invalidSignatureBroadcaster{c.(*core.Core), c.Prevoter()}
 }
 
 type invalidSignatureBroadcaster struct {
 	*core.Core
 	interfaces.Prevoter
-	sent bool
 }
 
 // when sending a prevote, do the standard behaviour + send an invalid signature prevote
@@ -35,8 +34,10 @@ func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil boo
 	// send invalid sig.
 	// leave some buffer to wait for all nodes in the test to be started, otherwise slow node
 	// which not receive the invalid msg, can make the disconnection test flaky.
-	delta := new(big.Int).SetUint64(70)
-	if !c.sent && c.Height().Cmp(delta) > 0 {
+	// TODO: check in some flaky case, some of the peer cannot receive this msg.
+	start := new(big.Int).SetUint64(70)
+	end := new(big.Int).SetUint64(80)
+	if c.Height().Cmp(start) > 0 && c.Height().Cmp(end) < 0 {
 		invalidSigner := func(hash common.Hash) blst.Signature {
 			var h common.Hash
 			rand.Read(h[:])
@@ -46,7 +47,6 @@ func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil boo
 		self, csize := selfAndCommittee(c.Core, c.Height().Uint64())
 		prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), hash, invalidSigner, self, csize)
 		c.Backend().Broadcast(c.CommitteeSet().Committee(), prevote)
-		c.sent = true
 	}
 
 	// standard behaviour
