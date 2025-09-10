@@ -11,7 +11,7 @@ from timeit import default_timer as timer
 HEAL_TIME_OUT = 60 * 5  # 5 minutes
 TX_HISTORY_FILE = './TXs_Per_TC_{}'
 BLOCK_CONSISTENT_CHECKING_DURATION = 2
-ENGINE_STATE_CHECKING_DURATION = 90
+ENGINE_STATE_CHECKING_DURATION = 120
 POST_CHECK_DURATION = 120
 TEST_CASE_CONTEXT_FILE_NAME = './system_log/{}/test_case_context.log'
 SYSTEM_LOG_DIR = './system_log/'
