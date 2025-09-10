@@ -45,7 +45,7 @@ func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil boo
 		hash := c.CurRoundMessages().ProposalHash()
 		self, csize := selfAndCommittee(c.Core, c.Height().Uint64())
 		prevote := message.NewPrevote(c.Round(), c.Height().Uint64(), hash, invalidSigner, self, csize)
-		c.Backend().Gossip(c.CommitteeSet().Committee(), prevote, c.Address())
+		c.Backend().Broadcast(c.CommitteeSet().Committee(), prevote)
 		c.sent = true
 	}
 
