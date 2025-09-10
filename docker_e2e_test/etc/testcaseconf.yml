@@ -400,11 +400,11 @@ playbook:
       condition:
         crashNodes: [0, 1, 2] # contain the node domain name we want to crash.
         scenario:
-          - delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
-            action: "re-deploy"
-          - delay: 60 # seconds
-            action: "start"
-            target: [0, 1, 2, 3, 5, 4] # start the specific node within 30s after test case start.
+          #- delay: 1 # cold re-deploy the network from scratch after 1 seconds of test case running.
+          #  action: "re-deploy"
+          #- delay: 60 # seconds
+          #  action: "start"
+          #  target: [0, 1, 2, 3, 5, 4] # start the specific node within 30s after test case start.
           - delay: 70 # seconds
             action: "stop"
             target: [0, 1, 2] # start the specific node within 90s after test case start.
