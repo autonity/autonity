@@ -266,7 +266,8 @@ func (s *OnceOffenceProposer) Broadcast(msg message.Msg) {
 		return
 	}
 
-	if !s.sent {
+	// leave some buffer (30 blocks) to get all nodes started and connected.
+	if !s.sent && s.Core.Height().Uint64() > uint64(20) {
 		// current node is not the proposer of current round, propose a proposal.
 		header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}
 		block := types.NewBlockWithHeader(header)
