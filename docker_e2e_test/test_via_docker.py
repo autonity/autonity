@@ -13,6 +13,8 @@ CLIENT_IMAGE_NAME = "clienthost/ubuntu:2404"
 CLIENT_DOCKER_FILE = "./clientDockerFile"
 BUILDER_IMAGE_NAME = "go-builder/ubuntu"
 NUM_OF_CLIENT = 6
+NUM_OF_WORKER = 3
+BATCH_SIZE = 3
 NODE_NAME = "Node{}_{}"
 ENGINE_NAME = "Engine{}"
 COMMAND_START_TEST = "python3 e2etestengine.py ./test_bin/autonity -id {} -ips {}"
@@ -293,9 +295,9 @@ if __name__ == "__main__":
         build_engine_image(COMMIT_HASH)
 
         # Run test cases concurrently
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        with ThreadPoolExecutor(max_workers=NUM_OF_WORKER) as executor:
             futures = []
-            for case_id in range(test_id, test_id + 3):
+            for case_id in range(test_id, test_id + BATCH_SIZE):
                 job_id = f"hash_{COMMIT_HASH}_case_{case_id}"
                 JOB_IDS.append(job_id)
                 futures.append(executor.submit(run_test_case, case_id, COMMIT_HASH, job_id))

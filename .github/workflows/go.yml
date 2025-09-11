@@ -107,6 +107,8 @@ jobs:
   build-docker-artifacts:
     runs-on: ubuntu-24.04
     needs: [ prepare-cache ]
+    outputs:
+      artifact-name: ${{ steps.set-artifact-name.outputs.name }}
     steps:
       - uses: actions/setup-go@v4
         with:
@@ -121,10 +123,13 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
       - name: Build binaries
         run: make all
+      - name: Set artifact name
+        id: set-artifact-name
+        run: echo "name=built-binaries-${{ github.run_id }}" >> $GITHUB_OUTPUT
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: built-binaries
+          name: ${{ steps.set-artifact-name.outputs.name }}
           path: ./build/bin/**
           retention-days: 1
 
@@ -351,7 +356,7 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: built-binaries
+          name: ${{ needs.build-docker-artifacts.outputs.artifact-name }}
           path: ./build/bin/
       - name: Make binaries executable
         run: chmod +x ./build/bin/*
@@ -375,7 +380,7 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: built-binaries
+          name: ${{ needs.build-docker-artifacts.outputs.artifact-name }}
           path: ./build/bin/
       - name: Make binaries executable
         run: chmod +x ./build/bin/*
@@ -399,7 +404,7 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: built-binaries
+          name: ${{ needs.build-docker-artifacts.outputs.artifact-name }}
           path: ./build/bin/
       - name: Make binaries executable
         run: chmod +x ./build/bin/*
