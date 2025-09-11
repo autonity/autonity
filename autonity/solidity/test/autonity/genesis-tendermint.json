@@ -6,7 +6,7 @@
       "delegationRate": 1000,
       "blockPeriod": 1,
       "maxCommitteeSize": 7,
-      "gasLimit": 3000000000,
+      "gasLimit": 30000000000,
       "gasLimitBoundDivisor": 1024,
       "baseFeeChangeDenominator":64,
       "elasticityMultiplier":2,
