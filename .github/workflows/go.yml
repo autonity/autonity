@@ -173,6 +173,51 @@ jobs:
       - name: Run tests
         run: go test ${{ matrix.tests[1] }}
 
+  prepare-e2e-test-matrix:
+    needs: prepare-cache
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - id: set-matrix
+        name: fetch test lists
+        run: |
+          matrix=$(go test ./e2e_test -list=. | grep -v "ok" | jq -R -s -c 'split("\n")[:-1]')
+          echo "matrix=${matrix}" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
+
+  e2e-test:
+    needs: prepare-e2e-test-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tests: ${{ fromJSON(needs.prepare-e2e-test-matrix.outputs.matrix) }}
+    name: ${{ matrix.tests }}
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - run: go test -v -run ${{ matrix.tests }} ./e2e_test -timeout 15m -race
+
   prepare-byzantine:
     needs: prepare-cache
     runs-on: ubuntu-latest
