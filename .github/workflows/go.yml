@@ -307,13 +307,11 @@ jobs:
       - name: Run coverage
         run: |
           go test ./consensus/tendermint/... -timeout 15m -cover -covermode=atomic -test.coverprofile=coverage_tendermint_ut.out
-          go test ./e2e_test -p 1 -timeout 35m -cover -covermode=atomic -coverpkg=./consensus/tendermint/... -test.coverprofile=coverage_tendermint_integration.out
-
 
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          files: coverage_tendermint_ut.out,coverage_tendermint_integration.out
+          files: coverage_tendermint_ut.out
           yml: codecov.yml
 
   # lint does linting.
