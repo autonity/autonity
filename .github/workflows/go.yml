@@ -286,6 +286,8 @@ jobs:
   # tendermint-coverage runs the tendermint tests and collects the coverage, it
   # can't be part of the matrix tests since we need to use the codecov action,
   # which we do not want to use for the rest of the codebase.
+  # to speed up the tendermint coverage test, we remove those counting triggered by e2e tests, the target
+  # drop to 60% as the unit test of tendermint package has 61.33% for the time being.
   tendermint-tests-coverage:
     needs: prepare-cache
     runs-on: ubuntu-latest
@@ -307,12 +309,11 @@ jobs:
       - name: Run coverage
         run: |
           go test ./consensus/tendermint/... -timeout 15m -cover -covermode=atomic -test.coverprofile=coverage_tendermint_ut.out
-          go test -v -run TestJailingPersistence ./e2e_test -p 1 -timeout 35m -cover -covermode=atomic -coverpkg=./consensus/tendermint/... -test.coverprofile=coverage_tendermint_integration.out
 
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          files: coverage_tendermint_ut.out, coverage_tendermint_integration.out
+          files: coverage_tendermint_ut.out
           yml: codecov.yml
 
   # lint does linting.

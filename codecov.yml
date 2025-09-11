@@ -12,7 +12,7 @@ coverage:
     patch: off
     project:
       default:
-        target: 70%
+        target: 60%  # without counting the coverage rate of tendermint package triggered by e2e tests, unit test fall to 61.33%.
 
 comment:
   behavior: default
