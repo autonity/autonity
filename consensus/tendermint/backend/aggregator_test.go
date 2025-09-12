@@ -74,17 +74,18 @@ func mineOneBlock(t *testing.T, chain *core.BlockChain, backend *Backend) {
 
 // changes the signer key exploiting the Fake object. Makes it possible to arbitrarily control the outcome of the verification.
 func tweakPrevote(prevote *message.Prevote, key blst.PublicKey) *message.Prevote {
-	return message.NewFakePrevote(message.Fake{
+	fake := message.Fake{
 		FakeValue:          prevote.Value(),
 		FakeSigners:        prevote.Signers().Copy(),
 		FakeRound:          uint64(prevote.R()),
 		FakeHeight:         prevote.H(),
 		FakeSignatureInput: prevote.SignatureInput(),
-		FakeSignature:      prevote.Signature(),
 		FakePayload:        prevote.Payload(),
 		FakeHash:           prevote.Hash(),
 		FakeSignerKey:      key,
-	})
+	}
+	fake.FakeSignature, _ = prevote.Signature()
+	return message.NewFakePrevote(fake)
 }
 
 // waits for the condition function to be true, re-checking based on a ticker duration.
@@ -229,6 +230,7 @@ func TestAggregatorMessageHandling(t *testing.T) {
 			backend:        backendMock,
 			logger:         log.Root(),
 			signerSetCache: newAggregatorCache(),
+			computeWorkers: make(chan events.UnverifiedMessageEvent, 100),
 		}
 
 		value := common.Hash{0xca, 0xfe}
@@ -417,6 +419,7 @@ func TestAggregatorOldHeightMessage(t *testing.T) {
 			backend:        backendMock,
 			logger:         log.Root(),
 			signerSetCache: newAggregatorCache(),
+			computeWorkers: make(chan events.UnverifiedMessageEvent, 100),
 		}
 		prevote := message.NewPrevote(0, h-2, common.Hash{0xca, 0xfe}, testSigner, testCommitteeMember, committee)
 
@@ -467,7 +470,9 @@ func TestAggregatorOldHeightMessage(t *testing.T) {
 
 func TestAggregatorSaveMessage(t *testing.T) {
 	t.Run("Save prevote", func(t *testing.T) {
-		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo)}
+		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo),
+			computeWorkers: make(chan events.UnverifiedMessageEvent, 100),
+		}
 
 		r := int64(5)
 		h := uint64(0)
@@ -484,7 +489,9 @@ func TestAggregatorSaveMessage(t *testing.T) {
 		require.Equal(t, vote.Hash(), roundInfo.prevotes[value][0].Message.Hash())
 	})
 	t.Run("Save precommit", func(t *testing.T) {
-		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo)}
+		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo),
+			computeWorkers: make(chan events.UnverifiedMessageEvent, 100),
+		}
 
 		r := int64(5)
 		h := uint64(0)
@@ -501,7 +508,9 @@ func TestAggregatorSaveMessage(t *testing.T) {
 		require.Equal(t, vote.Hash(), roundInfo.precommits[value][0].Message.Hash())
 	})
 	t.Run("Save multiple message (individual and aggregates)", func(t *testing.T) {
-		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo)}
+		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo),
+			computeWorkers: make(chan events.UnverifiedMessageEvent, 100),
+		}
 
 		r := int64(4)
 		h := uint64(2)
@@ -584,6 +593,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		internalCoreCh:    make(chan events.MessageEventer, 10),
 		internalFdCh:      make(chan events.MessageEventer, 10),
 		internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
+		computeWorkers:    make(chan events.UnverifiedMessageEvent, 100),
 	}
 
 	t.Run("equivocated votes dont trigger processing", func(t *testing.T) {
@@ -806,6 +816,7 @@ func TestAggregatorProcess(t *testing.T) {
 			internalFdCh:   make(chan events.MessageEventer, 1),
 			internalCoreCh: make(chan events.MessageEventer, 1),
 			signerSetCache: newAggregatorCache(),
+			computeWorkers: make(chan events.UnverifiedMessageEvent, 100),
 		}
 		a.DispatchCoreEvents(context.Background())
 		backendMock.EXPECT().DispatchToCore(gomock.Any()).Times(1)
@@ -833,6 +844,7 @@ func TestAggregatorProcess(t *testing.T) {
 			internalFdCh:      make(chan events.MessageEventer, 10),
 			internalCoreCh:    make(chan events.MessageEventer, 10),
 			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
+			computeWorkers:    make(chan events.UnverifiedMessageEvent, 100),
 		}
 
 		for _, message := range messages {
@@ -866,6 +878,7 @@ func TestAggregatorProcess(t *testing.T) {
 			internalFdCh:      make(chan events.MessageEventer, 10),
 			internalCoreCh:    make(chan events.MessageEventer, 10),
 			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
+			computeWorkers:    make(chan events.UnverifiedMessageEvent, 100),
 		}
 
 		for _, message := range messages {
@@ -897,6 +910,7 @@ func TestAggregatorProcess(t *testing.T) {
 			internalFdCh:      make(chan events.MessageEventer, 10),
 			internalCoreCh:    make(chan events.MessageEventer, 10),
 			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
+			computeWorkers:    make(chan events.UnverifiedMessageEvent, 100),
 		}
 
 		for _, message := range messages {
@@ -927,6 +941,7 @@ func TestAggregatorProcess(t *testing.T) {
 			internalCoreCh:    make(chan events.MessageEventer),
 			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
 			logger:            log.Root(),
+			computeWorkers:    make(chan events.UnverifiedMessageEvent, 100),
 		}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -979,6 +994,7 @@ func TestAggregatorProcess(t *testing.T) {
 			internalFdCh:      make(chan events.MessageEventer, 10),
 			internalCoreCh:    make(chan events.MessageEventer, 10),
 			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
+			computeWorkers:    make(chan events.UnverifiedMessageEvent, 100),
 		}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -1372,6 +1388,7 @@ func setupTestAggregator(t *testing.T) (
 		internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
 		signerSetCache:    newAggregatorCache(),
 		toIgnore:          make(map[common.Hash]struct{}),
+		computeWorkers:    make(chan events.UnverifiedMessageEvent, 100),
 	}
 	aggregatorMsgChan := make(chan events.UnverifiedMessageEvent, 10)
 

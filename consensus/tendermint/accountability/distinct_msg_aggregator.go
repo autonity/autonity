@@ -328,7 +328,7 @@ func AggregateDistinctPrecommits(precommits []*message.Precommit) HighlyAggregat
 			SignersCoeff: m.Signers().CopyCoefficients(),
 		}
 		result.MsgSigners = append(result.MsgSigners, roundValueSigners)
-		signatures[i] = m.Signature()
+		signatures[i], _ = m.Signature()
 	}
 	result.Height = height
 	result.Signature = blst.AggregateSignatures(signatures).Marshal()

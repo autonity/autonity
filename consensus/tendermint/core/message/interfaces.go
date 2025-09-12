@@ -38,7 +38,7 @@ type Msg interface {
 	Payload() []byte
 
 	// Signature returns the signature of this message
-	Signature() blst.Signature
+	Signature() (blst.Signature, error)
 
 	// PreValidate attaches auxiliary information to the message (e.g. aggregated key and power)
 	// as the name suggests, it needs to be executed before validating the message

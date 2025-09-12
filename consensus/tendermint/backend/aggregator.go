@@ -23,6 +23,7 @@ const (
 	aggregationPeriod            = 150 * time.Millisecond
 	oldMessagesAggregationPeriod = 2 * time.Second
 	oldMessagesStatsPeriod       = 2 * time.Second
+	numComputeWorkers            = 8
 )
 
 // aggregator metrics
@@ -116,6 +117,8 @@ type aggregator struct {
 	internalFdCh      chan events.MessageEventer
 	internalBacklogCh chan events.UnverifiedMessageEvent // backlog for messages that were filtered by cache, but reinjected
 
+	computeWorkers chan events.UnverifiedMessageEvent
+
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 	logger log.Logger
@@ -134,8 +137,31 @@ func (a *aggregator) start(ctx context.Context) {
 	if a.internalBacklogCh == nil {
 		a.internalBacklogCh = make(chan events.UnverifiedMessageEvent, 1000) // buffered to avoid deadlock
 	}
+	if a.computeWorkers == nil {
+		a.computeWorkers = make(chan events.UnverifiedMessageEvent, 1000)
+	}
+	a.wg.Add(numComputeWorkers)
+	for i := 0; i < numComputeWorkers; i++ {
+		go func() {
+			defer a.wg.Done()
+			a.computeWork(ctx)
+		}()
+	}
 	a.wg.Add(1)
 	go a.loop(ctx)
+}
+
+func (a *aggregator) computeWork(ctx context.Context) {
+	for {
+		select {
+		case ev := <-a.computeWorkers:
+			// trigger the lazy computations
+			ev.Message.SignerKey()
+			_, _ = ev.Message.Signature() // error will be captured later during validation
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (a *aggregator) handleInvalidMessage(errorCh chan<- error, err error, sender common.Address) {
@@ -325,90 +351,6 @@ func (a *aggregator) DispatchFaultDetectorEvents(_ context.Context) {
 	}()
 }
 
-// validates a batch of messages, returns valid votes
-func (a *aggregator) validateBatch(batch []events.UnverifiedMessageEvent) (valid []message.Vote, invalid []uint) {
-	publicKeys := make([]blst.PublicKey, len(batch))
-	signatures := make([]blst.Signature, len(batch))
-	messages := make([]message.Vote, len(batch))
-	senders := make([]common.Address, len(batch))
-	errChs := make([]chan<- error, len(batch))
-
-	for i, e := range batch {
-		m := e.Message
-		messages[i] = m.(message.Vote)
-		//note: could do the signerKey calculation before hand - in parallel
-		publicKeys[i] = m.SignerKey()
-		signatures[i] = m.Signature()
-		senders[i] = e.Sender
-		errChs[i] = e.ErrCh
-	}
-
-	// if all messages in the batch got skipped, move to the next batch
-	if len(signatures) == 0 {
-		return nil, nil
-	}
-
-	hash := batch[0].Message.SignatureInput()
-
-	if blst.FastAggregateVerifyBatch(signatures, publicKeys, hash) {
-		// all signatures are valid
-		return messages, nil
-	}
-
-	validVotes := make([]message.Vote, 0, len(batch))
-
-	// at least one of the signatures is invalid, find at which index
-	invalids := blst.FindInvalid(signatures, publicKeys, hash)
-
-	// remove invalid messages and sent the rest of the batch
-	// NOTE: the following loop relies on blst.FindInvalid returning invalid indexes sorted according to ascending order
-	j := 0
-	for i, msg := range messages {
-		// #nosec
-		if j < len(invalids) && uint(i) == invalids[j] {
-			j++
-			a.signerSetCache.invalidateVotes(msg)
-			continue
-		}
-		validVotes = append(validVotes, msg)
-	}
-
-	var filtered []events.UnverifiedMessageEvent
-	switch batch[0].Message.(type) {
-	case *message.Prevote, *message.Precommit:
-		filtered = a.signerSetCache.emptyFiltered(
-			batch[0].Message.H(),
-			batch[0].Message.R(),
-			batch[0].Message.Code(),
-			batch[0].Message.Value(),
-		)
-	default:
-		// len(filtered) = 0
-	}
-	warned := false
-	for i, e := range filtered {
-		select {
-		case a.internalBacklogCh <- e:
-		// reinject the filtered messages to the backlog
-		default:
-			if !warned {
-				log.Warn(
-					"Aggregator backlog channel is full, dropping messages",
-					"number of messages dropped",
-					len(filtered)-i,
-					"height", batch[0].Message.H(),
-					"round", batch[0].Message.R(),
-					"code", batch[0].Message.Code(),
-					"value", batch[0].Message.Value(),
-				)
-				warned = true
-			}
-		}
-	}
-
-	return validVotes, invalids
-}
-
 func (a *aggregator) filterSkipped(evs []events.UnverifiedMessageEvent) []events.UnverifiedMessageEvent {
 	filtered := make([]events.UnverifiedMessageEvent, 0, len(evs))
 	for _, e := range evs {
@@ -427,54 +369,115 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 	if len(batches) == 0 {
 		return
 	}
-
-	processed := 0 // messages that go in the aggregator
-	sent := 0      // messages that out of the aggregator (to Core and FD as valid msgs)
 	for _, batch := range batches {
-		if len(batch) == 0 {
+		batch = a.filterSkipped(batch) // filter out messages that are to be skipped
+		a.processAndValidateBatch(batch, eventer)
+	}
+}
+
+func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEvent, eventer eventBuilder) {
+	if len(batch) == 0 {
+		return
+	}
+	candidates := make([]events.UnverifiedMessageEvent, 0, len(batch))
+	publicKeys := make([]blst.PublicKey, 0, len(batch))
+	signatures := make([]blst.Signature, 0, len(batch))
+
+	for _, event := range batch {
+		m := event.Message.(message.Vote)
+		publicKey := m.SignerKey()
+		signature, err := m.Signature()
+		if err != nil {
+			a.logger.Debug("Signature decoding failed for message", "peer", event.Sender, "err", err)
+			a.handleInvalidMessage(event.ErrCh, err, event.Sender)
+			a.signerSetCache.invalidateVotes(m)
 			continue
 		}
-		if metrics.Enabled {
-			BatchesBg.Add(int64(len(batch)))
-		}
-		processed += len(batch)
-		// we need to filter first so that invalids indexes will actually be correct
-		batch = a.filterSkipped(batch) // filter out messages that are to be skipped
-		validVotes, invalids := a.validateBatch(batch)
-		sent += len(validVotes)
-		if len(validVotes) > 0 {
-			// dispatch messages to core and FD
-			// repetitive code but I didn't find a way to declare aggregateVotes so that it works both with prevote and precommit
-			switch validVotes[0].(type) {
-			case *message.Prevote:
-				aggregateVotes := message.AggregatePrevotes(validVotes)
-				for _, aggregateVote := range aggregateVotes {
-					a.signerSetCache.addVote(aggregateVote, stepDispatched)
-					a.internalCoreCh <- eventer(aggregateVote, nil, a.backend.Address(), false).(events.MessageEventer)
-					a.internalFdCh <- eventer(aggregateVote, nil, a.backend.Address(), false).(events.MessageEventer)
-				}
-			case *message.Precommit:
-				aggregateVotes := message.AggregatePrecommits(validVotes)
-				for _, aggregateVote := range aggregateVotes {
-					a.signerSetCache.addVote(aggregateVote, stepDispatched)
-					a.internalCoreCh <- eventer(aggregateVote, nil, a.backend.Address(), false).(events.MessageEventer)
-					a.internalFdCh <- eventer(aggregateVote, nil, a.backend.Address(), false).(events.MessageEventer)
-				}
-			default:
-				a.logger.Crit("messages being aggregated are not votes", "type", reflect.TypeOf(validVotes[0]))
-			}
-		}
+		candidates = append(candidates, event)
+		publicKeys = append(publicKeys, publicKey)
+		signatures = append(signatures, signature)
+	}
 
-		// disconnect validators who sent us invalid votes at p2p layer and ignore the msgs coming from them
+	if len(candidates) == 0 {
+		return
+	}
+
+	hash := batch[0].Message.SignatureInput()
+	if blst.FastAggregateVerifyBatch(signatures, publicKeys, hash) {
+		// all signatures are valid
+		validVotes := make([]message.Vote, len(candidates))
+		for i, event := range candidates {
+			validVotes[i] = event.Message.(message.Vote)
+		}
+		a.aggregateAndDispatch(validVotes, eventer)
+		return
+	}
+
+	// at least one of the signatures is invalid, find at which index
+	invalids := blst.FindInvalid(signatures, publicKeys, hash)
+	defer func() {
 		if metrics.Enabled {
 			InvalidBg.Add(int64(len(invalids)))
 		}
-		for _, index := range invalids {
-			a.logger.Info("Received invalid bls signature from", "peer", batch[index].Sender)
-			a.handleInvalidMessage(batch[index].ErrCh, message.ErrBadSignature, batch[index].Sender)
+	}()
+	invalidSet := make(map[int]struct{}, len(invalids))
+	for _, idx := range invalids {
+		invalidSet[int(idx)] = struct{}{} // #nosec
+	}
+	validVotes := make([]message.Vote, 0, len(candidates)-len(invalids))
+	for i, event := range candidates {
+		if _, isInvalid := invalidSet[i]; !isInvalid {
+			validVotes = append(validVotes, event.Message.(message.Vote))
+			continue
+		}
+		a.logger.Info("Received invalid bls signature from", "peer", event.Sender)
+		a.handleInvalidMessage(event.ErrCh, message.ErrBadSignature, event.Sender)
+		a.signerSetCache.invalidateVotes(event.Message.(message.Vote))
+	}
+	if len(invalids) > 0 {
+		a.reInjectFilteredMessages(batch[0].Message.(message.Vote))
+	}
+	a.aggregateAndDispatch(validVotes, eventer)
+}
+
+func (a *aggregator) reInjectFilteredMessages(vote message.Vote) {
+	filtered := a.signerSetCache.emptyFiltered(vote.H(), vote.R(), vote.Code(), vote.Value())
+	warned := false
+	for i, e := range filtered {
+		select {
+		case a.internalBacklogCh <- e:
+		default:
+			if !warned {
+				log.Warn("Aggregator backlog channel is full, dropping messages", "number of messages dropped", len(filtered)-i,
+					"height", vote.H(), "round", vote.R(), "code", vote.Code(), "value", vote.Value())
+				warned = true
+			}
 		}
 	}
-	a.logger.Debug("Aggregator processed messages", "processed", processed, "sent", sent)
+}
+
+func (a *aggregator) aggregateAndDispatch(validVotes []message.Vote, eventer eventBuilder) {
+	if len(validVotes) == 0 {
+		return
+	}
+	switch validVotes[0].(type) {
+	case *message.Prevote:
+		aggregateVotes := message.AggregatePrevotes(validVotes)
+		for _, aggregateVote := range aggregateVotes {
+			a.signerSetCache.addVote(aggregateVote, stepDispatched)
+			a.internalCoreCh <- eventer(aggregateVote, nil, a.backend.Address(), false).(events.MessageEventer)
+			a.internalFdCh <- eventer(aggregateVote, nil, a.backend.Address(), false).(events.MessageEventer)
+		}
+	case *message.Precommit:
+		aggregateVotes := message.AggregatePrecommits(validVotes)
+		for _, aggregateVote := range aggregateVotes {
+			a.signerSetCache.addVote(aggregateVote, stepDispatched)
+			a.internalCoreCh <- eventer(aggregateVote, nil, a.backend.Address(), false).(events.MessageEventer)
+			a.internalFdCh <- eventer(aggregateVote, nil, a.backend.Address(), false).(events.MessageEventer)
+		}
+	default:
+		a.logger.Crit("messages being aggregated are not votes", "type", reflect.TypeOf(validVotes[0]))
+	}
 }
 
 func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent, eventer eventBuilder) {
@@ -519,6 +522,8 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 			return
 		}
 	}
+	// blocking call to trigger lazy computations of signatures and pubkeys
+	a.computeWorkers <- voteEvent
 }
 
 func (a *aggregator) toSkip(msg message.Msg) bool {

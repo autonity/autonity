@@ -1195,7 +1195,9 @@ func TestQuorumPrecommit(t *testing.T) {
 	quorumCertificateSigners := quorumPrecommitMsg.Signers().Copy()
 	quorumCertificateSigners.Merge(precommit.Signers().Copy())
 
-	quorumCertificateSignature := blst.AggregateSignatures([]blst.Signature{quorumPrecommitMsg.Signature(), precommit.Signature()})
+	quorumSig, _ := quorumPrecommitMsg.Signature()
+	precommitSig, _ := precommit.Signature()
+	quorumCertificateSignature := blst.AggregateSignatures([]blst.Signature{quorumSig, precommitSig})
 
 	backendMock.EXPECT().Commit(proposal.Block(), e.curRound, gomock.Any()).Do(
 		func(proposalBlock *types.Block, round int64, quorumCertificate *types.AggregateSignature) {

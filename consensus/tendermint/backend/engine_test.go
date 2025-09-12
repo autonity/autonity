@@ -279,7 +279,11 @@ func addQuorumCertificate(chain *core.BlockChain, engine *Backend, b *types.Bloc
 
 	header := b.Header()
 	precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), engine.Sign, self, info.Committee)
-	header.QuorumCertificate = types.NewAggregateSignature(precommit.Signature().(*blst.BlsSignature), precommit.Signers())
+	sig, err := precommit.Signature()
+	if err != nil {
+		panic(err)
+	}
+	header.QuorumCertificate = types.NewAggregateSignature(sig.(*blst.BlsSignature), precommit.Signers())
 	blockWithCertificate := b.WithSeal(header) // improper use, we use the WithSeal function to substitute the header with the one with quorumCertificate set
 	return blockWithCertificate, precommit
 }
@@ -971,7 +975,7 @@ func TestAssembleProof(t *testing.T) {
 			// add fake precommit with low voting power, to simulate not enough voting power to build activity proof
 			committee.Members[0].VotingPower = new(big.Int).SetUint64(0)
 			precommit := message.NewPrecommit(int64(header.Round), header.Number.Uint64(), header.Hash(), backend.Sign, self, committee)
-			precommitWithLowPower := message.NewFakePrecommit(message.Fake{
+			fake := message.Fake{
 				FakeCode:           message.PrecommitCode,
 				FakeRound:          uint64(precommit.R()),
 				FakeHeight:         precommit.H(),
@@ -979,10 +983,11 @@ func TestAssembleProof(t *testing.T) {
 				FakePayload:        precommit.Payload(),
 				FakeHash:           precommit.Hash(),
 				FakeSigners:        precommit.Signers(),
-				FakeSignature:      precommit.Signature(),
 				FakeSignatureInput: precommit.SignatureInput(),
 				FakeSignerKey:      precommit.SignerKey(),
-			})
+			}
+			fake.FakeSignature, _ = precommit.Signature()
+			precommitWithLowPower := message.NewFakePrecommit(fake)
 			backend.MsgStore.Save(precommitWithLowPower)
 		}
 

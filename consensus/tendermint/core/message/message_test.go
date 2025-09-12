@@ -91,9 +91,12 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, vote.R(), decoded.R())
 		require.Equal(t, vote.H(), decoded.H())
 		require.Equal(t, vote.Value(), decoded.Value())
+		require.NoError(t, decoded.Signers().Validate(&testCommittee))
 		require.Equal(t, vote.Signers().Bitmap, decoded.Signers().Bitmap)
 		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
-		require.Equal(t, vote.Signature(), decoded.Signature())
+		voteSignature, _ := vote.Signature()
+		decodedSignature, _ := decoded.Signature()
+		require.Equal(t, voteSignature, decodedSignature)
 	})
 	t.Run("precommit", func(t *testing.T) {
 		vote := newVote[Precommit](1, 2, common.HexToHash("0x1227"), defaultSigner, testCommitteeMember, &testCommittee)
@@ -106,9 +109,12 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, vote.R(), decoded.R())
 		require.Equal(t, vote.H(), decoded.H())
 		require.Equal(t, vote.Value(), decoded.Value())
+		require.NoError(t, decoded.Signers().Validate(&testCommittee))
 		require.Equal(t, vote.Signers().Bitmap, decoded.Signers().Bitmap)
 		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
-		require.Equal(t, vote.Signature(), decoded.Signature())
+		voteSignature, _ := vote.Signature()
+		decodedSignature, _ := decoded.Signature()
+		require.Equal(t, voteSignature, decodedSignature)
 	})
 	t.Run("propose", func(t *testing.T) {
 		header := &types.Header{Number: common.Big2}
@@ -124,7 +130,9 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, proposal.Value(), decoded.Value())
 		require.Equal(t, proposal.ValidRound(), decoded.ValidRound())
 		require.Equal(t, proposal.Signer(), decoded.Signer())
-		require.Equal(t, proposal.Signature(), decoded.Signature())
+		propsalSignature, _ := proposal.Signature()
+		decodedSignature, _ := decoded.Signature()
+		require.Equal(t, propsalSignature, decodedSignature)
 	})
 	t.Run("invalid propose with vr > r", func(t *testing.T) {
 		header := &types.Header{Number: common.Big2}
@@ -676,13 +684,44 @@ func BenchmarkDecodeVote(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		prevoteDec := new(Prevote)
-		if err := p2pPrevote.Decode(prevoteDec); err != nil {
+		s := rlp.NewStream(p2pPrevote.Payload, uint64(size))
+		if err := prevoteDec.DecodeRLP(s); err != nil {
 			b.Fatal("failed prevote decoding: ", err)
 		}
 		// without this re-initialization the payload gets discarded after the first iteration, making the decoding fail
 		b.StopTimer()
 		p2pPrevote.Payload = bytes.NewReader(payload)
 		b.StartTimer()
+	}
+}
+
+func BenchmarkDecodeVote2(b *testing.B) {
+	// Prepare a random hash once
+	hashBytes := make([]byte, 32)
+	if _, err := rand.Read(hashBytes); err != nil {
+		b.Fatalf("failed to generate random bytes: %v", err)
+	}
+	hash := common.BytesToHash(hashBytes)
+
+	origPrevote := NewPrevote(int64(15), uint64(123345), hash, defaultSigner, testCommitteeMember, &testCommittee)
+	payload := origPrevote.Payload()
+	size := uint32(len(payload))
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		reader := bytes.NewReader(payload)
+		stream := rlp.NewStream(reader, uint64(size))
+
+		var decoded Prevote
+		if err := decoded.DecodeRLP(stream); err != nil {
+			b.Fatalf("DecodeRLP failed: %v", err)
+		}
+
+		if decoded.R() != 15 {
+			b.Fatalf("unexpected round %d", decoded.R())
+		}
 	}
 }
 

@@ -188,7 +188,8 @@ func TestHandlePrecommit(t *testing.T) {
 					t.Fatal("Commit called with round different than precommit seal")
 				}
 
-				expectedQuorumCertificate := types.NewAggregateSignature(msg.Signature().Copy(), msg.Signers().Copy())
+				msgSig, _ := msg.Signature()
+				expectedQuorumCertificate := types.NewAggregateSignature(msgSig.Copy(), msg.Signers().Copy())
 				if !reflect.DeepEqual(expectedQuorumCertificate, quorumCertificate) {
 					t.Fatal("Commit called with wrong seal")
 				}

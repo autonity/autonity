@@ -43,10 +43,6 @@ func (b *base) SignatureInput() common.Hash {
 	return b.signatureInput
 }
 
-func (b *base) Signature() blst.Signature {
-	return b.signature
-}
-
 func (b *base) Payload() []byte {
 	return b.payload
 }

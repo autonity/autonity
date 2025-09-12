@@ -143,7 +143,8 @@ func handleConsensusMsg[T any, PT interface {
 
 	MessageProcessedBg.Mark(1)
 	bReader.Seek(0, io.SeekStart)
-	p2pMsg.Payload = bReader
+	payload, _ := io.ReadAll(bReader)
+	p2pMsg.Payload = bytes.NewReader(payload)
 	if !sb.coreRunning.Load() {
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.

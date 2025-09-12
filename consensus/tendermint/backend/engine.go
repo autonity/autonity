@@ -416,8 +416,9 @@ func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (
 		sb.logger.Warn("Failed to provide activity valid activity proof as proposer, not enough voting power", "height", h, "targetHeight", targetHeight, "targetRound", targetRound, "power", aggregatePrecommit.Power(), "quorum", quorum)
 		return nil, 0, nil
 	}
+	sig, _ := aggregatePrecommit.Signature()
 
-	return types.NewAggregateSignature(aggregatePrecommit.Signature().(*blst.BlsSignature), aggregatePrecommit.Signers()), targetRound, nil
+	return types.NewAggregateSignature(sig.(*blst.BlsSignature), aggregatePrecommit.Signers()), targetRound, nil
 }
 
 // Finalize runs any post-transaction state modifications (e.g. block rewards)

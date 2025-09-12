@@ -312,7 +312,8 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 	c.logger.Debug("Committing a block", "hash", proposalHash, "number", proposal.Block().Number().Uint64())
 
 	precommitWithQuorum := messages.PrecommitFor(proposalHash)
-	quorumCertificate := types.NewAggregateSignature(precommitWithQuorum.Signature().(*blst.BlsSignature), precommitWithQuorum.Signers())
+	sig, _ := precommitWithQuorum.Signature()
+	quorumCertificate := types.NewAggregateSignature(sig.(*blst.BlsSignature), precommitWithQuorum.Signers())
 
 	if err := c.backend.Commit(proposal.Block(), round, quorumCertificate); err != nil {
 		c.logger.Error("failed to commit a block", "err", err)
