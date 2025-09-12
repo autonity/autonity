@@ -447,10 +447,9 @@ jobs:
       - name: Merge coverage reports
         run: |
           go install github.com/wadey/gocovmerge@latest
-          
-          gocovmerge integration-coverage-dir/*.out > coverage_integration_merged_${{ env.RUN_ID }}.out
-          
-          gocovmerge unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out coverage_integration_merged_${{ env.RUN_ID }}.out > coverage_final_${{ env.RUN_ID }}.out
+          GO_BIN_PATH=$(go env GOPATH)/bin
+          $GO_BIN_PATH/gocovmerge integration-coverage-dir/*.out > coverage_integration_merged_${{ env.RUN_ID }}.out
+          $GO_BIN_PATH/gocovmerge unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out coverage_integration_merged_${{ env.RUN_ID }}.out > coverage_final_${{ env.RUN_ID }}.out
       - name: Upload to Codecov
         uses: codecov/codecov-action@v1
         with:
