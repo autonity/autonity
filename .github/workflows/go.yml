@@ -141,6 +141,7 @@ jobs:
       # helps prevent '[failed to restore the stack]' messages when race detected.
       GORACE: "history_size=7"
     strategy:
+      fail-fast: false
       matrix:
         # Here we set up a matrix to control our tests, we use go list and
         # negative grep to get most of the test packages for the main tests
@@ -202,6 +203,7 @@ jobs:
     needs: prepare-e2e-main-test-matrix
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         tests: ${{ fromJSON(needs.prepare-e2e-main-test-matrix.outputs.matrix) }}
     name: ${{ matrix.tests }}
@@ -249,6 +251,7 @@ jobs:
     needs: prepare-byzantine
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         tests: ${{ fromJSON(needs.prepare-byzantine.outputs.matrix) }}
     name: ${{ matrix.tests }}
@@ -299,6 +302,7 @@ jobs:
       # helps prevent '[failed to restore the stack]' messages when race detected.
       GORACE: "history_size=7"
     strategy:
+      fail-fast: false
       matrix:
         tests: ${{ fromJSON(needs.prepare-contracts.outputs.matrix) }}
 
