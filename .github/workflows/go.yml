@@ -26,6 +26,7 @@ env:
   GO_CACHE: /home/runner/.cache/go-build # This is the location of the go build cache.
   GO_MODULES_CACHE: /home/runner/go/pkg # This is where module source code is stored.
   GO_VERSION: "1.24.0"
+  RUN_ID: ${{ github.run_id }}
   TRUFFLE_TESTS: |
     [
       "autonity.js",
@@ -334,13 +335,136 @@ jobs:
           echo 'Running npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
           cd ./autonity/solidity/test && npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
 
+  tendermint-ut-coverage:
+    needs: prepare-cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Restore Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - name: Run unit test coverage
+        run: |
+          go test ./consensus/tendermint/... -timeout 15m -cover -covermode=atomic -test.coverprofile="coverage_ut_${{ env.RUN_ID }}.out"
+      - name: Upload unit test coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-ut-artifact-${{ env.RUN_ID }}
+          path: coverage_ut_${{ env.RUN_ID }}.out
+          retention-days: 1
+
+  discover-integration-tests:
+    needs: prepare-cache
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Restore Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - id: set-matrix
+        name: Discover integration tests
+        run: |
+          if [ ! -d "./e2e_test" ]; then
+            echo "::warning::./e2e_test directory not found"
+            echo "matrix=[]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          tests=$(cd ./e2e_test && go test -list=. . 2>/dev/null | grep -v "ok" | grep -v "^?" | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          if [ -z "$tests" ]; then
+            echo "::warning::No tests found in ./e2e_test"
+            echo "matrix=[]" >> $GITHUB_OUTPUT
+          else
+            echo "matrix=$tests" >> $GITHUB_OUTPUT
+          fi
+
+  run-integration-tests-coverage:
+    needs: discover-integration-tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        testName: ${{ fromJSON(needs.discover-integration-tests.outputs.matrix) }}
+    if: ${{ fromJSON(needs.discover-integration-tests.outputs.matrix) != '[]' }}
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Restore Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - name: Run specific integration test with coverage
+        run: |
+          go test -v -run "^${{ matrix.testName }}$" ./e2e_test \
+            -cover -covermode=atomic \
+            -coverpkg=./consensus/tendermint/... \
+            -test.coverprofile="coverage_${{ env.RUN_ID }}_${{ matrix.testName }}.out"
+      - name: Upload partial coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: partial-coverage-${{ env.RUN_ID }}-${{ matrix.testName }}
+          path: coverage_${{ env.RUN_ID }}_${{ matrix.testName }}.out
+          retention-days: 1
+
+  merge-coverage-reports:
+    needs:
+      - run-integration-tests-coverage
+      - tendermint-ut-coverage
+    runs-on: ubuntu-latest
+    if: ${{ fromJSON(needs.discover-integration-tests.outputs.matrix) != '[]' }}
+    steps:
+      - name: Download unit test coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-ut-artifact-${{ env.RUN_ID }}
+          path: unit-coverage-dir
+      - name: Download all integration coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: partial-coverage-${{ env.RUN_ID }}-*
+          path: integration-coverage-dir
+      - name: Merge coverage reports
+        run: |
+          go install github.com/wadey/gocovmerge@latest
+          
+          gocovmerge integration-coverage-dir/*.out > coverage_integration_merged_${{ env.RUN_ID }}.out
+          
+          gocovmerge unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out coverage_integration_merged_${{ env.RUN_ID }}.out > coverage_final_${{ env.RUN_ID }}.out
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }}
+          files: coverage_final_${{ env.RUN_ID }}.out
+          yml: codecov.yml
+          flags: run_${{ env.RUN_ID }}
 
   # tendermint-coverage runs the tendermint tests and collects the coverage, it
   # can't be part of the matrix tests since we need to use the codecov action,
   # which we do not want to use for the rest of the codebase.
   # to speed up the tendermint coverage test, we remove those counting triggered by e2e tests, the target
   # drop to 60% as the unit test of tendermint package has 61.33% for the time being.
-  tendermint-tests-coverage:
+  tendermint-tests-coverage_legacy:
     needs: prepare-cache
     runs-on: ubuntu-latest
     steps:
