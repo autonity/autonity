@@ -168,11 +168,10 @@ func handleConsensusMsg[T any, PT interface {
 
 	sb.knownMessages.Add(hash, true)
 	msg := PT(new(T))
-	if err := p2pMsg.Decode(msg); err != nil {
+	if err := msg.DecodeRLPPayload(msg.Payload(), hash); err != nil {
 		sb.logger.Error("Error decoding consensus message", "err", err)
 		return true, err
 	}
-
 	// if the message is for a future height wrt to consensus engine, buffer it
 	// it will be re-injected into the handleDecodedMsg function at the right height
 	// TODO: Due to a race condition a message that is considered as future could become current,

@@ -59,6 +59,8 @@ type Msg interface {
 	Verified() bool
 
 	PreVerified() bool
+
+	DecodeRLPPayload(payload []byte, hash common.Hash) error
 }
 
 // Votes have an additional method, which returns all the available information about the signers
