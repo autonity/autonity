@@ -681,6 +681,7 @@ func BenchmarkDecodeVote(b *testing.B) {
 	p2pPrevote := p2p.Msg{Code: 0x12, Size: uint32(size), Payload: r}
 
 	// start the actual benchmarking
+	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		prevoteDec := new(Prevote)
@@ -695,27 +696,22 @@ func BenchmarkDecodeVote(b *testing.B) {
 	}
 }
 
-func BenchmarkDecodeVote2(b *testing.B) {
-	// Prepare a random hash once
+func BenchmarkDecodeVoteNew(b *testing.B) {
 	hashBytes := make([]byte, 32)
 	if _, err := rand.Read(hashBytes); err != nil {
 		b.Fatalf("failed to generate random bytes: %v", err)
 	}
 	hash := common.BytesToHash(hashBytes)
-
 	origPrevote := NewPrevote(int64(15), uint64(123345), hash, defaultSigner, testCommitteeMember, &testCommittee)
 	payload := origPrevote.Payload()
-	size := uint32(len(payload))
+	payloadHash := crypto.Hash(payload)
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		reader := bytes.NewReader(payload)
-		stream := rlp.NewStream(reader, uint64(size))
-
 		var decoded Prevote
-		if err := decoded.DecodeRLP(stream); err != nil {
+		if err := decoded.DecodeRLPPayload(payload, payloadHash); err != nil {
 			b.Fatalf("DecodeRLP failed: %v", err)
 		}
 

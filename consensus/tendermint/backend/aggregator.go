@@ -379,6 +379,9 @@ func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEve
 	if len(batch) == 0 {
 		return
 	}
+	if metrics.Enabled {
+		BatchesBg.Add(int64(len(batch)))
+	}
 	candidates := make([]events.UnverifiedMessageEvent, 0, len(batch))
 	publicKeys := make([]blst.PublicKey, 0, len(batch))
 	signatures := make([]blst.Signature, 0, len(batch))
@@ -487,12 +490,38 @@ func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent
 	a.internalFdCh <- eventer(proposal, proposalEvent.ErrCh, proposalEvent.Sender, proposalEvent.Disseminated).(events.MessageEventer)   // send to fault detector
 }
 
+func (a *aggregator) isSignerJailed(vote message.Vote, committee *types.Committee) bool {
+	// check if all signers of the message are jailed
+	if a.backend.JailedCount() >= vote.Signers().Len() {
+		allJailed := true
+		vote.Signers().ForEachDistinctSigner(func(signerIndex int) {
+			signer := committee.Members[signerIndex].Address
+			if !a.backend.IsJailed(signer) {
+				allJailed = false
+			}
+		})
+		// unless all signers are jailed, we still process aggregates
+		if allJailed {
+			a.logger.Debug("Vote message contains only signatures from jailed validators, ignoring message", "signers", vote.Signers().String())
+			return true
+		}
+	}
+	return false
+}
+
+// assumes current or old round vote
+// if add == true, the msg is saved in the aggregator.
+// if add == false, the msg is not saved and only the power checks are done.
 func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committee *types.Committee) {
 	vote := voteEvent.Message.(message.Vote)
 	height := vote.H()
 	round := vote.R()
 	code := vote.Code()
 	value := vote.Value()
+
+	if a.isSignerJailed(vote, committee) {
+		return
+	}
 
 	a.saveMessage(voteEvent)
 

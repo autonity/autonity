@@ -39,9 +39,6 @@ func (b *base) R() int64 {
 	return b.round
 }
 
-func (b *base) SignatureInput() common.Hash {
-	return b.signatureInput
-}
 
 func (b *base) Payload() []byte {
 	return b.payload

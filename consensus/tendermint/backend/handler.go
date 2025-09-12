@@ -168,7 +168,7 @@ func handleConsensusMsg[T any, PT interface {
 
 	sb.knownMessages.Add(hash, true)
 	msg := PT(new(T))
-	if err := msg.DecodeRLPPayload(msg.Payload(), hash); err != nil {
+	if err := msg.DecodeRLPPayload(payload, hash); err != nil {
 		sb.logger.Error("Error decoding consensus message", "err", err)
 		return true, err
 	}
@@ -233,19 +233,6 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 			disseminated = true
 		}
 	case *message.Prevote, *message.Precommit:
-		vote := m.(message.Vote)
-		allJailed := true
-		vote.Signers().ForEachDistinctSigner(func(signerIndex int) {
-			signer := committee.Members[signerIndex].Address
-			if !sb.IsJailed(signer) {
-				allJailed = false
-			}
-		})
-		// unless all signers are jailed, we still process aggregates
-		if allJailed {
-			sb.logger.Debug("Vote message contains only signatures from jailed validators, ignoring message", "signers", vote.Signers().String())
-			return true, ErrJailed
-		}
 	default:
 		sb.logger.Crit("Tendermint backend processing unknown message")
 	}

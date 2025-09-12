@@ -90,6 +90,9 @@ type Backend interface {
 	// IsJailed returns true if the address belongs to the jailed validator list.
 	IsJailed(address common.Address) bool
 
+	// JailedCount returns the size of the jailed validator list.
+	JailedCount() int
+
 	// Jail jails the offender up to the end of the epoch
 	Jail(offender common.Address)
 

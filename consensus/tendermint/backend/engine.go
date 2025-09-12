@@ -760,3 +760,9 @@ func (sb *Backend) IsJailed(address common.Address) bool {
 	_, ok := sb.jailed.validators[address]
 	return ok
 }
+
+func (sb *Backend) JailedCount() int {
+	sb.jailed.RLock()
+	defer sb.jailed.RUnlock()
+	return len(sb.jailed.validators)
+}

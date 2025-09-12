@@ -17,6 +17,7 @@
 package message
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -112,6 +113,10 @@ func (p *Propose) ValidRound() int64 {
 }
 func (p *Propose) Value() common.Hash {
 	return p.block.Hash()
+}
+
+func (p *Propose) SignatureInput() common.Hash {
+	return p.signatureInput
 }
 
 func (p *Propose) String() string {
@@ -307,6 +312,10 @@ func (p *LightProposal) ValidRound() int64 {
 
 func (p *LightProposal) Value() common.Hash {
 	return p.blockHash
+}
+
+func (p *LightProposal) SignatureInput() common.Hash {
+	return p.signatureInput
 }
 
 func (p *LightProposal) Power() *big.Int {
@@ -608,11 +617,11 @@ func (p *Precommit) String() string {
 }
 
 func newVote[
-E Prevote | Precommit,
-PE interface {
-	*E
-	Msg
-}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, committee *types.Committee) *E {
+	E Prevote | Precommit,
+	PE interface {
+		*E
+		Msg
+	}](r int64, h uint64, value common.Hash, signer Signer, self *types.CommitteeMember, committee *types.Committee) *E {
 	code := PE(new(E)).Code()
 
 	// Pay attention that we're adding the message Code to the signature input data.
@@ -634,6 +643,7 @@ PE interface {
 	vote := E{
 		vote: vote{
 			value:   value,
+			code:    code,
 			signers: signers,
 			base: base{
 				round:          r,
@@ -764,6 +774,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 			vote: vote{
 				value:   representative.Value(),
 				signers: aggregateSigner,
+				code:    representative.Code(),
 				base: base{
 					height:         representative.H(),
 					round:          representative.R(),
@@ -789,87 +800,106 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 }
 
 func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
-	// The RLP structure for a vote is a list of 6 items:
-	// [Code, Round, Height, Value, Signers, Signature]
-	var decoded []any
-	if err := rlp.DecodeBytes(payload, &decoded); err != nil {
+	var s rlp.Stream
+	s.Reset(bytes.NewReader(payload), uint64(len(payload)))
+
+	if _, err := s.List(); err != nil { // Begin decoding list
+		return constants.ErrInvalidMessage
+	}
+
+	// Field 1: Code
+	code, err := s.Uint()
+	if err != nil {
 		return err
 	}
-
-	if len(decoded) != 6 {
-		return fmt.Errorf("invalid RLP for vote: expected 6 items, got %d", len(decoded))
-	}
-
-	// --- Field 1: Code ---
-	codeBytes, ok := decoded[0].([]uint8)
-	if !ok || len(codeBytes) != 1 || codeBytes[0] != PrevoteCode {
+	if code != uint64(PrevoteCode) {
 		return constants.ErrInvalidMessage
 	}
 
-	// --- Field 2: Round ---
-	roundBytes, ok := decoded[1].([]uint8)
-	if !ok {
-		return constants.ErrInvalidMessage
+	// Field 2: Round
+	round, err := s.Uint()
+	if err != nil {
+		return err
 	}
-	round := new(big.Int).SetBytes(roundBytes).Uint64()
 	if round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
 	p.round = int64(round)
 
-	// --- Field 3: Height ---
-	heightBytes, ok := decoded[2].([]byte)
-	if !ok {
-		return constants.ErrInvalidMessage
+	// Field 3: Height (uint64)
+	height, err := s.Uint()
+	if err != nil {
+		return err
 	}
-	height := new(big.Int).SetBytes(heightBytes).Uint64()
 	if height == 0 {
 		return constants.ErrInvalidMessage
 	}
 	p.height = height
 
-	// --- Field 4: hash ---
-	valueBytes, ok := decoded[3].([]byte)
-	if !ok {
+	// Field 4: Value (32 bytes)
+	valueBytes, err := s.Bytes()
+	if err != nil {
+		return err
+	}
+	if len(valueBytes) != common.HashLength {
 		return constants.ErrInvalidMessage
 	}
 	p.value = common.BytesToHash(valueBytes)
 
-	// --- Field 5: Signers ---
-	signersList, ok := decoded[4].([]any)
-	if !ok || len(signersList) != 2 {
-		return fmt.Errorf("invalid RLP for signers: expected a list of 2 items")
+	// Field 5: Signers (nested list [Bitmap bytes, Coefficients list])
+	if _, err := s.List(); err != nil { // Begin signers list
+		return err
 	}
 
-	bitmap, okBitmap := signersList[0].([]byte)
-	coeffsList, okCoeffs := signersList[1].([]any)
-	if !okBitmap || !okCoeffs {
-		return fmt.Errorf("invalid RLP for signers: bitmap and coefficients must be byte slices")
+	// Bitmap ([]byte)
+	bitmap, err := s.Bytes()
+	if err != nil {
+		return err
 	}
-	coefficients := make([]*big.Int, len(coeffsList))
-	for i, item := range coeffsList {
-		coeffBytes, valid := item.([]byte)
-		if !valid {
-			return fmt.Errorf("invalid RLP for coefficient item: must be a byte slice")
+
+	// Coefficients (list of []byte)
+	if _, err := s.List(); err != nil {
+		return err
+	}
+
+	var coefficients []*big.Int
+	for { // coefficients list
+		coeffBytes, err := s.Bytes()
+		if errors.Is(err, rlp.EOL) {
+			break
 		}
-		coefficients[i] = new(big.Int).SetBytes(coeffBytes)
+		if err != nil {
+			return err
+		}
+		coefficients = append(coefficients, new(big.Int).SetBytes(coeffBytes))
 	}
-	signers := &types.Signers{
+
+	if err := s.ListEnd(); err != nil { // End coefficients list
+		return err
+	}
+	if err := s.ListEnd(); err != nil { // End signers list
+		return err
+	}
+
+	p.signers = &types.Signers{
 		Bitmap:       (*types.Bitmap)(new(big.Int).SetBytes(bitmap)),
 		Coefficients: coefficients,
 	}
-	if signers.SanityCheck() != nil {
+	if err := p.signers.SanityCheck(); err != nil {
 		return constants.ErrInvalidMessage
 	}
-	p.signers = signers
 
-	// --- Field 6: Signature ---
-	sigBytes, ok := decoded[5].([]byte)
-	if !ok {
-		return constants.ErrInvalidMessage
+	// Field 6: Signature ([]byte)
+	sigBytes, err := s.Bytes()
+	if err != nil {
+		return err
 	}
 	p.signatureBytes = sigBytes
-	// Set remaining base fields
+
+	if err := s.ListEnd(); err != nil { // End outer list
+		return err
+	}
+
 	p.hash = hash
 	p.code = PrevoteCode
 	p.verified = false
@@ -887,135 +917,112 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	return p.DecodeRLPPayload(payload, crypto.Hash(payload))
 }
 
-/*
-func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
-	payload, err := s.Raw()
-	if err != nil {
-		return err
-	}
-
-	encoded := &extVote{}
-	if err := rlp.DecodeBytes(payload, encoded); err != nil {
-		return err
-	}
-	if encoded.Code != PrevoteCode {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Signature == nil {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Height == 0 {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Round > constants.MaxRound {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Signers == nil || encoded.Signers.Bitmap == nil || encoded.Signers.Coefficients == nil {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Signers.SanityCheck() != nil {
-		return constants.ErrInvalidMessage
-	}
-	p.height = encoded.Height
-	p.round = int64(encoded.Round)
-	p.value = encoded.Value
-	p.signature = encoded.Signature
-	p.signers = encoded.Signers
-	p.payload = payload
-	// precompute hash and signature hash
-	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrevoteCode, encoded.Value)
-	p.hash = crypto.Hash(payload)
-	p.verified = false
-	p.preverified = false
-	return nil
-}*/
-
 func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
-	var decoded []any
-	if err := rlp.DecodeBytes(payload, &decoded); err != nil {
-		return err
-	}
+	var s rlp.Stream
+	s.Reset(bytes.NewReader(payload), uint64(len(payload)))
 
-	if len(decoded) != 6 {
-		return fmt.Errorf("invalid RLP for vote: expected 6 items, got %d", len(decoded))
+	if _, err := s.List(); err != nil { // Begin decoding list
+		return constants.ErrInvalidMessage
 	}
 
 	// Field 1: Code
-	codeBytes, ok := decoded[0].([]uint8)
-	if !ok || len(codeBytes) != 1 || codeBytes[0] != PrecommitCode {
+	code, err := s.Uint()
+	if err != nil {
+		return err
+	}
+	if code != uint64(PrecommitCode) {
 		return constants.ErrInvalidMessage
 	}
 
 	// Field 2: Round
-	roundBytes, ok := decoded[1].([]uint8)
-	if !ok {
-		return constants.ErrInvalidMessage
+	round, err := s.Uint()
+	if err != nil {
+		return err
 	}
-	round := new(big.Int).SetBytes(roundBytes).Uint64()
 	if round > constants.MaxRound {
 		return constants.ErrInvalidMessage
 	}
 	p.round = int64(round)
 
-	// Field 3: Height
-	heightBytes, ok := decoded[2].([]byte)
-	if !ok {
-		return constants.ErrInvalidMessage
+	// Field 3: Height (uint64)
+	height, err := s.Uint()
+	if err != nil {
+		return err
 	}
-	height := new(big.Int).SetBytes(heightBytes).Uint64()
 	if height == 0 {
 		return constants.ErrInvalidMessage
 	}
 	p.height = height
 
-	// Field 4: hash
-	valueBytes, ok := decoded[3].([]byte)
-	if !ok {
+	// Field 4: Value (32 bytes)
+	valueBytes, err := s.Bytes()
+	if err != nil {
+		return err
+	}
+	if len(valueBytes) != common.HashLength {
 		return constants.ErrInvalidMessage
 	}
 	p.value = common.BytesToHash(valueBytes)
 
-	// Field 5: Signers
-	signersList, ok := decoded[4].([]any)
-	if !ok || len(signersList) != 2 {
-		return fmt.Errorf("invalid RLP for signers: expected a list of 2 items")
+	// Field 5: Signers (nested list [Bitmap bytes, Coefficients list])
+	if _, err := s.List(); err != nil { // Begin signers list
+		return err
 	}
 
-	bitmap, okBitmap := signersList[0].([]byte)
-	coeffsList, okCoeffs := signersList[1].([]any)
-	if !okBitmap || !okCoeffs {
-		return fmt.Errorf("invalid RLP for signers: bitmap and coefficients must be byte slices")
+	// Bitmap ([]byte)
+	bitmap, err := s.Bytes()
+	if err != nil {
+		return err
 	}
-	coefficients := make([]*big.Int, len(coeffsList))
-	for i, item := range coeffsList {
-		coeffBytes, valid := item.([]byte)
-		if !valid {
-			return fmt.Errorf("invalid RLP for coefficient item: must be a byte slice")
+
+	// Coefficients (list of []byte)
+	if _, err := s.List(); err != nil {
+		return err
+	}
+
+	var coefficients []*big.Int
+	for { // coefficients list
+		coeffBytes, err := s.Bytes()
+		if errors.Is(err, rlp.EOL) {
+			break
 		}
-		coefficients[i] = new(big.Int).SetBytes(coeffBytes)
+		if err != nil {
+			return err
+		}
+		coefficients = append(coefficients, new(big.Int).SetBytes(coeffBytes))
 	}
-	signers := &types.Signers{
+
+	if err := s.ListEnd(); err != nil { // End coefficients list
+		return err
+	}
+	if err := s.ListEnd(); err != nil { // End signers list
+		return err
+	}
+
+	p.signers = &types.Signers{
 		Bitmap:       (*types.Bitmap)(new(big.Int).SetBytes(bitmap)),
 		Coefficients: coefficients,
 	}
-	if signers.SanityCheck() != nil {
+	if err := p.signers.SanityCheck(); err != nil {
 		return constants.ErrInvalidMessage
 	}
-	p.signers = signers
 
-	// Field 6: Signature
-	sigBytes, ok := decoded[5].([]byte)
-	if !ok {
-		return constants.ErrInvalidMessage
+	// Field 6: Signature ([]byte)
+	sigBytes, err := s.Bytes()
+	if err != nil {
+		return err
 	}
 	p.signatureBytes = sigBytes
-	p.code = PrecommitCode
-	// this hash may not be needed as this is computed in backend
+
+	if err := s.ListEnd(); err != nil { // End outer list
+		return err
+	}
+
 	p.hash = hash
-	p.payload = payload
+	p.code = PrecommitCode
 	p.verified = false
 	p.preverified = false
-
+	p.payload = payload
 	return nil
 }
 
@@ -1145,6 +1152,7 @@ func NewFakePrevote(f Fake) *Prevote {
 		vote: vote{
 			value:   f.FakeValue,
 			signers: f.FakeSigners,
+			code:    PrevoteCode,
 			base: base{
 				round:          int64(f.FakeRound),
 				height:         f.FakeHeight,
@@ -1166,6 +1174,7 @@ func NewFakePrecommit(f Fake) *Precommit {
 		vote: vote{
 			signers: f.FakeSigners,
 			value:   f.FakeValue,
+			code:    PrecommitCode,
 			base: base{
 				round:          int64(f.FakeRound),
 				height:         f.FakeHeight,

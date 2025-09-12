@@ -399,6 +399,53 @@ func TestAggregatorMessageHandling(t *testing.T) {
 	})
 }
 
+func TestSignerJailed(t *testing.T) {
+	h := uint64(0)
+	r := int64(0)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	coreMock := interfaces.NewMockCore(ctrl)
+	backendMock := interfaces.NewMockBackend(ctrl)
+
+	backendMock.EXPECT().CommitteeByHeight(gomock.Any()).Return(committee, nil).Times(2)
+	coreMock.EXPECT().Height().Return(new(big.Int).SetUint64(h)).Times(2)
+	coreMock.EXPECT().Round().Return(r).Times(1)
+	backendMock.EXPECT().JailedCount().Return(1).Times(1)
+	backendMock.EXPECT().IsJailed(testCommitteeMember.Address).Return(true).Times(1)
+
+	a := &aggregator{
+		messages:       make(map[uint64]map[int64]*RoundInfo),
+		messagesFrom:   make(map[common.Address][]common.Hash),
+		core:           coreMock,
+		backend:        backendMock,
+		logger:         log.Root(),
+		signerSetCache: newAggregatorCache(),
+		computeWorkers: make(chan events.UnverifiedMessageEvent, 100),
+	}
+
+	value := common.Hash{0xca, 0xfe}
+	prevote := message.NewPrevote(r, h, value, testSigner, testCommitteeMember, committee)
+
+	a.handleEvent(makeBogusEvent(prevote))
+
+	roundInfo := a.messages[h][r]
+	require.Nil(t, roundInfo, "vote from jailed signer should not be saved and ignored")
+
+	precommit := message.NewPrecommit(r, h, value, testSigner, &committee.Members[1], committee)
+	precommit.Signers().AddSigner(2)
+	backendMock.EXPECT().IsJailed(committee.Members[1].Address).Return(false).Times(1)
+	backendMock.EXPECT().IsJailed(committee.Members[2].Address).Return(true).Times(1)
+	backendMock.EXPECT().JailedCount().Return(2).Times(1)
+
+	a.handleEvent(makeBogusEvent(precommit))
+	roundInfo = a.messages[h][r]
+	require.NotNil(t, roundInfo, "vote from an aggregate signer including at least one non jailed signer should be saved ")
+	require.Equal(t, 1, len(roundInfo.precommits[value]))
+	require.Equal(t, precommit.Hash(), roundInfo.precommits[value][0].Message.Hash())
+}
+
 // old height messages should be buffered and processed periodically
 func TestAggregatorOldHeightMessage(t *testing.T) {
 	t.Run("Old height messages are buffered as stale", func(t *testing.T) {

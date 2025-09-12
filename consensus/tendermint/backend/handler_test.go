@@ -199,40 +199,6 @@ func makeMsg(msgcode uint64, data interface{}) p2p.Msg {
 	return p2p.Msg{Code: msgcode, Size: uint32(size), Payload: bytes.NewReader(buff.Bytes())}
 }
 
-func TestSignerJailed(t *testing.T) {
-	chain, backend, pkeys := newBlockChain(2)
-
-	member0 := chain.Genesis().Header().Epoch.Committee.Members[0]
-	member1 := chain.Genesis().Header().Epoch.Committee.Members[1]
-	com := chain.Genesis().Header().Epoch.Committee
-
-	// generate one msg
-	data := message.NewPrevote(0, 1, common.Hash{}, makeSigner(pkeys[0]), &member0, com)
-	msg := p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	setupMocks(backend, ctrl, t)
-
-	backend.jailed.Lock()
-	backend.jailed.validators[member0.Address] = 0
-	backend.jailed.Unlock()
-
-	errCh := make(chan error, 1)
-	_, err := backend.HandleMsg(testAddress, msg, errCh)
-	require.Equal(t, ErrJailed, err)
-
-	// an aggregate containing Jailed and non-jailed validator should be processed successfully
-	p1 := message.NewPrevote(0, 1, common.Hash{0xca, 0xfe}, makeSigner(pkeys[0]), &member0, com)
-	p2 := message.NewPrevote(0, 1, common.Hash{0xca, 0xfe}, makeSigner(pkeys[1]), &member1, com)
-	data = message.AggregatePrevotes([]message.Vote{p1, p2})[0]
-	msg = p2p.Msg{Code: message.PrevoteNetworkMsg, Size: uint32(len(data.Payload())), Payload: bytes.NewReader(data.Payload())} // #nosec
-	errCh = make(chan error, 1)
-	_, err = backend.HandleMsg(testAddress, msg, errCh)
-	require.Equal(t, nil, err)
-	require.NoError(t, backend.Close())
-}
-
 func TestFutureHeightMessage(t *testing.T) {
 	t.Run("received future height message is buffered", func(t *testing.T) {
 		chain, backend, _ := newBlockChain(1)
