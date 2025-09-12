@@ -222,7 +222,7 @@ jobs:
       - run: go test -v -run ${{ matrix.tests }} ./e2e_test -timeout 15m -race
 
   # prepare the byzantine test cases of the e2e test framework.
-  prepare-byzantine:
+  prepare-byzantine-test-matrix:
     needs: prepare-cache
     runs-on: ubuntu-latest
     outputs:
@@ -247,13 +247,13 @@ jobs:
           cat $GITHUB_OUTPUT
 
   # concurrently run byzantine tests of the e2e test framework.
-  byzantine:
-    needs: prepare-byzantine
+  byzantine-test:
+    needs: prepare-byzantine-test-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        tests: ${{ fromJSON(needs.prepare-byzantine.outputs.matrix) }}
+        tests: ${{ fromJSON(needs.prepare-byzantine-test-matrix.outputs.matrix) }}
     name: ${{ matrix.tests }}
     steps:
       - uses: actions/setup-go@v4
@@ -270,7 +270,7 @@ jobs:
       - run: go test -v -run ${{ matrix.tests }} ./e2e_test/byzantine/... -timeout 15m -race
 
   # prepare protocol contract truffle test cases
-  prepare-contracts:
+  prepare-contracts-test-matrix:
     needs: prepare-cache
     runs-on: ubuntu-latest
     outputs:
@@ -295,8 +295,8 @@ jobs:
           cat $GITHUB_OUTPUT
 
   # tests runs most of the tests for the project, we use a matrix to run multiple configurations.
-  contracts:
-    needs: prepare-contracts
+  contracts-tests:
+    needs: prepare-contracts-test-matrix
     runs-on: ubuntu-latest
     env:
       # helps prevent '[failed to restore the stack]' messages when race detected.
@@ -304,7 +304,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tests: ${{ fromJSON(needs.prepare-contracts.outputs.matrix) }}
+        tests: ${{ fromJSON(needs.prepare-contracts-test-matrix.outputs.matrix) }}
 
     name: ${{ matrix.tests.file_name }} - ${{ matrix.tests.describe_name }}
 
