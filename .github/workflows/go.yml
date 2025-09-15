@@ -417,6 +417,7 @@ jobs:
           echo "=== checking unit-coverage-dir ==="
           find unit-coverage-dir -name "*.out" -type f | while read file; do
             echo "find: $file"
+            cat $file
           done
           
           if find e2e-coverage-dir -name "*.out" -type f | grep -q .; then
@@ -427,6 +428,7 @@ jobs:
             if [ -n "$INTEGRATION_FILES" ]; then
               $GO_BIN_PATH/gocovmerge $INTEGRATION_FILES > coverage_e2e_merged_${{ env.RUN_ID }}.out
               echo "sub reports were merged"
+              cat coverage_e2e_merged_${{ env.RUN_ID }}.out
             else
               echo "error: can not find any covery report"
               echo "mode: atomic" > coverage_e2e_merged_${{ env.RUN_ID }}.out
@@ -434,7 +436,7 @@ jobs:
           else
             echo "eror: cannot find any covery report"
             echo "mode: atomic" > coverage_e2e_merged_${{ env.RUN_ID }}.out
-          fi
+          fi  
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v1
