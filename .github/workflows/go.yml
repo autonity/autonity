@@ -313,6 +313,62 @@ jobs:
           path: coverage_ut_${{ env.RUN_ID }}.out
           retention-days: 1
 
+  # todo: when running coverage report concurrently, the final merged reports from tendermint UT and the e2e test drops
+  # the final coverage rate from 70%+ to 60%+. Now can just break tendermint ut and e2e-test parallelly to speed up CI.
+  e2e-test-coverage:
+    needs: prepare-cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Restore Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - name: Run unit test coverage
+        run: |
+          go test ./e2e/ -timeout 40m -race -cover -covermode=atomic -test.coverprofile="coverage_e2e_${{ env.RUN_ID }}.out"
+      - name: Upload unit test coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-e2e-artifact-${{ env.RUN_ID }}
+          path: coverage_e2e_${{ env.RUN_ID }}.out
+          retention-days: 1
+
+  # merge the code coverage of UT and e2e test for tendermint package.
+  coverage-reports:
+    needs:
+      - e2e-test-coverage
+      - tendermint-ut-coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download unit test coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-ut-artifact-${{ env.RUN_ID }}
+          path: unit-coverage-dir
+
+      - name: Download e2e coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-e2e-artifact-${{env.RUN_ID}}
+          path: e2e-coverage-dir
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.codecov_upload }}
+          files: unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out,e2e-coverage-dir/coverage_e2e_${{ env.RUN_ID }}.out
+          yml: codecov.yml
+          flags: run_${{ env.RUN_ID }}
+
+
   # prepare the main e2e tests out from the e2e test framework.
   discover-e2e-tests:
     needs: prepare-cache
@@ -347,8 +403,8 @@ jobs:
             echo "matrix=$tests" >> $GITHUB_OUTPUT
           fi
 
-  # e2e main tests are now merge with its code coverage report test to save resource from CI.
-  e2e-with-coverage:
+  # run e2e main tests concurrently
+  e2e-main-test:
     needs: discover-e2e-tests
     runs-on: ubuntu-latest
     strategy:
@@ -368,83 +424,9 @@ jobs:
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-      - name: Run specific e2e test with coverage
+      - name: Run specific e2e test
         run: |
-          go test -v -run "^${{ matrix.testName }}$" ./e2e_test \
-            -race \
-            -cover -covermode=atomic \
-            -coverpkg=./consensus/tendermint/... \
-            -test.coverprofile="coverage_${{ env.RUN_ID }}_${{ matrix.testName }}.out"
-      - name: Upload partial coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: partial-coverage-${{ env.RUN_ID }}-${{ matrix.testName }}
-          path: coverage_${{ env.RUN_ID }}_${{ matrix.testName }}.out
-          retention-days: 1
-
-  # merge the code coverage of UT and e2e test for tendermint package.
-  merge-coverage-reports:
-    needs:
-      - e2e-with-coverage
-      - tendermint-ut-coverage
-    runs-on: ubuntu-latest
-    if: ${{ fromJSON(needs.discover-e2e-tests.outputs.matrix) != '[]' }}
-    steps:
-      - name: Download unit test coverage artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage-ut-artifact-${{ env.RUN_ID }}
-          path: unit-coverage-dir
-
-      - name: Download all e2e coverage artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: partial-coverage-${{ env.RUN_ID }}-*
-          path: e2e-coverage-dir
-          # merge the downloaded files into the same directory.
-          merge-multiple: true
-
-      - name: Assemble coverage reports
-        run: |
-          go install github.com/wadey/gocovmerge@latest
-          GO_BIN_PATH=$(go env GOPATH)/bin
-          
-          echo "=== checking e2e-coverage-dir ==="
-          find e2e-coverage-dir -name "*.out" -type f | while read file; do
-            echo "find: $file"
-          done
-          
-          echo "=== checking unit-coverage-dir ==="
-          find unit-coverage-dir -name "*.out" -type f | while read file; do
-            echo "find: $file"
-            cat $file
-          done
-          
-          if find e2e-coverage-dir -name "*.out" -type f | grep -q .; then
-            echo "start to merge sub coverage reports..."
-            INTEGRATION_FILES=$(find e2e-coverage-dir -name "*.out" -type f | tr '\n' ' ')
-            echo "list of reports: $INTEGRATION_FILES"
-          
-            if [ -n "$INTEGRATION_FILES" ]; then
-              $GO_BIN_PATH/gocovmerge $INTEGRATION_FILES > coverage_e2e_merged_${{ env.RUN_ID }}.out
-              echo "sub reports were merged"
-              cat coverage_e2e_merged_${{ env.RUN_ID }}.out
-            else
-              echo "error: can not find any covery report"
-              echo "mode: atomic" > coverage_e2e_merged_${{ env.RUN_ID }}.out
-            fi
-          else
-            echo "eror: cannot find any covery report"
-            echo "mode: atomic" > coverage_e2e_merged_${{ env.RUN_ID }}.out
-          fi  
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          files: unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out,coverage_e2e_merged_${{ env.RUN_ID }}.out
-          yml: codecov.yml
-          flags: run_${{ env.RUN_ID }}
+          go test -v -run "^${{ matrix.testName }}$" ./e2e_test -race 
 
   # lint does linting.
   lint:
