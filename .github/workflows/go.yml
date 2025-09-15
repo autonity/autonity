@@ -405,6 +405,7 @@ jobs:
 
   # run e2e main tests concurrently
   e2e-main-test:
+    name: ${{matrix.testName}}
     needs: discover-e2e-tests
     runs-on: ubuntu-latest
     strategy:
