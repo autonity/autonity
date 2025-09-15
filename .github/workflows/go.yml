@@ -447,9 +447,30 @@ jobs:
       - name: Merge coverage reports
         run: |
           go install github.com/wadey/gocovmerge@latest
+          
           GO_BIN_PATH=$(go env GOPATH)/bin
-          $GO_BIN_PATH/gocovmerge integration-coverage-dir/*.out > coverage_integration_merged_${{ env.RUN_ID }}.out
-          $GO_BIN_PATH/gocovmerge unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out coverage_integration_merged_${{ env.RUN_ID }}.out > coverage_final_${{ env.RUN_ID }}.out
+          
+          echo "list integration-coverage-dir files..."
+          ls -la integration-coverage-dir/ || echo "integration-coverage-dir does not exist"
+          
+          echo "list unit-coverage-dir files..."
+          ls -la unit-coverage-dir/ || echo "unit-coverage-dir does not exist"
+          
+          if ls integration-coverage-dir/*.out 1> /dev/null 2>&1; then
+              echo "find integration-test sub reports, start to mege them..."
+              $GO_BIN_PATH/gocovmerge integration-coverage-dir/*.out > coverage_integration_merged_${{ env.RUN_ID }}.out
+          else
+              echo "warn: cannot find integration-test report"
+              echo "mode: atomic" > coverage_integration_merged_${{ env.RUN_ID }}.out
+          fi
+          
+          if [ -f "unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out" ]; then
+              $GO_BIN_PATH/gocovmerge unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out coverage_integration_merged_${{ env.RUN_ID }}.out > coverage_final_${{ env.RUN_ID }}.out
+              echo "finish to merge: coverage_final_${{ env.RUN_ID }}.out"
+          else
+              echo "error: cannot find unit test coverage report"
+              exit 1
+          fi
       - name: Upload to Codecov
         uses: codecov/codecov-action@v1
         with:
