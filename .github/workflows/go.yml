@@ -435,23 +435,12 @@ jobs:
             echo "eror: cannot find any covery report"
             echo "mode: atomic" > coverage_e2e_merged_${{ env.RUN_ID }}.out
           fi
-          
-          if [ -f "unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out" ]; then
-            echo "start to merge UT coverage report with the E2E Test coverage report"
-            $GO_BIN_PATH/gocovmerge unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out coverage_e2e_merged_${{ env.RUN_ID }}.out > coverage_final_${{ env.RUN_ID }}.out
-            echo "final covery report: coverage_final_${{ env.RUN_ID }}.out"
-          else
-            echo "error: cannot find UT coverage report"
-            echo "unit-coverage-dir content:"
-            ls -la unit-coverage-dir/ || true
-            exit 1
-          fi
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          files: coverage_final_${{ env.RUN_ID }}.out
+          files: unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out,coverage_e2e_merged_${{ env.RUN_ID }}.out
           yml: codecov.yml
           flags: run_${{ env.RUN_ID }}
 
