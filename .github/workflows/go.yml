@@ -423,7 +423,7 @@ jobs:
       - name: Upload partial coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: partial-coverage-${{ env.RUN_ID }}-${{ matrix.testName }}
+          name: partial-coverage-${{ env.RUN_ID }}-${{ matrix.testName }}.out
           path: coverage_${{ env.RUN_ID }}_${{ matrix.testName }}.out
           retention-days: 1
 
