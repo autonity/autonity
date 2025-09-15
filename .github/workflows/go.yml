@@ -333,7 +333,7 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
       - name: Run unit test coverage
         run: |
-          go test ./e2e/ -timeout 40m -race -cover -covermode=atomic -test.coverprofile="coverage_e2e_${{ env.RUN_ID }}.out"
+          go test ./e2e_test/ -timeout 40m -race -cover -covermode=atomic -test.coverprofile="coverage_e2e_${{ env.RUN_ID }}.out"
       - name: Upload unit test coverage report
         uses: actions/upload-artifact@v4
         with:
