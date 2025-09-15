@@ -423,63 +423,82 @@ jobs:
       - name: Upload partial coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: partial-coverage-${{ env.RUN_ID }}-${{ matrix.testName }}.out
+          name: partial-coverage-${{ env.RUN_ID }}-${{ matrix.testName }}
           path: coverage_${{ env.RUN_ID }}_${{ matrix.testName }}.out
           retention-days: 1
 
-  merge-coverage-reports:
-    needs:
-      - integration-test-coverage
-      - tendermint-ut-coverage
-    runs-on: ubuntu-latest
-    if: ${{ fromJSON(needs.discover-integration-tests.outputs.matrix) != '[]' }}
-    steps:
-      - name: Download unit test coverage artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage-ut-artifact-${{ env.RUN_ID }}
-          path: unit-coverage-dir
-      - name: Download all integration coverage artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: partial-coverage-${{ env.RUN_ID }}-*
-          path: integration-coverage-dir
-      - name: Merge coverage reports
-        run: |
-          go install github.com/wadey/gocovmerge@latest
-          
-          GO_BIN_PATH=$(go env GOPATH)/bin
-          
-          echo "list integration-coverage-dir files..."
-          ls -la integration-coverage-dir/ || echo "integration-coverage-dir does not exist"
-          
-          echo "list unit-coverage-dir files..."
-          ls -la unit-coverage-dir/ || echo "unit-coverage-dir does not exist"
-          
-          if ls integration-coverage-dir/*.out 1> /dev/null 2>&1; then
-              echo "find integration-test sub reports, start to mege them..."
-              ls -la integration-coverage-dir/partial-coverage-${{env.RUN_ID}}-TestAPI_AcnPeers.out
-              cat integration-coverage-dir/partial-coverage-${{env.RUN_ID}}-TestAPI_AcnPeers.out/*.*
-              $GO_BIN_PATH/gocovmerge integration-coverage-dir/*.out > coverage_integration_merged_${{ env.RUN_ID }}.out
+merge-coverage-reports:
+  needs:
+    - integration-test-coverage
+    - tendermint-ut-coverage
+  runs-on: ubuntu-latest
+  if: ${{ fromJSON(needs.discover-integration-tests.outputs.matrix) != '[]' }}
+  steps:
+    - name: Download unit test coverage artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: coverage-ut-artifact-${{ env.RUN_ID }}
+        path: unit-coverage-dir
+
+    - name: Download all integration coverage artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: partial-coverage-${{ env.RUN_ID }}-*
+        path: integration-coverage-dir
+        # merge the downloaded files into the same directory.
+        merge-multiple: true
+
+    - name: Merge coverage reports
+      run: |
+        go install github.com/wadey/gocovmerge@latest
+        GO_BIN_PATH=$(go env GOPATH)/bin
+        
+        # 调试：检查下载的文件结构
+        echo "=== 检查integration-coverage-dir目录结构 ==="
+        find integration-coverage-dir -name "*.out" -type f | while read file; do
+          echo "找到文件: $file"
+        done
+        
+        echo "=== 检查unit-coverage-dir目录结构 ==="
+        find unit-coverage-dir -name "*.out" -type f | while read file; do
+          echo "找到文件: $file"
+        done
+        
+        if find integration-coverage-dir -name "*.out" -type f | grep -q .; then
+          echo "start to merge sub coverage reports..."
+          INTEGRATION_FILES=$(find integration-coverage-dir -name "*.out" -type f | tr '\n' ' ')
+          echo "list of reports: $INTEGRATION_FILES"
+        
+          if [ -n "$INTEGRATION_FILES" ]; then
+            $GO_BIN_PATH/gocovmerge $INTEGRATION_FILES > coverage_integration_merged_${{ env.RUN_ID }}.out
+            echo "sub reports were merged"
           else
-              echo "warn: cannot find integration-test report"
-              echo "mode: atomic" > coverage_integration_merged_${{ env.RUN_ID }}.out
+            echo "error: can not find any covery report"
+            echo "mode: atomic" > coverage_integration_merged_${{ env.RUN_ID }}.out
           fi
-          
-          if [ -f "unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out" ]; then
-              $GO_BIN_PATH/gocovmerge unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out coverage_integration_merged_${{ env.RUN_ID }}.out > coverage_final_${{ env.RUN_ID }}.out
-              echo "finish to merge: coverage_final_${{ env.RUN_ID }}.out"
-          else
-              echo "error: cannot find unit test coverage report"
-              exit 1
-          fi
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.codecov_upload }}
-          files: coverage_final_${{ env.RUN_ID }}.out
-          yml: codecov.yml
-          flags: run_${{ env.RUN_ID }}
+        else
+          echo "eror: cannot find any covery report"
+          echo "mode: atomic" > coverage_integration_merged_${{ env.RUN_ID }}.out
+        fi
+        
+        if [ -f "unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out" ]; then
+          echo "start to merge UT coverage report with the Integration Test coverage report"
+          $GO_BIN_PATH/gocovmerge unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out coverage_integration_merged_${{ env.RUN_ID }}.out > coverage_final_${{ env.RUN_ID }}.out
+          echo "final covery report: coverage_final_${{ env.RUN_ID }}.out"
+        else
+          echo "error: cannot find UT coverage report"
+          echo "unit-coverage-dir content:"
+          ls -la unit-coverage-dir/ || true
+          exit 1
+        fi
+
+    - name: Upload to Codecov
+      uses: codecov/codecov-action@v1
+      with:
+        token: ${{ secrets.codecov_upload }}
+        files: coverage_final_${{ env.RUN_ID }}.out
+        yml: codecov.yml
+        flags: run_${{ env.RUN_ID }}
 
   # tendermint-coverage runs the tendermint tests and collects the coverage, it
   # can't be part of the matrix tests since we need to use the codecov action,
