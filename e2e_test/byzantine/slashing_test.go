@@ -52,7 +52,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 
 	// set Malicious validators
 	for _, faultyNodeIndex := range faultyNodes {
-		validators[faultyNodeIndex].TendermintServices = &interfaces.Services{Broadcaster: newOnceOffenceProposer}
+		validators[faultyNodeIndex].TendermintServices = &interfaces.Services{Broadcaster: newMultipleOffenceProposer}
 	}
 
 	validatorsBefore := make([]bindings.IAutonityValidator, len(faultyNodes))

@@ -317,8 +317,8 @@ func TestFaultProofs(t *testing.T) {
 		// {"PVN", newPVNBroadcaster, autonity.PVN}, //Not supported, need multiple byzantine validators
 		// {"PVO1", newPVO1Broadcaster, autonity.PVO12}, Not supported currently, need multiple byzantine validators to generate.
 		// {"InvalidProposal", newInvalidProposalBroadcaster, autonity.InvalidProposal}, Invalid proposals are not currently supported
-		{"InvalidProposer", newOnceOffenceProposer, autonity.InvalidProposer}, // Pass with 120
-		{"Equivocation", newEquivocation, autonity.Equivocation},              // Pass with 120
+		{"InvalidProposer", newMultipleOffenceProposer, autonity.InvalidProposer}, // Pass with 120
+		{"Equivocation", newEquivocation, autonity.Equivocation},                  // Pass with 120
 	}
 
 	for _, test := range testCases {
