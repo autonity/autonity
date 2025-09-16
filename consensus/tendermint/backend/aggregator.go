@@ -385,7 +385,14 @@ func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEve
 	candidates := make([]events.UnverifiedMessageEvent, 0, len(batch))
 	publicKeys := make([]blst.PublicKey, 0, len(batch))
 	signatures := make([]blst.Signature, 0, len(batch))
+	reInjectFiltered := false
 
+	defer func() {
+		if reInjectFiltered {
+			// we have a backup of filtered messages, re-inject them in the backlog channel
+			a.reInjectFilteredMessages(batch[0].Message.(message.Vote))
+		}
+	}()
 	for _, event := range batch {
 		m := event.Message.(message.Vote)
 		publicKey := m.SignerKey()
@@ -394,6 +401,7 @@ func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEve
 			a.logger.Debug("Signature decoding failed for message", "peer", event.Sender, "err", err)
 			a.handleInvalidMessage(event.ErrCh, err, event.Sender)
 			a.signerSetCache.invalidateVotes(m)
+			reInjectFiltered = true
 			continue
 		}
 		candidates = append(candidates, event)
@@ -426,6 +434,7 @@ func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEve
 	invalidSet := make(map[int]struct{}, len(invalids))
 	for _, idx := range invalids {
 		invalidSet[int(idx)] = struct{}{} // #nosec
+		reInjectFiltered = true
 	}
 	validVotes := make([]message.Vote, 0, len(candidates)-len(invalids))
 	for i, event := range candidates {
@@ -436,9 +445,6 @@ func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEve
 		a.logger.Info("Received invalid bls signature from", "peer", event.Sender)
 		a.handleInvalidMessage(event.ErrCh, message.ErrBadSignature, event.Sender)
 		a.signerSetCache.invalidateVotes(event.Message.(message.Vote))
-	}
-	if len(invalids) > 0 {
-		a.reInjectFilteredMessages(batch[0].Message.(message.Vote))
 	}
 	a.aggregateAndDispatch(validVotes, eventer)
 }
@@ -490,7 +496,11 @@ func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent
 	a.internalFdCh <- eventer(proposal, proposalEvent.ErrCh, proposalEvent.Sender, proposalEvent.Disseminated).(events.MessageEventer)   // send to fault detector
 }
 
-func (a *aggregator) isSignerJailed(vote message.Vote, committee *types.Committee) bool {
+func (a *aggregator) isSignerJailed(msg message.Msg, committee *types.Committee) bool {
+	vote, ok := msg.(message.Vote)
+	if !ok {
+		return false
+	}
 	// check if all signers of the message are jailed
 	if a.backend.JailedCount() >= vote.Signers().Len() {
 		allJailed := true
@@ -518,10 +528,6 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 	round := vote.R()
 	code := vote.Code()
 	value := vote.Value()
-
-	if a.isSignerJailed(vote, committee) {
-		return
-	}
 
 	a.saveMessage(voteEvent)
 
@@ -588,6 +594,9 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	}
 	if a.signerSetCache.filter(event) {
 		return // already processed a message with more signers
+	}
+	if a.isSignerJailed(msg, committee) {
+		return
 	}
 	// mark committee size for the height to avoid any more calls to CommitteeByHeight
 	a.signerSetCache.markCommittee(msg.H(), committee)
