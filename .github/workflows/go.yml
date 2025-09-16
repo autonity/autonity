@@ -26,7 +26,6 @@ env:
   GO_CACHE: /home/runner/.cache/go-build # This is the location of the go build cache.
   GO_MODULES_CACHE: /home/runner/go/pkg # This is where module source code is stored.
   GO_VERSION: "1.24.0"
-  RUN_ID: ${{ github.run_id }}
   TRUFFLE_TESTS: |
     [
       "autonity.js",
@@ -126,7 +125,7 @@ jobs:
         run: make all
       - name: Set artifact name
         id: set-artifact-name
-        run: echo "name=built-binaries-${{ env.RUN_ID }}" >> $GITHUB_OUTPUT
+        run: echo "name=built-binaries-${{ github.run_id }}" >> $GITHUB_OUTPUT
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -150,7 +149,8 @@ jobs:
         # those that are slow to test, our e2e tests and tendermint core.
         tests: [ [ major-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/core$|/e2e_test") ],
                  [ p2p-eth-tests, $(go list ./p2p/... ./eth/... | grep -E -v "/p2p/simulations") -timeout 30m ],
-                 [ core-p2p-simulation-tests, -p 1 ./p2p/simulations/... ./core ]
+                 [ core-p2p-simulation-tests, -p 1 ./p2p/simulations/... ./core ],
+                 [ tendermint-tests, ./consensus/tendermint/... -timeout 20m -race ]
         ]
 
     name: ${{ matrix.tests[0] }}
@@ -173,8 +173,56 @@ jobs:
       - name: Run tests
         run: go test ${{ matrix.tests[1] }}
 
-  # discover byzantine test matrix.
-  discover-byzantine-tests:
+  # prepare the main test cases of the e2e test framework.
+  prepare-e2e-main-test-matrix:
+    needs: prepare-cache
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - id: set-matrix
+        name: fetch test lists
+        run: |
+          matrix=$(go test ./e2e_test -list=. | grep -v "ok" | jq -R -s -c 'split("\n")[:-1]')
+          echo "matrix=${matrix}" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
+
+  # concurrently run main test cases of e2e test framework.
+  e2e-main-test:
+    needs: prepare-e2e-main-test-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tests: ${{ fromJSON(needs.prepare-e2e-main-test-matrix.outputs.matrix) }}
+    name: ${{ matrix.tests }}
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - run: go test -v -run ${{ matrix.tests }} ./e2e_test -timeout 15m -race
+
+  # prepare the byzantine test cases of the e2e test framework.
+  prepare-byzantine-test-matrix:
     needs: prepare-cache
     runs-on: ubuntu-latest
     outputs:
@@ -200,12 +248,12 @@ jobs:
 
   # concurrently run byzantine tests of the e2e test framework.
   byzantine-test:
-    needs: discover-byzantine-tests
+    needs: prepare-byzantine-test-matrix
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        tests: ${{ fromJSON(needs.discover-byzantine-tests.outputs.matrix) }}
+        tests: ${{ fromJSON(needs.prepare-byzantine-test-matrix.outputs.matrix) }}
     name: ${{ matrix.tests }}
     steps:
       - uses: actions/setup-go@v4
@@ -222,7 +270,7 @@ jobs:
       - run: go test -v -run ${{ matrix.tests }} ./e2e_test/byzantine/... -timeout 15m -race
 
   # prepare protocol contract truffle test cases
-  discover-contracts-tests:
+  prepare-contracts-test-matrix:
     needs: prepare-cache
     runs-on: ubuntu-latest
     outputs:
@@ -248,7 +296,7 @@ jobs:
 
   # tests runs most of the tests for the project, we use a matrix to run multiple configurations.
   contracts-tests:
-    needs: discover-contracts-tests
+    needs: prepare-contracts-test-matrix
     runs-on: ubuntu-latest
     env:
       # helps prevent '[failed to restore the stack]' messages when race detected.
@@ -256,7 +304,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tests: ${{ fromJSON(needs.discover-contracts-tests.outputs.matrix) }}
+        tests: ${{ fromJSON(needs.prepare-contracts-test-matrix.outputs.matrix) }}
 
     name: ${{ matrix.tests.file_name }} - ${{ matrix.tests.describe_name }}
 
@@ -286,165 +334,39 @@ jobs:
           echo 'Running npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
           cd ./autonity/solidity/test && npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
 
-  # tendermint unit tests are now merged with its code coverage report test to save resource from CI.
-  tendermint-ut-coverage:
+
+  # tendermint-coverage runs the tendermint tests and collects the coverage, it
+  # can't be part of the matrix tests since we need to use the codecov action,
+  # which we do not want to use for the rest of the codebase.
+  # to speed up the tendermint coverage test, we remove those counting triggered by e2e tests, the target
+  # drop to 60% as the unit test of tendermint package has 61.33% for the time being.
+  tendermint-tests-coverage:
     needs: prepare-cache
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
+
       - uses: actions/checkout@v3
-      - name: Restore Go cache
+
+      - name: Go cache
         uses: actions/cache@v4
         with:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-      - name: Run unit test coverage
+
+      - name: Run coverage
         run: |
-          go test ./consensus/tendermint/... -timeout 20m -race -cover -covermode=atomic -test.coverprofile="coverage_ut_${{ env.RUN_ID }}.out"
-      - name: Upload unit test coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-ut-artifact-${{ env.RUN_ID }}
-          path: coverage_ut_${{ env.RUN_ID }}.out
-          retention-days: 1
+          go test ./consensus/tendermint/... -timeout 15m -cover -covermode=atomic -test.coverprofile=coverage_tendermint_ut.out
 
-  # prepare the main e2e tests out from the e2e test framework.
-  discover-e2e-tests:
-    needs: prepare-cache
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v3
-      - name: Restore Go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-      - id: set-matrix
-        name: Discover e2e tests
-        run: |
-          if [ ! -d "./e2e_test" ]; then
-            echo "::warning::./e2e_test directory not found"
-            echo "matrix=[]" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          tests=$(cd ./e2e_test && go test -list=. . 2>/dev/null | grep -v "ok" | grep -v "^?" | jq -R -s -c 'split("\n") | map(select(. != ""))')
-          if [ -z "$tests" ]; then
-            echo "::warning::No tests found in ./e2e_test"
-            echo "matrix=[]" >> $GITHUB_OUTPUT
-          else
-            echo "matrix=$tests" >> $GITHUB_OUTPUT
-          fi
-
-  # e2e main tests are now merge with its code coverage report test to save resource from CI.
-  e2e-with-coverage:
-    needs: discover-e2e-tests
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        testName: ${{ fromJSON(needs.discover-e2e-tests.outputs.matrix) }}
-    if: ${{ fromJSON(needs.discover-e2e-tests.outputs.matrix) != '[]' }}
-    steps:
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v3
-      - name: Restore Go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-      - name: Run specific e2e test with coverage
-        run: |
-          go test -v -run "^${{ matrix.testName }}$" ./e2e_test \
-            -race \
-            -cover -covermode=atomic \
-            -coverpkg=./consensus/tendermint/... \
-            -test.coverprofile="coverage_${{ env.RUN_ID }}_${{ matrix.testName }}.out"
-      - name: Upload partial coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: partial-coverage-${{ env.RUN_ID }}-${{ matrix.testName }}
-          path: coverage_${{ env.RUN_ID }}_${{ matrix.testName }}.out
-          retention-days: 1
-
-  # merge the code coverage of UT and e2e test for tendermint package.
-  merge-coverage-reports:
-    needs:
-      - e2e-with-coverage
-      - tendermint-ut-coverage
-    runs-on: ubuntu-latest
-    if: ${{ fromJSON(needs.discover-e2e-tests.outputs.matrix) != '[]' }}
-    steps:
-      - name: Download unit test coverage artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage-ut-artifact-${{ env.RUN_ID }}
-          path: unit-coverage-dir
-
-      - name: Download all e2e coverage artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: partial-coverage-${{ env.RUN_ID }}-*
-          path: e2e-coverage-dir
-          # merge the downloaded files into the same directory.
-          merge-multiple: true
-
-      - name: Assemble coverage reports
-        run: |
-          go install github.com/wadey/gocovmerge@latest
-          GO_BIN_PATH=$(go env GOPATH)/bin
-          
-          echo "=== checking e2e-coverage-dir ==="
-          find e2e-coverage-dir -name "*.out" -type f | while read file; do
-            echo "find: $file"
-          done
-          
-          echo "=== checking unit-coverage-dir ==="
-          find unit-coverage-dir -name "*.out" -type f | while read file; do
-            echo "find: $file"
-            cat $file
-          done
-          
-          if find e2e-coverage-dir -name "*.out" -type f | grep -q .; then
-            echo "start to merge sub coverage reports..."
-            INTEGRATION_FILES=$(find e2e-coverage-dir -name "*.out" -type f | tr '\n' ' ')
-            echo "list of reports: $INTEGRATION_FILES"
-          
-            if [ -n "$INTEGRATION_FILES" ]; then
-              $GO_BIN_PATH/gocovmerge $INTEGRATION_FILES > coverage_e2e_merged_${{ env.RUN_ID }}.out
-              echo "sub reports were merged"
-              cat coverage_e2e_merged_${{ env.RUN_ID }}.out
-            else
-              echo "error: can not find any covery report"
-              echo "mode: atomic" > coverage_e2e_merged_${{ env.RUN_ID }}.out
-            fi
-          else
-            echo "eror: cannot find any covery report"
-            echo "mode: atomic" > coverage_e2e_merged_${{ env.RUN_ID }}.out
-          fi  
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v1
+      - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          files: unit-coverage-dir/coverage_ut_${{ env.RUN_ID }}.out,coverage_e2e_merged_${{ env.RUN_ID }}.out
+          files: coverage_tendermint_ut.out
           yml: codecov.yml
-          flags: run_${{ env.RUN_ID }}
 
   # lint does linting.
   lint:
@@ -478,7 +400,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-       case_id: ${{ fromJson(needs.gen-docker-test-ids.outputs.ids_a) }}
+        case_id: ${{ fromJson(needs.gen-docker-test-ids.outputs.ids_a) }}
     steps:
       - uses: actions/checkout@v3
       - name: Ensure target directory exists
