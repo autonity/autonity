@@ -45,6 +45,8 @@ jobs:
   # should not be impacted by the time taken to fill the cache.
   prepare-cache:
     runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.set-artifact-name.outputs.name }}
     steps:
       - uses: actions/setup-go@v4
         with:
@@ -71,8 +73,16 @@ jobs:
           make autonity
           go build ./...
           go test -c ./eth
-
-
+      # upload the built binary as artifact such that the other test won't do the duplicated task.
+      - name: Set artifact name
+        id: set-artifact-name
+        run: echo "name=autonity-${{ github.run_id }}" >> $GITHUB_OUTPUT
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-artifact-name.outputs.name }}
+          path: ./build/bin/autonity
+          retention-days: 1
 
   # upstream tests run the most upstream unit tests of different package.
   upstream-tests:
@@ -211,16 +221,18 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
       - run: go test -v -run ${{ matrix.tests }} ./e2e_test/byzantine/... -timeout 15m -race
 
-  # prepare contract test matrix and break them into 2 batches.
+  # prepare contract test matrix, and break them down into 3 batches, with each of them to be run in individual runner,
+  # such that the load could be distributed, and it helps to fix flaky tests and speed up the test very well.
   prepare-contracts-test-matrix:
     needs: prepare-cache
     runs-on: ubuntu-latest
     outputs:
       matrix_batch1: ${{ steps.set-matrix.outputs.matrix_batch1 }}
       matrix_batch2: ${{ steps.set-matrix.outputs.matrix_batch2 }}
+      matrix_batch3: ${{ steps.set-matrix.outputs.matrix_batch3 }}
     steps:
       - uses: actions/checkout@v3
-      - name: Find tests and split into two batches
+      - name: Find tests and split into three batches
         id: set-matrix
         run: |
           cd ./autonity/solidity/test
@@ -238,56 +250,31 @@ jobs:
           full_array=$(jq -s '.' "$temp_json_file")
           array_length=$(echo "$full_array" | jq 'length')
           
-          split_index=$(( ($array_length + 1) / 2 ))
+          split_index1=$(( $array_length / 3 ))
+          split_index2=$(( 2 * $array_length / 3 ))
           
-          batch1=$(echo "$full_array" | jq -c ".[0:$split_index]")
-          batch2=$(echo "$full_array" | jq -c ".[$split_index:]")
+          batch1=$(echo "$full_array" | jq -c ".[0:$split_index1]")
+          batch2=$(echo "$full_array" | jq -c ".[$split_index1:$split_index2]")
+          batch3=$(echo "$full_array" | jq -c ".[$split_index2:]")
           
           echo "matrix_batch1=$batch1" >> $GITHUB_OUTPUT
           echo "matrix_batch2=$batch2" >> $GITHUB_OUTPUT
+          echo "matrix_batch3=$batch3" >> $GITHUB_OUTPUT
 
           echo "Total tests found: $array_length"
           echo "Batch 1 size: $(echo "$batch1" | jq 'length')"
           echo "Batch 2 size: $(echo "$batch2" | jq 'length')"
+          echo "Batch 3 size: $(echo "$batch3" | jq 'length')"
 
           echo "Debug: batch1 content = $batch1"
           echo "Debug: batch2 content = $batch2"
+          echo "Debug: batch3 content = $batch3"
+          
           rm -f "$temp_json_file"
-
-
-  # build contract test artifact
-  build-contract-test-artifact:
-    runs-on: ubuntu-24.04
-    needs: [ prepare-cache ]
-    outputs:
-      artifact-name: ${{ steps.set-artifact-name.outputs.name }}
-    steps:
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - uses: actions/checkout@v3
-      - name: Restore Go cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.GO_CACHE }}
-            ${{ env.GO_MODULES_CACHE }}
-          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-      - name: Build binaries
-        run: make autonity
-      - name: Set artifact name
-        id: set-artifact-name
-        run: echo "name=autonity-${{ github.run_id }}" >> $GITHUB_OUTPUT
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.set-artifact-name.outputs.name }}
-          path: ./build/bin/autonity
-          retention-days: 1
 
   # run the contract tests batch a via truffle framework.
   contracts-tests-a:
-    needs: [prepare-contracts-test-matrix, build-contract-test-artifact]
+    needs: [prepare-contracts-test-matrix, prepare-cache]
     runs-on: ubuntu-latest
     env:
       # helps prevent '[failed to restore the stack]' messages when race detected.
@@ -318,7 +305,7 @@ jobs:
       - name: Download autonity artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ needs.build-contract-test-artifact.outputs.artifact-name }}
+          name: ${{ needs.prepare-cache.outputs.artifact-name }}
           path: ./build/bin/
       - name: Make binary executable
         run: chmod +x ./build/bin/*
@@ -333,7 +320,7 @@ jobs:
 
   # run the contract tests batch b via truffle framework.
   contracts-tests-b:
-    needs: [prepare-contracts-test-matrix, build-contract-test-artifact]
+    needs: [prepare-contracts-test-matrix, prepare-cache]
     runs-on: ubuntu-latest
     env:
       # helps prevent '[failed to restore the stack]' messages when race detected.
@@ -364,7 +351,53 @@ jobs:
       - name: Download autonity artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ needs.build-contract-test-artifact.outputs.artifact-name }}
+          name: ${{ needs.prepare-cache.outputs.artifact-name }}
+          path: ./build/bin/
+      - name: Make binary executable
+        run: chmod +x ./build/bin/*
+      - name: install js dependencies
+        run: make test-contracts-pre
+      - name: start autonity
+        run: make start-autonity
+      - name: test contract
+        run: |
+          echo 'Running npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
+          cd ./autonity/solidity/test && npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
+
+  # run the contract tests batch c via truffle framework.
+  contracts-tests-c:
+    needs: [prepare-contracts-test-matrix, prepare-cache]
+    runs-on: ubuntu-latest
+    env:
+      # helps prevent '[failed to restore the stack]' messages when race detected.
+      GORACE: "history_size=7"
+    strategy:
+      fail-fast: false
+      matrix:
+        tests: ${{ fromJSON(needs.prepare-contracts-test-matrix.outputs.matrix_batch3) }}
+
+    name: ${{ matrix.tests.file_name }} - ${{ matrix.tests.describe_name }}
+
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/checkout@v3
+
+      - name: Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - name: Ensure target directory exists
+        run: mkdir -p ./build/bin
+      - name: Download autonity artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare-cache.outputs.artifact-name }}
           path: ./build/bin/
       - name: Make binary executable
         run: chmod +x ./build/bin/*
@@ -490,6 +523,7 @@ jobs:
           echo "Part A (${#PART_A[@]}): $PART_A"
           echo "Part B (${#PART_B[@]}): $PART_B"
           echo "Part C (${#PART_C[@]}): $PART_C"
+
 
 
   # Since using single job for docker test makes a few tests be pending there,
