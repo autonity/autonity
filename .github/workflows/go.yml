@@ -280,9 +280,9 @@ jobs:
         id: set-matrix
         run: |
           cd ./autonity/solidity/test
-
+          
           temp_json_file=$(mktemp)
-
+          
           for file in $(echo $TRUFFLE_TESTS | jq -r '.[]'); do
             grep 'describe(' "$file" | while IFS= read -r line; do
               describe_name=$(echo "$line" | sed -E "s/^[[:space:]]*describe\([\'\"](.+)[\'\"],.*/\1/")
@@ -290,24 +290,25 @@ jobs:
               echo "$json_object" >> "$temp_json_file"
             done
           done
-
+          
           full_array=$(jq -s '.' "$temp_json_file")
           array_length=$(echo "$full_array" | jq 'length')
-
+          
           split_index=$(( ($array_length + 1) / 2 ))
-
-          batch1=$(echo "$full_array" | jq ".[0:$split_index]")
-          batch2=$(echo "$full_array" | jq ".[$split_index:]")
-
+          
+          batch1=$(echo "$full_array" | jq -c ".[0:$split_index]")
+          batch2=$(echo "$full_array" | jq -c ".[$split_index:]")
+          
           echo "matrix_batch1=$batch1" >> $GITHUB_OUTPUT
           echo "matrix_batch2=$batch2" >> $GITHUB_OUTPUT
 
           echo "Total tests found: $array_length"
           echo "Batch 1 size: $(echo "$batch1" | jq 'length')"
           echo "Batch 2 size: $(echo "$batch2" | jq 'length')"
-          
+
           echo "Debug: batch1 content = $batch1"
           echo "Debug: batch2 content = $batch2"
+          rm -f "$temp_json_file"
 
   # run the contract tests batch1 via truffle framework.
   contracts-tests-batch1:
