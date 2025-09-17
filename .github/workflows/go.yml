@@ -70,10 +70,11 @@ jobs:
         if: steps.gocache.outputs.cache-hit != 'true'
         run: |
           go mod download -x
-          make autonity
           go build ./...
           go test -c ./eth
       # upload the built binary as artifact such that the other test won't do the duplicated task.
+      - name: Build autonity
+        run: make autonity
       - name: Set artifact name
         id: set-artifact-name
         run: echo "name=autonity-${{ github.run_id }}" >> $GITHUB_OUTPUT
