@@ -220,16 +220,16 @@ func (s *InvalidProposal) Broadcast(msg message.Msg) {
 	s.BroadcastAll(newProposal)
 }
 
-// MultipleOffenceProposer being used for those context that invalid proposer keeps sending proposals.
-func newMultipleOffenceProposer(c interfaces.Core) interfaces.Broadcaster {
-	return &MultipleOffenceProposer{c.(*core.Core)}
+// InvalidProposer being used for those context that invalid proposer keeps sending proposals.
+func newInvalidProposer(c interfaces.Core) interfaces.Broadcaster {
+	return &InvalidProposer{c.(*core.Core)}
 }
 
-type MultipleOffenceProposer struct {
+type InvalidProposer struct {
 	*core.Core
 }
 
-func (s *MultipleOffenceProposer) Broadcast(msg message.Msg) {
+func (s *InvalidProposer) Broadcast(msg message.Msg) {
 	// if current node is the proposer of current round, skip and return.
 	if s.CommitteeSet().GetProposer(msg.R()).Address == s.Address() {
 		s.BroadcastAll(msg)
@@ -245,43 +245,6 @@ func (s *MultipleOffenceProposer) Broadcast(msg message.Msg) {
 	s.Logger().Info("Invalid proposer simulation")
 	s.BroadcastAll(msg)
 	s.BroadcastAll(msgP)
-}
-
-func newOnceOffenceProposer(c interfaces.Core) interfaces.Broadcaster {
-	return &OnceOffenceProposer{c.(*core.Core), false}
-}
-
-type OnceOffenceProposer struct {
-	*core.Core
-	sent bool
-}
-
-// OnceOffenceProposer simulates once offence of the invalid proposer fault, it would be flaky to keep
-// sending invalid proposals all the time, as it would slow down the block period making some timeout
-// in those flaky test. So for those simple test, just need to simulate one offence in the context.
-func (s *OnceOffenceProposer) Broadcast(msg message.Msg) {
-	// if current node is the proposer of current round, skip and return.
-	if s.CommitteeSet().GetProposer(msg.R()).Address == s.Address() {
-		s.BroadcastAll(msg)
-		return
-	}
-
-	// leave some buffer (30 blocks) to get all nodes started and connected.
-	if !s.sent && s.Core.Height().Uint64() > uint64(20) {
-		// current node is not the proposer of current round, propose a proposal.
-		header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}
-		block := types.NewBlockWithHeader(header)
-		self, _ := selfAndCommittee(s.Core, msg.H())
-		msgP := message.NewPropose(msg.R(), msg.H(), -1, block, s.Backend().Sign, self)
-
-		s.Logger().Info("Invalid proposer simulation")
-		s.BroadcastAll(msg)
-		s.BroadcastAll(msgP)
-		s.sent = true
-	}
-
-	// normal behaviour
-	s.BroadcastAll(msg)
 }
 
 func newEquivocation(c interfaces.Core) interfaces.Broadcaster {
@@ -317,8 +280,8 @@ func TestFaultProofs(t *testing.T) {
 		// {"PVN", newPVNBroadcaster, autonity.PVN}, //Not supported, need multiple byzantine validators
 		// {"PVO1", newPVO1Broadcaster, autonity.PVO12}, Not supported currently, need multiple byzantine validators to generate.
 		// {"InvalidProposal", newInvalidProposalBroadcaster, autonity.InvalidProposal}, Invalid proposals are not currently supported
-		{"InvalidProposer", newMultipleOffenceProposer, autonity.InvalidProposer}, // Pass with 120
-		{"Equivocation", newEquivocation, autonity.Equivocation},                  // Pass with 120
+		{"InvalidProposer", newInvalidProposer, autonity.InvalidProposer}, // Pass with 120
+		{"Equivocation", newEquivocation, autonity.Equivocation},          // Pass with 120
 	}
 
 	for _, test := range testCases {

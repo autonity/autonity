@@ -52,7 +52,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 
 	// set Malicious validators
 	for _, faultyNodeIndex := range faultyNodes {
-		validators[faultyNodeIndex].TendermintServices = &interfaces.Services{Broadcaster: newMultipleOffenceProposer}
+		validators[faultyNodeIndex].TendermintServices = &interfaces.Services{Broadcaster: newInvalidProposer}
 	}
 
 	validatorsBefore := make([]bindings.IAutonityValidator, len(faultyNodes))
@@ -226,7 +226,7 @@ func TestHistoryFactor(t *testing.T) {
 
 	// set Malicious validators
 	faultyNode := 2
-	validators[faultyNode].TendermintServices = &interfaces.Services{Broadcaster: newMultipleOffenceProposer}
+	validators[faultyNode].TendermintServices = &interfaces.Services{Broadcaster: newInvalidProposer}
 
 	var chainID *big.Int
 
