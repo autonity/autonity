@@ -305,6 +305,9 @@ jobs:
           echo "Total tests found: $array_length"
           echo "Batch 1 size: $(echo "$batch1" | jq 'length')"
           echo "Batch 2 size: $(echo "$batch2" | jq 'length')"
+          
+          echo "Debug: batch1 content = $batch1"
+          echo "Debug: batch2 content = $batch2"
 
   # run the contract tests batch1 via truffle framework.
   contracts-tests-batch1:
