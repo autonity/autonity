@@ -30,7 +30,6 @@ env:
     [
       "autonity.js",
       "oracle.js",
-      "liquid.js",
       "accountability.js",
       "protocol.js",
       "refund.js",
