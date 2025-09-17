@@ -268,33 +268,47 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
       - run: go test -v -run ${{ matrix.tests }} ./e2e_test/byzantine/... -timeout 15m -race
 
-  # prepare protocol contract truffle test cases
+  # prepare protocol contract tests and break them into 2 batches.
   prepare-contracts-test-matrix:
     needs: prepare-cache
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix_batch1: ${{ steps.set-matrix.outputs.matrix_batch1 }}
+      matrix_batch2: ${{ steps.set-matrix.outputs.matrix_batch2 }}
     steps:
       - uses: actions/checkout@v3
-      - name: find tests
+      - name: Find tests and split into two batches
         id: set-matrix
-        run:  |
+        run: |
           cd ./autonity/solidity/test
-          # Temporary file to hold JSON objects
+
           temp_json_file=$(mktemp)
+
           for file in $(echo $TRUFFLE_TESTS | jq -r '.[]'); do
             grep 'describe(' "$file" | while IFS= read -r line; do
               describe_name=$(echo "$line" | sed -E "s/^[[:space:]]*describe\([\'\"](.+)[\'\"],.*/\1/")
               json_object=$(jq -n --arg file_name "$file" --arg describe_name "$describe_name" '{file_name: $file_name, describe_name: $describe_name}')
               echo "$json_object" >> "$temp_json_file"
-              echo "$json_object"
             done
           done
-          jq -s '.' "$temp_json_file" | jq -r tostring | while read -r json_array; do echo "matrix=$json_array" >> $GITHUB_OUTPUT; done
-          cat $GITHUB_OUTPUT
 
-  # tests runs most of the tests for the project, we use a matrix to run multiple configurations.
-  contracts-tests:
+          full_array=$(jq -s '.' "$temp_json_file")
+          array_length=$(echo "$full_array" | jq 'length')
+
+          split_index=$(( ($array_length + 1) / 2 ))
+
+          batch1=$(echo "$full_array" | jq ".[0:$split_index]")
+          batch2=$(echo "$full_array" | jq ".[$split_index:]")
+
+          echo "matrix_batch1=$batch1" >> $GITHUB_OUTPUT
+          echo "matrix_batch2=$batch2" >> $GITHUB_OUTPUT
+
+          echo "Total tests found: $array_length"
+          echo "Batch 1 size: $(echo "$batch1" | jq 'length')"
+          echo "Batch 2 size: $(echo "$batch2" | jq 'length')"
+
+  # run the contract tests batch1 via truffle framework.
+  contracts-tests-batch1:
     needs: prepare-contracts-test-matrix
     runs-on: ubuntu-latest
     env:
@@ -303,7 +317,47 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tests: ${{ fromJSON(needs.prepare-contracts-test-matrix.outputs.matrix) }}
+        tests: ${{ fromJSON(needs.prepare-contracts-test-matrix.outputs.matrix_batch1) }}
+
+    name: ${{ matrix.tests.file_name }} - ${{ matrix.tests.describe_name }}
+
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/checkout@v3
+
+      - name: Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+
+      - name: make autonity
+        run: make autonity
+      - name: install js dependencies
+        run: make test-contracts-pre
+      - name: start autonity
+        run: make start-autonity
+      - name: test contract
+        run: |
+          echo 'Running npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
+          cd ./autonity/solidity/test && npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
+
+  # run the contract tests batch2 via truffle framework.
+  contracts-tests-batch2:
+    needs: prepare-contracts-test-matrix
+    runs-on: ubuntu-latest
+    env:
+      # helps prevent '[failed to restore the stack]' messages when race detected.
+      GORACE: "history_size=7"
+    strategy:
+      fail-fast: false
+      matrix:
+        tests: ${{ fromJSON(needs.prepare-contracts-test-matrix.outputs.matrix_batch2) }}
 
     name: ${{ matrix.tests.file_name }} - ${{ matrix.tests.describe_name }}
 
