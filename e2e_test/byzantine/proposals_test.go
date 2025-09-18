@@ -30,7 +30,7 @@ type duplicateProposalSender struct {
 func (c *duplicateProposalSender) SendProposal(_ context.Context, p *types.Block) {
 	self, _ := selfAndCommittee(c.Core, c.Height().Uint64())
 	proposal := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound(), p, c.Backend().Sign, self)
-	proposal2 := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound()-1, p, c.Backend().Sign, self)
+	proposal2 := message.NewPropose(c.Round(), c.Height().Uint64(), c.ValidRound()+1, p, c.Backend().Sign, self)
 
 	c.SetSentProposal(true)
 	c.Backend().SetProposedBlockHash(p.Hash())

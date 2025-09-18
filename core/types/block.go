@@ -190,33 +190,41 @@ func (a *AggregateSignature) Malformed() bool {
 // returns map of signers and total power of the signers
 func (a *AggregateSignature) Validate(message common.Hash, committee *Committee, checkQuorum bool) (map[common.Address]struct{}, *big.Int, error) {
 	// validate signers information first
-	distinctSigners, _, _, err := a.Signers.validate(committee.Len())
+	distinctSigners, _, maxCoefficient, err := a.Signers.validate(committee.Len())
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid signers information: %w", err)
 	}
 
-	// verify signature
-	// multiply the public keys with coefficients to aggregate them
+	// fetch signers indexes
 	indexes := a.Signers.flattenUniq(distinctSigners, committee.Len())
-	keys := make([]blst.PublicKey, len(indexes))
-	for i, index := range indexes {
-		keys[i] = committee.Members[index].ConsensusKey
-	}
-	aggregatedKey := a.Signers.aggregatePublicKey(keys, distinctSigners)
-	if !aggregatedKey.Validate() {
-		log.Warn("aggregated public key from committee is zero! Please report the issue!", "signers", a.Signers.String())
+
+	// compute aggregated key, aggregated power and signers map
+	var aggregatedKey blst.PublicKey
+	power := new(big.Int) // total voting power for the proof
+	signers := make(map[common.Address]struct{}, distinctSigners)
+	// if the signer is only 1, no need to aggregate public keys
+	if distinctSigners == 1 {
+		signerIndex := indexes[0]
+		signer := committee.Members[signerIndex]
+		aggregatedKey = signer.ConsensusKey
+		power.Set(signer.VotingPower)
+		signers[signer.Address] = struct{}{}
+	} else {
+		// distinctSigners > 1 --> len(indexes) > 1
+		keys := make([]blst.PublicKey, 0, len(indexes))
+		for _, index := range indexes {
+			keys = append(keys, committee.Members[index].ConsensusKey)
+			power.Add(power, committee.Members[index].VotingPower)
+			signers[committee.Members[index].Address] = struct{}{}
+		}
+		aggregatedKey = a.Signers.aggregatePublicKey(keys, distinctSigners, maxCoefficient)
+		if !aggregatedKey.Validate() {
+			log.Warn("aggregated public key from committee is zero! Please report the issue!", "signers", a.Signers.String())
+		}
 	}
 	valid := a.Signature.Verify(aggregatedKey, message[:], blst.DefaultAssumeZeroValid)
 	if !valid {
 		return nil, nil, errInvalidSignature
-	}
-
-	// Total assembled voting power for the activity proof
-	power := new(big.Int)
-	signers := make(map[common.Address]struct{}, distinctSigners)
-	for _, index := range indexes {
-		power.Add(power, committee.Members[index].VotingPower)
-		signers[committee.Members[index].Address] = struct{}{}
 	}
 
 	if checkQuorum && power.Cmp(bft.Quorum(committee.TotalVotingPower())) < 0 {

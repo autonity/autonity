@@ -248,7 +248,6 @@ func TestSigners(t *testing.T) {
 		require.Equal(t, s.Coefficients[1].String(), big.NewInt(5).String())
 	})
 	t.Run("Merge correctly merges two senders info", func(t *testing.T) {
-		// +10 to avoid hitting the panic in `increment` related to the max allowed coefficient
 		s1 := NewSigners(committee)
 		s1.AddSigner(0)
 		s1.AddSigner(1)
@@ -361,7 +360,7 @@ func TestSigners(t *testing.T) {
 		require.False(t, s.Contains(1))
 		require.True(t, s.Contains(2))
 	})
-	t.Run("AddsInformation, RespectBoundaries return expected results", func(t *testing.T) {
+	t.Run("AddsInformation returns expected results", func(t *testing.T) {
 		s1 := NewSigners(committee)
 		s2 := NewSigners(committee)
 
@@ -397,6 +396,45 @@ func TestSigners(t *testing.T) {
 		s1.increment(2)
 
 		require.False(t, s1.AddsInformation(s2))
+	})
+	t.Run("RespectBoundaries returns expected results", func(t *testing.T) {
+		s1 := NewSigners(committee)
+		s2 := NewSigners(committee)
+
+		require.True(t, s1.RespectsBoundaries(s2))
+		require.True(t, s2.RespectsBoundaries(s1))
+
+		s1.increment(0)
+		require.True(t, s1.RespectsBoundaries(s2))
+		require.True(t, s2.RespectsBoundaries(s1))
+
+		s2.increment(0)
+		require.True(t, s1.RespectsBoundaries(s2))
+		require.True(t, s2.RespectsBoundaries(s1))
+
+		for i := 0; i < 100; i++ {
+			s1.increment(0)
+		}
+		require.True(t, s1.RespectsBoundaries(s2))
+		require.True(t, s2.RespectsBoundaries(s1))
+
+		for i := 0; i < (1<<common.VoteCap)-2; i++ {
+			s1.increment(1)
+		}
+		require.True(t, s1.RespectsBoundaries(s2))
+
+		s2.increment(1)
+		require.True(t, s1.RespectsBoundaries(s2))
+
+		s2Copy := s2.Copy()
+		s2Copy.increment(1) // breached VoteCap
+		require.False(t, s1.RespectsBoundaries(s2Copy))
+		require.False(t, s2Copy.RespectsBoundaries(s1))
+
+		for i := 0; i < (1<<common.VoteCap)-1; i++ {
+			s1.increment(4)
+		}
+		require.True(t, s1.RespectsBoundaries(s2))
 
 	})
 }
@@ -408,6 +446,16 @@ func TestValidation(t *testing.T) {
 		Coefficients: nil,
 	}
 	err := nilSigner.SanityCheck()
+	t.Log(err)
+	require.Error(t, err)
+
+	tooLargeSigner := &Signers{
+		Bitmap:       NewBitmap(),
+		Coefficients: make([]*big.Int, 1),
+	}
+	tooLargeSigner.Bitmap.Set(0)
+	tooLargeSigner.Coefficients[0] = new(big.Int).SetUint64(1 << common.QuorumCap)
+	err = tooLargeSigner.SanityCheck()
 	t.Log(err)
 	require.Error(t, err)
 

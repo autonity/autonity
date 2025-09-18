@@ -1,10 +1,12 @@
 package message
 
 import (
+	"fmt"
 	"math/big"
 	"sync"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/log"
 )
 
 type Set struct {
@@ -61,24 +63,80 @@ func (s *Set) Add(vote Vote) bool {
 		return voteContributed
 	}
 
-	// if not first vote, aggregate previous votes and new vote
-	switch vote.(type) {
-	case *Prevote:
-		aggregatedVotes := AggregatePrevotes(append(previousVotes, vote))
-		s.votes[value] = make([]Vote, len(aggregatedVotes))
-		for i, aggregatedVote := range aggregatedVotes {
-			s.votes[value][i] = aggregatedVote
-		}
-	case *Precommit:
-		aggregatedVotes := AggregatePrecommits(append(previousVotes, vote))
-		s.votes[value] = make([]Vote, len(aggregatedVotes))
-		for i, aggregatedVote := range aggregatedVotes {
-			s.votes[value][i] = aggregatedVote
-		}
-	default:
-		panic("Trying to add a vote that is not Prevote nor Precommit")
+	// not adding the first vote, aggregate it with previous ones
+	// if the vote is redundant, there is no need to add it to the msg store,
+	// as it will be discarded during aggregation anyway
+	if voteContributed {
+		s.add(previousVotes, vote)
 	}
+
 	return voteContributed
+}
+
+// returns -1 if not aggregatable, index of aggregatable vote otherwise
+func isAggregatable(previousVotes []Vote, newVote Vote) int {
+	index := -1
+	for i, previousVote := range previousVotes {
+		if previousVote.Signers().RespectsBoundaries(newVote.Signers()) {
+			index = i
+			break
+		}
+	}
+	return index
+}
+
+func logErrorPrevotes(previousVotes []Vote, newVote Vote, index int, aggregatedVotes []*Prevote) {
+	log.Error("aggregated votes length not equal to 1",
+		"previousVotes[index]", previousVotes[index].String(),
+		"newVote", newVote.String(), "index", index)
+
+	for i, aggregatedVote := range aggregatedVotes {
+		log.Error("aggregated votes", "i", i, "aggregatedVote", aggregatedVote.String())
+	}
+}
+
+func logErrorPrecommits(previousVotes []Vote, newVote Vote, index int, aggregatedVotes []*Precommit) {
+	log.Error("aggregated votes length not equal to 1",
+		"previousVotes[index]", previousVotes[index].String(),
+		"newVote", newVote.String(), "index", index)
+
+	for i, aggregatedVote := range aggregatedVotes {
+		log.Error("aggregated votes", "i", i, "aggregatedVote", aggregatedVote.String())
+	}
+}
+
+// assumes that `previousVotes` are all non-mergeable with each other
+func (s *Set) add(previousVotes []Vote, newVote Vote) {
+	value := newVote.Value()
+
+	// check if it can be merged with any previous vote
+	index := isAggregatable(previousVotes, newVote)
+	if index == -1 {
+		// non aggregatable, append at the end and return
+		previousVotes = append(previousVotes, newVote)
+		s.votes[value] = previousVotes
+		return
+	}
+
+	switch newVote.Code() {
+	case PrevoteCode:
+		aggregatedVotes := AggregatePrevotes([]Vote{previousVotes[index], newVote})
+		if len(aggregatedVotes) != 1 {
+			logErrorPrevotes(previousVotes, newVote, index, aggregatedVotes)
+			panic("aggregated votes should have length 1")
+		}
+		previousVotes[index] = aggregatedVotes[0]
+	case PrecommitCode:
+		aggregatedVotes := AggregatePrecommits([]Vote{previousVotes[index], newVote})
+		if len(aggregatedVotes) != 1 {
+			logErrorPrecommits(previousVotes, newVote, index, aggregatedVotes)
+			panic("aggregated votes should have length 1")
+		}
+		previousVotes[index] = aggregatedVotes[0]
+	default:
+		panic(fmt.Sprintf("Trying to add a vote that is not Prevote nor Precommit: %d", newVote.Code()))
+	}
+	s.votes[value] = previousVotes
 }
 
 func (s *Set) Messages() []Msg {

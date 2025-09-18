@@ -298,7 +298,7 @@ func TestPreValidate(t *testing.T) {
 			require.Error(t, err)
 		}
 	})
-	t.Run("votes has coefficient with bitlen > 16 but does is a network vote, error is returned", func(t *testing.T) {
+	t.Run("votes has coefficient with bitlen > 16 and is a network vote, error is returned", func(t *testing.T) {
 		n := 18
 		committee := new(types.Committee)
 		for i := 0; i < n; i++ {
@@ -412,6 +412,57 @@ func TestMessageHash(t *testing.T) {
 		vote2 := NewPrecommit(r, h, v, defaultSigner, &testCommittee.Members[1], &testCommittee)
 		require.NotEqual(t, vote.Hash(), vote2.Hash())
 	})
+	t.Run("internal modifications of *big.Int in signers should not cause message hash change", func(t *testing.T) {
+		vote := NewPrecommit(r, h, v, defaultSigner, &testCommittee.Members[0], &testCommittee)
+		originalHash := vote.Hash()
+		originalIndexes := vote.Signers().Bitmap.Indexes()
+		t.Logf("original indexes: %v", originalIndexes)
+
+		// modify internals via SetBytes()
+		bitmap := vote.Signers().Bitmap
+		bigBitmap := (*big.Int)(bitmap)
+		underlyingBytes := bigBitmap.Bytes()
+		t.Logf("underlying bytes: %v", underlyingBytes)
+		underlyingBytes = make([]byte, 3)
+		underlyingBytes[2] = 1 // setBytes expects big endian
+		t.Logf("underlying bytes modified: %v", underlyingBytes)
+		bigBitmap.SetBytes(underlyingBytes)
+
+		// signers indexes and hash should remain the same
+		modifiedIndexes := bitmap.Indexes()
+		t.Logf("modified indexes: %v", modifiedIndexes)
+		require.Equal(t, originalIndexes, modifiedIndexes)
+		require.Equal(t, originalHash, recomputeHash(vote))
+
+		// modify internals via SetBits()
+		underlyingBits := bigBitmap.Bits()
+		t.Logf("underlying bits: %v", underlyingBits)
+		underlyingBits = make([]big.Word, 3)
+		underlyingBits[0] = 1 // set bits expects small endian
+		t.Logf("underlying bits modified: %v", underlyingBits)
+		bigBitmap.SetBits(underlyingBits)
+
+		// signers indexes and hash should remain the same
+		modifiedIndexes = bitmap.Indexes()
+		t.Logf("modified indexes: %v", modifiedIndexes)
+		require.Equal(t, originalIndexes, modifiedIndexes)
+		require.Equal(t, originalHash, recomputeHash(vote))
+
+	})
+}
+
+// helper to recompute hash since in production code it is computed only once at decoding and cached
+// therefore modifying internals of a vote doesn't lead to the cached hash to change
+func recomputeHash(vote Vote) common.Hash {
+	payload, _ := rlp.EncodeToBytes(extVote{
+		Code:      vote.Code(),
+		Round:     uint64(vote.R()), // #nosec
+		Height:    vote.H(),
+		Value:     vote.Value(),
+		Signers:   vote.Signers(),
+		Signature: vote.Signature().(*blst.BlsSignature),
+	})
+	return crypto.Hash(payload)
 }
 
 func FuzzFromPayload(f *testing.F) {
@@ -474,6 +525,7 @@ func TestAggregateVotes(t *testing.T) {
 	t.Log(aggregate.Signers().String())
 	require.Equal(t, fmt.Sprintf("%08b", toBigInt(aggregate.Signers().Bitmap).Bytes()[0]), "00000001")
 	require.NoError(t, aggregate.Signers().Validate(&testCommittee))
+	require.Equal(t, votes[0].Hash(), aggregate.Hash()) // currently aggregating a single vote
 
 	votes = append(votes, NewPrevote(r, h, v, defaultSigner, &testCommittee.Members[0], &testCommittee))
 	aggregate = AggregatePrevotesSingle(votes)

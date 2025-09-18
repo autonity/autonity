@@ -457,6 +457,18 @@ func TestQuorumCertificateDeserialization(t *testing.T) {
 	t.Log(err)
 	require.Equal(t, &Header{}, headerDecoded)
 
+	// signers that exceed quorum cap are not allowed
+	header = headerWithQuorumCertificate(&AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewSigners(committee)})
+	header.QuorumCertificate.Signers.Bitmap.Set(0)
+	header.QuorumCertificate.Signers.Coefficients = []*big.Int{new(big.Int).SetUint64(1 << common.QuorumCap)}
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+	require.Equal(t, &Header{}, headerDecoded)
+
 	validQuorumCertificate := &AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewSigners(committee)}
 	validQuorumCertificate.Signers.increment(0)
 	header = headerWithQuorumCertificate(validQuorumCertificate)
@@ -544,6 +556,18 @@ func TestActivityProofDeserialization(t *testing.T) {
 
 	// empty signers is not allowed
 	header = headerWithActivityProof(&AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: &Signers{}}, 4)
+	b, err = rlp.EncodeToBytes(header)
+	require.NoError(t, err)
+	headerDecoded = &Header{}
+	err = rlp.Decode(bytes.NewReader(b), headerDecoded)
+	require.Error(t, err)
+	t.Log(err)
+	require.Equal(t, &Header{}, headerDecoded)
+
+	// signers that exceed quorum cap are not allowed
+	header = headerWithActivityProof(&AggregateSignature{Signature: sig.(*blst.BlsSignature), Signers: NewSigners(committee)}, 4)
+	header.ActivityProof.Signers.Bitmap.Set(0)
+	header.ActivityProof.Signers.Coefficients = []*big.Int{new(big.Int).SetUint64(1 << common.QuorumCap)}
 	b, err = rlp.EncodeToBytes(header)
 	require.NoError(t, err)
 	headerDecoded = &Header{}
@@ -844,4 +868,25 @@ func TestRlpDecodeParentHash(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestAggregateSignatureWithSingleSigner(t *testing.T) {
+	// test that having an aggregate signature (e.g. quorum certificate) signed by a single validator doesn't cause
+	// any issues
+
+	localCommittee, blsKeys := generateCommittee([]int{100, 1, 1, 1, 1}) // committee[0] has quorum
+	t.Logf("committee[0] %s", localCommittee.Members[0].Address.String())
+
+	msg := common.BytesToHash([]byte{0xca, 0xfe})
+	signature := blsKeys[0].Sign(msg.Bytes())
+	signers := NewSigners(localCommittee)
+	signers.increment(0)
+
+	aggregateSignature := NewAggregateSignature(signature.(*blst.BlsSignature), signers)
+	require.False(t, aggregateSignature.Malformed())
+
+	sigSigners, power, err := aggregateSignature.Validate(msg, localCommittee, true)
+	t.Logf("signers %v, power: %v, err %v", sigSigners, power, err)
+	require.NoError(t, err)
+
 }

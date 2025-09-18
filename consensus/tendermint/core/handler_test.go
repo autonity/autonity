@@ -157,20 +157,21 @@ func TestHandleMessage(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
 		engine := Core{
-			logger:           logger,
-			address:          currentValidator.Address,
-			round:            tc.round,
-			height:           tc.height,
-			step:             tc.step,
-			futureRound:      make(map[int64][]events.MessageEvent),
-			futurePower:      make(map[int64]*message.AggregatedPower),
-			messages:         messageMap,
-			curRoundMessages: messageMap.GetOrCreate(0),
-			committee:        committeeSet,
-			proposeTimeout:   NewTimeout(Propose, logger),
-			prevoteTimeout:   NewTimeout(Prevote, logger),
-			precommitTimeout: NewTimeout(Precommit, logger),
-			backend:          backendMock,
+			logger:            logger,
+			address:           currentValidator.Address,
+			round:             tc.round,
+			height:            tc.height,
+			step:              tc.step,
+			futureRound:       make(map[int64][]events.MessageEvent),
+			futurePowerByCode: make(map[int64][3]*message.AggregatedPower),
+			futurePower:       make(map[int64]*message.AggregatedPower),
+			messages:          messageMap,
+			curRoundMessages:  messageMap.GetOrCreate(0),
+			committee:         committeeSet,
+			proposeTimeout:    NewTimeout(Propose, logger),
+			prevoteTimeout:    NewTimeout(Prevote, logger),
+			precommitTimeout:  NewTimeout(Precommit, logger),
+			backend:           backendMock,
 		}
 		engine.SetDefaultHandlers()
 
@@ -214,6 +215,7 @@ func TestHandleFutureRound(t *testing.T) {
 	committeeSet, keysMap := NewTestCommitteeSetWithKeys(10)
 	sender1, _ := committeeSet.MemberByIndex(0)
 	sender2, _ := committeeSet.MemberByIndex(1)
+	sender3, _ := committeeSet.MemberByIndex(2)
 
 	currentHeight := big.NewInt(1)
 	currentRound := int64(0)
@@ -222,27 +224,27 @@ func TestHandleFutureRound(t *testing.T) {
 	backendMock := interfaces.NewMockBackend(ctrl)
 	backendMock.EXPECT().Post(gomock.Any()).AnyTimes()
 	engine := Core{
-		logger:           logger,
-		address:          sender1.Address,
-		round:            currentRound,
-		height:           currentHeight,
-		step:             Propose,
-		futureRound:      make(map[int64][]events.MessageEvent),
-		futurePower:      make(map[int64]*message.AggregatedPower),
-		messages:         messageMap,
-		curRoundMessages: messageMap.GetOrCreate(0),
-		committee:        committeeSet,
-		proposeTimeout:   NewTimeout(Propose, logger),
-		prevoteTimeout:   NewTimeout(Prevote, logger),
-		precommitTimeout: NewTimeout(Precommit, logger),
-		backend:          backendMock,
-		syncState:        &SyncState{},
+		logger:            logger,
+		address:           sender1.Address,
+		round:             currentRound,
+		height:            currentHeight,
+		step:              Propose,
+		futureRound:       make(map[int64][]events.MessageEvent),
+		futurePowerByCode: make(map[int64][3]*message.AggregatedPower),
+		futurePower:       make(map[int64]*message.AggregatedPower),
+		messages:          messageMap,
+		curRoundMessages:  messageMap.GetOrCreate(0),
+		committee:         committeeSet,
+		proposeTimeout:    NewTimeout(Propose, logger),
+		prevoteTimeout:    NewTimeout(Prevote, logger),
+		precommitTimeout:  NewTimeout(Precommit, logger),
+		backend:           backendMock,
+		syncState:         &SyncState{},
 	}
 	engine.SetDefaultHandlers()
 
-	// handling vote
+	// "close" future round messages are forwarded right away
 	vote := message.NewPrevote(currentRound+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender2.Address].consensus), sender2, committeeSet.Committee())
-	// future round messages are forwarded right away
 	backendMock.EXPECT().Gossip(gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(1) // called in a goroutine
 	engine.handleEvent(context.Background(), makeBogusMessageEvent(vote, false))
 
@@ -251,10 +253,22 @@ func TestHandleFutureRound(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, common.Big1, engine.futurePower[vote.R()].Power())
 
+	// "far" future round messages are not forwarded to avoid network clogging
+	farVote := message.NewPrevote(currentRound+futureRoundDisseminationThreshold+1, currentHeight.Uint64(), common.BytesToHash([]byte{0x1}), makeSigner(keysMap[sender3.Address].consensus), sender3, committeeSet.Committee())
+	engine.handleEvent(context.Background(), makeBogusMessageEvent(farVote, false))
+
+	// "far" future round vote is still saved in Core
+	found = searchForFutureMsg(&engine, farVote)
+	require.True(t, found)
+	require.Equal(t, common.Big1, engine.futurePower[farVote.R()].Power())
+
+	// "close" but redundant future round messages are not forwarded to avoid network clogging
+	engine.handleEvent(context.Background(), makeBogusMessageEvent(vote, false))
+
 	lastHeader := &types.Header{Number: currentHeight.Sub(currentHeight, common.Big1)}
 	// same thing for future round proposal
 	propose := message.NewPropose(currentRound+1, currentHeight.Uint64(), -1, generateBlock(currentHeight, lastHeader), makeSigner(keysMap[sender1.Address].consensus), sender1)
-	// proposals are never disseminated in Core
+	// proposals are never disseminated in Core, they are forwarded in the backend
 	engine.handleEvent(context.Background(), makeBogusMessageEvent(propose, true))
 
 	found = searchForFutureMsg(&engine, propose)
@@ -279,4 +293,48 @@ func TestCoreStopDoesntPanic(t *testing.T) {
 	c.stopped <- struct{}{}
 
 	c.Stop()
+}
+
+func TestDisseminationStrategy(t *testing.T) {
+	// if already disseminated result should always be to not redisseminate again
+	require.Equal(t, noDissemination, determineDisseminationStrategy(nil, true, 0, 0))
+	require.Equal(t, noDissemination, determineDisseminationStrategy(constants.ErrOldRoundMessage, true, 0, 1))
+	require.Equal(t, noDissemination, determineDisseminationStrategy(constants.ErrFutureRoundMessage, true, 4, 1))
+
+	// if err == nil (current round and not redundant) always gossip
+	require.Equal(t, gossip, determineDisseminationStrategy(nil, false, 0, 0))
+	require.Equal(t, gossip, determineDisseminationStrategy(nil, false, 0, 1))
+	require.Equal(t, gossip, determineDisseminationStrategy(nil, false, 4, 1))
+
+	// if future round, gossip only if not too far in the future
+	require.Equal(t, gossip, determineDisseminationStrategy(constants.ErrFutureRoundMessage, false, 2, 1))
+	require.Equal(t, gossip, determineDisseminationStrategy(constants.ErrFutureRoundMessage, false, 4, 1))
+	require.Equal(t, noDissemination, determineDisseminationStrategy(constants.ErrFutureRoundMessage, false, 5, 1))
+	require.Equal(t, noDissemination, determineDisseminationStrategy(constants.ErrFutureRoundMessage, false, 100, 1))
+
+	// old round, slow gossip
+	require.Equal(t, slowGossip, determineDisseminationStrategy(constants.ErrOldRoundMessage, false, 1, 5))
+}
+
+func TestCanDisseminate(t *testing.T) {
+	require.True(t, canDisseminate(0, 1))
+	require.True(t, canDisseminate(0, 100))
+	require.True(t, canDisseminate(0, 0))
+	require.True(t, canDisseminate(1, 0))
+	require.True(t, canDisseminate(5, 4))
+	require.True(t, canDisseminate(4+futureRoundDisseminationThreshold, 4))
+
+	require.False(t, canDisseminate(4+futureRoundDisseminationThreshold+1, 4))
+	require.False(t, canDisseminate(4+futureRoundDisseminationThreshold+100, 4))
+}
+
+func TestShouldQuit(t *testing.T) {
+	require.False(t, shouldQuit(nil))
+	require.False(t, shouldQuit(constants.ErrOldRoundMessage))
+	require.False(t, shouldQuit(constants.ErrFutureRoundMessage))
+
+	require.True(t, shouldQuit(constants.ErrRedundantVote))
+	require.True(t, shouldQuit(errors.Join(constants.ErrOldRoundMessage, constants.ErrRedundantVote)))
+	require.True(t, shouldQuit(errors.Join(constants.ErrFutureRoundMessage, constants.ErrRedundantVote)))
+	require.True(t, shouldQuit(constants.ErrAlreadyHaveProposal))
 }

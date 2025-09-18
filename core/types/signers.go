@@ -32,7 +32,7 @@ type Signers struct {
 	// these fields are not serialized, but instead computed at preValidate steps
 	committee     *Committee   `rlp:"-"`
 	powerMu       sync.RWMutex `rlp:"-"`
-	computedPower *big.Int     `rlp:"-"`
+	computedPower *big.Int     `rlp:"-"` // computed lazily
 
 	length          int      `rlp:"-"` // number of distinct signers
 	rightmostSigner int      `rlp:"-"` // last (LSB) > 0 index in Bitmap
@@ -41,7 +41,7 @@ type Signers struct {
 	// auxiliary data structures flags
 	// if validated = true -->
 	// 1. Bitmap and Coefficients have been validated
-	// 2. committeeSize, length, rightmostSigner and maxCoefficient are assigned
+	// 2. committee, length, rightmostSigner and maxCoefficient are assigned
 	validated bool `rlp:"-"`
 }
 
@@ -337,7 +337,6 @@ func (s *Signers) RespectsBoundaries(other *Signers) bool {
 			secondCount++
 		}
 
-		// TODO: optimize
 		sum := new(big.Int).Add(firstCoefficient, secondCoefficient)
 		if sum.BitLen() > common.VoteCap {
 			return false
@@ -438,12 +437,22 @@ func (s *Signers) AggregatePublicKey(keys []blst.PublicKey) blst.PublicKey {
 	if !s.validated {
 		panic("Using un-validated signers information")
 	}
-	return s.aggregatePublicKey(keys, s.length)
+	return s.aggregatePublicKey(keys, s.length, s.maxCoefficient)
 }
 
-func (s *Signers) aggregatePublicKey(keys []blst.PublicKey, length int) blst.PublicKey {
+func (s *Signers) aggregatePublicKey(keys []blst.PublicKey, length int, maxCoefficient *big.Int) blst.PublicKey {
 	if len(keys) != length {
 		panic("invalid public key length")
+	}
+
+	// if the maximum coefficient is 1 --> all coefficients are 1 --> no need for scalar multiplication, just sum the pubkeys
+	if maxCoefficient.Cmp(common.Big1) == 0 {
+		aggregatedKey, err := blst.AggregatePublicKeys(keys)
+		if err != nil {
+			// should not happen since all public keys are validated at validator registration
+			panic("cannot aggregate public keys from committee: " + err.Error())
+		}
+		return aggregatedKey
 	}
 
 	return blst.AggregatePublicKeysMultScalars(keys, blst.ToScalars(s.Coefficients))

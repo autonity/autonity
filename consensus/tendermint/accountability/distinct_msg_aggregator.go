@@ -16,12 +16,13 @@ import (
 )
 
 var (
-	ErrSignatureInvalid     = errors.New("HighlyAggregatedPrecommit has invalid signature")
-	ErrInvalidSignerIndex   = errors.New("HighlyAggregatedPrecommit has invalid signer index")
-	ErrInvalidSignerCoeff   = errors.New("HighlyAggregatedPrecommit has invalid signer coefficient")
-	ErrNoSigners            = errors.New("no signers found")
-	ErrInvalidRound         = errors.New("invalid round")
-	ErrDuplicatedPrecommits = errors.New("duplicated precommits")
+	ErrSignatureInvalid           = errors.New("HighlyAggregatedPrecommit has invalid signature")
+	ErrInvalidIndividualSignature = errors.New("HighlyAggregatedPrecommit has invalid individual signature")
+	ErrInvalidSignerIndex         = errors.New("HighlyAggregatedPrecommit has invalid signer index")
+	ErrInvalidSignerCoeff         = errors.New("HighlyAggregatedPrecommit has invalid signer coefficients")
+	ErrInvalidSigners             = errors.New("number of signers is not valid")
+	ErrInvalidRound               = errors.New("invalid round")
+	ErrDuplicatedPrecommits       = errors.New("duplicated precommits")
 )
 
 // Signers is a set that contains signers of the same message with the using of fastAggregate().
@@ -71,7 +72,7 @@ func (r *Signers) DecodeRLP(stream *rlp.Stream) error {
 	}
 
 	if len(ext.SignersIndex) == 0 || len(ext.SignersIndex) > types.MaxAllowedSigners {
-		return ErrNoSigners
+		return ErrInvalidSigners
 	}
 	if len(ext.SignersCoeff) != len(ext.SignersIndex) {
 		return ErrInvalidSignerCoeff
@@ -120,11 +121,12 @@ func (r *Signers) PreValidate(committee *types.Committee) error {
 	committeeSize := committee.Len()
 	// early return, as signer indexes are distinct
 	if len(r.SignersIndex) > committeeSize {
-		return ErrSignatureInvalid
+		return ErrInvalidSigners
 	}
 
 	publicKeys := make([]blst.PublicKey, len(r.SignersIndex))
 	r.hasSigners = make(map[int]struct{})
+	maxCoefficient := new(big.Int)
 
 	for i, idx := range r.SignersIndex {
 		if idx >= committeeSize || idx < 0 {
@@ -134,18 +136,39 @@ func (r *Signers) PreValidate(committee *types.Committee) error {
 
 		// distinct signers
 		if _, ok := r.hasSigners[idx]; ok {
-			return ErrSignatureInvalid
+			return ErrInvalidSigners
 		}
 		r.hasSigners[idx] = struct{}{}
+
+		maxCoefficient = common.Max(maxCoefficient, r.SignersCoeff[i])
 	}
 
-	if len(r.SignersCoeff) == 1 && r.SignersCoeff[0].Cmp(common.Big1) != 0 {
-		return ErrSignatureInvalid
+	var aggregatedKey blst.PublicKey
+
+	// if it is an individual signatures, it should have coefficient 1 and aggregation can be skipped
+	if len(r.SignersCoeff) == 1 {
+		if r.SignersCoeff[0].Cmp(common.Big1) != 0 {
+			return ErrInvalidIndividualSignature
+		}
+		aggregatedKey = publicKeys[0]
+	} else {
+		// len(publicKeys) > 1
+
+		// if the maximum coefficient is 1 --> all coefficients are 1 --> no need for scalar multiplication, just sum the pubkeys
+		if maxCoefficient.Cmp(common.Big1) == 0 {
+			var err error
+			aggregatedKey, err = blst.AggregatePublicKeys(publicKeys)
+			if err != nil {
+				// should not happen since all public keys are validated at validator registration
+				panic("cannot aggregate public keys from committee: " + err.Error())
+			}
+		} else {
+			// otherwise, do the scalar multiplication
+			aggregatedKey = blst.AggregatePublicKeysMultScalars(publicKeys, blst.ToScalars(r.SignersCoeff))
+		}
 	}
 
-	aggKey := blst.AggregatePublicKeysMultScalars(publicKeys, blst.ToScalars(r.SignersCoeff))
-
-	r.aggregatedPublicKey = aggKey
+	r.aggregatedPublicKey = aggregatedKey
 	r.preValidated = true
 	return nil
 }

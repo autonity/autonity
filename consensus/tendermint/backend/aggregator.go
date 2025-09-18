@@ -58,19 +58,19 @@ func recordMessageProcessingTime(code uint8, start time.Time) {
 	}
 }
 
-type eventBuilder func(msg message.Msg, event events.UnverifiedMessageEvent, disseminated bool) interface{}
+type eventBuilder func(msg message.Msg, errCh chan<- error, sender common.Address, disseminated bool) interface{}
 
 // function to create the event for current height messages (they get picked up by Core and by the FD)
-func currentHeightEventBuilder(msg message.Msg, event events.UnverifiedMessageEvent, disseminated bool) interface{} {
-	return events.NewMessageEvent(msg, event.ErrCh, event.Sender, time.Now(), disseminated)
+func currentHeightEventBuilder(msg message.Msg, errCh chan<- error, sender common.Address, disseminated bool) interface{} {
+	return events.NewMessageEvent(msg, errCh, sender, time.Now(), disseminated)
 }
 
 // function to create the event for old height messages (they get picked up only by the FD)
-func oldHeightEventBuilder(msg message.Msg, event events.UnverifiedMessageEvent, _ bool) interface{} {
-	return events.NewOldMessageEvent(msg, event.ErrCh, event.Sender, time.Now())
+func oldHeightEventBuilder(msg message.Msg, errCh chan<- error, sender common.Address, _ bool) interface{} {
+	return events.NewOldMessageEvent(msg, errCh, sender, time.Now())
 }
 
-func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger, afdDispatchCh chan<- events.MessageEventer) *aggregator {
+func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.Logger) *aggregator {
 	return &aggregator{
 		backend:           backend,
 		core:              core,
@@ -79,7 +79,6 @@ func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.
 		logger:            logger,
 		messagesFrom:      make(map[common.Address][]common.Hash),
 		toIgnore:          make(map[common.Hash]struct{}),
-		afdDispatchCh:     afdDispatchCh,
 		internalCoreCh:    make(chan events.MessageEventer, 1),
 		internalFdCh:      make(chan events.MessageEventer, 1),
 		internalBacklogCh: make(chan events.UnverifiedMessageEvent, 1000),
@@ -451,15 +450,15 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 				aggregateVotes := message.AggregatePrevotes(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.signerSetCache.addVote(aggregateVote, stepDispatched)
-					a.internalCoreCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}, false).(events.MessageEventer)
-					a.internalFdCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}, false).(events.MessageEventer)
+					a.internalCoreCh <- eventer(aggregateVote, nil, a.backend.Address(), false).(events.MessageEventer)
+					a.internalFdCh <- eventer(aggregateVote, nil, a.backend.Address(), false).(events.MessageEventer)
 				}
 			case *message.Precommit:
 				aggregateVotes := message.AggregatePrecommits(validVotes)
 				for _, aggregateVote := range aggregateVotes {
 					a.signerSetCache.addVote(aggregateVote, stepDispatched)
-					a.internalCoreCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}, false).(events.MessageEventer)
-					a.internalFdCh <- eventer(aggregateVote, events.UnverifiedMessageEvent{Sender: a.backend.Address()}, false).(events.MessageEventer)
+					a.internalCoreCh <- eventer(aggregateVote, nil, a.backend.Address(), false).(events.MessageEventer)
+					a.internalFdCh <- eventer(aggregateVote, nil, a.backend.Address(), false).(events.MessageEventer)
 				}
 			default:
 				a.logger.Crit("messages being aggregated are not votes", "type", reflect.TypeOf(validVotes[0]))
@@ -481,13 +480,10 @@ func (a *aggregator) processBatches(batches [][]events.UnverifiedMessageEvent, e
 func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent, eventer eventBuilder) {
 	proposal := proposalEvent.Message
 	a.signerSetCache.addEvent(proposalEvent, stepDispatched)
-	a.internalCoreCh <- eventer(proposal, proposalEvent, proposalEvent.Disseminated).(events.MessageEventer) // send to core
-	a.internalFdCh <- eventer(proposal, proposalEvent, proposalEvent.Disseminated).(events.MessageEventer)   // send to fault detector
+	a.internalCoreCh <- eventer(proposal, proposalEvent.ErrCh, proposalEvent.Sender, proposalEvent.Disseminated).(events.MessageEventer) // send to core
+	a.internalFdCh <- eventer(proposal, proposalEvent.ErrCh, proposalEvent.Sender, proposalEvent.Disseminated).(events.MessageEventer)   // send to fault detector
 }
 
-// assumes current or old round vote
-// if add == true, the msg is saved in the aggregator.
-// if add == false, the msg is not saved and only the power checks are done.
 func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committee *types.Committee) {
 	vote := voteEvent.Message.(message.Vote)
 	height := vote.H()
@@ -563,15 +559,15 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	a.signerSetCache.markCommittee(msg.H(), committee)
 	a.signerSetCache.addEvent(event, stepReceived)
 
+	// old height proposals are processed right away, while votes are placed in the stale messages map
 	if msg.H() < coreHeight {
-		switch msg.(type) {
-		case *message.Propose:
+		if msg.Code() == message.ProposalCode {
 			a.processProposal(event, oldHeightEventBuilder)
-			return
+		} else {
+			signatureInput := msg.SignatureInput()
+			a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], event)
 		}
-		signatureInput := msg.SignatureInput()
-		a.staleMessages[signatureInput] = append(a.staleMessages[signatureInput], event)
-		return
+		return // note: processing ends here
 	}
 	if msg.H() > coreHeight {
 		// future messages are dealt with at backend peer handler level
@@ -581,21 +577,14 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	switch msg.(type) {
 	case *message.Propose:
 		a.processProposal(event, currentHeightEventBuilder)
+		// if it was a future round proposal, check for round skip
 		if msg.R() > a.core.Round() {
 			a.processFutureRound(committee, msg)
 		}
-		recordMessageProcessingTime(msg.Code(), start)
-		return
-	}
-
-	// current or old round here
-	switch msg.(type) {
-	case *message.Propose:
-		// do nothing, proposal already processed
 	case *message.Prevote, *message.Precommit:
 		a.handleVote(event, committee)
 	default:
-		a.logger.Crit("unknown message type arrived in aggregator")
+		panic("unknown message type: " + reflect.TypeOf(msg).String())
 	}
 	recordMessageProcessingTime(msg.Code(), start)
 }
@@ -666,7 +655,6 @@ loop:
 				BackendAggregatorTransitBg.Add(time.Since(event.Posted).Nanoseconds())
 			}
 			a.handleEvent(event)
-			//Note: core events are not sent to the aggregator anymore, code remains here for later evaluation
 		case event, ok := <-a.internalBacklogCh:
 			// handle backlog messages that were filtered by cache, but reinjected
 			if !ok {
