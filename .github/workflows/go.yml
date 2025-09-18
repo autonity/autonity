@@ -99,7 +99,7 @@ jobs:
         # negative grep to get most of the test packages for the main tests
         # excluding packages of particular interest. The excluded package are
         # those that are slow to test, our e2e tests and tendermint core.
-        tests: [ [ helper-package-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/core$|/e2e_test") ],
+        tests: [ [ general-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/core$|/e2e_test") ],
                  [ p2p-protocol-tests, $(go list ./p2p/...) ],
                  [ eth-protocol-tests, $(go list ./eth/...) ],
                  [ blockchain-core-tests, -p 1 ./core/... ]
