@@ -462,14 +462,16 @@ func TestMessageHash(t *testing.T) {
 // helper to recompute hash since in production code it is computed only once at decoding and cached
 // therefore modifying internals of a vote doesn't lead to the cached hash to change
 func recomputeHash(vote Vote) common.Hash {
-	payload, _ := rlp.EncodeToBytes(extVote{
-		Code:      vote.Code(),
-		Round:     uint64(vote.R()), // #nosec
-		Height:    vote.H(),
-		Value:     vote.Value(),
-		Signers:   vote.Signers(),
-		Signature: vote.Signature().(*blst.BlsSignature),
-	})
+	extvote := extVote{
+		Code:    vote.Code(),
+		Round:   uint64(vote.R()), // #nosec
+		Height:  vote.H(),
+		Value:   vote.Value(),
+		Signers: vote.Signers(),
+	}
+	sig, _ := vote.Signature()
+	extvote.Signature = sig.(*blst.BlsSignature)
+	payload, _ := rlp.EncodeToBytes(extvote)
 	return crypto.Hash(payload)
 }
 

@@ -1161,8 +1161,8 @@ func TestAggregatorProcess(t *testing.T) {
 			makeBogusEvent(prevoteDec), // INVALID
 		})
 
-		a.processBatches(batches, func(m message.Msg, ev events.UnverifiedMessageEvent, _ bool) interface{} {
-			return currentHeightEventBuilder(m, ev, false)
+		a.processBatches(batches, func(m message.Msg, errCh chan<- error, sender common.Address, _ bool) interface{} {
+			return currentHeightEventBuilder(m, errCh, sender, false)
 		})
 
 		roundInfo := a.messages[h][r]
