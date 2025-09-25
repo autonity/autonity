@@ -101,10 +101,10 @@ This generates the Autonity Go Client Docker image and manifest.
 
 ## Run a node
 
-Quick-start connecting to an Autonity testnet by using a testnet flag in the command line to set the genesis config for that network when starting the client. For example, to connect to the Piccadilly Testnet:
+Quick-start connecting to an Autonity testnet by using a testnet flag in the command line to set the genesis config for that network when starting the client. For example, to connect to the Bakerloo Testnet:
 
 ```
-./build/bin/autonity --piccadilly
+./build/bin/autonity --bakerloo
 ```
 
 For full docs on how to run the client and connect to a public Autonity network see [Networks](https://docs.autonity.org/networks/) and [Run Autonity](https://docs.autonity.org/node-operators/run-aut/).
@@ -118,8 +118,6 @@ For source code, installation, and usage see its [repository](https://github.com
 See the docs how to [Setup Autonity CLI](https://docs.autonity.org/account-holders/setup-aut/) for how to make calls and submit transactions.
 
 ## Networks
-
-### Testnets
 
 For details of public Autonity networks, see [docs.autonity.org/networks](https://docs.autonity.org/networks/).
 
