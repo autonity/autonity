@@ -1423,7 +1423,8 @@ func (c absenteesComputer) Run(input []byte, blockNumber uint64, evm *EVM, calle
 
 	// input is always one packed boolean (1 byte) + 2 uint256 (32 bytes each)
 	if len(input) != 1+DataLen+DataLen {
-		// TODO(lorenzo): should we panic here? incorrect input --> we have a programming error. However other precompiles deal with it this way
+		// TODO: should we panic here? incorrect input --> we have a programming error.
+		// 	However other precompiles deal with it this way
 		return nil, errBadInput
 	}
 	if !(input[0] == byte(0) || input[0] == byte(1)) {

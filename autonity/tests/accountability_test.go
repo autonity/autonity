@@ -36,7 +36,7 @@ func TestAccountabilityEvents(t *testing.T) {
 		require.Error(r.T, err)
 	})
 	r.Run("accusation with nil rawproof should not cause panics or issues", func(r *Runner) {
-		accusationEvent := NewAccusationEvent(10, common.Hash{0xca, 0xfe}, reporter, 0)
+		accusationEvent := NewAccusationEvent(10, common.Hash{0xca, 0xfe}, reporter, 0, autonity.PVN)
 		accusationEvent.RawProof = nil
 		_, err := r.Accountability.HandleAccusation(&runOptions{origin: reporter}, accusationEvent)
 		require.Error(r.T, err)

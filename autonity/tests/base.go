@@ -672,7 +672,7 @@ func FromSender(sender common.Address, value *big.Int) *runOptions {
 	return &runOptions{origin: sender, value: value}
 }
 
-func NewAccusationEvent(height uint64, value common.Hash, reporter common.Address, offenderIndex int) IAccountabilityEvent {
+func NewAccusationEvent(height uint64, value common.Hash, reporter common.Address, offenderIndex int, rule autonity.Rule) IAccountabilityEvent {
 	if offenderIndex >= len(params.TestNodeKeys) {
 		panic("offenderIndex out of range")
 	}
@@ -684,12 +684,49 @@ func NewAccusationEvent(height uint64, value common.Hash, reporter common.Addres
 		return offenderConsensusKey.Sign(hash[:])
 	}
 	committee := makeCommitteeFromTestKeys()
-	prevote := message.NewPrevote(0, height, value, signer, &cm, committee)
+
+	var msg message.Msg
+	var evidences []message.Msg
+	switch rule {
+	case autonity.PVN:
+		msg = message.NewPrevote(0, height, value, signer, &cm, committee)
+	case autonity.PVO:
+		r := 2
+		msg = message.NewPrevote(int64(r), height, value, signer, &cm, committee)
+
+		// attach also old light proposal as evidence
+		vr := 1
+		signaturePayload, err := rlp.EncodeToBytes([]any{message.ProposalCode, uint64(r), uint64(height), uint64(vr), false, value})
+		if err != nil {
+			panic("failed to generate light proposal as evidence: " + err.Error())
+		}
+		signatureInput := crypto.Hash(signaturePayload)
+		signature := signer(signatureInput)
+
+		evidences = []message.Msg{message.NewFakeLightPropose(message.Fake{
+			FakeRound:          uint64(r),
+			FakeHeight:         height,
+			FakeValue:          value,
+			FakeSignature:      signature,
+			FakeSignatureInput: signatureInput,
+			FakeSignerKey:      offenderConsensusKey.PublicKey(),
+			FakeValidRound:     uint64(vr),
+			FakeValidRoundNil:  false,
+			FakeSigner:         offender,
+			FakeSignerIndex:    0,
+			FakeVerified:       true,
+		}, true)}
+	case autonity.C1:
+		msg = message.NewPrecommit(0, height, value, signer, &cm, committee)
+	default:
+		panic("unsupported rule")
+	}
 
 	p := &accountability.Proof{
 		Type:          autonity.Accusation,
-		Rule:          autonity.PVN,
-		Message:       prevote,
+		Rule:          rule,
+		Message:       msg,
+		Evidences:     evidences,
 		OffenderIndex: offenderIndex,
 	}
 	rawProof, err := rlp.EncodeToBytes(p)
