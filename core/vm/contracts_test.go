@@ -19,6 +19,7 @@ package vm
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -26,6 +27,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/rawdb"
@@ -34,6 +37,7 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/params/generated"
 	"github.com/stretchr/testify/require"
 )
 
@@ -501,38 +505,200 @@ func writeCommittee(committee *types.Committee, stateDB *state.StateDB, caller c
 }
 
 func TestReadCommittee(t *testing.T) {
-	n := 10
-	var members []types.CommitteeMember
+	t.Run("with manual write", func(t *testing.T) {
+		n := 10
+		var members []types.CommitteeMember
 
-	maxPower := new(big.Int).SetUint64(1000000000)
-	for i := 0; i < n; i++ {
-		key, err := blst.RandKey()
+		maxPower := new(big.Int).SetUint64(1000000000)
+		for i := 0; i < n; i++ {
+			key, err := blst.RandKey()
+			require.NoError(t, err)
+			members = append(members, types.CommitteeMember{
+				Address:           common.Address{byte(i)},
+				VotingPower:       new(big.Int).Rand(rand.New(rand.NewSource(time.Now().Unix())), maxPower),
+				ConsensusKeyBytes: key.PublicKey().Marshal(),
+			})
+		}
+
+		expectedCommittee := &types.Committee{Members: members}
+		err := expectedCommittee.Enrich()
 		require.NoError(t, err)
-		members = append(members, types.CommitteeMember{
-			Address:           common.Address{byte(i)},
-			VotingPower:       new(big.Int).Rand(rand.New(rand.NewSource(time.Now().Unix())), maxPower),
-			ConsensusKeyBytes: key.PublicKey().Marshal(),
-		})
-	}
 
-	expectedCommittee := &types.Committee{Members: members}
-	err := expectedCommittee.Enrich()
-	require.NoError(t, err)
+		ethDb := rawdb.NewMemoryDatabase()
+		db := state.NewDatabase(ethDb)
+		stateDB, err := state.New(common.Hash{}, db, nil)
+		require.NoError(t, err)
+		caller := common.Address{0xca, 0xfe}
+		committeeSlot := common.LeftPadBytes(big.NewInt(54465465).Bytes(), DataLen)
 
-	ethDb := rawdb.NewMemoryDatabase()
-	db := state.NewDatabase(ethDb)
-	stateDB, err := state.New(common.Hash{}, db, nil)
-	require.NoError(t, err)
-	caller := common.Address{0xca, 0xfe}
-	committeeSlot := common.LeftPadBytes(big.NewInt(54465465).Bytes(), DataLen)
+		writeCommittee(expectedCommittee, stateDB, caller, committeeSlot)
+		committee := readCommittee(stateDB, caller, common.BytesToHash(committeeSlot))
+		require.Equal(t, expectedCommittee, committee)
+	})
+	t.Run("reading from deployed contract", func(t *testing.T) {
+		// simple conversion func
+		toContractConfig := func(acg *params.AutonityContractGenesis) bindings.IAutonityConfig {
+			return bindings.IAutonityConfig{
+				Policy: bindings.IAutonityPolicy{
+					TreasuryFee:              new(big.Int).SetUint64(acg.TreasuryFee),
+					MinBaseFee:               new(big.Int).SetUint64(acg.MinBaseFee),
+					DelegationRate:           new(big.Int).SetUint64(acg.DelegationRate),
+					UnbondingPeriod:          new(big.Int).SetUint64(acg.UnbondingPeriod),
+					InitialInflationReserve:  (*big.Int)(acg.InitialInflationReserve),
+					WithholdingThreshold:     new(big.Int).SetUint64(acg.WithholdingThreshold),
+					ProposerRewardRate:       new(big.Int).SetUint64(acg.ProposerRewardRate),
+					OracleRewardRate:         new(big.Int).SetUint64(acg.OracleRewardRate),
+					WithheldRewardsPool:      acg.WithheldRewardsPool,
+					TreasuryAccount:          acg.Treasury,
+					BaseFeeChangeDenominator: new(big.Int).SetUint64(acg.BaseFeeChangeDenominator),
+					ElasticityMultiplier:     new(big.Int).SetUint64(acg.ElasticityMultiplier),
+				},
+				Contracts: bindings.IAutonityContracts{
+					AccountabilityContract:         params.AccountabilityContractAddress,
+					OracleContract:                 params.OracleContractAddress,
+					AcuContract:                    params.ACUContractAddress,
+					SupplyControlContract:          params.SupplyControlContractAddress,
+					StabilizationContract:          params.StabilizationContractAddress,
+					UpgradeManagerContract:         params.UpgradeManagerContractAddress,
+					InflationControllerContract:    params.InflationControllerContractAddress,
+					OmissionAccountabilityContract: params.OmissionAccountabilityContractAddress,
+					AuctioneerContract:             params.AuctioneerContractAddress,
+				},
+				Protocol: bindings.IAutonityProtocol{
+					OperatorAccount:      acg.Operator,
+					EpochPeriod:          new(big.Int).SetUint64(acg.EpochPeriod),
+					BlockPeriod:          new(big.Int).SetUint64(acg.BlockPeriod),
+					CommitteeSize:        new(big.Int).SetUint64(acg.MaxCommitteeSize),
+					MaxScheduleDuration:  new(big.Int).SetUint64(acg.MaxScheduleDuration),
+					GasLimit:             new(big.Int).SetUint64(acg.GasLimit),
+					GasLimitBoundDivisor: new(big.Int).SetUint64(acg.GasLimitBoundDivisor),
+					ClusteringThreshold:  new(big.Int).SetUint64(acg.ClusteringThreshold),
+				},
+				ContractVersion: big.NewInt(1),
+			}
+		}
 
-	// TODO(lorenzo) it would be better to actually deploy the autonity contract, store the committee from solidity and read it from here
-	// however I didn't find a way to deploy contract here yet, due to import loops and other complications
-	writeCommittee(expectedCommittee, stateDB, caller, committeeSlot)
-	committee := readCommittee(stateDB, caller, common.BytesToHash(committeeSlot))
+		// deploy the autonity test contract
+		deployAutonityTest := func(evm *EVM, address common.Address, abi *abi.ABI, bytecode []byte, value *big.Int, args ...interface{}) error {
+			constructorParams, err := abi.Pack("", args...)
+			if err != nil {
+				return fmt.Errorf("failed to pack parameters: %w", err)
+			}
+			if value.BitLen() != 0 && evm.StateDB.GetBalance(params.DeployerAddress).Cmp(value) < 0 {
+				evm.StateDB.AddBalance(params.DeployerAddress, value)
+			}
+			data := append(bytecode, constructorParams...)
+			gas := uint64(math.MaxUint64)
+			_, addr, _, err := evm.Create(AccountRef(params.DeployerAddress), data, gas, value)
+			if err != nil {
+				return err
+			}
+			if addr != address {
+				return errors.New("wrong contract address")
+			}
+			return nil
+		}
 
-	require.Equal(t, expectedCommittee, committee)
+		// create an evm to deploy contracts
+		getEvm := func(statedb *state.StateDB) *EVM {
+			// redefine to avoid import loops
+			canTransfer := func(db StateDB, addr common.Address, amount *big.Int) bool {
+				return db.GetBalance(addr).Cmp(amount) >= 0
+			}
+			transfer := func(db StateDB, sender, recipient common.Address, amount *big.Int) {
+				db.SubBalance(sender, amount)
+				db.AddBalance(recipient, amount)
+			}
 
+			evmContext := BlockContext{
+				CanTransfer:        canTransfer,
+				Transfer:           transfer,
+				GetHash:            func(n uint64) common.Hash { return common.Hash{} },
+				Coinbase:           common.Address{},
+				BlockNumber:        big.NewInt(0),
+				Time:               new(big.Int).SetUint64(0),
+				GasLimit:           params.GenesisGasLimit,
+				Difficulty:         params.GenesisDifficulty,
+				ActivityProof:      nil,
+				ActivityProofRound: 0,
+			}
+			txContext := TxContext{
+				Origin:   params.DeployerAddress,
+				GasPrice: new(big.Int).SetUint64(0x0),
+			}
+			return NewEVM(evmContext, txContext, statedb, params.TestChainConfig, Config{})
+		}
+
+		// generic evm caller
+		contractCaller := func(evm *EVM, origin common.Address, contractAddress common.Address, abi *abi.ABI, method string, args ...interface{}) ([]byte, error) {
+			packedArgs, err := abi.Pack(method, args...)
+			if err != nil {
+				return nil, fmt.Errorf("failed to pack parameters for method: %s %w", method, err)
+			}
+			gas := uint64(math.MaxUint64)
+			packedResult, _, err := evm.Call(AccountRef(origin), contractAddress, packedArgs, gas, common.Big0)
+			return packedResult, err
+		}
+
+		// create db and evm
+		ethDb := rawdb.NewMemoryDatabase()
+		db := state.NewDatabase(ethDb)
+		stateDB, err := state.New(common.Hash{}, db, nil)
+		require.NoError(t, err)
+		evm := getEvm(stateDB)
+
+		// build expected committee and deployment params from test validators
+		validators := make([]params.Validator, 0, len(params.TestChainConfig.AutonityContractConfig.Validators))
+		expectedCommittee := &types.Committee{Members: make([]types.CommitteeMember, 0, len(params.TestChainConfig.AutonityContractConfig.Validators))}
+		for _, v := range params.TestChainConfig.AutonityContractConfig.Validators {
+			validators = append(validators, *v)
+			expectedCommittee.Members = append(expectedCommittee.Members, types.CommitteeMember{
+				Address:           *v.NodeAddress,
+				VotingPower:       v.BondedStake,
+				ConsensusKeyBytes: v.ConsensusKey,
+			})
+		}
+		err = expectedCommittee.Enrich()
+		require.NoError(t, err)
+
+		// deploy autonity test
+		err = deployAutonityTest(
+			evm,
+			params.AutonityContractAddress,
+			&generated.AutonityTestAbi,
+			generated.AutonityTestBytecode,
+			common.Big0,
+			validators,
+			toContractConfig(params.TestChainConfig.AutonityContractConfig),
+		)
+		require.NoError(t, err)
+
+		// finalize initialization to trigger committee computation
+		_, err = contractCaller(
+			evm,
+			params.DeployerAddress,
+			params.AutonityContractAddress,
+			&generated.AutonityTestAbi,
+			"finalizeInitialization",
+			new(big.Int).SetUint64(params.TestChainConfig.OmissionAccountabilityConfig.Delta),
+		)
+		require.NoError(t, err)
+
+		// fetch the committee slot
+		packedResult, err := contractCaller(evm, params.DeployerAddress, params.AutonityContractAddress, &generated.AutonityTestAbi, "getCommitteeSlot")
+		require.NoError(t, err)
+		unpackedResult, err := generated.AutonityTestAbi.Unpack("getCommitteeSlot", packedResult)
+		require.NoError(t, err)
+		committeeSlotBig, ok := unpackedResult[0].(*big.Int)
+		require.True(t, ok)
+		committeeSlot := common.BigToHash(committeeSlotBig)
+
+		t.Logf("committee slot: %s", committeeSlot.String())
+
+		committee := readCommittee(stateDB, params.AutonityContractAddress, committeeSlot)
+		require.Equal(t, expectedCommittee.Len(), committee.Len())
+		require.Equal(t, expectedCommittee, committee)
+	})
 }
 
 // todo(youssef) We need to properly test the upgrade precompile, happy path is missing
