@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -128,23 +127,19 @@ func handleConsensusMsg[T any, PT interface {
 	*T
 	message.Msg
 }](sb *Backend, sender common.Address, p2pMsg p2p.Msg, errCh chan<- error) (bool, error) {
-	// we type cast it to byte.Reader because that's the only reader
-	// type we expect here
-	bReader := p2pMsg.Payload.(*bytes.Reader)
-	hash, err := crypto.HashFromReader(bReader)
+	payload, err := io.ReadAll(p2pMsg.Payload)
 	if err != nil {
-		log.Error("Failed to hash payload", "error", err)
+		log.Error("Failed to read payload", "error", err)
 		return true, err
 	}
+
+	hash := crypto.Hash(payload)
 	TotalMessageReceivedBg.Mark(1)
 	if sb.knownMessages.Contains(hash) {
 		return true, nil
 	}
 
 	MessageProcessedBg.Mark(1)
-	bReader.Seek(0, io.SeekStart)
-	payload, _ := io.ReadAll(bReader)
-	p2pMsg.Payload = bytes.NewReader(payload)
 	if !sb.coreRunning.Load() {
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.
@@ -168,6 +163,7 @@ func handleConsensusMsg[T any, PT interface {
 
 	sb.knownMessages.Add(hash, true)
 	msg := PT(new(T))
+
 	if err := msg.DecodeRLPPayload(payload, hash); err != nil {
 		sb.logger.Error("Error decoding consensus message", "err", err)
 		return true, err
@@ -215,13 +211,12 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 	disseminated := false // unless proposal, messages are not early disseminated
 
 	// if the sender is jailed, discard its messages
-	switch m := msg.(type) {
-	case *message.Propose:
+	if msg.Code() == message.ProposalCode {
+		m := msg.(*message.Propose)
 		if sb.IsJailed(m.Signer()) {
 			sb.logger.Debug("Ignoring proposal from jailed validator", "address", m.Signer())
 			return true, ErrJailed
 		}
-
 		// early Validation for proposals, so we can forward them to other peers
 		if err := msg.Validate(); err != nil {
 			return true, err
@@ -232,9 +227,6 @@ func (sb *Backend) handleDecodedMsg(msg message.Msg, errCh chan<- error, sender 
 			go sb.Gossip(committee, msg, sender)
 			disseminated = true
 		}
-	case *message.Prevote, *message.Precommit:
-	default:
-		sb.logger.Crit("Tendermint backend processing unknown message")
 	}
 
 	sb.Post(events.UnverifiedMessageEvent{

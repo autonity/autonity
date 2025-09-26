@@ -17,7 +17,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
-	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
 )
 
@@ -91,6 +90,7 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, vote.R(), decoded.R())
 		require.Equal(t, vote.H(), decoded.H())
 		require.Equal(t, vote.Value(), decoded.Value())
+		require.NoError(t, decoded.PreValidate(&testCommittee, false))
 		require.NoError(t, decoded.Signers().Validate(&testCommittee))
 		require.Equal(t, vote.Signers().Bitmap, decoded.Signers().Bitmap)
 		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
@@ -109,6 +109,7 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, vote.R(), decoded.R())
 		require.Equal(t, vote.H(), decoded.H())
 		require.Equal(t, vote.Value(), decoded.Value())
+		require.NoError(t, decoded.PreValidate(&testCommittee, false))
 		require.NoError(t, decoded.Signers().Validate(&testCommittee))
 		require.Equal(t, vote.Signers().Bitmap, decoded.Signers().Bitmap)
 		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
@@ -675,50 +676,16 @@ func BenchmarkDecodeVote(b *testing.B) {
 	}
 	hash := common.BytesToHash(hashBytes)
 	prevote := NewPrevote(int64(15), uint64(123345), hash, defaultSigner, testCommitteeMember, &testCommittee)
-
-	// create p2p prevote
 	payload := prevote.Payload()
-	r := bytes.NewReader(payload)
-	size := len(payload)
-	p2pPrevote := p2p.Msg{Code: 0x12, Size: uint32(size), Payload: r}
+	payloadHash := crypto.Hash(payload)
 
 	// start the actual benchmarking
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		prevoteDec := new(Prevote)
-		s := rlp.NewStream(p2pPrevote.Payload, uint64(size))
-		if err := prevoteDec.DecodeRLP(s); err != nil {
+		if err := prevoteDec.DecodeRLPPayload(payload, payloadHash); err != nil {
 			b.Fatal("failed prevote decoding: ", err)
-		}
-		// without this re-initialization the payload gets discarded after the first iteration, making the decoding fail
-		b.StopTimer()
-		p2pPrevote.Payload = bytes.NewReader(payload)
-		b.StartTimer()
-	}
-}
-
-func BenchmarkDecodeVoteNew(b *testing.B) {
-	hashBytes := make([]byte, 32)
-	if _, err := rand.Read(hashBytes); err != nil {
-		b.Fatalf("failed to generate random bytes: %v", err)
-	}
-	hash := common.BytesToHash(hashBytes)
-	origPrevote := NewPrevote(int64(15), uint64(123345), hash, defaultSigner, testCommitteeMember, &testCommittee)
-	payload := origPrevote.Payload()
-	payloadHash := crypto.Hash(payload)
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		var decoded Prevote
-		if err := decoded.DecodeRLPPayload(payload, payloadHash); err != nil {
-			b.Fatalf("DecodeRLP failed: %v", err)
-		}
-
-		if decoded.R() != 15 {
-			b.Fatalf("unexpected round %d", decoded.R())
 		}
 	}
 }

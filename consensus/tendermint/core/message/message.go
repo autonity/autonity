@@ -63,6 +63,12 @@ var NetworkCodes = map[uint8]uint64{
 	PrecommitCode: PrecommitNetworkMsg,
 }
 
+var rlpStreamPool = sync.Pool{
+	New: func() any {
+		return rlp.NewStream(bytes.NewBuffer(nil), 0)
+	},
+}
+
 type Signer func(hash common.Hash) blst.Signature
 
 // TODO: To save space we could send only the signer index instead of the signer address
@@ -175,6 +181,14 @@ func NewPropose(r int64, h uint64, vr int64, block *types.Block, signer Signer, 
 	}
 }
 
+func (p *Propose) DecodeRLP(s *rlp.Stream) error {
+	payload, err := s.Raw()
+	if err != nil {
+		return err
+	}
+	return p.DecodeRLPPayload(payload, crypto.Hash(payload))
+}
+
 func (p *Propose) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	ext := &extPropose{}
 	if err := rlp.DecodeBytes(payload, ext); err != nil {
@@ -223,22 +237,14 @@ func (p *Propose) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	p.block = ext.ProposalBlock
 	p.signer = ext.Signer
 	p.signature = ext.Signature
+	p.hash = hash
 	p.payload = payload
 	// precompute hash and signature hash
 	signaturePayload, _ := rlp.EncodeToBytes([]any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.block.Hash()})
 	p.signatureInput = crypto.Hash(signaturePayload)
-	p.hash = hash
 	p.verified = false
 	p.preverified = false
 	return nil
-}
-
-func (p *Propose) DecodeRLP(s *rlp.Stream) error {
-	payload, err := s.Raw()
-	if err != nil {
-		return err
-	}
-	return p.DecodeRLPPayload(payload, crypto.Hash(payload))
 }
 
 func (p *Propose) Signer() common.Address {
@@ -379,8 +385,15 @@ func NewLightProposal(proposal *Propose) *LightProposal {
 	}
 }
 
-func (p *LightProposal) DecodeRLPPayload(payload []byte, hash common.Hash) error {
+func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
+	payload, err := s.Raw()
+	if err != nil {
+		return err
+	}
+	return p.DecodeRLPPayload(payload, crypto.Hash(payload))
+}
 
+func (p *LightProposal) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	ext := &extLightProposal{}
 	if err := rlp.DecodeBytes(payload, ext); err != nil {
 		return err
@@ -421,21 +434,13 @@ func (p *LightProposal) DecodeRLPPayload(payload []byte, hash common.Hash) error
 	p.signer = ext.Signer
 	p.signature = ext.Signature
 	p.payload = payload
+	p.hash = hash
 	// precompute hash and signature hash
 	signaturePayload, _ := rlp.EncodeToBytes([]any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.blockHash})
 	p.signatureInput = crypto.Hash(signaturePayload)
-	p.hash = hash
 	p.verified = false
 	p.preverified = false
 	return nil
-}
-
-func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
-	payload, err := s.Raw()
-	if err != nil {
-		return err
-	}
-	return p.DecodeRLPPayload(payload, crypto.Hash(payload))
 }
 
 func (p *LightProposal) Signer() common.Address {
@@ -484,11 +489,11 @@ type vote struct {
 	base
 
 	// signature caching
-	signerKeyOnce      sync.Once `rlp:"-"` // ensures that the signerKey is computed only once
-	sigOnce            sync.Once `rlp:"-"`
-	sigErr             error     `rlp:"-"`
-	signatureBytes     []byte    `rlp:"-"` // used for caching the raw sig bytes at decoding phase
-	signatureInputOnce sync.Once `rlp:"-"`
+	signerKeyOnce      sync.Once // ensures that the signerKey is computed only once
+	sigOnce            sync.Once
+	sigErr             error
+	signatureBytes     []byte // used for caching the raw sig bytes at decoding phase
+	signatureInputOnce sync.Once
 }
 
 func (v *vote) SignatureInput() common.Hash {
@@ -503,6 +508,9 @@ func (v *vote) Value() common.Hash {
 }
 
 func (v *vote) Signature() (blst.Signature, error) {
+	if !v.preverified {
+		panic("Trying to access signature on not preverified message")
+	}
 	v.sigOnce.Do(func() {
 		if len(v.signatureBytes) == 0 {
 			return
@@ -799,9 +807,18 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 	return results
 }
 
+func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
+	payload, err := s.Raw()
+	if err != nil {
+		return err
+	}
+	return p.DecodeRLPPayload(payload, crypto.Hash(payload))
+}
+
 func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
-	var s rlp.Stream
+	s := rlpStreamPool.Get().(*rlp.Stream)
 	s.Reset(bytes.NewReader(payload), uint64(len(payload)))
+	defer rlpStreamPool.Put(s)
 
 	if _, err := s.List(); err != nil { // Begin decoding list
 		return constants.ErrInvalidMessage
@@ -810,7 +827,7 @@ func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	// Field 1: Code
 	code, err := s.Uint()
 	if err != nil {
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 	if code != uint64(PrevoteCode) {
 		return constants.ErrInvalidMessage
@@ -819,7 +836,7 @@ func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	// Field 2: Round
 	round, err := s.Uint()
 	if err != nil {
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 	if round > constants.MaxRound {
 		return constants.ErrInvalidMessage
@@ -829,7 +846,7 @@ func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	// Field 3: Height (uint64)
 	height, err := s.Uint()
 	if err != nil {
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 	if height == 0 {
 		return constants.ErrInvalidMessage
@@ -839,7 +856,7 @@ func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	// Field 4: Value (32 bytes)
 	valueBytes, err := s.Bytes()
 	if err != nil {
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 	if len(valueBytes) != common.HashLength {
 		return constants.ErrInvalidMessage
@@ -848,37 +865,43 @@ func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 
 	// Field 5: Signers (nested list [Bitmap bytes, Coefficients list])
 	if _, err := s.List(); err != nil { // Begin signers list
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 
 	// Bitmap ([]byte)
 	bitmap, err := s.Bytes()
 	if err != nil {
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 
 	// Coefficients (list of []byte)
-	if _, err := s.List(); err != nil {
-		return err
+	var i, size uint64
+	if size, err = s.List(); err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 
-	var coefficients []*big.Int
-	for { // coefficients list
+	// #nosec
+	if int(size) > types.MaxAllowedSigners {
+		return constants.ErrInvalidMessage
+	}
+
+	coefficients := make([]*big.Int, 0, size)
+	for i = 0; i < size; i++ { // coefficients list
 		coeffBytes, err := s.Bytes()
 		if errors.Is(err, rlp.EOL) {
 			break
 		}
 		if err != nil {
-			return err
+			return errors.Join(err, constants.ErrInvalidMessage)
 		}
 		coefficients = append(coefficients, new(big.Int).SetBytes(coeffBytes))
 	}
 
 	if err := s.ListEnd(); err != nil { // End coefficients list
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 	if err := s.ListEnd(); err != nil { // End signers list
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 
 	p.signers = &types.Signers{
@@ -892,24 +915,26 @@ func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	// Field 6: Signature ([]byte)
 	sigBytes, err := s.Bytes()
 	if err != nil {
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if len(sigBytes) != blst.BLSSignatureLength {
+		return constants.ErrInvalidMessage
 	}
 	p.signatureBytes = sigBytes
 
 	if err := s.ListEnd(); err != nil { // End outer list
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 
+	p.payload = payload
 	p.hash = hash
 	p.code = PrevoteCode
 	p.verified = false
 	p.preverified = false
-	p.payload = payload
 	return nil
 }
 
-func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
-	// Read the raw RLP payload from the stream.
+func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	payload, err := s.Raw()
 	if err != nil {
 		return err
@@ -918,8 +943,9 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 }
 
 func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
-	var s rlp.Stream
+	s := rlpStreamPool.Get().(*rlp.Stream)
 	s.Reset(bytes.NewReader(payload), uint64(len(payload)))
+	defer rlpStreamPool.Put(s)
 
 	if _, err := s.List(); err != nil { // Begin decoding list
 		return constants.ErrInvalidMessage
@@ -928,7 +954,7 @@ func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	// Field 1: Code
 	code, err := s.Uint()
 	if err != nil {
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 	if code != uint64(PrecommitCode) {
 		return constants.ErrInvalidMessage
@@ -937,7 +963,7 @@ func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	// Field 2: Round
 	round, err := s.Uint()
 	if err != nil {
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 	if round > constants.MaxRound {
 		return constants.ErrInvalidMessage
@@ -947,7 +973,7 @@ func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	// Field 3: Height (uint64)
 	height, err := s.Uint()
 	if err != nil {
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 	if height == 0 {
 		return constants.ErrInvalidMessage
@@ -957,7 +983,7 @@ func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	// Field 4: Value (32 bytes)
 	valueBytes, err := s.Bytes()
 	if err != nil {
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 	if len(valueBytes) != common.HashLength {
 		return constants.ErrInvalidMessage
@@ -966,37 +992,42 @@ func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 
 	// Field 5: Signers (nested list [Bitmap bytes, Coefficients list])
 	if _, err := s.List(); err != nil { // Begin signers list
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 
 	// Bitmap ([]byte)
 	bitmap, err := s.Bytes()
 	if err != nil {
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 
 	// Coefficients (list of []byte)
-	if _, err := s.List(); err != nil {
-		return err
+	var i, size uint64
+	if size, err = s.List(); err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	// #nosec
+	if size > uint64(types.MaxAllowedSigners) {
+		return constants.ErrInvalidMessage
 	}
 
-	var coefficients []*big.Int
-	for { // coefficients list
+	coefficients := make([]*big.Int, 0, size)
+	for i = 0; i < size; i++ { // coefficients list
 		coeffBytes, err := s.Bytes()
 		if errors.Is(err, rlp.EOL) {
 			break
 		}
 		if err != nil {
-			return err
+			return errors.Join(err, constants.ErrInvalidMessage)
 		}
 		coefficients = append(coefficients, new(big.Int).SetBytes(coeffBytes))
 	}
 
 	if err := s.ListEnd(); err != nil { // End coefficients list
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 	if err := s.ListEnd(); err != nil { // End signers list
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 
 	p.signers = &types.Signers{
@@ -1010,29 +1041,23 @@ func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	// Field 6: Signature ([]byte)
 	sigBytes, err := s.Bytes()
 	if err != nil {
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if len(sigBytes) != blst.BLSSignatureLength {
+		return constants.ErrInvalidMessage
 	}
 	p.signatureBytes = sigBytes
 
 	if err := s.ListEnd(); err != nil { // End outer list
-		return err
+		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 
+	p.payload = payload
 	p.hash = hash
 	p.code = PrecommitCode
 	p.verified = false
 	p.preverified = false
-	p.payload = payload
 	return nil
-}
-
-func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
-	// Read the raw RLP payload from the stream.
-	payload, err := s.Raw()
-	if err != nil {
-		return err
-	}
-	return p.DecodeRLPPayload(payload, crypto.Hash(payload))
 }
 
 func VoteSignatureInput(h uint64, r uint64, code uint8, v common.Hash) common.Hash {

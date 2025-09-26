@@ -10,17 +10,17 @@ import (
 
 type base struct {
 	// populated at decoding phase
-	height         uint64
-	round          int64
+	height      uint64
+	round       int64
+	payload     []byte
+	hash        common.Hash
+	verified    bool
+	preverified bool
+
+	// populated on demand for votes
+	signerKey      blst.PublicKey
 	signatureInput common.Hash
 	signature      blst.Signature
-	payload        []byte
-	hash           common.Hash
-	verified       bool
-	preverified    bool
-
-	// populated on demand
-	signerKey blst.PublicKey
 }
 
 func (b *base) Verified() bool {
@@ -39,7 +39,6 @@ func (b *base) R() int64 {
 	return b.round
 }
 
-
 func (b *base) Payload() []byte {
 	return b.payload
 }
@@ -51,6 +50,11 @@ func (b *base) EncodeRLP(w io.Writer) error {
 
 func (b *base) Hash() common.Hash {
 	return b.hash
+}
+
+func (b *base) SetPayloadAndHash(payload []byte, hash common.Hash) {
+	b.hash = hash
+	b.payload = payload
 }
 
 func (b *base) Validate() error {

@@ -37,7 +37,7 @@ type Msg interface {
 	// Payload returns the rlp-encoded payload ready to be broadcasted.
 	Payload() []byte
 
-	// Signature returns the signature of this message
+	// Signature returns the signature of this message, error is returned if the signature could not be decoded
 	Signature() (blst.Signature, error)
 
 	// PreValidate attaches auxiliary information to the message (e.g. aggregated key and power)

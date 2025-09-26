@@ -117,7 +117,7 @@ type aggregator struct {
 	internalFdCh      chan events.MessageEventer
 	internalBacklogCh chan events.UnverifiedMessageEvent // backlog for messages that were filtered by cache, but reinjected
 
-	computeWorkers chan events.UnverifiedMessageEvent
+	computeWorkersCh chan events.UnverifiedMessageEvent
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -137,8 +137,8 @@ func (a *aggregator) start(ctx context.Context) {
 	if a.internalBacklogCh == nil {
 		a.internalBacklogCh = make(chan events.UnverifiedMessageEvent, 1000) // buffered to avoid deadlock
 	}
-	if a.computeWorkers == nil {
-		a.computeWorkers = make(chan events.UnverifiedMessageEvent, 1000)
+	if a.computeWorkersCh == nil {
+		a.computeWorkersCh = make(chan events.UnverifiedMessageEvent, 1000)
 	}
 	a.wg.Add(numComputeWorkers)
 	for i := 0; i < numComputeWorkers; i++ {
@@ -154,7 +154,7 @@ func (a *aggregator) start(ctx context.Context) {
 func (a *aggregator) computeWork(ctx context.Context) {
 	for {
 		select {
-		case ev := <-a.computeWorkers:
+		case ev := <-a.computeWorkersCh:
 			// trigger the lazy computations
 			ev.Message.SignerKey()
 			_, _ = ev.Message.Signature() // error will be captured later during validation
@@ -164,9 +164,10 @@ func (a *aggregator) computeWork(ctx context.Context) {
 	}
 }
 
-func (a *aggregator) handleInvalidMessage(errorCh chan<- error, err error, sender common.Address) {
-	tryDisconnect(errorCh, err)
-	for _, hash := range a.messagesFrom[sender] {
+func (a *aggregator) handleInvalidMessage(event events.UnverifiedMessageEvent, err error) {
+	tryDisconnect(event.ErrCh, err)
+	a.signerSetCache.invalidateVotes(event.Message.(message.Vote))
+	for _, hash := range a.messagesFrom[event.Sender] {
 		a.toIgnore[hash] = struct{}{}
 	}
 }
@@ -399,8 +400,7 @@ func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEve
 		signature, err := m.Signature()
 		if err != nil {
 			a.logger.Debug("Signature decoding failed for message", "peer", event.Sender, "err", err)
-			a.handleInvalidMessage(event.ErrCh, err, event.Sender)
-			a.signerSetCache.invalidateVotes(m)
+			a.handleInvalidMessage(event, err)
 			reInjectFiltered = true
 			continue
 		}
@@ -426,15 +426,12 @@ func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEve
 
 	// at least one of the signatures is invalid, find at which index
 	invalids := blst.FindInvalid(signatures, publicKeys, hash)
-	defer func() {
-		if metrics.Enabled {
-			InvalidBg.Add(int64(len(invalids)))
-		}
-	}()
+	if metrics.Enabled {
+		InvalidBg.Add(int64(len(invalids)))
+	}
 	invalidSet := make(map[int]struct{}, len(invalids))
 	for _, idx := range invalids {
 		invalidSet[int(idx)] = struct{}{} // #nosec
-		reInjectFiltered = true
 	}
 	validVotes := make([]message.Vote, 0, len(candidates)-len(invalids))
 	for i, event := range candidates {
@@ -443,8 +440,8 @@ func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEve
 			continue
 		}
 		a.logger.Info("Received invalid bls signature from", "peer", event.Sender)
-		a.handleInvalidMessage(event.ErrCh, message.ErrBadSignature, event.Sender)
-		a.signerSetCache.invalidateVotes(event.Message.(message.Vote))
+		reInjectFiltered = true
+		a.handleInvalidMessage(event, message.ErrBadSignature)
 	}
 	a.aggregateAndDispatch(validVotes, eventer)
 }
@@ -496,9 +493,9 @@ func (a *aggregator) processProposal(proposalEvent events.UnverifiedMessageEvent
 	a.internalFdCh <- eventer(proposal, proposalEvent.ErrCh, proposalEvent.Sender, proposalEvent.Disseminated).(events.MessageEventer)   // send to fault detector
 }
 
-func (a *aggregator) isSignerJailed(msg message.Msg, committee *types.Committee) bool {
+func (a *aggregator) areAllSignersJailed(msg message.Msg, committee *types.Committee) bool {
 	vote, ok := msg.(message.Vote)
-	if !ok {
+	if !ok { // proposals are already checked for jailing in backend handler
 		return false
 	}
 	// check if all signers of the message are jailed
@@ -558,7 +555,7 @@ func (a *aggregator) handleVote(voteEvent events.UnverifiedMessageEvent, committ
 		}
 	}
 	// blocking call to trigger lazy computations of signatures and pubkeys
-	a.computeWorkers <- voteEvent
+	a.computeWorkersCh <- voteEvent
 }
 
 func (a *aggregator) toSkip(msg message.Msg) bool {
@@ -595,7 +592,7 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 	if a.signerSetCache.filter(event) {
 		return // already processed a message with more signers
 	}
-	if a.isSignerJailed(msg, committee) {
+	if a.areAllSignersJailed(msg, committee) {
 		return
 	}
 	// mark committee size for the height to avoid any more calls to CommitteeByHeight
@@ -777,6 +774,7 @@ func (a *aggregator) stop() {
 	a.logger.Info("Stopping the aggregator routine")
 	a.cancel()
 	a.wg.Wait()
+	a.computeWorkersCh = nil
 	a.internalCoreCh = nil
 	a.internalFdCh = nil
 	a.internalBacklogCh = nil
