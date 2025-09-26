@@ -371,6 +371,107 @@ func TestMessageEncodeDecode(t *testing.T) {
 	}
 }
 
+func TestPrevoteDecodeRLP_MalformedData(t *testing.T) {
+	key, err := blst.RandKey()
+	require.NoError(t, err)
+	signer := makeSigner(key)
+
+	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(t, err)
+	signatureInputHash := crypto.Hash(signatureInputPayload)
+	signature := signer(signatureInputHash)
+
+	validVote := extVote{
+		Code:   PrevoteCode,
+		Round:  1,
+		Height: 2,
+		Value:  common.HexToHash("0xdeadbeef"),
+		Signers: &types.Signers{
+			Bitmap:       (*types.Bitmap)(big.NewInt(1)),
+			Coefficients: []*big.Int{big.NewInt(1)},
+		},
+		Signature: signature.(*blst.BlsSignature),
+	}
+	validPayload, err := rlp.EncodeToBytes(&validVote)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name          string
+		payload       []byte
+		expectedError error
+	}{
+		{
+			name: "extra data at the end of list",
+			// RLP encoding of: [validVote..., "extra_field"]
+			payload: func() []byte {
+				var list []interface{}
+				require.NoError(t, rlp.DecodeBytes(validPayload, &list))
+				list = append(list, "extra_field")
+				payload, err := rlp.EncodeToBytes(list)
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "too few items in list",
+			// RLP encoding of: [Code, Round, Height] (missing fields)
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "wrong data type for height",
+			// RLP encoding of: [Code, Round, "not_a_height", ...]
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					"this should be a number",
+					validVote.Value,
+					validVote.Signers,
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "list where item expected",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					[]interface{}{validVote.Height}, // Height is now a list
+					validVote.Value,
+					validVote.Signers,
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			prevote := &Prevote{}
+			err := prevote.DecodeRLPPayload(tc.payload, crypto.Hash(tc.payload))
+			require.Error(t, err, "Expected an error but got nil")
+			require.True(t, errors.Is(err, tc.expectedError), "Expected error chain to contain ErrInvalidMessage")
+		})
+	}
+}
+
 // verify that aggregating same votes in different orders doesn't change the hash
 func TestMessageHash(t *testing.T) {
 	h := uint64(1)

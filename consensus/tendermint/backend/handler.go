@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -141,6 +142,7 @@ func handleConsensusMsg[T any, PT interface {
 
 	MessageProcessedBg.Mark(1)
 	if !sb.coreRunning.Load() {
+		p2pMsg.Payload = bytes.NewReader(payload)
 		sb.pendingMessages.Enqueue(UnhandledMsg{addr: sender, msg: p2pMsg})
 		return true, nil // return nil to avoid shutting down connection during block sync.
 	}

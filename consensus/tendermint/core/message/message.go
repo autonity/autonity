@@ -869,7 +869,8 @@ func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	}
 
 	// Bitmap ([]byte)
-	bitmap, err := s.Bytes()
+	bitMapAsBig := new(big.Int)
+	err = s.Decode(bitMapAsBig)
 	if err != nil {
 		return errors.Join(err, constants.ErrInvalidMessage)
 	}
@@ -887,14 +888,11 @@ func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 
 	coefficients := make([]*big.Int, 0, size)
 	for i = 0; i < size; i++ { // coefficients list
-		coeffBytes, err := s.Bytes()
-		if errors.Is(err, rlp.EOL) {
-			break
-		}
-		if err != nil {
+		coefficient := new(big.Int)
+		if err := s.Decode(coefficient); err != nil {
 			return errors.Join(err, constants.ErrInvalidMessage)
 		}
-		coefficients = append(coefficients, new(big.Int).SetBytes(coeffBytes))
+		coefficients = append(coefficients, coefficient)
 	}
 
 	if err := s.ListEnd(); err != nil { // End coefficients list
@@ -905,7 +903,7 @@ func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	}
 
 	p.signers = &types.Signers{
-		Bitmap:       (*types.Bitmap)(new(big.Int).SetBytes(bitmap)),
+		Bitmap:       (*types.Bitmap)(bitMapAsBig),
 		Coefficients: coefficients,
 	}
 	if err := p.signers.SanityCheck(); err != nil {
@@ -996,7 +994,8 @@ func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	}
 
 	// Bitmap ([]byte)
-	bitmap, err := s.Bytes()
+	bitMapAsBig := new(big.Int)
+	err = s.Decode(bitMapAsBig)
 	if err != nil {
 		return errors.Join(err, constants.ErrInvalidMessage)
 	}
@@ -1013,14 +1012,11 @@ func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 
 	coefficients := make([]*big.Int, 0, size)
 	for i = 0; i < size; i++ { // coefficients list
-		coeffBytes, err := s.Bytes()
-		if errors.Is(err, rlp.EOL) {
-			break
-		}
-		if err != nil {
+		coefficient := new(big.Int)
+		if err := s.Decode(coefficient); err != nil {
 			return errors.Join(err, constants.ErrInvalidMessage)
 		}
-		coefficients = append(coefficients, new(big.Int).SetBytes(coeffBytes))
+		coefficients = append(coefficients, coefficient)
 	}
 
 	if err := s.ListEnd(); err != nil { // End coefficients list
@@ -1031,7 +1027,7 @@ func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	}
 
 	p.signers = &types.Signers{
-		Bitmap:       (*types.Bitmap)(new(big.Int).SetBytes(bitmap)),
+		Bitmap:       (*types.Bitmap)(bitMapAsBig),
 		Coefficients: coefficients,
 	}
 	if err := p.signers.SanityCheck(); err != nil {
