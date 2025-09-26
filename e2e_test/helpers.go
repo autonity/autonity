@@ -83,6 +83,7 @@ func NextProposeRound(currentRound int64, c *core.Core) int64 {
 func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, eventType autonity.AccountabilityEventType,
 	rule autonity.Rule, network Network) error {
 
+	// verify that all nodes are synced up to the same epochID
 	var lastEpochID int64 = -1
 	for _, n := range network {
 		header := n.Eth.BlockChain().CurrentHeader()
@@ -90,9 +91,7 @@ func AccountabilityEventDetected(t *testing.T, faultyValidator common.Address, e
 		require.NoError(t, err)
 		epochID, err := n.Eth.BlockChain().ProtocolContracts().AutonityContract.CallGetEpochID(db, header)
 		require.NoError(t, err)
-		if !epochID.IsInt64() {
-			require.Fail(t, "fatal error: epoch id does not fit in int64")
-		}
+		require.True(t, epochID.IsInt64())
 		if lastEpochID == -1 {
 			lastEpochID = epochID.Int64()
 		} else {

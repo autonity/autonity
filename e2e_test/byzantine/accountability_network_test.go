@@ -2,8 +2,12 @@ package byzantine
 
 import (
 	"math/rand"
+	"sync"
+	"sync/atomic"
 	"testing"
 
+	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/event"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 
@@ -305,16 +309,13 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 
 // TODO(lorenzo): add test to check the maximum accusations per height
 func TestOffChainAccusation(t *testing.T) {
-	// TODO(lorenzo) we should add a check that an offchain accountability message is actually sent
-	// if something prevents this from happening, these tests will keep passing because no proof is ever raised
-	t.Run("OffChainAccusationRuleC1", func(t *testing.T) {
+	t.Run("off-chain accusation - C1 rule", func(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newC1OffChainAccusation}
 		tp := autonity.Accusation
 		rule := autonity.C1
 		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
 	})
-
-	t.Run("OffChainAccusationRulePVN", func(t *testing.T) {
+	t.Run("off-chain accusation - PVN rule", func(t *testing.T) {
 		handler := &interfaces.Services{Broadcaster: newPVNOffChainAccusation}
 		tp := autonity.Accusation
 		rule := autonity.PVN
@@ -367,28 +368,66 @@ func runOffChainAccountabilityEventTest(t *testing.T, handler *interfaces.Servic
 
 	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
-	users, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
 	require.NoError(t, err)
 
-	// set malicious challenger
-	challenger := 0
-	users[challenger].TendermintServices = handler
-	// creates a network of 4 users and starts all the nodes in it
-	network, err := e2e.NewNetworkFromValidators(t, users, true)
+	// set accuser node handler, will accuse the other validators
+	accuser := 0
+	validators[accuser].TendermintServices = handler
+	network, err := e2e.NewNetworkFromValidators(t, validators, true)
 	require.NoError(t, err)
 	defer network.Shutdown(t)
+
+	// if an off-chain accountability accusation is sent
+	// the AccountabilityEvent will be posted by the backend handler of the accused
+	var receivedOffChainAccusations atomic.Uint64
+	var wg sync.WaitGroup
+	subs := make([]*event.TypeMuxSubscription, 0, len(network)-1)
+	defer func() {
+		for _, sub := range subs {
+			sub.Unsubscribe()
+		}
+		wg.Wait()
+	}()
+	for i, node := range network {
+		if i == accuser {
+			continue
+		}
+		sub := node.Eth.Engine().(*bk.Backend).Subscribe(events.AccountabilityEvent{})
+		subs = append(subs, sub)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case ev, ok := <-sub.Chan():
+					if !ok {
+						return // channel closed
+					}
+					require.Equal(t, accuser, ev.Data.(*events.AccountabilityEvent).Sender)
+					receivedOffChainAccusations.Add(1)
+				}
+			}
+		}()
+	}
 
 	// network should be up and continue to mine blocks
 	err = network.WaitToMineNBlocks(testPeriod, 500, false)
 	require.NoError(t, err)
 
-	// accusation of PVN shouldn't be submitted on chain by challenger.
-	challengerAddress := network[challenger].Address
+	// accusation of PVN should not end up on-chain, it should be resolved off-chain
+	accuserAddress := network[accuser].Address
 	for _, n := range network {
-		if n.Address == challengerAddress {
+		if n.Address == accuserAddress {
 			continue
 		}
 		err = e2e.AccountabilityEventDetected(t, n.Address, tp, rule, network)
 		require.ErrorIs(t, err, e2e.ErrAccountabilityEventMissing)
 	}
+
+	// at least one off-chain accusations should have been received by the validators
+	receivedOffChainAccusationsUint64 := receivedOffChainAccusations.Load()
+	t.Logf("received off-chain accusations: %d", receivedOffChainAccusationsUint64)
+	require.Greater(t, uint64(0), receivedOffChainAccusationsUint64)
+
 }
