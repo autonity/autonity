@@ -739,7 +739,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 		aggregateSigner := representative.Signers().Copy()
 		sig, err := representative.Signature()
 		if err != nil {
-			continue
+			panic(err) // we don't expect signature to be invalid at this point
 		}
 		signaturesToAggregate := []blst.Signature{sig}
 
@@ -755,7 +755,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 				aggregateSigner.Merge(otherVote.Signers())
 				otherVoteSig, err := otherVote.Signature()
 				if err != nil {
-					continue
+					panic(err) // we don't expect signature to be invalid at this point
 				}
 				signaturesToAggregate = append(signaturesToAggregate, otherVoteSig)
 			} else {
