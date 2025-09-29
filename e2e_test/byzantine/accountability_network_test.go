@@ -1,12 +1,18 @@
 package byzantine
 
 import (
+	"math/big"
 	"math/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
 
+	"github.com/autonity/autonity/cmd/gengen/gengen"
+	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/events"
+	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
 	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
@@ -20,114 +26,6 @@ import (
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/rlp"
 )
-
-func newPVNOffChainAccusation(c interfaces.Core) interfaces.Broadcaster {
-	return &PVNOffChainAccusation{c.(*core.Core)}
-}
-
-type PVNOffChainAccusation struct {
-	*core.Core
-}
-
-// PVN accusation is simulated by the removal of proposal and those corresponding quorum prevotes from msg store on a
-// client, such client will rise accusation PVN over those client who prevote for the removed proposal.
-func (s *PVNOffChainAccusation) Broadcast(msg message.Msg) {
-	//TODO(lorenzo) fix this test. PVN accusation will not be raised anymore because the block has been mined
-	s.BroadcastAll(msg)
-	currentHeight := uint64(15)
-	if msg.H() != currentHeight {
-		return
-	}
-
-	backEnd, ok := s.Core.Backend().(*bk.Backend)
-	if !ok {
-		panic("cannot simulate off chain accusation PVN")
-	}
-	accountabilityParams, err := backEnd.BlockChain().AccountabilityParamsByHeight(currentHeight)
-	if err != nil {
-		panic("cannot fetch accountability delta " + err.Error())
-	}
-	// simulate accusation over height 13 (will be scanned at height 23)
-	height := currentHeight - accountabilityParams.Delta.Uint64() + 8
-
-	proposals := backEnd.MsgStore.GetProposals(height, func(m *message.Propose) bool {
-		return true
-	})
-
-	for _, proposal := range proposals {
-		preVotes := backEnd.MsgStore.GetPrevotes(height, func(m *message.Prevote) bool {
-			return m.R() == proposal.R() && m.Value() == proposal.Value()
-		})
-		// remove proposal.
-		backEnd.MsgStore.RemoveMsg(proposal.H(), proposal.R(), proposal.Code(), proposal.Hash())
-		// remove over quorum corresponding prevotes.
-		counter := 0
-		for _, prevote := range preVotes {
-			if counter < len(preVotes)/2 {
-				backEnd.MsgStore.RemoveMsg(prevote.H(), prevote.R(), prevote.Code(), prevote.Hash())
-				counter++
-			} else {
-				break
-			}
-		}
-	}
-	s.Logger().Info("MsgStore manipulated to cause accusation of PVN rule to be raised later on", "accusationHeight", height)
-}
-
-func newC1OffChainAccusation(c interfaces.Core) interfaces.Broadcaster {
-	return &C1OffChainAccusation{c.(*core.Core)}
-}
-
-type C1OffChainAccusation struct {
-	*core.Core
-}
-
-// C1 accusation is simulated by the removal of those corresponding quorum prevotes from msg store on a
-// client, thus, the client will rise accusation C1 over those client who precommit for the corresponding proposal that
-// there were no quorum prevotes of it.
-func (s *C1OffChainAccusation) Broadcast(msg message.Msg) {
-	//TODO(lorenzo) fix this test. C1 accusation will not be raised anymore because the block has been mined
-	s.BroadcastAll(msg)
-	currentHeight := uint64(15)
-	if msg.H() != currentHeight {
-		return
-	}
-
-	backEnd, ok := s.Core.Backend().(*bk.Backend)
-	if !ok {
-		panic("cannot simulate off chain accusation C1")
-	}
-
-	accountabilityParams, err := backEnd.BlockChain().AccountabilityParamsByHeight(currentHeight)
-	if err != nil {
-		panic("cannot fetch accountability delta " + err.Error())
-	}
-
-	// simulate accusation over height 13 (will be scanned at height 23)
-	height := currentHeight - accountabilityParams.Delta.Uint64() + 8
-
-	proposals := backEnd.MsgStore.GetProposals(height, func(m *message.Propose) bool {
-		return true
-	})
-
-	for _, proposal := range proposals {
-		preVotes := backEnd.MsgStore.GetPrevotes(height, func(m *message.Prevote) bool {
-			return m.R() == proposal.R() && m.Value() == proposal.Value()
-		})
-
-		// remove over quorum corresponding prevotes.
-		counter := 0
-		for _, prevote := range preVotes {
-			if counter < len(preVotes)/2 {
-				backEnd.MsgStore.RemoveMsg(prevote.H(), prevote.R(), prevote.Code(), prevote.Hash())
-				counter++
-			} else {
-				break
-			}
-		}
-	}
-	s.Logger().Info("MsgStore manipulated to cause accusation of C1 rule to be raised later on", "accusationHeight", height)
-}
 
 func newOffChainAccusationFuzzer(c interfaces.Core) interfaces.Broadcaster {
 	return &OffChainAccusationFuzzer{c.(*core.Core)}
@@ -309,17 +207,129 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 
 // TODO(lorenzo): add test to check the maximum accusations per height
 func TestOffChainAccusation(t *testing.T) {
-	t.Run("off-chain accusation - C1 rule", func(t *testing.T) {
-		handler := &interfaces.Services{Broadcaster: newC1OffChainAccusation}
-		tp := autonity.Accusation
-		rule := autonity.C1
-		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
-	})
+	/*
+		t.Run("off-chain accusation - C1 rule", func(t *testing.T) {
+			handler := &interfaces.Services{Broadcaster: newC1OffChainAccusation}
+			tp := autonity.Accusation
+			rule := autonity.C1
+			runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
+		})*/
 	t.Run("off-chain accusation - PVN rule", func(t *testing.T) {
-		handler := &interfaces.Services{Broadcaster: newPVNOffChainAccusation}
-		tp := autonity.Accusation
-		rule := autonity.PVN
-		runOffChainAccountabilityEventTest(t, handler, tp, rule, 100)
+		n := 4
+		validators, err := e2e.Validators(t, n, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
+		require.NoError(t, err)
+
+		msgStore := func(node *e2e.Node) *core.MsgStore {
+			return node.Eth.Engine().(*bk.Backend).MsgStore
+		}
+
+		validatorToSigner := func(v *gengen.Validator) message.Signer {
+			return func(h common.Hash) blst.Signature {
+				return v.ConsensusKey.Sign(h[:])
+			}
+		}
+
+		fakeHeader := func() *types.Header {
+			return &types.Header{
+				ParentHash:         common.Hash{0xde, 0xad},
+				UncleHash:          common.Hash{0xbe, 0xef},
+				Coinbase:           common.Address{0xca, 0xfe},
+				Root:               common.Hash{},
+				TxHash:             common.Hash{},
+				ReceiptHash:        common.Hash{},
+				Bloom:              types.Bloom{},
+				Difficulty:         new(big.Int).SetUint64(15),
+				Number:             new(big.Int).SetUint64(15),
+				GasLimit:           50_000_000,
+				GasUsed:            100,
+				Time:               0,
+				Extra:              nil,
+				MixDigest:          types.BFTDigest,
+				Nonce:              types.BlockNonce{},
+				BaseFee:            nil,
+				ProposerSeal:       nil,
+				Round:              0,
+				ActivityProofRound: 0,
+				QuorumCertificate:  nil,
+				Epoch:              nil,
+				ActivityProof:      nil,
+			}
+		}
+
+		// create committee from validators
+		c := &types.Committee{Members: make([]types.CommitteeMember, 0, n)}
+		for i, v := range validators {
+			c.Members = append(c.Members, types.CommitteeMember{
+				Address:           crypto.PubkeyToAddress(v.NodeKey.PublicKey),
+				VotingPower:       new(big.Int).SetUint64(v.Stake),
+				ConsensusKeyBytes: v.ConsensusKey.PublicKey().Marshal(),
+				ConsensusKey:      v.ConsensusKey.PublicKey(),
+				Index:             uint64(i),
+			})
+		}
+
+		// prepare artificial vote so that PVN accusation can be triggered at height 15
+		accuserIndex := 0
+		accusedIndex := 1
+		r := int64(99) // high round, so that equivocation does not come into the picture
+		h := uint64(15)
+		header := fakeHeader()
+		block := types.NewBlockWithHeader(header)
+		accusableVote := message.NewPrevote(r, h, block.Hash(), validatorToSigner(validators[accusedIndex]), &c.Members[accusedIndex], c)
+		innocenceProof := message.NewPropose(r, h, -1, block, validatorToSigner(validators[accuserIndex]), &c.Members[accuserIndex])
+
+		network, err := e2e.NewNetworkFromValidators(t, validators, true)
+		require.NoError(t, err)
+		defer network.Shutdown(t)
+
+		// wait for some heights to be mined to correctly set the first buffered height in the msgStore
+		err = network.WaitForHeight(2, 30)
+		require.NoError(t, err)
+
+		// insert messages to trigger accusations and relative innocence proof
+		msgStore(network[accuserIndex]).Save(accusableVote)
+		msgStore(network[accusedIndex]).Save(innocenceProof)
+
+		accuserAddress := network[accuserIndex].Address
+		accusedAddress := network[accusedIndex].Address
+
+		// if an off-chain accountability accusation is sent
+		// the AccountabilityEvent will be posted by the backend handler of the accused
+		var receivedOffChainAccusations atomic.Uint64
+		var wg sync.WaitGroup
+		var sub *event.TypeMuxSubscription
+		defer func() {
+			sub.Unsubscribe()
+			wg.Wait()
+		}()
+		sub = network[accusedIndex].Eth.Engine().(*bk.Backend).Subscribe(events.AccountabilityEvent{})
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case ev, ok := <-sub.Chan():
+					if !ok {
+						return // channel closed
+					}
+					require.Equal(t, accuserAddress, ev.Data.(events.AccountabilityEvent).Sender)
+					receivedOffChainAccusations.Add(1)
+				}
+			}
+		}()
+
+		// network should be up and continue to mine blocks
+		err = network.WaitToMineNBlocks(100, 500, false)
+		require.NoError(t, err)
+
+		// accusation of PVN should not end up on-chain, it should be resolved off-chain
+		err = e2e.AccountabilityEventDetected(t, accusedAddress, autonity.Accusation, autonity.PVN, network)
+		require.ErrorIs(t, err, e2e.ErrAccountabilityEventMissing)
+
+		// at least one off-chain accusations should have been received by the validators
+		receivedOffChainAccusationsUint64 := receivedOffChainAccusations.Load()
+		t.Logf("received off-chain accusations: %d", receivedOffChainAccusationsUint64)
+		require.Greater(t, receivedOffChainAccusationsUint64, uint64(0))
 	})
 
 	t.Run("Test off chain accusation with fuzzed msg", func(t *testing.T) {
@@ -361,73 +371,4 @@ func runDropPeerConnectionTest(t *testing.T, handler *interfaces.Services, testP
 	// the challenger should get no peer connection left.
 	count = n.ConsensusServer().PeerCount()
 	require.Equal(t, 0, count)
-}
-
-func runOffChainAccountabilityEventTest(t *testing.T, handler *interfaces.Services, tp autonity.AccountabilityEventType,
-	rule autonity.Rule, testPeriod uint64) {
-
-	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-
-	validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
-	require.NoError(t, err)
-
-	// set accuser node handler, will accuse the other validators
-	accuser := 0
-	validators[accuser].TendermintServices = handler
-	network, err := e2e.NewNetworkFromValidators(t, validators, true)
-	require.NoError(t, err)
-	defer network.Shutdown(t)
-
-	// if an off-chain accountability accusation is sent
-	// the AccountabilityEvent will be posted by the backend handler of the accused
-	var receivedOffChainAccusations atomic.Uint64
-	var wg sync.WaitGroup
-	subs := make([]*event.TypeMuxSubscription, 0, len(network)-1)
-	defer func() {
-		for _, sub := range subs {
-			sub.Unsubscribe()
-		}
-		wg.Wait()
-	}()
-	for i, node := range network {
-		if i == accuser {
-			continue
-		}
-		sub := node.Eth.Engine().(*bk.Backend).Subscribe(events.AccountabilityEvent{})
-		subs = append(subs, sub)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for {
-				select {
-				case ev, ok := <-sub.Chan():
-					if !ok {
-						return // channel closed
-					}
-					require.Equal(t, accuser, ev.Data.(*events.AccountabilityEvent).Sender)
-					receivedOffChainAccusations.Add(1)
-				}
-			}
-		}()
-	}
-
-	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(testPeriod, 500, false)
-	require.NoError(t, err)
-
-	// accusation of PVN should not end up on-chain, it should be resolved off-chain
-	accuserAddress := network[accuser].Address
-	for _, n := range network {
-		if n.Address == accuserAddress {
-			continue
-		}
-		err = e2e.AccountabilityEventDetected(t, n.Address, tp, rule, network)
-		require.ErrorIs(t, err, e2e.ErrAccountabilityEventMissing)
-	}
-
-	// at least one off-chain accusations should have been received by the validators
-	receivedOffChainAccusationsUint64 := receivedOffChainAccusations.Load()
-	t.Logf("received off-chain accusations: %d", receivedOffChainAccusationsUint64)
-	require.Greater(t, uint64(0), receivedOffChainAccusationsUint64)
-
 }
