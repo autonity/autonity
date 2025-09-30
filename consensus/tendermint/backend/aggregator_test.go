@@ -1446,7 +1446,7 @@ func TestAggregatorDosProtection(t *testing.T) {
 
 	// mark msg from 0 as invalid
 	errCh := make(chan error, 1)
-	event := events.UnverifiedMessageEvent{Message: vote, ErrCh: errCh, Sender: zeroAddress, Posted: time.Now()}
+	event := events.UnverifiedMessageEvent{Message: votesFromZero[2], ErrCh: errCh, Sender: zeroAddress, Posted: time.Now()}
 	a.handleInvalidMessage(event, message.ErrBadSignature)
 	require.Equal(t, message.ErrBadSignature, <-errCh)
 	require.Equal(t, len(votesFromZero), len(a.toIgnore))

@@ -52,11 +52,6 @@ func (b *base) Hash() common.Hash {
 	return b.hash
 }
 
-func (b *base) SetPayloadAndHash(payload []byte, hash common.Hash) {
-	b.hash = hash
-	b.payload = payload
-}
-
 func (b *base) Validate() error {
 	if !b.preverified {
 		panic("Trying to verify a message that was not previously pre-verified")

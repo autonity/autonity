@@ -425,6 +425,7 @@ func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEve
 	}
 
 	// at least one of the signatures is invalid, find at which index
+	reInjectFiltered = true
 	invalids := blst.FindInvalid(signatures, publicKeys, hash)
 	if metrics.Enabled {
 		InvalidBg.Add(int64(len(invalids)))
@@ -440,7 +441,6 @@ func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEve
 			continue
 		}
 		a.logger.Info("Received invalid bls signature from", "peer", event.Sender)
-		reInjectFiltered = true
 		a.handleInvalidMessage(event, message.ErrBadSignature)
 	}
 	a.aggregateAndDispatch(validVotes, eventer)

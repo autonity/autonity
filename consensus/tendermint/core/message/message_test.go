@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -371,7 +372,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 	}
 }
 
-func TestPrevoteDecodeRLP_MalformedData(t *testing.T) {
+func TestPrevoteDecodeRLP(t *testing.T) {
 	key, err := blst.RandKey()
 	require.NoError(t, err)
 	signer := makeSigner(key)
@@ -401,8 +402,12 @@ func TestPrevoteDecodeRLP_MalformedData(t *testing.T) {
 		expectedError error
 	}{
 		{
+			name:          "valid vote",
+			payload:       validPayload,
+			expectedError: nil,
+		},
+		{
 			name: "extra data at the end of list",
-			// RLP encoding of: [validVote..., "extra_field"]
 			payload: func() []byte {
 				var list []interface{}
 				require.NoError(t, rlp.DecodeBytes(validPayload, &list))
@@ -415,7 +420,6 @@ func TestPrevoteDecodeRLP_MalformedData(t *testing.T) {
 		},
 		{
 			name: "too few items in list",
-			// RLP encoding of: [Code, Round, Height] (missing fields)
 			payload: func() []byte {
 				payload, err := rlp.EncodeToBytes([]interface{}{
 					validVote.Code,
@@ -429,7 +433,6 @@ func TestPrevoteDecodeRLP_MalformedData(t *testing.T) {
 		},
 		{
 			name: "wrong data type for height",
-			// RLP encoding of: [Code, Round, "not_a_height", ...]
 			payload: func() []byte {
 				payload, err := rlp.EncodeToBytes([]interface{}{
 					validVote.Code,
@@ -460,15 +463,225 @@ func TestPrevoteDecodeRLP_MalformedData(t *testing.T) {
 			}(),
 			expectedError: constants.ErrInvalidMessage,
 		},
+		// Enhanced cases for signers list
+		{
+			name: "signers list with too few sub-items",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1)}, // Only bitmap, missing coefficients list
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "signers list with extra sub-items",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{big.NewInt(1)}, "extra_item"},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "valid coefficients list encoded int size bigger than 1 byte",
+			payload: func() []byte {
+				expectedCoefficients := []*big.Int{big.NewInt(5), big.NewInt(1000)}
+				fullList := []interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(7), expectedCoefficients},
+					validVote.Signature,
+				}
+				payload, err := rlp.EncodeToBytes(fullList)
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: nil,
+		},
+		{
+			name: "coefficients list with zero value",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{big.NewInt(0)}},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "coefficients list with oversized BitLen",
+			payload: func() []byte {
+				oversized := new(big.Int).Lsh(big.NewInt(1), common.QuorumCap+1)
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{oversized}},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "coefficients list mismatched with bitmap len",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{big.NewInt(1), big.NewInt(1)}},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "coefficients list with extra items",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{big.NewInt(1), "extra_coeff"}},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "coefficients list with wrong type (e.g., string instead of big.Int)",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{"not_a_bigint"}},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "coefficients list oversized ( > MaxAllowedSigners )",
+			payload: func() []byte {
+				coeffs := make([]interface{}, types.MaxAllowedSigners+1)
+				for i := range coeffs {
+					coeffs[i] = big.NewInt(1)
+				}
+				bitmap := new(big.Int).SetBit(new(big.Int), types.MaxAllowedSigners, 1) // Oversized bitmap too
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{bitmap, coeffs},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			prevote := &Prevote{}
 			err := prevote.DecodeRLPPayload(tc.payload, crypto.Hash(tc.payload))
-			require.Error(t, err, "Expected an error but got nil")
-			require.True(t, errors.Is(err, tc.expectedError), "Expected error chain to contain ErrInvalidMessage")
+			if tc.expectedError == nil {
+				require.NoError(t, err)
+			} else {
+				require.True(t, errors.Is(err, tc.expectedError), "Expected error: %v, got: %v", tc.expectedError, err)
+			}
 		})
+	}
+}
+
+func TestPrevoteDecodeRLPPayload_Concurrent(t *testing.T) {
+	key, err := blst.RandKey()
+	require.NoError(t, err)
+	signer := makeSigner(key)
+
+	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(t, err)
+	signatureInputHash := crypto.Hash(signatureInputPayload)
+	signature := signer(signatureInputHash)
+
+	validVote := extVote{
+		Code:   PrevoteCode,
+		Round:  1,
+		Height: 2,
+		Value:  common.HexToHash("0xdeadbeef"),
+		Signers: &types.Signers{
+			Bitmap:       (*types.Bitmap)(big.NewInt(1)),
+			Coefficients: []*big.Int{big.NewInt(1)},
+		},
+		Signature: signature.(*blst.BlsSignature),
+	}
+	validPayload, err := rlp.EncodeToBytes(&validVote)
+	require.NoError(t, err)
+	validHash := crypto.Hash(validPayload)
+
+	const numGoroutines = 1000
+	var wg sync.WaitGroup
+	errCh := make(chan error, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			prevote := &Prevote{}
+			if err := prevote.DecodeRLPPayload(validPayload, validHash); err != nil {
+				errCh <- err
+				return
+			}
+			// Basic validation to ensure no corruption
+			if prevote.Code() != PrevoteCode || prevote.R() != 1 || prevote.H() != 2 {
+				errCh <- errors.New("decoded fields mismatch")
+				return
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		require.NoError(t, err, "Concurrent decoding failed")
 	}
 }
 

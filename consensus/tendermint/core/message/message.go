@@ -876,20 +876,18 @@ func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	}
 
 	// Coefficients (list of []byte)
-	var i, size uint64
-	if size, err = s.List(); err != nil {
+	if _, err = s.List(); err != nil {
 		return errors.Join(err, constants.ErrInvalidMessage)
 	}
 
-	// #nosec
-	if int(size) > types.MaxAllowedSigners {
-		return constants.ErrInvalidMessage
-	}
-
-	coefficients := make([]*big.Int, 0, size)
-	for i = 0; i < size; i++ { // coefficients list
+	coefficients := make([]*big.Int, 0, bitMapAsBig.BitLen())
+	for { // coefficients list
 		coefficient := new(big.Int)
-		if err := s.Decode(coefficient); err != nil {
+		err := s.Decode(coefficient)
+		if errors.Is(err, rlp.EOL) {
+			break
+		}
+		if err != nil {
 			return errors.Join(err, constants.ErrInvalidMessage)
 		}
 		coefficients = append(coefficients, coefficient)
@@ -1001,19 +999,18 @@ func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	}
 
 	// Coefficients (list of []byte)
-	var i, size uint64
-	if size, err = s.List(); err != nil {
+	if _, err = s.List(); err != nil {
 		return errors.Join(err, constants.ErrInvalidMessage)
 	}
-	// #nosec
-	if size > uint64(types.MaxAllowedSigners) {
-		return constants.ErrInvalidMessage
-	}
 
-	coefficients := make([]*big.Int, 0, size)
-	for i = 0; i < size; i++ { // coefficients list
+	coefficients := make([]*big.Int, 0, bitMapAsBig.BitLen())
+	for { // coefficients list
 		coefficient := new(big.Int)
-		if err := s.Decode(coefficient); err != nil {
+		err := s.Decode(coefficient)
+		if errors.Is(err, rlp.EOL) {
+			break
+		}
+		if err != nil {
 			return errors.Join(err, constants.ErrInvalidMessage)
 		}
 		coefficients = append(coefficients, coefficient)
