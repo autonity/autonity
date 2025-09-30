@@ -40,13 +40,13 @@ func TestAccusation(t *testing.T) {
 	})
 	r.Run("PVO accusation with prevote nil should revert", func(r *Runner) {
 		accusationHeight := lastCommittedHeight - config.Delta.Uint64()
-		r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0x1} }
+		r.Evm.Context.GetHash = func(_ uint64) common.Hash { return common.Hash{0x1} }
 		_, err := r.Accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}, reporter, 0, autonity.PVO))
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})
 	r.Run("C1 accusation with prevote nil should revert", func(r *Runner) {
 		accusationHeight := lastCommittedHeight - config.Delta.Uint64()
-		r.Evm.Context.GetHash = func(n uint64) common.Hash { return common.Hash{0x1} }
+		r.Evm.Context.GetHash = func(_ uint64) common.Hash { return common.Hash{0x1} }
 		_, err := r.Accountability.HandleAccusation(&runOptions{origin: reporter}, NewAccusationEvent(accusationHeight, common.Hash{}, reporter, 0, autonity.C1))
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 	})

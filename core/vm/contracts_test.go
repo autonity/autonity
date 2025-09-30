@@ -613,7 +613,7 @@ func TestReadCommittee(t *testing.T) {
 			evmContext := BlockContext{
 				CanTransfer:        canTransfer,
 				Transfer:           transfer,
-				GetHash:            func(n uint64) common.Hash { return common.Hash{} },
+				GetHash:            func(_ uint64) common.Hash { return common.Hash{} },
 				Coinbase:           common.Address{},
 				BlockNumber:        big.NewInt(0),
 				Time:               new(big.Int).SetUint64(0),

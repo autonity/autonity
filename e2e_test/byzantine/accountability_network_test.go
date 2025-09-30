@@ -339,12 +339,13 @@ func TestOffChainAccusation(t *testing.T) {
 		// prepare artificial prevote so that PVN accusation can be triggered at height 15
 		accuserIndex := 0
 		accusedIndex := 1
-		r := int64(99) // high round, so that equivocation does not come into the picture
+		otherProposer := 2 // someone has to propose the new proposal, and will be misbehaving of PN
+		r := int64(99)     // high round, so that equivocation does not come into the picture
 		h := uint64(15)
 		header := fakeHeader()
 		block := types.NewBlockWithHeader(header)
 		accusableVote := message.NewPrevote(r, h, block.Hash(), validatorToSigner(validators[accusedIndex]), &c.Members[accusedIndex], c)
-		innocenceProof := message.NewPropose(r, h, -1, block, validatorToSigner(validators[accuserIndex]), &c.Members[accuserIndex])
+		innocenceProof := message.NewPropose(r, h, -1, block, validatorToSigner(validators[otherProposer]), &c.Members[otherProposer])
 
 		network, err := e2e.NewNetworkFromValidators(t, validators, true)
 		require.NoError(t, err)
@@ -390,14 +391,14 @@ func TestOffChainAccusation(t *testing.T) {
 		err = network.WaitToMineNBlocks(100, 500, false)
 		require.NoError(t, err)
 
-		// accusation of PVN should not end up on-chain, it should be resolved off-chain
-		err = e2e.AccountabilityEventDetected(t, accusedAddress, autonity.Accusation, autonity.PVN, network)
-		require.ErrorIs(t, err, e2e.ErrAccountabilityEventMissing)
-
-		// at least one off-chain accusations should have been received by the validators
+		// at least one off-chain accusations should have been received by the accused
 		receivedOffChainAccusationsUint64 := receivedOffChainAccusations.Load()
 		t.Logf("received off-chain accusations: %d", receivedOffChainAccusationsUint64)
 		require.Greater(t, receivedOffChainAccusationsUint64, uint64(0))
+
+		// accusation of PVN should not end up on-chain, it should be resolved off-chain
+		err = e2e.AccountabilityEventDetected(t, accusedAddress, autonity.Accusation, autonity.PVN, network)
+		require.ErrorIs(t, err, e2e.ErrAccountabilityEventMissing)
 	})
 
 	t.Run("Test off chain accusation with fuzzed msg", func(t *testing.T) {
