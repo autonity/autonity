@@ -647,7 +647,7 @@ func TestPrevoteDecodeRLP(t *testing.T) {
 					validVote.Round,
 					validVote.Height,
 					validVote.Value,
-					[]interface{}{big.NewInt(7), expectedCoefficients},
+					[]interface{}{big.NewInt(3), expectedCoefficients},
 					validVote.Signature,
 				}
 				payload, err := rlp.EncodeToBytes(fullList)
@@ -938,6 +938,142 @@ func FuzzFromPayload(f *testing.F) {
 	f.Fuzz(func(t *testing.T, seed []byte) {
 		var p Prevote
 		rlp.Decode(bytes.NewReader(seed), &p)
+	})
+}
+
+func FuzzVoteDecode(f *testing.F) {
+	key, err := blst.RandKey()
+	require.NoError(f, err)
+	pubKey := key.PublicKey()
+	signer := makeSigner(key)
+
+	dummyCommittee := &types.Committee{
+		Members: []types.CommitteeMember{
+			{Index: 0, Address: common.Address{0x01}, VotingPower: big.NewInt(1), ConsensusKey: pubKey},
+		},
+	}
+
+	// Seed1: Valid simple vote with real signature
+	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(f, err)
+	signatureInputHash := crypto.Hash(signatureInputPayload)
+	signature := signer(signatureInputHash)
+	sigBytes := signature.Marshal()
+	bitmapBytes := big.NewInt(1).Bytes()
+	coeffsRLP, err := rlp.EncodeToBytes([]*big.Int{big.NewInt(1)})
+	require.NoError(f, err)
+	valueBytes := common.HexToHash("0xdeadbeef").Bytes()
+	f.Add(PrevoteCode, uint64(1), uint64(2), valueBytes, bitmapBytes, coeffsRLP, sigBytes)
+
+	// Seed2: Valid with signers, should fail on prevalidate due to mismatch in coefficient and bitmap
+	valueBytes2 := common.HexToHash("0x02").Bytes()
+	bitmapBytes2 := big.NewInt(3).Bytes()
+	coeffsRLP2, err := rlp.EncodeToBytes([]*big.Int{big.NewInt(1)})
+	require.NoError(f, err)
+	f.Add(PrevoteCode, uint64(5), uint64(10), valueBytes2, bitmapBytes2, coeffsRLP2, sigBytes) // reuse sig, but fuzzer will vary
+
+	// Seed: Edge - max round, zero value, empty sig (invalid)
+	valueBytes3 := common.Hash{}.Bytes()
+	bitmapBytes3 := big.NewInt(0).Bytes()
+	coeffsRLP3 := []byte{}
+	f.Add(PrevoteCode, uint64(constants.MaxRound), uint64(0), valueBytes3, bitmapBytes3, coeffsRLP3, []byte{})
+
+	// Seed: Non-canonical tamper (e.g., leading zero in code, but fuzzer will mutate)
+	valueBytes4 := common.Hash{0x01}.Bytes()
+	bitmapBytes4 := big.NewInt(1).Bytes()
+	coeffsRLP4, err := rlp.EncodeToBytes([]*big.Int{big.NewInt(1)})
+	require.NoError(f, err)
+	f.Add(uint8(0x00), uint64(0), uint64(1), valueBytes4, bitmapBytes4, coeffsRLP4, make([]byte, blst.BLSSignatureLength))
+
+	// More seeds: Empty-like, random junk
+	valueBytes5 := common.Hash{}.Bytes()
+	bitmapBytes5 := big.NewInt(0).Bytes()
+	coeffsRLP5 := []byte{}
+	f.Add(uint8(0), uint64(0), uint64(0), valueBytes5, bitmapBytes5, coeffsRLP5, []byte{})
+	valueBytes6 := bytes.Repeat([]byte{0xff}, 32)
+	bitmapBytes6 := big.NewInt(1 << 32).Bytes()
+	coeffsRLP6, err := rlp.EncodeToBytes([]*big.Int{new(big.Int).SetBytes(bytes.Repeat([]byte{0xff}, 100))})
+	require.NoError(f, err)
+	sigBytes6 := bytes.Repeat([]byte{0xff}, 1000)
+	f.Add(uint8(255), uint64(1<<63-1), uint64(1), valueBytes6, bitmapBytes6, coeffsRLP6, sigBytes6)
+
+	f.Fuzz(func(t *testing.T, code uint8, round uint64, height uint64, valueBytes []byte, bitmapBytes []byte, coeffsRLP []byte, sigBytes []byte) {
+		if len(valueBytes) != common.HashLength {
+			return
+		}
+		value := common.BytesToHash(valueBytes)
+
+		// Construct extVote from fuzzed inputs (structured)
+		var coeffs []*big.Int
+		if err := rlp.DecodeBytes(coeffsRLP, &coeffs); err != nil {
+			return
+		}
+		ext := extVote{
+			Code:   code,
+			Round:  round,
+			Height: height,
+			Value:  value,
+			Signers: &types.Signers{
+				Bitmap:       (*types.Bitmap)(new(big.Int).SetBytes(bitmapBytes)),
+				Coefficients: coeffs,
+			},
+			Signature: signature.(*blst.BlsSignature), // Default in case of bad input
+		}
+		sig, err := blst.SignatureFromBytes(sigBytes)
+		if err == nil {
+			ext.Signature = sig.(*blst.BlsSignature)
+		}
+
+		// Encode to bytes (if fails, skip - bad input)
+		payload, err := rlp.EncodeToBytes(ext)
+		if err != nil {
+			return // Fuzzer will try other mutations
+		}
+		hash := crypto.Hash(payload)
+
+		// Decode
+		prevote := &Prevote{}
+		err = prevote.DecodeRLPPayload(payload, hash)
+
+		// Check return value
+		if err == nil {
+			// Success: Check invariants
+			if prevote.Code() != PrevoteCode {
+				t.Errorf("Invariant failed: wrong code %d", prevote.Code())
+			}
+			if prevote.H() == 0 {
+				t.Errorf("Invariant failed: zero height")
+			}
+			if prevote.Value() == (common.Hash{}) && len(payload) > 10 { // Arbitrary threshold for non-trivial input
+				t.Errorf("Invariant failed: zero value on non-empty input")
+			}
+
+			// Call further methods, ensure no panic
+			preErr := prevote.PreValidate(dummyCommittee, true)
+			if preErr == nil && prevote.Signers().Len() == 0 {
+				t.Errorf("PreValidate succeeded but zero signers")
+			}
+
+			if preErr == nil { // validate only if prevalidate passed
+				valErr := prevote.Validate()
+				if valErr == nil && prevote.Signers().Len() == 0 {
+					t.Errorf("Validate succeeded but zero signers")
+				}
+			}
+
+			// Round-trip: Re-encode and compare (canonical check)
+			reEncoded, reErr := rlp.EncodeToBytes(extVote{
+				Code:      prevote.Code(),
+				Round:     uint64(prevote.R()),
+				Height:    prevote.H(),
+				Value:     prevote.Value(),
+				Signers:   prevote.Signers(),
+				Signature: ext.Signature, // Reuse original sig for comparison
+			})
+			if reErr == nil && !bytes.Equal(payload, reEncoded) {
+				t.Errorf("Round-trip failed: original %x != re-encoded %x", payload, reEncoded)
+			}
+		}
 	})
 }
 

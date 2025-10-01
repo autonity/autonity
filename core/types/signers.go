@@ -77,7 +77,7 @@ func (s *Signers) SanityCheck() error {
 	if s.Bitmap.Len() > MaxAllowedSigners {
 		return fmt.Errorf("invalid Bitmap length: %d", s.Bitmap.Len())
 	}
-	if len(s.Coefficients) == 0 || len(s.Coefficients) > MaxAllowedSigners || len(s.Coefficients) > s.Bitmap.Len() {
+	if len(s.Coefficients) == 0 || len(s.Coefficients) > MaxAllowedSigners || len(s.Coefficients) != s.Bitmap.Len() {
 		return fmt.Errorf("invalid Coefficient length: %d Bitmap length: %d", len(s.Coefficients), s.Bitmap.Len())
 	}
 	for _, coefficient := range s.Coefficients {
