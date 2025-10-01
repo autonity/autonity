@@ -275,7 +275,7 @@ func TestOffChainAccusation(t *testing.T) {
 			message.NewPrevote(r, h, value, validatorToSigner(validators[1]), &c.Members[1], c),
 			message.NewPrevote(r, h, value, validatorToSigner(validators[2]), &c.Members[2], c),
 			message.NewPrevote(r, h, value, validatorToSigner(validators[3]), &c.Members[3], c),
-		})
+		}) // has quorum --> no PVN accusation gets raised
 
 		network, err := e2e.NewNetworkFromValidators(t, validators, true)
 		require.NoError(t, err)
@@ -321,14 +321,14 @@ func TestOffChainAccusation(t *testing.T) {
 		err = network.WaitToMineNBlocks(100, 500, false)
 		require.NoError(t, err)
 
-		// accusation of C1 should not end up on-chain, it should be resolved off-chain
-		err = e2e.AccountabilityEventDetected(t, accusedAddress, autonity.Accusation, autonity.C1, network)
-		require.ErrorIs(t, err, e2e.ErrAccountabilityEventMissing)
-
 		// at least one off-chain accusations should have been received by the validators
 		receivedOffChainAccusationsUint64 := receivedOffChainAccusations.Load()
 		t.Logf("received off-chain accusations: %d", receivedOffChainAccusationsUint64)
 		require.Greater(t, receivedOffChainAccusationsUint64, uint64(0))
+
+		// accusation of C1 should not end up on-chain, it should be resolved off-chain
+		err = e2e.AccountabilityEventDetected(t, accusedAddress, autonity.Accusation, autonity.C1, network)
+		require.ErrorIs(t, err, e2e.ErrAccountabilityEventMissing)
 	})
 	t.Run("off-chain accusation - PVN rule", func(t *testing.T) {
 		validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")

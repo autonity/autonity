@@ -3,15 +3,14 @@ package accountability
 import (
 	"errors"
 	"fmt"
-	"github.com/autonity/autonity/consensus/tendermint/core/message"
-
-	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/rlp"
 
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/consensus/tendermint/core/message"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth/protocols/eth"
+	"github.com/autonity/autonity/rlp"
 )
 
 var (

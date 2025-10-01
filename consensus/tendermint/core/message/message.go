@@ -934,7 +934,7 @@ func NewFakeLightPropose(f Fake, generatePayload bool) *LightProposal {
 	if f.FakeValidRoundNil {
 		vr = -1
 	} else {
-		vr = int64(f.FakeValidRound)
+		vr = int64(f.FakeValidRound) //nolint:gosec
 	}
 
 	var payload []byte
@@ -961,10 +961,10 @@ func NewFakeLightPropose(f Fake, generatePayload bool) *LightProposal {
 		blockHash:   f.FakeValue,
 		validRound:  vr,
 		signer:      f.FakeSigner,
-		signerIndex: int(f.FakeSignerIndex),
+		signerIndex: int(f.FakeSignerIndex), //nolint:gosec
 		power:       f.FakePower,
 		base: base{
-			round:          int64(f.FakeRound),
+			round:          int64(f.FakeRound), //nolint:gosec
 			height:         f.FakeHeight,
 			signatureInput: f.FakeSignatureInput,
 			signature:      f.FakeSignature,

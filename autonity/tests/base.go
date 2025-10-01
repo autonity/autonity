@@ -691,12 +691,12 @@ func NewAccusationEvent(height uint64, value common.Hash, reporter common.Addres
 	case autonity.PVN:
 		msg = message.NewPrevote(0, height, value, signer, &cm, committee)
 	case autonity.PVO:
-		r := 2
+		r := uint64(2)
 		msg = message.NewPrevote(int64(r), height, value, signer, &cm, committee)
 
 		// attach also old light proposal as evidence
-		vr := 1
-		signaturePayload, err := rlp.EncodeToBytes([]any{message.ProposalCode, uint64(r), uint64(height), uint64(vr), false, value})
+		vr := uint64(1)
+		signaturePayload, err := rlp.EncodeToBytes([]any{message.ProposalCode, r, height, vr, false, value})
 		if err != nil {
 			panic("failed to generate light proposal as evidence: " + err.Error())
 		}
@@ -704,13 +704,13 @@ func NewAccusationEvent(height uint64, value common.Hash, reporter common.Addres
 		signature := signer(signatureInput)
 
 		evidences = []message.Msg{message.NewFakeLightPropose(message.Fake{
-			FakeRound:          uint64(r),
+			FakeRound:          r,
 			FakeHeight:         height,
 			FakeValue:          value,
 			FakeSignature:      signature,
 			FakeSignatureInput: signatureInput,
 			FakeSignerKey:      offenderConsensusKey.PublicKey(),
-			FakeValidRound:     uint64(vr),
+			FakeValidRound:     vr,
 			FakeValidRoundNil:  false,
 			FakeSigner:         offender,
 			FakeSignerIndex:    0,
