@@ -205,7 +205,6 @@ func (s *OverRatedOffChainAccusation) Broadcast(msg message.Msg) {
 	}
 }
 
-// TODO(lorenzo): add test to check the maximum accusations per height
 func TestOffChainAccusation(t *testing.T) {
 	// some helper functions
 	msgStore := func(node *e2e.Node) *core.MsgStore {
