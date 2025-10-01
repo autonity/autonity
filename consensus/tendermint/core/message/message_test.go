@@ -375,6 +375,7 @@ func TestMessageEncodeDecode(t *testing.T) {
 
 func TestPrevoteDecodeCompareRLP(t *testing.T) {
 	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(t, err)
 	signatureInputPayload2, err := rlp.EncodeToBytes([]any{uint64(PrevoteCode), uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
 	require.NoError(t, err)
 	signatureInputHash := crypto.Hash(signatureInputPayload)
