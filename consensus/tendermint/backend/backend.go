@@ -79,7 +79,7 @@ func New(
 		vmConfig:            vmConfig,
 		MsgStore:            ms, //TODO: we use this only in tests, to easily reach the msg store when having a reference to the backend. It would be better to just have the `accountability` module as a part of the backend object.
 		askSyncRateLimiter:  helpers.NewTimeWindowLimiter(constants.AskSyncInterval, 2),
-		aggregatorMessageCh: make(chan events.UnverifiedMessageEvent, AggregatorMessageQueue),
+		aggregatorMessageCh: make(chan events.UnverifiedMessageEvent, aggregatorMessageQueue),
 		jailingCh:           make(chan common.Address, 1000),
 		afdDispatchCh:       afdDispatchCh, // to FD
 		jailed: jailed{

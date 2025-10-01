@@ -614,7 +614,7 @@ func (v *vote) decodeRLPPayload(code uint8, payload []byte, hash common.Hash) er
 
 	v.payload = payload
 	v.hash = hash
-	v.code = PrevoteCode
+	v.code = code
 	v.verified = false
 	v.preverified = false
 	return nil

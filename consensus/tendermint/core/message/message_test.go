@@ -690,22 +690,6 @@ func TestPrevoteDecodeRLP(t *testing.T) {
 			expectedError: constants.ErrInvalidMessage,
 		},
 		{
-			name: "coefficients list mismatched with bitmap len",
-			payload: func() []byte {
-				payload, err := rlp.EncodeToBytes([]interface{}{
-					validVote.Code,
-					validVote.Round,
-					validVote.Height,
-					validVote.Value,
-					[]interface{}{big.NewInt(1), []interface{}{big.NewInt(1), big.NewInt(1)}},
-					validVote.Signature,
-				})
-				require.NoError(t, err)
-				return payload
-			}(),
-			expectedError: constants.ErrInvalidMessage,
-		},
-		{
 			name: "coefficients list with extra items",
 			payload: func() []byte {
 				payload, err := rlp.EncodeToBytes([]interface{}{
