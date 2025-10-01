@@ -3,6 +3,7 @@ package message
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -370,6 +371,146 @@ func TestMessageEncodeDecode(t *testing.T) {
 			t.Error("does not match", i)
 		}
 	}
+}
+
+func TestPrevoteDecodeCompareRLP(t *testing.T) {
+	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	signatureInputPayload2, err := rlp.EncodeToBytes([]any{uint64(PrevoteCode), uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(t, err)
+	signatureInputHash := crypto.Hash(signatureInputPayload)
+	signatureInputHash2 := crypto.Hash(signatureInputPayload2)
+	require.Equal(t, signatureInputHash, signatureInputHash2)
+}
+
+func TestPrevoteDecode_TrailingData(t *testing.T) {
+	key, err := blst.RandKey()
+	require.NoError(t, err)
+	signer := makeSigner(key)
+
+	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(t, err)
+	signatureInputHash := crypto.Hash(signatureInputPayload)
+	signature := signer(signatureInputHash)
+	validVote := extVote{
+		Code:   PrevoteCode,
+		Round:  1,
+		Height: 2,
+		Value:  common.HexToHash("0xdeadbeef"),
+		Signers: &types.Signers{
+			Bitmap:       (*types.Bitmap)(big.NewInt(1)),
+			Coefficients: []*big.Int{big.NewInt(1)},
+		},
+		Signature: signature.(*blst.BlsSignature),
+	}
+	validPayload, err := rlp.EncodeToBytes(&validVote)
+	require.NoError(t, err)
+	prevote := &Prevote{}
+	err = prevote.DecodeRLPPayload(validPayload, crypto.Hash(validPayload))
+	require.NoError(t, err)
+
+	tweakedPayload := append(validPayload, []byte{0xca, 0xfe}...)
+	prevote = &Prevote{}
+	err = prevote.DecodeRLPPayload(tweakedPayload, crypto.Hash(tweakedPayload))
+	require.Error(t, err)
+}
+
+func TestVoteDecodeRLP_NonCanonicalUint(t *testing.T) {
+	// Create a valid extVote structure
+	key, err := blst.RandKey()
+	require.NoError(t, err)
+	signer := makeSigner(key)
+
+	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(t, err)
+	signatureInputHash := crypto.Hash(signatureInputPayload)
+	signature := signer(signatureInputHash)
+
+	validVote := extVote{
+		Code:   PrevoteCode,
+		Round:  1,
+		Height: 2,
+		Value:  common.HexToHash("0xdeadbeef"),
+		Signers: &types.Signers{
+			Bitmap:       (*types.Bitmap)(big.NewInt(1)),
+			Coefficients: []*big.Int{big.NewInt(1)},
+		},
+		Signature: signature.(*blst.BlsSignature),
+	}
+
+	// Encode the valid vote to RLP
+	validPayload, err := rlp.EncodeToBytes(validVote)
+	if err != nil {
+		t.Fatalf("failed to encode valid vote: %v", err)
+	}
+
+	// Parse the valid payload to extract individual field RLPs
+	s := rlp.NewStream(bytes.NewReader(validPayload), 0)
+	_, err = s.List()
+	if err != nil {
+		t.Fatalf("failed to start list: %v", err)
+	}
+
+	var fieldRLPs [][]byte
+	for {
+		raw, err := s.Raw()
+		if err == rlp.EOL {
+			break
+		}
+		if err != nil {
+			t.Fatalf("failed to read raw field: %v", err)
+		}
+		fieldRLPs = append(fieldRLPs, raw)
+	}
+
+	if err := s.ListEnd(); err != nil {
+		t.Fatalf("failed to end list: %v", err)
+	}
+
+	// Tamper the first field (Code) with non-canonical encoding: 0x820001 for value 1
+	// now instead of 0x01 we have 0x820001 which is non-canonical for uint, 82 for short byte array of length 2
+	tamperedCodeRLP, err := hex.DecodeString("820001")
+	if err != nil {
+		t.Fatalf("failed to decode hex: %v", err)
+	}
+	fieldRLPs[0] = tamperedCodeRLP
+
+	// Rebuild the content bytes
+	var content bytes.Buffer
+	for _, f := range fieldRLPs {
+		content.Write(f)
+	}
+	contentBytes := content.Bytes()
+	contentLen := len(contentBytes)
+
+	// Compute the list header
+	var header []byte
+	// up to 55 bytes, single byte prefix 0xc0 + length
+	if contentLen < 56 {
+		header = []byte{0xc0 + byte(contentLen)}
+	} else {
+		// more than 55 bytes, prefix 0xf7 + len(contentLen) followed by len in big endian
+		lenBig := big.NewInt(int64(contentLen))
+		lenBytes := lenBig.Bytes()
+		headerLen := len(lenBytes)
+		header = make([]byte, 1+headerLen)
+		header[0] = 0xf7 + byte(headerLen)
+		copy(header[1:], lenBytes)
+	}
+
+	// Build tampered payload
+	var tamperedPayload bytes.Buffer
+	tamperedPayload.Write(header)
+	tamperedPayload.Write(contentBytes)
+
+	// Attempt to decode the tampered payload into a Prevote
+	prevote := &Prevote{}
+	err = prevote.DecodeRLPPayload(tamperedPayload.Bytes(), common.Hash{})
+	if err == nil {
+		t.Fatal("expected decoding error for non-canonical uint, but got nil")
+	}
+
+	// Check if the error is due to canonical integer violation
+	require.True(t, errors.Is(err, constants.ErrInvalidMessage))
 }
 
 func TestPrevoteDecodeRLP(t *testing.T) {

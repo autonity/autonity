@@ -83,6 +83,7 @@ func newAggregator(backend interfaces.Backend, core interfaces.Core, logger log.
 		internalCoreCh:    make(chan events.MessageEventer, 1),
 		internalFdCh:      make(chan events.MessageEventer, 1),
 		internalBacklogCh: make(chan events.UnverifiedMessageEvent, 1000),
+		computeWorkersCh:  make(chan events.UnverifiedMessageEvent, 1000),
 		signerSetCache:    newAggregatorCache(),
 	}
 }

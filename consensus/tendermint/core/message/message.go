@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"sort"
 	"sync"
@@ -496,6 +497,129 @@ type vote struct {
 	signatureInputOnce sync.Once
 }
 
+func (v *vote) decodeRLPPayload(code uint8, payload []byte, hash common.Hash) error {
+	s := rlpStreamPool.Get().(*rlp.Stream)
+	s.Reset(bytes.NewReader(payload), uint64(len(payload)))
+	defer rlpStreamPool.Put(s)
+
+	if _, err := s.List(); err != nil { // Begin decoding list
+		return constants.ErrInvalidMessage
+	}
+
+	// Field 1: Code
+	c, err := s.Uint()
+	if err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if c != uint64(code) {
+		return constants.ErrInvalidMessage
+	}
+
+	// Field 2: Round
+	round, err := s.Uint()
+	if err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if round > constants.MaxRound {
+		return constants.ErrInvalidMessage
+	}
+	v.round = int64(round)
+
+	// Field 3: Height (uint64)
+	height, err := s.Uint()
+	if err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if height == 0 {
+		return constants.ErrInvalidMessage
+	}
+	v.height = height
+
+	// Field 4: Value (32 bytes)
+	valueBytes, err := s.Bytes()
+	if err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if len(valueBytes) != common.HashLength {
+		return constants.ErrInvalidMessage
+	}
+	v.value = common.BytesToHash(valueBytes)
+
+	// Field 5: Signers (nested list [Bitmap bytes, Coefficients list])
+	if _, err := s.List(); err != nil { // Begin signers list
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+
+	// Bitmap ([]byte)
+	bitMapAsBig := new(big.Int)
+	err = s.Decode(bitMapAsBig)
+	if err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+
+	if bitMapAsBig.BitLen() > types.MaxAllowedSigners {
+		return constants.ErrInvalidMessage
+	}
+
+	// Coefficients (list of []byte)
+	if _, err = s.List(); err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+
+	coefficients := make([]*big.Int, 0, bitMapAsBig.BitLen())
+	for { // coefficients list
+		coefficient := new(big.Int)
+		err := s.Decode(coefficient)
+		if errors.Is(err, rlp.EOL) {
+			break
+		}
+		if err != nil {
+			return errors.Join(err, constants.ErrInvalidMessage)
+		}
+		coefficients = append(coefficients, coefficient)
+	}
+
+	if err := s.ListEnd(); err != nil { // End coefficients list
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if err := s.ListEnd(); err != nil { // End signers list
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+
+	v.signers = &types.Signers{
+		Bitmap:       (*types.Bitmap)(bitMapAsBig),
+		Coefficients: coefficients,
+	}
+	if err := v.signers.SanityCheck(); err != nil {
+		return constants.ErrInvalidMessage
+	}
+
+	// Field 6: Signature ([]byte)
+	sigBytes, err := s.Bytes()
+	if err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if len(sigBytes) != blst.BLSSignatureLength {
+		return constants.ErrInvalidMessage
+	}
+	v.signatureBytes = sigBytes
+
+	if err := s.ListEnd(); err != nil { // End outer list
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+
+	if _, err := s.Bytes(); err != io.EOF { // Ensure no trailing data
+		return constants.ErrInvalidMessage
+	}
+
+	v.payload = payload
+	v.hash = hash
+	v.code = PrevoteCode
+	v.verified = false
+	v.preverified = false
+	return nil
+}
+
 func (v *vote) SignatureInput() common.Hash {
 	v.signatureInputOnce.Do(func() {
 		v.signatureInput = VoteSignatureInput(v.H(), uint64(v.R()), v.code, v.Value()) // #nosec
@@ -816,118 +940,7 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 }
 
 func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
-	s := rlpStreamPool.Get().(*rlp.Stream)
-	s.Reset(bytes.NewReader(payload), uint64(len(payload)))
-	defer rlpStreamPool.Put(s)
-
-	if _, err := s.List(); err != nil { // Begin decoding list
-		return constants.ErrInvalidMessage
-	}
-
-	// Field 1: Code
-	code, err := s.Uint()
-	if err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-	if code != uint64(PrevoteCode) {
-		return constants.ErrInvalidMessage
-	}
-
-	// Field 2: Round
-	round, err := s.Uint()
-	if err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-	if round > constants.MaxRound {
-		return constants.ErrInvalidMessage
-	}
-	p.round = int64(round)
-
-	// Field 3: Height (uint64)
-	height, err := s.Uint()
-	if err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-	if height == 0 {
-		return constants.ErrInvalidMessage
-	}
-	p.height = height
-
-	// Field 4: Value (32 bytes)
-	valueBytes, err := s.Bytes()
-	if err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-	if len(valueBytes) != common.HashLength {
-		return constants.ErrInvalidMessage
-	}
-	p.value = common.BytesToHash(valueBytes)
-
-	// Field 5: Signers (nested list [Bitmap bytes, Coefficients list])
-	if _, err := s.List(); err != nil { // Begin signers list
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-
-	// Bitmap ([]byte)
-	bitMapAsBig := new(big.Int)
-	err = s.Decode(bitMapAsBig)
-	if err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-
-	// Coefficients (list of []byte)
-	if _, err = s.List(); err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-
-	coefficients := make([]*big.Int, 0, bitMapAsBig.BitLen())
-	for { // coefficients list
-		coefficient := new(big.Int)
-		err := s.Decode(coefficient)
-		if errors.Is(err, rlp.EOL) {
-			break
-		}
-		if err != nil {
-			return errors.Join(err, constants.ErrInvalidMessage)
-		}
-		coefficients = append(coefficients, coefficient)
-	}
-
-	if err := s.ListEnd(); err != nil { // End coefficients list
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-	if err := s.ListEnd(); err != nil { // End signers list
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-
-	p.signers = &types.Signers{
-		Bitmap:       (*types.Bitmap)(bitMapAsBig),
-		Coefficients: coefficients,
-	}
-	if err := p.signers.SanityCheck(); err != nil {
-		return constants.ErrInvalidMessage
-	}
-
-	// Field 6: Signature ([]byte)
-	sigBytes, err := s.Bytes()
-	if err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-	if len(sigBytes) != blst.BLSSignatureLength {
-		return constants.ErrInvalidMessage
-	}
-	p.signatureBytes = sigBytes
-
-	if err := s.ListEnd(); err != nil { // End outer list
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-
-	p.payload = payload
-	p.hash = hash
-	p.code = PrevoteCode
-	p.verified = false
-	p.preverified = false
-	return nil
+	return p.vote.decodeRLPPayload(PrevoteCode, payload, hash)
 }
 
 func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
@@ -939,118 +952,7 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 }
 
 func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
-	s := rlpStreamPool.Get().(*rlp.Stream)
-	s.Reset(bytes.NewReader(payload), uint64(len(payload)))
-	defer rlpStreamPool.Put(s)
-
-	if _, err := s.List(); err != nil { // Begin decoding list
-		return constants.ErrInvalidMessage
-	}
-
-	// Field 1: Code
-	code, err := s.Uint()
-	if err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-	if code != uint64(PrecommitCode) {
-		return constants.ErrInvalidMessage
-	}
-
-	// Field 2: Round
-	round, err := s.Uint()
-	if err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-	if round > constants.MaxRound {
-		return constants.ErrInvalidMessage
-	}
-	p.round = int64(round)
-
-	// Field 3: Height (uint64)
-	height, err := s.Uint()
-	if err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-	if height == 0 {
-		return constants.ErrInvalidMessage
-	}
-	p.height = height
-
-	// Field 4: Value (32 bytes)
-	valueBytes, err := s.Bytes()
-	if err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-	if len(valueBytes) != common.HashLength {
-		return constants.ErrInvalidMessage
-	}
-	p.value = common.BytesToHash(valueBytes)
-
-	// Field 5: Signers (nested list [Bitmap bytes, Coefficients list])
-	if _, err := s.List(); err != nil { // Begin signers list
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-
-	// Bitmap ([]byte)
-	bitMapAsBig := new(big.Int)
-	err = s.Decode(bitMapAsBig)
-	if err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-
-	// Coefficients (list of []byte)
-	if _, err = s.List(); err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-
-	coefficients := make([]*big.Int, 0, bitMapAsBig.BitLen())
-	for { // coefficients list
-		coefficient := new(big.Int)
-		err := s.Decode(coefficient)
-		if errors.Is(err, rlp.EOL) {
-			break
-		}
-		if err != nil {
-			return errors.Join(err, constants.ErrInvalidMessage)
-		}
-		coefficients = append(coefficients, coefficient)
-	}
-
-	if err := s.ListEnd(); err != nil { // End coefficients list
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-	if err := s.ListEnd(); err != nil { // End signers list
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-
-	p.signers = &types.Signers{
-		Bitmap:       (*types.Bitmap)(bitMapAsBig),
-		Coefficients: coefficients,
-	}
-	if err := p.signers.SanityCheck(); err != nil {
-		return constants.ErrInvalidMessage
-	}
-
-	// Field 6: Signature ([]byte)
-	sigBytes, err := s.Bytes()
-	if err != nil {
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-	if len(sigBytes) != blst.BLSSignatureLength {
-		return constants.ErrInvalidMessage
-	}
-	p.signatureBytes = sigBytes
-
-	if err := s.ListEnd(); err != nil { // End outer list
-		return errors.Join(err, constants.ErrInvalidMessage)
-	}
-
-	p.payload = payload
-	p.hash = hash
-	p.code = PrecommitCode
-	p.verified = false
-	p.preverified = false
-	return nil
+	return p.vote.decodeRLPPayload(PrecommitCode, payload, hash)
 }
 
 func VoteSignatureInput(h uint64, r uint64, code uint8, v common.Hash) common.Hash {
