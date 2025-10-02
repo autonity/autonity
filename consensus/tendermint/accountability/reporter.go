@@ -39,7 +39,7 @@ func (fd *FaultDetector) onDutyDetector(height uint64) bool {
 		panic(fmt.Sprintf("cannot get committee for height: %d", height))
 	}
 
-	committeeSize := uint64(committee.Len())
+	committeeSize := uint64(committee.Len()) //nolint
 	// All members participate in small networks
 	if committeeSize <= SmallScaleNetSize {
 		return true
