@@ -39,8 +39,8 @@ func (fd *FaultDetector) onDutyDetector(height uint64) bool {
 		panic(fmt.Sprintf("cannot get committee for height: %d", height))
 	}
 
-	committeeSize := uint64(committee.Len()) //nolint
-	// All members run rule engine in a small scale network.
+	committeeSize := uint64(committee.Len())
+	// All members participate in small networks
 	if committeeSize <= SmallScaleNetSize {
 		return true
 	}
@@ -50,35 +50,27 @@ func (fd *FaultDetector) onDutyDetector(height uint64) bool {
 		return false
 	}
 
-	// With a larger network, we select primary and backups reporters.
-	// Return true if node is the primary reporter.
-	primary := primaryIndex(height, committeeSize)
-	if committee.Members[primary].Address == fd.address {
+	primaryIdx := primaryIndex(height, committeeSize)
+	// Check if this node is the primary reporter
+	if committee.Members[primaryIdx].Address == fd.address {
 		return true
 	}
 
-	// If the client is not the primary reporter, check if they are backup reporters.
-	total := new(big.Int).SetUint64(committeeSize)
-	f := bft.F(total).Uint64()
-	startIdx := primary + 1
-	endIdx := primary + f
+	// Calculate backup reporter range
+	f := bft.F(new(big.Int).SetUint64(committeeSize)).Uint64()
+	startIdx := (primaryIdx + 1) % committeeSize
+	endIdx := (primaryIdx + f) % committeeSize
 	valIdx := self.Index
 
-	// No wrapping happens,
-	if endIdx < committeeSize {
+	// Handle the two cases for backup reporter selection
+	if startIdx <= endIdx {
+		// No wrapping: simple range check
 		return valIdx >= startIdx && valIdx <= endIdx
+	} else {
+		// Wrapping occurs: check both segments
+		return (valIdx >= startIdx && valIdx < committeeSize) ||
+			(valIdx >= 0 && valIdx <= endIdx)
 	}
-
-	// Wrapping happens, the 1st backup should rotate to the 1st member of committee
-	if startIdx == committeeSize {
-		endIdx = endIdx % committeeSize
-		return valIdx >= 0 && valIdx <= endIdx
-	}
-
-	// Wrapping happens, some of the backup rotate to the head of committee.
-	wrappedEndIdx := endIdx % committeeSize
-	startIdx = (primary + 1) % committeeSize
-	return (valIdx >= startIdx && valIdx < committeeSize) || (valIdx >= 0 && valIdx <= wrappedEndIdx)
 }
 
 // canReport assign the validator a dedicated time-window to submit the accountability event, if the primary fails to
