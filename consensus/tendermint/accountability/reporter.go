@@ -66,11 +66,10 @@ func (fd *FaultDetector) onDutyDetector(height uint64) bool {
 	if startIdx <= endIdx {
 		// No wrapping: simple range check
 		return valIdx >= startIdx && valIdx <= endIdx
-	} else {
-		// Wrapping occurs: check both segments
-		return (valIdx >= startIdx && valIdx < committeeSize) ||
-			(valIdx >= 0 && valIdx <= endIdx)
 	}
+
+	// Wrapping occurs: check both segments
+	return (valIdx >= startIdx && valIdx < committeeSize) || (valIdx >= 0 && valIdx <= endIdx)
 }
 
 // canReport assign the validator a dedicated time-window to submit the accountability event, if the primary fails to
