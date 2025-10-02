@@ -941,6 +941,9 @@ func NewFakeLightPropose(f Fake, generatePayload bool) *LightProposal {
 	if !generatePayload {
 		payload = f.FakePayload
 	} else {
+		if f.FakeSignature == nil {
+			panic("Fake signature is nil - cannot generate light proposal payload")
+		}
 		var err error
 		payload, err = rlp.EncodeToBytes(extLightProposal{
 			Code:            LightProposalCode,

@@ -713,7 +713,7 @@ func NewAccusationEvent(height uint64, value common.Hash, reporter common.Addres
 			FakeValidRound:     vr,
 			FakeValidRoundNil:  false,
 			FakeSigner:         offender,
-			FakeSignerIndex:    0,
+			FakeSignerIndex:    uint64(offenderIndex),
 			FakeVerified:       true,
 		}, true)}
 	case autonity.C1:

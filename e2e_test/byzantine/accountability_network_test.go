@@ -317,7 +317,7 @@ func TestOffChainAccusation(t *testing.T) {
 		}()
 
 		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(100, 500, false)
+		err = network.WaitToMineNBlocks(100, 200, false)
 		require.NoError(t, err)
 
 		// at least one off-chain accusations should have been received by the validators
@@ -387,7 +387,7 @@ func TestOffChainAccusation(t *testing.T) {
 		}()
 
 		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(100, 500, false)
+		err = network.WaitToMineNBlocks(100, 200, false)
 		require.NoError(t, err)
 
 		// at least one off-chain accusations should have been received by the accused
