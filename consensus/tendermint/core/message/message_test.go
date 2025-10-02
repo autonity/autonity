@@ -512,6 +512,7 @@ func TestVoteDecodeRLP_NonCanonicalUint(t *testing.T) {
 
 	// Check if the error is due to canonical integer violation
 	require.True(t, errors.Is(err, constants.ErrInvalidMessage))
+	require.True(t, errors.Is(err, rlp.ErrCanonInt))
 }
 
 func TestPrevoteDecodeRLP(t *testing.T) {
@@ -682,6 +683,22 @@ func TestPrevoteDecodeRLP(t *testing.T) {
 					validVote.Height,
 					validVote.Value,
 					[]interface{}{big.NewInt(1), []interface{}{oversized}},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "coefficients list mismatched with bitmap len",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{big.NewInt(1), big.NewInt(1)}},
 					validVote.Signature,
 				})
 				require.NoError(t, err)

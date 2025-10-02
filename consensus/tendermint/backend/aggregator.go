@@ -139,7 +139,7 @@ func (a *aggregator) start(ctx context.Context) {
 		a.internalBacklogCh = make(chan events.UnverifiedMessageEvent, 1000) // buffered to avoid deadlock
 	}
 	if a.computeWorkersCh == nil {
-		a.computeWorkersCh = make(chan events.UnverifiedMessageEvent, 1000)
+		a.computeWorkersCh = make(chan events.UnverifiedMessageEvent, aggregatorMessageQueue)
 	}
 	a.wg.Add(numComputeWorkers)
 	for i := 0; i < numComputeWorkers; i++ {
@@ -357,7 +357,7 @@ func (a *aggregator) filterSkipped(evs []events.UnverifiedMessageEvent) []events
 	filtered := make([]events.UnverifiedMessageEvent, 0, len(evs))
 	for _, e := range evs {
 		m := e.Message
-		// skip messages to be ignored or that are already in core
+		// skip messages to be ignored
 		if a.toSkip(m) {
 			continue
 		}
