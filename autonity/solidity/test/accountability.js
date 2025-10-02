@@ -411,8 +411,9 @@ contract('Accountability', function (accounts) {
         truffleAssert.ErrorType.REVERT,
         "already slashed at the proof's epoch"
       );
-      // TODO(lorenzo) once implemented in contract
-      // add canSlash and handleValidFaultProof asserts when submitting a proof of higher severity (slashing is possible in that case)
+
+      // TODO: add canSlash and handleValidFaultProof asserts when submitting a proof
+      //  of higher severity (slashing is possible in that case)
     });
   });
   describe('accusation flow', function () {
@@ -454,8 +455,8 @@ contract('Accountability', function (accounts) {
         truffleAssert.ErrorType.REVERT,
         "already slashed at the proof's epoch"
       );
-      // TODO(lorenzo) once implemented in contract
-      // add canAccuse and handleValidAccusation asserts when submitting an accusation of higher severity (slashing is possible in that case)
+      // TODO: add canAccuse and handleValidAccusation asserts when submitting
+      //  an accusation of higher severity (slashing is possible in that case)
 
     });
     it("Cannot accuse validator already under accusation", async function() {

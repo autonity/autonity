@@ -365,9 +365,6 @@ func TestGenerateOnChainProof(t *testing.T) {
 	})
 }
 
-// todo: (Jason) add test to cover an accusation over a committed block scenario,
-//
-//	in such context, the accusation is considered as useless, it should be dropped.
 func TestAccusationProvers(t *testing.T) {
 	height := uint64(100)
 	round := int64(3)
@@ -1053,6 +1050,22 @@ func TestPrevotesAccountabilityCheck(t *testing.T) {
 		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
 		require.Equal(t, 1, len(proofs))
 		require.Contains(t, proofs, expectedAccusation)
+	})
+
+	t.Run("accusation is not raised for a committed block, even when there are no corresponding proposals", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		chainMock := NewMockChainContext(ctrl)
+		chainMock.EXPECT().GetBlock(prevoteForB.Value(), prevoteForB.H()).Return(&types.Block{}) // simulate block presence
+
+		fd := &FaultDetector{
+			msgStore:   core.NewMsgStore(),
+			logger:     log.Root(),
+			blockchain: chainMock,
+		}
+		fd.msgStore.Save(prevoteForB)
+		proofs := fd.prevotesAccountabilityCheck(height, quorum, committee)
+		require.Equal(t, 0, len(proofs))
 	})
 
 	t.Run("accusation of aggregated prevotes when there are no corresponding proposals", func(t *testing.T) {

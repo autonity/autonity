@@ -56,7 +56,6 @@ const GENESIS_ENODES = [
     ];
 
 // precomputed using aut validator compute-address
-// TODO(lorenzo) derive them from enodes or privatekeys
 const GENESIS_NODE_ADDRESSES = [
         "0x850C1Eb8D190e05845ad7F84ac95a318C8AaB07f",
         "0x4AD219b58a5b46A1D9662BeAa6a70DB9F570deA5",
@@ -122,7 +121,7 @@ function autonityConfig(operator, treasuryAccount) {
             "initialInflationReserve": INITIAL_INFLATION_RESERVE,
             "withholdingThreshold": WITHHOLDING_THRESHOLD,
             "proposerRewardRate": PROPOSER_REWARD_RATE,
-            "withheldRewardsPool": treasuryAccount, //TODO(lorenzo) decide if fine
+            "withheldRewardsPool": treasuryAccount,
             "treasuryAccount": treasuryAccount,
             "oracleRewardRate": ORACLE_REWARD_RATE,
             "baseFeeChangeDenominator": BASE_FEE_CHANGE_DENOMINATOR,

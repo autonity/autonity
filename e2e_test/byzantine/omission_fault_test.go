@@ -496,38 +496,6 @@ func runResettingNodeTest(t *testing.T, numNodes int) {
 	require.Greater(t, score, uint64(0))
 }
 
-// Supposing that a node crashes by accident in an epoch and comes back up right away, ideally we would not want to punish him (or at least not too hard)
-// this can be controlled by tweaking the lookback window. A reasonable value for look-back window depends on many factors:
-// 1. The amount of chain data to be downloaded to get client synced again.
-// 2. The HW ability of the client, computing power, memory, etc...
-// 3. The latencies in between ACN and execution peers.
-// this test can help us make an estimate for an appropriate value (however a real scenario will differ a lot)
-func TestOmissionNodeHasOneResetWithinEpoch(t *testing.T) {
-	t.Skip("Not important for now") //TODO(lorenzo) fix or remove
-	network := createNetwork(t, 5, true, defaultGenesisOptions, func(genesis *core.Genesis) {
-		genesis.Config.AutonityContractConfig.EpochPeriod = uint64(300)
-		genesis.Config.OmissionAccountabilityConfig.LookbackWindow = uint64(100) // lowering the lookback window will make the resetting node pass the threshold
-	})
-	defer network.Shutdown(t)
-
-	resetHeight := uint64(60)
-	for network[1].Eth.BlockChain().CurrentHeader().Number.Uint64() <= 300 {
-		height := network[1].Eth.BlockChain().CurrentHeader().Number.Uint64()
-		if height == resetHeight {
-			err := network[0].Restart()
-			require.NoError(t, err)
-		}
-		time.Sleep(1 * time.Second)
-	}
-
-	_, omissionContract := contracts(t, network[1])
-
-	score := inactivityScore(t, omissionContract, network[0].Address)
-	t.Logf("inactivity score of node %s: %d", network[0].Address, score)
-	// TODO: another option is to allow score > 0 but verify that it is < InactivityThreshold
-	require.Equal(t, uint64(0), score)
-}
-
 type lockedSlice struct {
 	slice []uint64
 	sync.RWMutex

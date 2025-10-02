@@ -1067,6 +1067,57 @@ func NewFakePropose(f Fake) *Propose {
 	}
 }
 
+func NewFakeLightPropose(f Fake, generatePayload bool) *LightProposal {
+	var vr int64
+	if f.FakeValidRoundNil {
+		vr = -1
+	} else {
+		vr = int64(f.FakeValidRound) //nolint:gosec
+	}
+
+	var payload []byte
+	if !generatePayload {
+		payload = f.FakePayload
+	} else {
+		if f.FakeSignature == nil {
+			panic("Fake signature is nil - cannot generate light proposal payload")
+		}
+		var err error
+		payload, err = rlp.EncodeToBytes(extLightProposal{
+			Code:            LightProposalCode,
+			Round:           f.FakeRound,
+			Height:          f.FakeHeight,
+			ValidRound:      f.FakeValidRound,
+			IsValidRoundNil: f.FakeValidRoundNil,
+			ProposalBlock:   f.FakeValue,
+			Signer:          f.FakeSigner,
+			Signature:       f.FakeSignature.(*blst.BlsSignature),
+		})
+		if err != nil {
+			panic("failed to generate payload for light proposal: " + err.Error())
+		}
+	}
+
+	return &LightProposal{
+		blockHash:   f.FakeValue,
+		validRound:  vr,
+		signer:      f.FakeSigner,
+		signerIndex: int(f.FakeSignerIndex), //nolint:gosec
+		power:       f.FakePower,
+		base: base{
+			round:          int64(f.FakeRound), //nolint:gosec
+			height:         f.FakeHeight,
+			signatureInput: f.FakeSignatureInput,
+			signature:      f.FakeSignature,
+			payload:        payload,
+			hash:           f.FakeHash,
+			signerKey:      f.FakeSignerKey,
+			preverified:    true,
+			verified:       f.FakeVerified,
+		},
+	}
+}
+
 func NewFakePrevote(f Fake) *Prevote {
 	prevote := &Prevote{
 		vote: vote{
