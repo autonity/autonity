@@ -102,6 +102,13 @@ To build the Docker image containing all tools run:
 make build-docker-image-alltools
 ```
 
+The image will contain the following tools under `/usr/local/bin`:
+```
+abidump                    bootnode                   devp2p                     gengen                     picgen
+abigen                     checkpoint-admin           ethkey                     go-bindata                 rlpdump
+autonity                   clef                       faucet                     p2psim                     solc_static_linux_v0.8.30
+```
+
 ## Run a node
 
 Quick-start connecting to an Autonity testnet by using a testnet flag in the command line to set the genesis config for that network when starting the client. For example, to connect to the Bakerloo Testnet:
