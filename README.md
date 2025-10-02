@@ -96,8 +96,11 @@ To build the Docker image run:
 make build-docker-image
 ```
 
-This generates the Autonity Go Client Docker image and manifest.
+To build the Docker image containing all tools run:
 
+```
+make build-docker-image-alltools
+```
 
 ## Run a node
 
