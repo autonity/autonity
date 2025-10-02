@@ -60,9 +60,9 @@ Download pre-built binaries of the Autonity client and NodeJS Console CLI for Li
 
 To build you will need :
 
-* Go (version 1.15 or later) - https://golang.org/dl
+* Go (version 1.24 or later) - https://golang.org/dl
 * A C compiler - for example, [GCC](https://gcc.gnu.org/)
-* Docker Engine [Server](https://docs.docker.com/engine/install/#server)
+* Docker Engine [Server](https://docs.docker.com/engine/install/#server), if you wish to build docker images
 * [GNU Make](https://www.gnu.org/software/make/) utility to generate the executable from source files
 
 #### Get the source code
@@ -96,8 +96,18 @@ To build the Docker image run:
 make build-docker-image
 ```
 
-This generates the Autonity Go Client Docker image and manifest.
+To build the Docker image containing all tools run:
 
+```
+make build-docker-image-alltools
+```
+
+The image will contain the following tools under `/usr/local/bin`:
+```
+abidump                    bootnode                   devp2p                     gengen                     picgen
+abigen                     checkpoint-admin           ethkey                     go-bindata                 rlpdump
+autonity                   clef                       faucet                     p2psim                     solc_static_linux_v0.8.30
+```
 
 ## Run a node
 

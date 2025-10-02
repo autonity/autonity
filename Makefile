@@ -36,11 +36,11 @@ GENERATED_CONTRACT_DIR = ./params/generated
 # we then echo "sudo".
 DOCKER_SUDO = $(shell [ `id -u` -eq 0 ] || id -nG $(USER) | grep "\<docker\>" > /dev/null || echo sudo )
 
-# Builds the docker image and checks that we can run the autonity binary inside
-# it.
 build-docker-image:
 	@$(DOCKER_SUDO) docker build -t autonity .
-	@$(DOCKER_SUDO) docker run --rm autonity -h > /dev/null
+
+build-docker-image-alltools:
+	@$(DOCKER_SUDO) docker build -f Dockerfile.alltools -t autonity-alltools .
 
 autonity:
 	mkdir -p $(BINDIR)
