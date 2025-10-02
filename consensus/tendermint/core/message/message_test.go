@@ -3,10 +3,12 @@ package message
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,7 +19,6 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
-	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/rlp"
 )
 
@@ -91,9 +92,13 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, vote.R(), decoded.R())
 		require.Equal(t, vote.H(), decoded.H())
 		require.Equal(t, vote.Value(), decoded.Value())
+		require.NoError(t, decoded.PreValidate(&testCommittee, false))
+		require.NoError(t, decoded.Signers().Validate(&testCommittee))
 		require.Equal(t, vote.Signers().Bitmap, decoded.Signers().Bitmap)
 		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
-		require.Equal(t, vote.Signature(), decoded.Signature())
+		voteSignature, _ := vote.Signature()
+		decodedSignature, _ := decoded.Signature()
+		require.Equal(t, voteSignature, decodedSignature)
 	})
 	t.Run("precommit", func(t *testing.T) {
 		vote := newVote[Precommit](1, 2, common.HexToHash("0x1227"), defaultSigner, testCommitteeMember, &testCommittee)
@@ -106,9 +111,13 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, vote.R(), decoded.R())
 		require.Equal(t, vote.H(), decoded.H())
 		require.Equal(t, vote.Value(), decoded.Value())
+		require.NoError(t, decoded.PreValidate(&testCommittee, false))
+		require.NoError(t, decoded.Signers().Validate(&testCommittee))
 		require.Equal(t, vote.Signers().Bitmap, decoded.Signers().Bitmap)
 		require.Equal(t, vote.Signers().Coefficients, decoded.Signers().Coefficients)
-		require.Equal(t, vote.Signature(), decoded.Signature())
+		voteSignature, _ := vote.Signature()
+		decodedSignature, _ := decoded.Signature()
+		require.Equal(t, voteSignature, decodedSignature)
 	})
 	t.Run("propose", func(t *testing.T) {
 		header := &types.Header{Number: common.Big2}
@@ -124,7 +133,9 @@ func TestMessageDecode(t *testing.T) {
 		require.Equal(t, proposal.Value(), decoded.Value())
 		require.Equal(t, proposal.ValidRound(), decoded.ValidRound())
 		require.Equal(t, proposal.Signer(), decoded.Signer())
-		require.Equal(t, proposal.Signature(), decoded.Signature())
+		propsalSignature, _ := proposal.Signature()
+		decodedSignature, _ := decoded.Signature()
+		require.Equal(t, propsalSignature, decodedSignature)
 	})
 	t.Run("invalid propose with vr > r", func(t *testing.T) {
 		header := &types.Header{Number: common.Big2}
@@ -362,6 +373,461 @@ func TestMessageEncodeDecode(t *testing.T) {
 	}
 }
 
+func TestPrevoteDecodeCompareRLP(t *testing.T) {
+	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(t, err)
+	signatureInputPayload2, err := rlp.EncodeToBytes([]any{uint64(PrevoteCode), uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(t, err)
+	signatureInputHash := crypto.Hash(signatureInputPayload)
+	signatureInputHash2 := crypto.Hash(signatureInputPayload2)
+	require.Equal(t, signatureInputHash, signatureInputHash2)
+}
+
+func TestPrevoteDecode_TrailingData(t *testing.T) {
+	key, err := blst.RandKey()
+	require.NoError(t, err)
+	signer := makeSigner(key)
+
+	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(t, err)
+	signatureInputHash := crypto.Hash(signatureInputPayload)
+	signature := signer(signatureInputHash)
+	validVote := extVote{
+		Code:   PrevoteCode,
+		Round:  1,
+		Height: 2,
+		Value:  common.HexToHash("0xdeadbeef"),
+		Signers: &types.Signers{
+			Bitmap:       (*types.Bitmap)(big.NewInt(1)),
+			Coefficients: []*big.Int{big.NewInt(1)},
+		},
+		Signature: signature.(*blst.BlsSignature),
+	}
+	validPayload, err := rlp.EncodeToBytes(&validVote)
+	require.NoError(t, err)
+	prevote := &Prevote{}
+	err = prevote.DecodeRLPPayload(validPayload, crypto.Hash(validPayload))
+	require.NoError(t, err)
+
+	tweakedPayload := append(validPayload, []byte{0xca, 0xfe}...)
+	prevote = &Prevote{}
+	err = prevote.DecodeRLPPayload(tweakedPayload, crypto.Hash(tweakedPayload))
+	require.Error(t, err)
+}
+
+func TestVoteDecodeRLP_NonCanonicalUint(t *testing.T) {
+	// Create a valid extVote structure
+	key, err := blst.RandKey()
+	require.NoError(t, err)
+	signer := makeSigner(key)
+
+	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(t, err)
+	signatureInputHash := crypto.Hash(signatureInputPayload)
+	signature := signer(signatureInputHash)
+
+	validVote := extVote{
+		Code:   PrevoteCode,
+		Round:  1,
+		Height: 2,
+		Value:  common.HexToHash("0xdeadbeef"),
+		Signers: &types.Signers{
+			Bitmap:       (*types.Bitmap)(big.NewInt(1)),
+			Coefficients: []*big.Int{big.NewInt(1)},
+		},
+		Signature: signature.(*blst.BlsSignature),
+	}
+
+	// Encode the valid vote to RLP
+	validPayload, err := rlp.EncodeToBytes(validVote)
+	if err != nil {
+		t.Fatalf("failed to encode valid vote: %v", err)
+	}
+
+	// Parse the valid payload to extract individual field RLPs
+	s := rlp.NewStream(bytes.NewReader(validPayload), 0)
+	_, err = s.List()
+	if err != nil {
+		t.Fatalf("failed to start list: %v", err)
+	}
+
+	var fieldRLPs [][]byte
+	for {
+		raw, err := s.Raw()
+		if err == rlp.EOL {
+			break
+		}
+		if err != nil {
+			t.Fatalf("failed to read raw field: %v", err)
+		}
+		fieldRLPs = append(fieldRLPs, raw)
+	}
+
+	if err := s.ListEnd(); err != nil {
+		t.Fatalf("failed to end list: %v", err)
+	}
+
+	// Tamper the first field (Code) with non-canonical encoding: 0x820001 for value 1
+	// now instead of 0x01 we have 0x820001 which is non-canonical for uint, 82 for short byte array of length 2
+	tamperedCodeRLP, err := hex.DecodeString("820001")
+	if err != nil {
+		t.Fatalf("failed to decode hex: %v", err)
+	}
+	fieldRLPs[0] = tamperedCodeRLP
+
+	// Rebuild the content bytes
+	var content bytes.Buffer
+	for _, f := range fieldRLPs {
+		content.Write(f)
+	}
+	contentBytes := content.Bytes()
+	contentLen := len(contentBytes)
+
+	// Compute the list header
+	var header []byte
+	// up to 55 bytes, single byte prefix 0xc0 + length
+	if contentLen < 56 {
+		header = []byte{0xc0 + byte(contentLen)}
+	} else {
+		// more than 55 bytes, prefix 0xf7 + len(contentLen) followed by len in big endian
+		lenBig := big.NewInt(int64(contentLen))
+		lenBytes := lenBig.Bytes()
+		headerLen := len(lenBytes)
+		header = make([]byte, 1+headerLen)
+		header[0] = 0xf7 + byte(headerLen)
+		copy(header[1:], lenBytes)
+	}
+
+	// Build tampered payload
+	var tamperedPayload bytes.Buffer
+	tamperedPayload.Write(header)
+	tamperedPayload.Write(contentBytes)
+
+	// Attempt to decode the tampered payload into a Prevote
+	prevote := &Prevote{}
+	err = prevote.DecodeRLPPayload(tamperedPayload.Bytes(), common.Hash{})
+	if err == nil {
+		t.Fatal("expected decoding error for non-canonical uint, but got nil")
+	}
+
+	// Check if the error is due to canonical integer violation
+	require.True(t, errors.Is(err, constants.ErrInvalidMessage))
+	require.True(t, errors.Is(err, rlp.ErrCanonInt))
+}
+
+func TestPrevoteDecodeRLP(t *testing.T) {
+	key, err := blst.RandKey()
+	require.NoError(t, err)
+	signer := makeSigner(key)
+
+	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(t, err)
+	signatureInputHash := crypto.Hash(signatureInputPayload)
+	signature := signer(signatureInputHash)
+
+	validVote := extVote{
+		Code:   PrevoteCode,
+		Round:  1,
+		Height: 2,
+		Value:  common.HexToHash("0xdeadbeef"),
+		Signers: &types.Signers{
+			Bitmap:       (*types.Bitmap)(big.NewInt(1)),
+			Coefficients: []*big.Int{big.NewInt(1)},
+		},
+		Signature: signature.(*blst.BlsSignature),
+	}
+	validPayload, err := rlp.EncodeToBytes(&validVote)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name          string
+		payload       []byte
+		expectedError error
+	}{
+		{
+			name:          "valid vote",
+			payload:       validPayload,
+			expectedError: nil,
+		},
+		{
+			name: "extra data at the end of list",
+			payload: func() []byte {
+				var list []interface{}
+				require.NoError(t, rlp.DecodeBytes(validPayload, &list))
+				list = append(list, "extra_field")
+				payload, err := rlp.EncodeToBytes(list)
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "too few items in list",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "wrong data type for height",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					"this should be a number",
+					validVote.Value,
+					validVote.Signers,
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "list where item expected",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					[]interface{}{validVote.Height}, // Height is now a list
+					validVote.Value,
+					validVote.Signers,
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		// Enhanced cases for signers list
+		{
+			name: "signers list with too few sub-items",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1)}, // Only bitmap, missing coefficients list
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "signers list with extra sub-items",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{big.NewInt(1)}, "extra_item"},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "valid coefficients list encoded int size bigger than 1 byte",
+			payload: func() []byte {
+				expectedCoefficients := []*big.Int{big.NewInt(5), big.NewInt(1000)}
+				fullList := []interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(3), expectedCoefficients},
+					validVote.Signature,
+				}
+				payload, err := rlp.EncodeToBytes(fullList)
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: nil,
+		},
+		{
+			name: "coefficients list with zero value",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{big.NewInt(0)}},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "coefficients list with oversized BitLen",
+			payload: func() []byte {
+				oversized := new(big.Int).Lsh(big.NewInt(1), common.QuorumCap+1)
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{oversized}},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "coefficients list mismatched with bitmap len",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{big.NewInt(1), big.NewInt(1)}},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "coefficients list with extra items",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{big.NewInt(1), "extra_coeff"}},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "coefficients list with wrong type (e.g., string instead of big.Int)",
+			payload: func() []byte {
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{big.NewInt(1), []interface{}{"not_a_bigint"}},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+		{
+			name: "coefficients list oversized ( > MaxAllowedSigners )",
+			payload: func() []byte {
+				coeffs := make([]interface{}, types.MaxAllowedSigners+1)
+				for i := range coeffs {
+					coeffs[i] = big.NewInt(1)
+				}
+				bitmap := new(big.Int).SetBit(new(big.Int), types.MaxAllowedSigners, 1) // Oversized bitmap too
+				payload, err := rlp.EncodeToBytes([]interface{}{
+					validVote.Code,
+					validVote.Round,
+					validVote.Height,
+					validVote.Value,
+					[]interface{}{bitmap, coeffs},
+					validVote.Signature,
+				})
+				require.NoError(t, err)
+				return payload
+			}(),
+			expectedError: constants.ErrInvalidMessage,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			prevote := &Prevote{}
+			err := prevote.DecodeRLPPayload(tc.payload, crypto.Hash(tc.payload))
+			if tc.expectedError == nil {
+				require.NoError(t, err)
+			} else {
+				require.True(t, errors.Is(err, tc.expectedError), "Expected error: %v, got: %v", tc.expectedError, err)
+			}
+		})
+	}
+}
+
+func TestPrevoteDecodeRLPPayload_Concurrent(t *testing.T) {
+	key, err := blst.RandKey()
+	require.NoError(t, err)
+	signer := makeSigner(key)
+
+	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(t, err)
+	signatureInputHash := crypto.Hash(signatureInputPayload)
+	signature := signer(signatureInputHash)
+
+	validVote := extVote{
+		Code:   PrevoteCode,
+		Round:  1,
+		Height: 2,
+		Value:  common.HexToHash("0xdeadbeef"),
+		Signers: &types.Signers{
+			Bitmap:       (*types.Bitmap)(big.NewInt(1)),
+			Coefficients: []*big.Int{big.NewInt(1)},
+		},
+		Signature: signature.(*blst.BlsSignature),
+	}
+	validPayload, err := rlp.EncodeToBytes(&validVote)
+	require.NoError(t, err)
+	validHash := crypto.Hash(validPayload)
+
+	const numGoroutines = 1000
+	var wg sync.WaitGroup
+	errCh := make(chan error, numGoroutines)
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			prevote := &Prevote{}
+			if err := prevote.DecodeRLPPayload(validPayload, validHash); err != nil {
+				errCh <- err
+				return
+			}
+			// Basic validation to ensure no corruption
+			if prevote.Code() != PrevoteCode || prevote.R() != 1 || prevote.H() != 2 {
+				errCh <- errors.New("decoded fields mismatch")
+				return
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		require.NoError(t, err, "Concurrent decoding failed")
+	}
+}
+
 // verify that aggregating same votes in different orders doesn't change the hash
 func TestMessageHash(t *testing.T) {
 	h := uint64(1)
@@ -454,14 +920,16 @@ func TestMessageHash(t *testing.T) {
 // helper to recompute hash since in production code it is computed only once at decoding and cached
 // therefore modifying internals of a vote doesn't lead to the cached hash to change
 func recomputeHash(vote Vote) common.Hash {
-	payload, _ := rlp.EncodeToBytes(extVote{
-		Code:      vote.Code(),
-		Round:     uint64(vote.R()), // #nosec
-		Height:    vote.H(),
-		Value:     vote.Value(),
-		Signers:   vote.Signers(),
-		Signature: vote.Signature().(*blst.BlsSignature),
-	})
+	extvote := extVote{
+		Code:    vote.Code(),
+		Round:   uint64(vote.R()), // #nosec
+		Height:  vote.H(),
+		Value:   vote.Value(),
+		Signers: vote.Signers(),
+	}
+	sig, _ := vote.Signature()
+	extvote.Signature = sig.(*blst.BlsSignature)
+	payload, _ := rlp.EncodeToBytes(extvote)
 	return crypto.Hash(payload)
 }
 
@@ -471,6 +939,142 @@ func FuzzFromPayload(f *testing.F) {
 	f.Fuzz(func(t *testing.T, seed []byte) {
 		var p Prevote
 		rlp.Decode(bytes.NewReader(seed), &p)
+	})
+}
+
+func FuzzVoteDecode(f *testing.F) {
+	key, err := blst.RandKey()
+	require.NoError(f, err)
+	pubKey := key.PublicKey()
+	signer := makeSigner(key)
+
+	dummyCommittee := &types.Committee{
+		Members: []types.CommitteeMember{
+			{Index: 0, Address: common.Address{0x01}, VotingPower: big.NewInt(1), ConsensusKey: pubKey},
+		},
+	}
+
+	// Seed1: Valid simple vote with real signature
+	signatureInputPayload, err := rlp.EncodeToBytes([]any{PrevoteCode, uint64(1), uint64(2), common.HexToHash("0xdeadbeef")})
+	require.NoError(f, err)
+	signatureInputHash := crypto.Hash(signatureInputPayload)
+	signature := signer(signatureInputHash)
+	sigBytes := signature.Marshal()
+	bitmapBytes := big.NewInt(1).Bytes()
+	coeffsRLP, err := rlp.EncodeToBytes([]*big.Int{big.NewInt(1)})
+	require.NoError(f, err)
+	valueBytes := common.HexToHash("0xdeadbeef").Bytes()
+	f.Add(PrevoteCode, uint64(1), uint64(2), valueBytes, bitmapBytes, coeffsRLP, sigBytes)
+
+	// Seed2: Valid with signers, should fail on prevalidate due to mismatch in coefficient and bitmap
+	valueBytes2 := common.HexToHash("0x02").Bytes()
+	bitmapBytes2 := big.NewInt(3).Bytes()
+	coeffsRLP2, err := rlp.EncodeToBytes([]*big.Int{big.NewInt(1)})
+	require.NoError(f, err)
+	f.Add(PrevoteCode, uint64(5), uint64(10), valueBytes2, bitmapBytes2, coeffsRLP2, sigBytes) // reuse sig, but fuzzer will vary
+
+	// Seed: Edge - max round, zero value, empty sig (invalid)
+	valueBytes3 := common.Hash{}.Bytes()
+	bitmapBytes3 := big.NewInt(0).Bytes()
+	coeffsRLP3 := []byte{}
+	f.Add(PrevoteCode, uint64(constants.MaxRound), uint64(0), valueBytes3, bitmapBytes3, coeffsRLP3, []byte{})
+
+	// Seed: Non-canonical tamper (e.g., leading zero in code, but fuzzer will mutate)
+	valueBytes4 := common.Hash{0x01}.Bytes()
+	bitmapBytes4 := big.NewInt(1).Bytes()
+	coeffsRLP4, err := rlp.EncodeToBytes([]*big.Int{big.NewInt(1)})
+	require.NoError(f, err)
+	f.Add(uint8(0x00), uint64(0), uint64(1), valueBytes4, bitmapBytes4, coeffsRLP4, make([]byte, blst.BLSSignatureLength))
+
+	// More seeds: Empty-like, random junk
+	valueBytes5 := common.Hash{}.Bytes()
+	bitmapBytes5 := big.NewInt(0).Bytes()
+	coeffsRLP5 := []byte{}
+	f.Add(uint8(0), uint64(0), uint64(0), valueBytes5, bitmapBytes5, coeffsRLP5, []byte{})
+	valueBytes6 := bytes.Repeat([]byte{0xff}, 32)
+	bitmapBytes6 := big.NewInt(1 << 32).Bytes()
+	coeffsRLP6, err := rlp.EncodeToBytes([]*big.Int{new(big.Int).SetBytes(bytes.Repeat([]byte{0xff}, 100))})
+	require.NoError(f, err)
+	sigBytes6 := bytes.Repeat([]byte{0xff}, 1000)
+	f.Add(uint8(255), uint64(1<<63-1), uint64(1), valueBytes6, bitmapBytes6, coeffsRLP6, sigBytes6)
+
+	f.Fuzz(func(t *testing.T, code uint8, round uint64, height uint64, valueBytes []byte, bitmapBytes []byte, coeffsRLP []byte, sigBytes []byte) {
+		if len(valueBytes) != common.HashLength {
+			return
+		}
+		value := common.BytesToHash(valueBytes)
+
+		// Construct extVote from fuzzed inputs (structured)
+		var coeffs []*big.Int
+		if err := rlp.DecodeBytes(coeffsRLP, &coeffs); err != nil {
+			return
+		}
+		ext := extVote{
+			Code:   code,
+			Round:  round,
+			Height: height,
+			Value:  value,
+			Signers: &types.Signers{
+				Bitmap:       (*types.Bitmap)(new(big.Int).SetBytes(bitmapBytes)),
+				Coefficients: coeffs,
+			},
+			Signature: signature.(*blst.BlsSignature), // Default in case of bad input
+		}
+		sig, err := blst.SignatureFromBytes(sigBytes)
+		if err == nil {
+			ext.Signature = sig.(*blst.BlsSignature)
+		}
+
+		// Encode to bytes (if fails, skip - bad input)
+		payload, err := rlp.EncodeToBytes(ext)
+		if err != nil {
+			return // Fuzzer will try other mutations
+		}
+		hash := crypto.Hash(payload)
+
+		// Decode
+		prevote := &Prevote{}
+		err = prevote.DecodeRLPPayload(payload, hash)
+
+		// Check return value
+		if err == nil {
+			// Success: Check invariants
+			if prevote.Code() != PrevoteCode {
+				t.Errorf("Invariant failed: wrong code %d", prevote.Code())
+			}
+			if prevote.H() == 0 {
+				t.Errorf("Invariant failed: zero height")
+			}
+			if prevote.Value() == (common.Hash{}) && len(payload) > 10 { // Arbitrary threshold for non-trivial input
+				t.Errorf("Invariant failed: zero value on non-empty input")
+			}
+
+			// Call further methods, ensure no panic
+			preErr := prevote.PreValidate(dummyCommittee, true)
+			if preErr == nil && prevote.Signers().Len() == 0 {
+				t.Errorf("PreValidate succeeded but zero signers")
+			}
+
+			if preErr == nil { // validate only if prevalidate passed
+				valErr := prevote.Validate()
+				if valErr == nil && prevote.Signers().Len() == 0 {
+					t.Errorf("Validate succeeded but zero signers")
+				}
+			}
+
+			// Round-trip: Re-encode and compare (canonical check)
+			reEncoded, reErr := rlp.EncodeToBytes(extVote{
+				Code:      prevote.Code(),
+				Round:     uint64(prevote.R()),
+				Height:    prevote.H(),
+				Value:     prevote.Value(),
+				Signers:   prevote.Signers(),
+				Signature: ext.Signature, // Reuse original sig for comparison
+			})
+			if reErr == nil && !bytes.Equal(payload, reEncoded) {
+				t.Errorf("Round-trip failed: original %x != re-encoded %x", payload, reEncoded)
+			}
+		}
 	})
 }
 
@@ -665,24 +1269,17 @@ func BenchmarkDecodeVote(b *testing.B) {
 	}
 	hash := common.BytesToHash(hashBytes)
 	prevote := NewPrevote(int64(15), uint64(123345), hash, defaultSigner, testCommitteeMember, &testCommittee)
-
-	// create p2p prevote
 	payload := prevote.Payload()
-	r := bytes.NewReader(payload)
-	size := len(payload)
-	p2pPrevote := p2p.Msg{Code: 0x12, Size: uint32(size), Payload: r}
+	payloadHash := crypto.Hash(payload)
 
 	// start the actual benchmarking
+	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		prevoteDec := new(Prevote)
-		if err := p2pPrevote.Decode(prevoteDec); err != nil {
+		if err := prevoteDec.DecodeRLPPayload(payload, payloadHash); err != nil {
 			b.Fatal("failed prevote decoding: ", err)
 		}
-		// without this re-initialization the payload gets discarded after the first iteration, making the decoding fail
-		b.StopTimer()
-		p2pPrevote.Payload = bytes.NewReader(payload)
-		b.StartTimer()
 	}
 }
 

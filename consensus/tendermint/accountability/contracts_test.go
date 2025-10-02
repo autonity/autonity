@@ -152,7 +152,9 @@ func TestDecodeAndVerifyProofs(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tc.Proof.Rule, decodeProof.Rule)
-			assert.Equal(t, tc.Proof.Message.Signature(), decodeProof.Message.Signature())
+			msgSignature, _ := tc.Proof.Message.Signature()
+			decodeProofSignature, _ := decodeProof.Message.Signature()
+			assert.Equal(t, msgSignature, decodeProofSignature)
 			assert.Equal(t, tc.Proof.Evidences, decodeProof.Evidences)
 			assert.Equal(t, tc.Proof.DistinctPrecommits.Len(), decodeProof.DistinctPrecommits.Len())
 			assert.Equal(t, true, decodeProof.DistinctPrecommits.validated)
@@ -471,8 +473,9 @@ func TestMisbehaviourVerifier(t *testing.T) {
 			SignersIndex: pcForVPVO12.Signers().FlattenUniq(),
 			SignersCoeff: pcForVPVO12.Signers().CopyCoefficients(),
 		}},
-		Signature: pcForVPVO12.Signature().Marshal(),
 	}
+	s, _ := pcForVPVO12.Signature()
+	missingPrecommitPVO12.Signature = s.Marshal()
 	err := missingPrecommitPVO12.PreValidate(parent.Epoch.Committee, height)
 	require.NoError(t, err)
 	err = missingPrecommitPVO12.Validate()

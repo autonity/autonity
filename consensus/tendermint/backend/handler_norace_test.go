@@ -59,7 +59,7 @@ func TestUnhandledMsgs(t *testing.T) {
 			}
 			var payload []byte
 			if err := savedMsg.(UnhandledMsg).msg.Decode(&payload); err != nil {
-				t.Fatalf("couldnt decode payload")
+				t.Fatalf("couldnt decode payload, err=%v", err)
 			}
 			expectedPayload := append(counter, []byte("data")...)
 			if !reflect.DeepEqual(addr, expectedAddr) || !bytes.Equal(payload, expectedPayload) {

@@ -17,8 +17,10 @@
 package message
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"sort"
 	"sync"
@@ -60,6 +62,12 @@ var NetworkCodes = map[uint8]uint64{
 	ProposalCode:  ProposeNetworkMsg,
 	PrevoteCode:   PrevoteNetworkMsg,
 	PrecommitCode: PrecommitNetworkMsg,
+}
+
+var rlpStreamPool = sync.Pool{
+	New: func() any {
+		return rlp.NewStream(bytes.NewBuffer(nil), 0)
+	},
 }
 
 type Signer func(hash common.Hash) blst.Signature
@@ -112,6 +120,10 @@ func (p *Propose) ValidRound() int64 {
 }
 func (p *Propose) Value() common.Hash {
 	return p.block.Hash()
+}
+
+func (p *Propose) SignatureInput() common.Hash {
+	return p.signatureInput
 }
 
 func (p *Propose) String() string {
@@ -175,6 +187,10 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	if err != nil {
 		return err
 	}
+	return p.DecodeRLPPayload(payload, crypto.Hash(payload))
+}
+
+func (p *Propose) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	ext := &extPropose{}
 	if err := rlp.DecodeBytes(payload, ext); err != nil {
 		return err
@@ -222,11 +238,11 @@ func (p *Propose) DecodeRLP(s *rlp.Stream) error {
 	p.block = ext.ProposalBlock
 	p.signer = ext.Signer
 	p.signature = ext.Signature
+	p.hash = hash
 	p.payload = payload
 	// precompute hash and signature hash
 	signaturePayload, _ := rlp.EncodeToBytes([]any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.block.Hash()})
 	p.signatureInput = crypto.Hash(signaturePayload)
-	p.hash = crypto.Hash(payload)
 	p.verified = false
 	p.preverified = false
 	return nil
@@ -248,6 +264,10 @@ func (p *Propose) SignerKey() blst.PublicKey {
 		panic("Trying to access signer key on not preverified message")
 	}
 	return p.base.signerKey
+}
+
+func (p *Propose) Signature() (blst.Signature, error) {
+	return p.base.signature, nil
 }
 
 func (p *Propose) PreValidate(committee *types.Committee, _ bool) error {
@@ -301,6 +321,10 @@ func (p *LightProposal) Value() common.Hash {
 	return p.blockHash
 }
 
+func (p *LightProposal) SignatureInput() common.Hash {
+	return p.signatureInput
+}
+
 func (p *LightProposal) Power() *big.Int {
 	return p.power
 }
@@ -314,6 +338,10 @@ func (p *LightProposal) SignerKey() blst.PublicKey {
 		panic("Trying to access signer key on not preverified message")
 	}
 	return p.base.signerKey
+}
+
+func (p *LightProposal) Signature() (blst.Signature, error) {
+	return p.base.signature, nil
 }
 
 func NewLightProposal(proposal *Propose) *LightProposal {
@@ -363,6 +391,10 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 	if err != nil {
 		return err
 	}
+	return p.DecodeRLPPayload(payload, crypto.Hash(payload))
+}
+
+func (p *LightProposal) DecodeRLPPayload(payload []byte, hash common.Hash) error {
 	ext := &extLightProposal{}
 	if err := rlp.DecodeBytes(payload, ext); err != nil {
 		return err
@@ -403,10 +435,10 @@ func (p *LightProposal) DecodeRLP(s *rlp.Stream) error {
 	p.signer = ext.Signer
 	p.signature = ext.Signature
 	p.payload = payload
+	p.hash = hash
 	// precompute hash and signature hash
 	signaturePayload, _ := rlp.EncodeToBytes([]any{ProposalCode, ext.Round, ext.Height, ext.ValidRound, ext.IsValidRoundNil, p.blockHash})
 	p.signatureInput = crypto.Hash(signaturePayload)
-	p.hash = crypto.Hash(payload)
 	p.verified = false
 	p.preverified = false
 	return nil
@@ -453,8 +485,167 @@ type extVote struct {
 // TODO: would be good to do the same thing for proposal and lightproposal (to avoid code repetition)
 type vote struct {
 	signers *types.Signers
+	value   common.Hash
+	code    uint8
 	base
-	signerKeyOnce sync.Once `rlp:"-"` // ensures that the signerKey is computed only once
+
+	// signature caching
+	signerKeyOnce      sync.Once // ensures that the signerKey is computed only once
+	sigOnce            sync.Once
+	sigErr             error
+	signatureBytes     []byte // used for caching the raw sig bytes at decoding phase
+	signatureInputOnce sync.Once
+}
+
+func (v *vote) decodeRLPPayload(code uint8, payload []byte, hash common.Hash) error {
+	s := rlpStreamPool.Get().(*rlp.Stream)
+	s.Reset(bytes.NewReader(payload), uint64(len(payload)))
+	defer rlpStreamPool.Put(s)
+
+	if _, err := s.List(); err != nil { // Begin decoding list
+		return constants.ErrInvalidMessage
+	}
+
+	// Field 1: Code
+	c, err := s.Uint()
+	if err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if c != uint64(code) {
+		return constants.ErrInvalidMessage
+	}
+
+	// Field 2: Round
+	round, err := s.Uint()
+	if err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if round > constants.MaxRound {
+		return constants.ErrInvalidMessage
+	}
+	v.round = int64(round)
+
+	// Field 3: Height (uint64)
+	height, err := s.Uint()
+	if err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if height == 0 {
+		return constants.ErrInvalidMessage
+	}
+	v.height = height
+
+	// Field 4: Value (32 bytes)
+	valueBytes, err := s.Bytes()
+	if err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if len(valueBytes) != common.HashLength {
+		return constants.ErrInvalidMessage
+	}
+	v.value = common.BytesToHash(valueBytes)
+
+	// Field 5: Signers (nested list [Bitmap bytes, Coefficients list])
+	if _, err := s.List(); err != nil { // Begin signers list
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+
+	// Bitmap ([]byte)
+	bitMapAsBig := new(big.Int)
+	err = s.Decode(bitMapAsBig)
+	if err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+
+	if bitMapAsBig.BitLen() > types.MaxAllowedSigners {
+		return constants.ErrInvalidMessage
+	}
+
+	// Coefficients (list of []byte)
+	if _, err = s.List(); err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+
+	coefficients := make([]*big.Int, 0, bitMapAsBig.BitLen())
+	for { // coefficients list
+		coefficient := new(big.Int)
+		err := s.Decode(coefficient)
+		if errors.Is(err, rlp.EOL) {
+			break
+		}
+		if err != nil {
+			return errors.Join(err, constants.ErrInvalidMessage)
+		}
+		coefficients = append(coefficients, coefficient)
+	}
+
+	if err := s.ListEnd(); err != nil { // End coefficients list
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if err := s.ListEnd(); err != nil { // End signers list
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+
+	v.signers = &types.Signers{
+		Bitmap:       (*types.Bitmap)(bitMapAsBig),
+		Coefficients: coefficients,
+	}
+	if err := v.signers.SanityCheck(); err != nil {
+		return constants.ErrInvalidMessage
+	}
+
+	// Field 6: Signature ([]byte)
+	sigBytes, err := s.Bytes()
+	if err != nil {
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+	if len(sigBytes) != blst.BLSSignatureLength {
+		return constants.ErrInvalidMessage
+	}
+	v.signatureBytes = sigBytes
+
+	if err := s.ListEnd(); err != nil { // End outer list
+		return errors.Join(err, constants.ErrInvalidMessage)
+	}
+
+	if _, err := s.Bytes(); err != io.EOF { // Ensure no trailing data
+		return constants.ErrInvalidMessage
+	}
+
+	v.payload = payload
+	v.hash = hash
+	v.code = code
+	v.verified = false
+	v.preverified = false
+	return nil
+}
+
+func (v *vote) SignatureInput() common.Hash {
+	v.signatureInputOnce.Do(func() {
+		v.signatureInput = VoteSignatureInput(v.H(), uint64(v.R()), v.code, v.Value()) // #nosec
+	})
+	return v.signatureInput
+}
+
+func (v *vote) Value() common.Hash {
+	return v.value
+}
+
+func (v *vote) Signature() (blst.Signature, error) {
+	if !v.preverified {
+		panic("Trying to access signature on not preverified message")
+	}
+	v.sigOnce.Do(func() {
+		if len(v.signatureBytes) == 0 {
+			return
+		}
+		v.base.signature, v.sigErr = blst.SignatureFromBytes(v.signatureBytes)
+		if v.sigErr == nil && v.signers.Len() == 1 && v.base.signature.IsZero() {
+			v.sigErr = ErrInvalidIndividualVote
+		}
+		v.signatureBytes = nil
+	})
+	return v.base.signature, v.sigErr
 }
 
 func (v *vote) SignerKey() blst.PublicKey {
@@ -500,11 +691,6 @@ func (v *vote) PreValidate(committee *types.Committee, shouldRespectCap bool) er
 		return fmt.Errorf("invalid signers information: %w", err)
 	}
 
-	// if it is an individual signature, it cannot be 0
-	if v.signers.Len() == 1 && v.signature.IsZero() {
-		return ErrInvalidIndividualVote
-	}
-
 	maxCoefficient := v.signers.MaxCoefficient()
 	if shouldRespectCap && maxCoefficient.BitLen() > common.VoteCap {
 		return types.ErrInvalidCoefficient
@@ -521,6 +707,13 @@ func (v *vote) PreValidate(committee *types.Committee, shouldRespectCap bool) er
 func (v *vote) Validate() error {
 	// loads Signer key if not already done
 	v.SignerKey()
+	// computes Signature if not already done
+	_, err := v.Signature()
+	if err != nil {
+		return err
+	}
+	// compute signature input
+	v.SignatureInput()
 	return v.base.Validate()
 }
 
@@ -530,16 +723,11 @@ func (v *vote) String() string {
 }
 
 type Prevote struct {
-	value common.Hash
 	vote
 }
 
 func (p *Prevote) Code() uint8 {
 	return PrevoteCode
-}
-
-func (p *Prevote) Value() common.Hash {
-	return p.value
 }
 
 func (p *Prevote) String() string {
@@ -548,16 +736,11 @@ func (p *Prevote) String() string {
 }
 
 type Precommit struct {
-	value common.Hash
 	vote
 }
 
 func (p *Precommit) Code() uint8 {
 	return PrecommitCode
-}
-
-func (p *Precommit) Value() common.Hash {
-	return p.value
 }
 
 func (p *Precommit) String() string {
@@ -590,8 +773,9 @@ func newVote[
 		Signature: signature.(*blst.BlsSignature),
 	})
 	vote := E{
-		value: value,
 		vote: vote{
+			value:   value,
+			code:    code,
 			signers: signers,
 			base: base{
 				round:          r,
@@ -677,7 +861,11 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 	for len(votesToProcess) > 0 { // this loop should never run more than once, if there is no maxCoefficient cap breach
 		representative := votesToProcess[0]
 		aggregateSigner := representative.Signers().Copy()
-		signaturesToAggregate := []blst.Signature{representative.Signature()}
+		sig, err := representative.Signature()
+		if err != nil {
+			panic(err) // we don't expect signature to be invalid at this point
+		}
+		signaturesToAggregate := []blst.Signature{sig}
 
 		var nextVotesToProcess []Vote
 		for _, otherVote := range votesToProcess[1:] {
@@ -689,7 +877,11 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 			// overlapping signers, we can aggregate them
 			if ignoreBoundaries || aggregateSigner.RespectsBoundaries(otherVote.Signers()) {
 				aggregateSigner.Merge(otherVote.Signers())
-				signaturesToAggregate = append(signaturesToAggregate, otherVote.Signature())
+				otherVoteSig, err := otherVote.Signature()
+				if err != nil {
+					panic(err) // we don't expect signature to be invalid at this point
+				}
+				signaturesToAggregate = append(signaturesToAggregate, otherVoteSig)
 			} else {
 				// unmergeable due to coefficient cap breach, Rare case
 				nextVotesToProcess = append(nextVotesToProcess, otherVote)
@@ -711,9 +903,10 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 			Signature: aggregatedSignature.(*blst.BlsSignature),
 		})
 		mainAggregate := E{
-			value: representative.Value(),
 			vote: vote{
+				value:   representative.Value(),
 				signers: aggregateSigner,
+				code:    representative.Code(),
 				base: base{
 					height:         representative.H(),
 					round:          representative.R(),
@@ -743,41 +936,11 @@ func (p *Prevote) DecodeRLP(s *rlp.Stream) error {
 	if err != nil {
 		return err
 	}
+	return p.DecodeRLPPayload(payload, crypto.Hash(payload))
+}
 
-	encoded := &extVote{}
-	if err := rlp.DecodeBytes(payload, encoded); err != nil {
-		return err
-	}
-	if encoded.Code != PrevoteCode {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Signature == nil {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Height == 0 {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Round > constants.MaxRound {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Signers == nil || encoded.Signers.Bitmap == nil || encoded.Signers.Coefficients == nil {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Signers.SanityCheck() != nil {
-		return constants.ErrInvalidMessage
-	}
-	p.height = encoded.Height
-	p.round = int64(encoded.Round)
-	p.value = encoded.Value
-	p.signature = encoded.Signature
-	p.signers = encoded.Signers
-	p.payload = payload
-	// precompute hash and signature hash
-	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrevoteCode, encoded.Value)
-	p.hash = crypto.Hash(payload)
-	p.verified = false
-	p.preverified = false
-	return nil
+func (p *Prevote) DecodeRLPPayload(payload []byte, hash common.Hash) error {
+	return p.vote.decodeRLPPayload(PrevoteCode, payload, hash)
 }
 
 func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
@@ -785,40 +948,11 @@ func (p *Precommit) DecodeRLP(s *rlp.Stream) error {
 	if err != nil {
 		return err
 	}
-	encoded := &extVote{}
-	if err := rlp.DecodeBytes(payload, encoded); err != nil {
-		return err
-	}
-	if encoded.Code != PrecommitCode {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Signature == nil {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Height == 0 {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Round > constants.MaxRound {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Signers == nil || encoded.Signers.Bitmap == nil || encoded.Signers.Coefficients == nil {
-		return constants.ErrInvalidMessage
-	}
-	if encoded.Signers.SanityCheck() != nil {
-		return constants.ErrInvalidMessage
-	}
-	p.height = encoded.Height
-	p.round = int64(encoded.Round)
-	p.value = encoded.Value
-	p.signature = encoded.Signature
-	p.signers = encoded.Signers
-	p.payload = payload
-	// precompute hash and signature hash
-	p.signatureInput = VoteSignatureInput(encoded.Height, encoded.Round, PrecommitCode, encoded.Value)
-	p.hash = crypto.Hash(payload)
-	p.verified = false
-	p.preverified = false
-	return nil
+	return p.DecodeRLPPayload(payload, crypto.Hash(payload))
+}
+
+func (p *Precommit) DecodeRLPPayload(payload []byte, hash common.Hash) error {
+	return p.vote.decodeRLPPayload(PrecommitCode, payload, hash)
 }
 
 func VoteSignatureInput(h uint64, r uint64, code uint8, v common.Hash) common.Hash {
@@ -894,13 +1028,17 @@ func (f Fake) Power() *big.Int                              { return f.FakePower
 func (f Fake) String() string                               { return "{fake}" }
 func (f Fake) Hash() common.Hash                            { return f.FakeHash }
 func (f Fake) Payload() []byte                              { return f.FakePayload }
-func (f Fake) Signature() blst.Signature                    { return f.FakeSignature }
+func (f Fake) Signature() (blst.Signature, error)           { return f.FakeSignature, nil }
 func (f Fake) PreValidate(_ *types.Committee, _ bool) error { return nil }
 func (f Fake) Validate() error                              { return nil }
 func (f Fake) SignatureInput() common.Hash                  { return f.FakeSignatureInput }
 func (f Fake) SignerKey() blst.PublicKey                    { return f.FakeSignerKey }
 func (f Fake) Verified() bool                               { return true }
 func (f Fake) PreVerified() bool                            { return true }
+func (f Fake) DecodeRLPPayload(payload []byte, _ common.Hash) error {
+	fake := &Fake{}
+	return rlp.DecodeBytes(payload, fake)
+}
 
 func NewFakePropose(f Fake) *Propose {
 	var vr int64
@@ -931,9 +1069,10 @@ func NewFakePropose(f Fake) *Propose {
 
 func NewFakePrevote(f Fake) *Prevote {
 	prevote := &Prevote{
-		value: f.FakeValue,
 		vote: vote{
+			value:   f.FakeValue,
 			signers: f.FakeSigners,
+			code:    PrevoteCode,
 			base: base{
 				round:          int64(f.FakeRound),
 				height:         f.FakeHeight,
@@ -952,9 +1091,10 @@ func NewFakePrevote(f Fake) *Prevote {
 
 func NewFakePrecommit(f Fake) *Precommit {
 	precommit := &Precommit{
-		value: f.FakeValue,
 		vote: vote{
 			signers: f.FakeSigners,
+			value:   f.FakeValue,
+			code:    PrecommitCode,
 			base: base{
 				round:          int64(f.FakeRound),
 				height:         f.FakeHeight,

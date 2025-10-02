@@ -1,7 +1,9 @@
 package backend
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"math/big"
@@ -23,6 +25,8 @@ import (
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/internal/testrand"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
+	"github.com/autonity/autonity/rlp"
 )
 
 var (
@@ -74,17 +78,18 @@ func mineOneBlock(t *testing.T, chain *core.BlockChain, backend *Backend) {
 
 // changes the signer key exploiting the Fake object. Makes it possible to arbitrarily control the outcome of the verification.
 func tweakPrevote(prevote *message.Prevote, key blst.PublicKey) *message.Prevote {
-	return message.NewFakePrevote(message.Fake{
+	fake := message.Fake{
 		FakeValue:          prevote.Value(),
 		FakeSigners:        prevote.Signers().Copy(),
 		FakeRound:          uint64(prevote.R()),
 		FakeHeight:         prevote.H(),
 		FakeSignatureInput: prevote.SignatureInput(),
-		FakeSignature:      prevote.Signature(),
 		FakePayload:        prevote.Payload(),
 		FakeHash:           prevote.Hash(),
 		FakeSignerKey:      key,
-	})
+	}
+	fake.FakeSignature, _ = prevote.Signature()
+	return message.NewFakePrevote(fake)
 }
 
 // waits for the condition function to be true, re-checking based on a ticker duration.
@@ -158,6 +163,7 @@ func TestAggregatorStartAndStop(t *testing.T) {
 	require.NotNil(t, backend.aggregator.internalCoreCh)
 	require.NotNil(t, backend.aggregator.internalFdCh)
 	require.NotNil(t, backend.aggregator.internalBacklogCh)
+	require.NotNil(t, backend.aggregator.computeWorkersCh)
 	time.Sleep(1 * time.Second)
 	require.NoError(t, backend.Close())
 	ctx, cancel := context.WithCancel(context.Background())
@@ -220,15 +226,17 @@ func TestAggregatorMessageHandling(t *testing.T) {
 
 		backendMock.EXPECT().CommitteeByHeight(gomock.Any()).Return(committee, nil).Times(1)
 		coreMock.EXPECT().Height().Return(new(big.Int).SetUint64(h)).Times(1)
+		backendMock.EXPECT().JailedCount().Return(0).Times(1)
 		coreMock.EXPECT().Round().Return(r).Times(1)
 
 		a := &aggregator{
-			messages:       make(map[uint64]map[int64]*RoundInfo),
-			messagesFrom:   make(map[common.Address][]common.Hash),
-			core:           coreMock,
-			backend:        backendMock,
-			logger:         log.Root(),
-			signerSetCache: newAggregatorCache(),
+			messages:         make(map[uint64]map[int64]*RoundInfo),
+			messagesFrom:     make(map[common.Address][]common.Hash),
+			core:             coreMock,
+			backend:          backendMock,
+			logger:           log.Root(),
+			signerSetCache:   newAggregatorCache(),
+			computeWorkersCh: make(chan events.UnverifiedMessageEvent, 100),
 		}
 
 		value := common.Hash{0xca, 0xfe}
@@ -397,6 +405,53 @@ func TestAggregatorMessageHandling(t *testing.T) {
 	})
 }
 
+func TestSignerJailed(t *testing.T) {
+	h := uint64(0)
+	r := int64(0)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	coreMock := interfaces.NewMockCore(ctrl)
+	backendMock := interfaces.NewMockBackend(ctrl)
+
+	backendMock.EXPECT().CommitteeByHeight(gomock.Any()).Return(committee, nil).Times(2)
+	coreMock.EXPECT().Height().Return(new(big.Int).SetUint64(h)).Times(2)
+	coreMock.EXPECT().Round().Return(r).Times(1)
+	backendMock.EXPECT().JailedCount().Return(1).Times(1)
+	backendMock.EXPECT().IsJailed(testCommitteeMember.Address).Return(true).Times(1)
+
+	a := &aggregator{
+		messages:         make(map[uint64]map[int64]*RoundInfo),
+		messagesFrom:     make(map[common.Address][]common.Hash),
+		core:             coreMock,
+		backend:          backendMock,
+		logger:           log.Root(),
+		signerSetCache:   newAggregatorCache(),
+		computeWorkersCh: make(chan events.UnverifiedMessageEvent, 100),
+	}
+
+	value := common.Hash{0xca, 0xfe}
+	prevote := message.NewPrevote(r, h, value, testSigner, testCommitteeMember, committee)
+
+	a.handleEvent(makeBogusEvent(prevote))
+
+	roundInfo := a.messages[h][r]
+	require.Nil(t, roundInfo, "vote from jailed signer should not be saved and ignored")
+
+	precommit := message.NewPrecommit(r, h, value, testSigner, &committee.Members[1], committee)
+	precommit.Signers().AddSigner(2)
+	backendMock.EXPECT().IsJailed(committee.Members[1].Address).Return(false).Times(1)
+	backendMock.EXPECT().IsJailed(committee.Members[2].Address).Return(true).Times(1)
+	backendMock.EXPECT().JailedCount().Return(2).Times(1)
+
+	a.handleEvent(makeBogusEvent(precommit))
+	roundInfo = a.messages[h][r]
+	require.NotNil(t, roundInfo, "vote from an aggregate signer including at least one non jailed signer should be saved ")
+	require.Equal(t, 1, len(roundInfo.precommits[value]))
+	require.Equal(t, precommit.Hash(), roundInfo.precommits[value][0].Message.Hash())
+}
+
 // old height messages should be buffered and processed periodically
 func TestAggregatorOldHeightMessage(t *testing.T) {
 	t.Run("Old height messages are buffered as stale", func(t *testing.T) {
@@ -409,14 +464,16 @@ func TestAggregatorOldHeightMessage(t *testing.T) {
 
 		backendMock := interfaces.NewMockBackend(ctrl)
 		backendMock.EXPECT().CommitteeByHeight(gomock.Any()).Return(committee, nil).AnyTimes()
+		backendMock.EXPECT().JailedCount().Return(0).AnyTimes()
 
 		a := &aggregator{
-			staleMessages:  make(map[common.Hash][]events.UnverifiedMessageEvent),
-			messagesFrom:   make(map[common.Address][]common.Hash),
-			core:           coreMock,
-			backend:        backendMock,
-			logger:         log.Root(),
-			signerSetCache: newAggregatorCache(),
+			staleMessages:    make(map[common.Hash][]events.UnverifiedMessageEvent),
+			messagesFrom:     make(map[common.Address][]common.Hash),
+			core:             coreMock,
+			backend:          backendMock,
+			logger:           log.Root(),
+			signerSetCache:   newAggregatorCache(),
+			computeWorkersCh: make(chan events.UnverifiedMessageEvent, 100),
 		}
 		prevote := message.NewPrevote(0, h-2, common.Hash{0xca, 0xfe}, testSigner, testCommitteeMember, committee)
 
@@ -467,7 +524,9 @@ func TestAggregatorOldHeightMessage(t *testing.T) {
 
 func TestAggregatorSaveMessage(t *testing.T) {
 	t.Run("Save prevote", func(t *testing.T) {
-		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo)}
+		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo),
+			computeWorkersCh: make(chan events.UnverifiedMessageEvent, 100),
+		}
 
 		r := int64(5)
 		h := uint64(0)
@@ -484,7 +543,9 @@ func TestAggregatorSaveMessage(t *testing.T) {
 		require.Equal(t, vote.Hash(), roundInfo.prevotes[value][0].Message.Hash())
 	})
 	t.Run("Save precommit", func(t *testing.T) {
-		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo)}
+		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo),
+			computeWorkersCh: make(chan events.UnverifiedMessageEvent, 100),
+		}
 
 		r := int64(5)
 		h := uint64(0)
@@ -501,7 +562,9 @@ func TestAggregatorSaveMessage(t *testing.T) {
 		require.Equal(t, vote.Hash(), roundInfo.precommits[value][0].Message.Hash())
 	})
 	t.Run("Save multiple message (individual and aggregates)", func(t *testing.T) {
-		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo)}
+		a := &aggregator{messages: make(map[uint64]map[int64]*RoundInfo),
+			computeWorkersCh: make(chan events.UnverifiedMessageEvent, 100),
+		}
 
 		r := int64(4)
 		h := uint64(2)
@@ -584,6 +647,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		internalCoreCh:    make(chan events.MessageEventer, 10),
 		internalFdCh:      make(chan events.MessageEventer, 10),
 		internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
+		computeWorkersCh:  make(chan events.UnverifiedMessageEvent, 100),
 	}
 
 	t.Run("equivocated votes dont trigger processing", func(t *testing.T) {
@@ -614,6 +678,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		voteBEvent := makeBogusEvent(voteB)
 
 		backendMock.EXPECT().DispatchToCore(gomock.Any()).Times(0)
+		backendMock.EXPECT().JailedCount().Return(0).AnyTimes()
 
 		a.signerSetCache.addVote(voteA, stepReceived)
 		a.handleVote(voteAEvent, committee)
@@ -640,6 +705,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		a.signerSetCache.markCommittee(h, committee)
 
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
+		backendMock.EXPECT().JailedCount().Return(0).AnyTimes()
 
 		singleVote := message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], committee)
 		singleVote.Signers().AddSigner(0)
@@ -681,6 +747,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		a.signerSetCache.markCommittee(h, committee)
 
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
+		backendMock.EXPECT().JailedCount().Return(0).AnyTimes()
 
 		voteA := message.NewPrecommit(r, h, value, testSigner, &committee.Members[0], committee)
 		voteA.Signers().AddSigner(0)
@@ -719,6 +786,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		a.signerSetCache.markCommittee(h, committee)
 
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
+		backendMock.EXPECT().JailedCount().Return(0).AnyTimes()
 		voteA := message.NewPrecommit(r, h, v, testSigner, &committee.Members[0], committee)
 		voteA.Signers().AddSigner(0)
 		voteA.Signers().AddSigner(1)
@@ -760,6 +828,7 @@ func TestAggregatorHandleVote(t *testing.T) {
 		a.signerSetCache.markCommittee(h, committee)
 
 		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
+		backendMock.EXPECT().JailedCount().Return(0).AnyTimes()
 		voteA := message.NewPrecommit(r, h, v, testSigner, &committee.Members[0], committee)
 		voteA.Signers().AddSigner(0)
 		voteA.Signers().AddSigner(1)
@@ -802,10 +871,11 @@ func TestAggregatorProcess(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 
 		a := &aggregator{
-			backend:        backendMock,
-			internalFdCh:   make(chan events.MessageEventer, 1),
-			internalCoreCh: make(chan events.MessageEventer, 1),
-			signerSetCache: newAggregatorCache(),
+			backend:          backendMock,
+			internalFdCh:     make(chan events.MessageEventer, 1),
+			internalCoreCh:   make(chan events.MessageEventer, 1),
+			signerSetCache:   newAggregatorCache(),
+			computeWorkersCh: make(chan events.UnverifiedMessageEvent, 100),
 		}
 		a.DispatchCoreEvents(context.Background())
 		backendMock.EXPECT().DispatchToCore(gomock.Any()).Times(1)
@@ -833,6 +903,7 @@ func TestAggregatorProcess(t *testing.T) {
 			internalFdCh:      make(chan events.MessageEventer, 10),
 			internalCoreCh:    make(chan events.MessageEventer, 10),
 			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
+			computeWorkersCh:  make(chan events.UnverifiedMessageEvent, 100),
 		}
 
 		for _, message := range messages {
@@ -866,6 +937,7 @@ func TestAggregatorProcess(t *testing.T) {
 			internalFdCh:      make(chan events.MessageEventer, 10),
 			internalCoreCh:    make(chan events.MessageEventer, 10),
 			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
+			computeWorkersCh:  make(chan events.UnverifiedMessageEvent, 100),
 		}
 
 		for _, message := range messages {
@@ -897,6 +969,7 @@ func TestAggregatorProcess(t *testing.T) {
 			internalFdCh:      make(chan events.MessageEventer, 10),
 			internalCoreCh:    make(chan events.MessageEventer, 10),
 			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
+			computeWorkersCh:  make(chan events.UnverifiedMessageEvent, 100),
 		}
 
 		for _, message := range messages {
@@ -927,6 +1000,7 @@ func TestAggregatorProcess(t *testing.T) {
 			internalCoreCh:    make(chan events.MessageEventer),
 			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
 			logger:            log.Root(),
+			computeWorkersCh:  make(chan events.UnverifiedMessageEvent, 100),
 		}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -979,6 +1053,7 @@ func TestAggregatorProcess(t *testing.T) {
 			internalFdCh:      make(chan events.MessageEventer, 10),
 			internalCoreCh:    make(chan events.MessageEventer, 10),
 			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
+			computeWorkersCh:  make(chan events.UnverifiedMessageEvent, 100),
 		}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -1032,6 +1107,68 @@ func TestAggregatorProcess(t *testing.T) {
 			return currentHeightEventBuilder(m, errCh, sender, false)
 		})
 	})
+	t.Run("ProcessBatch detects signature decode failures", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer waitForExpects(t, ctrl)
+
+		backendMock := interfaces.NewMockBackend(ctrl)
+
+		backendMock.EXPECT().DispatchToFD(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().DispatchToCore(gomock.Any()).AnyTimes()
+		backendMock.EXPECT().Address().Return(testAddress).AnyTimes()
+
+		a := &aggregator{
+			backend:           backendMock,
+			logger:            log.Root(),
+			signerSetCache:    newAggregatorCache(),
+			internalFdCh:      make(chan events.MessageEventer, 10),
+			internalCoreCh:    make(chan events.MessageEventer, 10),
+			internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
+			computeWorkersCh:  make(chan events.UnverifiedMessageEvent, 100),
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		a.DispatchCoreEvents(ctx)
+		a.DispatchFaultDetectorEvents(ctx)
+		a.signerSetCache.markCommittee(h, committee)
+
+		var batches [][]events.UnverifiedMessageEvent
+		prevote := message.NewPrevote(r, h, value, testSigner, testCommitteeMember, committee)
+
+		// invalid signature data
+		var fs [96]byte
+		_, err := rand.Read(fs[:])
+		require.NoError(t, err)
+		payload, _ := rlp.EncodeToBytes([]any{
+			prevote.Code(),
+			uint64(r),
+			h,
+			prevote.Value(),
+			prevote.Signers().Copy(),
+			fs, // invalid signature
+		})
+		reader := bytes.NewReader(payload)
+		size := len(payload)
+		p2pPrevote := p2p.Msg{Code: 0x12, Size: uint32(size), Payload: reader}
+
+		prevoteDec := new(message.Prevote)
+		s := rlp.NewStream(p2pPrevote.Payload, uint64(size))
+		if err := prevoteDec.DecodeRLP(s); err != nil {
+			t.Fatal("failed prevote decoding: ", err)
+		}
+
+		require.NoError(t, prevoteDec.PreValidate(committee, true))
+		batches = append(batches, []events.UnverifiedMessageEvent{
+			makeBogusEvent(prevoteDec), // INVALID
+		})
+
+		a.processBatches(batches, func(m message.Msg, errCh chan<- error, sender common.Address, _ bool) interface{} {
+			return currentHeightEventBuilder(m, errCh, sender, false)
+		})
+
+		roundInfo := a.messages[h][r]
+		require.Nil(t, roundInfo, "vote with invalid signature should not be stored")
+	})
 }
 
 func TestAggregatorFullFlow(t *testing.T) {
@@ -1049,6 +1186,7 @@ func TestAggregatorFullFlow(t *testing.T) {
 		backendMock.EXPECT().DispatchToFD(gomock.Any()).MaxTimes(1)
 		coreMock.EXPECT().Height().Return(big.NewInt(int64(h))).AnyTimes()
 		coreMock.EXPECT().Round().Return(r).AnyTimes()
+		backendMock.EXPECT().JailedCount().Return(0).Times(1)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -1100,6 +1238,7 @@ func TestAggregatorFullFlow(t *testing.T) {
 		backendMock.EXPECT().DispatchToFD(gomock.Any()).MaxTimes(1)
 		coreMock.EXPECT().Height().Return(big.NewInt(int64(h))).AnyTimes()
 		coreMock.EXPECT().Round().Return(r).AnyTimes()
+		backendMock.EXPECT().JailedCount().Return(0).AnyTimes()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -1158,6 +1297,7 @@ func TestAggregatorFullFlow(t *testing.T) {
 		backendMock.EXPECT().MinNonExpiredHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
 		coreMock.EXPECT().Height().Return(big.NewInt(int64(h))).AnyTimes()
 		coreMock.EXPECT().Round().Return(r).AnyTimes()
+		backendMock.EXPECT().JailedCount().Return(0).AnyTimes()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -1306,7 +1446,8 @@ func TestAggregatorDosProtection(t *testing.T) {
 
 	// mark msg from 0 as invalid
 	errCh := make(chan error, 1)
-	a.handleInvalidMessage(errCh, message.ErrBadSignature, zeroAddress)
+	event := events.UnverifiedMessageEvent{Message: votesFromZero[2], ErrCh: errCh, Sender: zeroAddress, Posted: time.Now()}
+	a.handleInvalidMessage(event, message.ErrBadSignature)
 	require.Equal(t, message.ErrBadSignature, <-errCh)
 	require.Equal(t, len(votesFromZero), len(a.toIgnore))
 
@@ -1372,6 +1513,7 @@ func setupTestAggregator(t *testing.T) (
 		internalBacklogCh: make(chan events.UnverifiedMessageEvent, 10),
 		signerSetCache:    newAggregatorCache(),
 		toIgnore:          make(map[common.Hash]struct{}),
+		computeWorkersCh:  make(chan events.UnverifiedMessageEvent, 100),
 	}
 	aggregatorMsgChan := make(chan events.UnverifiedMessageEvent, 10)
 

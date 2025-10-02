@@ -10,17 +10,17 @@ import (
 
 type base struct {
 	// populated at decoding phase
-	height         uint64
-	round          int64
+	height      uint64
+	round       int64
+	payload     []byte
+	hash        common.Hash
+	verified    bool
+	preverified bool
+
+	// populated on demand for votes
+	signerKey      blst.PublicKey
 	signatureInput common.Hash
 	signature      blst.Signature
-	payload        []byte
-	hash           common.Hash
-	verified       bool
-	preverified    bool
-
-	// populated on demand
-	signerKey blst.PublicKey
 }
 
 func (b *base) Verified() bool {
@@ -37,14 +37,6 @@ func (b *base) H() uint64 {
 
 func (b *base) R() int64 {
 	return b.round
-}
-
-func (b *base) SignatureInput() common.Hash {
-	return b.signatureInput
-}
-
-func (b *base) Signature() blst.Signature {
-	return b.signature
 }
 
 func (b *base) Payload() []byte {

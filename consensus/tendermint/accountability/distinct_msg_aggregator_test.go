@@ -249,7 +249,7 @@ func maliciousAggregatePrecommits(precommits []*message.Precommit, wrongHeight *
 			SignersCoeff: coeffs,
 		}
 		result.MsgSigners = append(result.MsgSigners, roundValueSigners)
-		signatures[i] = m.Signature()
+		signatures[i], _ = m.Signature()
 	}
 	result.Height = defaultHeight
 	result.Signature = blst.AggregateSignatures(signatures).Marshal()

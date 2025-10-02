@@ -159,8 +159,8 @@ type filteredCacheKey struct {
 }
 
 type aggregatorCache struct {
-	committeePowers map[uint64][]*big.Int              // the committee size used to create the bitmaps
-	voteCaches      map[uint8]map[cacheStep]*voteCache // code -> step -> vote cache
+	committeePowers map[uint64][]*big.Int   // the committee size used to create the bitmaps
+	voteCaches      map[uint8][2]*voteCache // code -> step -> vote cache
 
 	filterMu sync.RWMutex
 	filtered map[uint64]map[filteredCacheKey][]events.UnverifiedMessageEvent
@@ -169,7 +169,7 @@ type aggregatorCache struct {
 func newAggregatorCache() *aggregatorCache {
 	return &aggregatorCache{
 		committeePowers: make(map[uint64][]*big.Int),
-		voteCaches: map[uint8]map[cacheStep]*voteCache{
+		voteCaches: map[uint8][2]*voteCache{
 			message.PrecommitCode: {
 				stepReceived:   newVoteCache(),
 				stepDispatched: newVoteCache(),

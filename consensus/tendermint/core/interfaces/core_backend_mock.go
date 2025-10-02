@@ -311,6 +311,20 @@ func (mr *MockBackendMockRecorder) Jail(offender any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Jail", reflect.TypeOf((*MockBackend)(nil).Jail), offender)
 }
 
+// JailedCount mocks base method.
+func (m *MockBackend) JailedCount() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "JailedCount")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// JailedCount indicates an expected call of JailedCount.
+func (mr *MockBackendMockRecorder) JailedCount() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "JailedCount", reflect.TypeOf((*MockBackend)(nil).JailedCount))
+}
+
 // KnownMsgHash mocks base method.
 func (m *MockBackend) KnownMsgHash() []common.Hash {
 	m.ctrl.T.Helper()
