@@ -41,3 +41,39 @@ func TestAPI_AcnPeers(t *testing.T) {
 		require.True(t, peer.Network.Trusted)
 	}
 }
+
+func TestAPI_Versions(t *testing.T) {
+	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	err = network.WaitToMineNBlocks(5, 30, false)
+	require.NoError(t, err)
+
+	node := network[0]
+	apis := node.Eth.APIs()
+	var autContractAPI *eth.AutonityContractAPI
+	for _, api := range apis {
+		if api.Namespace == "aut" {
+			autContractAPI = api.Service.(*eth.AutonityContractAPI)
+			break
+		}
+	}
+	require.NotNil(t, autContractAPI)
+
+	versions, err := autContractAPI.ProtocolContractsVersions(nil)
+	require.NoError(t, err)
+	for _, version := range versions {
+		t.Log(version)
+	}
+
+	t.Log("protocol version")
+	version, err := autContractAPI.ProtocolVersion(nil)
+	require.NoError(t, err)
+	t.Log(version)
+
+	t.Log("ASM version")
+	version, err = autContractAPI.ASMVersion(nil)
+	require.NoError(t, err)
+	t.Log(version)
+}

@@ -748,36 +748,37 @@ func NewAccusationEvent(height uint64, value common.Hash, reporter common.Addres
 	}
 }
 
-func RandomValidator() (params.Validator, []byte, *ecdsa.PrivateKey, blst.SecretKey, error) {
-	var privateKey *ecdsa.PrivateKey
-	var secretKey blst.SecretKey
-	var err error
-	for {
-		privateKey, err = crypto.GenerateKey()
-		if err == nil {
-			break
-		}
+func RandomValidator() (params.Validator, []byte, *ecdsa.PrivateKey, *ecdsa.PrivateKey, blst.SecretKey, error) {
+	nodeKey, err := crypto.GenerateKey()
+	if err != nil {
+		return params.Validator{}, nil, nil, nil, nil, err
 	}
-	for {
-		secretKey, err = blst.RandKey()
-		if err == nil {
-			break
-		}
+	oracleKey, err := crypto.GenerateKey()
+	if err != nil {
+		return params.Validator{}, nil, nil, nil, nil, err
 	}
-	// ecdsaSecretKeyList[i] = privateKey
-	// blsSecretKeyList[i] = &secretKey
-	consensusKey := secretKey.PublicKey()
-	publicKey := privateKey.PublicKey
-	enode := "enode://" + string(crypto.PubECDSAToHex(&publicKey)[2:]) + "@3.209.45.79:30303"
-	address := crypto.PubkeyToAddress(publicKey)
+	treasuryKey, err := crypto.GenerateKey()
+	if err != nil {
+		return params.Validator{}, nil, nil, nil, nil, err
+	}
+	consensusKey, err := blst.RandKey()
+	if err != nil {
+		return params.Validator{}, nil, nil, nil, nil, err
+	}
+	enode := "enode://" + string(crypto.PubECDSAToHex(&nodeKey.PublicKey)[2:]) + "@3.209.45.79:30303"
+	oracleAddress := crypto.PubkeyToAddress(oracleKey.PublicKey)
+	treasuryAddress := crypto.PubkeyToAddress(treasuryKey.PublicKey)
 	validator := params.Validator{
-		Treasury:      address,
+		Treasury:      treasuryAddress,
 		Enode:         enode,
-		OracleAddress: address,
-		ConsensusKey:  consensusKey.Marshal(),
+		OracleAddress: oracleAddress,
+		ConsensusKey:  consensusKey.PublicKey().Marshal(),
 	}
-	pop, err := crypto.AutonityPOPProof(privateKey, privateKey, address.Hex(), secretKey)
-	return validator, pop, privateKey, secretKey, err
+	pop, err := crypto.AutonityPOPProof(nodeKey, oracleKey, treasuryAddress.Hex(), consensusKey)
+	if err != nil {
+		return params.Validator{}, nil, nil, nil, nil, err
+	}
+	return validator, pop, nodeKey, oracleKey, consensusKey, nil
 }
 
 // abi.encode(_reports, _salt, msg.sender) follows below encoding schema of the eth ABI specification.

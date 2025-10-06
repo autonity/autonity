@@ -16,6 +16,54 @@ import (
 	"github.com/autonity/autonity/params/generated"
 )
 
+// wrapper for protocol contract addresses, to easily access their "name"
+type ProtocolContract common.Address
+
+func (contract ProtocolContract) String() string {
+	switch common.Address(contract) {
+	case AutonityContractAddress:
+		return "AutonityContract"
+	case AccountabilityContractAddress:
+		return "AccountabilityContract"
+	case OracleContractAddress:
+		return "OracleContract"
+	case ACUContractAddress:
+		return "ACUContract"
+	case SupplyControlContractAddress:
+		return "SupplyControlContract"
+	case StabilizationContractAddress:
+		return "StabilizationContract"
+	case UpgradeManagerContractAddress:
+		return "UpgradeManagerContract"
+	case InflationControllerContractAddress:
+		return "InflationControllerContract"
+	case OmissionAccountabilityContractAddress:
+		return "OmissionAccountabilityContract"
+	case AuctioneerContractAddress:
+		return "AuctioneerContract"
+	case ASMGroupAddress:
+		return "ASMGroup"
+	case ProtocolGroupAddress:
+		return "ProtocolGroup"
+	default:
+		return "Unknown"
+	}
+}
+
+func (contract ProtocolContract) Address() common.Address {
+	return common.Address(contract)
+}
+
+type ProtocolContractVersion struct {
+	Hash     common.Hash      // == codeHash for a single contract, hash(codeHash1,codeHash2,...) for a contract group (e.g. ASM, all contracts)
+	Contract ProtocolContract // address for single contract, 0x000000 for a contract group (e.g. ASM, all contracts)
+	Version  string           // semver version string
+}
+
+func (contractVersion ProtocolContractVersion) String() string {
+	return fmt.Sprintf("%s-%s (address: %s hash: %s)", contractVersion.Contract.String(), contractVersion.Version, contractVersion.Contract.Address(), contractVersion.Hash)
+}
+
 var (
 	DecimalPrecision = int64(18)
 	SecondsInYear    = int64(365 * 24 * 60 * 60)
@@ -124,17 +172,97 @@ var (
 	OmissionAccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 8)
 	AuctioneerContractAddress             = crypto.CreateAddress(DeployerAddress, 9)
 
-	ProtocolContracts = []common.Address{
-		AutonityContractAddress,
-		AccountabilityContractAddress,
-		OracleContractAddress,
-		ACUContractAddress,
-		SupplyControlContractAddress,
-		StabilizationContractAddress,
-		UpgradeManagerContractAddress,
-		InflationControllerContractAddress,
-		OmissionAccountabilityContractAddress,
-		AuctioneerContractAddress,
+	// mock addresses for contract groups. Used for contract versioning purposes
+	ASMGroupAddress      = crypto.CreateAddress(DeployerAddress, math.MaxUint64-1)
+	ProtocolGroupAddress = crypto.CreateAddress(DeployerAddress, math.MaxUint64)
+
+	// NOTE: do not change order and add new contracts at the end if needed
+	// otherwise contract groups version hashes will change
+	ProtocolContracts = []ProtocolContract{
+		ProtocolContract(AutonityContractAddress),
+		ProtocolContract(AccountabilityContractAddress),
+		ProtocolContract(OracleContractAddress),
+		ProtocolContract(ACUContractAddress),
+		ProtocolContract(SupplyControlContractAddress),
+		ProtocolContract(StabilizationContractAddress),
+		ProtocolContract(UpgradeManagerContractAddress),
+		ProtocolContract(InflationControllerContractAddress),
+		ProtocolContract(OmissionAccountabilityContractAddress),
+		ProtocolContract(AuctioneerContractAddress),
+	}
+
+	ASMContracts = []ProtocolContract{
+		ProtocolContract(ACUContractAddress),
+		ProtocolContract(SupplyControlContractAddress),
+		ProtocolContract(StabilizationContractAddress),
+		ProtocolContract(InflationControllerContractAddress),
+		ProtocolContract(AuctioneerContractAddress),
+	}
+
+	// maps codeHash --> (contract,version)
+	// needs to be manually updated whenever there is an upgrade
+	VersionHistory = map[common.Hash]ProtocolContractVersion{
+		// version 1.0.0
+		common.HexToHash("0xc74124cdea7c515bdde48bdf65e6f2a4d0f8eab278c8a4abc22f236c4391482d"): {
+			Hash:     common.HexToHash("0xc74124cdea7c515bdde48bdf65e6f2a4d0f8eab278c8a4abc22f236c4391482d"),
+			Contract: ProtocolContract(AutonityContractAddress),
+			Version:  "1.0.0",
+		},
+		common.HexToHash("0x4adac12d20f59528a61862a990546fbf5c95620662ad11291ce5697cfd2df094"): {
+			Hash:     common.HexToHash("0x4adac12d20f59528a61862a990546fbf5c95620662ad11291ce5697cfd2df094"),
+			Contract: ProtocolContract(AccountabilityContractAddress),
+			Version:  "1.0.0",
+		},
+		common.HexToHash("0x2a7bd44f6a7f6299461120eab732bd69cd5cd6fe1b8057b543a1ca093cf72202"): {
+			Hash:     common.HexToHash("0x2a7bd44f6a7f6299461120eab732bd69cd5cd6fe1b8057b543a1ca093cf72202"),
+			Contract: ProtocolContract(OracleContractAddress),
+			Version:  "1.0.0",
+		},
+		common.HexToHash("0x21a1125b1e7f814d380048581c22818ec638d06d1975ea773377abf53425669f"): {
+			Hash:     common.HexToHash("0x21a1125b1e7f814d380048581c22818ec638d06d1975ea773377abf53425669f"),
+			Contract: ProtocolContract(ACUContractAddress),
+			Version:  "1.0.0",
+		},
+		common.HexToHash("0x5541ab53bd6b62c3d52d69fe47005fc2ad0bcbf0134f463e982504031dfb6620"): {
+			Hash:     common.HexToHash("0x5541ab53bd6b62c3d52d69fe47005fc2ad0bcbf0134f463e982504031dfb6620"),
+			Contract: ProtocolContract(SupplyControlContractAddress),
+			Version:  "1.0.0",
+		},
+		common.HexToHash("0x22e0af6bcfb03c7522336066558a6caae329385d8fe68d4a3d1e0e796a2f6187"): {
+			Hash:     common.HexToHash("0x22e0af6bcfb03c7522336066558a6caae329385d8fe68d4a3d1e0e796a2f6187"),
+			Contract: ProtocolContract(StabilizationContractAddress),
+			Version:  "1.0.0",
+		},
+		common.HexToHash("0xe372907e641e0f22d54a93466ce8487f9ecd1be2c6b8fc7fdad073451d00e0f2"): {
+			Hash:     common.HexToHash("0xe372907e641e0f22d54a93466ce8487f9ecd1be2c6b8fc7fdad073451d00e0f2"),
+			Contract: ProtocolContract(UpgradeManagerContractAddress),
+			Version:  "1.0.0",
+		},
+		common.HexToHash("0x00d2855a05fac35be477a8bd238bdd79535d372fedf5251300508be4c4eb76ff"): {
+			Hash:     common.HexToHash("0x00d2855a05fac35be477a8bd238bdd79535d372fedf5251300508be4c4eb76ff"),
+			Contract: ProtocolContract(InflationControllerContractAddress),
+			Version:  "1.0.0",
+		},
+		common.HexToHash("0x4118ecbe59133ce415ec85b037291963bd74a379887a24987f6d100f080ebf47"): {
+			Hash:     common.HexToHash("0x4118ecbe59133ce415ec85b037291963bd74a379887a24987f6d100f080ebf47"),
+			Contract: ProtocolContract(OmissionAccountabilityContractAddress),
+			Version:  "1.0.0",
+		},
+		common.HexToHash("0xad6401716eded73fe64060a1b24ac8b2a48044989123c7778715ef17510d8713"): {
+			Hash:     common.HexToHash("0xad6401716eded73fe64060a1b24ac8b2a48044989123c7778715ef17510d8713"),
+			Contract: ProtocolContract(AuctioneerContractAddress),
+			Version:  "1.0.0",
+		},
+		common.HexToHash("0x47854920b5e065a4fc10cf14c4029c8b477f96f6fbfa2100d7904e4b83f4a032"): {
+			Hash:     common.HexToHash("0x47854920b5e065a4fc10cf14c4029c8b477f96f6fbfa2100d7904e4b83f4a032"),
+			Contract: ProtocolContract(ProtocolGroupAddress),
+			Version:  "1.0.0",
+		},
+		common.HexToHash("0x194dba471e6af77d4012a15894673f962b4108892dd61043255ade30518f768b"): {
+			Hash:     common.HexToHash("0x194dba471e6af77d4012a15894673f962b4108892dd61043255ade30518f768b"),
+			Contract: ProtocolContract(ASMGroupAddress),
+			Version:  "1.0.0",
+		},
 	}
 )
 

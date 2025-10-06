@@ -355,6 +355,18 @@ var (
 		"3cfb95a9d463ee29b8470742a9718ef3298e04b367b7c796fe67cc693587d746",
 		"193f20ab2451ea4e4ba0aaf83b4cff335df716247359c98562f8da68e07f7c1d",
 	}
+	TestOracleKeys = []string{
+		"e9935bb6164c25cda9e49901e3dc268738c846a33bcb5bf954f85b931636da8d",
+		"28669780b394fea1b17f862199dc612de78b2423148b964ebadc1f50f142ff6a",
+		"f6e5051486f154a219065bbbb1cd154a866f7dcf95f5e3c7167f7b3de8f6e3d4",
+		"42d32c92f7cb12a9b2aa4f62024c0e2e301b56b56338f5960ce277b7fcf4e1d0",
+	}
+	TestTreasuryKeys = []string{
+		"7c586a3099da5f2c038dc896b847dbabb34a211fc0fb4ef2fd8b44eedb524f77",
+		"aa2728f9402f106c3a29e7fa5f2a425cf32291a4a15411f7c5a9e8ab42776420",
+		"827b4b3fc465bb0ffe1a643e05b4f3879ed8fb20772765b35ee28f0dcdf4caa3",
+		"131f5b68952aa8ef0b6b444784043ada354c91d23e9c0c98bdb2a1ff99395b68",
+	}
 	TestConsensusKeys = []string{
 		"0afbb1b94ac30db9e145eb30ee6b64d1996a31279e50005b2a470b18dae82bcb",
 		"3f0e004faa78fde4627834285760652f71a85942f10b354b67dc55ea494c4e8f",
@@ -455,12 +467,21 @@ func init() {
 	// Setup the validators in TestAutonityContractConfig
 	for i := range TestNodeKeys {
 		validator := TestValidatorBase
+
 		nodeKey, _ := crypto.HexToECDSA(TestNodeKeys[i])
-		address := crypto.PubkeyToAddress(nodeKey.PublicKey)
-		validator.NodeAddress = &address
-		validator.Treasury = address
-		validator.OracleAddress = address
+		nodeAddress := crypto.PubkeyToAddress(nodeKey.PublicKey)
+
+		oracleKey, _ := crypto.HexToECDSA(TestOracleKeys[i])
+		oracleAddress := crypto.PubkeyToAddress(oracleKey.PublicKey)
+
+		treasuryKey, _ := crypto.HexToECDSA(TestTreasuryKeys[i])
+		treasuryAddress := crypto.PubkeyToAddress(treasuryKey.PublicKey)
+
+		validator.NodeAddress = &nodeAddress
+		validator.Treasury = treasuryAddress
+		validator.OracleAddress = oracleAddress
 		validator.Enode = enode.NewV4(&nodeKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0).URLv4()
+
 		consensusKey, _ := blst.SecretKeyFromHex(TestConsensusKeys[i])
 		validator.ConsensusKey = consensusKey.PublicKey().Marshal()
 		TestAutonityContractConfig.Validators = append(TestAutonityContractConfig.Validators, &validator)

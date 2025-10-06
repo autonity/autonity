@@ -25,10 +25,12 @@ import (
 	"math/big"
 	"os"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/autonity/autonity/autonity/bindings"
+	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
@@ -603,6 +605,7 @@ func (api *PrivateDebugAPI) GetAccessibleState(from, to rpc.BlockNumber) (uint64
 	return 0, fmt.Errorf("No state found")
 }
 
+// TODO: this name is not really accurate anymore
 // AutonityContractAPI implements rpc.Methods to expose view functions of the
 // autonity contract through the rpc api. Note, although it looks like this
 // struct would be better defined in the rpc package or in the autonity
@@ -628,6 +631,83 @@ func (a *AutonityContractAPI) Address() common.Address {
 
 func (a *AutonityContractAPI) AcnPeers() []*p2p.PeerInfo {
 	return a.server.PeersInfo()
+}
+
+func (a *AutonityContractAPI) ProtocolContractsVersions(number *rpc.BlockNumber) ([]params.ProtocolContractVersion, error) {
+	return a.protocolContractsVersions(number)
+}
+
+func getVersion(contract params.ProtocolContract, hash common.Hash) params.ProtocolContractVersion {
+	version, found := params.VersionHistory[hash]
+	if !found {
+		version = params.ProtocolContractVersion{
+			Hash:     hash,
+			Contract: contract,
+			Version:  "undefined",
+		}
+	}
+	return version
+}
+
+func (a *AutonityContractAPI) protocolContractsVersions(number *rpc.BlockNumber) ([]params.ProtocolContractVersion, error) {
+	var header *types.Header
+	if number == nil || *number == rpc.PendingBlockNumber || *number == rpc.LatestBlockNumber {
+		header = a.bc.CurrentHeader()
+	} else {
+		header = a.bc.GetHeaderByNumber(uint64(*number))
+	}
+	if header == nil {
+		return nil, fmt.Errorf("header not found")
+	}
+	st, err := a.bc.StateAt(header.Root)
+	if err != nil {
+		return nil, err
+	}
+	versions := make([]params.ProtocolContractVersion, 0, len(params.ProtocolContracts))
+	for _, contract := range params.ProtocolContracts {
+		hash := st.GetCodeHash(contract.Address())
+
+		versions = append(versions, getVersion(contract, hash))
+	}
+	return versions, nil
+}
+
+func (a *AutonityContractAPI) ProtocolVersion(number *rpc.BlockNumber) (*params.ProtocolContractVersion, error) {
+	versions, err := a.protocolContractsVersions(number)
+	if err != nil {
+		return nil, err
+	}
+
+	hashesConcat := make([]byte, 0, len(versions)*common.HashLength)
+	for _, version := range versions {
+		hashesConcat = append(hashesConcat, version.Hash.Bytes()...)
+	}
+
+	protocolHash := crypto.Keccak256Hash(hashesConcat)
+	version := getVersion(params.ProtocolContract(params.ProtocolGroupAddress), protocolHash)
+
+	return &version, nil
+}
+
+func (a *AutonityContractAPI) ASMVersion(number *rpc.BlockNumber) (*params.ProtocolContractVersion, error) {
+	versions, err := a.protocolContractsVersions(number)
+	if err != nil {
+		return nil, err
+	}
+
+	hashesConcat := make([]byte, 0, len(versions)*common.HashLength)
+	for _, version := range versions {
+		// filter out non-ASM contracts
+		if !slices.Contains(params.ASMContracts, version.Contract) {
+			continue
+		}
+		hashesConcat = append(hashesConcat, version.Hash.Bytes()...)
+	}
+
+	protocolHash := crypto.Keccak256Hash(hashesConcat)
+	version := getVersion(params.ProtocolContract(params.ASMGroupAddress), protocolHash)
+
+	return &version, nil
 }
 
 // NewAutonityContractAPI builds a map of function name to method representing
