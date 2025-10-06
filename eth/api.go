@@ -637,14 +637,17 @@ func (a *AutonityContractAPI) ProtocolContractsVersions(number *rpc.BlockNumber)
 	return a.protocolContractsVersions(number)
 }
 
-func getVersion(contract params.ProtocolContract, hash common.Hash) params.ProtocolContractVersion {
-	version, found := params.VersionHistory[hash]
-	if !found {
-		version = params.ProtocolContractVersion{
-			Hash:     hash,
-			Contract: contract,
-			Version:  "undefined",
-		}
+func (a *AutonityContractAPI) getVersion(contract params.ProtocolContract, hash common.Hash) params.ProtocolContractVersion {
+	version := params.ProtocolContractVersion{
+		Hash:     hash,
+		Contract: contract,
+	}
+
+	versionString, err := a.ac.GetVersion(nil, hash)
+	if versionString == "" || err != nil {
+		version.Version = "undefined"
+	} else {
+		version.Version = versionString
 	}
 	return version
 }
@@ -654,7 +657,8 @@ func (a *AutonityContractAPI) protocolContractsVersions(number *rpc.BlockNumber)
 	if number == nil || *number == rpc.PendingBlockNumber || *number == rpc.LatestBlockNumber {
 		header = a.bc.CurrentHeader()
 	} else {
-		header = a.bc.GetHeaderByNumber(uint64(*number))
+		// TODO: can number be < -2 or is it checked at decoding
+		header = a.bc.GetHeaderByNumber(uint64(*number)) //nolint:gosec
 	}
 	if header == nil {
 		return nil, fmt.Errorf("header not found")
@@ -667,7 +671,7 @@ func (a *AutonityContractAPI) protocolContractsVersions(number *rpc.BlockNumber)
 	for _, contract := range params.ProtocolContracts {
 		hash := st.GetCodeHash(contract.Address())
 
-		versions = append(versions, getVersion(contract, hash))
+		versions = append(versions, a.getVersion(contract, hash))
 	}
 	return versions, nil
 }
@@ -684,7 +688,7 @@ func (a *AutonityContractAPI) ProtocolVersion(number *rpc.BlockNumber) (*params.
 	}
 
 	protocolHash := crypto.Keccak256Hash(hashesConcat)
-	version := getVersion(params.ProtocolContract(params.ProtocolGroupAddress), protocolHash)
+	version := a.getVersion(params.ProtocolContract(params.ProtocolGroupAddress), protocolHash)
 
 	return &version, nil
 }
@@ -705,7 +709,7 @@ func (a *AutonityContractAPI) ASMVersion(number *rpc.BlockNumber) (*params.Proto
 	}
 
 	protocolHash := crypto.Keccak256Hash(hashesConcat)
-	version := getVersion(params.ProtocolContract(params.ASMGroupAddress), protocolHash)
+	version := a.getVersion(params.ProtocolContract(params.ASMGroupAddress), protocolHash)
 
 	return &version, nil
 }

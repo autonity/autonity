@@ -65,15 +65,18 @@ func TestAPI_Versions(t *testing.T) {
 	require.NoError(t, err)
 	for _, version := range versions {
 		t.Log(version)
+		require.NotEqual(t, "undefined", version.Version)
 	}
 
 	t.Log("protocol version")
 	version, err := autContractAPI.ProtocolVersion(nil)
 	require.NoError(t, err)
 	t.Log(version)
+	require.NotEqual(t, "undefined", version.Version)
 
 	t.Log("ASM version")
 	version, err = autContractAPI.ASMVersion(nil)
 	require.NoError(t, err)
 	t.Log(version)
+	require.NotEqual(t, "undefined", version.Version)
 }

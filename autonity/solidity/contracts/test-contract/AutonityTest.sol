@@ -58,6 +58,10 @@ contract AutonityTest is Autonity {
      return tailBondingID;
    }
 
+    function performRedistribution(uint256 _atn, uint256 _ntn) external {
+        _performRedistribution(_atn,_ntn);
+    }
+
    function getLastUnlockedUnbonding() public view returns (uint256) {
      return lastUnlockedUnbonding;     
    }

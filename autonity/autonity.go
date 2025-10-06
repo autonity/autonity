@@ -10,6 +10,7 @@ import (
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity/bindings"
+	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/rawdb"
@@ -101,6 +102,7 @@ type AutonityContract struct {
 type ProtocolContracts struct {
 	*AutonityContract
 	*bindings.Accountability
+	*bindings1.UpgradeManager
 }
 
 func NewProtocolContracts(
@@ -144,9 +146,16 @@ func NewProtocolContracts(
 		return nil, err
 	}
 
+	// bind to upgrade manager contract with 1/ bindings
+	upgradeManagerContract, err := bindings1.NewUpgradeManager(params.UpgradeManagerContractAddress, contractBackend)
+	if err != nil {
+		return nil, err
+	}
+
 	contract := ProtocolContracts{
 		AutonityContract: autonityContract,
 		Accountability:   accountabilityContract,
+		UpgradeManager:   upgradeManagerContract,
 	}
 
 	return &contract, nil

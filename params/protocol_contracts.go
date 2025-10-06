@@ -56,7 +56,7 @@ func (contract ProtocolContract) Address() common.Address {
 
 type ProtocolContractVersion struct {
 	Hash     common.Hash      // == codeHash for a single contract, hash(codeHash1,codeHash2,...) for a contract group (e.g. ASM, all contracts)
-	Contract ProtocolContract // address for single contract, 0x000000 for a contract group (e.g. ASM, all contracts)
+	Contract ProtocolContract // address for single contract, "reference" addr for a contract group (e.g. ASM, all contracts)
 	Version  string           // semver version string
 }
 
@@ -197,72 +197,6 @@ var (
 		ProtocolContract(StabilizationContractAddress),
 		ProtocolContract(InflationControllerContractAddress),
 		ProtocolContract(AuctioneerContractAddress),
-	}
-
-	// maps codeHash --> (contract,version)
-	// needs to be manually updated whenever there is an upgrade
-	VersionHistory = map[common.Hash]ProtocolContractVersion{
-		// version 1.0.0
-		common.HexToHash("0xc74124cdea7c515bdde48bdf65e6f2a4d0f8eab278c8a4abc22f236c4391482d"): {
-			Hash:     common.HexToHash("0xc74124cdea7c515bdde48bdf65e6f2a4d0f8eab278c8a4abc22f236c4391482d"),
-			Contract: ProtocolContract(AutonityContractAddress),
-			Version:  "1.0.0",
-		},
-		common.HexToHash("0x4adac12d20f59528a61862a990546fbf5c95620662ad11291ce5697cfd2df094"): {
-			Hash:     common.HexToHash("0x4adac12d20f59528a61862a990546fbf5c95620662ad11291ce5697cfd2df094"),
-			Contract: ProtocolContract(AccountabilityContractAddress),
-			Version:  "1.0.0",
-		},
-		common.HexToHash("0x2a7bd44f6a7f6299461120eab732bd69cd5cd6fe1b8057b543a1ca093cf72202"): {
-			Hash:     common.HexToHash("0x2a7bd44f6a7f6299461120eab732bd69cd5cd6fe1b8057b543a1ca093cf72202"),
-			Contract: ProtocolContract(OracleContractAddress),
-			Version:  "1.0.0",
-		},
-		common.HexToHash("0x21a1125b1e7f814d380048581c22818ec638d06d1975ea773377abf53425669f"): {
-			Hash:     common.HexToHash("0x21a1125b1e7f814d380048581c22818ec638d06d1975ea773377abf53425669f"),
-			Contract: ProtocolContract(ACUContractAddress),
-			Version:  "1.0.0",
-		},
-		common.HexToHash("0x5541ab53bd6b62c3d52d69fe47005fc2ad0bcbf0134f463e982504031dfb6620"): {
-			Hash:     common.HexToHash("0x5541ab53bd6b62c3d52d69fe47005fc2ad0bcbf0134f463e982504031dfb6620"),
-			Contract: ProtocolContract(SupplyControlContractAddress),
-			Version:  "1.0.0",
-		},
-		common.HexToHash("0x22e0af6bcfb03c7522336066558a6caae329385d8fe68d4a3d1e0e796a2f6187"): {
-			Hash:     common.HexToHash("0x22e0af6bcfb03c7522336066558a6caae329385d8fe68d4a3d1e0e796a2f6187"),
-			Contract: ProtocolContract(StabilizationContractAddress),
-			Version:  "1.0.0",
-		},
-		common.HexToHash("0xe372907e641e0f22d54a93466ce8487f9ecd1be2c6b8fc7fdad073451d00e0f2"): {
-			Hash:     common.HexToHash("0xe372907e641e0f22d54a93466ce8487f9ecd1be2c6b8fc7fdad073451d00e0f2"),
-			Contract: ProtocolContract(UpgradeManagerContractAddress),
-			Version:  "1.0.0",
-		},
-		common.HexToHash("0x00d2855a05fac35be477a8bd238bdd79535d372fedf5251300508be4c4eb76ff"): {
-			Hash:     common.HexToHash("0x00d2855a05fac35be477a8bd238bdd79535d372fedf5251300508be4c4eb76ff"),
-			Contract: ProtocolContract(InflationControllerContractAddress),
-			Version:  "1.0.0",
-		},
-		common.HexToHash("0x4118ecbe59133ce415ec85b037291963bd74a379887a24987f6d100f080ebf47"): {
-			Hash:     common.HexToHash("0x4118ecbe59133ce415ec85b037291963bd74a379887a24987f6d100f080ebf47"),
-			Contract: ProtocolContract(OmissionAccountabilityContractAddress),
-			Version:  "1.0.0",
-		},
-		common.HexToHash("0xad6401716eded73fe64060a1b24ac8b2a48044989123c7778715ef17510d8713"): {
-			Hash:     common.HexToHash("0xad6401716eded73fe64060a1b24ac8b2a48044989123c7778715ef17510d8713"),
-			Contract: ProtocolContract(AuctioneerContractAddress),
-			Version:  "1.0.0",
-		},
-		common.HexToHash("0x47854920b5e065a4fc10cf14c4029c8b477f96f6fbfa2100d7904e4b83f4a032"): {
-			Hash:     common.HexToHash("0x47854920b5e065a4fc10cf14c4029c8b477f96f6fbfa2100d7904e4b83f4a032"),
-			Contract: ProtocolContract(ProtocolGroupAddress),
-			Version:  "1.0.0",
-		},
-		common.HexToHash("0x194dba471e6af77d4012a15894673f962b4108892dd61043255ade30518f768b"): {
-			Hash:     common.HexToHash("0x194dba471e6af77d4012a15894673f962b4108892dd61043255ade30518f768b"),
-			Contract: ProtocolContract(ASMGroupAddress),
-			Version:  "1.0.0",
-		},
 	}
 )
 

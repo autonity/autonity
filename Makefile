@@ -18,8 +18,10 @@ ABIGEN_BINARY = $(BINDIR)/abigen
 
 CONTRACTS_BASE_DIR = ./autonity/solidity
 CONTRACTS_DIR = $(CONTRACTS_BASE_DIR)/contracts
+CONTRACTS_UPGRADES_DIR = $(CONTRACTS_BASE_DIR)/contracts/upgrades
 CONTRACTS_TEST_DIR = $(CONTRACTS_BASE_DIR)/test
 GENERATED_CONTRACT_DIR = ./params/generated
+GENERATED_CONTRACT_UPGRADES_DIR = ./params/upgrades/generated
 
 # DOCKER_SUDO is set to either the empty string or "sudo" and is used to
 # control whether docker is executed with sudo or not. If the user is root or
@@ -64,7 +66,7 @@ autonity-docker:
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
 define gen-contract
-	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin --userdoc --devdoc -o $(GENERATED_CONTRACT_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
+	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin --bin-runtime --userdoc --devdoc -o $(GENERATED_CONTRACT_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
 
 	@echo Generating bytecode for $(2)
 	@echo 'package generated' > $(GENERATED_CONTRACT_DIR)/$(2).go
@@ -73,20 +75,69 @@ define gen-contract
 	@echo '' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@echo '	"github.com/autonity/autonity/accounts/abi"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@echo '	"github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@echo '	"github.com/autonity/autonity/crypto"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@echo ')' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
 	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@cat $(GENERATED_CONTRACT_DIR)/$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@printf '")\n\n' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 
+	@echo -n 'var $(2)RuntimeBytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@cat $(GENERATED_CONTRACT_DIR)/$(2).bin-runtime >> $(GENERATED_CONTRACT_DIR)/$(2).go
+	@printf '")\n\n' >> $(GENERATED_CONTRACT_DIR)/$(2).go
+
+	@echo "var $(2)CodeHash = crypto.Keccak256Hash($(2)RuntimeBytecode)\n" >> $(GENERATED_CONTRACT_DIR)/$(2).go
+
 	@echo Generating Abi for $(2)
 	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@cat  $(GENERATED_CONTRACT_DIR)/$(2).abi | json_pp  >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@echo '`))' >> $(GENERATED_CONTRACT_DIR)/$(2).go
 	@gofmt -s -w $(GENERATED_CONTRACT_DIR)/$(2).go
-
 endef
 
+# TODO: merge with the previous one?
+
+# NOTE: the sed substitution is required to generate the same runtime bytecode that got deployed on mainnet.
+# it simply substitutes the metadata hash of the oracle upgraded bytecode with the metadata hash used on mainnet.
+# the hashes are different because the mainnet upgrade had been built in the `autonity/solidity/contracts/` folder.
+# for more details see https://docs.soliditylang.org/en/latest/metadata.html
+define gen-contract-upgrade
+	mkdir -p $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)
+
+	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin --bin-runtime --userdoc --devdoc -o $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1) $(CONTRACTS_UPGRADES_DIR)/$(1)/$(2).sol
+
+	if [ $(1) -eq 0 ]; then \
+		sed -i s/7930f4e16579d0dcad104bc3e6919c8d61db56398ae6bcf867887aad2c0ce2df/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).bin $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).bin-runtime; \
+	fi
+
+	@echo Generating bytecode for upgrade $(1)/$(2)
+	@echo 'package generated$(1)' > $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@echo 'import (' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@echo '	"strings"' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@echo '' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@echo '	"github.com/autonity/autonity/accounts/abi"' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@echo '	"github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@echo '	"github.com/autonity/autonity/crypto"' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@echo ')' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+
+	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@cat $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).bin >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@printf '")\n\n' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+
+	@echo -n 'var $(2)RuntimeBytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@cat $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).bin-runtime >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@printf '")\n\n' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+
+	@echo "var $(2)CodeHash = crypto.Keccak256Hash($(2)RuntimeBytecode)\n" >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+
+	@echo Generating Abi for $(1)/$(2)
+	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@cat  $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).abi | json_pp  >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@echo '`))' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@gofmt -s -w $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+endef
+
+# TODO: maybe this can be done via a loop or smth instead of manually
 contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BINARY)
 	@$(call gen-contract,,Autonity)
 	@$(call gen-contract,,Oracle)
@@ -101,14 +152,40 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,test-contract/,AccountabilityTest)
 	@$(call gen-contract,test-contract/,AutonityTest)
 	@$(call gen-contract,test-contract/,AutonityUpgradeTest)
+	@$(call gen-contract,test-contract/,OmissionAccountabilityTest)
+	# upgraded contracts
+	@$(call gen-contract-upgrade,0,Oracle)
+	@$(call gen-contract-upgrade,1,UpgradeManager)
 	# update 4byte selector for clef
 	./build/generate_4bytedb.sh $(SOLC_BINARY)
 	cd signer/fourbyte && go generate
 	# Generate go bindings
-	@echo Generating protocol contracts bindings
+	@echo "Generating protocol contracts bindings"
 	$(ABIGEN_BINARY)  --pkg bindings --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings/bindings.sol --out ./autonity/bindings/bindings.go
-	@echo Generating internal testing bindings
+	@echo "Generating internal testing bindings"
 	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings/bindings.sol --out ./autonity/tests/bindings.go
+
+	# Generate go bindings for oracle contract v1.0.1
+	@# NOTE: the sed substitution is required to generate the same runtime bytecode that got deployed on mainnet.
+	@# it simply substitutes the metadata hash of the oracle upgraded bytecode with the metadata hash used on mainnet.
+	@# the hashes are different because the mainnet upgrade had been built in the `autonity/solidity/contracts/` folder.
+	@# for more details see https://docs.soliditylang.org/en/latest/metadata.html
+	@echo "Generating protocol contracts bindings for oracle contract v1.0.1"
+	mkdir -p ./autonity/bindings/0
+	$(ABIGEN_BINARY)  --pkg bindings0 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/0/Oracle.sol --out ./autonity/bindings/0/bindings.go
+	@sed -i s/7930f4e16579d0dcad104bc3e6919c8d61db56398ae6bcf867887aad2c0ce2df/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/0/bindings.go
+	@echo "Generating internal testing bindings for oracle contract v1.0.1"
+	mkdir -p ./autonity/tests/0
+	$(ABIGEN_BINARY)  --test --pkg tests0 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/0/Oracle.sol --out ./autonity/tests/0/bindings.go
+	@sed -i s/7930f4e16579d0dcad104bc3e6919c8d61db56398ae6bcf867887aad2c0ce2df/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/tests/0/bindings.go
+
+	# Generate go bindings for upgrade manager v1.1.0
+	@echo "Generating protocol contracts bindings for upgrade manager v1.1.0"
+	mkdir -p ./autonity/bindings/1
+	$(ABIGEN_BINARY)  --pkg bindings1 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/1/UpgradeManager.sol --out ./autonity/bindings/1/bindings.go
+	@echo "Generating internal testing bindings for upgrade manager v1.1.0"
+	mkdir -p ./autonity/tests/1
+	$(ABIGEN_BINARY)  --test --pkg tests1 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/1/UpgradeManager.sol --out ./autonity/tests/1/bindings.go
 
 $(SOLC_BINARY):
 	mkdir -p $(BINDIR)

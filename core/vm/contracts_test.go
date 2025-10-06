@@ -733,7 +733,7 @@ func TestUpgradeContract(t *testing.T) {
 		for i := range params.ProtocolContracts {
 			statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
 			evm := NewEVM(BlockContext{}, TxContext{}, statedb, params.TestChainConfig, Config{})
-			_, _, err := RunPrecompiledContract(&Upgrader{}, createInput(params.ProtocolContracts[i]), math.MaxUint64, 3, evm, params.UpgradeManagerContractAddress)
+			_, _, err := RunPrecompiledContract(&Upgrader{}, createInput(params.ProtocolContracts[i].Address()), math.MaxUint64, 3, evm, params.UpgradeManagerContractAddress)
 			require.NoError(t, err)
 		}
 	})

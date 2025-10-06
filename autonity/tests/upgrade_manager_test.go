@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"bytes"
+	"math"
 	"math/big"
 	"testing"
 
@@ -8,7 +10,8 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/params"
-
+	generated0 "github.com/autonity/autonity/params/upgrades/generated/0"
+	generated1 "github.com/autonity/autonity/params/upgrades/generated/1"
 	"github.com/stretchr/testify/require"
 )
 
@@ -103,4 +106,28 @@ func TestUpgrade(t *testing.T) {
 		balance, _, _ := r.Autonity.BalanceOf(nil, User)
 		require.Equal(r.T, balance.Uint64(), big.NewInt(100).Uint64())
 	})
+
+	r.Run("upgrade the upgrade manager itself", func(r *Runner) {
+		_, err := r.UpgradeManager.Upgrade(r.Operator, r.UpgradeManager.address, string(generated1.UpgradeManagerBytecode))
+		require.NoError(r.T, err)
+
+		// TODO: set and fetch versions
+
+	})
+}
+
+// tests that manually patched oracle deployment bytecode returns
+// the correct runtime bytecode ( == to the one deployed on mainnet)
+func TestOracleUpgradePatchedBytecode(t *testing.T) {
+	r := Setup(t, nil)
+
+	evmContract := vm.NewContract(vm.AccountRef(params.DeployerAddress), vm.AccountRef(params.OracleContractAddress), common.Big0, math.MaxUint64)
+	evmContract.Code = generated0.OracleBytecode
+	evmContract.CodeAddr = &params.OracleContractAddress
+
+	// run deployment bytecode to get runtime bytecode
+	ret, err := r.Evm.Interpreter().Run(evmContract, nil, false)
+	require.NoError(t, err)
+	// should be equal to the patched one
+	require.True(t, bytes.Equal(ret, generated0.OracleRuntimeBytecode))
 }

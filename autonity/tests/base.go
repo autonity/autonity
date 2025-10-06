@@ -111,10 +111,11 @@ type Runner struct {
 	Evm     *vm.EVM
 	Origin  common.Address // session's sender, can be overridden via runOptions
 	Tracing bool
+	Config  *params.ChainConfig // read-only copy of the deployed chain
 
 	// protocol contracts
 	// todo: see if genesis deployment flow can be abstracted somehow
-	Autonity               *Autonity
+	Autonity               *AutonityTest
 	Accountability         *Accountability
 	Oracle                 *Oracle
 	Acu                    *ACU
@@ -350,7 +351,7 @@ func (r *Runner) FinalizeBlock() {
 	require.NoError(r.T, err)
 	_, err = r.Autonity.Finalize(&runOptions{origin: common.Address{}})
 	// consider monitoring gas cost here and fail if it's too much
-	require.NoError(r.T, err, "finalize function error in block", r.Evm.Context.BlockNumber)
+	require.NoError(r.T, err, fmt.Sprintf("finalize error in block %s: %v", r.Evm.Context.BlockNumber.String(), err))
 	r.Evm.Context.BlockNumber = new(big.Int).Add(r.Evm.Context.BlockNumber, common.Big1)
 	r.Evm.Context.Time = new(big.Int).Add(r.Evm.Context.Time, common.Big1)
 	// clean up activity proof related data
@@ -554,6 +555,7 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	genesisConfig.Config.AutonityContractConfig = autonityGenesis
 
 	genesisConfig.Config.SetDefaults()
+	r.Config = genesisConfig.Config
 
 	//
 	// Step 1: Execute test genesis sequence
@@ -566,7 +568,7 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	// Step 2: Setup internal bindings
 	//
 
-	r.Autonity = &Autonity{&contract{
+	r.Autonity = &AutonityTest{&contract{
 		params.AutonityContractAddress,
 		&generated.AutonityTestAbi,
 		r,
