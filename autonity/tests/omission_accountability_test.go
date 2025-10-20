@@ -654,9 +654,9 @@ func TestOmissionPunishments(t *testing.T) {
 
 	// wait that the jailing finishes and reactivate validators
 	r.WaitNBlocks(initialJailingPeriod)
-	_, err = r.Autonity.ActivateValidator(&runOptions{origin: val1Treasury}, val1Address)
+	_, err = r.Autonity.ActivateValidator(&RunOptions{origin: val1Treasury}, val1Address)
 	require.NoError(r.T, err)
-	_, err = r.Autonity.ActivateValidator(&runOptions{origin: val2Treasury}, val2Address)
+	_, err = r.Autonity.ActivateValidator(&RunOptions{origin: val2Treasury}, val2Address)
 	require.NoError(r.T, err)
 
 	// pass some epochs, probation period should decrease
@@ -689,7 +689,7 @@ func TestOmissionPunishments(t *testing.T) {
 	}
 	val1 := validator(r, val1Address)
 	totalSlashedVal1 := val1.TotalSlashed
-	_, err = r.Autonity.Jail(&runOptions{origin: accountabilityTest.address}, val1Address, new(big.Int).SetUint64(uint64(omissionEpochPeriod*10)), jailed)
+	_, err = r.Autonity.Jail(&RunOptions{origin: accountabilityTest.address}, val1Address, new(big.Int).SetUint64(uint64(omissionEpochPeriod*10)), jailed)
 	require.NoError(t, err)
 	_, err = accountabilityTest.AddBeneficiary(nil, val1Address, proposer)
 	require.NoError(t, err)
@@ -781,7 +781,7 @@ func TestProposerRewardDistribution(t *testing.T) {
 		t.Logf("atn balance before: %s, ntn balance before %s", toString(atnBalanceBefore), toString(stakesBefore))
 
 		// set validator state to jailed so that he will not receive any reward other the proposer one
-		_, err = r.Autonity.Jail(&runOptions{origin: accountabilityTest.address}, proposer, new(big.Int).SetUint64(uint64(omissionEpochPeriod*10)), jailed)
+		_, err = r.Autonity.Jail(&RunOptions{origin: accountabilityTest.address}, proposer, new(big.Int).SetUint64(uint64(omissionEpochPeriod*10)), jailed)
 		require.NoError(t, err)
 		_, err = accountabilityTest.AddBeneficiary(nil, proposer, r.Committee.Validators[1].NodeAddress)
 		require.NoError(t, err)
@@ -875,7 +875,7 @@ func TestProposerRewardDistribution(t *testing.T) {
 
 		// _, err = r.Autonity.Mint(r.Operator, r.OmissionAccountability.address, simulatedNtnRewards)
 		// require.NoError(r.T, err)
-		// _, err = r.OmissionAccountability.DistributeProposerRewards(&runOptions{origin: r.Autonity.address, value: simulatedAtnRewards}, simulatedNtnRewards)
+		// _, err = r.OmissionAccountability.DistributeProposerRewards(&RunOptions{origin: r.Autonity.address, value: simulatedAtnRewards}, simulatedNtnRewards)
 		// require.NoError(t, err)
 
 		for _, val := range r.Committee.Validators {
@@ -939,9 +939,9 @@ func TestConfigSanity(t *testing.T) {
 
 	// wait that the jailing finishes and reactivate validators
 	r.WaitNBlocks(initialJailingPeriod)
-	_, err = r.Autonity.ActivateValidator(&runOptions{origin: val1Treasury}, val1Address)
+	_, err = r.Autonity.ActivateValidator(&RunOptions{origin: val1Treasury}, val1Address)
 	require.NoError(r.T, err)
-	_, err = r.Autonity.ActivateValidator(&runOptions{origin: val2Treasury}, val2Address)
+	_, err = r.Autonity.ActivateValidator(&RunOptions{origin: val2Treasury}, val2Address)
 	require.NoError(r.T, err)
 
 	r.WaitNextEpoch() // re-activation epoch, val not part of committee

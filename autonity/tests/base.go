@@ -35,26 +35,30 @@ import (
 )
 
 var (
-	FromAutonity = &runOptions{origin: params.AutonityContractAddress}
+	FromAutonity = &RunOptions{origin: params.AutonityContractAddress}
 	User         = common.HexToAddress("0x99")
 )
 
-type runOptions struct {
+type RunOptions struct {
 	origin common.Address
 	value  *big.Int
 }
 
-type contract struct {
+type Contract struct {
 	address common.Address
 	abi     *abi.ABI
 	r       *Runner
 }
 
-func (c *contract) Address() common.Address {
+func (c *Contract) Address() common.Address {
 	return c.address
 }
 
-func (c *contract) call(opts *runOptions, method string, params ...any) ([]byte, uint64, error) {
+func (c *Contract) Abi() *abi.ABI {
+	return c.abi
+}
+
+func (c *Contract) Call(opts *RunOptions, method string, params ...any) ([]byte, uint64, error) {
 	var tracer tracers.Tracer
 	if c.r.Tracing {
 		tracer, _ = tracers.New("callTracer", new(tracers.Context))
@@ -75,9 +79,9 @@ func (c *contract) call(opts *runOptions, method string, params ...any) ([]byte,
 	return out, consumed, nil
 }
 
-// call a method that does not belong to the contract, `c`.
-// instead the method can be found in the contract, `methodHouse`.
-func (c *contract) CallMethod(methodHouse *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
+// call a method that does not belong to the Contract, `c`.
+// instead the method can be found in the Contract, `methodHouse`.
+func (c *Contract) CallMethod(methodHouse *Contract, opts *RunOptions, method string, params ...any) ([]any, uint64, error) {
 	var tracer tracers.Tracer
 	if c.r.Tracing {
 		tracer, _ = tracers.New("callTracer", new(tracers.Context))
@@ -109,7 +113,7 @@ type Committee struct {
 type Runner struct {
 	T       *testing.T
 	Evm     *vm.EVM
-	Origin  common.Address // session's sender, can be overridden via runOptions
+	Origin  common.Address // session's sender, can be overridden via RunOptions
 	Tracing bool
 	Config  *params.ChainConfig // read-only copy of the deployed chain
 
@@ -127,7 +131,7 @@ type Runner struct {
 	OmissionAccountability *OmissionAccountability
 
 	Committee Committee   // genesis validators for easy access
-	Operator  *runOptions // operator runOptions for easy access
+	Operator  *RunOptions // operator RunOptions for easy access
 }
 
 func (r *Runner) NoError(gasConsumed uint64, err error) uint64 {
@@ -146,10 +150,10 @@ func (r *Runner) slasherContract() *Slasher {
 	require.NoError(r.T, err)
 	abi, err := SlasherMetaData.GetAbi()
 	require.NoError(r.T, err)
-	return &Slasher{&contract{slasherAddr, abi, r}}
+	return &Slasher{&Contract{slasherAddr, abi, r}}
 }
 
-func (r *Runner) call(opts *runOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
+func (r *Runner) call(opts *RunOptions, addr common.Address, input []byte) ([]byte, uint64, error) {
 	r.Evm.Origin = r.Origin
 	value := common.Big0
 	if opts != nil {
@@ -163,21 +167,21 @@ func (r *Runner) call(opts *runOptions, addr common.Address, input []byte) ([]by
 	return ret, gas - leftOver, err
 }
 
-func (r *Runner) snapshot() int {
+func (r *Runner) Snapshot() int {
 	return r.Evm.StateDB.Snapshot()
 }
 
-func (r *Runner) revertSnapshot(id int) {
+func (r *Runner) RevertSnapshot(id int) {
 	r.Evm.StateDB.RevertToSnapshot(id)
 }
 
 // helpful to run a code snippet without changing the state
 func (r *Runner) RunAndRevert(f func(r *Runner)) {
 	context := r.Evm.Context
-	snap := r.snapshot()
+	snap := r.Snapshot()
 	committee := r.Committee
 	f(r)
-	r.revertSnapshot(snap)
+	r.RevertSnapshot(snap)
 	r.Evm.Context = context
 	r.Committee = committee
 }
@@ -189,10 +193,10 @@ func (r *Runner) Run(name string, f func(r *Runner)) {
 		r.T = t2
 		// in the future avoid mutating for supporting parallel testing
 		context := r.Evm.Context
-		snap := r.snapshot()
+		snap := r.Snapshot()
 		committee := r.Committee
 		f(r)
-		r.revertSnapshot(snap)
+		r.RevertSnapshot(snap)
 		r.Evm.Context = context
 		r.Committee = committee
 		r.T = t
@@ -219,12 +223,12 @@ func (r *Runner) GetNewtonBalanceOf(account common.Address) *big.Int {
 	return balance
 }
 
-func (r *Runner) deployContract(
-	opts *runOptions,
+func (r *Runner) DeployContract(
+	opts *RunOptions,
 	contractAbi *abi.ABI,
 	bytecode []byte,
 	params ...any,
-) (common.Address, uint64, *contract, []byte, error) {
+) (common.Address, uint64, *Contract, []byte, error) {
 	args, err := contractAbi.Pack("", params...)
 	require.NoError(r.T, err)
 	data := append(bytecode, args...)
@@ -238,7 +242,7 @@ func (r *Runner) deployContract(
 		}
 	}
 	out, contractAddress, leftOverGas, err := r.Evm.Create(vm.AccountRef(r.Evm.Origin), data, gas, value)
-	return contractAddress, gas - leftOverGas, &contract{contractAddress, contractAbi, r}, out, err
+	return contractAddress, gas - leftOverGas, &Contract{contractAddress, contractAbi, r}, out, err
 }
 
 func makeCommitteeFromTestKeys() *types.Committee {
@@ -349,7 +353,7 @@ func (r *Runner) FinalizeBlock() {
 	// other stuff. Left as todo.
 	epochID, _, err := r.Autonity.GetEpochID(nil)
 	require.NoError(r.T, err)
-	_, err = r.Autonity.Finalize(&runOptions{origin: common.Address{}})
+	_, err = r.Autonity.Finalize(&RunOptions{origin: common.Address{}})
 	// consider monitoring gas cost here and fail if it's too much
 	require.NoError(r.T, err, fmt.Sprintf("finalize error in block %s: %v", r.Evm.Context.BlockNumber.String(), err))
 	r.Evm.Context.BlockNumber = new(big.Int).Add(r.Evm.Context.BlockNumber, common.Big1)
@@ -381,10 +385,10 @@ func (r *Runner) WaitNextEpoch() {
 	r.WaitNBlocks(int(diff.Uint64() + 1))
 }
 
-func (r *Runner) contractObject(metadata *bind.MetaData, address common.Address) *contract {
+func (r *Runner) contractObject(metadata *bind.MetaData, address common.Address) *Contract {
 	parsed, err := metadata.GetAbi()
 	require.NoError(r.T, err)
-	return &contract{address, parsed, r}
+	return &Contract{address, parsed, r}
 }
 
 func (r *Runner) generateNewCommittee() {
@@ -568,54 +572,54 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	// Step 2: Setup internal bindings
 	//
 
-	r.Autonity = &AutonityTest{&contract{
+	r.Autonity = &AutonityTest{&Contract{
 		params.AutonityContractAddress,
 		&generated.AutonityTestAbi,
 		r,
 	}}
-	r.Accountability = &Accountability{&contract{
+	r.Accountability = &Accountability{&Contract{
 		params.AccountabilityContractAddress,
 		&generated.AccountabilityAbi,
 		r,
 	}}
-	r.Oracle = &Oracle{&contract{
+	r.Oracle = &Oracle{&Contract{
 		params.OracleContractAddress,
 		&generated.OracleAbi,
 		r,
 	}}
-	r.Acu = &ACU{&contract{
+	r.Acu = &ACU{&Contract{
 		params.ACUContractAddress,
 		&generated.ACUAbi,
 		r,
 	}}
-	r.SupplyControl = &SupplyControl{&contract{
+	r.SupplyControl = &SupplyControl{&Contract{
 		params.SupplyControlContractAddress,
 		&generated.SupplyControlAbi,
 		r,
 	}}
-	r.Stabilization = &Stabilization{&contract{
+	r.Stabilization = &Stabilization{&Contract{
 		params.StabilizationContractAddress,
 		&generated.StabilizationAbi,
 		r,
 	}}
-	r.UpgradeManager = &UpgradeManager{&contract{
+	r.UpgradeManager = &UpgradeManager{&Contract{
 		params.UpgradeManagerContractAddress,
 		&generated.UpgradeManagerAbi,
 		r,
 	}}
-	r.InflationController = &InflationController{&contract{
+	r.InflationController = &InflationController{&Contract{
 		params.InflationControllerContractAddress,
 		&generated.InflationControllerAbi,
 		r,
 	}}
 
-	r.OmissionAccountability = &OmissionAccountability{&contract{
+	r.OmissionAccountability = &OmissionAccountability{&Contract{
 		params.OmissionAccountabilityContractAddress,
 		&generated.OmissionAccountabilityAbi,
 		r,
 	}}
 
-	r.Auctioneer = &Auctioneer{&contract{
+	r.Auctioneer = &Auctioneer{&Contract{
 		params.AuctioneerContractAddress,
 		&generated.AuctioneerAbi,
 		r,
@@ -623,7 +627,7 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 
 	// TODO: replicate truffle tests default config.
 
-	r.Operator = &runOptions{origin: genesisConfig.Config.AutonityContractConfig.Operator}
+	r.Operator = &RunOptions{origin: genesisConfig.Config.AutonityContractConfig.Operator}
 
 	r.Committee.Validators = make([]IAutonityValidator, 0, len(autonityGenesis.Validators))
 	for _, v := range autonityGenesis.Validators {
@@ -670,8 +674,8 @@ func genesisToAutonityVal(v *params.Validator) IAutonityValidator {
 	}
 }
 
-func FromSender(sender common.Address, value *big.Int) *runOptions {
-	return &runOptions{origin: sender, value: value}
+func FromSender(sender common.Address, value *big.Int) *RunOptions {
+	return &RunOptions{origin: sender, value: value}
 }
 
 func NewAccusationEvent(height uint64, value common.Hash, reporter common.Address, offenderIndex int, rule autonity.Rule) IAccountabilityEvent {

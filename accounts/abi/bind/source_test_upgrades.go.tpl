@@ -12,6 +12,7 @@ import (
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/autonity/tests"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
@@ -28,6 +29,9 @@ var (
 	_ = types.BloomLookup
 	_ = event.NewSubscription
 )
+
+// type alias Runner, otherwise functions cannot be defined on it
+type Runner tests.Runner
 
 {{$structs := .Structs}}
 {{range $structs}}
@@ -68,7 +72,7 @@ var (
 		var {{.Type}}Bin = {{.Type}}MetaData.Bin
 
 		// Deploy{{.Type}} deploys a new Ethereum contract, binding an instance of {{.Type}} to it.
-		func (r *Runner) Deploy{{.Type}}(opts *RunOptions {{range .Constructor.Inputs}}, {{.Name}} {{bindtype .Type $structs}}{{end}}) (common.Address, uint64, *{{.Type}}, error) {
+		func (r *Runner) Deploy{{.Type}}(opts *tests.RunOptions {{range .Constructor.Inputs}}, {{.Name}} {{bindtype .Type $structs}}{{end}}) (common.Address, uint64, *{{.Type}}, error) {
 		  parsed, err := {{.Type}}MetaData.GetAbi()
 		  if err != nil {
 		    return common.Address{}, 0, nil, err
@@ -81,7 +85,7 @@ var (
 			{{decapitalise $name}}Addr, _, _, _ := Deploy{{capitalise $name}}(auth, backend)
 			{{$contract.Type}}Bin = strings.Replace({{$contract.Type}}Bin, "__${{$pattern}}$__", {{decapitalise $name}}Addr.String()[2:], -1)
 		  {{end}}
-		  address, gasConsumed, c, data, err := r.DeployContract(opts, parsed, common.FromHex({{.Type}}Bin) {{range .Constructor.Inputs}}, {{.Name}}{{end}})
+		  address, gasConsumed, c, data, err := (*tests.Runner)(r).DeployContract(opts, parsed, common.FromHex({{.Type}}Bin) {{range .Constructor.Inputs}}, {{.Name}}{{end}})
 		  if err != nil {
 		    return common.Address{}, 0, nil, (&{{.Type}}{Contract: c}).DecodeError(data, err)
 		  }
@@ -91,21 +95,21 @@ var (
 
 	// {{.Type}} is an auto generated Go binding around an Ethereum contract.
 	type {{.Type}} struct {
-		*Contract
+		*tests.Contract
 	}
 
 	{{range .Calls}}
 		// {{.Normalized.Name}} is a free data retrieval call binding the contract method 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}) {{.Normalized.Name}}(opts *RunOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} },{{else}}{{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}}{{end}} uint64, error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}) {{.Normalized.Name}}(opts *tests.RunOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} },{{else}}{{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}}{{end}} uint64, error) {
 			data, consumed, err := _{{$contract.Type}}.Call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
 			{{if .Structured}}
 			outstruct := new(struct{ {{range .Normalized.Outputs}} {{.Name}} {{bindtype .Type $structs}}; {{end}} })
 			if err != nil {
 				return *outstruct, consumed, _{{$contract.Type}}.DecodeError(data, err)
 			}
-			out, err := _{{$contract.Type}}.abi.Unpack("{{.Original.Name}}", data)
+			out, err := _{{$contract.Type}}.Contract.Abi().Unpack("{{.Original.Name}}", data)
 			if err != nil {
                 return *outstruct, consumed, err
             }
@@ -116,7 +120,7 @@ var (
 			if err != nil {
 				return {{range $i, $_ := .Normalized.Outputs}}*new({{bindtype .Type $structs}}), {{end}} consumed, _{{$contract.Type}}.DecodeError(data, err)
 			}
-			out, err := _{{$contract.Type}}.abi.Unpack("{{.Original.Name}}", data)
+			out, err := _{{$contract.Type}}.Contract.Abi().Unpack("{{.Original.Name}}", data)
 			if err != nil {
                 return {{range $i, $_ := .Normalized.Outputs}}*new({{bindtype .Type $structs}}), {{end}} consumed, err
             }
@@ -132,7 +136,7 @@ var (
 		// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 		// the same way as done above for view only functions.
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}) Call{{.Normalized.Name}}(r *Runner, opts *RunOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} },{{else}}{{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}}{{end}} uint64, error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}) Call{{.Normalized.Name}}(r *tests.Runner, opts *tests.RunOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} },{{else}}{{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}}{{end}} uint64, error) {
 			snap := r.Snapshot()
 			{{if not .Normalized.Outputs}}
 			data, consumed, err := _{{$contract.Type}}.Call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
@@ -146,7 +150,7 @@ var (
 			if err != nil {
 				return *outstruct, consumed, _{{$contract.Type}}.DecodeError(data, err)
 			}
-			out, err := _{{$contract.Type}}.abi.Unpack("{{.Original.Name}}", data)
+			out, err := _{{$contract.Type}}.Contract.Abi().Unpack("{{.Original.Name}}", data)
 			if err != nil {
                 return *outstruct, consumed, err
             }
@@ -157,7 +161,7 @@ var (
 			if err != nil {
 				return {{range $i, $_ := .Normalized.Outputs}}*new({{bindtype .Type $structs}}), {{end}} consumed, _{{$contract.Type}}.DecodeError(data, err)
 			}
-			out, err := _{{$contract.Type}}.abi.Unpack("{{.Original.Name}}", data)
+			out, err := _{{$contract.Type}}.Contract.Abi().Unpack("{{.Original.Name}}", data)
 			if err != nil {
                 return {{range $i, $_ := .Normalized.Outputs}}*new({{bindtype .Type $structs}}), {{end}} consumed, err
             }
@@ -173,7 +177,7 @@ var (
 		// {{.Normalized.Name}} is a paid mutator transaction binding the contract method 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}) {{.Normalized.Name}}(opts *RunOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) (uint64, error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}) {{.Normalized.Name}}(opts *tests.RunOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) (uint64, error) {
 			data, consumed, err := _{{$contract.Type}}.Call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
 			return consumed, _{{$contract.Type}}.DecodeError(data, err)
 		}
@@ -183,7 +187,7 @@ var (
 		// Fallback is a paid mutator transaction binding the contract fallback function.
 		// WARNING! UNTESTED
 		// Solidity: {{.Fallback.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}) Fallback(opts *RunOptions, calldata []byte) (uint64, error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}) Fallback(opts *tests.RunOptions, calldata []byte) (uint64, error) {
 			out, consumed, err := _{{$contract.Type}}.Call(opts, "", calldata)
 			return consumed, _{{$contract.Type}}.DecodeError(out, err)
 		}
@@ -193,7 +197,7 @@ var (
 		// Receive is a paid mutator transaction binding the contract receive function.
 		// WARNING! UNTESTED
 		// Solidity: {{.Receive.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}) Receive(opts *RunOptions) (uint64, error) {
+		func (_{{$contract.Type}} *{{$contract.Type}}) Receive(opts *tests.RunOptions) (uint64, error) {
 			out, consumed, err := _{{$contract.Type}}.Call(opts, "")
 			return consumed, _{{$contract.Type}}.DecodeError(out, err)
 		}
@@ -227,7 +231,7 @@ var (
         {{range .Errors}}
         case "{{.Selector}}":
             var e {{$contract.Type}}{{.Normalized.Name}}Error
-            err := _{{$contract.Type}}.abi.UnpackIntoInterface(&e, "{{.Original.Name}}", data[4:])
+            err := _{{$contract.Type}}.Contract.Abi().UnpackIntoInterface(&e, "{{.Original.Name}}", data[4:])
             if err != nil {
                 return err
             }

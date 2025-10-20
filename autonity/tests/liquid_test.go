@@ -22,9 +22,9 @@ func TestClaimRewards(t *testing.T) {
 	r.Autonity.Mint(r.Operator, staker1, params.Ntn10000)
 	r.Autonity.Mint(r.Operator, staker2, params.Ntn10000)
 	r.Autonity.Mint(r.Operator, staker3, params.Ntn10000)
-	r.Autonity.Bond(&runOptions{origin: staker1}, r.Committee.Validators[0].NodeAddress, params.Ntn10000)
-	r.Autonity.Bond(&runOptions{origin: staker2}, r.Committee.Validators[1].NodeAddress, params.Ntn10000)
-	r.Autonity.Bond(&runOptions{origin: staker3}, r.Committee.Validators[1].NodeAddress, new(big.Int).Mul(common.Big2, params.Ntn10000))
+	r.Autonity.Bond(&RunOptions{origin: staker1}, r.Committee.Validators[0].NodeAddress, params.Ntn10000)
+	r.Autonity.Bond(&RunOptions{origin: staker2}, r.Committee.Validators[1].NodeAddress, params.Ntn10000)
+	r.Autonity.Bond(&RunOptions{origin: staker3}, r.Committee.Validators[1].NodeAddress, new(big.Int).Mul(common.Big2, params.Ntn10000))
 
 	// create liquid staking contract per validator
 	r.WaitNextEpoch()
@@ -160,7 +160,7 @@ func TestLogicOperation(t *testing.T) {
 	})
 
 	r.Run("non-implemented method reverts", func(r *Runner) {
-		_, _, err := liquidState.CallMethod(r.Autonity.contract, nil, "finalize")
+		_, _, err := liquidState.CallMethod(r.Autonity.Contract, nil, "finalize")
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: fallback not implemented for LiquidLogic", err.Error())
 	})
@@ -817,7 +817,7 @@ func checkReward(r *Runner, liquidState *ILiquid, user common.Address, atnReward
 	abi, err := ILiquidMetaData.GetAbi()
 	require.NoError(r.T, err)
 	liquidLogicInterface := ILiquid{
-		&contract{liquidState.address, abi, r},
+		&Contract{liquidState.address, abi, r},
 	}
 	unclaimedRewards, _, err := liquidLogicInterface.UnclaimedRewards(nil, user)
 	require.NoError(r.T, err)
@@ -875,7 +875,7 @@ func deployLiquid(
 	abi, err := ILiquidMetaData.GetAbi()
 	require.NoError(r.T, err)
 	return &ILiquid{
-		&contract{liquidState.address, abi, r},
+		&Contract{liquidState.address, abi, r},
 	}
 }
 

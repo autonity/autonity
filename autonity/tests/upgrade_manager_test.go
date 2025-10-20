@@ -45,11 +45,11 @@ func TestExample2(t *testing.T) {
 func TestSetOperatorAccount(t *testing.T) {
 	r := Setup(t, nil)
 	r.Run("setOperatorAccount is restricted to Autonity contract", func(r *Runner) {
-		_, err := r.UpgradeManager.SetOperator(&runOptions{origin: User}, User)
+		_, err := r.UpgradeManager.SetOperator(&RunOptions{origin: User}, User)
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 		_, err = r.UpgradeManager.SetOperator(r.Operator, User)
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
-		_, err = r.UpgradeManager.SetOperator(&runOptions{origin: r.Autonity.address}, User)
+		_, err = r.UpgradeManager.SetOperator(&RunOptions{origin: r.Autonity.address}, User)
 		require.NoError(r.T, err)
 	})
 }
@@ -67,7 +67,7 @@ func TestUpgrade(t *testing.T) {
 	}
 	r := Setup(t, nil)
 	r.Run("restricted to the Operator", func(r *Runner) {
-		_, err := r.UpgradeManager.Upgrade(&runOptions{origin: User}, r.Autonity.address, "0x1111")
+		_, err := r.UpgradeManager.Upgrade(&RunOptions{origin: User}, r.Autonity.address, "0x1111")
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted) // maybe check revert reason
 	})
 	r.Run("upgrade target contract", func(r *Runner) {
@@ -77,7 +77,7 @@ func TestUpgrade(t *testing.T) {
 		r.Evm.StateDB.SetNonce(params.AutonityContractAddress, 0)
 
 		// deploy first dummy contract
-		_, _, base, err := r.DeployTestBase(&runOptions{origin: common.Address{}, value: new(big.Int)}, "v1")
+		_, _, base, err := r.DeployTestBase(&RunOptions{origin: common.Address{}, value: new(big.Int)}, "v1")
 
 		require.NoError(r.T, err, base)
 		v1string, _, _ := base.Foo(nil)

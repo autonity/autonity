@@ -103,6 +103,10 @@ var (
 		Name:  "test",
 		Usage: "Generate test bindings",
 	}
+	upgradeFlag = cli.BoolFlag{
+		Name:  "upgrade",
+		Usage: "Generate test bindings for an upgraded contract. Can only be used in conjunction with --test",
+	}
 )
 
 func init() {
@@ -122,6 +126,7 @@ func init() {
 		langFlag,
 		aliasFlag,
 		testFlag,
+		upgradeFlag,
 	}
 	app.Action = utils.MigrateFlags(abigen)
 	cli.CommandHelpTemplate = flags.OriginCommandHelpTemplate
@@ -129,6 +134,9 @@ func init() {
 
 func abigen(c *cli.Context) error {
 	utils.CheckExclusive(c, abiFlag, jsonFlag, solFlag, vyFlag) // Only one source can be selected.
+	if c.GlobalBool(upgradeFlag.Name) && !c.GlobalBool(testFlag.Name) {
+		utils.Fatalf("--upgrade can only be used in conjunction with --test")
+	}
 	if c.GlobalString(pkgFlag.Name) == "" {
 		utils.Fatalf("No destination package specified (--pkg)")
 	}
@@ -260,7 +268,7 @@ func abigen(c *cli.Context) error {
 		}
 	}
 	// Generate the contract binding
-	code, err := bind.Bind(types, abis, bins, sigs, c.GlobalString(pkgFlag.Name), lang, libs, aliases, c.GlobalBool(testFlag.Name))
+	code, err := bind.Bind(types, abis, bins, sigs, c.GlobalString(pkgFlag.Name), lang, libs, aliases, c.GlobalBool(testFlag.Name), c.GlobalBool(upgradeFlag.Name))
 	if err != nil {
 		utils.Fatalf("Failed to generate ABI binding: %v", err)
 	}

@@ -101,6 +101,9 @@ var tmplSourceGo string
 //go:embed source_test.go.tpl
 var tmplTestSourceGo string
 
+//go:embed source_test_upgrades.go.tpl
+var tmplTestUpgradeSourceGo string
+
 // tmplSourceJava is the Java source template that the generated Java contract binding
 // is based on.
 //

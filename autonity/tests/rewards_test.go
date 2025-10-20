@@ -254,11 +254,6 @@ func (dt *delegatorTracker) Validate() error {
 	return errSum
 }
 
-// convert from wei to standard denomination
-func fromWei(weis *big.Int) *big.Int {
-	return div(weis, tenTo18)
-}
-
 // from standard denom to weis
 func toWei(standard uint64) *big.Int {
 	return mul(new(big.Int).SetUint64(standard), tenTo18)
@@ -316,16 +311,6 @@ func epochPeriod(r *Runner) *big.Int {
 	return period
 }
 
-func selfBondedStake(r *Runner, nodeAddr common.Address) *big.Int {
-	val := validator(r, nodeAddr)
-	return val.SelfBondedStake
-}
-
-func bondedStake(r *Runner, nodeAddr common.Address) *big.Int {
-	val := validator(r, nodeAddr)
-	return val.BondedStake
-}
-
 func delegatedStake(r *Runner, nodeAddr common.Address) *big.Int {
 	val := validator(r, nodeAddr)
 	return sub(val.BondedStake, val.SelfBondedStake)
@@ -358,14 +343,14 @@ func lntnToNtn(r *Runner, nodeAddress common.Address, lntn *big.Int) *big.Int {
 
 func commissionRateScaleFactor(r *Runner) *big.Int {
 	liquid := r.contractObject(LiquidLogicMetaData, r.Committee.Validators[0].LiquidStateContract)
-	scaleFactor, _, err := liquid.call(nil, liquid.abi.Methods["COMMISSION_RATE_SCALE_FACTOR"].Name)
+	scaleFactor, _, err := liquid.Call(nil, liquid.abi.Methods["COMMISSION_RATE_SCALE_FACTOR"].Name)
 	require.NoError(r.T, err)
 	return new(big.Int).SetBytes(scaleFactor)
 }
 
 func feeFactorUnitRecip(r *Runner) *big.Int {
 	liquid := r.contractObject(LiquidLogicMetaData, r.Committee.Validators[0].LiquidStateContract)
-	feeFactor, _, err := liquid.call(nil, liquid.abi.Methods["FEE_FACTOR_UNIT_RECIP"].Name)
+	feeFactor, _, err := liquid.Call(nil, liquid.abi.Methods["FEE_FACTOR_UNIT_RECIP"].Name)
 	require.NoError(r.T, err)
 	return new(big.Int).SetBytes(feeFactor)
 }
@@ -411,10 +396,6 @@ func div(a, b *big.Int) *big.Int {
 
 func sub(a, b *big.Int) *big.Int {
 	return new(big.Int).Sub(a, b)
-}
-
-func mod(a, b *big.Int) *big.Int {
-	return new(big.Int).Mod(a, b)
 }
 
 func add(a, b *big.Int) *big.Int {

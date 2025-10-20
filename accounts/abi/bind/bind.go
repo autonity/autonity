@@ -48,7 +48,7 @@ const (
 // to be used as is in client code, but rather as an intermediate struct which
 // enforces compile time type safety and naming convention opposed to having to
 // manually maintain hard coded strings that break on runtime.
-func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]string, pkg string, lang Lang, libs map[string]string, aliases map[string]string, testMode bool) (string, error) {
+func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]string, pkg string, lang Lang, libs map[string]string, aliases map[string]string, testMode bool, upgradeMode bool) (string, error) {
 	var (
 		// contracts is the map of each individual contract requested binding
 		contracts = make(map[string]*tmplContract)
@@ -258,7 +258,11 @@ func Bind(types []string, abis []string, bytecodes []string, fsigs []map[string]
 	}
 	source := tmplSource[lang]
 	if testMode {
-		source = tmplTestSourceGo
+		if upgradeMode {
+			source = tmplTestUpgradeSourceGo
+		} else {
+			source = tmplTestSourceGo
+		}
 	}
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(source))
 	if err := tmpl.Execute(buffer, data); err != nil {

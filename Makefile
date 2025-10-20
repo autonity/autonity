@@ -176,7 +176,7 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@sed -i s/7930f4e16579d0dcad104bc3e6919c8d61db56398ae6bcf867887aad2c0ce2df/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/0/bindings.go
 	@echo "Generating internal testing bindings for oracle contract v1.0.1"
 	mkdir -p ./autonity/tests/0
-	$(ABIGEN_BINARY)  --test --pkg tests0 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/0/Oracle.sol --out ./autonity/tests/0/bindings.go
+	$(ABIGEN_BINARY)  --test --upgrade --pkg tests0 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/0/Oracle.sol --out ./autonity/tests/0/bindings.go
 	@sed -i s/7930f4e16579d0dcad104bc3e6919c8d61db56398ae6bcf867887aad2c0ce2df/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/tests/0/bindings.go
 
 	# Generate go bindings for upgrade manager v1.1.0
@@ -185,7 +185,7 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	$(ABIGEN_BINARY)  --pkg bindings1 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/1/UpgradeManager.sol --out ./autonity/bindings/1/bindings.go
 	@echo "Generating internal testing bindings for upgrade manager v1.1.0"
 	mkdir -p ./autonity/tests/1
-	$(ABIGEN_BINARY)  --test --pkg tests1 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/1/UpgradeManager.sol --out ./autonity/tests/1/bindings.go
+	$(ABIGEN_BINARY)  --test --upgrade --pkg tests1 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/1/UpgradeManager.sol --out ./autonity/tests/1/bindings.go
 
 $(SOLC_BINARY):
 	mkdir -p $(BINDIR)

@@ -32,13 +32,13 @@ func TestAccountabilityEvents(t *testing.T) {
 			Epoch:          common.Big0, // assigned contract-side
 			MessageHash:    common.Big0, // assigned contract-side
 		}
-		_, err := r.Accountability.HandleMisbehaviour(&runOptions{origin: reporter}, misbehaviourEvent)
+		_, err := r.Accountability.HandleMisbehaviour(&RunOptions{origin: reporter}, misbehaviourEvent)
 		require.Error(r.T, err)
 	})
 	r.Run("accusation with nil rawproof should not cause panics or issues", func(r *Runner) {
 		accusationEvent := NewAccusationEvent(10, common.Hash{0xca, 0xfe}, reporter, 0, autonity.PVN)
 		accusationEvent.RawProof = nil
-		_, err := r.Accountability.HandleAccusation(&runOptions{origin: reporter}, accusationEvent)
+		_, err := r.Accountability.HandleAccusation(&RunOptions{origin: reporter}, accusationEvent)
 		require.Error(r.T, err)
 	})
 }
