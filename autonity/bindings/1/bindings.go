@@ -1375,16 +1375,14 @@ func (_Precompiled *PrecompiledCallerSession) UPGRADERCONTRACT() (common.Address
 
 // UpgradeManagerMetaData contains all meta data concerning the UpgradeManager contract.
 var UpgradeManagerMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_hashes\",\"type\":\"bytes32[]\"},{\"internalType\":\"string[]\",\"name\":\"_versions\",\"type\":\"string[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"oldValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateAddress\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"oldValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"newValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateBool\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"oldValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"newValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateInt\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"oldValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateUint\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"contractAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"}],\"name\":\"UpgradeResult\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getAutonity\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOperator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_hash\",\"type\":\"bytes32\"}],\"name\":\"getVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_hash\",\"type\":\"bytes32\"},{\"internalType\":\"string\",\"name\":\"_version\",\"type\":\"string\"}],\"name\":\"setVersion\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_target\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_data\",\"type\":\"string\"}],\"name\":\"upgrade\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_autonity\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"oldValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateAddress\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"oldValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"newValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateBool\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"oldValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"newValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateInt\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"oldValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateUint\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"contractAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"}],\"name\":\"UpgradeResult\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getAutonity\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOperator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_target\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_data\",\"type\":\"string\"}],\"name\":\"upgrade\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 	Sigs: map[string]string{
 		"7c8ccebe": "getAutonity()",
 		"e7f43c68": "getOperator()",
-		"9aaf9f08": "getVersion(bytes32)",
 		"b3ab15fb": "setOperator(address)",
-		"a1d20653": "setVersion(bytes32,string)",
 		"6e3d9ff0": "upgrade(address,string)",
 	},
-	Bin: "0x608060405234801561001057600080fd5b50604051610e6b380380610e6b83398101604081905261002f9161027a565b80518251146100965760405162461bcd60e51b815260206004820152602960248201527f68617368657320616e642076657273696f6e73206861766520646966666572656044820152680dce840d8cadccee8d60bb1b606482015260840160405180910390fd5b60005b82518110156100fd578181815181106100b4576100b461033c565b6020026020010151600260008584815181106100d2576100d261033c565b6020026020010151815260200190815260200160002090816100f491906103db565b50600101610099565b505050610499565b634e487b7160e01b600052604160045260246000fd5b604051601f8201601f191681016001600160401b038111828210171561014357610143610105565b604052919050565b60006001600160401b0382111561016457610164610105565b5060051b60200190565b600082601f83011261017f57600080fd5b815161019261018d8261014b565b61011b565b8082825260208201915060208360051b8601019250858311156101b457600080fd5b602085015b838110156102705780516001600160401b038111156101d757600080fd5b8601603f810188136101e857600080fd5b60208101516001600160401b0381111561020457610204610105565b610217601f8201601f191660200161011b565b8181526040838301018a101561022c57600080fd5b60005b8281101561024f578084016040015160208383018101919091520161022f565b506000602083830101528086525050506020830192506020810190506101b9565b5095945050505050565b6000806040838503121561028d57600080fd5b82516001600160401b038111156102a357600080fd5b8301601f810185136102b457600080fd5b80516102c261018d8261014b565b8082825260208201915060208360051b8501019250878311156102e457600080fd5b6020840193505b828410156103065783518252602093840193909101906102eb565b6020870151909550925050506001600160401b0381111561032657600080fd5b6103328582860161016e565b9150509250929050565b634e487b7160e01b600052603260045260246000fd5b600181811c9082168061036657607f821691505b60208210810361038657634e487b7160e01b600052602260045260246000fd5b50919050565b601f8211156103d657806000526020600020601f840160051c810160208510156103b35750805b601f840160051c820191505b818110156103d357600081556001016103bf565b50505b505050565b81516001600160401b038111156103f4576103f4610105565b610408816104028454610352565b8461038c565b6020601f82116001811461043c57600083156104245750848201515b600019600385901b1c1916600184901b1784556103d3565b600084815260208120601f198516915b8281101561046c578785015182556020948501946001909201910161044c565b508482101561048a5786840151600019600387901b60f8161c191681555b50505050600190811b01905550565b6109c3806104a86000396000f3fe608060405234801561001057600080fd5b50600436106100725760003560e01c8063a1d2065311610050578063a1d20653146100f0578063b3ab15fb14610103578063e7f43c681461011657600080fd5b80636e3d9ff0146100775780637c8ccebe1461008c5780639aaf9f08146100d0575b600080fd5b61008a610085366004610659565b610134565b005b60005473ffffffffffffffffffffffffffffffffffffffff165b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020015b60405180910390f35b6100e36100de3660046106a7565b61027a565b6040516100c791906106e4565b61008a6100fe366004610735565b61031c565b61008a610111366004610766565b6103ba565b60015473ffffffffffffffffffffffffffffffffffffffff166100a6565b60015473ffffffffffffffffffffffffffffffffffffffff1633146101ba576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601a60248201527f63616c6c6572206973206e6f7420746865206f70657261746f7200000000000060448201526064015b60405180910390fd5b60405160f9906000906101d39085908590602001610788565b60405160208183030381529060405290506000806060600080855160208701885af4809350503d91506040519050602082018101604052818152816000602083013e8673ffffffffffffffffffffffffffffffffffffffff167f852faebd7b6261599c399849128319e84cd07abf61cfdea131405ee1d39347988460405161025f911515815260200190565b60405180910390a282610273578160208201fd5b8160208201f35b6000818152600260205260409020805460609190610297906107d3565b80601f01602080910402602001604051908101604052809291908181526020018280546102c3906107d3565b80156103105780601f106102e557610100808354040283529160200191610310565b820191906000526020600020905b8154815290600101906020018083116102f357829003601f168201915b50505050509050919050565b60015473ffffffffffffffffffffffffffffffffffffffff16331461039d576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601a60248201527f63616c6c6572206973206e6f7420746865206f70657261746f7200000000000060448201526064016101b1565b60008281526002602052604090206103b58282610874565b505050565b60005473ffffffffffffffffffffffffffffffffffffffff163314610461576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602360248201527f63616c6c6572206973206e6f7420746865204175746f6e69747920636f6e747260448201527f616374000000000000000000000000000000000000000000000000000000000060648201526084016101b1565b6001546040805160808082526008908201527f6f70657261746f7200000000000000000000000000000000000000000000000060a082015273ffffffffffffffffffffffffffffffffffffffff928316602082015291831682820152436060830152517fe821ac8084a7329d09d00cf1380cba50edea5f54a7bd453d49a9c354f565d4a09181900360c00190a1600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b803573ffffffffffffffffffffffffffffffffffffffff8116811461055957600080fd5b919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b600082601f83011261059e57600080fd5b813567ffffffffffffffff8111156105b8576105b861055e565b6040517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0603f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8501160116810181811067ffffffffffffffff821117156106245761062461055e565b60405281815283820160200185101561063c57600080fd5b816020850160208301376000918101602001919091529392505050565b6000806040838503121561066c57600080fd5b61067583610535565b9150602083013567ffffffffffffffff81111561069157600080fd5b61069d8582860161058d565b9150509250929050565b6000602082840312156106b957600080fd5b5035919050565b60005b838110156106db5781810151838201526020016106c3565b50506000910152565b60208152600082518060208401526107038160408501602087016106c0565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169190910160400192915050565b6000806040838503121561074857600080fd5b82359150602083013567ffffffffffffffff81111561069157600080fd5b60006020828403121561077857600080fd5b61078182610535565b9392505050565b7fffffffffffffffffffffffffffffffffffffffff0000000000000000000000008360601b168152600082516107c58160148501602087016106c0565b919091016014019392505050565b600181811c908216806107e757607f821691505b602082108103610820577f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b50919050565b601f8211156103b557806000526020600020601f840160051c8101602085101561084d5750805b601f840160051c820191505b8181101561086d5760008155600101610859565b5050505050565b815167ffffffffffffffff81111561088e5761088e61055e565b6108a28161089c84546107d3565b84610826565b6020601f8211600181146108f457600083156108be5750848201515b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600385901b1c1916600184901b17845561086d565b6000848152602081207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe08516915b828110156109425787850151825560209485019460019092019101610922565b508482101561097e57868401517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600387901b60f8161c191681555b50505050600190811b0190555056fea2646970667358221220da8303d9527fdee44d18854c8fc5309c893867fd8f331a7847000afb5a085ccb64736f6c634300081e0033",
+	Bin: "0x6080604052348015600f57600080fd5b50604051610664380380610664833981016040819052602c916077565b600080546001600160a01b039384166001600160a01b0319918216179091556001805492909316911617905560a5565b80516001600160a01b0381168114607257600080fd5b919050565b60008060408385031215608957600080fd5b609083605c565b9150609c60208401605c565b90509250929050565b6105b0806100b46000396000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c80636e3d9ff0146100515780637c8ccebe14610066578063b3ab15fb146100a9578063e7f43c68146100bc575b600080fd5b61006461005f3660046103f3565b6100da565b005b60005473ffffffffffffffffffffffffffffffffffffffff165b60405173ffffffffffffffffffffffffffffffffffffffff909116815260200160405180910390f35b6100646100b73660046104fa565b610220565b60015473ffffffffffffffffffffffffffffffffffffffff16610080565b60015473ffffffffffffffffffffffffffffffffffffffff163314610160576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601a60248201527f63616c6c6572206973206e6f7420746865206f70657261746f7200000000000060448201526064015b60405180910390fd5b60405160f990600090610179908590859060200161051c565b60405160208183030381529060405290506000806060600080855160208701885af4809350503d91506040519050602082018101604052818152816000602083013e8673ffffffffffffffffffffffffffffffffffffffff167f852faebd7b6261599c399849128319e84cd07abf61cfdea131405ee1d393479884604051610205911515815260200190565b60405180910390a282610219578160208201fd5b8160208201f35b60005473ffffffffffffffffffffffffffffffffffffffff1633146102c7576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602360248201527f63616c6c6572206973206e6f7420746865204175746f6e69747920636f6e747260448201527f61637400000000000000000000000000000000000000000000000000000000006064820152608401610157565b6001546040805160808082526008908201527f6f70657261746f7200000000000000000000000000000000000000000000000060a082015273ffffffffffffffffffffffffffffffffffffffff928316602082015291831682820152436060830152517fe821ac8084a7329d09d00cf1380cba50edea5f54a7bd453d49a9c354f565d4a09181900360c00190a1600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b803573ffffffffffffffffffffffffffffffffffffffff811681146103bf57600080fd5b919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6000806040838503121561040657600080fd5b61040f8361039b565b9150602083013567ffffffffffffffff81111561042b57600080fd5b8301601f8101851361043c57600080fd5b803567ffffffffffffffff811115610456576104566103c4565b6040517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0603f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8501160116810181811067ffffffffffffffff821117156104c2576104c26103c4565b6040528181528282016020018710156104da57600080fd5b816020840160208301376000602083830101528093505050509250929050565b60006020828403121561050c57600080fd5b6105158261039b565b9392505050565b7fffffffffffffffffffffffffffffffffffffffff0000000000000000000000008360601b1681526000825160005b81811015610568576020818601810151601486840101520161054b565b5060009201601401918252509291505056fea264697066735822122066eb1c1500246869fcc3df2d5d5c68c919de0b235533cd2a514f16c9f7459a7764736f6c634300081e0033",
 }
 
 // UpgradeManagerABI is the input ABI used to generate the binding from.
@@ -1400,7 +1398,7 @@ var UpgradeManagerFuncSigs = UpgradeManagerMetaData.Sigs
 var UpgradeManagerBin = UpgradeManagerMetaData.Bin
 
 // DeployUpgradeManager deploys a new Ethereum contract, binding an instance of UpgradeManager to it.
-func DeployUpgradeManager(auth *bind.TransactOpts, backend bind.ContractBackend, _hashes [][32]byte, _versions []string) (common.Address, *types.Transaction, *UpgradeManager, error) {
+func DeployUpgradeManager(auth *bind.TransactOpts, backend bind.ContractBackend, _autonity common.Address, _operator common.Address) (common.Address, *types.Transaction, *UpgradeManager, error) {
 	parsed, err := UpgradeManagerMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
@@ -1409,7 +1407,7 @@ func DeployUpgradeManager(auth *bind.TransactOpts, backend bind.ContractBackend,
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(UpgradeManagerBin), backend, _hashes, _versions)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(UpgradeManagerBin), backend, _autonity, _operator)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -1620,37 +1618,6 @@ func (_UpgradeManager *UpgradeManagerCallerSession) GetOperator() (common.Addres
 	return _UpgradeManager.Contract.GetOperator(&_UpgradeManager.CallOpts)
 }
 
-// GetVersion is a free data retrieval call binding the contract method 0x9aaf9f08.
-//
-// Solidity: function getVersion(bytes32 _hash) view returns(string)
-func (_UpgradeManager *UpgradeManagerCaller) GetVersion(opts *bind.CallOpts, _hash [32]byte) (string, error) {
-	var out []interface{}
-	err := _UpgradeManager.contract.Call(opts, &out, "getVersion", _hash)
-
-	if err != nil {
-		return *new(string), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(string)).(*string)
-
-	return out0, err
-
-}
-
-// GetVersion is a free data retrieval call binding the contract method 0x9aaf9f08.
-//
-// Solidity: function getVersion(bytes32 _hash) view returns(string)
-func (_UpgradeManager *UpgradeManagerSession) GetVersion(_hash [32]byte) (string, error) {
-	return _UpgradeManager.Contract.GetVersion(&_UpgradeManager.CallOpts, _hash)
-}
-
-// GetVersion is a free data retrieval call binding the contract method 0x9aaf9f08.
-//
-// Solidity: function getVersion(bytes32 _hash) view returns(string)
-func (_UpgradeManager *UpgradeManagerCallerSession) GetVersion(_hash [32]byte) (string, error) {
-	return _UpgradeManager.Contract.GetVersion(&_UpgradeManager.CallOpts, _hash)
-}
-
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address _account) returns()
@@ -1670,27 +1637,6 @@ func (_UpgradeManager *UpgradeManagerSession) SetOperator(_account common.Addres
 // Solidity: function setOperator(address _account) returns()
 func (_UpgradeManager *UpgradeManagerTransactorSession) SetOperator(_account common.Address) (*types.Transaction, error) {
 	return _UpgradeManager.Contract.SetOperator(&_UpgradeManager.TransactOpts, _account)
-}
-
-// SetVersion is a paid mutator transaction binding the contract method 0xa1d20653.
-//
-// Solidity: function setVersion(bytes32 _hash, string _version) returns()
-func (_UpgradeManager *UpgradeManagerTransactor) SetVersion(opts *bind.TransactOpts, _hash [32]byte, _version string) (*types.Transaction, error) {
-	return _UpgradeManager.contract.Transact(opts, "setVersion", _hash, _version)
-}
-
-// SetVersion is a paid mutator transaction binding the contract method 0xa1d20653.
-//
-// Solidity: function setVersion(bytes32 _hash, string _version) returns()
-func (_UpgradeManager *UpgradeManagerSession) SetVersion(_hash [32]byte, _version string) (*types.Transaction, error) {
-	return _UpgradeManager.Contract.SetVersion(&_UpgradeManager.TransactOpts, _hash, _version)
-}
-
-// SetVersion is a paid mutator transaction binding the contract method 0xa1d20653.
-//
-// Solidity: function setVersion(bytes32 _hash, string _version) returns()
-func (_UpgradeManager *UpgradeManagerTransactorSession) SetVersion(_hash [32]byte, _version string) (*types.Transaction, error) {
-	return _UpgradeManager.Contract.SetVersion(&_UpgradeManager.TransactOpts, _hash, _version)
 }
 
 // Upgrade is a paid mutator transaction binding the contract method 0x6e3d9ff0.
@@ -2401,6 +2347,1040 @@ func (_UpgradeManager *UpgradeManagerFilterer) WatchUpgradeResult(opts *bind.Wat
 func (_UpgradeManager *UpgradeManagerFilterer) ParseUpgradeResult(log types.Log) (*UpgradeManagerUpgradeResult, error) {
 	event := new(UpgradeManagerUpgradeResult)
 	if err := _UpgradeManager.contract.UnpackLog(event, "UpgradeResult", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// UpgradeManager1MetaData contains all meta data concerning the UpgradeManager1 contract.
+var UpgradeManager1MetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_autonity\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"},{\"internalType\":\"bytes32[]\",\"name\":\"_hashes\",\"type\":\"bytes32[]\"},{\"internalType\":\"string[]\",\"name\":\"_versions\",\"type\":\"string[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"oldValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateAddress\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"oldValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"newValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateBool\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"oldValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"newValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateInt\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"oldValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateUint\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"contractAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"}],\"name\":\"UpgradeResult\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getAutonity\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOperator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_hash\",\"type\":\"bytes32\"}],\"name\":\"getVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_hash\",\"type\":\"bytes32\"},{\"internalType\":\"string\",\"name\":\"_version\",\"type\":\"string\"}],\"name\":\"setVersion\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_target\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_data\",\"type\":\"string\"}],\"name\":\"upgrade\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Sigs: map[string]string{
+		"7c8ccebe": "getAutonity()",
+		"e7f43c68": "getOperator()",
+		"9aaf9f08": "getVersion(bytes32)",
+		"b3ab15fb": "setOperator(address)",
+		"a1d20653": "setVersion(bytes32,string)",
+		"6e3d9ff0": "upgrade(address,string)",
+	},
+	Bin: "0x608060405234801561001057600080fd5b50604051610edb380380610edb83398101604081905261002f916102c8565b600080546001600160a01b038087166001600160a01b031992831617909255600180549286169290911691909117905580518251146100c65760405162461bcd60e51b815260206004820152602960248201527f68617368657320616e642076657273696f6e73206861766520646966666572656044820152680dce840d8cadccee8d60bb1b606482015260840160405180910390fd5b60005b825181101561012d578181815181106100e4576100e46103ac565b602002602001015160026000858481518110610102576101026103ac565b602002602001015181526020019081526020016000209081610124919061044b565b506001016100c9565b5050505050610509565b80516001600160a01b038116811461014e57600080fd5b919050565b634e487b7160e01b600052604160045260246000fd5b604051601f8201601f191681016001600160401b038111828210171561019157610191610153565b604052919050565b60006001600160401b038211156101b2576101b2610153565b5060051b60200190565b600082601f8301126101cd57600080fd5b81516101e06101db82610199565b610169565b8082825260208201915060208360051b86010192508583111561020257600080fd5b602085015b838110156102be5780516001600160401b0381111561022557600080fd5b8601603f8101881361023657600080fd5b60208101516001600160401b0381111561025257610252610153565b610265601f8201601f1916602001610169565b8181526040838301018a101561027a57600080fd5b60005b8281101561029d578084016040015160208383018101919091520161027d565b50600060208383010152808652505050602083019250602081019050610207565b5095945050505050565b600080600080608085870312156102de57600080fd5b6102e785610137565b93506102f560208601610137565b60408601519093506001600160401b0381111561031157600080fd5b8501601f8101871361032257600080fd5b80516103306101db82610199565b8082825260208201915060208360051b85010192508983111561035257600080fd5b6020840193505b82841015610374578351825260209384019390910190610359565b6060890151909550925050506001600160401b0381111561039457600080fd5b6103a0878288016101bc565b91505092959194509250565b634e487b7160e01b600052603260045260246000fd5b600181811c908216806103d657607f821691505b6020821081036103f657634e487b7160e01b600052602260045260246000fd5b50919050565b601f82111561044657806000526020600020601f840160051c810160208510156104235750805b601f840160051c820191505b81811015610443576000815560010161042f565b50505b505050565b81516001600160401b0381111561046457610464610153565b6104788161047284546103c2565b846103fc565b6020601f8211600181146104ac57600083156104945750848201515b600019600385901b1c1916600184901b178455610443565b600084815260208120601f198516915b828110156104dc57878501518255602094850194600190920191016104bc565b50848210156104fa5786840151600019600387901b60f8161c191681555b50505050600190811b01905550565b6109c3806105186000396000f3fe608060405234801561001057600080fd5b50600436106100725760003560e01c8063a1d2065311610050578063a1d20653146100f0578063b3ab15fb14610103578063e7f43c681461011657600080fd5b80636e3d9ff0146100775780637c8ccebe1461008c5780639aaf9f08146100d0575b600080fd5b61008a610085366004610659565b610134565b005b60005473ffffffffffffffffffffffffffffffffffffffff165b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020015b60405180910390f35b6100e36100de3660046106a7565b61027a565b6040516100c791906106e4565b61008a6100fe366004610735565b61031c565b61008a610111366004610766565b6103ba565b60015473ffffffffffffffffffffffffffffffffffffffff166100a6565b60015473ffffffffffffffffffffffffffffffffffffffff1633146101ba576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601a60248201527f63616c6c6572206973206e6f7420746865206f70657261746f7200000000000060448201526064015b60405180910390fd5b60405160f9906000906101d39085908590602001610788565b60405160208183030381529060405290506000806060600080855160208701885af4809350503d91506040519050602082018101604052818152816000602083013e8673ffffffffffffffffffffffffffffffffffffffff167f852faebd7b6261599c399849128319e84cd07abf61cfdea131405ee1d39347988460405161025f911515815260200190565b60405180910390a282610273578160208201fd5b8160208201f35b6000818152600260205260409020805460609190610297906107d3565b80601f01602080910402602001604051908101604052809291908181526020018280546102c3906107d3565b80156103105780601f106102e557610100808354040283529160200191610310565b820191906000526020600020905b8154815290600101906020018083116102f357829003601f168201915b50505050509050919050565b60015473ffffffffffffffffffffffffffffffffffffffff16331461039d576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601a60248201527f63616c6c6572206973206e6f7420746865206f70657261746f7200000000000060448201526064016101b1565b60008281526002602052604090206103b58282610874565b505050565b60005473ffffffffffffffffffffffffffffffffffffffff163314610461576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602360248201527f63616c6c6572206973206e6f7420746865204175746f6e69747920636f6e747260448201527f616374000000000000000000000000000000000000000000000000000000000060648201526084016101b1565b6001546040805160808082526008908201527f6f70657261746f7200000000000000000000000000000000000000000000000060a082015273ffffffffffffffffffffffffffffffffffffffff928316602082015291831682820152436060830152517fe821ac8084a7329d09d00cf1380cba50edea5f54a7bd453d49a9c354f565d4a09181900360c00190a1600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b803573ffffffffffffffffffffffffffffffffffffffff8116811461055957600080fd5b919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b600082601f83011261059e57600080fd5b813567ffffffffffffffff8111156105b8576105b861055e565b6040517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0603f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8501160116810181811067ffffffffffffffff821117156106245761062461055e565b60405281815283820160200185101561063c57600080fd5b816020850160208301376000918101602001919091529392505050565b6000806040838503121561066c57600080fd5b61067583610535565b9150602083013567ffffffffffffffff81111561069157600080fd5b61069d8582860161058d565b9150509250929050565b6000602082840312156106b957600080fd5b5035919050565b60005b838110156106db5781810151838201526020016106c3565b50506000910152565b60208152600082518060208401526107038160408501602087016106c0565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169190910160400192915050565b6000806040838503121561074857600080fd5b82359150602083013567ffffffffffffffff81111561069157600080fd5b60006020828403121561077857600080fd5b61078182610535565b9392505050565b7fffffffffffffffffffffffffffffffffffffffff0000000000000000000000008360601b168152600082516107c58160148501602087016106c0565b919091016014019392505050565b600181811c908216806107e757607f821691505b602082108103610820577f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b50919050565b601f8211156103b557806000526020600020601f840160051c8101602085101561084d5750805b601f840160051c820191505b8181101561086d5760008155600101610859565b5050505050565b815167ffffffffffffffff81111561088e5761088e61055e565b6108a28161089c84546107d3565b84610826565b6020601f8211600181146108f457600083156108be5750848201515b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600385901b1c1916600184901b17845561086d565b6000848152602081207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe08516915b828110156109425787850151825560209485019460019092019101610922565b508482101561097e57868401517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600387901b60f8161c191681555b50505050600190811b0190555056fea26469706673582212207b90f4e2fd139cd2a2b80e5fae9d3fae8bf84fb8540995b491decd702dc2fe1664736f6c634300081e0033",
+}
+
+// UpgradeManager1ABI is the input ABI used to generate the binding from.
+// Deprecated: Use UpgradeManager1MetaData.ABI instead.
+var UpgradeManager1ABI = UpgradeManager1MetaData.ABI
+
+// Deprecated: Use UpgradeManager1MetaData.Sigs instead.
+// UpgradeManager1FuncSigs maps the 4-byte function signature to its string representation.
+var UpgradeManager1FuncSigs = UpgradeManager1MetaData.Sigs
+
+// UpgradeManager1Bin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use UpgradeManager1MetaData.Bin instead.
+var UpgradeManager1Bin = UpgradeManager1MetaData.Bin
+
+// DeployUpgradeManager1 deploys a new Ethereum contract, binding an instance of UpgradeManager1 to it.
+func DeployUpgradeManager1(auth *bind.TransactOpts, backend bind.ContractBackend, _autonity common.Address, _operator common.Address, _hashes [][32]byte, _versions []string) (common.Address, *types.Transaction, *UpgradeManager1, error) {
+	parsed, err := UpgradeManager1MetaData.GetAbi()
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	if parsed == nil {
+		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
+	}
+
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(UpgradeManager1Bin), backend, _autonity, _operator, _hashes, _versions)
+	if err != nil {
+		return common.Address{}, nil, nil, err
+	}
+	return address, tx, &UpgradeManager1{UpgradeManager1Caller: UpgradeManager1Caller{contract: contract}, UpgradeManager1Transactor: UpgradeManager1Transactor{contract: contract}, UpgradeManager1Filterer: UpgradeManager1Filterer{contract: contract}}, nil
+}
+
+// UpgradeManager1 is an auto generated Go binding around an Ethereum contract.
+type UpgradeManager1 struct {
+	UpgradeManager1Caller     // Read-only binding to the contract
+	UpgradeManager1Transactor // Write-only binding to the contract
+	UpgradeManager1Filterer   // Log filterer for contract events
+}
+
+// UpgradeManager1Caller is an auto generated read-only Go binding around an Ethereum contract.
+type UpgradeManager1Caller struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// UpgradeManager1Transactor is an auto generated write-only Go binding around an Ethereum contract.
+type UpgradeManager1Transactor struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// UpgradeManager1Filterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type UpgradeManager1Filterer struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// UpgradeManager1Session is an auto generated Go binding around an Ethereum contract,
+// with pre-set call and transact options.
+type UpgradeManager1Session struct {
+	Contract     *UpgradeManager1  // Generic contract binding to set the session for
+	CallOpts     bind.CallOpts     // Call options to use throughout this session
+	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
+}
+
+// UpgradeManager1CallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// with pre-set call options.
+type UpgradeManager1CallerSession struct {
+	Contract *UpgradeManager1Caller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts          // Call options to use throughout this session
+}
+
+// UpgradeManager1TransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// with pre-set transact options.
+type UpgradeManager1TransactorSession struct {
+	Contract     *UpgradeManager1Transactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts          // Transaction auth options to use throughout this session
+}
+
+// UpgradeManager1Raw is an auto generated low-level Go binding around an Ethereum contract.
+type UpgradeManager1Raw struct {
+	Contract *UpgradeManager1 // Generic contract binding to access the raw methods on
+}
+
+// UpgradeManager1CallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type UpgradeManager1CallerRaw struct {
+	Contract *UpgradeManager1Caller // Generic read-only contract binding to access the raw methods on
+}
+
+// UpgradeManager1TransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type UpgradeManager1TransactorRaw struct {
+	Contract *UpgradeManager1Transactor // Generic write-only contract binding to access the raw methods on
+}
+
+// NewUpgradeManager1 creates a new instance of UpgradeManager1, bound to a specific deployed contract.
+func NewUpgradeManager1(address common.Address, backend bind.ContractBackend) (*UpgradeManager1, error) {
+	contract, err := bindUpgradeManager1(address, backend, backend, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &UpgradeManager1{UpgradeManager1Caller: UpgradeManager1Caller{contract: contract}, UpgradeManager1Transactor: UpgradeManager1Transactor{contract: contract}, UpgradeManager1Filterer: UpgradeManager1Filterer{contract: contract}}, nil
+}
+
+// NewUpgradeManager1Caller creates a new read-only instance of UpgradeManager1, bound to a specific deployed contract.
+func NewUpgradeManager1Caller(address common.Address, caller bind.ContractCaller) (*UpgradeManager1Caller, error) {
+	contract, err := bindUpgradeManager1(address, caller, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &UpgradeManager1Caller{contract: contract}, nil
+}
+
+// NewUpgradeManager1Transactor creates a new write-only instance of UpgradeManager1, bound to a specific deployed contract.
+func NewUpgradeManager1Transactor(address common.Address, transactor bind.ContractTransactor) (*UpgradeManager1Transactor, error) {
+	contract, err := bindUpgradeManager1(address, nil, transactor, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &UpgradeManager1Transactor{contract: contract}, nil
+}
+
+// NewUpgradeManager1Filterer creates a new log filterer instance of UpgradeManager1, bound to a specific deployed contract.
+func NewUpgradeManager1Filterer(address common.Address, filterer bind.ContractFilterer) (*UpgradeManager1Filterer, error) {
+	contract, err := bindUpgradeManager1(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &UpgradeManager1Filterer{contract: contract}, nil
+}
+
+// bindUpgradeManager1 binds a generic wrapper to an already deployed contract.
+func bindUpgradeManager1(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(UpgradeManager1ABI))
+	if err != nil {
+		return nil, err
+	}
+	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_UpgradeManager1 *UpgradeManager1Raw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _UpgradeManager1.Contract.UpgradeManager1Caller.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_UpgradeManager1 *UpgradeManager1Raw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _UpgradeManager1.Contract.UpgradeManager1Transactor.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_UpgradeManager1 *UpgradeManager1Raw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _UpgradeManager1.Contract.UpgradeManager1Transactor.contract.Transact(opts, method, params...)
+}
+
+// Call invokes the (constant) contract method with params as input values and
+// sets the output to result. The result type might be a single field for simple
+// returns, a slice of interfaces for anonymous returns and a struct for named
+// returns.
+func (_UpgradeManager1 *UpgradeManager1CallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _UpgradeManager1.Contract.contract.Call(opts, result, method, params...)
+}
+
+// Transfer initiates a plain transaction to move funds to the contract, calling
+// its default method if one is available.
+func (_UpgradeManager1 *UpgradeManager1TransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _UpgradeManager1.Contract.contract.Transfer(opts)
+}
+
+// Transact invokes the (paid) contract method with params as input values.
+func (_UpgradeManager1 *UpgradeManager1TransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _UpgradeManager1.Contract.contract.Transact(opts, method, params...)
+}
+
+// GetAutonity is a free data retrieval call binding the contract method 0x7c8ccebe.
+//
+// Solidity: function getAutonity() view returns(address)
+func (_UpgradeManager1 *UpgradeManager1Caller) GetAutonity(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _UpgradeManager1.contract.Call(opts, &out, "getAutonity")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// GetAutonity is a free data retrieval call binding the contract method 0x7c8ccebe.
+//
+// Solidity: function getAutonity() view returns(address)
+func (_UpgradeManager1 *UpgradeManager1Session) GetAutonity() (common.Address, error) {
+	return _UpgradeManager1.Contract.GetAutonity(&_UpgradeManager1.CallOpts)
+}
+
+// GetAutonity is a free data retrieval call binding the contract method 0x7c8ccebe.
+//
+// Solidity: function getAutonity() view returns(address)
+func (_UpgradeManager1 *UpgradeManager1CallerSession) GetAutonity() (common.Address, error) {
+	return _UpgradeManager1.Contract.GetAutonity(&_UpgradeManager1.CallOpts)
+}
+
+// GetOperator is a free data retrieval call binding the contract method 0xe7f43c68.
+//
+// Solidity: function getOperator() view returns(address)
+func (_UpgradeManager1 *UpgradeManager1Caller) GetOperator(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _UpgradeManager1.contract.Call(opts, &out, "getOperator")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// GetOperator is a free data retrieval call binding the contract method 0xe7f43c68.
+//
+// Solidity: function getOperator() view returns(address)
+func (_UpgradeManager1 *UpgradeManager1Session) GetOperator() (common.Address, error) {
+	return _UpgradeManager1.Contract.GetOperator(&_UpgradeManager1.CallOpts)
+}
+
+// GetOperator is a free data retrieval call binding the contract method 0xe7f43c68.
+//
+// Solidity: function getOperator() view returns(address)
+func (_UpgradeManager1 *UpgradeManager1CallerSession) GetOperator() (common.Address, error) {
+	return _UpgradeManager1.Contract.GetOperator(&_UpgradeManager1.CallOpts)
+}
+
+// GetVersion is a free data retrieval call binding the contract method 0x9aaf9f08.
+//
+// Solidity: function getVersion(bytes32 _hash) view returns(string)
+func (_UpgradeManager1 *UpgradeManager1Caller) GetVersion(opts *bind.CallOpts, _hash [32]byte) (string, error) {
+	var out []interface{}
+	err := _UpgradeManager1.contract.Call(opts, &out, "getVersion", _hash)
+
+	if err != nil {
+		return *new(string), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(string)).(*string)
+
+	return out0, err
+
+}
+
+// GetVersion is a free data retrieval call binding the contract method 0x9aaf9f08.
+//
+// Solidity: function getVersion(bytes32 _hash) view returns(string)
+func (_UpgradeManager1 *UpgradeManager1Session) GetVersion(_hash [32]byte) (string, error) {
+	return _UpgradeManager1.Contract.GetVersion(&_UpgradeManager1.CallOpts, _hash)
+}
+
+// GetVersion is a free data retrieval call binding the contract method 0x9aaf9f08.
+//
+// Solidity: function getVersion(bytes32 _hash) view returns(string)
+func (_UpgradeManager1 *UpgradeManager1CallerSession) GetVersion(_hash [32]byte) (string, error) {
+	return _UpgradeManager1.Contract.GetVersion(&_UpgradeManager1.CallOpts, _hash)
+}
+
+// SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
+//
+// Solidity: function setOperator(address _account) returns()
+func (_UpgradeManager1 *UpgradeManager1Transactor) SetOperator(opts *bind.TransactOpts, _account common.Address) (*types.Transaction, error) {
+	return _UpgradeManager1.contract.Transact(opts, "setOperator", _account)
+}
+
+// SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
+//
+// Solidity: function setOperator(address _account) returns()
+func (_UpgradeManager1 *UpgradeManager1Session) SetOperator(_account common.Address) (*types.Transaction, error) {
+	return _UpgradeManager1.Contract.SetOperator(&_UpgradeManager1.TransactOpts, _account)
+}
+
+// SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
+//
+// Solidity: function setOperator(address _account) returns()
+func (_UpgradeManager1 *UpgradeManager1TransactorSession) SetOperator(_account common.Address) (*types.Transaction, error) {
+	return _UpgradeManager1.Contract.SetOperator(&_UpgradeManager1.TransactOpts, _account)
+}
+
+// SetVersion is a paid mutator transaction binding the contract method 0xa1d20653.
+//
+// Solidity: function setVersion(bytes32 _hash, string _version) returns()
+func (_UpgradeManager1 *UpgradeManager1Transactor) SetVersion(opts *bind.TransactOpts, _hash [32]byte, _version string) (*types.Transaction, error) {
+	return _UpgradeManager1.contract.Transact(opts, "setVersion", _hash, _version)
+}
+
+// SetVersion is a paid mutator transaction binding the contract method 0xa1d20653.
+//
+// Solidity: function setVersion(bytes32 _hash, string _version) returns()
+func (_UpgradeManager1 *UpgradeManager1Session) SetVersion(_hash [32]byte, _version string) (*types.Transaction, error) {
+	return _UpgradeManager1.Contract.SetVersion(&_UpgradeManager1.TransactOpts, _hash, _version)
+}
+
+// SetVersion is a paid mutator transaction binding the contract method 0xa1d20653.
+//
+// Solidity: function setVersion(bytes32 _hash, string _version) returns()
+func (_UpgradeManager1 *UpgradeManager1TransactorSession) SetVersion(_hash [32]byte, _version string) (*types.Transaction, error) {
+	return _UpgradeManager1.Contract.SetVersion(&_UpgradeManager1.TransactOpts, _hash, _version)
+}
+
+// Upgrade is a paid mutator transaction binding the contract method 0x6e3d9ff0.
+//
+// Solidity: function upgrade(address _target, string _data) returns()
+func (_UpgradeManager1 *UpgradeManager1Transactor) Upgrade(opts *bind.TransactOpts, _target common.Address, _data string) (*types.Transaction, error) {
+	return _UpgradeManager1.contract.Transact(opts, "upgrade", _target, _data)
+}
+
+// Upgrade is a paid mutator transaction binding the contract method 0x6e3d9ff0.
+//
+// Solidity: function upgrade(address _target, string _data) returns()
+func (_UpgradeManager1 *UpgradeManager1Session) Upgrade(_target common.Address, _data string) (*types.Transaction, error) {
+	return _UpgradeManager1.Contract.Upgrade(&_UpgradeManager1.TransactOpts, _target, _data)
+}
+
+// Upgrade is a paid mutator transaction binding the contract method 0x6e3d9ff0.
+//
+// Solidity: function upgrade(address _target, string _data) returns()
+func (_UpgradeManager1 *UpgradeManager1TransactorSession) Upgrade(_target common.Address, _data string) (*types.Transaction, error) {
+	return _UpgradeManager1.Contract.Upgrade(&_UpgradeManager1.TransactOpts, _target, _data)
+}
+
+// UpgradeManager1ConfigUpdateAddressIterator is returned from FilterConfigUpdateAddress and is used to iterate over the raw logs and unpacked data for ConfigUpdateAddress events raised by the UpgradeManager1 contract.
+type UpgradeManager1ConfigUpdateAddressIterator struct {
+	Event *UpgradeManager1ConfigUpdateAddress // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *UpgradeManager1ConfigUpdateAddressIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(UpgradeManager1ConfigUpdateAddress)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(UpgradeManager1ConfigUpdateAddress)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *UpgradeManager1ConfigUpdateAddressIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *UpgradeManager1ConfigUpdateAddressIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// UpgradeManager1ConfigUpdateAddress represents a ConfigUpdateAddress event raised by the UpgradeManager1 contract.
+type UpgradeManager1ConfigUpdateAddress struct {
+	Name            string
+	OldValue        common.Address
+	NewValue        common.Address
+	AppliesAtHeight *big.Int
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterConfigUpdateAddress is a free log retrieval operation binding the contract event 0xe821ac8084a7329d09d00cf1380cba50edea5f54a7bd453d49a9c354f565d4a0.
+//
+// Solidity: event ConfigUpdateAddress(string name, address oldValue, address newValue, uint256 appliesAtHeight)
+func (_UpgradeManager1 *UpgradeManager1Filterer) FilterConfigUpdateAddress(opts *bind.FilterOpts) (*UpgradeManager1ConfigUpdateAddressIterator, error) {
+
+	logs, sub, err := _UpgradeManager1.contract.FilterLogs(opts, "ConfigUpdateAddress")
+	if err != nil {
+		return nil, err
+	}
+	return &UpgradeManager1ConfigUpdateAddressIterator{contract: _UpgradeManager1.contract, event: "ConfigUpdateAddress", logs: logs, sub: sub}, nil
+}
+
+// WatchConfigUpdateAddress is a free log subscription operation binding the contract event 0xe821ac8084a7329d09d00cf1380cba50edea5f54a7bd453d49a9c354f565d4a0.
+//
+// Solidity: event ConfigUpdateAddress(string name, address oldValue, address newValue, uint256 appliesAtHeight)
+func (_UpgradeManager1 *UpgradeManager1Filterer) WatchConfigUpdateAddress(opts *bind.WatchOpts, sink chan<- *UpgradeManager1ConfigUpdateAddress) (event.Subscription, error) {
+
+	logs, sub, err := _UpgradeManager1.contract.WatchLogs(opts, "ConfigUpdateAddress")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(UpgradeManager1ConfigUpdateAddress)
+				if err := _UpgradeManager1.contract.UnpackLog(event, "ConfigUpdateAddress", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseConfigUpdateAddress is a log parse operation binding the contract event 0xe821ac8084a7329d09d00cf1380cba50edea5f54a7bd453d49a9c354f565d4a0.
+//
+// Solidity: event ConfigUpdateAddress(string name, address oldValue, address newValue, uint256 appliesAtHeight)
+func (_UpgradeManager1 *UpgradeManager1Filterer) ParseConfigUpdateAddress(log types.Log) (*UpgradeManager1ConfigUpdateAddress, error) {
+	event := new(UpgradeManager1ConfigUpdateAddress)
+	if err := _UpgradeManager1.contract.UnpackLog(event, "ConfigUpdateAddress", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// UpgradeManager1ConfigUpdateBoolIterator is returned from FilterConfigUpdateBool and is used to iterate over the raw logs and unpacked data for ConfigUpdateBool events raised by the UpgradeManager1 contract.
+type UpgradeManager1ConfigUpdateBoolIterator struct {
+	Event *UpgradeManager1ConfigUpdateBool // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *UpgradeManager1ConfigUpdateBoolIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(UpgradeManager1ConfigUpdateBool)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(UpgradeManager1ConfigUpdateBool)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *UpgradeManager1ConfigUpdateBoolIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *UpgradeManager1ConfigUpdateBoolIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// UpgradeManager1ConfigUpdateBool represents a ConfigUpdateBool event raised by the UpgradeManager1 contract.
+type UpgradeManager1ConfigUpdateBool struct {
+	Name            string
+	OldValue        bool
+	NewValue        bool
+	AppliesAtHeight *big.Int
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterConfigUpdateBool is a free log retrieval operation binding the contract event 0x5edb308c5eddc69bcd31b4e689c5eed2fbd3155ae57915d1cad05425f6c1a39b.
+//
+// Solidity: event ConfigUpdateBool(string name, bool oldValue, bool newValue, uint256 appliesAtHeight)
+func (_UpgradeManager1 *UpgradeManager1Filterer) FilterConfigUpdateBool(opts *bind.FilterOpts) (*UpgradeManager1ConfigUpdateBoolIterator, error) {
+
+	logs, sub, err := _UpgradeManager1.contract.FilterLogs(opts, "ConfigUpdateBool")
+	if err != nil {
+		return nil, err
+	}
+	return &UpgradeManager1ConfigUpdateBoolIterator{contract: _UpgradeManager1.contract, event: "ConfigUpdateBool", logs: logs, sub: sub}, nil
+}
+
+// WatchConfigUpdateBool is a free log subscription operation binding the contract event 0x5edb308c5eddc69bcd31b4e689c5eed2fbd3155ae57915d1cad05425f6c1a39b.
+//
+// Solidity: event ConfigUpdateBool(string name, bool oldValue, bool newValue, uint256 appliesAtHeight)
+func (_UpgradeManager1 *UpgradeManager1Filterer) WatchConfigUpdateBool(opts *bind.WatchOpts, sink chan<- *UpgradeManager1ConfigUpdateBool) (event.Subscription, error) {
+
+	logs, sub, err := _UpgradeManager1.contract.WatchLogs(opts, "ConfigUpdateBool")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(UpgradeManager1ConfigUpdateBool)
+				if err := _UpgradeManager1.contract.UnpackLog(event, "ConfigUpdateBool", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseConfigUpdateBool is a log parse operation binding the contract event 0x5edb308c5eddc69bcd31b4e689c5eed2fbd3155ae57915d1cad05425f6c1a39b.
+//
+// Solidity: event ConfigUpdateBool(string name, bool oldValue, bool newValue, uint256 appliesAtHeight)
+func (_UpgradeManager1 *UpgradeManager1Filterer) ParseConfigUpdateBool(log types.Log) (*UpgradeManager1ConfigUpdateBool, error) {
+	event := new(UpgradeManager1ConfigUpdateBool)
+	if err := _UpgradeManager1.contract.UnpackLog(event, "ConfigUpdateBool", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// UpgradeManager1ConfigUpdateIntIterator is returned from FilterConfigUpdateInt and is used to iterate over the raw logs and unpacked data for ConfigUpdateInt events raised by the UpgradeManager1 contract.
+type UpgradeManager1ConfigUpdateIntIterator struct {
+	Event *UpgradeManager1ConfigUpdateInt // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *UpgradeManager1ConfigUpdateIntIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(UpgradeManager1ConfigUpdateInt)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(UpgradeManager1ConfigUpdateInt)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *UpgradeManager1ConfigUpdateIntIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *UpgradeManager1ConfigUpdateIntIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// UpgradeManager1ConfigUpdateInt represents a ConfigUpdateInt event raised by the UpgradeManager1 contract.
+type UpgradeManager1ConfigUpdateInt struct {
+	Name            string
+	OldValue        *big.Int
+	NewValue        *big.Int
+	AppliesAtHeight *big.Int
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterConfigUpdateInt is a free log retrieval operation binding the contract event 0xb5114472b89d1126433287defb6308bbabdb95b6ce5dd949ab2c151ed7b1ff4c.
+//
+// Solidity: event ConfigUpdateInt(string name, int256 oldValue, int256 newValue, uint256 appliesAtHeight)
+func (_UpgradeManager1 *UpgradeManager1Filterer) FilterConfigUpdateInt(opts *bind.FilterOpts) (*UpgradeManager1ConfigUpdateIntIterator, error) {
+
+	logs, sub, err := _UpgradeManager1.contract.FilterLogs(opts, "ConfigUpdateInt")
+	if err != nil {
+		return nil, err
+	}
+	return &UpgradeManager1ConfigUpdateIntIterator{contract: _UpgradeManager1.contract, event: "ConfigUpdateInt", logs: logs, sub: sub}, nil
+}
+
+// WatchConfigUpdateInt is a free log subscription operation binding the contract event 0xb5114472b89d1126433287defb6308bbabdb95b6ce5dd949ab2c151ed7b1ff4c.
+//
+// Solidity: event ConfigUpdateInt(string name, int256 oldValue, int256 newValue, uint256 appliesAtHeight)
+func (_UpgradeManager1 *UpgradeManager1Filterer) WatchConfigUpdateInt(opts *bind.WatchOpts, sink chan<- *UpgradeManager1ConfigUpdateInt) (event.Subscription, error) {
+
+	logs, sub, err := _UpgradeManager1.contract.WatchLogs(opts, "ConfigUpdateInt")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(UpgradeManager1ConfigUpdateInt)
+				if err := _UpgradeManager1.contract.UnpackLog(event, "ConfigUpdateInt", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseConfigUpdateInt is a log parse operation binding the contract event 0xb5114472b89d1126433287defb6308bbabdb95b6ce5dd949ab2c151ed7b1ff4c.
+//
+// Solidity: event ConfigUpdateInt(string name, int256 oldValue, int256 newValue, uint256 appliesAtHeight)
+func (_UpgradeManager1 *UpgradeManager1Filterer) ParseConfigUpdateInt(log types.Log) (*UpgradeManager1ConfigUpdateInt, error) {
+	event := new(UpgradeManager1ConfigUpdateInt)
+	if err := _UpgradeManager1.contract.UnpackLog(event, "ConfigUpdateInt", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// UpgradeManager1ConfigUpdateUintIterator is returned from FilterConfigUpdateUint and is used to iterate over the raw logs and unpacked data for ConfigUpdateUint events raised by the UpgradeManager1 contract.
+type UpgradeManager1ConfigUpdateUintIterator struct {
+	Event *UpgradeManager1ConfigUpdateUint // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *UpgradeManager1ConfigUpdateUintIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(UpgradeManager1ConfigUpdateUint)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(UpgradeManager1ConfigUpdateUint)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *UpgradeManager1ConfigUpdateUintIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *UpgradeManager1ConfigUpdateUintIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// UpgradeManager1ConfigUpdateUint represents a ConfigUpdateUint event raised by the UpgradeManager1 contract.
+type UpgradeManager1ConfigUpdateUint struct {
+	Name            string
+	OldValue        *big.Int
+	NewValue        *big.Int
+	AppliesAtHeight *big.Int
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterConfigUpdateUint is a free log retrieval operation binding the contract event 0x207e45ce6f2191c3efffe5d0d91591cf81afd23cbf4bd746981d7a8a8dcfe1ba.
+//
+// Solidity: event ConfigUpdateUint(string name, uint256 oldValue, uint256 newValue, uint256 appliesAtHeight)
+func (_UpgradeManager1 *UpgradeManager1Filterer) FilterConfigUpdateUint(opts *bind.FilterOpts) (*UpgradeManager1ConfigUpdateUintIterator, error) {
+
+	logs, sub, err := _UpgradeManager1.contract.FilterLogs(opts, "ConfigUpdateUint")
+	if err != nil {
+		return nil, err
+	}
+	return &UpgradeManager1ConfigUpdateUintIterator{contract: _UpgradeManager1.contract, event: "ConfigUpdateUint", logs: logs, sub: sub}, nil
+}
+
+// WatchConfigUpdateUint is a free log subscription operation binding the contract event 0x207e45ce6f2191c3efffe5d0d91591cf81afd23cbf4bd746981d7a8a8dcfe1ba.
+//
+// Solidity: event ConfigUpdateUint(string name, uint256 oldValue, uint256 newValue, uint256 appliesAtHeight)
+func (_UpgradeManager1 *UpgradeManager1Filterer) WatchConfigUpdateUint(opts *bind.WatchOpts, sink chan<- *UpgradeManager1ConfigUpdateUint) (event.Subscription, error) {
+
+	logs, sub, err := _UpgradeManager1.contract.WatchLogs(opts, "ConfigUpdateUint")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(UpgradeManager1ConfigUpdateUint)
+				if err := _UpgradeManager1.contract.UnpackLog(event, "ConfigUpdateUint", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseConfigUpdateUint is a log parse operation binding the contract event 0x207e45ce6f2191c3efffe5d0d91591cf81afd23cbf4bd746981d7a8a8dcfe1ba.
+//
+// Solidity: event ConfigUpdateUint(string name, uint256 oldValue, uint256 newValue, uint256 appliesAtHeight)
+func (_UpgradeManager1 *UpgradeManager1Filterer) ParseConfigUpdateUint(log types.Log) (*UpgradeManager1ConfigUpdateUint, error) {
+	event := new(UpgradeManager1ConfigUpdateUint)
+	if err := _UpgradeManager1.contract.UnpackLog(event, "ConfigUpdateUint", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// UpgradeManager1UpgradeResultIterator is returned from FilterUpgradeResult and is used to iterate over the raw logs and unpacked data for UpgradeResult events raised by the UpgradeManager1 contract.
+type UpgradeManager1UpgradeResultIterator struct {
+	Event *UpgradeManager1UpgradeResult // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *UpgradeManager1UpgradeResultIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(UpgradeManager1UpgradeResult)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(UpgradeManager1UpgradeResult)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *UpgradeManager1UpgradeResultIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *UpgradeManager1UpgradeResultIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// UpgradeManager1UpgradeResult represents a UpgradeResult event raised by the UpgradeManager1 contract.
+type UpgradeManager1UpgradeResult struct {
+	ContractAddress common.Address
+	Success         bool
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterUpgradeResult is a free log retrieval operation binding the contract event 0x852faebd7b6261599c399849128319e84cd07abf61cfdea131405ee1d3934798.
+//
+// Solidity: event UpgradeResult(address indexed contractAddress, bool success)
+func (_UpgradeManager1 *UpgradeManager1Filterer) FilterUpgradeResult(opts *bind.FilterOpts, contractAddress []common.Address) (*UpgradeManager1UpgradeResultIterator, error) {
+
+	var contractAddressRule []interface{}
+	for _, contractAddressItem := range contractAddress {
+		contractAddressRule = append(contractAddressRule, contractAddressItem)
+	}
+
+	logs, sub, err := _UpgradeManager1.contract.FilterLogs(opts, "UpgradeResult", contractAddressRule)
+	if err != nil {
+		return nil, err
+	}
+	return &UpgradeManager1UpgradeResultIterator{contract: _UpgradeManager1.contract, event: "UpgradeResult", logs: logs, sub: sub}, nil
+}
+
+// WatchUpgradeResult is a free log subscription operation binding the contract event 0x852faebd7b6261599c399849128319e84cd07abf61cfdea131405ee1d3934798.
+//
+// Solidity: event UpgradeResult(address indexed contractAddress, bool success)
+func (_UpgradeManager1 *UpgradeManager1Filterer) WatchUpgradeResult(opts *bind.WatchOpts, sink chan<- *UpgradeManager1UpgradeResult, contractAddress []common.Address) (event.Subscription, error) {
+
+	var contractAddressRule []interface{}
+	for _, contractAddressItem := range contractAddress {
+		contractAddressRule = append(contractAddressRule, contractAddressItem)
+	}
+
+	logs, sub, err := _UpgradeManager1.contract.WatchLogs(opts, "UpgradeResult", contractAddressRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(UpgradeManager1UpgradeResult)
+				if err := _UpgradeManager1.contract.UnpackLog(event, "UpgradeResult", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseUpgradeResult is a log parse operation binding the contract event 0x852faebd7b6261599c399849128319e84cd07abf61cfdea131405ee1d3934798.
+//
+// Solidity: event UpgradeResult(address indexed contractAddress, bool success)
+func (_UpgradeManager1 *UpgradeManager1Filterer) ParseUpgradeResult(log types.Log) (*UpgradeManager1UpgradeResult, error) {
+	event := new(UpgradeManager1UpgradeResult)
+	if err := _UpgradeManager1.contract.UnpackLog(event, "UpgradeResult", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

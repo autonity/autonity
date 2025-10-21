@@ -102,7 +102,7 @@ type AutonityContract struct {
 type ProtocolContracts struct {
 	*AutonityContract
 	*bindings.Accountability
-	*bindings1.UpgradeManager
+	*bindings1.UpgradeManager1
 }
 
 func NewProtocolContracts(
@@ -147,7 +147,7 @@ func NewProtocolContracts(
 	}
 
 	// bind to upgrade manager contract with 1/ bindings
-	upgradeManagerContract, err := bindings1.NewUpgradeManager(params.UpgradeManagerContractAddress, contractBackend)
+	upgradeManagerContract, err := bindings1.NewUpgradeManager1(params.UpgradeManagerContractAddress, contractBackend)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func NewProtocolContracts(
 	contract := ProtocolContracts{
 		AutonityContract: autonityContract,
 		Accountability:   accountabilityContract,
-		UpgradeManager:   upgradeManagerContract,
+		UpgradeManager1:  upgradeManagerContract,
 	}
 
 	return &contract, nil
