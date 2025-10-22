@@ -3,6 +3,8 @@ package latency
 import (
 	"context"
 	"errors"
+	"math/big"
+	"sort"
 	"sync"
 
 	"github.com/autonity/autonity/common"
@@ -30,11 +32,13 @@ func (f *Fetcher) Fetch(validators []common.Address, self common.Address) (map[c
 		return nil, nil, errors.New("broadcaster not set, can't fetch latency")
 	}
 
-	committeeEnodes := f.peerFinder.CommitteeEnodes()
+	validators, committeeEnodes := sortByAddress(validators, f.peerFinder.CommitteeEnodes())
+
 	latency := make(map[common.Address]uint)
 	pingTargets := make([]ping.Target, len(validators))
 	failedNodes := make([]common.Address, 0)
 
+	enodeAt := 0
 	for i, member := range validators {
 		if member == self {
 			pingTargets[i] = ping.Target{}
@@ -46,15 +50,19 @@ func (f *Fetcher) Fetch(validators []common.Address, self common.Address) (map[c
 			failedNodes = append(failedNodes, member)
 			continue
 		}
-		if memberNode, ok := enodeByAddress(committeeEnodes, member); ok {
+		// both `validators` and `committeeEnodes` are sorted by their address in ascending order
+		// the total complexity of the loop becomes: `O(len(validators) + len(committeeEnodes))`
+		if memberNode, ok, biggerEnodeIndex := findEnode(enodeAt, committeeEnodes, member); ok {
 			ip := memberNode.IP()
 			port := memberNode.TCP()
 			pingTargets[i] = ping.Target{IP: ip.String(), Port: port}
 			log.Debug("Fetching latency", "targetIP", ip, "targetPort", port)
+			enodeAt = biggerEnodeIndex
 		} else {
 			log.Error("Peer not found in broadcaster enodes", "peer", member.Hex())
 			pingTargets[i] = ping.Target{}
 			failedNodes = append(failedNodes, member)
+			enodeAt = biggerEnodeIndex
 		}
 	}
 
@@ -104,12 +112,39 @@ func (f *Fetcher) SetPinger(pinger ping.Pinger) {
 	f.pinger = pinger
 }
 
-func enodeByAddress(committeeEnodes []*enode.Node, addr common.Address) (*enode.Node, bool) {
-	for _, memberNode := range committeeEnodes {
-		pubKey := memberNode.Pubkey()
-		if crypto.PubkeyToAddress(*pubKey) == addr {
-			return memberNode, true
+func sortByAddress(validators []common.Address, committeeEnodes []*enode.Node) ([]common.Address, []*enode.Node) {
+
+	sort.Slice(committeeEnodes, func(i, j int) bool {
+		address1 := enodeAddress(committeeEnodes[i])
+		address2 := enodeAddress(committeeEnodes[j])
+		return new(big.Int).SetBytes(address1[:]).Cmp(new(big.Int).SetBytes(address2[:])) < 0
+	})
+
+	sort.Slice(validators, func(i, j int) bool {
+		return new(big.Int).SetBytes(validators[i][:]).Cmp(new(big.Int).SetBytes(validators[j][:])) < 0
+	})
+
+	return validators, committeeEnodes
+}
+
+func findEnode(enodeAt int, enodes []*enode.Node, member common.Address) (*enode.Node, bool, int) {
+	// this function assumes that the slice `endoes[enodeAt:]` is sorted by address in ascending order
+	// and `member` is not present in the slice `endoes[:enodeAt+1]`
+	for enodeAt < len(enodes) {
+		enodeAddress := enodeAddress(enodes[enodeAt])
+		diff := new(big.Int).SetBytes(enodeAddress[:]).Cmp(new(big.Int).SetBytes(member[:]))
+		if diff == 0 {
+			// all the remaining enode addresses are bigger than `member`
+			return enodes[enodeAt], true, enodeAt + 1
+		} else if diff == 1 {
+			// all the remaining enode addresses are bigger than `member`
+			break
 		}
+		enodeAt++
 	}
-	return nil, false
+	return nil, false, enodeAt
+}
+
+func enodeAddress(enode *enode.Node) common.Address {
+	return crypto.PubkeyToAddress(*enode.Pubkey())
 }
