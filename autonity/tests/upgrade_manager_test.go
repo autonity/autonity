@@ -8,8 +8,10 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/params/generated"
 	generated0 "github.com/autonity/autonity/params/upgrades/generated/0"
 	generated1 "github.com/autonity/autonity/params/upgrades/generated/1"
 	"github.com/stretchr/testify/require"
@@ -130,4 +132,17 @@ func TestOracleUpgradePatchedBytecode(t *testing.T) {
 	require.NoError(t, err)
 	// should be equal to the patched one
 	require.True(t, bytes.Equal(ret, generated0.OracleRuntimeBytecode))
+}
+
+// test if upgrading all ASM contract at once would fit in a single tx
+func TestASMAtomicUpdate(t *testing.T) {
+	cumulativeBytecodeSize := 0
+	cumulativeBytecodeSize += len(generated.ACUBytecode)
+	cumulativeBytecodeSize += len(generated.SupplyControlBytecode)
+	cumulativeBytecodeSize += len(generated.StabilizationBytecode)
+	cumulativeBytecodeSize += len(generated.InflationControllerBytecode)
+	cumulativeBytecodeSize += len(generated.AuctioneerBytecode)
+	t.Logf("cumulativeBytecodeSize: %d bytes (~ %.2f kb)", cumulativeBytecodeSize, float64(cumulativeBytecodeSize)/float64(1024))
+	require.True(t, cumulativeBytecodeSize < core.TxMaxSize)
+
 }

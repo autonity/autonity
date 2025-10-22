@@ -26,13 +26,44 @@ contract UpgradeManager1 is UpgradeManager {
     * Restricted to the operator account.
     *  @param _target is the target contract address to be updated.
     *  @param _data is the contract creation code.
-    *  @param _versionString, semver string of the new version
+    *  @param _versionString, semver string of the new version.
     */
     function upgrade(address _target, string memory _data, string memory _versionString) external virtual onlyOperator {
         this.upgrade(_target, _data);
 
         // TODO: test to ensure that this already gets the updated codehash
         versionHistory[_target.codehash] = version(_versionString, block.number);
+    }
+
+    /** @dev Call the in-protocol EVM replace mechanism. Requires specific tool to interact.
+    * Restricted to the operator account.
+    *  @param _targets are the target contracts addresses to be updated.
+    *  @param _bytecodes are the contracts creation code.
+    */
+    function upgradeMultiple(address[] memory _targets, string[] memory _bytecodes) external virtual onlyOperator {
+        require(_targets.length == _bytecodes.length, "addresses and bytecodes should be in same number");
+        for(uint256 i=0; i<_targets.length; i++) {
+            // TODO: what about return value of upgrade from assembly
+            this.upgrade(_targets[i],_bytecodes[i]);
+        }
+    }
+
+    /** @dev Call the in-protocol EVM replace mechanism. Requires specific tool to interact.
+    * Restricted to the operator account.
+    *  @param _targets are the target contracts addresses to be updated.
+    *  @param _bytecodes are the contracts creation code.
+    *  @param _versionStrings, semver strings of the new versions.
+    */
+    function upgradeMultiple(address[] memory _targets, string[] memory _bytecodes, string[] memory _versionStrings) external virtual onlyOperator {
+        require(_targets.length == _bytecodes.length, "addresses and bytecodes should be in same number");
+        require(_targets.length == _versionStrings.length, "addresses and version strings should be in same number");
+        for(uint256 i=0; i<_targets.length; i++) {
+            // TODO: what about return value of upgrade from assembly
+            this.upgrade(_targets[i],_bytecodes[i]);
+
+            // TODO: test to ensure that this already gets the updated codehash
+            versionHistory[_targets[i].codehash] = version(_versionStrings[i], block.number);
+        }
     }
 
     /**
