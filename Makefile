@@ -112,7 +112,7 @@ define gen-contract-upgrade
 	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin --bin-runtime --metadata --userdoc --devdoc -o $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1) $(CONTRACTS_UPGRADES_DIR)/$(1)/$(2).sol
 
 	if [ $(1) -eq 0 ]; then \
-		sed -i s/7930f4e16579d0dcad104bc3e6919c8d61db56398ae6bcf867887aad2c0ce2df/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).bin $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).bin-runtime; \
+		sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(3).bin $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(3).bin-runtime; \
 	fi
 
 	@echo Generating bytecode for upgrade $(1)/$(2)
@@ -159,7 +159,7 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,test-contract/,AutonityUpgradeTest)
 	@$(call gen-contract,test-contract/,OmissionAccountabilityTest)
 	# upgraded contracts
-	@$(call gen-contract-upgrade,0,Oracle,Oracle)
+	@$(call gen-contract-upgrade,0,Oracle,Oracle0)
 	@$(call gen-contract-upgrade,1,UpgradeManager,UpgradeManager1)
 	# update 4byte selector for clef
 	./build/generate_4bytedb.sh $(SOLC_BINARY)
@@ -178,11 +178,11 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@echo "Generating protocol contracts bindings for oracle contract v1.0.1"
 	mkdir -p ./autonity/bindings/0
 	$(ABIGEN_BINARY)  --pkg bindings0 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/0/Oracle.sol --out ./autonity/bindings/0/bindings.go
-	@sed -i s/7930f4e16579d0dcad104bc3e6919c8d61db56398ae6bcf867887aad2c0ce2df/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/0/bindings.go
+	@sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/0/bindings.go
 	@echo "Generating internal testing bindings for oracle contract v1.0.1"
 	mkdir -p ./autonity/tests/0
 	$(ABIGEN_BINARY)  --test --upgrade --pkg tests0 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/0/Oracle.sol --out ./autonity/tests/0/bindings.go
-	@sed -i s/7930f4e16579d0dcad104bc3e6919c8d61db56398ae6bcf867887aad2c0ce2df/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/tests/0/bindings.go
+	@sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/tests/0/bindings.go
 
 	# Generate go bindings for upgrade manager v1.1.0
 	@echo "Generating protocol contracts bindings for upgrade manager v1.1.0"

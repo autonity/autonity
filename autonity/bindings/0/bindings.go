@@ -239,8 +239,8 @@ type IStabilizationLastUpdated struct {
 	MinCollateralizationRatioTimestamp *big.Int
 }
 
-// OracleConfig is an auto generated low-level Go binding around an user-defined struct.
-type OracleConfig struct {
+// Oracle0Config is an auto generated low-level Go binding around an user-defined struct.
+type Oracle0Config struct {
 	Autonity                  common.Address
 	Operator                  common.Address
 	VotePeriod                *big.Int
@@ -252,8 +252,8 @@ type OracleConfig struct {
 	SlashingRateCap           *big.Int
 }
 
-// OracleVoterInfo is an auto generated low-level Go binding around an user-defined struct.
-type OracleVoterInfo struct {
+// Oracle0VoterInfo is an auto generated low-level Go binding around an user-defined struct.
+type Oracle0VoterInfo struct {
 	Round           *big.Int
 	Commit          *big.Int
 	Performance     *big.Int
@@ -13617,9 +13617,9 @@ func (_IUpgradeManager *IUpgradeManagerTransactorSession) SetOperator(_account c
 	return _IUpgradeManager.Contract.SetOperator(&_IUpgradeManager.TransactOpts, _account)
 }
 
-// OracleMetaData contains all meta data concerning the Oracle contract.
-var OracleMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"methodSignature\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"returnData\",\"type\":\"bytes\"}],\"name\":\"CallFailed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_nonRevealCount\",\"type\":\"uint256\"}],\"name\":\"CommitRevealMissed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"oldValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateAddress\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"oldValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"newValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateBool\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"oldValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"newValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateInt\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"oldValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateUint\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"cause\",\"type\":\"string\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"reporter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"expValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"actualValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"extra\",\"type\":\"uint8\"}],\"name\":\"InvalidVote\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_votePeriod\",\"type\":\"uint256\"}],\"name\":\"NewRound\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string[]\",\"name\":\"_symbols\",\"type\":\"string[]\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"}],\"name\":\"NewSymbols\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"reporter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"extra\",\"type\":\"uint8\"}],\"name\":\"NewVoter\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_missedReveal\",\"type\":\"uint256\"}],\"name\":\"NoRevealPenalty\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_participant\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_slashingAmount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"_median\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"uint120\",\"name\":\"_reported\",\"type\":\"uint120\"}],\"name\":\"Penalized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"status\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"PriceUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"reporter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"extra\",\"type\":\"uint8\"}],\"name\":\"SuccessfulVote\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"ntnReward\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"atnReward\",\"type\":\"uint256\"}],\"name\":\"TotalOracleRewards\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_ntn\",\"type\":\"uint256\"}],\"name\":\"distributeRewards\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"finalize\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"contractIAutonity\",\"name\":\"autonity\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"votePeriod\",\"type\":\"uint256\"},{\"internalType\":\"int256\",\"name\":\"outlierDetectionThreshold\",\"type\":\"int256\"},{\"internalType\":\"int256\",\"name\":\"outlierSlashingThreshold\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"baseSlashingRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"nonRevealThreshold\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"revealResetInterval\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"slashingRateCap\",\"type\":\"uint256\"}],\"internalType\":\"structOracle.Config\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getDecimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLastRoundBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNewVotePeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNewVoters\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNonRevealThreshold\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"},{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getReports\",\"outputs\":[{\"components\":[{\"internalType\":\"uint120\",\"name\":\"price\",\"type\":\"uint120\"},{\"internalType\":\"uint8\",\"name\":\"confidence\",\"type\":\"uint8\"}],\"internalType\":\"structIOracle.Report\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getRewardPeriodPerformance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getRound\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"}],\"name\":\"getRoundData\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"}],\"internalType\":\"structIOracle.RoundData\",\"name\":\"data\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getSymbolUpdatedRound\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getSymbols\",\"outputs\":[{\"internalType\":\"string[]\",\"name\":\"\",\"type\":\"string[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVotePeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getVoterInfo\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"commit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"performance\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"nonRevealCount\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isVoter\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"reportAvailable\",\"type\":\"bool\"}],\"internalType\":\"structOracle.VoterInfo\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracleAddress\",\"type\":\"address\"}],\"name\":\"getVoterTreasuries\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracleAddress\",\"type\":\"address\"}],\"name\":\"getVoterValidators\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVoters\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"}],\"name\":\"latestRoundData\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"}],\"internalType\":\"structIOracle.RoundData\",\"name\":\"data\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_threshold\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_resetInterval\",\"type\":\"uint256\"}],\"name\":\"setCommitRevealConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"int256\",\"name\":\"_outlierSlashingThreshold\",\"type\":\"int256\"},{\"internalType\":\"int256\",\"name\":\"_outlierDetectionThreshold\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"_baseSlashingRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_slashingRateCap\",\"type\":\"uint256\"}],\"name\":\"setSlashingConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string[]\",\"name\":\"_symbols\",\"type\":\"string[]\"}],\"name\":\"setSymbols\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_votePeriod\",\"type\":\"uint256\"}],\"name\":\"setVotePeriod\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_newVoters\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_treasury\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_validator\",\"type\":\"address[]\"}],\"name\":\"setVoters\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"updateVotersAndSymbol\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_commit\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint120\",\"name\":\"price\",\"type\":\"uint120\"},{\"internalType\":\"uint8\",\"name\":\"confidence\",\"type\":\"uint8\"}],\"internalType\":\"structIOracle.Report[]\",\"name\":\"_reports\",\"type\":\"tuple[]\"},{\"internalType\":\"uint256\",\"name\":\"_salt\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"_extra\",\"type\":\"uint8\"}],\"name\":\"vote\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
+// Oracle0MetaData contains all meta data concerning the Oracle0 contract.
+var Oracle0MetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"methodSignature\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"returnData\",\"type\":\"bytes\"}],\"name\":\"CallFailed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_nonRevealCount\",\"type\":\"uint256\"}],\"name\":\"CommitRevealMissed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"oldValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateAddress\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"oldValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"newValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateBool\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"oldValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"newValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateInt\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"oldValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateUint\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"cause\",\"type\":\"string\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"reporter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"expValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"actualValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"extra\",\"type\":\"uint8\"}],\"name\":\"InvalidVote\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_votePeriod\",\"type\":\"uint256\"}],\"name\":\"NewRound\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string[]\",\"name\":\"_symbols\",\"type\":\"string[]\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"}],\"name\":\"NewSymbols\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"reporter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"extra\",\"type\":\"uint8\"}],\"name\":\"NewVoter\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_missedReveal\",\"type\":\"uint256\"}],\"name\":\"NoRevealPenalty\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"_participant\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"_slashingAmount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"_median\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"uint120\",\"name\":\"_reported\",\"type\":\"uint120\"}],\"name\":\"Penalized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"status\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"PriceUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"reporter\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"extra\",\"type\":\"uint8\"}],\"name\":\"SuccessfulVote\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"ntnReward\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"atnReward\",\"type\":\"uint256\"}],\"name\":\"TotalOracleRewards\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_ntn\",\"type\":\"uint256\"}],\"name\":\"distributeRewards\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"finalize\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getConfig\",\"outputs\":[{\"components\":[{\"internalType\":\"contractIAutonity\",\"name\":\"autonity\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"operator\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"votePeriod\",\"type\":\"uint256\"},{\"internalType\":\"int256\",\"name\":\"outlierDetectionThreshold\",\"type\":\"int256\"},{\"internalType\":\"int256\",\"name\":\"outlierSlashingThreshold\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"baseSlashingRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"nonRevealThreshold\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"revealResetInterval\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"slashingRateCap\",\"type\":\"uint256\"}],\"internalType\":\"structOracle0.Config\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getDecimals\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLastRoundBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNewVotePeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNewVoters\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getNonRevealThreshold\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"},{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getReports\",\"outputs\":[{\"components\":[{\"internalType\":\"uint120\",\"name\":\"price\",\"type\":\"uint120\"},{\"internalType\":\"uint8\",\"name\":\"confidence\",\"type\":\"uint8\"}],\"internalType\":\"structIOracle.Report\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getRewardPeriodPerformance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getRound\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_round\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"}],\"name\":\"getRoundData\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"}],\"internalType\":\"structIOracle.RoundData\",\"name\":\"data\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getSymbolUpdatedRound\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getSymbols\",\"outputs\":[{\"internalType\":\"string[]\",\"name\":\"\",\"type\":\"string[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVotePeriod\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_voter\",\"type\":\"address\"}],\"name\":\"getVoterInfo\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"commit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"performance\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"nonRevealCount\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"isVoter\",\"type\":\"bool\"},{\"internalType\":\"bool\",\"name\":\"reportAvailable\",\"type\":\"bool\"}],\"internalType\":\"structOracle0.VoterInfo\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracleAddress\",\"type\":\"address\"}],\"name\":\"getVoterTreasuries\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_oracleAddress\",\"type\":\"address\"}],\"name\":\"getVoterValidators\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getVoters\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"_symbol\",\"type\":\"string\"}],\"name\":\"latestRoundData\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"round\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"}],\"internalType\":\"structIOracle.RoundData\",\"name\":\"data\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_threshold\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_resetInterval\",\"type\":\"uint256\"}],\"name\":\"setCommitRevealConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_operator\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"int256\",\"name\":\"_outlierSlashingThreshold\",\"type\":\"int256\"},{\"internalType\":\"int256\",\"name\":\"_outlierDetectionThreshold\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"_baseSlashingRate\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_slashingRateCap\",\"type\":\"uint256\"}],\"name\":\"setSlashingConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string[]\",\"name\":\"_symbols\",\"type\":\"string[]\"}],\"name\":\"setSymbols\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_votePeriod\",\"type\":\"uint256\"}],\"name\":\"setVotePeriod\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_newVoters\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_treasury\",\"type\":\"address[]\"},{\"internalType\":\"address[]\",\"name\":\"_validator\",\"type\":\"address[]\"}],\"name\":\"setVoters\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"updateVotersAndSymbol\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_commit\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint120\",\"name\":\"price\",\"type\":\"uint120\"},{\"internalType\":\"uint8\",\"name\":\"confidence\",\"type\":\"uint8\"}],\"internalType\":\"structIOracle.Report[]\",\"name\":\"_reports\",\"type\":\"tuple[]\"},{\"internalType\":\"uint256\",\"name\":\"_salt\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"_extra\",\"type\":\"uint8\"}],\"name\":\"vote\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
 	Sigs: map[string]string{
 		"59974e38": "distributeRewards(uint256)",
 		"4bb278f3": "finalize()",
@@ -13653,21 +13653,21 @@ var OracleMetaData = &bind.MetaData{
 	Bin: "0x6080604052600160ff1b600a55348015601757600080fd5b50615351806100276000396000f3fe6080604052600436106101a25760003560e01c806399b0014b116100e0578063da39fbfe11610084578063ed78349d11610061578063ed78349d14610509578063ef5cc4d11461051e578063f0141d841461053e578063fb09917e1461055a57005b8063da39fbfe146104a7578063da78110e146104c7578063df7f710e146104e757005b8063b3ab15fb116100bd578063b3ab15fb1461043b578063b78dec521461045b578063c3f909d414610470578063cdd722531461049257005b806399b0014b146103a15780639ed1f255146103b65780639f8743f71461042657005b80634bb278f31161014757806359974e381161012457806359974e38146103395780635a4d3a271461034c57806367b11630146103615780638d4f75d21461038157005b80634bb278f3146102df57806356833ebe1461030457806357eba7591461032457005b806333d162931161018057806333d162931461021c57806333f98c771461024a5780633c8510fd1461029f5780633f422ef3146102bf57005b8063077945d3146101a45780630f65875c146101cf5780632d35d158146101e4575b005b3480156101b057600080fd5b506101b96105a9565b6040516101c691906144d2565b60405180910390f35b3480156101db57600080fd5b506101a261066a565b3480156101f057600080fd5b506102046101ff366004614535565b610888565b6040516001600160a01b0390911681526020016101c6565b34801561022857600080fd5b5061023c610237366004614535565b6108fd565b6040519081526020016101c6565b34801561025657600080fd5b5061026a610265366004614620565b61096c565b6040516101c6919081518152602080830151908201526040808301519082015260609182015115159181019190915260800190565b3480156102ab57600080fd5b5061026a6102ba366004614655565b610aa8565b3480156102cb57600080fd5b506101a26102da36600461469c565b610bbb565b3480156102eb57600080fd5b506102f4610d6b565b60405190151581526020016101c6565b34801561031057600080fd5b506101a261031f3660046146d8565b610f0a565b34801561033057600080fd5b5061023c611454565b6101a2610347366004614774565b6114ae565b34801561035857600080fd5b5061023c61154b565b34801561036d57600080fd5b506101a261037c366004614774565b6115a5565b34801561038d57600080fd5b506101a261039c3660046147b1565b61169a565b3480156103ad57600080fd5b50600a5461023c565b3480156103c257600080fd5b506103d66103d1366004614535565b61180d565b6040516101c69190600060c0820190508251825260208301516020830152604083015160408301526060830151606083015260808301511515608083015260a0830151151560a083015292915050565b34801561043257600080fd5b5061023c611909565b34801561044757600080fd5b506101a2610456366004614535565b611963565b34801561046757600080fd5b5061023c611a1d565b34801561047c57600080fd5b50610485611a77565b6040516101c6919061486d565b34801561049e57600080fd5b506101b9611b8d565b3480156104b357600080fd5b506101a26104c23660046148e9565b611c46565b3480156104d357600080fd5b506101a26104e236600461498a565b611e97565b3480156104f357600080fd5b506104fc6120cd565b6040516101c69190614aca565b34801561051557600080fd5b5060075461023c565b34801561052a57600080fd5b50610204610539366004614535565b61228b565b34801561054a57600080fd5b50604051601281526020016101c6565b34801561056657600080fd5b5061057a610575366004614add565b6122fd565b6040805182516effffffffffffffffffffffffffffff16815260209283015160ff1692810192909252016101c6565b60606105b760005460011490565b156106095760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e637920646574656374656400000060448201526064015b60405180910390fd5b601280548060200260200160405190810160405280929190818152602001828054801561065f57602002820191906000526020600020905b81546001600160a01b03168152600190910190602001808311610641575b505050505090505b90565b6001546001600160a01b031633146106ea5760405162461bcd60e51b815260206004820152602360248201527f7265737472696374656420746f20746865206175746f6e69747920636f6e747260448201527f61637400000000000000000000000000000000000000000000000000000000006064820152608401610600565b60135460ff1615156001036107905760005b60125481101561075e576001600c60006012848154811061071f5761071f614b2b565b6000918252602080832091909101546001600160a01b031683528201929092526040019020600401805460ff19169115159190911790556001016106fc565b50601380547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000166101001790556107d5565b601354610100900460ff1615156001036107d5576107ac6123d7565b601380547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00ff1690555b600a546107e3906002614b89565b6014540361088657600f80546107fb91600e9161430f565b5060005b601154811015610884576000600c60006011848154811061082257610822614b2b565b60009182526020808320909101546001600160a01b0316835282019290925260400190206004018054911515610100027fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00ff9092169190911790556001016107ff565b505b565b600080546001036108db5760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b506001600160a01b03808216600090815260196020526040902054165b919050565b600080546001036109505760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b506001600160a01b03166000908152601a602052604090205490565b61099960405180608001604052806000815260200160008152602001600081526020016000151581525090565b6000546001036109eb5760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b6000601560016014546109fe9190614bb1565b81548110610a0e57610a0e614b2b565b9060005260206000200183604051610a269190614bc4565b90815260408051918290036020908101832060608401835280548452600180820154928501929092526002015460ff161515838301528151608081019092526014549293506000928291610a7991614bb1565b815260200183600001518152602001836020015181526020018360400151151581525090508092505050919050565b610ad560405180608001604052806000815260200160008152602001600081526020016000151581525090565b600054600103610b275760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b600060158481548110610b3c57610b3c614b2b565b9060005260206000200183604051610b549190614bc4565b9081526040805191829003602090810183206060808501845281548552600182015485840190815260029092015460ff16151585850190815284516080810186528a8152955193860193909352905192840192909252511515908201529150505b92915050565b6002546001600160a01b03163314610c155760405162461bcd60e51b815260206004820152601660248201527f7265737472696374656420746f206f70657261746f72000000000000000000006044820152606401610600565b8082108015610c245750600081115b610c705760405162461bcd60e51b815260206004820152600e60248201527f696e76616c696420636f6e6669670000000000000000000000000000000000006044820152606401610600565b6008546040805160808082526013908201527f72657665616c5265736574496e74657276616c0000000000000000000000000060a0820152602081019290925281018290524360608201527f207e45ce6f2191c3efffe5d0d91591cf81afd23cbf4bd746981d7a8a8dcfe1ba9060c00160405180910390a160088190556007546040805160808082526012908201527f6e6f6e52657665616c5468726573686f6c64000000000000000000000000000060a0820152602081019290925281018390524360608201527f207e45ce6f2191c3efffe5d0d91591cf81afd23cbf4bd746981d7a8a8dcfe1ba9060c00160405180910390a150600755565b6001546000906001600160a01b03163314610dee5760405162461bcd60e51b815260206004820152602360248201527f7265737472696374656420746f20746865206175746f6e69747920636f6e747260448201527f61637400000000000000000000000000000000000000000000000000000000006064820152608401610600565b610df6612607565b600354600b54610e069190614be0565b431015610e1557506000610f01565b6000610e1f61265e565b600854601454919250610e3191614c22565b600003610e4057610e4061285d565b60158054600101815560009081525b600e54811015610e7557610e6381836128b3565b610e6e600182614be0565b9050610e4f565b50610e7e613073565b43600b81905550600160146000828254610e989190614be0565b909155505060105460035414610eaf576010546003555b601454600354604080519283524260208401528201527f5aec57d81928b24d30b1a2aec0d23d693412c37d7ec106b5d8259413716bb1f49060600160405180910390a1610efb81613167565b60019150505b61066760008055565b336000908152600c602052604090206004015460ff16610f6c5760405162461bcd60e51b815260206004820152601960248201527f7265737472696374656420746f206f6e6c7920766f74657273000000000000006044820152606401610600565b610f74612607565b336000908152600c60205260409020601454815403610fd55760405162461bcd60e51b815260206004820152600d60248201527f616c726561647920766f746564000000000000000000000000000000000000006044820152606401610600565b60018101805490879055815460145483556000819003611032576040805133815260ff861660208201527fd2ec8e890a03083998d3e16f98044fd3dd13fe3e61b7bc2e58ee6da43b50af73910160405180910390a1505050611444565b60016014546110419190614bb1565b81146110e057336001600160a01b03167f04ca4e0efda95f8b780c116574d1521309010b38d8f7b75705495703a0f570b160016014546110819190614bb1565b6040805160808082526016908201527f4c617374566f746564526f756e644d69736d617463680000000000000000000060a08201526020810192909252810184905260ff8716606082015260c0015b60405180910390a2505050611444565b868686336040516020016110f79493929190614c53565b6040516020818303038152906040528051906020012060001c975087821461119a576111233384613213565b604080516080808252600e908201527f436f6d6d69744d69736d6174636800000000000000000000000000000000000060a08201526020810184905290810189905260ff8516606082015233907f04ca4e0efda95f8b780c116574d1521309010b38d8f7b75705495703a0f570b19060c0016110d0565b600e54861461121e57600e546040805160808082526014908201527f5265706f72744c656e6774684d69736d6174636800000000000000000000000060a0820152602081018990529081019190915260ff8516606082015233907f04ca4e0efda95f8b780c116574d1521309010b38d8f7b75705495703a0f570b19060c0016110d0565b60005b868110156113d957606488888381811061123d5761123d614b2b565b90506040020160200160208101906112559190614cd7565b60ff1611156112a65760405162461bcd60e51b815260206004820152601860248201527f696e76616c696420636f6e666964656e63652073636f726500000000000000006044820152606401610600565b60008888838181106112ba576112ba614b2b565b6112d09260206040909202019081019150614cf4565b6effffffffffffffffffffffffffffff1611801561131a575060008888838181106112fd576112fd614b2b565b90506040020160200160208101906113159190614cd7565b60ff16115b6113665760405162461bcd60e51b815260206004820152601660248201527f636f6e666964656e63652f7072696365206572726f72000000000000000000006044820152606401610600565b87878281811061137857611378614b2b565b905060400201600d600e838154811061139357611393614b2b565b906000526020600020016040516113aa9190614d5e565b9081526040805160209281900383019020336000908152925290206113cf8282614dd3565b5050600101611221565b506004830180547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00ff1661010017905560405160ff8516815233907f8bdddd7f2f2c74679ffa6beb8f86aa18bfa5baf1bfaf534d0b66596babc53f089060200160405180910390a25050505b61144d60008055565b5050505050565b600080546001036114a75760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b5060105490565b6001546001600160a01b0316331461152e5760405162461bcd60e51b815260206004820152602360248201527f7265737472696374656420746f20746865206175746f6e69747920636f6e747260448201527f61637400000000000000000000000000000000000000000000000000000000006064820152608401610600565b611536612607565b476115418183613280565b5061088460008055565b6000805460010361159e5760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b50600b5490565b6002546001600160a01b031633146115ff5760405162461bcd60e51b815260206004820152601660248201527f7265737472696374656420746f206f70657261746f72000000000000000000006044820152606401610600565b6116088161352a565b6010819055600354600b547f207e45ce6f2191c3efffe5d0d91591cf81afd23cbf4bd746981d7a8a8dcfe1ba91908390611643908390614be0565b604080516080808252600a908201527f766f7465506572696f640000000000000000000000000000000000000000000060a08201526020810194909452830191909152606082015260c0015b60405180910390a150565b6002546001600160a01b031633146116f45760405162461bcd60e51b815260206004820152601660248201527f7265737472696374656420746f206f70657261746f72000000000000000000006044820152606401610600565b80516000036117455760405162461bcd60e51b815260206004820152601660248201527f73796d626f6c732063616e277420626520656d707479000000000000000000006044820152606401610600565b601454600a54611756906001614b89565b141580156117685750601454600a5414155b6117b45760405162461bcd60e51b815260206004820152601e60248201527f63616e2774206265207570646174656420696e207468697320726f756e6400006044820152606401610600565b80516117c790600f906020840190614367565b50601454600a8190557faa278e424da680ce5dad66510415760e78e0bd87d45c786c6e88bdde82f9342d9082906117ff906001614be0565b60405161168f929190614e6e565b61184a6040518060c00160405280600081526020016000815260200160008152602001600081526020016000151581526020016000151581525090565b60005460010361189c5760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b506001600160a01b03166000908152600c6020908152604091829020825160c081018452815481526001820154928101929092526002810154928201929092526003820154606082015260049091015460ff8082161515608084015261010090910416151560a082015290565b6000805460010361195c5760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b5060145490565b6001546001600160a01b031633146119e35760405162461bcd60e51b815260206004820152602360248201527f7265737472696374656420746f20746865206175746f6e69747920636f6e747260448201527f61637400000000000000000000000000000000000000000000000000000000006064820152608401610600565b600280547fffffffffffffffffffffffff0000000000000000000000000000000000000000166001600160a01b0392909216919091179055565b60008054600103611a705760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b5060035490565b611ad860405180610120016040528060006001600160a01b0316815260200160006001600160a01b03168152602001600081526020016000815260200160008152602001600081526020016000815260200160008152602001600081525090565b600054600103611b2a5760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b5060408051610120810182526001546001600160a01b039081168252600254166020820152600354918101919091526004546060820152600554608082015260065460a082015260075460c082015260085460e082015260095461010082015290565b6060611b9b60005460011490565b15611be85760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b601180548060200260200160405190810160405280929190818152602001828054801561065f576020028201919060005260206000209081546001600160a01b03168152600190910190602001808311610641575050505050905090565b6002546001600160a01b03163314611ca05760405162461bcd60e51b815260206004820152601660248201527f7265737472696374656420746f206f70657261746f72000000000000000000006044820152606401610600565b6005546040805160808082526018908201527f6f75746c696572536c617368696e675468726573686f6c64000000000000000060a0820152602081019290925281018590524360608201527fb5114472b89d1126433287defb6308bbabdb95b6ce5dd949ab2c151ed7b1ff4c9060c00160405180910390a160058490556004546040805160808082526019908201527f6f75746c696572446574656374696f6e5468726573686f6c640000000000000060a0820152602081019290925281018490524360608201527fb5114472b89d1126433287defb6308bbabdb95b6ce5dd949ab2c151ed7b1ff4c9060c00160405180910390a160048390556006546040805160808082526010908201527f62617365536c617368696e67526174650000000000000000000000000000000060a0820152602081019290925281018390524360608201527f207e45ce6f2191c3efffe5d0d91591cf81afd23cbf4bd746981d7a8a8dcfe1ba9060c00160405180910390a16006829055600954604080516080808252600f908201527f736c617368696e6752617465436170000000000000000000000000000000000060a0820152602081019290925281018290524360608201527f207e45ce6f2191c3efffe5d0d91591cf81afd23cbf4bd746981d7a8a8dcfe1ba9060c00160405180910390a1600955505050565b6001546001600160a01b03163314611f175760405162461bcd60e51b815260206004820152602360248201527f7265737472696374656420746f20746865206175746f6e69747920636f6e747260448201527f61637400000000000000000000000000000000000000000000000000000000006064820152608401610600565b611f1f612607565b8251600003611f705760405162461bcd60e51b815260206004820152601560248201527f566f746572732063616e277420626520656d70747900000000000000000000006044820152606401610600565b60005b835181101561208457828181518110611f8e57611f8e614b2b565b602002602001015160186000868481518110611fac57611fac614b2b565b60200260200101516001600160a01b03166001600160a01b0316815260200190815260200160002060006101000a8154816001600160a01b0302191690836001600160a01b0316021790555081818151811061200a5761200a614b2b565b60200260200101516019600086848151811061202857612028614b2b565b6020908102919091018101516001600160a01b0390811683529082019290925260400160002080547fffffffffffffffffffffffff00000000000000000000000000000000000000001692909116919091179055600101611f73565b5061209e836000600186516120999190614bb1565b6136f0565b82516120b19060129060208601906143ad565b506013805460ff191660011790556120c860008055565b505050565b6060601454600a5460016120e19190614b89565b036121bd57600f805480602002602001604051908101604052809291908181526020016000905b828210156121b457838290600052602060002001805461212790614d11565b80601f016020809104026020016040519081016040528092919081815260200182805461215390614d11565b80156121a05780601f10612175576101008083540402835291602001916121a0565b820191906000526020600020905b81548152906001019060200180831161218357829003601f168201915b505050505081526020019060010190612108565b50505050905090565b600e805480602002602001604051908101604052809291908181526020016000905b828210156121b45783829060005260206000200180546121fe90614d11565b80601f016020809104026020016040519081016040528092919081815260200182805461222a90614d11565b80156122775780601f1061224c57610100808354040283529160200191612277565b820191906000526020600020905b81548152906001019060200180831161225a57829003601f168201915b5050505050815260200190600101906121df565b600080546001036122de5760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b506001600160a01b039081166000908152601860205260409020541690565b60408051808201909152600080825260208201526000546001036123635760405162461bcd60e51b815260206004820152601d60248201527f72656164206f6e6c79207265656e7472616e63792064657465637465640000006044820152606401610600565b600d836040516123739190614bc4565b90815260408051602092819003830181206001600160a01b0395909516600090815294835293819020848201909152546effffffffffffffffffffffffffffff811684526f01000000000000000000000000000000900460ff169083015250919050565b6000805b601154821080156123ed575060125481105b1561255e576012818154811061240557612405614b2b565b600091825260209091200154601180546001600160a01b03909216918490811061243157612431614b2b565b6000918252602090912001546001600160a01b03160361246b578161245581614e90565b925050808061246390614e90565b9150506123db565b6012818154811061247e5761247e614b2b565b600091825260209091200154601180546001600160a01b0390921691849081106124aa576124aa614b2b565b6000918252602090912001546001600160a01b0316101561255457600c6000601184815481106124dc576124dc614b2b565b60009182526020808320909101546001600160a01b0316835282019290925260400181208181556001810182905560028101829055600381019190915560040180547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00001690558161254c81614e90565b9250506123db565b8061246381614e90565b6011548210156125f757600c60006011848154811061257f5761257f614b2b565b60009182526020808320909101546001600160a01b0316835282019290925260400181208181556001810182905560028101829055600381019190915560040180547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000169055816125ef81614e90565b92505061255e565b601280546120c891601191614426565b600054156126575760405162461bcd60e51b815260206004820152601360248201527f7265656e7472616e6379206465746563746564000000000000000000000000006044820152606401610600565b6001600055565b60115460609060009067ffffffffffffffff81111561267f5761267f614550565b6040519080825280602002602001820160405280156126a8578160200160208202803683370190505b50905060005b601154811015612857576000601182815481106126cd576126cd614b2b565b60009182526020808320909101546001600160a01b0316808352600c90915260409091206014549192509061270490600190614bb1565b8154148015612717575060008160010154115b15612726576127268282613213565b6007546003820154111561284d57600184848151811061274857612748614b2b565b911515602092830291909101820152601454600383015460408051928352928201526001600160a01b038416917f9e6b40f10c60d1ad09594f3b6ed7043d0e978f584d354ace6e1f6025660c42b1910160405180910390a26000600382018190556001546001600160a01b03848116835260196020526040928390205460095493517f02fb4d850000000000000000000000000000000000000000000000000000000081529082166004820152602481019390935216906302fb4d85906044016020604051808303816000875af1158015612827573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061284b9190614eaa565b505b50506001016126ae565b50919050565b60005b601154811015610884576000600c60006011848154811061288357612883614b2b565b60009182526020808320909101546001600160a01b03168352820192909252604001902060030155600101612860565b6000600e83815481106128c8576128c8614b2b565b9060005260206000200180546128dd90614d11565b80601f016020809104026020016040519081016040528092919081815260200182805461290990614d11565b80156129565780601f1061292b57610100808354040283529160200191612956565b820191906000526020600020905b81548152906001019060200180831161293957829003601f168201915b50505050509050600060118054905067ffffffffffffffff81111561297d5761297d614550565b6040519080825280602002602001820160405280156129c257816020015b604080518082019091526000808252602082015281526020019060019003908161299b5790505b5090506000805b601154811015612ac6576000601182815481106129e8576129e8614b2b565b60009182526020808320909101546001600160a01b0316808352600c90915260409091206004015490915060ff61010090910416612a265750612abe565b600d85604051612a369190614bc4565b9081526040805191829003602090810183206001600160a01b038516600090815290825282902083830190925290546effffffffffffffffffffffffffffff8116835260ff6f0100000000000000000000000000000090910416908201528484612a9f81614e90565b955081518110612ab157612ab1614b2b565b6020026020010181905250505b6001016129c9565b508015612f41576000612ad9838361389d565b6effffffffffffffffffffffffffffff1690506000612af8828661396d565b606081015190915015612e0e5760005b8160200151811015612d16576000612bf083600001518381518110612b2f57612b2f614b2b565b602002602001015185600d8a604051612b489190614bc4565b90815260200160405180910390206000601188600001518881518110612b7057612b70614b2b565b602002602001015181548110612b8857612b88614b2b565b60009182526020808320909101546001600160a01b0316835282810193909352604091820190208151808301909252546effffffffffffffffffffffffffffff8116825260ff6f0100000000000000000000000000000090910416918101919091528b613cb6565b9050601183600001518381518110612c0a57612c0a614b2b565b602002602001015181548110612c2257612c22614b2b565b9060005260206000200160009054906101000a90046001600160a01b03166001600160a01b03167f372858b237c8bd0714183e8351a461d6c3cb1ef83806181b36bf5943711f4f57828987600d8c604051612c7d9190614bc4565b9081526020016040518091039020600060118a600001518a81518110612ca557612ca5614b2b565b602002602001015181548110612cbd57612cbd614b2b565b60009182526020808320909101546001600160a01b031683528201929092526040908101909120549051612d05949392916effffffffffffffffffffffffffffff1690614ec3565b60405180910390a250600101612b08565b506000612d2b82604001518360600151613ea5565b9050604051806060016040528082815260200142815260200160011515815250601560145481548110612d6057612d60614b2b565b9060005260206000200187604051612d789190614bc4565b9081526040805160209281900383018120845181559284015160018401559201516002909101805460ff1916911515919091179055612db8908790614bc4565b604080519182900382206014548484526020840152600183830152426060840152905190917f5f2aa51aa7889ad71d9318fa7fd83c8ff3277434249bd06073f15986e197911c919081900360800190a250612f3a565b600060156001601454612e219190614bb1565b81548110612e3157612e31614b2b565b9060005260206000200186604051612e499190614bc4565b9081526020016040518091039020600001549050604051806060016040528082815260200142815260200160001515815250601560145481548110612e9057612e90614b2b565b9060005260206000200187604051612ea89190614bc4565b9081526040805160209281900383018120845181559284015160018401559201516002909101805460ff1916911515919091179055612ee8908790614bc4565b604080519182900382206014548484526020840152600083830152426060840152905190917f5f2aa51aa7889ad71d9318fa7fd83c8ff3277434249bd06073f15986e197911c919081900360800190a2505b505061144d565b600060156001601454612f549190614bb1565b81548110612f6457612f64614b2b565b9060005260206000200184604051612f7c9190614bc4565b9081526020016040518091039020600001549050604051806060016040528082815260200142815260200160001515815250601560145481548110612fc357612fc3614b2b565b9060005260206000200185604051612fdb9190614bc4565b9081526040805160209281900383018120845181559284015160018401559201516002909101805460ff191691151591909117905561301b908590614bc4565b604080519182900382206014548484526020840152600083830152426060840152905190917f5f2aa51aa7889ad71d9318fa7fd83c8ff3277434249bd06073f15986e197911c919081900360800190a2505050505050565b60005b6011548110156108845760006011828154811061309557613095614b2b565b60009182526020808320909101546001600160a01b0316808352600c9091526040909120600201549091501561315e576130d0601682613f63565b506001600160a01b0381166000908152600c6020908152604080832060020154601a9092528220805491929091613108908490614be0565b90915550506001600160a01b0381166000908152600c6020526040812060020154601b80549192909161313c908490614be0565b90915550506001600160a01b0381166000908152600c60205260408120600201555b50600101613076565b60005b60115481101561320f5781818151811061318657613186614b2b565b602002602001015115613207576000600c6000601184815481106131ac576131ac614b2b565b60009182526020808320909101546001600160a01b0316835282019290925260400190206004018054911515610100027fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00ff9092169190911790555b60010161316a565b5050565b60038101805490600061322583614e90565b9190505550816001600160a01b03167f176956a4e941f6737f81a3c9a09d8571dd0438d86e25a432beb2013aced430926014548360030154604051613274929190918252602082015260400190565b60405180910390a25050565b601b5460000361328e575050565b600061329a6016613f7f565b905060005b81518110156134e65760008282815181106132bc576132bc614b2b565b602002602001015190506000601b54601a6000846001600160a01b03166001600160a01b0316815260200190815260200160002054876132fc9190614f04565b6133069190614f1b565b601b546001600160a01b0384166000908152601a6020526040812054929350916133309088614f04565b61333a9190614f1b565b90508115613413576001600160a01b03838116600090815260186020526040808220549051919283929116906108fc90869084818181858888f193505050503d80600081146133a5576040519150601f19603f3d011682016040523d82523d6000602084013e6133aa565b606091505b509092509050811515600003613410576001600160a01b03808616600090815260186020526040908190205490517f1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352926134079216908490614f2f565b60405180910390a15b50505b80156134b2576001546001600160a01b038481166000908152601960205260408082205490517ff7fcc510000000000000000000000000000000000000000000000000000000008152908316600482015260248101859052604481019190915291169063f7fcc51090606401600060405180830381600087803b15801561349957600080fd5b505af11580156134ad573d6000803e3d6000fd5b505050505b6001600160a01b0383166000908152601a60205260408120556134d6601684613f8c565b50506001909201915061329f9050565b5060408051838152602081018590527f3e5aaff9e8fd4293ae18127809c2d4069d87fe10c7de92aa39557a1edbd48fec910160405180910390a150506000601b5550565b600154604080517f0aac2da100000000000000000000000000000000000000000000000000000000815290516000926001600160a01b031691630aac2da19160048083019260209291908290030181865afa15801561358d573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906135b19190614eaa565b9050806135bf836002614f04565b111561360d5760405162461bcd60e51b815260206004820152601660248201527f766f746520706572696f6420697320746f6f20626967000000000000000000006044820152606401610600565b600154604080517fdfb1a4d200000000000000000000000000000000000000000000000000000000815290516001600160a01b039092169163dfb1a4d2916004808201926020929091908290030181865afa158015613670573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906136949190614eaa565b9050806136a2836002614f04565b111561320f5760405162461bcd60e51b815260206004820152601660248201527f766f746520706572696f6420697320746f6f20626967000000000000000000006044820152606401610600565b8082126136fc57505050565b8181600085600261370d8585614f5f565b6137179190614f7f565b6137219087614b89565b8151811061373157613731614b2b565b602002602001015190505b81831361386f575b806001600160a01b031686848151811061376057613760614b2b565b60200260200101516001600160a01b03161015613789578261378181614fc9565b935050613744565b806001600160a01b03168683815181106137a5576137a5614b2b565b60200260200101516001600160a01b031611156137ce57816137c681614ffa565b925050613789565b81831361386a578582815181106137e7576137e7614b2b565b602002602001015186848151811061380157613801614b2b565b602002602001015187858151811061381b5761381b614b2b565b6020026020010188858151811061383457613834614b2b565b6001600160a01b039384166020918202929092010152911690528261385881614fc9565b935050818061386690614ffa565b9250505b61373c565b81851215613882576138828686846136f0565b83831215613895576138958684866136f0565b505050505050565b6000816000036138af57506000610bb5565b6138c58360006138c0600186614bb1565b613fa1565b60006138d2600284614f1b565b90506138df600284614c22565b15613907578381815181106138f6576138f6614b2b565b602002602001015160000151613965565b600284828151811061391b5761391b614b2b565b602002602001015160000151856001846139359190614bb1565b8151811061394557613945614b2b565b60200260200101516000015161395b9190615033565b613965919061505a565b949350505050565b6139986040518060800160405280606081526020016000815260200160608152602001600081525090565b6139c36040518060800160405280606081526020016000815260200160608152602001600081525090565b60115467ffffffffffffffff8111156139de576139de614550565b604051908082528060200260200182016040528015613a2357816020015b60408051808201909152600080825260208201528152602001906001900390816139fc5790505b50604082015260115467ffffffffffffffff811115613a4457613a44614550565b604051908082528060200260200182016040528015613a6d578160200160208202803683370190505b50815260005b601154811015613cae57600060118281548110613a9257613a92614b2b565b60009182526020808320909101546001600160a01b0316808352600c90915260409091206004015490915060ff61010090910416613ad05750613ca6565b600086600d87604051613ae39190614bc4565b90815260408051602092819003830190206001600160a01b03861660009081529252902054613b23906effffffffffffffffffffffffffffff1689614f5f565b613b2e906064615098565b613b389190614f7f565b6004549091508113801590613b5a5750600454613b5782600019615098565b13155b15613c7057600d86604051613b6f9190614bc4565b9081526040805191829003602090810183206001600160a01b03861660009081529082528290208383018352546effffffffffffffffffffffffffffff8116845260ff6f01000000000000000000000000000000909104169083015285015160608601805190613bde82614e90565b905281518110613bf057613bf0614b2b565b6020026020010181905250600d86604051613c0b9190614bc4565b90815260408051602092819003830190206001600160a01b038516600090815290835281812054600c90935290812060020180546f0100000000000000000000000000000090930460ff1692909190613c65908490614be0565b90915550613ca39050565b8351602085018051859291613c8482614e90565b905281518110613c9657613c96614b2b565b6020026020010181815250505b50505b600101613a73565b509392505050565b60008060118681548110613ccc57613ccc614b2b565b60009182526020808320909101546001600160a01b0316808352600c909152604090912060040180547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00ff1690558351909150839087908110613d3057613d30614b2b565b602002602001015115613d47576000915050613965565b6000858686600001516effffffffffffffffffffffffffffff16613d6b9190614f5f565b613d76906064615098565b613d809190614f7f565b9050613d8c8180615098565b6005549091508113613da357600092505050613965565b6000612710600160050154876020015160ff1660016004015485613dc79190614f5f565b613dd19190614f04565b613ddb9190614f04565b613de59190614f1b565b600954909150811115613df757506009545b6001546001600160a01b03848116600090815260196020526040908190205490517f02fb4d850000000000000000000000000000000000000000000000000000000081529082166004820152602481018490529116906302fb4d85906044016020604051808303816000875af1158015613e75573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190613e999190614eaa565b98975050505050505050565b60008080805b84811015613f4f57858181518110613ec557613ec5614b2b565b60200260200101516020015160ff16868281518110613ee657613ee6614b2b565b602002602001015160000151613efc91906150e4565b613f17906effffffffffffffffffffffffffffff1683614be0565b9150858181518110613f2b57613f2b614b2b565b60200260200101516020015160ff1683613f459190614be0565b9250600101613eab565b50613f5a8282614f1b565b95945050505050565b6000613f78836001600160a01b03841661416a565b9392505050565b60606000613f78836141b9565b6000613f78836001600160a01b038416614215565b8181808203613fb1575050505050565b6000856002613fc08787614f5f565b613fca9190614f7f565b613fd49087614b89565b81518110613fe457613fe4614b2b565b60200260200101516000015190505b818313614144575b806effffffffffffffffffffffffffffff1686848151811061401f5761401f614b2b565b6020026020010151600001516effffffffffffffffffffffffffffff161015614054578261404c81614fc9565b935050613ffb565b85828151811061406657614066614b2b565b6020026020010151600001516effffffffffffffffffffffffffffff16816effffffffffffffffffffffffffffff1610156140ad57816140a581614ffa565b925050614054565b81831361413f578582815181106140c6576140c6614b2b565b60200260200101518684815181106140e0576140e0614b2b565b60200260200101518785815181106140fa576140fa614b2b565b6020026020010188858151811061411357614113614b2b565b602002602001018290528290525050818061412d90614ffa565b925050828061413b90614fc9565b9350505b613ff3565b8185121561415757614157868684613fa1565b8383121561389557613895868486613fa1565b60008181526001830160205260408120546141b157508154600181810184556000848152602080822090930184905584548482528286019093526040902091909155610bb5565b506000610bb5565b60608160000180548060200260200160405190810160405280929190818152602001828054801561420957602002820191906000526020600020905b8154815260200190600101908083116141f5575b50505050509050919050565b600081815260018301602052604081205480156142fe576000614239600183614bb1565b855490915060009061424d90600190614bb1565b90508082146142b257600086600001828154811061426d5761426d614b2b565b906000526020600020015490508087600001848154811061429057614290614b2b565b6000918252602080832090910192909255918252600188019052604090208390555b85548690806142c3576142c361510e565b600190038181906000526020600020016000905590558560010160008681526020019081526020016000206000905560019350505050610bb5565b6000915050610bb5565b5092915050565b8280548282559060005260206000209081019282156143575760005260206000209182015b8281111561435757816143478482615184565b5091600101919060010190614334565b50614363929150614466565b5090565b828054828255906000526020600020908101928215614357579160200282015b82811115614357578251829061439d9082615264565b5091602001919060010190614387565b82805482825590600052602060002090810192821561441a579160200282015b8281111561441a57825182547fffffffffffffffffffffffff0000000000000000000000000000000000000000166001600160a01b039091161782556020909201916001909101906143cd565b50614363929150614483565b82805482825590600052602060002090810192821561441a5760005260206000209182015b8281111561441a57825482559160010191906001019061444b565b8082111561436357600061447a8282614498565b50600101614466565b5b808211156143635760008155600101614484565b5080546144a490614d11565b6000825580601f106144b4575050565b601f0160209004906000526020600020908101906108849190614483565b602080825282518282018190526000918401906040840190835b818110156145135783516001600160a01b03168352602093840193909201916001016144ec565b509095945050505050565b80356001600160a01b03811681146108f857600080fd5b60006020828403121561454757600080fd5b613f788261451e565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b604051601f8201601f1916810167ffffffffffffffff811182821017156145a8576145a8614550565b604052919050565b600082601f8301126145c157600080fd5b813567ffffffffffffffff8111156145db576145db614550565b6145ee6020601f19601f8401160161457f565b81815284602083860101111561460357600080fd5b816020850160208301376000918101602001919091529392505050565b60006020828403121561463257600080fd5b813567ffffffffffffffff81111561464957600080fd5b613965848285016145b0565b6000806040838503121561466857600080fd5b82359150602083013567ffffffffffffffff81111561468657600080fd5b614692858286016145b0565b9150509250929050565b600080604083850312156146af57600080fd5b50508035926020909101359150565b60ff8116811461088457600080fd5b80356108f8816146be565b6000806000806000608086880312156146f057600080fd5b85359450602086013567ffffffffffffffff81111561470e57600080fd5b8601601f8101881361471f57600080fd5b803567ffffffffffffffff81111561473657600080fd5b8860208260061b840101111561474b57600080fd5b6020919091019450925060408601359150614768606087016146cd565b90509295509295909350565b60006020828403121561478657600080fd5b5035919050565b600067ffffffffffffffff8211156147a7576147a7614550565b5060051b60200190565b6000602082840312156147c357600080fd5b813567ffffffffffffffff8111156147da57600080fd5b8201601f810184136147eb57600080fd5b80356147fe6147f98261478d565b61457f565b8082825260208201915060208360051b85010192508683111561482057600080fd5b602084015b8381101561486257803567ffffffffffffffff81111561484457600080fd5b614853896020838901016145b0565b84525060209283019201614825565b509695505050505050565b81516001600160a01b0316815260208083015161012083019161489a908401826001600160a01b03169052565b5060408301516040830152606083015160608301526080830151608083015260a083015160a083015260c083015160c083015260e083015160e083015261010083015161010083015292915050565b600080600080608085870312156148ff57600080fd5b5050823594602084013594506040840135936060013592509050565b600082601f83011261492c57600080fd5b813561493a6147f98261478d565b8082825260208201915060208360051b86010192508583111561495c57600080fd5b602085015b83811015614980576149728161451e565b835260209283019201614961565b5095945050505050565b60008060006060848603121561499f57600080fd5b833567ffffffffffffffff8111156149b657600080fd5b6149c28682870161491b565b935050602084013567ffffffffffffffff8111156149df57600080fd5b6149eb8682870161491b565b925050604084013567ffffffffffffffff811115614a0857600080fd5b614a148682870161491b565b9150509250925092565b60005b83811015614a39578181015183820152602001614a21565b50506000910152565b60008151808452614a5a816020860160208601614a1e565b601f01601f19169290920160200192915050565b600082825180855260208501945060208160051b8301016020850160005b83811015614abe57601f19858403018852614aa8838351614a42565b6020988901989093509190910190600101614a8c565b50909695505050505050565b602081526000613f786020830184614a6e565b60008060408385031215614af057600080fd5b823567ffffffffffffffff811115614b0757600080fd5b614b13858286016145b0565b925050614b226020840161451e565b90509250929050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b8082018281126000831280158216821582161715614ba957614ba9614b5a565b505092915050565b81810381811115610bb557610bb5614b5a565b60008251614bd6818460208701614a1e565b9190910192915050565b80820180821115610bb557610bb5614b5a565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b600082614c3157614c31614bf3565b500690565b6effffffffffffffffffffffffffffff8116811461088457600080fd5b6060808252810184905260008560808301825b87811015614cb4578235614c7981614c36565b6effffffffffffffffffffffffffffff1682526020830135614c9a816146be565b60ff16602083015260409283019290910190600101614c66565b50602084019590955250506001600160a01b039190911660409091015292915050565b600060208284031215614ce957600080fd5b8135613f78816146be565b600060208284031215614d0657600080fd5b8135613f7881614c36565b600181811c90821680614d2557607f821691505b602082108103612857577f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b6000808354614d6c81614d11565b600182168015614d835760018114614d9857614dc8565b60ff1983168652811515820286019350614dc8565b86600052602060002060005b83811015614dc057815488820152600190910190602001614da4565b505081860193505b509195945050505050565b8135614dde81614c36565b6effffffffffffffffffffffffffffff811690508154817fffffffffffffffffffffffffffffffffff00000000000000000000000000000082161783556020840135614e29816146be565b6fff0000000000000000000000000000008160781b16837fffffffffffffffffffffffffffffffff000000000000000000000000000000008416171784555050505050565b604081526000614e816040830185614a6e565b90508260208301529392505050565b60006000198203614ea357614ea3614b5a565b5060010190565b600060208284031215614ebc57600080fd5b5051919050565b848152608060208201526000614edc6080830186614a42565b90508360408301526effffffffffffffffffffffffffffff8316606083015295945050505050565b8082028115828204841417610bb557610bb5614b5a565b600082614f2a57614f2a614bf3565b500490565b6001600160a01b038316815260606020820152600060608201526080604082015260006139656080830184614a42565b818103600083128015838313168383128216171561430857614308614b5a565b600082614f8e57614f8e614bf3565b60001983147f800000000000000000000000000000000000000000000000000000000000000083141615614fc457614fc4614b5a565b500590565b60007f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203614ea357614ea3614b5a565b60007f8000000000000000000000000000000000000000000000000000000000000000820361502b5761502b614b5a565b506000190190565b6effffffffffffffffffffffffffffff8181168382160190811115610bb557610bb5614b5a565b60006effffffffffffffffffffffffffffff83168061507b5761507b614bf3565b806effffffffffffffffffffffffffffff84160491505092915050565b808202600082127f8000000000000000000000000000000000000000000000000000000000000000841416156150d0576150d0614b5a565b8181058314821517610bb557610bb5614b5a565b6effffffffffffffffffffffffffffff818116838216029081169081811461430857614308614b5a565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603160045260246000fd5b601f8211156120c857806000526020600020601f840160051c810160208510156151645750805b601f840160051c820191505b8181101561144d5760008155600101615170565b81810361518f575050565b6151998254614d11565b67ffffffffffffffff8111156151b1576151b1614550565b6151c5816151bf8454614d11565b8461513d565b6000601f8211600181146151fc57600083156151e15750848201545b600184901b600019600386901b1c198216175b85555061144d565b600085815260209020601f19841690600086815260209020845b838110156152365782860154825560019586019590910190602001615216565b50858310156152545781850154600019600388901b60f8161c191681555b5050505050600190811b01905550565b815167ffffffffffffffff81111561527e5761527e614550565b61528c816151bf8454614d11565b6020601f8211600181146152be57600083156151e1575081850151600184901b600019600386901b1c198216176151f4565b600084815260208120601f198516915b828110156152ee57878501518255602094850194600190920191016152ce565b508482101561530c5786840151600019600387901b60f8161c191681555b50505050600190811b0190555056fea2646970667358221220397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc64736f6c634300081e0033",
 }
 
-// OracleABI is the input ABI used to generate the binding from.
-// Deprecated: Use OracleMetaData.ABI instead.
-var OracleABI = OracleMetaData.ABI
+// Oracle0ABI is the input ABI used to generate the binding from.
+// Deprecated: Use Oracle0MetaData.ABI instead.
+var Oracle0ABI = Oracle0MetaData.ABI
 
-// Deprecated: Use OracleMetaData.Sigs instead.
-// OracleFuncSigs maps the 4-byte function signature to its string representation.
-var OracleFuncSigs = OracleMetaData.Sigs
+// Deprecated: Use Oracle0MetaData.Sigs instead.
+// Oracle0FuncSigs maps the 4-byte function signature to its string representation.
+var Oracle0FuncSigs = Oracle0MetaData.Sigs
 
-// OracleBin is the compiled bytecode used for deploying new contracts.
-// Deprecated: Use OracleMetaData.Bin instead.
-var OracleBin = OracleMetaData.Bin
+// Oracle0Bin is the compiled bytecode used for deploying new contracts.
+// Deprecated: Use Oracle0MetaData.Bin instead.
+var Oracle0Bin = Oracle0MetaData.Bin
 
-// DeployOracle deploys a new Ethereum contract, binding an instance of Oracle to it.
-func DeployOracle(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *Oracle, error) {
-	parsed, err := OracleMetaData.GetAbi()
+// DeployOracle0 deploys a new Ethereum contract, binding an instance of Oracle0 to it.
+func DeployOracle0(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *Oracle0, error) {
+	parsed, err := Oracle0MetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -13675,111 +13675,111 @@ func DeployOracle(auth *bind.TransactOpts, backend bind.ContractBackend) (common
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(OracleBin), backend)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(Oracle0Bin), backend)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &Oracle{OracleCaller: OracleCaller{contract: contract}, OracleTransactor: OracleTransactor{contract: contract}, OracleFilterer: OracleFilterer{contract: contract}}, nil
+	return address, tx, &Oracle0{Oracle0Caller: Oracle0Caller{contract: contract}, Oracle0Transactor: Oracle0Transactor{contract: contract}, Oracle0Filterer: Oracle0Filterer{contract: contract}}, nil
 }
 
-// Oracle is an auto generated Go binding around an Ethereum contract.
-type Oracle struct {
-	OracleCaller     // Read-only binding to the contract
-	OracleTransactor // Write-only binding to the contract
-	OracleFilterer   // Log filterer for contract events
+// Oracle0 is an auto generated Go binding around an Ethereum contract.
+type Oracle0 struct {
+	Oracle0Caller     // Read-only binding to the contract
+	Oracle0Transactor // Write-only binding to the contract
+	Oracle0Filterer   // Log filterer for contract events
 }
 
-// OracleCaller is an auto generated read-only Go binding around an Ethereum contract.
-type OracleCaller struct {
+// Oracle0Caller is an auto generated read-only Go binding around an Ethereum contract.
+type Oracle0Caller struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// OracleTransactor is an auto generated write-only Go binding around an Ethereum contract.
-type OracleTransactor struct {
+// Oracle0Transactor is an auto generated write-only Go binding around an Ethereum contract.
+type Oracle0Transactor struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// OracleFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
-type OracleFilterer struct {
+// Oracle0Filterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type Oracle0Filterer struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
-// OracleSession is an auto generated Go binding around an Ethereum contract,
+// Oracle0Session is an auto generated Go binding around an Ethereum contract,
 // with pre-set call and transact options.
-type OracleSession struct {
-	Contract     *Oracle           // Generic contract binding to set the session for
+type Oracle0Session struct {
+	Contract     *Oracle0          // Generic contract binding to set the session for
 	CallOpts     bind.CallOpts     // Call options to use throughout this session
 	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
 }
 
-// OracleCallerSession is an auto generated read-only Go binding around an Ethereum contract,
+// Oracle0CallerSession is an auto generated read-only Go binding around an Ethereum contract,
 // with pre-set call options.
-type OracleCallerSession struct {
-	Contract *OracleCaller // Generic contract caller binding to set the session for
-	CallOpts bind.CallOpts // Call options to use throughout this session
+type Oracle0CallerSession struct {
+	Contract *Oracle0Caller // Generic contract caller binding to set the session for
+	CallOpts bind.CallOpts  // Call options to use throughout this session
 }
 
-// OracleTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
+// Oracle0TransactorSession is an auto generated write-only Go binding around an Ethereum contract,
 // with pre-set transact options.
-type OracleTransactorSession struct {
-	Contract     *OracleTransactor // Generic contract transactor binding to set the session for
-	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
+type Oracle0TransactorSession struct {
+	Contract     *Oracle0Transactor // Generic contract transactor binding to set the session for
+	TransactOpts bind.TransactOpts  // Transaction auth options to use throughout this session
 }
 
-// OracleRaw is an auto generated low-level Go binding around an Ethereum contract.
-type OracleRaw struct {
-	Contract *Oracle // Generic contract binding to access the raw methods on
+// Oracle0Raw is an auto generated low-level Go binding around an Ethereum contract.
+type Oracle0Raw struct {
+	Contract *Oracle0 // Generic contract binding to access the raw methods on
 }
 
-// OracleCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
-type OracleCallerRaw struct {
-	Contract *OracleCaller // Generic read-only contract binding to access the raw methods on
+// Oracle0CallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
+type Oracle0CallerRaw struct {
+	Contract *Oracle0Caller // Generic read-only contract binding to access the raw methods on
 }
 
-// OracleTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
-type OracleTransactorRaw struct {
-	Contract *OracleTransactor // Generic write-only contract binding to access the raw methods on
+// Oracle0TransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
+type Oracle0TransactorRaw struct {
+	Contract *Oracle0Transactor // Generic write-only contract binding to access the raw methods on
 }
 
-// NewOracle creates a new instance of Oracle, bound to a specific deployed contract.
-func NewOracle(address common.Address, backend bind.ContractBackend) (*Oracle, error) {
-	contract, err := bindOracle(address, backend, backend, backend)
+// NewOracle0 creates a new instance of Oracle0, bound to a specific deployed contract.
+func NewOracle0(address common.Address, backend bind.ContractBackend) (*Oracle0, error) {
+	contract, err := bindOracle0(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &Oracle{OracleCaller: OracleCaller{contract: contract}, OracleTransactor: OracleTransactor{contract: contract}, OracleFilterer: OracleFilterer{contract: contract}}, nil
+	return &Oracle0{Oracle0Caller: Oracle0Caller{contract: contract}, Oracle0Transactor: Oracle0Transactor{contract: contract}, Oracle0Filterer: Oracle0Filterer{contract: contract}}, nil
 }
 
-// NewOracleCaller creates a new read-only instance of Oracle, bound to a specific deployed contract.
-func NewOracleCaller(address common.Address, caller bind.ContractCaller) (*OracleCaller, error) {
-	contract, err := bindOracle(address, caller, nil, nil)
+// NewOracle0Caller creates a new read-only instance of Oracle0, bound to a specific deployed contract.
+func NewOracle0Caller(address common.Address, caller bind.ContractCaller) (*Oracle0Caller, error) {
+	contract, err := bindOracle0(address, caller, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &OracleCaller{contract: contract}, nil
+	return &Oracle0Caller{contract: contract}, nil
 }
 
-// NewOracleTransactor creates a new write-only instance of Oracle, bound to a specific deployed contract.
-func NewOracleTransactor(address common.Address, transactor bind.ContractTransactor) (*OracleTransactor, error) {
-	contract, err := bindOracle(address, nil, transactor, nil)
+// NewOracle0Transactor creates a new write-only instance of Oracle0, bound to a specific deployed contract.
+func NewOracle0Transactor(address common.Address, transactor bind.ContractTransactor) (*Oracle0Transactor, error) {
+	contract, err := bindOracle0(address, nil, transactor, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &OracleTransactor{contract: contract}, nil
+	return &Oracle0Transactor{contract: contract}, nil
 }
 
-// NewOracleFilterer creates a new log filterer instance of Oracle, bound to a specific deployed contract.
-func NewOracleFilterer(address common.Address, filterer bind.ContractFilterer) (*OracleFilterer, error) {
-	contract, err := bindOracle(address, nil, nil, filterer)
+// NewOracle0Filterer creates a new log filterer instance of Oracle0, bound to a specific deployed contract.
+func NewOracle0Filterer(address common.Address, filterer bind.ContractFilterer) (*Oracle0Filterer, error) {
+	contract, err := bindOracle0(address, nil, nil, filterer)
 	if err != nil {
 		return nil, err
 	}
-	return &OracleFilterer{contract: contract}, nil
+	return &Oracle0Filterer{contract: contract}, nil
 }
 
-// bindOracle binds a generic wrapper to an already deployed contract.
-func bindOracle(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(OracleABI))
+// bindOracle0 binds a generic wrapper to an already deployed contract.
+func bindOracle0(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := abi.JSON(strings.NewReader(Oracle0ABI))
 	if err != nil {
 		return nil, err
 	}
@@ -13790,52 +13790,52 @@ func bindOracle(address common.Address, caller bind.ContractCaller, transactor b
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_Oracle *OracleRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _Oracle.Contract.OracleCaller.contract.Call(opts, result, method, params...)
+func (_Oracle0 *Oracle0Raw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _Oracle0.Contract.Oracle0Caller.contract.Call(opts, result, method, params...)
 }
 
 // Transfer initiates a plain transaction to move funds to the contract, calling
 // its default method if one is available.
-func (_Oracle *OracleRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Oracle.Contract.OracleTransactor.contract.Transfer(opts)
+func (_Oracle0 *Oracle0Raw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Oracle0.Contract.Oracle0Transactor.contract.Transfer(opts)
 }
 
 // Transact invokes the (paid) contract method with params as input values.
-func (_Oracle *OracleRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _Oracle.Contract.OracleTransactor.contract.Transact(opts, method, params...)
+func (_Oracle0 *Oracle0Raw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _Oracle0.Contract.Oracle0Transactor.contract.Transact(opts, method, params...)
 }
 
 // Call invokes the (constant) contract method with params as input values and
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_Oracle *OracleCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _Oracle.Contract.contract.Call(opts, result, method, params...)
+func (_Oracle0 *Oracle0CallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _Oracle0.Contract.contract.Call(opts, result, method, params...)
 }
 
 // Transfer initiates a plain transaction to move funds to the contract, calling
 // its default method if one is available.
-func (_Oracle *OracleTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Oracle.Contract.contract.Transfer(opts)
+func (_Oracle0 *Oracle0TransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Oracle0.Contract.contract.Transfer(opts)
 }
 
 // Transact invokes the (paid) contract method with params as input values.
-func (_Oracle *OracleTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _Oracle.Contract.contract.Transact(opts, method, params...)
+func (_Oracle0 *Oracle0TransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _Oracle0.Contract.contract.Transact(opts, method, params...)
 }
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
 // Solidity: function getConfig() view returns((address,address,uint256,int256,int256,uint256,uint256,uint256,uint256))
-func (_Oracle *OracleCaller) GetConfig(opts *bind.CallOpts) (OracleConfig, error) {
+func (_Oracle0 *Oracle0Caller) GetConfig(opts *bind.CallOpts) (Oracle0Config, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getConfig")
+	err := _Oracle0.contract.Call(opts, &out, "getConfig")
 
 	if err != nil {
-		return *new(OracleConfig), err
+		return *new(Oracle0Config), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(OracleConfig)).(*OracleConfig)
+	out0 := *abi.ConvertType(out[0], new(Oracle0Config)).(*Oracle0Config)
 
 	return out0, err
 
@@ -13844,23 +13844,23 @@ func (_Oracle *OracleCaller) GetConfig(opts *bind.CallOpts) (OracleConfig, error
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
 // Solidity: function getConfig() view returns((address,address,uint256,int256,int256,uint256,uint256,uint256,uint256))
-func (_Oracle *OracleSession) GetConfig() (OracleConfig, error) {
-	return _Oracle.Contract.GetConfig(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0Session) GetConfig() (Oracle0Config, error) {
+	return _Oracle0.Contract.GetConfig(&_Oracle0.CallOpts)
 }
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
 // Solidity: function getConfig() view returns((address,address,uint256,int256,int256,uint256,uint256,uint256,uint256))
-func (_Oracle *OracleCallerSession) GetConfig() (OracleConfig, error) {
-	return _Oracle.Contract.GetConfig(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0CallerSession) GetConfig() (Oracle0Config, error) {
+	return _Oracle0.Contract.GetConfig(&_Oracle0.CallOpts)
 }
 
 // GetDecimals is a free data retrieval call binding the contract method 0xf0141d84.
 //
 // Solidity: function getDecimals() pure returns(uint8)
-func (_Oracle *OracleCaller) GetDecimals(opts *bind.CallOpts) (uint8, error) {
+func (_Oracle0 *Oracle0Caller) GetDecimals(opts *bind.CallOpts) (uint8, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getDecimals")
+	err := _Oracle0.contract.Call(opts, &out, "getDecimals")
 
 	if err != nil {
 		return *new(uint8), err
@@ -13875,23 +13875,23 @@ func (_Oracle *OracleCaller) GetDecimals(opts *bind.CallOpts) (uint8, error) {
 // GetDecimals is a free data retrieval call binding the contract method 0xf0141d84.
 //
 // Solidity: function getDecimals() pure returns(uint8)
-func (_Oracle *OracleSession) GetDecimals() (uint8, error) {
-	return _Oracle.Contract.GetDecimals(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0Session) GetDecimals() (uint8, error) {
+	return _Oracle0.Contract.GetDecimals(&_Oracle0.CallOpts)
 }
 
 // GetDecimals is a free data retrieval call binding the contract method 0xf0141d84.
 //
 // Solidity: function getDecimals() pure returns(uint8)
-func (_Oracle *OracleCallerSession) GetDecimals() (uint8, error) {
-	return _Oracle.Contract.GetDecimals(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0CallerSession) GetDecimals() (uint8, error) {
+	return _Oracle0.Contract.GetDecimals(&_Oracle0.CallOpts)
 }
 
 // GetLastRoundBlock is a free data retrieval call binding the contract method 0x5a4d3a27.
 //
 // Solidity: function getLastRoundBlock() view returns(uint256)
-func (_Oracle *OracleCaller) GetLastRoundBlock(opts *bind.CallOpts) (*big.Int, error) {
+func (_Oracle0 *Oracle0Caller) GetLastRoundBlock(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getLastRoundBlock")
+	err := _Oracle0.contract.Call(opts, &out, "getLastRoundBlock")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -13906,23 +13906,23 @@ func (_Oracle *OracleCaller) GetLastRoundBlock(opts *bind.CallOpts) (*big.Int, e
 // GetLastRoundBlock is a free data retrieval call binding the contract method 0x5a4d3a27.
 //
 // Solidity: function getLastRoundBlock() view returns(uint256)
-func (_Oracle *OracleSession) GetLastRoundBlock() (*big.Int, error) {
-	return _Oracle.Contract.GetLastRoundBlock(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0Session) GetLastRoundBlock() (*big.Int, error) {
+	return _Oracle0.Contract.GetLastRoundBlock(&_Oracle0.CallOpts)
 }
 
 // GetLastRoundBlock is a free data retrieval call binding the contract method 0x5a4d3a27.
 //
 // Solidity: function getLastRoundBlock() view returns(uint256)
-func (_Oracle *OracleCallerSession) GetLastRoundBlock() (*big.Int, error) {
-	return _Oracle.Contract.GetLastRoundBlock(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0CallerSession) GetLastRoundBlock() (*big.Int, error) {
+	return _Oracle0.Contract.GetLastRoundBlock(&_Oracle0.CallOpts)
 }
 
 // GetNewVotePeriod is a free data retrieval call binding the contract method 0x57eba759.
 //
 // Solidity: function getNewVotePeriod() view returns(uint256)
-func (_Oracle *OracleCaller) GetNewVotePeriod(opts *bind.CallOpts) (*big.Int, error) {
+func (_Oracle0 *Oracle0Caller) GetNewVotePeriod(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getNewVotePeriod")
+	err := _Oracle0.contract.Call(opts, &out, "getNewVotePeriod")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -13937,23 +13937,23 @@ func (_Oracle *OracleCaller) GetNewVotePeriod(opts *bind.CallOpts) (*big.Int, er
 // GetNewVotePeriod is a free data retrieval call binding the contract method 0x57eba759.
 //
 // Solidity: function getNewVotePeriod() view returns(uint256)
-func (_Oracle *OracleSession) GetNewVotePeriod() (*big.Int, error) {
-	return _Oracle.Contract.GetNewVotePeriod(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0Session) GetNewVotePeriod() (*big.Int, error) {
+	return _Oracle0.Contract.GetNewVotePeriod(&_Oracle0.CallOpts)
 }
 
 // GetNewVotePeriod is a free data retrieval call binding the contract method 0x57eba759.
 //
 // Solidity: function getNewVotePeriod() view returns(uint256)
-func (_Oracle *OracleCallerSession) GetNewVotePeriod() (*big.Int, error) {
-	return _Oracle.Contract.GetNewVotePeriod(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0CallerSession) GetNewVotePeriod() (*big.Int, error) {
+	return _Oracle0.Contract.GetNewVotePeriod(&_Oracle0.CallOpts)
 }
 
 // GetNewVoters is a free data retrieval call binding the contract method 0x077945d3.
 //
 // Solidity: function getNewVoters() view returns(address[])
-func (_Oracle *OracleCaller) GetNewVoters(opts *bind.CallOpts) ([]common.Address, error) {
+func (_Oracle0 *Oracle0Caller) GetNewVoters(opts *bind.CallOpts) ([]common.Address, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getNewVoters")
+	err := _Oracle0.contract.Call(opts, &out, "getNewVoters")
 
 	if err != nil {
 		return *new([]common.Address), err
@@ -13968,23 +13968,23 @@ func (_Oracle *OracleCaller) GetNewVoters(opts *bind.CallOpts) ([]common.Address
 // GetNewVoters is a free data retrieval call binding the contract method 0x077945d3.
 //
 // Solidity: function getNewVoters() view returns(address[])
-func (_Oracle *OracleSession) GetNewVoters() ([]common.Address, error) {
-	return _Oracle.Contract.GetNewVoters(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0Session) GetNewVoters() ([]common.Address, error) {
+	return _Oracle0.Contract.GetNewVoters(&_Oracle0.CallOpts)
 }
 
 // GetNewVoters is a free data retrieval call binding the contract method 0x077945d3.
 //
 // Solidity: function getNewVoters() view returns(address[])
-func (_Oracle *OracleCallerSession) GetNewVoters() ([]common.Address, error) {
-	return _Oracle.Contract.GetNewVoters(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0CallerSession) GetNewVoters() ([]common.Address, error) {
+	return _Oracle0.Contract.GetNewVoters(&_Oracle0.CallOpts)
 }
 
 // GetNonRevealThreshold is a free data retrieval call binding the contract method 0xed78349d.
 //
 // Solidity: function getNonRevealThreshold() view returns(uint256)
-func (_Oracle *OracleCaller) GetNonRevealThreshold(opts *bind.CallOpts) (*big.Int, error) {
+func (_Oracle0 *Oracle0Caller) GetNonRevealThreshold(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getNonRevealThreshold")
+	err := _Oracle0.contract.Call(opts, &out, "getNonRevealThreshold")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -13999,23 +13999,23 @@ func (_Oracle *OracleCaller) GetNonRevealThreshold(opts *bind.CallOpts) (*big.In
 // GetNonRevealThreshold is a free data retrieval call binding the contract method 0xed78349d.
 //
 // Solidity: function getNonRevealThreshold() view returns(uint256)
-func (_Oracle *OracleSession) GetNonRevealThreshold() (*big.Int, error) {
-	return _Oracle.Contract.GetNonRevealThreshold(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0Session) GetNonRevealThreshold() (*big.Int, error) {
+	return _Oracle0.Contract.GetNonRevealThreshold(&_Oracle0.CallOpts)
 }
 
 // GetNonRevealThreshold is a free data retrieval call binding the contract method 0xed78349d.
 //
 // Solidity: function getNonRevealThreshold() view returns(uint256)
-func (_Oracle *OracleCallerSession) GetNonRevealThreshold() (*big.Int, error) {
-	return _Oracle.Contract.GetNonRevealThreshold(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0CallerSession) GetNonRevealThreshold() (*big.Int, error) {
+	return _Oracle0.Contract.GetNonRevealThreshold(&_Oracle0.CallOpts)
 }
 
 // GetReports is a free data retrieval call binding the contract method 0xfb09917e.
 //
 // Solidity: function getReports(string _symbol, address _voter) view returns((uint120,uint8))
-func (_Oracle *OracleCaller) GetReports(opts *bind.CallOpts, _symbol string, _voter common.Address) (IOracleReport, error) {
+func (_Oracle0 *Oracle0Caller) GetReports(opts *bind.CallOpts, _symbol string, _voter common.Address) (IOracleReport, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getReports", _symbol, _voter)
+	err := _Oracle0.contract.Call(opts, &out, "getReports", _symbol, _voter)
 
 	if err != nil {
 		return *new(IOracleReport), err
@@ -14030,23 +14030,23 @@ func (_Oracle *OracleCaller) GetReports(opts *bind.CallOpts, _symbol string, _vo
 // GetReports is a free data retrieval call binding the contract method 0xfb09917e.
 //
 // Solidity: function getReports(string _symbol, address _voter) view returns((uint120,uint8))
-func (_Oracle *OracleSession) GetReports(_symbol string, _voter common.Address) (IOracleReport, error) {
-	return _Oracle.Contract.GetReports(&_Oracle.CallOpts, _symbol, _voter)
+func (_Oracle0 *Oracle0Session) GetReports(_symbol string, _voter common.Address) (IOracleReport, error) {
+	return _Oracle0.Contract.GetReports(&_Oracle0.CallOpts, _symbol, _voter)
 }
 
 // GetReports is a free data retrieval call binding the contract method 0xfb09917e.
 //
 // Solidity: function getReports(string _symbol, address _voter) view returns((uint120,uint8))
-func (_Oracle *OracleCallerSession) GetReports(_symbol string, _voter common.Address) (IOracleReport, error) {
-	return _Oracle.Contract.GetReports(&_Oracle.CallOpts, _symbol, _voter)
+func (_Oracle0 *Oracle0CallerSession) GetReports(_symbol string, _voter common.Address) (IOracleReport, error) {
+	return _Oracle0.Contract.GetReports(&_Oracle0.CallOpts, _symbol, _voter)
 }
 
 // GetRewardPeriodPerformance is a free data retrieval call binding the contract method 0x33d16293.
 //
 // Solidity: function getRewardPeriodPerformance(address _voter) view returns(uint256)
-func (_Oracle *OracleCaller) GetRewardPeriodPerformance(opts *bind.CallOpts, _voter common.Address) (*big.Int, error) {
+func (_Oracle0 *Oracle0Caller) GetRewardPeriodPerformance(opts *bind.CallOpts, _voter common.Address) (*big.Int, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getRewardPeriodPerformance", _voter)
+	err := _Oracle0.contract.Call(opts, &out, "getRewardPeriodPerformance", _voter)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -14061,23 +14061,23 @@ func (_Oracle *OracleCaller) GetRewardPeriodPerformance(opts *bind.CallOpts, _vo
 // GetRewardPeriodPerformance is a free data retrieval call binding the contract method 0x33d16293.
 //
 // Solidity: function getRewardPeriodPerformance(address _voter) view returns(uint256)
-func (_Oracle *OracleSession) GetRewardPeriodPerformance(_voter common.Address) (*big.Int, error) {
-	return _Oracle.Contract.GetRewardPeriodPerformance(&_Oracle.CallOpts, _voter)
+func (_Oracle0 *Oracle0Session) GetRewardPeriodPerformance(_voter common.Address) (*big.Int, error) {
+	return _Oracle0.Contract.GetRewardPeriodPerformance(&_Oracle0.CallOpts, _voter)
 }
 
 // GetRewardPeriodPerformance is a free data retrieval call binding the contract method 0x33d16293.
 //
 // Solidity: function getRewardPeriodPerformance(address _voter) view returns(uint256)
-func (_Oracle *OracleCallerSession) GetRewardPeriodPerformance(_voter common.Address) (*big.Int, error) {
-	return _Oracle.Contract.GetRewardPeriodPerformance(&_Oracle.CallOpts, _voter)
+func (_Oracle0 *Oracle0CallerSession) GetRewardPeriodPerformance(_voter common.Address) (*big.Int, error) {
+	return _Oracle0.Contract.GetRewardPeriodPerformance(&_Oracle0.CallOpts, _voter)
 }
 
 // GetRound is a free data retrieval call binding the contract method 0x9f8743f7.
 //
 // Solidity: function getRound() view returns(uint256)
-func (_Oracle *OracleCaller) GetRound(opts *bind.CallOpts) (*big.Int, error) {
+func (_Oracle0 *Oracle0Caller) GetRound(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getRound")
+	err := _Oracle0.contract.Call(opts, &out, "getRound")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -14092,23 +14092,23 @@ func (_Oracle *OracleCaller) GetRound(opts *bind.CallOpts) (*big.Int, error) {
 // GetRound is a free data retrieval call binding the contract method 0x9f8743f7.
 //
 // Solidity: function getRound() view returns(uint256)
-func (_Oracle *OracleSession) GetRound() (*big.Int, error) {
-	return _Oracle.Contract.GetRound(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0Session) GetRound() (*big.Int, error) {
+	return _Oracle0.Contract.GetRound(&_Oracle0.CallOpts)
 }
 
 // GetRound is a free data retrieval call binding the contract method 0x9f8743f7.
 //
 // Solidity: function getRound() view returns(uint256)
-func (_Oracle *OracleCallerSession) GetRound() (*big.Int, error) {
-	return _Oracle.Contract.GetRound(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0CallerSession) GetRound() (*big.Int, error) {
+	return _Oracle0.Contract.GetRound(&_Oracle0.CallOpts)
 }
 
 // GetRoundData is a free data retrieval call binding the contract method 0x3c8510fd.
 //
 // Solidity: function getRoundData(uint256 _round, string _symbol) view returns((uint256,uint256,uint256,bool) data)
-func (_Oracle *OracleCaller) GetRoundData(opts *bind.CallOpts, _round *big.Int, _symbol string) (IOracleRoundData, error) {
+func (_Oracle0 *Oracle0Caller) GetRoundData(opts *bind.CallOpts, _round *big.Int, _symbol string) (IOracleRoundData, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getRoundData", _round, _symbol)
+	err := _Oracle0.contract.Call(opts, &out, "getRoundData", _round, _symbol)
 
 	if err != nil {
 		return *new(IOracleRoundData), err
@@ -14123,23 +14123,23 @@ func (_Oracle *OracleCaller) GetRoundData(opts *bind.CallOpts, _round *big.Int, 
 // GetRoundData is a free data retrieval call binding the contract method 0x3c8510fd.
 //
 // Solidity: function getRoundData(uint256 _round, string _symbol) view returns((uint256,uint256,uint256,bool) data)
-func (_Oracle *OracleSession) GetRoundData(_round *big.Int, _symbol string) (IOracleRoundData, error) {
-	return _Oracle.Contract.GetRoundData(&_Oracle.CallOpts, _round, _symbol)
+func (_Oracle0 *Oracle0Session) GetRoundData(_round *big.Int, _symbol string) (IOracleRoundData, error) {
+	return _Oracle0.Contract.GetRoundData(&_Oracle0.CallOpts, _round, _symbol)
 }
 
 // GetRoundData is a free data retrieval call binding the contract method 0x3c8510fd.
 //
 // Solidity: function getRoundData(uint256 _round, string _symbol) view returns((uint256,uint256,uint256,bool) data)
-func (_Oracle *OracleCallerSession) GetRoundData(_round *big.Int, _symbol string) (IOracleRoundData, error) {
-	return _Oracle.Contract.GetRoundData(&_Oracle.CallOpts, _round, _symbol)
+func (_Oracle0 *Oracle0CallerSession) GetRoundData(_round *big.Int, _symbol string) (IOracleRoundData, error) {
+	return _Oracle0.Contract.GetRoundData(&_Oracle0.CallOpts, _round, _symbol)
 }
 
 // GetSymbolUpdatedRound is a free data retrieval call binding the contract method 0x99b0014b.
 //
 // Solidity: function getSymbolUpdatedRound() view returns(int256)
-func (_Oracle *OracleCaller) GetSymbolUpdatedRound(opts *bind.CallOpts) (*big.Int, error) {
+func (_Oracle0 *Oracle0Caller) GetSymbolUpdatedRound(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getSymbolUpdatedRound")
+	err := _Oracle0.contract.Call(opts, &out, "getSymbolUpdatedRound")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -14154,23 +14154,23 @@ func (_Oracle *OracleCaller) GetSymbolUpdatedRound(opts *bind.CallOpts) (*big.In
 // GetSymbolUpdatedRound is a free data retrieval call binding the contract method 0x99b0014b.
 //
 // Solidity: function getSymbolUpdatedRound() view returns(int256)
-func (_Oracle *OracleSession) GetSymbolUpdatedRound() (*big.Int, error) {
-	return _Oracle.Contract.GetSymbolUpdatedRound(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0Session) GetSymbolUpdatedRound() (*big.Int, error) {
+	return _Oracle0.Contract.GetSymbolUpdatedRound(&_Oracle0.CallOpts)
 }
 
 // GetSymbolUpdatedRound is a free data retrieval call binding the contract method 0x99b0014b.
 //
 // Solidity: function getSymbolUpdatedRound() view returns(int256)
-func (_Oracle *OracleCallerSession) GetSymbolUpdatedRound() (*big.Int, error) {
-	return _Oracle.Contract.GetSymbolUpdatedRound(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0CallerSession) GetSymbolUpdatedRound() (*big.Int, error) {
+	return _Oracle0.Contract.GetSymbolUpdatedRound(&_Oracle0.CallOpts)
 }
 
 // GetSymbols is a free data retrieval call binding the contract method 0xdf7f710e.
 //
 // Solidity: function getSymbols() view returns(string[])
-func (_Oracle *OracleCaller) GetSymbols(opts *bind.CallOpts) ([]string, error) {
+func (_Oracle0 *Oracle0Caller) GetSymbols(opts *bind.CallOpts) ([]string, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getSymbols")
+	err := _Oracle0.contract.Call(opts, &out, "getSymbols")
 
 	if err != nil {
 		return *new([]string), err
@@ -14185,23 +14185,23 @@ func (_Oracle *OracleCaller) GetSymbols(opts *bind.CallOpts) ([]string, error) {
 // GetSymbols is a free data retrieval call binding the contract method 0xdf7f710e.
 //
 // Solidity: function getSymbols() view returns(string[])
-func (_Oracle *OracleSession) GetSymbols() ([]string, error) {
-	return _Oracle.Contract.GetSymbols(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0Session) GetSymbols() ([]string, error) {
+	return _Oracle0.Contract.GetSymbols(&_Oracle0.CallOpts)
 }
 
 // GetSymbols is a free data retrieval call binding the contract method 0xdf7f710e.
 //
 // Solidity: function getSymbols() view returns(string[])
-func (_Oracle *OracleCallerSession) GetSymbols() ([]string, error) {
-	return _Oracle.Contract.GetSymbols(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0CallerSession) GetSymbols() ([]string, error) {
+	return _Oracle0.Contract.GetSymbols(&_Oracle0.CallOpts)
 }
 
 // GetVotePeriod is a free data retrieval call binding the contract method 0xb78dec52.
 //
 // Solidity: function getVotePeriod() view returns(uint256)
-func (_Oracle *OracleCaller) GetVotePeriod(opts *bind.CallOpts) (*big.Int, error) {
+func (_Oracle0 *Oracle0Caller) GetVotePeriod(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getVotePeriod")
+	err := _Oracle0.contract.Call(opts, &out, "getVotePeriod")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -14216,29 +14216,29 @@ func (_Oracle *OracleCaller) GetVotePeriod(opts *bind.CallOpts) (*big.Int, error
 // GetVotePeriod is a free data retrieval call binding the contract method 0xb78dec52.
 //
 // Solidity: function getVotePeriod() view returns(uint256)
-func (_Oracle *OracleSession) GetVotePeriod() (*big.Int, error) {
-	return _Oracle.Contract.GetVotePeriod(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0Session) GetVotePeriod() (*big.Int, error) {
+	return _Oracle0.Contract.GetVotePeriod(&_Oracle0.CallOpts)
 }
 
 // GetVotePeriod is a free data retrieval call binding the contract method 0xb78dec52.
 //
 // Solidity: function getVotePeriod() view returns(uint256)
-func (_Oracle *OracleCallerSession) GetVotePeriod() (*big.Int, error) {
-	return _Oracle.Contract.GetVotePeriod(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0CallerSession) GetVotePeriod() (*big.Int, error) {
+	return _Oracle0.Contract.GetVotePeriod(&_Oracle0.CallOpts)
 }
 
 // GetVoterInfo is a free data retrieval call binding the contract method 0x9ed1f255.
 //
 // Solidity: function getVoterInfo(address _voter) view returns((uint256,uint256,uint256,uint256,bool,bool))
-func (_Oracle *OracleCaller) GetVoterInfo(opts *bind.CallOpts, _voter common.Address) (OracleVoterInfo, error) {
+func (_Oracle0 *Oracle0Caller) GetVoterInfo(opts *bind.CallOpts, _voter common.Address) (Oracle0VoterInfo, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getVoterInfo", _voter)
+	err := _Oracle0.contract.Call(opts, &out, "getVoterInfo", _voter)
 
 	if err != nil {
-		return *new(OracleVoterInfo), err
+		return *new(Oracle0VoterInfo), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(OracleVoterInfo)).(*OracleVoterInfo)
+	out0 := *abi.ConvertType(out[0], new(Oracle0VoterInfo)).(*Oracle0VoterInfo)
 
 	return out0, err
 
@@ -14247,54 +14247,23 @@ func (_Oracle *OracleCaller) GetVoterInfo(opts *bind.CallOpts, _voter common.Add
 // GetVoterInfo is a free data retrieval call binding the contract method 0x9ed1f255.
 //
 // Solidity: function getVoterInfo(address _voter) view returns((uint256,uint256,uint256,uint256,bool,bool))
-func (_Oracle *OracleSession) GetVoterInfo(_voter common.Address) (OracleVoterInfo, error) {
-	return _Oracle.Contract.GetVoterInfo(&_Oracle.CallOpts, _voter)
+func (_Oracle0 *Oracle0Session) GetVoterInfo(_voter common.Address) (Oracle0VoterInfo, error) {
+	return _Oracle0.Contract.GetVoterInfo(&_Oracle0.CallOpts, _voter)
 }
 
 // GetVoterInfo is a free data retrieval call binding the contract method 0x9ed1f255.
 //
 // Solidity: function getVoterInfo(address _voter) view returns((uint256,uint256,uint256,uint256,bool,bool))
-func (_Oracle *OracleCallerSession) GetVoterInfo(_voter common.Address) (OracleVoterInfo, error) {
-	return _Oracle.Contract.GetVoterInfo(&_Oracle.CallOpts, _voter)
+func (_Oracle0 *Oracle0CallerSession) GetVoterInfo(_voter common.Address) (Oracle0VoterInfo, error) {
+	return _Oracle0.Contract.GetVoterInfo(&_Oracle0.CallOpts, _voter)
 }
 
 // GetVoterTreasuries is a free data retrieval call binding the contract method 0xef5cc4d1.
 //
 // Solidity: function getVoterTreasuries(address _oracleAddress) view returns(address)
-func (_Oracle *OracleCaller) GetVoterTreasuries(opts *bind.CallOpts, _oracleAddress common.Address) (common.Address, error) {
+func (_Oracle0 *Oracle0Caller) GetVoterTreasuries(opts *bind.CallOpts, _oracleAddress common.Address) (common.Address, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getVoterTreasuries", _oracleAddress)
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// GetVoterTreasuries is a free data retrieval call binding the contract method 0xef5cc4d1.
-//
-// Solidity: function getVoterTreasuries(address _oracleAddress) view returns(address)
-func (_Oracle *OracleSession) GetVoterTreasuries(_oracleAddress common.Address) (common.Address, error) {
-	return _Oracle.Contract.GetVoterTreasuries(&_Oracle.CallOpts, _oracleAddress)
-}
-
-// GetVoterTreasuries is a free data retrieval call binding the contract method 0xef5cc4d1.
-//
-// Solidity: function getVoterTreasuries(address _oracleAddress) view returns(address)
-func (_Oracle *OracleCallerSession) GetVoterTreasuries(_oracleAddress common.Address) (common.Address, error) {
-	return _Oracle.Contract.GetVoterTreasuries(&_Oracle.CallOpts, _oracleAddress)
-}
-
-// GetVoterValidators is a free data retrieval call binding the contract method 0x2d35d158.
-//
-// Solidity: function getVoterValidators(address _oracleAddress) view returns(address)
-func (_Oracle *OracleCaller) GetVoterValidators(opts *bind.CallOpts, _oracleAddress common.Address) (common.Address, error) {
-	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getVoterValidators", _oracleAddress)
+	err := _Oracle0.contract.Call(opts, &out, "getVoterTreasuries", _oracleAddress)
 
 	if err != nil {
 		return *new(common.Address), err
@@ -14306,26 +14275,57 @@ func (_Oracle *OracleCaller) GetVoterValidators(opts *bind.CallOpts, _oracleAddr
 
 }
 
-// GetVoterValidators is a free data retrieval call binding the contract method 0x2d35d158.
+// GetVoterTreasuries is a free data retrieval call binding the contract method 0xef5cc4d1.
 //
-// Solidity: function getVoterValidators(address _oracleAddress) view returns(address)
-func (_Oracle *OracleSession) GetVoterValidators(_oracleAddress common.Address) (common.Address, error) {
-	return _Oracle.Contract.GetVoterValidators(&_Oracle.CallOpts, _oracleAddress)
+// Solidity: function getVoterTreasuries(address _oracleAddress) view returns(address)
+func (_Oracle0 *Oracle0Session) GetVoterTreasuries(_oracleAddress common.Address) (common.Address, error) {
+	return _Oracle0.Contract.GetVoterTreasuries(&_Oracle0.CallOpts, _oracleAddress)
+}
+
+// GetVoterTreasuries is a free data retrieval call binding the contract method 0xef5cc4d1.
+//
+// Solidity: function getVoterTreasuries(address _oracleAddress) view returns(address)
+func (_Oracle0 *Oracle0CallerSession) GetVoterTreasuries(_oracleAddress common.Address) (common.Address, error) {
+	return _Oracle0.Contract.GetVoterTreasuries(&_Oracle0.CallOpts, _oracleAddress)
 }
 
 // GetVoterValidators is a free data retrieval call binding the contract method 0x2d35d158.
 //
 // Solidity: function getVoterValidators(address _oracleAddress) view returns(address)
-func (_Oracle *OracleCallerSession) GetVoterValidators(_oracleAddress common.Address) (common.Address, error) {
-	return _Oracle.Contract.GetVoterValidators(&_Oracle.CallOpts, _oracleAddress)
+func (_Oracle0 *Oracle0Caller) GetVoterValidators(opts *bind.CallOpts, _oracleAddress common.Address) (common.Address, error) {
+	var out []interface{}
+	err := _Oracle0.contract.Call(opts, &out, "getVoterValidators", _oracleAddress)
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// GetVoterValidators is a free data retrieval call binding the contract method 0x2d35d158.
+//
+// Solidity: function getVoterValidators(address _oracleAddress) view returns(address)
+func (_Oracle0 *Oracle0Session) GetVoterValidators(_oracleAddress common.Address) (common.Address, error) {
+	return _Oracle0.Contract.GetVoterValidators(&_Oracle0.CallOpts, _oracleAddress)
+}
+
+// GetVoterValidators is a free data retrieval call binding the contract method 0x2d35d158.
+//
+// Solidity: function getVoterValidators(address _oracleAddress) view returns(address)
+func (_Oracle0 *Oracle0CallerSession) GetVoterValidators(_oracleAddress common.Address) (common.Address, error) {
+	return _Oracle0.Contract.GetVoterValidators(&_Oracle0.CallOpts, _oracleAddress)
 }
 
 // GetVoters is a free data retrieval call binding the contract method 0xcdd72253.
 //
 // Solidity: function getVoters() view returns(address[])
-func (_Oracle *OracleCaller) GetVoters(opts *bind.CallOpts) ([]common.Address, error) {
+func (_Oracle0 *Oracle0Caller) GetVoters(opts *bind.CallOpts) ([]common.Address, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getVoters")
+	err := _Oracle0.contract.Call(opts, &out, "getVoters")
 
 	if err != nil {
 		return *new([]common.Address), err
@@ -14340,23 +14340,23 @@ func (_Oracle *OracleCaller) GetVoters(opts *bind.CallOpts) ([]common.Address, e
 // GetVoters is a free data retrieval call binding the contract method 0xcdd72253.
 //
 // Solidity: function getVoters() view returns(address[])
-func (_Oracle *OracleSession) GetVoters() ([]common.Address, error) {
-	return _Oracle.Contract.GetVoters(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0Session) GetVoters() ([]common.Address, error) {
+	return _Oracle0.Contract.GetVoters(&_Oracle0.CallOpts)
 }
 
 // GetVoters is a free data retrieval call binding the contract method 0xcdd72253.
 //
 // Solidity: function getVoters() view returns(address[])
-func (_Oracle *OracleCallerSession) GetVoters() ([]common.Address, error) {
-	return _Oracle.Contract.GetVoters(&_Oracle.CallOpts)
+func (_Oracle0 *Oracle0CallerSession) GetVoters() ([]common.Address, error) {
+	return _Oracle0.Contract.GetVoters(&_Oracle0.CallOpts)
 }
 
 // LatestRoundData is a free data retrieval call binding the contract method 0x33f98c77.
 //
 // Solidity: function latestRoundData(string _symbol) view returns((uint256,uint256,uint256,bool) data)
-func (_Oracle *OracleCaller) LatestRoundData(opts *bind.CallOpts, _symbol string) (IOracleRoundData, error) {
+func (_Oracle0 *Oracle0Caller) LatestRoundData(opts *bind.CallOpts, _symbol string) (IOracleRoundData, error) {
 	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "latestRoundData", _symbol)
+	err := _Oracle0.contract.Call(opts, &out, "latestRoundData", _symbol)
 
 	if err != nil {
 		return *new(IOracleRoundData), err
@@ -14371,272 +14371,272 @@ func (_Oracle *OracleCaller) LatestRoundData(opts *bind.CallOpts, _symbol string
 // LatestRoundData is a free data retrieval call binding the contract method 0x33f98c77.
 //
 // Solidity: function latestRoundData(string _symbol) view returns((uint256,uint256,uint256,bool) data)
-func (_Oracle *OracleSession) LatestRoundData(_symbol string) (IOracleRoundData, error) {
-	return _Oracle.Contract.LatestRoundData(&_Oracle.CallOpts, _symbol)
+func (_Oracle0 *Oracle0Session) LatestRoundData(_symbol string) (IOracleRoundData, error) {
+	return _Oracle0.Contract.LatestRoundData(&_Oracle0.CallOpts, _symbol)
 }
 
 // LatestRoundData is a free data retrieval call binding the contract method 0x33f98c77.
 //
 // Solidity: function latestRoundData(string _symbol) view returns((uint256,uint256,uint256,bool) data)
-func (_Oracle *OracleCallerSession) LatestRoundData(_symbol string) (IOracleRoundData, error) {
-	return _Oracle.Contract.LatestRoundData(&_Oracle.CallOpts, _symbol)
+func (_Oracle0 *Oracle0CallerSession) LatestRoundData(_symbol string) (IOracleRoundData, error) {
+	return _Oracle0.Contract.LatestRoundData(&_Oracle0.CallOpts, _symbol)
 }
 
 // DistributeRewards is a paid mutator transaction binding the contract method 0x59974e38.
 //
 // Solidity: function distributeRewards(uint256 _ntn) payable returns()
-func (_Oracle *OracleTransactor) DistributeRewards(opts *bind.TransactOpts, _ntn *big.Int) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "distributeRewards", _ntn)
+func (_Oracle0 *Oracle0Transactor) DistributeRewards(opts *bind.TransactOpts, _ntn *big.Int) (*types.Transaction, error) {
+	return _Oracle0.contract.Transact(opts, "distributeRewards", _ntn)
 }
 
 // DistributeRewards is a paid mutator transaction binding the contract method 0x59974e38.
 //
 // Solidity: function distributeRewards(uint256 _ntn) payable returns()
-func (_Oracle *OracleSession) DistributeRewards(_ntn *big.Int) (*types.Transaction, error) {
-	return _Oracle.Contract.DistributeRewards(&_Oracle.TransactOpts, _ntn)
+func (_Oracle0 *Oracle0Session) DistributeRewards(_ntn *big.Int) (*types.Transaction, error) {
+	return _Oracle0.Contract.DistributeRewards(&_Oracle0.TransactOpts, _ntn)
 }
 
 // DistributeRewards is a paid mutator transaction binding the contract method 0x59974e38.
 //
 // Solidity: function distributeRewards(uint256 _ntn) payable returns()
-func (_Oracle *OracleTransactorSession) DistributeRewards(_ntn *big.Int) (*types.Transaction, error) {
-	return _Oracle.Contract.DistributeRewards(&_Oracle.TransactOpts, _ntn)
+func (_Oracle0 *Oracle0TransactorSession) DistributeRewards(_ntn *big.Int) (*types.Transaction, error) {
+	return _Oracle0.Contract.DistributeRewards(&_Oracle0.TransactOpts, _ntn)
 }
 
 // Finalize is a paid mutator transaction binding the contract method 0x4bb278f3.
 //
 // Solidity: function finalize() returns(bool)
-func (_Oracle *OracleTransactor) Finalize(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "finalize")
+func (_Oracle0 *Oracle0Transactor) Finalize(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Oracle0.contract.Transact(opts, "finalize")
 }
 
 // Finalize is a paid mutator transaction binding the contract method 0x4bb278f3.
 //
 // Solidity: function finalize() returns(bool)
-func (_Oracle *OracleSession) Finalize() (*types.Transaction, error) {
-	return _Oracle.Contract.Finalize(&_Oracle.TransactOpts)
+func (_Oracle0 *Oracle0Session) Finalize() (*types.Transaction, error) {
+	return _Oracle0.Contract.Finalize(&_Oracle0.TransactOpts)
 }
 
 // Finalize is a paid mutator transaction binding the contract method 0x4bb278f3.
 //
 // Solidity: function finalize() returns(bool)
-func (_Oracle *OracleTransactorSession) Finalize() (*types.Transaction, error) {
-	return _Oracle.Contract.Finalize(&_Oracle.TransactOpts)
+func (_Oracle0 *Oracle0TransactorSession) Finalize() (*types.Transaction, error) {
+	return _Oracle0.Contract.Finalize(&_Oracle0.TransactOpts)
 }
 
 // SetCommitRevealConfig is a paid mutator transaction binding the contract method 0x3f422ef3.
 //
 // Solidity: function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) returns()
-func (_Oracle *OracleTransactor) SetCommitRevealConfig(opts *bind.TransactOpts, _threshold *big.Int, _resetInterval *big.Int) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "setCommitRevealConfig", _threshold, _resetInterval)
+func (_Oracle0 *Oracle0Transactor) SetCommitRevealConfig(opts *bind.TransactOpts, _threshold *big.Int, _resetInterval *big.Int) (*types.Transaction, error) {
+	return _Oracle0.contract.Transact(opts, "setCommitRevealConfig", _threshold, _resetInterval)
 }
 
 // SetCommitRevealConfig is a paid mutator transaction binding the contract method 0x3f422ef3.
 //
 // Solidity: function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) returns()
-func (_Oracle *OracleSession) SetCommitRevealConfig(_threshold *big.Int, _resetInterval *big.Int) (*types.Transaction, error) {
-	return _Oracle.Contract.SetCommitRevealConfig(&_Oracle.TransactOpts, _threshold, _resetInterval)
+func (_Oracle0 *Oracle0Session) SetCommitRevealConfig(_threshold *big.Int, _resetInterval *big.Int) (*types.Transaction, error) {
+	return _Oracle0.Contract.SetCommitRevealConfig(&_Oracle0.TransactOpts, _threshold, _resetInterval)
 }
 
 // SetCommitRevealConfig is a paid mutator transaction binding the contract method 0x3f422ef3.
 //
 // Solidity: function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) returns()
-func (_Oracle *OracleTransactorSession) SetCommitRevealConfig(_threshold *big.Int, _resetInterval *big.Int) (*types.Transaction, error) {
-	return _Oracle.Contract.SetCommitRevealConfig(&_Oracle.TransactOpts, _threshold, _resetInterval)
+func (_Oracle0 *Oracle0TransactorSession) SetCommitRevealConfig(_threshold *big.Int, _resetInterval *big.Int) (*types.Transaction, error) {
+	return _Oracle0.Contract.SetCommitRevealConfig(&_Oracle0.TransactOpts, _threshold, _resetInterval)
 }
 
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address _operator) returns()
-func (_Oracle *OracleTransactor) SetOperator(opts *bind.TransactOpts, _operator common.Address) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "setOperator", _operator)
+func (_Oracle0 *Oracle0Transactor) SetOperator(opts *bind.TransactOpts, _operator common.Address) (*types.Transaction, error) {
+	return _Oracle0.contract.Transact(opts, "setOperator", _operator)
 }
 
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address _operator) returns()
-func (_Oracle *OracleSession) SetOperator(_operator common.Address) (*types.Transaction, error) {
-	return _Oracle.Contract.SetOperator(&_Oracle.TransactOpts, _operator)
+func (_Oracle0 *Oracle0Session) SetOperator(_operator common.Address) (*types.Transaction, error) {
+	return _Oracle0.Contract.SetOperator(&_Oracle0.TransactOpts, _operator)
 }
 
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address _operator) returns()
-func (_Oracle *OracleTransactorSession) SetOperator(_operator common.Address) (*types.Transaction, error) {
-	return _Oracle.Contract.SetOperator(&_Oracle.TransactOpts, _operator)
+func (_Oracle0 *Oracle0TransactorSession) SetOperator(_operator common.Address) (*types.Transaction, error) {
+	return _Oracle0.Contract.SetOperator(&_Oracle0.TransactOpts, _operator)
 }
 
 // SetSlashingConfig is a paid mutator transaction binding the contract method 0xda39fbfe.
 //
 // Solidity: function setSlashingConfig(int256 _outlierSlashingThreshold, int256 _outlierDetectionThreshold, uint256 _baseSlashingRate, uint256 _slashingRateCap) returns()
-func (_Oracle *OracleTransactor) SetSlashingConfig(opts *bind.TransactOpts, _outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "setSlashingConfig", _outlierSlashingThreshold, _outlierDetectionThreshold, _baseSlashingRate, _slashingRateCap)
+func (_Oracle0 *Oracle0Transactor) SetSlashingConfig(opts *bind.TransactOpts, _outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (*types.Transaction, error) {
+	return _Oracle0.contract.Transact(opts, "setSlashingConfig", _outlierSlashingThreshold, _outlierDetectionThreshold, _baseSlashingRate, _slashingRateCap)
 }
 
 // SetSlashingConfig is a paid mutator transaction binding the contract method 0xda39fbfe.
 //
 // Solidity: function setSlashingConfig(int256 _outlierSlashingThreshold, int256 _outlierDetectionThreshold, uint256 _baseSlashingRate, uint256 _slashingRateCap) returns()
-func (_Oracle *OracleSession) SetSlashingConfig(_outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (*types.Transaction, error) {
-	return _Oracle.Contract.SetSlashingConfig(&_Oracle.TransactOpts, _outlierSlashingThreshold, _outlierDetectionThreshold, _baseSlashingRate, _slashingRateCap)
+func (_Oracle0 *Oracle0Session) SetSlashingConfig(_outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (*types.Transaction, error) {
+	return _Oracle0.Contract.SetSlashingConfig(&_Oracle0.TransactOpts, _outlierSlashingThreshold, _outlierDetectionThreshold, _baseSlashingRate, _slashingRateCap)
 }
 
 // SetSlashingConfig is a paid mutator transaction binding the contract method 0xda39fbfe.
 //
 // Solidity: function setSlashingConfig(int256 _outlierSlashingThreshold, int256 _outlierDetectionThreshold, uint256 _baseSlashingRate, uint256 _slashingRateCap) returns()
-func (_Oracle *OracleTransactorSession) SetSlashingConfig(_outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (*types.Transaction, error) {
-	return _Oracle.Contract.SetSlashingConfig(&_Oracle.TransactOpts, _outlierSlashingThreshold, _outlierDetectionThreshold, _baseSlashingRate, _slashingRateCap)
+func (_Oracle0 *Oracle0TransactorSession) SetSlashingConfig(_outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (*types.Transaction, error) {
+	return _Oracle0.Contract.SetSlashingConfig(&_Oracle0.TransactOpts, _outlierSlashingThreshold, _outlierDetectionThreshold, _baseSlashingRate, _slashingRateCap)
 }
 
 // SetSymbols is a paid mutator transaction binding the contract method 0x8d4f75d2.
 //
 // Solidity: function setSymbols(string[] _symbols) returns()
-func (_Oracle *OracleTransactor) SetSymbols(opts *bind.TransactOpts, _symbols []string) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "setSymbols", _symbols)
+func (_Oracle0 *Oracle0Transactor) SetSymbols(opts *bind.TransactOpts, _symbols []string) (*types.Transaction, error) {
+	return _Oracle0.contract.Transact(opts, "setSymbols", _symbols)
 }
 
 // SetSymbols is a paid mutator transaction binding the contract method 0x8d4f75d2.
 //
 // Solidity: function setSymbols(string[] _symbols) returns()
-func (_Oracle *OracleSession) SetSymbols(_symbols []string) (*types.Transaction, error) {
-	return _Oracle.Contract.SetSymbols(&_Oracle.TransactOpts, _symbols)
+func (_Oracle0 *Oracle0Session) SetSymbols(_symbols []string) (*types.Transaction, error) {
+	return _Oracle0.Contract.SetSymbols(&_Oracle0.TransactOpts, _symbols)
 }
 
 // SetSymbols is a paid mutator transaction binding the contract method 0x8d4f75d2.
 //
 // Solidity: function setSymbols(string[] _symbols) returns()
-func (_Oracle *OracleTransactorSession) SetSymbols(_symbols []string) (*types.Transaction, error) {
-	return _Oracle.Contract.SetSymbols(&_Oracle.TransactOpts, _symbols)
+func (_Oracle0 *Oracle0TransactorSession) SetSymbols(_symbols []string) (*types.Transaction, error) {
+	return _Oracle0.Contract.SetSymbols(&_Oracle0.TransactOpts, _symbols)
 }
 
 // SetVotePeriod is a paid mutator transaction binding the contract method 0x67b11630.
 //
 // Solidity: function setVotePeriod(uint256 _votePeriod) returns()
-func (_Oracle *OracleTransactor) SetVotePeriod(opts *bind.TransactOpts, _votePeriod *big.Int) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "setVotePeriod", _votePeriod)
+func (_Oracle0 *Oracle0Transactor) SetVotePeriod(opts *bind.TransactOpts, _votePeriod *big.Int) (*types.Transaction, error) {
+	return _Oracle0.contract.Transact(opts, "setVotePeriod", _votePeriod)
 }
 
 // SetVotePeriod is a paid mutator transaction binding the contract method 0x67b11630.
 //
 // Solidity: function setVotePeriod(uint256 _votePeriod) returns()
-func (_Oracle *OracleSession) SetVotePeriod(_votePeriod *big.Int) (*types.Transaction, error) {
-	return _Oracle.Contract.SetVotePeriod(&_Oracle.TransactOpts, _votePeriod)
+func (_Oracle0 *Oracle0Session) SetVotePeriod(_votePeriod *big.Int) (*types.Transaction, error) {
+	return _Oracle0.Contract.SetVotePeriod(&_Oracle0.TransactOpts, _votePeriod)
 }
 
 // SetVotePeriod is a paid mutator transaction binding the contract method 0x67b11630.
 //
 // Solidity: function setVotePeriod(uint256 _votePeriod) returns()
-func (_Oracle *OracleTransactorSession) SetVotePeriod(_votePeriod *big.Int) (*types.Transaction, error) {
-	return _Oracle.Contract.SetVotePeriod(&_Oracle.TransactOpts, _votePeriod)
+func (_Oracle0 *Oracle0TransactorSession) SetVotePeriod(_votePeriod *big.Int) (*types.Transaction, error) {
+	return _Oracle0.Contract.SetVotePeriod(&_Oracle0.TransactOpts, _votePeriod)
 }
 
 // SetVoters is a paid mutator transaction binding the contract method 0xda78110e.
 //
 // Solidity: function setVoters(address[] _newVoters, address[] _treasury, address[] _validator) returns()
-func (_Oracle *OracleTransactor) SetVoters(opts *bind.TransactOpts, _newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "setVoters", _newVoters, _treasury, _validator)
+func (_Oracle0 *Oracle0Transactor) SetVoters(opts *bind.TransactOpts, _newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (*types.Transaction, error) {
+	return _Oracle0.contract.Transact(opts, "setVoters", _newVoters, _treasury, _validator)
 }
 
 // SetVoters is a paid mutator transaction binding the contract method 0xda78110e.
 //
 // Solidity: function setVoters(address[] _newVoters, address[] _treasury, address[] _validator) returns()
-func (_Oracle *OracleSession) SetVoters(_newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (*types.Transaction, error) {
-	return _Oracle.Contract.SetVoters(&_Oracle.TransactOpts, _newVoters, _treasury, _validator)
+func (_Oracle0 *Oracle0Session) SetVoters(_newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (*types.Transaction, error) {
+	return _Oracle0.Contract.SetVoters(&_Oracle0.TransactOpts, _newVoters, _treasury, _validator)
 }
 
 // SetVoters is a paid mutator transaction binding the contract method 0xda78110e.
 //
 // Solidity: function setVoters(address[] _newVoters, address[] _treasury, address[] _validator) returns()
-func (_Oracle *OracleTransactorSession) SetVoters(_newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (*types.Transaction, error) {
-	return _Oracle.Contract.SetVoters(&_Oracle.TransactOpts, _newVoters, _treasury, _validator)
+func (_Oracle0 *Oracle0TransactorSession) SetVoters(_newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (*types.Transaction, error) {
+	return _Oracle0.Contract.SetVoters(&_Oracle0.TransactOpts, _newVoters, _treasury, _validator)
 }
 
 // UpdateVotersAndSymbol is a paid mutator transaction binding the contract method 0x0f65875c.
 //
 // Solidity: function updateVotersAndSymbol() returns()
-func (_Oracle *OracleTransactor) UpdateVotersAndSymbol(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "updateVotersAndSymbol")
+func (_Oracle0 *Oracle0Transactor) UpdateVotersAndSymbol(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Oracle0.contract.Transact(opts, "updateVotersAndSymbol")
 }
 
 // UpdateVotersAndSymbol is a paid mutator transaction binding the contract method 0x0f65875c.
 //
 // Solidity: function updateVotersAndSymbol() returns()
-func (_Oracle *OracleSession) UpdateVotersAndSymbol() (*types.Transaction, error) {
-	return _Oracle.Contract.UpdateVotersAndSymbol(&_Oracle.TransactOpts)
+func (_Oracle0 *Oracle0Session) UpdateVotersAndSymbol() (*types.Transaction, error) {
+	return _Oracle0.Contract.UpdateVotersAndSymbol(&_Oracle0.TransactOpts)
 }
 
 // UpdateVotersAndSymbol is a paid mutator transaction binding the contract method 0x0f65875c.
 //
 // Solidity: function updateVotersAndSymbol() returns()
-func (_Oracle *OracleTransactorSession) UpdateVotersAndSymbol() (*types.Transaction, error) {
-	return _Oracle.Contract.UpdateVotersAndSymbol(&_Oracle.TransactOpts)
+func (_Oracle0 *Oracle0TransactorSession) UpdateVotersAndSymbol() (*types.Transaction, error) {
+	return _Oracle0.Contract.UpdateVotersAndSymbol(&_Oracle0.TransactOpts)
 }
 
 // Vote is a paid mutator transaction binding the contract method 0x56833ebe.
 //
 // Solidity: function vote(uint256 _commit, (uint120,uint8)[] _reports, uint256 _salt, uint8 _extra) returns()
-func (_Oracle *OracleTransactor) Vote(opts *bind.TransactOpts, _commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "vote", _commit, _reports, _salt, _extra)
+func (_Oracle0 *Oracle0Transactor) Vote(opts *bind.TransactOpts, _commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (*types.Transaction, error) {
+	return _Oracle0.contract.Transact(opts, "vote", _commit, _reports, _salt, _extra)
 }
 
 // Vote is a paid mutator transaction binding the contract method 0x56833ebe.
 //
 // Solidity: function vote(uint256 _commit, (uint120,uint8)[] _reports, uint256 _salt, uint8 _extra) returns()
-func (_Oracle *OracleSession) Vote(_commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (*types.Transaction, error) {
-	return _Oracle.Contract.Vote(&_Oracle.TransactOpts, _commit, _reports, _salt, _extra)
+func (_Oracle0 *Oracle0Session) Vote(_commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (*types.Transaction, error) {
+	return _Oracle0.Contract.Vote(&_Oracle0.TransactOpts, _commit, _reports, _salt, _extra)
 }
 
 // Vote is a paid mutator transaction binding the contract method 0x56833ebe.
 //
 // Solidity: function vote(uint256 _commit, (uint120,uint8)[] _reports, uint256 _salt, uint8 _extra) returns()
-func (_Oracle *OracleTransactorSession) Vote(_commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (*types.Transaction, error) {
-	return _Oracle.Contract.Vote(&_Oracle.TransactOpts, _commit, _reports, _salt, _extra)
+func (_Oracle0 *Oracle0TransactorSession) Vote(_commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (*types.Transaction, error) {
+	return _Oracle0.Contract.Vote(&_Oracle0.TransactOpts, _commit, _reports, _salt, _extra)
 }
 
 // Fallback is a paid mutator transaction binding the contract fallback function.
 //
 // Solidity: fallback() payable returns()
-func (_Oracle *OracleTransactor) Fallback(opts *bind.TransactOpts, calldata []byte) (*types.Transaction, error) {
-	return _Oracle.contract.RawTransact(opts, calldata)
+func (_Oracle0 *Oracle0Transactor) Fallback(opts *bind.TransactOpts, calldata []byte) (*types.Transaction, error) {
+	return _Oracle0.contract.RawTransact(opts, calldata)
 }
 
 // Fallback is a paid mutator transaction binding the contract fallback function.
 //
 // Solidity: fallback() payable returns()
-func (_Oracle *OracleSession) Fallback(calldata []byte) (*types.Transaction, error) {
-	return _Oracle.Contract.Fallback(&_Oracle.TransactOpts, calldata)
+func (_Oracle0 *Oracle0Session) Fallback(calldata []byte) (*types.Transaction, error) {
+	return _Oracle0.Contract.Fallback(&_Oracle0.TransactOpts, calldata)
 }
 
 // Fallback is a paid mutator transaction binding the contract fallback function.
 //
 // Solidity: fallback() payable returns()
-func (_Oracle *OracleTransactorSession) Fallback(calldata []byte) (*types.Transaction, error) {
-	return _Oracle.Contract.Fallback(&_Oracle.TransactOpts, calldata)
+func (_Oracle0 *Oracle0TransactorSession) Fallback(calldata []byte) (*types.Transaction, error) {
+	return _Oracle0.Contract.Fallback(&_Oracle0.TransactOpts, calldata)
 }
 
 // Receive is a paid mutator transaction binding the contract receive function.
 //
 // Solidity: receive() payable returns()
-func (_Oracle *OracleTransactor) Receive(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Oracle.contract.RawTransact(opts, nil) // calldata is disallowed for receive function
+func (_Oracle0 *Oracle0Transactor) Receive(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Oracle0.contract.RawTransact(opts, nil) // calldata is disallowed for receive function
 }
 
 // Receive is a paid mutator transaction binding the contract receive function.
 //
 // Solidity: receive() payable returns()
-func (_Oracle *OracleSession) Receive() (*types.Transaction, error) {
-	return _Oracle.Contract.Receive(&_Oracle.TransactOpts)
+func (_Oracle0 *Oracle0Session) Receive() (*types.Transaction, error) {
+	return _Oracle0.Contract.Receive(&_Oracle0.TransactOpts)
 }
 
 // Receive is a paid mutator transaction binding the contract receive function.
 //
 // Solidity: receive() payable returns()
-func (_Oracle *OracleTransactorSession) Receive() (*types.Transaction, error) {
-	return _Oracle.Contract.Receive(&_Oracle.TransactOpts)
+func (_Oracle0 *Oracle0TransactorSession) Receive() (*types.Transaction, error) {
+	return _Oracle0.Contract.Receive(&_Oracle0.TransactOpts)
 }
 
-// OracleCallFailedIterator is returned from FilterCallFailed and is used to iterate over the raw logs and unpacked data for CallFailed events raised by the Oracle contract.
-type OracleCallFailedIterator struct {
-	Event *OracleCallFailed // Event containing the contract specifics and raw log
+// Oracle0CallFailedIterator is returned from FilterCallFailed and is used to iterate over the raw logs and unpacked data for CallFailed events raised by the Oracle0 contract.
+type Oracle0CallFailedIterator struct {
+	Event *Oracle0CallFailed // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -14650,7 +14650,7 @@ type OracleCallFailedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleCallFailedIterator) Next() bool {
+func (it *Oracle0CallFailedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -14659,7 +14659,7 @@ func (it *OracleCallFailedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleCallFailed)
+			it.Event = new(Oracle0CallFailed)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -14674,7 +14674,7 @@ func (it *OracleCallFailedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleCallFailed)
+		it.Event = new(Oracle0CallFailed)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -14690,19 +14690,19 @@ func (it *OracleCallFailedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleCallFailedIterator) Error() error {
+func (it *Oracle0CallFailedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleCallFailedIterator) Close() error {
+func (it *Oracle0CallFailedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleCallFailed represents a CallFailed event raised by the Oracle contract.
-type OracleCallFailed struct {
+// Oracle0CallFailed represents a CallFailed event raised by the Oracle0 contract.
+type Oracle0CallFailed struct {
 	To              common.Address
 	MethodSignature string
 	ReturnData      []byte
@@ -14712,21 +14712,21 @@ type OracleCallFailed struct {
 // FilterCallFailed is a free log retrieval operation binding the contract event 0x1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352.
 //
 // Solidity: event CallFailed(address to, string methodSignature, bytes returnData)
-func (_Oracle *OracleFilterer) FilterCallFailed(opts *bind.FilterOpts) (*OracleCallFailedIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterCallFailed(opts *bind.FilterOpts) (*Oracle0CallFailedIterator, error) {
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "CallFailed")
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "CallFailed")
 	if err != nil {
 		return nil, err
 	}
-	return &OracleCallFailedIterator{contract: _Oracle.contract, event: "CallFailed", logs: logs, sub: sub}, nil
+	return &Oracle0CallFailedIterator{contract: _Oracle0.contract, event: "CallFailed", logs: logs, sub: sub}, nil
 }
 
 // WatchCallFailed is a free log subscription operation binding the contract event 0x1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352.
 //
 // Solidity: event CallFailed(address to, string methodSignature, bytes returnData)
-func (_Oracle *OracleFilterer) WatchCallFailed(opts *bind.WatchOpts, sink chan<- *OracleCallFailed) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchCallFailed(opts *bind.WatchOpts, sink chan<- *Oracle0CallFailed) (event.Subscription, error) {
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "CallFailed")
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "CallFailed")
 	if err != nil {
 		return nil, err
 	}
@@ -14736,8 +14736,8 @@ func (_Oracle *OracleFilterer) WatchCallFailed(opts *bind.WatchOpts, sink chan<-
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleCallFailed)
-				if err := _Oracle.contract.UnpackLog(event, "CallFailed", log); err != nil {
+				event := new(Oracle0CallFailed)
+				if err := _Oracle0.contract.UnpackLog(event, "CallFailed", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -14761,18 +14761,18 @@ func (_Oracle *OracleFilterer) WatchCallFailed(opts *bind.WatchOpts, sink chan<-
 // ParseCallFailed is a log parse operation binding the contract event 0x1137d8c966ce69b9630fb2294be011f3d64cc56e91fad7d375f0662568e9d352.
 //
 // Solidity: event CallFailed(address to, string methodSignature, bytes returnData)
-func (_Oracle *OracleFilterer) ParseCallFailed(log types.Log) (*OracleCallFailed, error) {
-	event := new(OracleCallFailed)
-	if err := _Oracle.contract.UnpackLog(event, "CallFailed", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseCallFailed(log types.Log) (*Oracle0CallFailed, error) {
+	event := new(Oracle0CallFailed)
+	if err := _Oracle0.contract.UnpackLog(event, "CallFailed", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OracleCommitRevealMissedIterator is returned from FilterCommitRevealMissed and is used to iterate over the raw logs and unpacked data for CommitRevealMissed events raised by the Oracle contract.
-type OracleCommitRevealMissedIterator struct {
-	Event *OracleCommitRevealMissed // Event containing the contract specifics and raw log
+// Oracle0CommitRevealMissedIterator is returned from FilterCommitRevealMissed and is used to iterate over the raw logs and unpacked data for CommitRevealMissed events raised by the Oracle0 contract.
+type Oracle0CommitRevealMissedIterator struct {
+	Event *Oracle0CommitRevealMissed // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -14786,7 +14786,7 @@ type OracleCommitRevealMissedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleCommitRevealMissedIterator) Next() bool {
+func (it *Oracle0CommitRevealMissedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -14795,7 +14795,7 @@ func (it *OracleCommitRevealMissedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleCommitRevealMissed)
+			it.Event = new(Oracle0CommitRevealMissed)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -14810,7 +14810,7 @@ func (it *OracleCommitRevealMissedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleCommitRevealMissed)
+		it.Event = new(Oracle0CommitRevealMissed)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -14826,19 +14826,19 @@ func (it *OracleCommitRevealMissedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleCommitRevealMissedIterator) Error() error {
+func (it *Oracle0CommitRevealMissedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleCommitRevealMissedIterator) Close() error {
+func (it *Oracle0CommitRevealMissedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleCommitRevealMissed represents a CommitRevealMissed event raised by the Oracle contract.
-type OracleCommitRevealMissed struct {
+// Oracle0CommitRevealMissed represents a CommitRevealMissed event raised by the Oracle0 contract.
+type Oracle0CommitRevealMissed struct {
 	Voter          common.Address
 	Round          *big.Int
 	NonRevealCount *big.Int
@@ -14848,31 +14848,31 @@ type OracleCommitRevealMissed struct {
 // FilterCommitRevealMissed is a free log retrieval operation binding the contract event 0x176956a4e941f6737f81a3c9a09d8571dd0438d86e25a432beb2013aced43092.
 //
 // Solidity: event CommitRevealMissed(address indexed _voter, uint256 _round, uint256 _nonRevealCount)
-func (_Oracle *OracleFilterer) FilterCommitRevealMissed(opts *bind.FilterOpts, _voter []common.Address) (*OracleCommitRevealMissedIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterCommitRevealMissed(opts *bind.FilterOpts, _voter []common.Address) (*Oracle0CommitRevealMissedIterator, error) {
 
 	var _voterRule []interface{}
 	for _, _voterItem := range _voter {
 		_voterRule = append(_voterRule, _voterItem)
 	}
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "CommitRevealMissed", _voterRule)
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "CommitRevealMissed", _voterRule)
 	if err != nil {
 		return nil, err
 	}
-	return &OracleCommitRevealMissedIterator{contract: _Oracle.contract, event: "CommitRevealMissed", logs: logs, sub: sub}, nil
+	return &Oracle0CommitRevealMissedIterator{contract: _Oracle0.contract, event: "CommitRevealMissed", logs: logs, sub: sub}, nil
 }
 
 // WatchCommitRevealMissed is a free log subscription operation binding the contract event 0x176956a4e941f6737f81a3c9a09d8571dd0438d86e25a432beb2013aced43092.
 //
 // Solidity: event CommitRevealMissed(address indexed _voter, uint256 _round, uint256 _nonRevealCount)
-func (_Oracle *OracleFilterer) WatchCommitRevealMissed(opts *bind.WatchOpts, sink chan<- *OracleCommitRevealMissed, _voter []common.Address) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchCommitRevealMissed(opts *bind.WatchOpts, sink chan<- *Oracle0CommitRevealMissed, _voter []common.Address) (event.Subscription, error) {
 
 	var _voterRule []interface{}
 	for _, _voterItem := range _voter {
 		_voterRule = append(_voterRule, _voterItem)
 	}
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "CommitRevealMissed", _voterRule)
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "CommitRevealMissed", _voterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -14882,8 +14882,8 @@ func (_Oracle *OracleFilterer) WatchCommitRevealMissed(opts *bind.WatchOpts, sin
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleCommitRevealMissed)
-				if err := _Oracle.contract.UnpackLog(event, "CommitRevealMissed", log); err != nil {
+				event := new(Oracle0CommitRevealMissed)
+				if err := _Oracle0.contract.UnpackLog(event, "CommitRevealMissed", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -14907,18 +14907,18 @@ func (_Oracle *OracleFilterer) WatchCommitRevealMissed(opts *bind.WatchOpts, sin
 // ParseCommitRevealMissed is a log parse operation binding the contract event 0x176956a4e941f6737f81a3c9a09d8571dd0438d86e25a432beb2013aced43092.
 //
 // Solidity: event CommitRevealMissed(address indexed _voter, uint256 _round, uint256 _nonRevealCount)
-func (_Oracle *OracleFilterer) ParseCommitRevealMissed(log types.Log) (*OracleCommitRevealMissed, error) {
-	event := new(OracleCommitRevealMissed)
-	if err := _Oracle.contract.UnpackLog(event, "CommitRevealMissed", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseCommitRevealMissed(log types.Log) (*Oracle0CommitRevealMissed, error) {
+	event := new(Oracle0CommitRevealMissed)
+	if err := _Oracle0.contract.UnpackLog(event, "CommitRevealMissed", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OracleConfigUpdateAddressIterator is returned from FilterConfigUpdateAddress and is used to iterate over the raw logs and unpacked data for ConfigUpdateAddress events raised by the Oracle contract.
-type OracleConfigUpdateAddressIterator struct {
-	Event *OracleConfigUpdateAddress // Event containing the contract specifics and raw log
+// Oracle0ConfigUpdateAddressIterator is returned from FilterConfigUpdateAddress and is used to iterate over the raw logs and unpacked data for ConfigUpdateAddress events raised by the Oracle0 contract.
+type Oracle0ConfigUpdateAddressIterator struct {
+	Event *Oracle0ConfigUpdateAddress // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -14932,7 +14932,7 @@ type OracleConfigUpdateAddressIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleConfigUpdateAddressIterator) Next() bool {
+func (it *Oracle0ConfigUpdateAddressIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -14941,7 +14941,7 @@ func (it *OracleConfigUpdateAddressIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleConfigUpdateAddress)
+			it.Event = new(Oracle0ConfigUpdateAddress)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -14956,7 +14956,7 @@ func (it *OracleConfigUpdateAddressIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleConfigUpdateAddress)
+		it.Event = new(Oracle0ConfigUpdateAddress)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -14972,19 +14972,19 @@ func (it *OracleConfigUpdateAddressIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleConfigUpdateAddressIterator) Error() error {
+func (it *Oracle0ConfigUpdateAddressIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleConfigUpdateAddressIterator) Close() error {
+func (it *Oracle0ConfigUpdateAddressIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleConfigUpdateAddress represents a ConfigUpdateAddress event raised by the Oracle contract.
-type OracleConfigUpdateAddress struct {
+// Oracle0ConfigUpdateAddress represents a ConfigUpdateAddress event raised by the Oracle0 contract.
+type Oracle0ConfigUpdateAddress struct {
 	Name            string
 	OldValue        common.Address
 	NewValue        common.Address
@@ -14995,21 +14995,21 @@ type OracleConfigUpdateAddress struct {
 // FilterConfigUpdateAddress is a free log retrieval operation binding the contract event 0xe821ac8084a7329d09d00cf1380cba50edea5f54a7bd453d49a9c354f565d4a0.
 //
 // Solidity: event ConfigUpdateAddress(string name, address oldValue, address newValue, uint256 appliesAtHeight)
-func (_Oracle *OracleFilterer) FilterConfigUpdateAddress(opts *bind.FilterOpts) (*OracleConfigUpdateAddressIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterConfigUpdateAddress(opts *bind.FilterOpts) (*Oracle0ConfigUpdateAddressIterator, error) {
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "ConfigUpdateAddress")
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "ConfigUpdateAddress")
 	if err != nil {
 		return nil, err
 	}
-	return &OracleConfigUpdateAddressIterator{contract: _Oracle.contract, event: "ConfigUpdateAddress", logs: logs, sub: sub}, nil
+	return &Oracle0ConfigUpdateAddressIterator{contract: _Oracle0.contract, event: "ConfigUpdateAddress", logs: logs, sub: sub}, nil
 }
 
 // WatchConfigUpdateAddress is a free log subscription operation binding the contract event 0xe821ac8084a7329d09d00cf1380cba50edea5f54a7bd453d49a9c354f565d4a0.
 //
 // Solidity: event ConfigUpdateAddress(string name, address oldValue, address newValue, uint256 appliesAtHeight)
-func (_Oracle *OracleFilterer) WatchConfigUpdateAddress(opts *bind.WatchOpts, sink chan<- *OracleConfigUpdateAddress) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchConfigUpdateAddress(opts *bind.WatchOpts, sink chan<- *Oracle0ConfigUpdateAddress) (event.Subscription, error) {
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "ConfigUpdateAddress")
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "ConfigUpdateAddress")
 	if err != nil {
 		return nil, err
 	}
@@ -15019,8 +15019,8 @@ func (_Oracle *OracleFilterer) WatchConfigUpdateAddress(opts *bind.WatchOpts, si
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleConfigUpdateAddress)
-				if err := _Oracle.contract.UnpackLog(event, "ConfigUpdateAddress", log); err != nil {
+				event := new(Oracle0ConfigUpdateAddress)
+				if err := _Oracle0.contract.UnpackLog(event, "ConfigUpdateAddress", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -15044,18 +15044,18 @@ func (_Oracle *OracleFilterer) WatchConfigUpdateAddress(opts *bind.WatchOpts, si
 // ParseConfigUpdateAddress is a log parse operation binding the contract event 0xe821ac8084a7329d09d00cf1380cba50edea5f54a7bd453d49a9c354f565d4a0.
 //
 // Solidity: event ConfigUpdateAddress(string name, address oldValue, address newValue, uint256 appliesAtHeight)
-func (_Oracle *OracleFilterer) ParseConfigUpdateAddress(log types.Log) (*OracleConfigUpdateAddress, error) {
-	event := new(OracleConfigUpdateAddress)
-	if err := _Oracle.contract.UnpackLog(event, "ConfigUpdateAddress", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseConfigUpdateAddress(log types.Log) (*Oracle0ConfigUpdateAddress, error) {
+	event := new(Oracle0ConfigUpdateAddress)
+	if err := _Oracle0.contract.UnpackLog(event, "ConfigUpdateAddress", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OracleConfigUpdateBoolIterator is returned from FilterConfigUpdateBool and is used to iterate over the raw logs and unpacked data for ConfigUpdateBool events raised by the Oracle contract.
-type OracleConfigUpdateBoolIterator struct {
-	Event *OracleConfigUpdateBool // Event containing the contract specifics and raw log
+// Oracle0ConfigUpdateBoolIterator is returned from FilterConfigUpdateBool and is used to iterate over the raw logs and unpacked data for ConfigUpdateBool events raised by the Oracle0 contract.
+type Oracle0ConfigUpdateBoolIterator struct {
+	Event *Oracle0ConfigUpdateBool // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -15069,7 +15069,7 @@ type OracleConfigUpdateBoolIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleConfigUpdateBoolIterator) Next() bool {
+func (it *Oracle0ConfigUpdateBoolIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -15078,7 +15078,7 @@ func (it *OracleConfigUpdateBoolIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleConfigUpdateBool)
+			it.Event = new(Oracle0ConfigUpdateBool)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -15093,7 +15093,7 @@ func (it *OracleConfigUpdateBoolIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleConfigUpdateBool)
+		it.Event = new(Oracle0ConfigUpdateBool)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -15109,19 +15109,19 @@ func (it *OracleConfigUpdateBoolIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleConfigUpdateBoolIterator) Error() error {
+func (it *Oracle0ConfigUpdateBoolIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleConfigUpdateBoolIterator) Close() error {
+func (it *Oracle0ConfigUpdateBoolIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleConfigUpdateBool represents a ConfigUpdateBool event raised by the Oracle contract.
-type OracleConfigUpdateBool struct {
+// Oracle0ConfigUpdateBool represents a ConfigUpdateBool event raised by the Oracle0 contract.
+type Oracle0ConfigUpdateBool struct {
 	Name            string
 	OldValue        bool
 	NewValue        bool
@@ -15132,21 +15132,21 @@ type OracleConfigUpdateBool struct {
 // FilterConfigUpdateBool is a free log retrieval operation binding the contract event 0x5edb308c5eddc69bcd31b4e689c5eed2fbd3155ae57915d1cad05425f6c1a39b.
 //
 // Solidity: event ConfigUpdateBool(string name, bool oldValue, bool newValue, uint256 appliesAtHeight)
-func (_Oracle *OracleFilterer) FilterConfigUpdateBool(opts *bind.FilterOpts) (*OracleConfigUpdateBoolIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterConfigUpdateBool(opts *bind.FilterOpts) (*Oracle0ConfigUpdateBoolIterator, error) {
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "ConfigUpdateBool")
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "ConfigUpdateBool")
 	if err != nil {
 		return nil, err
 	}
-	return &OracleConfigUpdateBoolIterator{contract: _Oracle.contract, event: "ConfigUpdateBool", logs: logs, sub: sub}, nil
+	return &Oracle0ConfigUpdateBoolIterator{contract: _Oracle0.contract, event: "ConfigUpdateBool", logs: logs, sub: sub}, nil
 }
 
 // WatchConfigUpdateBool is a free log subscription operation binding the contract event 0x5edb308c5eddc69bcd31b4e689c5eed2fbd3155ae57915d1cad05425f6c1a39b.
 //
 // Solidity: event ConfigUpdateBool(string name, bool oldValue, bool newValue, uint256 appliesAtHeight)
-func (_Oracle *OracleFilterer) WatchConfigUpdateBool(opts *bind.WatchOpts, sink chan<- *OracleConfigUpdateBool) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchConfigUpdateBool(opts *bind.WatchOpts, sink chan<- *Oracle0ConfigUpdateBool) (event.Subscription, error) {
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "ConfigUpdateBool")
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "ConfigUpdateBool")
 	if err != nil {
 		return nil, err
 	}
@@ -15156,8 +15156,8 @@ func (_Oracle *OracleFilterer) WatchConfigUpdateBool(opts *bind.WatchOpts, sink 
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleConfigUpdateBool)
-				if err := _Oracle.contract.UnpackLog(event, "ConfigUpdateBool", log); err != nil {
+				event := new(Oracle0ConfigUpdateBool)
+				if err := _Oracle0.contract.UnpackLog(event, "ConfigUpdateBool", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -15181,18 +15181,18 @@ func (_Oracle *OracleFilterer) WatchConfigUpdateBool(opts *bind.WatchOpts, sink 
 // ParseConfigUpdateBool is a log parse operation binding the contract event 0x5edb308c5eddc69bcd31b4e689c5eed2fbd3155ae57915d1cad05425f6c1a39b.
 //
 // Solidity: event ConfigUpdateBool(string name, bool oldValue, bool newValue, uint256 appliesAtHeight)
-func (_Oracle *OracleFilterer) ParseConfigUpdateBool(log types.Log) (*OracleConfigUpdateBool, error) {
-	event := new(OracleConfigUpdateBool)
-	if err := _Oracle.contract.UnpackLog(event, "ConfigUpdateBool", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseConfigUpdateBool(log types.Log) (*Oracle0ConfigUpdateBool, error) {
+	event := new(Oracle0ConfigUpdateBool)
+	if err := _Oracle0.contract.UnpackLog(event, "ConfigUpdateBool", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OracleConfigUpdateIntIterator is returned from FilterConfigUpdateInt and is used to iterate over the raw logs and unpacked data for ConfigUpdateInt events raised by the Oracle contract.
-type OracleConfigUpdateIntIterator struct {
-	Event *OracleConfigUpdateInt // Event containing the contract specifics and raw log
+// Oracle0ConfigUpdateIntIterator is returned from FilterConfigUpdateInt and is used to iterate over the raw logs and unpacked data for ConfigUpdateInt events raised by the Oracle0 contract.
+type Oracle0ConfigUpdateIntIterator struct {
+	Event *Oracle0ConfigUpdateInt // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -15206,7 +15206,7 @@ type OracleConfigUpdateIntIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleConfigUpdateIntIterator) Next() bool {
+func (it *Oracle0ConfigUpdateIntIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -15215,7 +15215,7 @@ func (it *OracleConfigUpdateIntIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleConfigUpdateInt)
+			it.Event = new(Oracle0ConfigUpdateInt)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -15230,7 +15230,7 @@ func (it *OracleConfigUpdateIntIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleConfigUpdateInt)
+		it.Event = new(Oracle0ConfigUpdateInt)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -15246,19 +15246,19 @@ func (it *OracleConfigUpdateIntIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleConfigUpdateIntIterator) Error() error {
+func (it *Oracle0ConfigUpdateIntIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleConfigUpdateIntIterator) Close() error {
+func (it *Oracle0ConfigUpdateIntIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleConfigUpdateInt represents a ConfigUpdateInt event raised by the Oracle contract.
-type OracleConfigUpdateInt struct {
+// Oracle0ConfigUpdateInt represents a ConfigUpdateInt event raised by the Oracle0 contract.
+type Oracle0ConfigUpdateInt struct {
 	Name            string
 	OldValue        *big.Int
 	NewValue        *big.Int
@@ -15269,21 +15269,21 @@ type OracleConfigUpdateInt struct {
 // FilterConfigUpdateInt is a free log retrieval operation binding the contract event 0xb5114472b89d1126433287defb6308bbabdb95b6ce5dd949ab2c151ed7b1ff4c.
 //
 // Solidity: event ConfigUpdateInt(string name, int256 oldValue, int256 newValue, uint256 appliesAtHeight)
-func (_Oracle *OracleFilterer) FilterConfigUpdateInt(opts *bind.FilterOpts) (*OracleConfigUpdateIntIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterConfigUpdateInt(opts *bind.FilterOpts) (*Oracle0ConfigUpdateIntIterator, error) {
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "ConfigUpdateInt")
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "ConfigUpdateInt")
 	if err != nil {
 		return nil, err
 	}
-	return &OracleConfigUpdateIntIterator{contract: _Oracle.contract, event: "ConfigUpdateInt", logs: logs, sub: sub}, nil
+	return &Oracle0ConfigUpdateIntIterator{contract: _Oracle0.contract, event: "ConfigUpdateInt", logs: logs, sub: sub}, nil
 }
 
 // WatchConfigUpdateInt is a free log subscription operation binding the contract event 0xb5114472b89d1126433287defb6308bbabdb95b6ce5dd949ab2c151ed7b1ff4c.
 //
 // Solidity: event ConfigUpdateInt(string name, int256 oldValue, int256 newValue, uint256 appliesAtHeight)
-func (_Oracle *OracleFilterer) WatchConfigUpdateInt(opts *bind.WatchOpts, sink chan<- *OracleConfigUpdateInt) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchConfigUpdateInt(opts *bind.WatchOpts, sink chan<- *Oracle0ConfigUpdateInt) (event.Subscription, error) {
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "ConfigUpdateInt")
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "ConfigUpdateInt")
 	if err != nil {
 		return nil, err
 	}
@@ -15293,8 +15293,8 @@ func (_Oracle *OracleFilterer) WatchConfigUpdateInt(opts *bind.WatchOpts, sink c
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleConfigUpdateInt)
-				if err := _Oracle.contract.UnpackLog(event, "ConfigUpdateInt", log); err != nil {
+				event := new(Oracle0ConfigUpdateInt)
+				if err := _Oracle0.contract.UnpackLog(event, "ConfigUpdateInt", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -15318,18 +15318,18 @@ func (_Oracle *OracleFilterer) WatchConfigUpdateInt(opts *bind.WatchOpts, sink c
 // ParseConfigUpdateInt is a log parse operation binding the contract event 0xb5114472b89d1126433287defb6308bbabdb95b6ce5dd949ab2c151ed7b1ff4c.
 //
 // Solidity: event ConfigUpdateInt(string name, int256 oldValue, int256 newValue, uint256 appliesAtHeight)
-func (_Oracle *OracleFilterer) ParseConfigUpdateInt(log types.Log) (*OracleConfigUpdateInt, error) {
-	event := new(OracleConfigUpdateInt)
-	if err := _Oracle.contract.UnpackLog(event, "ConfigUpdateInt", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseConfigUpdateInt(log types.Log) (*Oracle0ConfigUpdateInt, error) {
+	event := new(Oracle0ConfigUpdateInt)
+	if err := _Oracle0.contract.UnpackLog(event, "ConfigUpdateInt", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OracleConfigUpdateUintIterator is returned from FilterConfigUpdateUint and is used to iterate over the raw logs and unpacked data for ConfigUpdateUint events raised by the Oracle contract.
-type OracleConfigUpdateUintIterator struct {
-	Event *OracleConfigUpdateUint // Event containing the contract specifics and raw log
+// Oracle0ConfigUpdateUintIterator is returned from FilterConfigUpdateUint and is used to iterate over the raw logs and unpacked data for ConfigUpdateUint events raised by the Oracle0 contract.
+type Oracle0ConfigUpdateUintIterator struct {
+	Event *Oracle0ConfigUpdateUint // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -15343,7 +15343,7 @@ type OracleConfigUpdateUintIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleConfigUpdateUintIterator) Next() bool {
+func (it *Oracle0ConfigUpdateUintIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -15352,7 +15352,7 @@ func (it *OracleConfigUpdateUintIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleConfigUpdateUint)
+			it.Event = new(Oracle0ConfigUpdateUint)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -15367,7 +15367,7 @@ func (it *OracleConfigUpdateUintIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleConfigUpdateUint)
+		it.Event = new(Oracle0ConfigUpdateUint)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -15383,19 +15383,19 @@ func (it *OracleConfigUpdateUintIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleConfigUpdateUintIterator) Error() error {
+func (it *Oracle0ConfigUpdateUintIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleConfigUpdateUintIterator) Close() error {
+func (it *Oracle0ConfigUpdateUintIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleConfigUpdateUint represents a ConfigUpdateUint event raised by the Oracle contract.
-type OracleConfigUpdateUint struct {
+// Oracle0ConfigUpdateUint represents a ConfigUpdateUint event raised by the Oracle0 contract.
+type Oracle0ConfigUpdateUint struct {
 	Name            string
 	OldValue        *big.Int
 	NewValue        *big.Int
@@ -15406,21 +15406,21 @@ type OracleConfigUpdateUint struct {
 // FilterConfigUpdateUint is a free log retrieval operation binding the contract event 0x207e45ce6f2191c3efffe5d0d91591cf81afd23cbf4bd746981d7a8a8dcfe1ba.
 //
 // Solidity: event ConfigUpdateUint(string name, uint256 oldValue, uint256 newValue, uint256 appliesAtHeight)
-func (_Oracle *OracleFilterer) FilterConfigUpdateUint(opts *bind.FilterOpts) (*OracleConfigUpdateUintIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterConfigUpdateUint(opts *bind.FilterOpts) (*Oracle0ConfigUpdateUintIterator, error) {
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "ConfigUpdateUint")
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "ConfigUpdateUint")
 	if err != nil {
 		return nil, err
 	}
-	return &OracleConfigUpdateUintIterator{contract: _Oracle.contract, event: "ConfigUpdateUint", logs: logs, sub: sub}, nil
+	return &Oracle0ConfigUpdateUintIterator{contract: _Oracle0.contract, event: "ConfigUpdateUint", logs: logs, sub: sub}, nil
 }
 
 // WatchConfigUpdateUint is a free log subscription operation binding the contract event 0x207e45ce6f2191c3efffe5d0d91591cf81afd23cbf4bd746981d7a8a8dcfe1ba.
 //
 // Solidity: event ConfigUpdateUint(string name, uint256 oldValue, uint256 newValue, uint256 appliesAtHeight)
-func (_Oracle *OracleFilterer) WatchConfigUpdateUint(opts *bind.WatchOpts, sink chan<- *OracleConfigUpdateUint) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchConfigUpdateUint(opts *bind.WatchOpts, sink chan<- *Oracle0ConfigUpdateUint) (event.Subscription, error) {
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "ConfigUpdateUint")
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "ConfigUpdateUint")
 	if err != nil {
 		return nil, err
 	}
@@ -15430,8 +15430,8 @@ func (_Oracle *OracleFilterer) WatchConfigUpdateUint(opts *bind.WatchOpts, sink 
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleConfigUpdateUint)
-				if err := _Oracle.contract.UnpackLog(event, "ConfigUpdateUint", log); err != nil {
+				event := new(Oracle0ConfigUpdateUint)
+				if err := _Oracle0.contract.UnpackLog(event, "ConfigUpdateUint", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -15455,18 +15455,18 @@ func (_Oracle *OracleFilterer) WatchConfigUpdateUint(opts *bind.WatchOpts, sink 
 // ParseConfigUpdateUint is a log parse operation binding the contract event 0x207e45ce6f2191c3efffe5d0d91591cf81afd23cbf4bd746981d7a8a8dcfe1ba.
 //
 // Solidity: event ConfigUpdateUint(string name, uint256 oldValue, uint256 newValue, uint256 appliesAtHeight)
-func (_Oracle *OracleFilterer) ParseConfigUpdateUint(log types.Log) (*OracleConfigUpdateUint, error) {
-	event := new(OracleConfigUpdateUint)
-	if err := _Oracle.contract.UnpackLog(event, "ConfigUpdateUint", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseConfigUpdateUint(log types.Log) (*Oracle0ConfigUpdateUint, error) {
+	event := new(Oracle0ConfigUpdateUint)
+	if err := _Oracle0.contract.UnpackLog(event, "ConfigUpdateUint", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OracleInvalidVoteIterator is returned from FilterInvalidVote and is used to iterate over the raw logs and unpacked data for InvalidVote events raised by the Oracle contract.
-type OracleInvalidVoteIterator struct {
-	Event *OracleInvalidVote // Event containing the contract specifics and raw log
+// Oracle0InvalidVoteIterator is returned from FilterInvalidVote and is used to iterate over the raw logs and unpacked data for InvalidVote events raised by the Oracle0 contract.
+type Oracle0InvalidVoteIterator struct {
+	Event *Oracle0InvalidVote // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -15480,7 +15480,7 @@ type OracleInvalidVoteIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleInvalidVoteIterator) Next() bool {
+func (it *Oracle0InvalidVoteIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -15489,7 +15489,7 @@ func (it *OracleInvalidVoteIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleInvalidVote)
+			it.Event = new(Oracle0InvalidVote)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -15504,7 +15504,7 @@ func (it *OracleInvalidVoteIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleInvalidVote)
+		it.Event = new(Oracle0InvalidVote)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -15520,19 +15520,19 @@ func (it *OracleInvalidVoteIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleInvalidVoteIterator) Error() error {
+func (it *Oracle0InvalidVoteIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleInvalidVoteIterator) Close() error {
+func (it *Oracle0InvalidVoteIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleInvalidVote represents a InvalidVote event raised by the Oracle contract.
-type OracleInvalidVote struct {
+// Oracle0InvalidVote represents a InvalidVote event raised by the Oracle0 contract.
+type Oracle0InvalidVote struct {
 	Cause       string
 	Reporter    common.Address
 	ExpValue    *big.Int
@@ -15544,31 +15544,31 @@ type OracleInvalidVote struct {
 // FilterInvalidVote is a free log retrieval operation binding the contract event 0x04ca4e0efda95f8b780c116574d1521309010b38d8f7b75705495703a0f570b1.
 //
 // Solidity: event InvalidVote(string cause, address indexed reporter, uint256 expValue, uint256 actualValue, uint8 extra)
-func (_Oracle *OracleFilterer) FilterInvalidVote(opts *bind.FilterOpts, reporter []common.Address) (*OracleInvalidVoteIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterInvalidVote(opts *bind.FilterOpts, reporter []common.Address) (*Oracle0InvalidVoteIterator, error) {
 
 	var reporterRule []interface{}
 	for _, reporterItem := range reporter {
 		reporterRule = append(reporterRule, reporterItem)
 	}
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "InvalidVote", reporterRule)
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "InvalidVote", reporterRule)
 	if err != nil {
 		return nil, err
 	}
-	return &OracleInvalidVoteIterator{contract: _Oracle.contract, event: "InvalidVote", logs: logs, sub: sub}, nil
+	return &Oracle0InvalidVoteIterator{contract: _Oracle0.contract, event: "InvalidVote", logs: logs, sub: sub}, nil
 }
 
 // WatchInvalidVote is a free log subscription operation binding the contract event 0x04ca4e0efda95f8b780c116574d1521309010b38d8f7b75705495703a0f570b1.
 //
 // Solidity: event InvalidVote(string cause, address indexed reporter, uint256 expValue, uint256 actualValue, uint8 extra)
-func (_Oracle *OracleFilterer) WatchInvalidVote(opts *bind.WatchOpts, sink chan<- *OracleInvalidVote, reporter []common.Address) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchInvalidVote(opts *bind.WatchOpts, sink chan<- *Oracle0InvalidVote, reporter []common.Address) (event.Subscription, error) {
 
 	var reporterRule []interface{}
 	for _, reporterItem := range reporter {
 		reporterRule = append(reporterRule, reporterItem)
 	}
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "InvalidVote", reporterRule)
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "InvalidVote", reporterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -15578,8 +15578,8 @@ func (_Oracle *OracleFilterer) WatchInvalidVote(opts *bind.WatchOpts, sink chan<
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleInvalidVote)
-				if err := _Oracle.contract.UnpackLog(event, "InvalidVote", log); err != nil {
+				event := new(Oracle0InvalidVote)
+				if err := _Oracle0.contract.UnpackLog(event, "InvalidVote", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -15603,18 +15603,18 @@ func (_Oracle *OracleFilterer) WatchInvalidVote(opts *bind.WatchOpts, sink chan<
 // ParseInvalidVote is a log parse operation binding the contract event 0x04ca4e0efda95f8b780c116574d1521309010b38d8f7b75705495703a0f570b1.
 //
 // Solidity: event InvalidVote(string cause, address indexed reporter, uint256 expValue, uint256 actualValue, uint8 extra)
-func (_Oracle *OracleFilterer) ParseInvalidVote(log types.Log) (*OracleInvalidVote, error) {
-	event := new(OracleInvalidVote)
-	if err := _Oracle.contract.UnpackLog(event, "InvalidVote", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseInvalidVote(log types.Log) (*Oracle0InvalidVote, error) {
+	event := new(Oracle0InvalidVote)
+	if err := _Oracle0.contract.UnpackLog(event, "InvalidVote", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OracleNewRoundIterator is returned from FilterNewRound and is used to iterate over the raw logs and unpacked data for NewRound events raised by the Oracle contract.
-type OracleNewRoundIterator struct {
-	Event *OracleNewRound // Event containing the contract specifics and raw log
+// Oracle0NewRoundIterator is returned from FilterNewRound and is used to iterate over the raw logs and unpacked data for NewRound events raised by the Oracle0 contract.
+type Oracle0NewRoundIterator struct {
+	Event *Oracle0NewRound // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -15628,7 +15628,7 @@ type OracleNewRoundIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleNewRoundIterator) Next() bool {
+func (it *Oracle0NewRoundIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -15637,7 +15637,7 @@ func (it *OracleNewRoundIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleNewRound)
+			it.Event = new(Oracle0NewRound)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -15652,7 +15652,7 @@ func (it *OracleNewRoundIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleNewRound)
+		it.Event = new(Oracle0NewRound)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -15668,19 +15668,19 @@ func (it *OracleNewRoundIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleNewRoundIterator) Error() error {
+func (it *Oracle0NewRoundIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleNewRoundIterator) Close() error {
+func (it *Oracle0NewRoundIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleNewRound represents a NewRound event raised by the Oracle contract.
-type OracleNewRound struct {
+// Oracle0NewRound represents a NewRound event raised by the Oracle0 contract.
+type Oracle0NewRound struct {
 	Round      *big.Int
 	Timestamp  *big.Int
 	VotePeriod *big.Int
@@ -15690,21 +15690,21 @@ type OracleNewRound struct {
 // FilterNewRound is a free log retrieval operation binding the contract event 0x5aec57d81928b24d30b1a2aec0d23d693412c37d7ec106b5d8259413716bb1f4.
 //
 // Solidity: event NewRound(uint256 _round, uint256 _timestamp, uint256 _votePeriod)
-func (_Oracle *OracleFilterer) FilterNewRound(opts *bind.FilterOpts) (*OracleNewRoundIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterNewRound(opts *bind.FilterOpts) (*Oracle0NewRoundIterator, error) {
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "NewRound")
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "NewRound")
 	if err != nil {
 		return nil, err
 	}
-	return &OracleNewRoundIterator{contract: _Oracle.contract, event: "NewRound", logs: logs, sub: sub}, nil
+	return &Oracle0NewRoundIterator{contract: _Oracle0.contract, event: "NewRound", logs: logs, sub: sub}, nil
 }
 
 // WatchNewRound is a free log subscription operation binding the contract event 0x5aec57d81928b24d30b1a2aec0d23d693412c37d7ec106b5d8259413716bb1f4.
 //
 // Solidity: event NewRound(uint256 _round, uint256 _timestamp, uint256 _votePeriod)
-func (_Oracle *OracleFilterer) WatchNewRound(opts *bind.WatchOpts, sink chan<- *OracleNewRound) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchNewRound(opts *bind.WatchOpts, sink chan<- *Oracle0NewRound) (event.Subscription, error) {
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "NewRound")
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "NewRound")
 	if err != nil {
 		return nil, err
 	}
@@ -15714,8 +15714,8 @@ func (_Oracle *OracleFilterer) WatchNewRound(opts *bind.WatchOpts, sink chan<- *
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleNewRound)
-				if err := _Oracle.contract.UnpackLog(event, "NewRound", log); err != nil {
+				event := new(Oracle0NewRound)
+				if err := _Oracle0.contract.UnpackLog(event, "NewRound", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -15739,18 +15739,18 @@ func (_Oracle *OracleFilterer) WatchNewRound(opts *bind.WatchOpts, sink chan<- *
 // ParseNewRound is a log parse operation binding the contract event 0x5aec57d81928b24d30b1a2aec0d23d693412c37d7ec106b5d8259413716bb1f4.
 //
 // Solidity: event NewRound(uint256 _round, uint256 _timestamp, uint256 _votePeriod)
-func (_Oracle *OracleFilterer) ParseNewRound(log types.Log) (*OracleNewRound, error) {
-	event := new(OracleNewRound)
-	if err := _Oracle.contract.UnpackLog(event, "NewRound", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseNewRound(log types.Log) (*Oracle0NewRound, error) {
+	event := new(Oracle0NewRound)
+	if err := _Oracle0.contract.UnpackLog(event, "NewRound", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OracleNewSymbolsIterator is returned from FilterNewSymbols and is used to iterate over the raw logs and unpacked data for NewSymbols events raised by the Oracle contract.
-type OracleNewSymbolsIterator struct {
-	Event *OracleNewSymbols // Event containing the contract specifics and raw log
+// Oracle0NewSymbolsIterator is returned from FilterNewSymbols and is used to iterate over the raw logs and unpacked data for NewSymbols events raised by the Oracle0 contract.
+type Oracle0NewSymbolsIterator struct {
+	Event *Oracle0NewSymbols // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -15764,7 +15764,7 @@ type OracleNewSymbolsIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleNewSymbolsIterator) Next() bool {
+func (it *Oracle0NewSymbolsIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -15773,7 +15773,7 @@ func (it *OracleNewSymbolsIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleNewSymbols)
+			it.Event = new(Oracle0NewSymbols)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -15788,7 +15788,7 @@ func (it *OracleNewSymbolsIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleNewSymbols)
+		it.Event = new(Oracle0NewSymbols)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -15804,19 +15804,19 @@ func (it *OracleNewSymbolsIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleNewSymbolsIterator) Error() error {
+func (it *Oracle0NewSymbolsIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleNewSymbolsIterator) Close() error {
+func (it *Oracle0NewSymbolsIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleNewSymbols represents a NewSymbols event raised by the Oracle contract.
-type OracleNewSymbols struct {
+// Oracle0NewSymbols represents a NewSymbols event raised by the Oracle0 contract.
+type Oracle0NewSymbols struct {
 	Symbols []string
 	Round   *big.Int
 	Raw     types.Log // Blockchain specific contextual infos
@@ -15825,21 +15825,21 @@ type OracleNewSymbols struct {
 // FilterNewSymbols is a free log retrieval operation binding the contract event 0xaa278e424da680ce5dad66510415760e78e0bd87d45c786c6e88bdde82f9342d.
 //
 // Solidity: event NewSymbols(string[] _symbols, uint256 _round)
-func (_Oracle *OracleFilterer) FilterNewSymbols(opts *bind.FilterOpts) (*OracleNewSymbolsIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterNewSymbols(opts *bind.FilterOpts) (*Oracle0NewSymbolsIterator, error) {
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "NewSymbols")
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "NewSymbols")
 	if err != nil {
 		return nil, err
 	}
-	return &OracleNewSymbolsIterator{contract: _Oracle.contract, event: "NewSymbols", logs: logs, sub: sub}, nil
+	return &Oracle0NewSymbolsIterator{contract: _Oracle0.contract, event: "NewSymbols", logs: logs, sub: sub}, nil
 }
 
 // WatchNewSymbols is a free log subscription operation binding the contract event 0xaa278e424da680ce5dad66510415760e78e0bd87d45c786c6e88bdde82f9342d.
 //
 // Solidity: event NewSymbols(string[] _symbols, uint256 _round)
-func (_Oracle *OracleFilterer) WatchNewSymbols(opts *bind.WatchOpts, sink chan<- *OracleNewSymbols) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchNewSymbols(opts *bind.WatchOpts, sink chan<- *Oracle0NewSymbols) (event.Subscription, error) {
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "NewSymbols")
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "NewSymbols")
 	if err != nil {
 		return nil, err
 	}
@@ -15849,8 +15849,8 @@ func (_Oracle *OracleFilterer) WatchNewSymbols(opts *bind.WatchOpts, sink chan<-
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleNewSymbols)
-				if err := _Oracle.contract.UnpackLog(event, "NewSymbols", log); err != nil {
+				event := new(Oracle0NewSymbols)
+				if err := _Oracle0.contract.UnpackLog(event, "NewSymbols", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -15874,18 +15874,18 @@ func (_Oracle *OracleFilterer) WatchNewSymbols(opts *bind.WatchOpts, sink chan<-
 // ParseNewSymbols is a log parse operation binding the contract event 0xaa278e424da680ce5dad66510415760e78e0bd87d45c786c6e88bdde82f9342d.
 //
 // Solidity: event NewSymbols(string[] _symbols, uint256 _round)
-func (_Oracle *OracleFilterer) ParseNewSymbols(log types.Log) (*OracleNewSymbols, error) {
-	event := new(OracleNewSymbols)
-	if err := _Oracle.contract.UnpackLog(event, "NewSymbols", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseNewSymbols(log types.Log) (*Oracle0NewSymbols, error) {
+	event := new(Oracle0NewSymbols)
+	if err := _Oracle0.contract.UnpackLog(event, "NewSymbols", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OracleNewVoterIterator is returned from FilterNewVoter and is used to iterate over the raw logs and unpacked data for NewVoter events raised by the Oracle contract.
-type OracleNewVoterIterator struct {
-	Event *OracleNewVoter // Event containing the contract specifics and raw log
+// Oracle0NewVoterIterator is returned from FilterNewVoter and is used to iterate over the raw logs and unpacked data for NewVoter events raised by the Oracle0 contract.
+type Oracle0NewVoterIterator struct {
+	Event *Oracle0NewVoter // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -15899,7 +15899,7 @@ type OracleNewVoterIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleNewVoterIterator) Next() bool {
+func (it *Oracle0NewVoterIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -15908,7 +15908,7 @@ func (it *OracleNewVoterIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleNewVoter)
+			it.Event = new(Oracle0NewVoter)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -15923,7 +15923,7 @@ func (it *OracleNewVoterIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleNewVoter)
+		it.Event = new(Oracle0NewVoter)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -15939,19 +15939,19 @@ func (it *OracleNewVoterIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleNewVoterIterator) Error() error {
+func (it *Oracle0NewVoterIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleNewVoterIterator) Close() error {
+func (it *Oracle0NewVoterIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleNewVoter represents a NewVoter event raised by the Oracle contract.
-type OracleNewVoter struct {
+// Oracle0NewVoter represents a NewVoter event raised by the Oracle0 contract.
+type Oracle0NewVoter struct {
 	Reporter common.Address
 	Extra    uint8
 	Raw      types.Log // Blockchain specific contextual infos
@@ -15960,21 +15960,21 @@ type OracleNewVoter struct {
 // FilterNewVoter is a free log retrieval operation binding the contract event 0xd2ec8e890a03083998d3e16f98044fd3dd13fe3e61b7bc2e58ee6da43b50af73.
 //
 // Solidity: event NewVoter(address reporter, uint8 extra)
-func (_Oracle *OracleFilterer) FilterNewVoter(opts *bind.FilterOpts) (*OracleNewVoterIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterNewVoter(opts *bind.FilterOpts) (*Oracle0NewVoterIterator, error) {
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "NewVoter")
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "NewVoter")
 	if err != nil {
 		return nil, err
 	}
-	return &OracleNewVoterIterator{contract: _Oracle.contract, event: "NewVoter", logs: logs, sub: sub}, nil
+	return &Oracle0NewVoterIterator{contract: _Oracle0.contract, event: "NewVoter", logs: logs, sub: sub}, nil
 }
 
 // WatchNewVoter is a free log subscription operation binding the contract event 0xd2ec8e890a03083998d3e16f98044fd3dd13fe3e61b7bc2e58ee6da43b50af73.
 //
 // Solidity: event NewVoter(address reporter, uint8 extra)
-func (_Oracle *OracleFilterer) WatchNewVoter(opts *bind.WatchOpts, sink chan<- *OracleNewVoter) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchNewVoter(opts *bind.WatchOpts, sink chan<- *Oracle0NewVoter) (event.Subscription, error) {
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "NewVoter")
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "NewVoter")
 	if err != nil {
 		return nil, err
 	}
@@ -15984,8 +15984,8 @@ func (_Oracle *OracleFilterer) WatchNewVoter(opts *bind.WatchOpts, sink chan<- *
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleNewVoter)
-				if err := _Oracle.contract.UnpackLog(event, "NewVoter", log); err != nil {
+				event := new(Oracle0NewVoter)
+				if err := _Oracle0.contract.UnpackLog(event, "NewVoter", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -16009,18 +16009,18 @@ func (_Oracle *OracleFilterer) WatchNewVoter(opts *bind.WatchOpts, sink chan<- *
 // ParseNewVoter is a log parse operation binding the contract event 0xd2ec8e890a03083998d3e16f98044fd3dd13fe3e61b7bc2e58ee6da43b50af73.
 //
 // Solidity: event NewVoter(address reporter, uint8 extra)
-func (_Oracle *OracleFilterer) ParseNewVoter(log types.Log) (*OracleNewVoter, error) {
-	event := new(OracleNewVoter)
-	if err := _Oracle.contract.UnpackLog(event, "NewVoter", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseNewVoter(log types.Log) (*Oracle0NewVoter, error) {
+	event := new(Oracle0NewVoter)
+	if err := _Oracle0.contract.UnpackLog(event, "NewVoter", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OracleNoRevealPenaltyIterator is returned from FilterNoRevealPenalty and is used to iterate over the raw logs and unpacked data for NoRevealPenalty events raised by the Oracle contract.
-type OracleNoRevealPenaltyIterator struct {
-	Event *OracleNoRevealPenalty // Event containing the contract specifics and raw log
+// Oracle0NoRevealPenaltyIterator is returned from FilterNoRevealPenalty and is used to iterate over the raw logs and unpacked data for NoRevealPenalty events raised by the Oracle0 contract.
+type Oracle0NoRevealPenaltyIterator struct {
+	Event *Oracle0NoRevealPenalty // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -16034,7 +16034,7 @@ type OracleNoRevealPenaltyIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleNoRevealPenaltyIterator) Next() bool {
+func (it *Oracle0NoRevealPenaltyIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -16043,7 +16043,7 @@ func (it *OracleNoRevealPenaltyIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleNoRevealPenalty)
+			it.Event = new(Oracle0NoRevealPenalty)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -16058,7 +16058,7 @@ func (it *OracleNoRevealPenaltyIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleNoRevealPenalty)
+		it.Event = new(Oracle0NoRevealPenalty)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -16074,19 +16074,19 @@ func (it *OracleNoRevealPenaltyIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleNoRevealPenaltyIterator) Error() error {
+func (it *Oracle0NoRevealPenaltyIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleNoRevealPenaltyIterator) Close() error {
+func (it *Oracle0NoRevealPenaltyIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleNoRevealPenalty represents a NoRevealPenalty event raised by the Oracle contract.
-type OracleNoRevealPenalty struct {
+// Oracle0NoRevealPenalty represents a NoRevealPenalty event raised by the Oracle0 contract.
+type Oracle0NoRevealPenalty struct {
 	Voter        common.Address
 	Round        *big.Int
 	MissedReveal *big.Int
@@ -16096,31 +16096,31 @@ type OracleNoRevealPenalty struct {
 // FilterNoRevealPenalty is a free log retrieval operation binding the contract event 0x9e6b40f10c60d1ad09594f3b6ed7043d0e978f584d354ace6e1f6025660c42b1.
 //
 // Solidity: event NoRevealPenalty(address indexed _voter, uint256 _round, uint256 _missedReveal)
-func (_Oracle *OracleFilterer) FilterNoRevealPenalty(opts *bind.FilterOpts, _voter []common.Address) (*OracleNoRevealPenaltyIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterNoRevealPenalty(opts *bind.FilterOpts, _voter []common.Address) (*Oracle0NoRevealPenaltyIterator, error) {
 
 	var _voterRule []interface{}
 	for _, _voterItem := range _voter {
 		_voterRule = append(_voterRule, _voterItem)
 	}
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "NoRevealPenalty", _voterRule)
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "NoRevealPenalty", _voterRule)
 	if err != nil {
 		return nil, err
 	}
-	return &OracleNoRevealPenaltyIterator{contract: _Oracle.contract, event: "NoRevealPenalty", logs: logs, sub: sub}, nil
+	return &Oracle0NoRevealPenaltyIterator{contract: _Oracle0.contract, event: "NoRevealPenalty", logs: logs, sub: sub}, nil
 }
 
 // WatchNoRevealPenalty is a free log subscription operation binding the contract event 0x9e6b40f10c60d1ad09594f3b6ed7043d0e978f584d354ace6e1f6025660c42b1.
 //
 // Solidity: event NoRevealPenalty(address indexed _voter, uint256 _round, uint256 _missedReveal)
-func (_Oracle *OracleFilterer) WatchNoRevealPenalty(opts *bind.WatchOpts, sink chan<- *OracleNoRevealPenalty, _voter []common.Address) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchNoRevealPenalty(opts *bind.WatchOpts, sink chan<- *Oracle0NoRevealPenalty, _voter []common.Address) (event.Subscription, error) {
 
 	var _voterRule []interface{}
 	for _, _voterItem := range _voter {
 		_voterRule = append(_voterRule, _voterItem)
 	}
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "NoRevealPenalty", _voterRule)
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "NoRevealPenalty", _voterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -16130,8 +16130,8 @@ func (_Oracle *OracleFilterer) WatchNoRevealPenalty(opts *bind.WatchOpts, sink c
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleNoRevealPenalty)
-				if err := _Oracle.contract.UnpackLog(event, "NoRevealPenalty", log); err != nil {
+				event := new(Oracle0NoRevealPenalty)
+				if err := _Oracle0.contract.UnpackLog(event, "NoRevealPenalty", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -16155,18 +16155,18 @@ func (_Oracle *OracleFilterer) WatchNoRevealPenalty(opts *bind.WatchOpts, sink c
 // ParseNoRevealPenalty is a log parse operation binding the contract event 0x9e6b40f10c60d1ad09594f3b6ed7043d0e978f584d354ace6e1f6025660c42b1.
 //
 // Solidity: event NoRevealPenalty(address indexed _voter, uint256 _round, uint256 _missedReveal)
-func (_Oracle *OracleFilterer) ParseNoRevealPenalty(log types.Log) (*OracleNoRevealPenalty, error) {
-	event := new(OracleNoRevealPenalty)
-	if err := _Oracle.contract.UnpackLog(event, "NoRevealPenalty", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseNoRevealPenalty(log types.Log) (*Oracle0NoRevealPenalty, error) {
+	event := new(Oracle0NoRevealPenalty)
+	if err := _Oracle0.contract.UnpackLog(event, "NoRevealPenalty", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OraclePenalizedIterator is returned from FilterPenalized and is used to iterate over the raw logs and unpacked data for Penalized events raised by the Oracle contract.
-type OraclePenalizedIterator struct {
-	Event *OraclePenalized // Event containing the contract specifics and raw log
+// Oracle0PenalizedIterator is returned from FilterPenalized and is used to iterate over the raw logs and unpacked data for Penalized events raised by the Oracle0 contract.
+type Oracle0PenalizedIterator struct {
+	Event *Oracle0Penalized // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -16180,7 +16180,7 @@ type OraclePenalizedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OraclePenalizedIterator) Next() bool {
+func (it *Oracle0PenalizedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -16189,7 +16189,7 @@ func (it *OraclePenalizedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OraclePenalized)
+			it.Event = new(Oracle0Penalized)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -16204,7 +16204,7 @@ func (it *OraclePenalizedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OraclePenalized)
+		it.Event = new(Oracle0Penalized)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -16220,19 +16220,19 @@ func (it *OraclePenalizedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OraclePenalizedIterator) Error() error {
+func (it *Oracle0PenalizedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OraclePenalizedIterator) Close() error {
+func (it *Oracle0PenalizedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OraclePenalized represents a Penalized event raised by the Oracle contract.
-type OraclePenalized struct {
+// Oracle0Penalized represents a Penalized event raised by the Oracle0 contract.
+type Oracle0Penalized struct {
 	Participant    common.Address
 	SlashingAmount *big.Int
 	Symbol         string
@@ -16244,31 +16244,31 @@ type OraclePenalized struct {
 // FilterPenalized is a free log retrieval operation binding the contract event 0x372858b237c8bd0714183e8351a461d6c3cb1ef83806181b36bf5943711f4f57.
 //
 // Solidity: event Penalized(address indexed _participant, uint256 _slashingAmount, string _symbol, int256 _median, uint120 _reported)
-func (_Oracle *OracleFilterer) FilterPenalized(opts *bind.FilterOpts, _participant []common.Address) (*OraclePenalizedIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterPenalized(opts *bind.FilterOpts, _participant []common.Address) (*Oracle0PenalizedIterator, error) {
 
 	var _participantRule []interface{}
 	for _, _participantItem := range _participant {
 		_participantRule = append(_participantRule, _participantItem)
 	}
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "Penalized", _participantRule)
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "Penalized", _participantRule)
 	if err != nil {
 		return nil, err
 	}
-	return &OraclePenalizedIterator{contract: _Oracle.contract, event: "Penalized", logs: logs, sub: sub}, nil
+	return &Oracle0PenalizedIterator{contract: _Oracle0.contract, event: "Penalized", logs: logs, sub: sub}, nil
 }
 
 // WatchPenalized is a free log subscription operation binding the contract event 0x372858b237c8bd0714183e8351a461d6c3cb1ef83806181b36bf5943711f4f57.
 //
 // Solidity: event Penalized(address indexed _participant, uint256 _slashingAmount, string _symbol, int256 _median, uint120 _reported)
-func (_Oracle *OracleFilterer) WatchPenalized(opts *bind.WatchOpts, sink chan<- *OraclePenalized, _participant []common.Address) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchPenalized(opts *bind.WatchOpts, sink chan<- *Oracle0Penalized, _participant []common.Address) (event.Subscription, error) {
 
 	var _participantRule []interface{}
 	for _, _participantItem := range _participant {
 		_participantRule = append(_participantRule, _participantItem)
 	}
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "Penalized", _participantRule)
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "Penalized", _participantRule)
 	if err != nil {
 		return nil, err
 	}
@@ -16278,8 +16278,8 @@ func (_Oracle *OracleFilterer) WatchPenalized(opts *bind.WatchOpts, sink chan<- 
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OraclePenalized)
-				if err := _Oracle.contract.UnpackLog(event, "Penalized", log); err != nil {
+				event := new(Oracle0Penalized)
+				if err := _Oracle0.contract.UnpackLog(event, "Penalized", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -16303,18 +16303,18 @@ func (_Oracle *OracleFilterer) WatchPenalized(opts *bind.WatchOpts, sink chan<- 
 // ParsePenalized is a log parse operation binding the contract event 0x372858b237c8bd0714183e8351a461d6c3cb1ef83806181b36bf5943711f4f57.
 //
 // Solidity: event Penalized(address indexed _participant, uint256 _slashingAmount, string _symbol, int256 _median, uint120 _reported)
-func (_Oracle *OracleFilterer) ParsePenalized(log types.Log) (*OraclePenalized, error) {
-	event := new(OraclePenalized)
-	if err := _Oracle.contract.UnpackLog(event, "Penalized", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParsePenalized(log types.Log) (*Oracle0Penalized, error) {
+	event := new(Oracle0Penalized)
+	if err := _Oracle0.contract.UnpackLog(event, "Penalized", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OraclePriceUpdatedIterator is returned from FilterPriceUpdated and is used to iterate over the raw logs and unpacked data for PriceUpdated events raised by the Oracle contract.
-type OraclePriceUpdatedIterator struct {
-	Event *OraclePriceUpdated // Event containing the contract specifics and raw log
+// Oracle0PriceUpdatedIterator is returned from FilterPriceUpdated and is used to iterate over the raw logs and unpacked data for PriceUpdated events raised by the Oracle0 contract.
+type Oracle0PriceUpdatedIterator struct {
+	Event *Oracle0PriceUpdated // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -16328,7 +16328,7 @@ type OraclePriceUpdatedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OraclePriceUpdatedIterator) Next() bool {
+func (it *Oracle0PriceUpdatedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -16337,7 +16337,7 @@ func (it *OraclePriceUpdatedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OraclePriceUpdated)
+			it.Event = new(Oracle0PriceUpdated)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -16352,7 +16352,7 @@ func (it *OraclePriceUpdatedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OraclePriceUpdated)
+		it.Event = new(Oracle0PriceUpdated)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -16368,19 +16368,19 @@ func (it *OraclePriceUpdatedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OraclePriceUpdatedIterator) Error() error {
+func (it *Oracle0PriceUpdatedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OraclePriceUpdatedIterator) Close() error {
+func (it *Oracle0PriceUpdatedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OraclePriceUpdated represents a PriceUpdated event raised by the Oracle contract.
-type OraclePriceUpdated struct {
+// Oracle0PriceUpdated represents a PriceUpdated event raised by the Oracle0 contract.
+type Oracle0PriceUpdated struct {
 	Price     *big.Int
 	Round     *big.Int
 	Symbol    common.Hash
@@ -16392,31 +16392,31 @@ type OraclePriceUpdated struct {
 // FilterPriceUpdated is a free log retrieval operation binding the contract event 0x5f2aa51aa7889ad71d9318fa7fd83c8ff3277434249bd06073f15986e197911c.
 //
 // Solidity: event PriceUpdated(uint256 price, uint256 round, string indexed symbol, bool status, uint256 timestamp)
-func (_Oracle *OracleFilterer) FilterPriceUpdated(opts *bind.FilterOpts, symbol []string) (*OraclePriceUpdatedIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterPriceUpdated(opts *bind.FilterOpts, symbol []string) (*Oracle0PriceUpdatedIterator, error) {
 
 	var symbolRule []interface{}
 	for _, symbolItem := range symbol {
 		symbolRule = append(symbolRule, symbolItem)
 	}
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "PriceUpdated", symbolRule)
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "PriceUpdated", symbolRule)
 	if err != nil {
 		return nil, err
 	}
-	return &OraclePriceUpdatedIterator{contract: _Oracle.contract, event: "PriceUpdated", logs: logs, sub: sub}, nil
+	return &Oracle0PriceUpdatedIterator{contract: _Oracle0.contract, event: "PriceUpdated", logs: logs, sub: sub}, nil
 }
 
 // WatchPriceUpdated is a free log subscription operation binding the contract event 0x5f2aa51aa7889ad71d9318fa7fd83c8ff3277434249bd06073f15986e197911c.
 //
 // Solidity: event PriceUpdated(uint256 price, uint256 round, string indexed symbol, bool status, uint256 timestamp)
-func (_Oracle *OracleFilterer) WatchPriceUpdated(opts *bind.WatchOpts, sink chan<- *OraclePriceUpdated, symbol []string) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchPriceUpdated(opts *bind.WatchOpts, sink chan<- *Oracle0PriceUpdated, symbol []string) (event.Subscription, error) {
 
 	var symbolRule []interface{}
 	for _, symbolItem := range symbol {
 		symbolRule = append(symbolRule, symbolItem)
 	}
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "PriceUpdated", symbolRule)
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "PriceUpdated", symbolRule)
 	if err != nil {
 		return nil, err
 	}
@@ -16426,8 +16426,8 @@ func (_Oracle *OracleFilterer) WatchPriceUpdated(opts *bind.WatchOpts, sink chan
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OraclePriceUpdated)
-				if err := _Oracle.contract.UnpackLog(event, "PriceUpdated", log); err != nil {
+				event := new(Oracle0PriceUpdated)
+				if err := _Oracle0.contract.UnpackLog(event, "PriceUpdated", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -16451,18 +16451,18 @@ func (_Oracle *OracleFilterer) WatchPriceUpdated(opts *bind.WatchOpts, sink chan
 // ParsePriceUpdated is a log parse operation binding the contract event 0x5f2aa51aa7889ad71d9318fa7fd83c8ff3277434249bd06073f15986e197911c.
 //
 // Solidity: event PriceUpdated(uint256 price, uint256 round, string indexed symbol, bool status, uint256 timestamp)
-func (_Oracle *OracleFilterer) ParsePriceUpdated(log types.Log) (*OraclePriceUpdated, error) {
-	event := new(OraclePriceUpdated)
-	if err := _Oracle.contract.UnpackLog(event, "PriceUpdated", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParsePriceUpdated(log types.Log) (*Oracle0PriceUpdated, error) {
+	event := new(Oracle0PriceUpdated)
+	if err := _Oracle0.contract.UnpackLog(event, "PriceUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OracleSuccessfulVoteIterator is returned from FilterSuccessfulVote and is used to iterate over the raw logs and unpacked data for SuccessfulVote events raised by the Oracle contract.
-type OracleSuccessfulVoteIterator struct {
-	Event *OracleSuccessfulVote // Event containing the contract specifics and raw log
+// Oracle0SuccessfulVoteIterator is returned from FilterSuccessfulVote and is used to iterate over the raw logs and unpacked data for SuccessfulVote events raised by the Oracle0 contract.
+type Oracle0SuccessfulVoteIterator struct {
+	Event *Oracle0SuccessfulVote // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -16476,7 +16476,7 @@ type OracleSuccessfulVoteIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleSuccessfulVoteIterator) Next() bool {
+func (it *Oracle0SuccessfulVoteIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -16485,7 +16485,7 @@ func (it *OracleSuccessfulVoteIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleSuccessfulVote)
+			it.Event = new(Oracle0SuccessfulVote)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -16500,7 +16500,7 @@ func (it *OracleSuccessfulVoteIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleSuccessfulVote)
+		it.Event = new(Oracle0SuccessfulVote)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -16516,19 +16516,19 @@ func (it *OracleSuccessfulVoteIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleSuccessfulVoteIterator) Error() error {
+func (it *Oracle0SuccessfulVoteIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleSuccessfulVoteIterator) Close() error {
+func (it *Oracle0SuccessfulVoteIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleSuccessfulVote represents a SuccessfulVote event raised by the Oracle contract.
-type OracleSuccessfulVote struct {
+// Oracle0SuccessfulVote represents a SuccessfulVote event raised by the Oracle0 contract.
+type Oracle0SuccessfulVote struct {
 	Reporter common.Address
 	Extra    uint8
 	Raw      types.Log // Blockchain specific contextual infos
@@ -16537,31 +16537,31 @@ type OracleSuccessfulVote struct {
 // FilterSuccessfulVote is a free log retrieval operation binding the contract event 0x8bdddd7f2f2c74679ffa6beb8f86aa18bfa5baf1bfaf534d0b66596babc53f08.
 //
 // Solidity: event SuccessfulVote(address indexed reporter, uint8 extra)
-func (_Oracle *OracleFilterer) FilterSuccessfulVote(opts *bind.FilterOpts, reporter []common.Address) (*OracleSuccessfulVoteIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterSuccessfulVote(opts *bind.FilterOpts, reporter []common.Address) (*Oracle0SuccessfulVoteIterator, error) {
 
 	var reporterRule []interface{}
 	for _, reporterItem := range reporter {
 		reporterRule = append(reporterRule, reporterItem)
 	}
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "SuccessfulVote", reporterRule)
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "SuccessfulVote", reporterRule)
 	if err != nil {
 		return nil, err
 	}
-	return &OracleSuccessfulVoteIterator{contract: _Oracle.contract, event: "SuccessfulVote", logs: logs, sub: sub}, nil
+	return &Oracle0SuccessfulVoteIterator{contract: _Oracle0.contract, event: "SuccessfulVote", logs: logs, sub: sub}, nil
 }
 
 // WatchSuccessfulVote is a free log subscription operation binding the contract event 0x8bdddd7f2f2c74679ffa6beb8f86aa18bfa5baf1bfaf534d0b66596babc53f08.
 //
 // Solidity: event SuccessfulVote(address indexed reporter, uint8 extra)
-func (_Oracle *OracleFilterer) WatchSuccessfulVote(opts *bind.WatchOpts, sink chan<- *OracleSuccessfulVote, reporter []common.Address) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchSuccessfulVote(opts *bind.WatchOpts, sink chan<- *Oracle0SuccessfulVote, reporter []common.Address) (event.Subscription, error) {
 
 	var reporterRule []interface{}
 	for _, reporterItem := range reporter {
 		reporterRule = append(reporterRule, reporterItem)
 	}
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "SuccessfulVote", reporterRule)
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "SuccessfulVote", reporterRule)
 	if err != nil {
 		return nil, err
 	}
@@ -16571,8 +16571,8 @@ func (_Oracle *OracleFilterer) WatchSuccessfulVote(opts *bind.WatchOpts, sink ch
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleSuccessfulVote)
-				if err := _Oracle.contract.UnpackLog(event, "SuccessfulVote", log); err != nil {
+				event := new(Oracle0SuccessfulVote)
+				if err := _Oracle0.contract.UnpackLog(event, "SuccessfulVote", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -16596,18 +16596,18 @@ func (_Oracle *OracleFilterer) WatchSuccessfulVote(opts *bind.WatchOpts, sink ch
 // ParseSuccessfulVote is a log parse operation binding the contract event 0x8bdddd7f2f2c74679ffa6beb8f86aa18bfa5baf1bfaf534d0b66596babc53f08.
 //
 // Solidity: event SuccessfulVote(address indexed reporter, uint8 extra)
-func (_Oracle *OracleFilterer) ParseSuccessfulVote(log types.Log) (*OracleSuccessfulVote, error) {
-	event := new(OracleSuccessfulVote)
-	if err := _Oracle.contract.UnpackLog(event, "SuccessfulVote", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseSuccessfulVote(log types.Log) (*Oracle0SuccessfulVote, error) {
+	event := new(Oracle0SuccessfulVote)
+	if err := _Oracle0.contract.UnpackLog(event, "SuccessfulVote", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-// OracleTotalOracleRewardsIterator is returned from FilterTotalOracleRewards and is used to iterate over the raw logs and unpacked data for TotalOracleRewards events raised by the Oracle contract.
-type OracleTotalOracleRewardsIterator struct {
-	Event *OracleTotalOracleRewards // Event containing the contract specifics and raw log
+// Oracle0TotalOracleRewardsIterator is returned from FilterTotalOracleRewards and is used to iterate over the raw logs and unpacked data for TotalOracleRewards events raised by the Oracle0 contract.
+type Oracle0TotalOracleRewardsIterator struct {
+	Event *Oracle0TotalOracleRewards // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -16621,7 +16621,7 @@ type OracleTotalOracleRewardsIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleTotalOracleRewardsIterator) Next() bool {
+func (it *Oracle0TotalOracleRewardsIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -16630,7 +16630,7 @@ func (it *OracleTotalOracleRewardsIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleTotalOracleRewards)
+			it.Event = new(Oracle0TotalOracleRewards)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -16645,7 +16645,7 @@ func (it *OracleTotalOracleRewardsIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleTotalOracleRewards)
+		it.Event = new(Oracle0TotalOracleRewards)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -16661,19 +16661,19 @@ func (it *OracleTotalOracleRewardsIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleTotalOracleRewardsIterator) Error() error {
+func (it *Oracle0TotalOracleRewardsIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleTotalOracleRewardsIterator) Close() error {
+func (it *Oracle0TotalOracleRewardsIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleTotalOracleRewards represents a TotalOracleRewards event raised by the Oracle contract.
-type OracleTotalOracleRewards struct {
+// Oracle0TotalOracleRewards represents a TotalOracleRewards event raised by the Oracle0 contract.
+type Oracle0TotalOracleRewards struct {
 	NtnReward *big.Int
 	AtnReward *big.Int
 	Raw       types.Log // Blockchain specific contextual infos
@@ -16682,21 +16682,21 @@ type OracleTotalOracleRewards struct {
 // FilterTotalOracleRewards is a free log retrieval operation binding the contract event 0x3e5aaff9e8fd4293ae18127809c2d4069d87fe10c7de92aa39557a1edbd48fec.
 //
 // Solidity: event TotalOracleRewards(uint256 ntnReward, uint256 atnReward)
-func (_Oracle *OracleFilterer) FilterTotalOracleRewards(opts *bind.FilterOpts) (*OracleTotalOracleRewardsIterator, error) {
+func (_Oracle0 *Oracle0Filterer) FilterTotalOracleRewards(opts *bind.FilterOpts) (*Oracle0TotalOracleRewardsIterator, error) {
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "TotalOracleRewards")
+	logs, sub, err := _Oracle0.contract.FilterLogs(opts, "TotalOracleRewards")
 	if err != nil {
 		return nil, err
 	}
-	return &OracleTotalOracleRewardsIterator{contract: _Oracle.contract, event: "TotalOracleRewards", logs: logs, sub: sub}, nil
+	return &Oracle0TotalOracleRewardsIterator{contract: _Oracle0.contract, event: "TotalOracleRewards", logs: logs, sub: sub}, nil
 }
 
 // WatchTotalOracleRewards is a free log subscription operation binding the contract event 0x3e5aaff9e8fd4293ae18127809c2d4069d87fe10c7de92aa39557a1edbd48fec.
 //
 // Solidity: event TotalOracleRewards(uint256 ntnReward, uint256 atnReward)
-func (_Oracle *OracleFilterer) WatchTotalOracleRewards(opts *bind.WatchOpts, sink chan<- *OracleTotalOracleRewards) (event.Subscription, error) {
+func (_Oracle0 *Oracle0Filterer) WatchTotalOracleRewards(opts *bind.WatchOpts, sink chan<- *Oracle0TotalOracleRewards) (event.Subscription, error) {
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "TotalOracleRewards")
+	logs, sub, err := _Oracle0.contract.WatchLogs(opts, "TotalOracleRewards")
 	if err != nil {
 		return nil, err
 	}
@@ -16706,8 +16706,8 @@ func (_Oracle *OracleFilterer) WatchTotalOracleRewards(opts *bind.WatchOpts, sin
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleTotalOracleRewards)
-				if err := _Oracle.contract.UnpackLog(event, "TotalOracleRewards", log); err != nil {
+				event := new(Oracle0TotalOracleRewards)
+				if err := _Oracle0.contract.UnpackLog(event, "TotalOracleRewards", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -16731,9 +16731,9 @@ func (_Oracle *OracleFilterer) WatchTotalOracleRewards(opts *bind.WatchOpts, sin
 // ParseTotalOracleRewards is a log parse operation binding the contract event 0x3e5aaff9e8fd4293ae18127809c2d4069d87fe10c7de92aa39557a1edbd48fec.
 //
 // Solidity: event TotalOracleRewards(uint256 ntnReward, uint256 atnReward)
-func (_Oracle *OracleFilterer) ParseTotalOracleRewards(log types.Log) (*OracleTotalOracleRewards, error) {
-	event := new(OracleTotalOracleRewards)
-	if err := _Oracle.contract.UnpackLog(event, "TotalOracleRewards", log); err != nil {
+func (_Oracle0 *Oracle0Filterer) ParseTotalOracleRewards(log types.Log) (*Oracle0TotalOracleRewards, error) {
+	event := new(Oracle0TotalOracleRewards)
+	if err := _Oracle0.contract.UnpackLog(event, "TotalOracleRewards", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

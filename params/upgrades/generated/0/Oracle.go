@@ -513,7 +513,7 @@ var OracleAbi, _ = abi.JSON(strings.NewReader(`[
                   "type" : "uint256"
                }
             ],
-            "internalType" : "struct Oracle.Config",
+            "internalType" : "struct Oracle0.Config",
             "name" : "",
             "type" : "tuple"
          }
@@ -782,7 +782,7 @@ var OracleAbi, _ = abi.JSON(strings.NewReader(`[
                   "type" : "bool"
                }
             ],
-            "internalType" : "struct Oracle.VoterInfo",
+            "internalType" : "struct Oracle0.VoterInfo",
             "name" : "",
             "type" : "tuple"
          }

@@ -12,7 +12,7 @@ import {EnumerableSet} from "./../../utils/Set.sol";
  * @notice This contract implements the Oracle for the Autonity Protocol, allowing voters to submit price reports
  * and aggregate them while detecting outliers.
  */
-contract Oracle is IOracle, IConfigEvents, ReentrancyGuard {
+contract Oracle0 is IOracle, IConfigEvents, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     // Struct to hold metadata information concerning a voter
