@@ -528,6 +528,7 @@ func deployProtocolUpgrades(config *params.ChainConfig, _ GenesisBonds, _ generi
 		if slices.Contains(protocolUpgrade.ExclusionList, config.ChainID) {
 			continue
 		}
+		log.Info("Applying protocol upgrade %d: %s", i, protocolUpgrade.Description)
 		for _, contractUpgrade := range protocolUpgrade.Upgrades {
 			err := upgrade(
 				contractUpgrade.Target.Address(),

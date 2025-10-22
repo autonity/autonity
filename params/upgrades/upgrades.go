@@ -17,6 +17,7 @@ import (
 
 type ProtocolUpgrade struct {
 	Upgrades      []ContractUpgrade
+	Description   string
 	ExclusionList []*big.Int
 }
 
@@ -55,6 +56,10 @@ var (
 					Args:     nil,
 				},
 			},
+			Description: "The `slash()` function was incorrectly called, passing the oracle" +
+				"\naddress instead of the node address of the offender. This was causing a" +
+				"\nrevert in the `getValidator()` function in the autonity contract when" +
+				"\ntrying to do the actual slashing.",
 			ExclusionList: []*big.Int{
 				new(big.Int).SetUint64(params.AutMainnetNetworkID),
 				new(big.Int).SetUint64(65010004), // bakerloo
@@ -176,6 +181,7 @@ var (
 					},
 				},
 			},
+			Description: "TODO",
 			ExclusionList: []*big.Int{
 				new(big.Int).SetUint64(params.AutMainnetNetworkID),
 				new(big.Int).SetUint64(65010004), // bakerloo
