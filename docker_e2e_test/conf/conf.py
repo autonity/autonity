@@ -67,19 +67,6 @@ def dump_test_bed_conf(data):
     return None
 
 
-def get_client_ips():
-    """
-    :return: ip list of validator, ip list of participant.
-    """
-    try:
-        validator_file = CONF["validator_ip_file"]
-        participant_file = CONF["participant_ip_file"]
-        return parse_public_ip_from_text(validator_file), parse_public_ip_from_text(participant_file)
-    except Exception as e:
-        LOGGER.error("cannot read validator ips. %s", e)
-        return None
-
-
 def load_project_conf():
     global CONF
     CONF = load_conf(CONFIG_FILE)

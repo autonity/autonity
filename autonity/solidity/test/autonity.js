@@ -650,7 +650,7 @@ contract('Autonity', function (accounts) {
 
   describe('Bonding and unbonding requests - 1', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
+        autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
     });
 
     it('Bond to a valid validator (not selfBonded)', async function () {
@@ -751,7 +751,7 @@ contract('Autonity', function (accounts) {
 
   describe('Bonding and unbonding requests - 2', function () {
     beforeEach(async function () {
-      autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
+        autonity = await utils.deployAutonityTestContract(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
     });
 
     it("can't bond to a paused validator", async function () {

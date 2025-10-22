@@ -5,6 +5,7 @@ import sched
 import threading
 import time
 import copy
+import concurrent.futures
 
 
 class Scheduler(object):
@@ -105,14 +106,40 @@ class Scheduler(object):
 
     def cold_deploy_network(self):
         failed = False
-        for index, client in self.clients.items():
-            if client.stop_client() is not True:
-                failed = True
-            if client.clean_chain_data() is not True:
-                failed = True
-            if client.deliver_package() is not True:
-                failed = True
-        return True if not failed else False
+        clients_list = list(self.clients.items())
+
+        def cold_deploy_single_client(index_client_pair):
+            index, client = index_client_pair
+            client_failed = False
+            try:
+                if not client.stop_client():
+                    print(f"Client {index}: stop_client failed")
+                    client_failed = True
+                if not client.clean_chain_data():
+                    print(f"Client {index}: clean_chain_data failed")
+                    client_failed = True
+                if not client.deliver_package():
+                    print(f"Client {index}: deliver_package failed")
+                    client_failed = True
+            except Exception as e:
+                print(f"Client {index}: encountered exception - {e}")
+                client_failed = True
+            return client_failed
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            future_to_client = {executor.submit(cold_deploy_single_client, pair): pair for pair in clients_list}
+
+            for future in concurrent.futures.as_completed(future_to_client):
+                index, client = future_to_client[future]
+                try:
+                    client_failed = future.result()
+                    if client_failed:
+                        failed = True
+                except Exception as exc:
+                    print(f'Client {index} generated an exception: {exc}')
+                    failed = True
+
+        return not failed
 
     def connect_peers(self, test, peers):
         for peer in peers:

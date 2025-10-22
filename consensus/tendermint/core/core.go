@@ -512,7 +512,7 @@ func (c *Core) SetStep(ctx context.Context, step Step) {
 			c.logger.Warn("Unexpected tendermint state transition", "c.step", c.step, "step", step)
 		}
 	}
-	c.logger.Debug("Step change", "from", c.step.String(), "to", step.String(), "round", c.Round())
+	c.logger.Debug("Step change", "from", c.step.String(), "to", step.String(), "round", c.Round(), "stopAllTimeouts at step", c.step.String())
 	c.step = step
 	c.stepChange = now
 
@@ -533,16 +533,17 @@ func (c *Core) SetStep(ctx context.Context, step Step) {
 
 }
 
-// tries to stop all consensus timeouts
+// tries to stop all consensus timeouts, cannot access tendermint state from this function, as it can be called
+// from engine.Stop() which will lead to data race in test.
 func (c *Core) stopAllTimeouts() {
 	if err := c.proposeTimeout.StopTimer(); err != nil {
-		c.logger.Debug("Cannot stop propose timer", "c.step", c.step, "err", err)
+		c.logger.Debug("Cannot stop propose timer", "err", err)
 	}
 	if err := c.prevoteTimeout.StopTimer(); err != nil {
-		c.logger.Debug("Cannot stop prevote timer", "c.step", c.step, "err", err)
+		c.logger.Debug("Cannot stop prevote timer", "err", err)
 	}
 	if err := c.precommitTimeout.StopTimer(); err != nil {
-		c.logger.Debug("Cannot stop precommit timer", "c.step", c.step, "err", err)
+		c.logger.Debug("Cannot stop precommit timer", "err", err)
 	}
 }
 
