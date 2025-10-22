@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/autonity/autonity/accounts/abi"
+	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/params"
@@ -36,6 +37,12 @@ func concatHashes(hashes ...common.Hash) []byte {
 }
 
 var (
+	// used for all protocol contracts at genesis
+	genesisVersion = bindings1.UpgradeManager1version{
+		Number: "1.0.0",
+		Block:  new(big.Int),
+	}
+
 	Upgrades = []ProtocolUpgrade{
 		// protocol upgrade 0
 		{
@@ -134,23 +141,37 @@ var (
 								),
 							),
 						},
-						[]string{
-							"1.0.0",
-							"1.0.0",
-							"1.0.0",
-							"1.0.0",
-							"1.0.0",
-							"1.0.0",
-							"1.0.0",
-							"1.0.0",
-							"1.0.0",
-							"1.0.0",
-							"1.0.0",
-							"1.0.0",
-							"1.0.1",
-							"1.0.1",
-							"1.1.0",
-							"1.1.0",
+						[]bindings1.UpgradeManager1version{
+							genesisVersion,
+							genesisVersion,
+							genesisVersion,
+							genesisVersion,
+							genesisVersion,
+							genesisVersion,
+							genesisVersion,
+							genesisVersion,
+							genesisVersion,
+							genesisVersion,
+							genesisVersion,
+							genesisVersion,
+							// oracle contract upgrade
+							{
+								Number: "1.0.1",
+								Block:  new(big.Int),
+							},
+							{
+								Number: "1.0.1",
+								Block:  new(big.Int),
+							},
+							// upgrade manager contract upgrade
+							{
+								Number: "1.1.0",
+								Block:  new(big.Int),
+							},
+							{
+								Number: "1.1.0",
+								Block:  new(big.Int),
+							},
 						},
 					},
 				},

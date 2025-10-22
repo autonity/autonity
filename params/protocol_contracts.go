@@ -54,16 +54,6 @@ func (contract ProtocolContract) Address() common.Address {
 	return common.Address(contract)
 }
 
-type ProtocolContractVersion struct {
-	Hash     common.Hash      // == codeHash for a single contract, hash(codeHash1,codeHash2,...) for a contract group (e.g. ASM, all contracts)
-	Contract ProtocolContract // address for single contract, "reference" addr for a contract group (e.g. ASM, all contracts)
-	Version  string           // semver version string
-}
-
-func (contractVersion ProtocolContractVersion) String() string {
-	return fmt.Sprintf("%s-%s (address: %s hash: %s)", contractVersion.Contract.String(), contractVersion.Version, contractVersion.Contract.Address(), contractVersion.Hash)
-}
-
 var (
 	DecimalPrecision = int64(18)
 	SecondsInYear    = int64(365 * 24 * 60 * 60)

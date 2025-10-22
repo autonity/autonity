@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/autonity/bindings"
+	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
 	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/log"
@@ -633,26 +634,40 @@ func (a *AutonityContractAPI) AcnPeers() []*p2p.PeerInfo {
 	return a.server.PeersInfo()
 }
 
-func (a *AutonityContractAPI) ProtocolContractsVersions(number *rpc.BlockNumber) ([]params.ProtocolContractVersion, error) {
+type ProtocolContractVersion struct {
+	Hash     common.Hash                      // == codeHash for a single contract, hash(codeHash1,codeHash2,...) for a contract group (e.g. ASM, all contracts)
+	Contract params.ProtocolContract          // address for single contract, "reference" addr for a contract group (e.g. ASM, all contracts)
+	Version  bindings1.UpgradeManager1version // version fetched from the contract
+}
+
+func (contractVersion ProtocolContractVersion) String() string {
+	return fmt.Sprintf("%s-%s (address: %s hash: %s)", contractVersion.Contract.String(), contractVersion.Version, contractVersion.Contract.Address(), contractVersion.Hash)
+}
+
+func (a *AutonityContractAPI) ProtocolContractsVersions(number *rpc.BlockNumber) ([]ProtocolContractVersion, error) {
 	return a.protocolContractsVersions(number)
 }
 
-func (a *AutonityContractAPI) getVersion(contract params.ProtocolContract, hash common.Hash) params.ProtocolContractVersion {
-	version := params.ProtocolContractVersion{
+func (a *AutonityContractAPI) getVersion(contract params.ProtocolContract, hash common.Hash) ProtocolContractVersion {
+	version := ProtocolContractVersion{
 		Hash:     hash,
 		Contract: contract,
 	}
 
-	versionString, err := a.ac.GetVersion(nil, hash)
-	if versionString == "" || err != nil {
-		version.Version = "undefined"
+	contractVersion, err := a.ac.GetVersion(nil, hash)
+	// TODO: test this case
+	if err != nil || contractVersion.Number == "" {
+		version.Version = bindings1.UpgradeManager1version{
+			Number: "undefined",
+			Block:  new(big.Int),
+		}
 	} else {
-		version.Version = versionString
+		version.Version = contractVersion
 	}
 	return version
 }
 
-func (a *AutonityContractAPI) protocolContractsVersions(number *rpc.BlockNumber) ([]params.ProtocolContractVersion, error) {
+func (a *AutonityContractAPI) protocolContractsVersions(number *rpc.BlockNumber) ([]ProtocolContractVersion, error) {
 	var header *types.Header
 	if number == nil || *number == rpc.PendingBlockNumber || *number == rpc.LatestBlockNumber {
 		header = a.bc.CurrentHeader()
@@ -667,7 +682,7 @@ func (a *AutonityContractAPI) protocolContractsVersions(number *rpc.BlockNumber)
 	if err != nil {
 		return nil, err
 	}
-	versions := make([]params.ProtocolContractVersion, 0, len(params.ProtocolContracts))
+	versions := make([]ProtocolContractVersion, 0, len(params.ProtocolContracts))
 	for _, contract := range params.ProtocolContracts {
 		hash := st.GetCodeHash(contract.Address())
 
@@ -676,7 +691,7 @@ func (a *AutonityContractAPI) protocolContractsVersions(number *rpc.BlockNumber)
 	return versions, nil
 }
 
-func (a *AutonityContractAPI) ProtocolVersion(number *rpc.BlockNumber) (*params.ProtocolContractVersion, error) {
+func (a *AutonityContractAPI) ProtocolVersion(number *rpc.BlockNumber) (*ProtocolContractVersion, error) {
 	versions, err := a.protocolContractsVersions(number)
 	if err != nil {
 		return nil, err
@@ -693,7 +708,7 @@ func (a *AutonityContractAPI) ProtocolVersion(number *rpc.BlockNumber) (*params.
 	return &version, nil
 }
 
-func (a *AutonityContractAPI) ASMVersion(number *rpc.BlockNumber) (*params.ProtocolContractVersion, error) {
+func (a *AutonityContractAPI) ASMVersion(number *rpc.BlockNumber) (*ProtocolContractVersion, error) {
 	versions, err := a.protocolContractsVersions(number)
 	if err != nil {
 		return nil, err

@@ -101,6 +101,11 @@ endef
 # it simply substitutes the metadata hash of the oracle upgraded bytecode with the metadata hash used on mainnet.
 # the hashes are different because the mainnet upgrade had been built in the `autonity/solidity/contracts/` folder.
 # for more details see https://docs.soliditylang.org/en/latest/metadata.html
+#
+# params:
+# $1 --> contract folder
+# $2 --> contract **filename**
+# $3 --> contract **name**
 define gen-contract-upgrade
 	mkdir -p $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)
 
@@ -121,18 +126,18 @@ define gen-contract-upgrade
 	@echo ')' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
 
 	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
-	@cat $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).bin >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@cat $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(3).bin >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
 	@printf '")\n\n' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
 
 	@echo -n 'var $(2)RuntimeBytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
-	@cat $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).bin-runtime >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@cat $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(3).bin-runtime >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
 	@printf '")\n\n' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
 
 	@echo "var $(2)CodeHash = crypto.Keccak256Hash($(2)RuntimeBytecode)\n" >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
 
 	@echo Generating Abi for $(1)/$(2)
 	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
-	@cat  $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).abi | json_pp  >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
+	@cat  $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(3).abi | json_pp  >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
 	@echo '`))' >> $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
 	@gofmt -s -w $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(2).go
 endef
@@ -154,8 +159,8 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	@$(call gen-contract,test-contract/,AutonityUpgradeTest)
 	@$(call gen-contract,test-contract/,OmissionAccountabilityTest)
 	# upgraded contracts
-	@$(call gen-contract-upgrade,0,Oracle)
-	@$(call gen-contract-upgrade,1,UpgradeManager)
+	@$(call gen-contract-upgrade,0,Oracle,Oracle)
+	@$(call gen-contract-upgrade,1,UpgradeManager,UpgradeManager1)
 	# update 4byte selector for clef
 	./build/generate_4bytedb.sh $(SOLC_BINARY)
 	cd signer/fourbyte && go generate
