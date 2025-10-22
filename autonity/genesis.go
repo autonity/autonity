@@ -525,7 +525,7 @@ func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy
 func deployProtocolUpgrades(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, _ genericCaller, upgrade genericUpgrader) error {
 	for i, protocolUpgrade := range upgrades.Upgrades {
 		// TODO: chainId or networkID? is it guaranteed always ==?
-		if slices.Contains(protocolUpgrade.ExclusionList, config.ChainID) {
+		if slices.Contains(protocolUpgrade.ExclusionList, config.ChainID) || config.MustSkip(i) {
 			continue
 		}
 		log.Info("Applying protocol upgrade %d: %s", i, protocolUpgrade.Description)

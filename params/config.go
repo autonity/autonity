@@ -347,7 +347,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, nil, false}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, nil, false, nil}
 
 	TestNodeKeys = []string{
 		"b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291",
@@ -460,6 +460,7 @@ var (
 		},
 		DefaultOmissionAccountabilityConfig,
 		false,
+		nil,
 	}
 )
 
@@ -599,6 +600,18 @@ type ChainConfig struct {
 
 	// true if run in testmode, false by default
 	TestMode bool `json:"testMode,omitempty"`
+
+	// allows for skipping genesis deployments of all upgrades after a certain index (included)
+	// e.g. if == 5, ugprade 5 and following ones will be excluded
+	// nil --> do not skip any upgrade
+	SkipUpgradesAfter *int `json:"skipUpgradesAfter,omitempty"`
+}
+
+func (c *ChainConfig) MustSkip(upgradeIndex int) bool {
+	if c.SkipUpgradesAfter == nil {
+		return false
+	}
+	return upgradeIndex >= *c.SkipUpgradesAfter
 }
 
 func (c *ChainConfig) SetDefaults() {
