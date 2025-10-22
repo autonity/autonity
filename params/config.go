@@ -602,7 +602,7 @@ type ChainConfig struct {
 	TestMode bool `json:"testMode,omitempty"`
 
 	// allows for skipping genesis deployments of all upgrades after a certain index (included)
-	// e.g. if == 5, ugprade 5 and following ones will be excluded
+	// e.g. if == 5, upgrade 5 and following ones will be excluded
 	// nil --> do not skip any upgrade
 	SkipUpgradesAfter *int `json:"skipUpgradesAfter,omitempty"`
 }

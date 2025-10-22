@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
+	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/vm"
@@ -110,7 +111,15 @@ func TestUpgrade(t *testing.T) {
 	})
 
 	r.Run("upgrade the upgrade manager itself", func(r *Runner) {
-		_, err := r.UpgradeManager.Upgrade(r.Operator, r.UpgradeManager.address, string(generated1.UpgradeManagerBytecode))
+		var data []byte
+		var hashes []common.Hash
+		var versions []bindings1.UpgradeManager1version
+		data = append(data, generated1.UpgradeManagerBytecode...)
+		packedArgs, err := generated1.UpgradeManagerAbi.Pack("", hashes, versions)
+		require.NoError(r.T, err)
+		data = append(data, packedArgs...)
+
+		_, err = r.UpgradeManager.Upgrade(r.Operator, r.UpgradeManager.address, string(data))
 		require.NoError(r.T, err)
 
 		// TODO: set and fetch versions
