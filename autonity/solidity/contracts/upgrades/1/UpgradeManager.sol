@@ -12,10 +12,7 @@ contract UpgradeManager1 is UpgradeManager {
     // maps runtime code hash to version
     mapping(bytes32 => version) internal versionHistory;
 
-    constructor(
-        address _autonity, address _operator,
-        bytes32[] memory _hashes, version[] memory _versions
-    ) UpgradeManager(_autonity, _operator) {
+    constructor(bytes32[] memory _hashes, version[] memory _versions) UpgradeManager(autonity, operator) {
         require(_hashes.length == _versions.length, "hashes and versions have different length");
         for(uint256 i=0; i<_hashes.length; i++) {
             versionHistory[_hashes[i]] = _versions[i];
