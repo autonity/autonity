@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +17,9 @@ import (
 	"text/tabwriter"
 	"time"
 
+	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
+	generated1 "github.com/autonity/autonity/params/upgrades/generated/1"
+	generatedtests "github.com/autonity/autonity/params/upgrades/generated/tests"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 
@@ -109,6 +113,56 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.Equal(t, params.AutonityContractAddress, upgradeManagerAutonityAddress)
 	err = network.WaitToMineNBlocks(2, 15, false)
 	require.NoError(t, err)
+}
+
+// tests if upgrading all ASM contracts at once is feasible in terms of gas and tx size
+func TestAsmAtomicUpgrade(t *testing.T) {
+	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	// verify that upgrade manager version 1.1.0 has been deployed at genesis
+	upgradeManagerCode, err := network[0].WsClient.CodeAt(context.Background(), params.UpgradeManagerContractAddress, nil)
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(upgradeManagerCode, generated1.UpgradeManagerRuntimeBytecode))
+
+	// build ASM contracts upgrade tx
+	upgradeManager, err := bindings1.NewUpgradeManager1(params.UpgradeManagerContractAddress, network[0].WsClient)
+	require.NoError(t, err)
+
+	operatorKey := network[0].Key
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(operatorKey, params.TestChainConfig.ChainID)
+	require.NoError(t, err)
+	tx, err := upgradeManager.UpgradeMultiple(transactOpts,
+		[]common.Address{
+			params.ACUContractAddress,
+			params.SupplyControlContractAddress,
+			params.StabilizationContractAddress,
+			params.InflationControllerContractAddress,
+			params.AuctioneerContractAddress,
+		},
+		[]string{
+			string(generatedtests.ACUTestUpgradeBytecode),
+			string(generatedtests.SupplyControlTestUpgradeBytecode),
+			string(generatedtests.StabilizationTestUpgradeBytecode),
+			string(generatedtests.InflationControllerTestUpgradeBytecode),
+			string(generatedtests.AuctioneerTestUpgradeBytecode),
+		},
+	)
+	require.NoError(t, err)
+	t.Logf("upgrade transaction size: %s", tx.Size().String())
+	require.True(t, tx.Size() < ccore.TxMaxSize)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	err = network.AwaitTransactions(ctx, tx)
+	require.NoError(t, err)
+
+	receipt, err := network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+	require.NoError(t, err)
+	require.True(t, receipt.Status == types.ReceiptStatusSuccessful)
+	t.Logf("gas used %d, gas limit on mainnet %d", receipt.GasUsed, params.AutMainnetChainConfig.AutonityContractConfig.GasLimit)
+	require.True(t, receipt.GasUsed < params.AutMainnetChainConfig.AutonityContractConfig.GasLimit)
 }
 
 func fetchMinimumBaseFee(t *testing.T, chain *ccore.BlockChain, number *uint64) *big.Int {

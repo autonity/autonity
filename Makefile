@@ -111,6 +111,7 @@ define gen-contract-upgrade
 
 	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin --bin-runtime --metadata --userdoc --devdoc -o $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1) $(CONTRACTS_UPGRADES_DIR)/$(1)/$(2).sol
 
+	#TODO: this throws not a number error with tests upgrades
 	if [ $(1) -eq 0 ]; then \
 		sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(3).bin $(GENERATED_CONTRACT_UPGRADES_DIR)/$(1)/$(3).bin-runtime; \
 	fi
@@ -161,6 +162,12 @@ contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BI
 	# upgraded contracts
 	@$(call gen-contract-upgrade,0,Oracle,Oracle0)
 	@$(call gen-contract-upgrade,1,UpgradeManager,UpgradeManager1)
+	# test upgrades
+	@$(call gen-contract-upgrade,tests,ACUTestUpgrade,ACUTestUpgrade)
+	@$(call gen-contract-upgrade,tests,AuctioneerTestUpgrade,AuctioneerTestUpgrade)
+	@$(call gen-contract-upgrade,tests,InflationControllerTestUpgrade,InflationControllerTestUpgrade)
+	@$(call gen-contract-upgrade,tests,StabilizationTestUpgrade,StabilizationTestUpgrade)
+	@$(call gen-contract-upgrade,tests,SupplyControlTestUpgrade,SupplyControlTestUpgrade)
 	# update 4byte selector for clef
 	./build/generate_4bytedb.sh $(SOLC_BINARY)
 	cd signer/fourbyte && go generate

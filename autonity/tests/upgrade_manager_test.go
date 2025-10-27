@@ -2,19 +2,21 @@ package tests
 
 import (
 	"bytes"
+	"errors"
 	"math"
 	"math/big"
+	"reflect"
 	"testing"
 
+	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/params"
-	"github.com/autonity/autonity/params/generated"
 	generated0 "github.com/autonity/autonity/params/upgrades/generated/0"
 	generated1 "github.com/autonity/autonity/params/upgrades/generated/1"
+	generatedtests "github.com/autonity/autonity/params/upgrades/generated/tests"
 	"github.com/stretchr/testify/require"
 )
 
@@ -143,15 +145,77 @@ func TestOracleUpgradePatchedBytecode(t *testing.T) {
 	require.True(t, bytes.Equal(ret, generated0.OracleRuntimeBytecode))
 }
 
-// test if upgrading all ASM contract at once would fit in a single tx
-func TestASMAtomicUpdate(t *testing.T) {
-	cumulativeBytecodeSize := 0
-	cumulativeBytecodeSize += len(generated.ACUBytecode)
-	cumulativeBytecodeSize += len(generated.SupplyControlBytecode)
-	cumulativeBytecodeSize += len(generated.StabilizationBytecode)
-	cumulativeBytecodeSize += len(generated.InflationControllerBytecode)
-	cumulativeBytecodeSize += len(generated.AuctioneerBytecode)
-	t.Logf("cumulativeBytecodeSize: %d bytes (~ %.2f kb)", cumulativeBytecodeSize, float64(cumulativeBytecodeSize)/float64(1024))
-	require.True(t, cumulativeBytecodeSize < core.TxMaxSize)
+func TestUpgradeWithVersionTag(t *testing.T) {
+	r := Setup(t, nil)
+	r.UpgradeManager.abi = &generated1.UpgradeManagerAbi
+	// re-upgrade the oracle contract with same bytecode but different version
+	expectedVersionString := "12.47.11"
+	ret, _, err := r.UpgradeManager.Call(
+		r.Operator,
+		generated1.UpgradeManagerAbi.Methods["upgrade0"].Name,
+		params.OracleContractAddress,
+		string(generated0.OracleBytecode),
+		expectedVersionString,
+	)
+	if err != nil {
+		if !errors.Is(err, vm.ErrExecutionReverted) {
+			t.Fatal(err)
+		}
+		// unpack revert reason
+		reason, errUnpack := abi.UnpackRevert(ret)
+		require.NoError(t, errUnpack)
+		t.Fatal(err, reason)
+	}
 
+	getVersion := generated1.UpgradeManagerAbi.Methods["getVersion"]
+	ret, _, err = r.UpgradeManager.Call(
+		r.Operator,
+		getVersion.Name,
+		generated0.OracleCodeHash,
+	)
+	require.NoError(t, err)
+	versionI, err := getVersion.Outputs.Unpack(ret)
+	require.NoError(t, err)
+	versionString := reflect.ValueOf(versionI[0]).Field(0).String()
+	require.Equal(t, expectedVersionString, versionString)
+}
+
+func TestUpgradeMultiple(t *testing.T) {
+	r := Setup(t, nil)
+	r.UpgradeManager.abi = &generated1.UpgradeManagerAbi
+	ret, _, err := r.UpgradeManager.Call(
+		r.Operator,
+		generated1.UpgradeManagerAbi.Methods["upgradeMultiple0"].Name,
+		[]common.Address{
+			params.ACUContractAddress,
+			params.SupplyControlContractAddress,
+			params.StabilizationContractAddress,
+			params.InflationControllerContractAddress,
+			params.AuctioneerContractAddress,
+		},
+		[]string{
+			string(generatedtests.ACUTestUpgradeBytecode),
+			string(generatedtests.SupplyControlTestUpgradeBytecode),
+			string(generatedtests.StabilizationTestUpgradeBytecode),
+			string(generatedtests.InflationControllerTestUpgradeBytecode),
+			string(generatedtests.AuctioneerTestUpgradeBytecode),
+		},
+		[]string{
+			"1.6.0",
+			"1.6.0",
+			"1.6.0",
+			"1.6.0",
+			"1.6.0",
+		},
+	)
+	if err != nil {
+		if !errors.Is(err, vm.ErrExecutionReverted) {
+			t.Fatal(err)
+		}
+		t.Log(ret)
+		// unpack revert reason
+		reason, errUnpack := abi.UnpackRevert(ret)
+		require.NoError(t, errUnpack)
+		t.Fatal(err, reason)
+	}
 }
