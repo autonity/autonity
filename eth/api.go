@@ -25,14 +25,11 @@ import (
 	"math/big"
 	"os"
 	"runtime"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/autonity/autonity/autonity/bindings"
 	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
-	"github.com/autonity/autonity/crypto"
-
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
@@ -689,44 +686,6 @@ func (a *AutonityContractAPI) protocolContractsVersions(number *rpc.BlockNumber)
 		versions = append(versions, a.getVersion(contract, hash))
 	}
 	return versions, nil
-}
-
-func (a *AutonityContractAPI) ProtocolVersion(number *rpc.BlockNumber) (*ProtocolContractVersion, error) {
-	versions, err := a.protocolContractsVersions(number)
-	if err != nil {
-		return nil, err
-	}
-
-	hashesConcat := make([]byte, 0, len(versions)*common.HashLength)
-	for _, version := range versions {
-		hashesConcat = append(hashesConcat, version.Hash.Bytes()...)
-	}
-
-	protocolHash := crypto.Keccak256Hash(hashesConcat)
-	version := a.getVersion(params.ProtocolContract(params.ProtocolGroupAddress), protocolHash)
-
-	return &version, nil
-}
-
-func (a *AutonityContractAPI) ASMVersion(number *rpc.BlockNumber) (*ProtocolContractVersion, error) {
-	versions, err := a.protocolContractsVersions(number)
-	if err != nil {
-		return nil, err
-	}
-
-	hashesConcat := make([]byte, 0, len(versions)*common.HashLength)
-	for _, version := range versions {
-		// filter out non-ASM contracts
-		if !slices.Contains(params.ASMContracts, version.Contract) {
-			continue
-		}
-		hashesConcat = append(hashesConcat, version.Hash.Bytes()...)
-	}
-
-	protocolHash := crypto.Keccak256Hash(hashesConcat)
-	version := a.getVersion(params.ProtocolContract(params.ASMGroupAddress), protocolHash)
-
-	return &version, nil
 }
 
 // NewAutonityContractAPI builds a map of function name to method representing

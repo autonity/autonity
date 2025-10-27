@@ -41,10 +41,6 @@ func (contract ProtocolContract) String() string {
 		return "OmissionAccountabilityContract"
 	case AuctioneerContractAddress:
 		return "AuctioneerContract"
-	case ASMGroupAddress:
-		return "ASMGroup"
-	case ProtocolGroupAddress:
-		return "ProtocolGroup"
 	default:
 		return "Unknown"
 	}
@@ -75,7 +71,7 @@ var (
 	}
 
 	DefaultNTNGenesisAllocation = new(big.Int).Mul(big.NewInt(60_000_000), DecimalFactor) // 60 mil NTN
-	// TODO: update `DefautlGenesisBonding`
+	// TODO: update `DefaultGenesisBonding`
 	DefaultGenesisBonding = new(big.Int).Mul(big.NewInt(0), DecimalFactor)
 
 	// DefaultAcuContractGenesis contains the default values for the ASM ACU contract
@@ -162,12 +158,6 @@ var (
 	OmissionAccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 8)
 	AuctioneerContractAddress             = crypto.CreateAddress(DeployerAddress, 9)
 
-	// mock addresses for contract groups. Used for contract versioning purposes
-	ASMGroupAddress      = crypto.CreateAddress(DeployerAddress, math.MaxUint64-1)
-	ProtocolGroupAddress = crypto.CreateAddress(DeployerAddress, math.MaxUint64)
-
-	// NOTE: do not change order and add new contracts at the end if needed
-	// otherwise contract groups version hashes will change
 	ProtocolContracts = []ProtocolContract{
 		ProtocolContract(AutonityContractAddress),
 		ProtocolContract(AccountabilityContractAddress),
@@ -178,14 +168,6 @@ var (
 		ProtocolContract(UpgradeManagerContractAddress),
 		ProtocolContract(InflationControllerContractAddress),
 		ProtocolContract(OmissionAccountabilityContractAddress),
-		ProtocolContract(AuctioneerContractAddress),
-	}
-
-	ASMContracts = []ProtocolContract{
-		ProtocolContract(ACUContractAddress),
-		ProtocolContract(SupplyControlContractAddress),
-		ProtocolContract(StabilizationContractAddress),
-		ProtocolContract(InflationControllerContractAddress),
 		ProtocolContract(AuctioneerContractAddress),
 	}
 )

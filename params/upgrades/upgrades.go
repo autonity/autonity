@@ -6,7 +6,6 @@ import (
 	"github.com/autonity/autonity/accounts/abi"
 	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
 	generated0 "github.com/autonity/autonity/params/upgrades/generated/0"
@@ -26,15 +25,6 @@ type ContractUpgrade struct {
 	Abi      *abi.ABI
 	Bytecode []byte
 	Args     []interface{}
-}
-
-// TODO: move somewhere else?
-func concatHashes(hashes ...common.Hash) []byte {
-	var b []byte
-	for _, hash := range hashes {
-		b = append(b, hash.Bytes()...)
-	}
-	return b
 }
 
 var (
@@ -86,69 +76,12 @@ var (
 							generated.InflationControllerCodeHash,
 							generated.OmissionAccountabilityCodeHash,
 							generated.AuctioneerCodeHash,
-							// protocol group version 1.0.0
-							crypto.Keccak256Hash(
-								concatHashes(
-									generated.AutonityCodeHash,
-									generated.AccountabilityCodeHash,
-									generated.OracleCodeHash,
-									generated.ACUCodeHash,
-									generated.SupplyControlCodeHash,
-									generated.StabilizationCodeHash,
-									generated.UpgradeManagerCodeHash,
-									generated.InflationControllerCodeHash,
-									generated.OmissionAccountabilityCodeHash,
-									generated.AuctioneerCodeHash,
-								),
-							),
-							// ASM group version 1.0.0
-							crypto.Keccak256Hash(
-								concatHashes(
-									generated.ACUCodeHash,
-									generated.SupplyControlCodeHash,
-									generated.StabilizationCodeHash,
-									generated.InflationControllerCodeHash,
-									generated.AuctioneerCodeHash,
-								),
-							),
 							// oracle version 1.0.1
 							generated0.OracleCodeHash,
-							// protocol group version 1.0.1
-							crypto.Keccak256Hash(
-								concatHashes(
-									generated.AutonityCodeHash,
-									generated.AccountabilityCodeHash,
-									generated0.OracleCodeHash, // oracle 1.0.1
-									generated.ACUCodeHash,
-									generated.SupplyControlCodeHash,
-									generated.StabilizationCodeHash,
-									generated.UpgradeManagerCodeHash,
-									generated.InflationControllerCodeHash,
-									generated.OmissionAccountabilityCodeHash,
-									generated.AuctioneerCodeHash,
-								),
-							),
 							// upgrade manager version 1.1.0 (this upgrade)
 							generated1.UpgradeManagerCodeHash,
-							// protocol group version 1.1.0
-							crypto.Keccak256Hash(
-								concatHashes(
-									generated.AutonityCodeHash,
-									generated.AccountabilityCodeHash,
-									generated0.OracleCodeHash, // oracle 1.0.1
-									generated.ACUCodeHash,
-									generated.SupplyControlCodeHash,
-									generated.StabilizationCodeHash,
-									generated1.UpgradeManagerCodeHash, // upgrade manager 1.1.0
-									generated.InflationControllerCodeHash,
-									generated.OmissionAccountabilityCodeHash,
-									generated.AuctioneerCodeHash,
-								),
-							),
 						},
 						[]bindings1.UpgradeManager1version{
-							genesisVersion,
-							genesisVersion,
 							genesisVersion,
 							genesisVersion,
 							genesisVersion,
@@ -164,15 +97,7 @@ var (
 								Number: "1.0.1",
 								Block:  new(big.Int),
 							},
-							{
-								Number: "1.0.1",
-								Block:  new(big.Int),
-							},
 							// upgrade manager contract upgrade
-							{
-								Number: "1.1.0",
-								Block:  new(big.Int),
-							},
 							{
 								Number: "1.1.0",
 								Block:  new(big.Int),
