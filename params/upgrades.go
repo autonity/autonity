@@ -1,4 +1,4 @@
-package upgrades
+package params
 
 import (
 	"math/big"
@@ -6,7 +6,6 @@ import (
 	"github.com/autonity/autonity/accounts/abi"
 	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
 )
 
@@ -19,7 +18,7 @@ type ProtocolUpgrade struct {
 }
 
 type ContractUpgrade struct {
-	Target   params.ProtocolContract
+	Target   ProtocolContract
 	Abi      *abi.ABI
 	Bytecode []byte
 	Args     []interface{}
@@ -38,7 +37,7 @@ var (
 			Upgrades: []ContractUpgrade{
 				// oracle contract bugfix upgrade
 				{
-					Target:   params.ProtocolContract(params.OracleContractAddress),
+					Target:   ProtocolContract(OracleContractAddress),
 					Abi:      &generated.Oracle0Abi,
 					Bytecode: generated.Oracle0Bytecode,
 					Args:     nil,
@@ -49,7 +48,7 @@ var (
 				"\nrevert in the `getValidator()` function in the autonity contract when" +
 				"\ntrying to do the actual slashing.",
 			ExclusionList: []*big.Int{
-				new(big.Int).SetUint64(params.AutMainnetNetworkID),
+				new(big.Int).SetUint64(AutMainnetNetworkID),
 				new(big.Int).SetUint64(65010004), // bakerloo
 			},
 		},
@@ -58,7 +57,7 @@ var (
 			Upgrades: []ContractUpgrade{
 				// upgrade manager with version history upgrade
 				{
-					Target:   params.ProtocolContract(params.UpgradeManagerContractAddress),
+					Target:   ProtocolContract(UpgradeManagerContractAddress),
 					Abi:      &generated.UpgradeManager1Abi,
 					Bytecode: generated.UpgradeManager1Bytecode,
 					Args: []interface{}{
@@ -106,7 +105,7 @@ var (
 			},
 			Description: "TODO",
 			ExclusionList: []*big.Int{
-				new(big.Int).SetUint64(params.AutMainnetNetworkID),
+				new(big.Int).SetUint64(AutMainnetNetworkID),
 				new(big.Int).SetUint64(65010004), // bakerloo
 			},
 		},

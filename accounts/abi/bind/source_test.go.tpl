@@ -68,7 +68,7 @@ var (
 		var {{.Type}}Bin = {{.Type}}MetaData.Bin
 
 		// Deploy{{.Type}} deploys a new Ethereum contract, binding an instance of {{.Type}} to it.
-		func (r *Runner) Deploy{{.Type}}(opts *RunOptions {{range .Constructor.Inputs}}, {{.Name}} {{bindtype .Type $structs}}{{end}}) (common.Address, uint64, *{{.Type}}, error) {
+		func (r *Runner) Deploy{{.Type}}(opts *runOptions {{range .Constructor.Inputs}}, {{.Name}} {{bindtype .Type $structs}}{{end}}) (common.Address, uint64, *{{.Type}}, error) {
 		  parsed, err := {{.Type}}MetaData.GetAbi()
 		  if err != nil {
 		    return common.Address{}, 0, nil, err
@@ -81,25 +81,25 @@ var (
 			{{decapitalise $name}}Addr, _, _, _ := Deploy{{capitalise $name}}(auth, backend)
 			{{$contract.Type}}Bin = strings.Replace({{$contract.Type}}Bin, "__${{$pattern}}$__", {{decapitalise $name}}Addr.String()[2:], -1)
 		  {{end}}
-		  address, gasConsumed, c, data, err := r.DeployContract(opts, parsed, common.FromHex({{.Type}}Bin) {{range .Constructor.Inputs}}, {{.Name}}{{end}})
+		  address, gasConsumed, c, data, err := r.deployContract(opts, parsed, common.FromHex({{.Type}}Bin) {{range .Constructor.Inputs}}, {{.Name}}{{end}})
 		  if err != nil {
-		    return common.Address{}, 0, nil, (&{{.Type}}{Contract: c}).DecodeError(data, err)
+		    return common.Address{}, 0, nil, (&{{.Type}}{contract: c}).DecodeError(data, err)
 		  }
-		  return address, gasConsumed, &{{.Type}}{Contract: c}, nil
+		  return address, gasConsumed, &{{.Type}}{contract: c}, nil
 		}
 	{{end}}
 
 	// {{.Type}} is an auto generated Go binding around an Ethereum contract.
 	type {{.Type}} struct {
-		*Contract
+		*contract
 	}
 
 	{{range .Calls}}
 		// {{.Normalized.Name}} is a free data retrieval call binding the contract method 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}) {{.Normalized.Name}}(opts *RunOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} },{{else}}{{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}}{{end}} uint64, error) {
-			data, consumed, err := _{{$contract.Type}}.Call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
+		func (_{{$contract.Type}} *{{$contract.Type}}) {{.Normalized.Name}}(opts *runOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} },{{else}}{{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}}{{end}} uint64, error) {
+			data, consumed, err := _{{$contract.Type}}.call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
 			{{if .Structured}}
 			outstruct := new(struct{ {{range .Normalized.Outputs}} {{.Name}} {{bindtype .Type $structs}}; {{end}} })
 			if err != nil {
@@ -132,15 +132,15 @@ var (
 		// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 		// the same way as done above for view only functions.
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}) Call{{.Normalized.Name}}(r *Runner, opts *RunOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} },{{else}}{{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}}{{end}} uint64, error) {
-			snap := r.Snapshot()
+		func (_{{$contract.Type}} *{{$contract.Type}}) Call{{.Normalized.Name}}(r *Runner, opts *runOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) ({{if .Structured}}struct{ {{range .Normalized.Outputs}}{{.Name}} {{bindtype .Type $structs}};{{end}} },{{else}}{{range .Normalized.Outputs}}{{bindtype .Type $structs}},{{end}}{{end}} uint64, error) {
+			snap := r.snapshot()
 			{{if not .Normalized.Outputs}}
-			data, consumed, err := _{{$contract.Type}}.Call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
-			r.RevertSnapshot(snap)
+			data, consumed, err := _{{$contract.Type}}.call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
+			r.revertSnapshot(snap)
 			return consumed, _{{$contract.Type}}.DecodeError(data, err)
 			{{else}}
-			data, consumed, err := _{{$contract.Type}}.Call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
-			r.RevertSnapshot(snap)
+			data, consumed, err := _{{$contract.Type}}.call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
+			r.revertSnapshot(snap)
 			{{if .Structured}}
 			outstruct := new(struct{ {{range .Normalized.Outputs}} {{.Name}} {{bindtype .Type $structs}}; {{end}} })
 			if err != nil {
@@ -173,8 +173,8 @@ var (
 		// {{.Normalized.Name}} is a paid mutator transaction binding the contract method 0x{{printf "%x" .Original.ID}}.
 		//
 		// Solidity: {{.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}) {{.Normalized.Name}}(opts *RunOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) (uint64, error) {
-			data, consumed, err := _{{$contract.Type}}.Call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
+		func (_{{$contract.Type}} *{{$contract.Type}}) {{.Normalized.Name}}(opts *runOptions {{range .Normalized.Inputs}}, {{.Name}} {{bindtype .Type $structs}} {{end}}) (uint64, error) {
+			data, consumed, err := _{{$contract.Type}}.call(opts, "{{.Original.Name}}" {{range .Normalized.Inputs}}, {{.Name}}{{end}})
 			return consumed, _{{$contract.Type}}.DecodeError(data, err)
 		}
 	{{end}}
@@ -183,8 +183,8 @@ var (
 		// Fallback is a paid mutator transaction binding the contract fallback function.
 		// WARNING! UNTESTED
 		// Solidity: {{.Fallback.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}) Fallback(opts *RunOptions, calldata []byte) (uint64, error) {
-			out, consumed, err := _{{$contract.Type}}.Call(opts, "", calldata)
+		func (_{{$contract.Type}} *{{$contract.Type}}) Fallback(opts *runOptions, calldata []byte) (uint64, error) {
+			out, consumed, err := _{{$contract.Type}}.call(opts, "", calldata)
 			return consumed, _{{$contract.Type}}.DecodeError(out, err)
 		}
 	{{end}}
@@ -193,8 +193,8 @@ var (
 		// Receive is a paid mutator transaction binding the contract receive function.
 		// WARNING! UNTESTED
 		// Solidity: {{.Receive.Original.String}}
-		func (_{{$contract.Type}} *{{$contract.Type}}) Receive(opts *RunOptions) (uint64, error) {
-			out, consumed, err := _{{$contract.Type}}.Call(opts, "")
+		func (_{{$contract.Type}} *{{$contract.Type}}) Receive(opts *runOptions) (uint64, error) {
+			out, consumed, err := _{{$contract.Type}}.call(opts, "")
 			return consumed, _{{$contract.Type}}.DecodeError(out, err)
 		}
 	{{end}}

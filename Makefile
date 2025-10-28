@@ -127,36 +127,21 @@ compile-contracts-upgrades: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/
 	cd signer/fourbyte && go generate
 
 bindings: $(ABIGEN_BINARY)
-	@echo "Generating protocol contracts bindings"
-	$(ABIGEN_BINARY)  --pkg bindings --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings/bindings.sol --out ./autonity/bindings/bindings.go
-	@echo "Generating internal testing bindings"
-	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings/bindings.sol --out ./autonity/tests/bindings.go
+	@$(call gen-bindings,bindings/,bindings,)
 
 bindings-upgrades: $(ABIGEN_BINARY)
+	@$(call gen-bindings,upgrades/0/,Oracle0,--upgrade)
 	@# Generate go bindings for oracle contract v1.0.1
 	@# NOTE: the sed substitution is required to generate the same runtime bytecode that got deployed on mainnet.
 	@# it simply substitutes the metadata hash of the oracle upgraded bytecode with the metadata hash used on mainnet.
 	@# the hashes are different because the mainnet upgrade had been built in the `autonity/solidity/contracts/` folder.
 	@# for more details see https://docs.soliditylang.org/en/latest/metadata.html
-	@echo "Generating protocol contracts bindings for oracle contract v1.0.1"
-	mkdir -p ./autonity/bindings/0
-	$(ABIGEN_BINARY)  --pkg bindings0 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/0/Oracle0.sol --out ./autonity/bindings/0/bindings.go
-	sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/0/bindings.go
-	@echo "Generating internal testing bindings for oracle contract v1.0.1"
-	mkdir -p ./autonity/tests/0
-	$(ABIGEN_BINARY)  --test --upgrade --pkg tests0 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/0/Oracle0.sol --out ./autonity/tests/0/bindings.go
-	sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/tests/0/bindings.go
-
-	@# Generate go bindings for upgrade manager v1.1.0
-	@echo "Generating protocol contracts bindings for upgrade manager v1.1.0"
-	mkdir -p ./autonity/bindings/1
-	$(ABIGEN_BINARY)  --pkg bindings1 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/1/UpgradeManager1.sol --out ./autonity/bindings/1/bindings.go
-	@echo "Generating internal testing bindings for upgrade manager v1.1.0"
-	mkdir -p ./autonity/tests/1
-	$(ABIGEN_BINARY)  --test --upgrade --pkg tests1 --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/upgrades/1/UpgradeManager1.sol --out ./autonity/tests/1/bindings.go
+	sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/Oracle0.go
+	sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/tests/Oracle0.go
+	@$(call gen-bindings,upgrades/1/,UpgradeManager1,--upgrade)
 
 # params:
-# $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR)
+# $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR) )
 # $(2) --> contract filename (which should be == with the contract's name)
 define gen-contract
 	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin --bin-runtime --metadata --userdoc --devdoc -o $(GENERATED_CONTRACTS_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
@@ -194,6 +179,17 @@ define gen-contract
 	@cat  $(GENERATED_CONTRACTS_DIR)/$(2).abi | json_pp  >> $(GENERATED_CONTRACTS_DIR)/$(2).go
 	@echo '`))' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
 	@gofmt -s -w $(GENERATED_CONTRACTS_DIR)/$(2).go
+endef
+
+# params:
+# $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR) )
+# $(2) --> contract filename
+# $(3) --> --upgrade if generating bindings for contract upgrades
+define gen-bindings
+	@echo "Generating bindings for $(2).sol"
+	$(ABIGEN_BINARY)  --pkg bindings --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/$(1)$(2).sol --out ./autonity/bindings/$(2).go
+	@echo "Generating testing bindings for $(2).sol"
+	$(ABIGEN_BINARY)  --test $(3) --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/$(1)$(2).sol --out ./autonity/tests/$(2).go
 endef
 
 # |---------|

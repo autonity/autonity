@@ -8,10 +8,8 @@ import (
 	"runtime"
 	"slices"
 
-	"github.com/autonity/autonity/autonity/bindings"
-	"github.com/autonity/autonity/params/upgrades"
-
 	"github.com/autonity/autonity/accounts/abi"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/vm"
@@ -523,7 +521,7 @@ func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy
 }
 
 func deployProtocolUpgrades(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, _ genericCaller, upgrade genericUpgrader) error {
-	for i, protocolUpgrade := range upgrades.Upgrades {
+	for i, protocolUpgrade := range params.Upgrades {
 		// TODO: chainId or networkID? is it guaranteed always ==?
 		if slices.Contains(protocolUpgrade.ExclusionList, config.ChainID) || config.MustSkip(i) {
 			continue

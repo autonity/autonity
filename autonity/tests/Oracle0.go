@@ -1,7 +1,7 @@
 // Code generated for internal testing purposes only - DO NOT EDIT.
 // This file is a generated binding and any manual changes will be lost.
 
-package tests0
+package tests
 
 import (
 	"errors"
@@ -12,7 +12,6 @@ import (
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
-	"github.com/autonity/autonity/autonity/tests"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
@@ -29,9 +28,6 @@ var (
 	_ = types.BloomLookup
 	_ = event.NewSubscription
 )
-
-// type alias Runner, otherwise functions cannot be defined on it
-type Runner tests.Runner
 
 // IAccountabilityBaseSlashingRates is an auto generated low-level Go binding around an user-defined struct.
 type IAccountabilityBaseSlashingRates struct {
@@ -282,7 +278,7 @@ var EnumerableSetABI = EnumerableSetMetaData.ABI
 var EnumerableSetBin = EnumerableSetMetaData.Bin
 
 // DeployEnumerableSet deploys a new Ethereum contract, binding an instance of EnumerableSet to it.
-func (r *Runner) DeployEnumerableSet(opts *tests.RunOptions) (common.Address, uint64, *EnumerableSet, error) {
+func (r *Runner) DeployEnumerableSet(opts *RunOptions) (common.Address, uint64, *EnumerableSet, error) {
 	parsed, err := EnumerableSetMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -291,7 +287,7 @@ func (r *Runner) DeployEnumerableSet(opts *tests.RunOptions) (common.Address, ui
 		return common.Address{}, 0, nil, errors.New("GetABI returned nil")
 	}
 
-	address, gasConsumed, c, data, err := (*tests.Runner)(r).DeployContract(opts, parsed, common.FromHex(EnumerableSetBin))
+	address, gasConsumed, c, data, err := r.DeployContract(opts, parsed, common.FromHex(EnumerableSetBin))
 	if err != nil {
 		return common.Address{}, 0, nil, (&EnumerableSet{Contract: c}).DecodeError(data, err)
 	}
@@ -300,7 +296,7 @@ func (r *Runner) DeployEnumerableSet(opts *tests.RunOptions) (common.Address, ui
 
 // EnumerableSet is an auto generated Go binding around an Ethereum contract.
 type EnumerableSet struct {
-	*tests.Contract
+	*Contract
 }
 
 func (_EnumerableSet *EnumerableSet) DecodeError(data []byte, err error) error {
@@ -335,19 +331,19 @@ var IACUFuncSigs = IACUMetaData.Sigs
 
 // IACU is an auto generated Go binding around an Ethereum contract.
 type IACU struct {
-	*tests.Contract
+	*Contract
 }
 
 // GetScaleFactor is a free data retrieval call binding the contract method 0x7f5e2f11.
 //
 // Solidity: function getScaleFactor() view returns(uint256)
-func (_IACU *IACU) GetScaleFactor(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IACU *IACU) GetScaleFactor(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IACU.Call(opts, "getScaleFactor")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IACU.DecodeError(data, err)
 	}
-	out, err := _IACU.Contract.Abi().Unpack("getScaleFactor", data)
+	out, err := _IACU.abi.Unpack("getScaleFactor", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -360,13 +356,13 @@ func (_IACU *IACU) GetScaleFactor(opts *tests.RunOptions) (*big.Int, uint64, err
 // Value is a free data retrieval call binding the contract method 0x3fa4f245.
 //
 // Solidity: function value() view returns(uint256)
-func (_IACU *IACU) Value(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IACU *IACU) Value(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IACU.Call(opts, "value")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IACU.DecodeError(data, err)
 	}
-	out, err := _IACU.Contract.Abi().Unpack("value", data)
+	out, err := _IACU.abi.Unpack("value", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -380,7 +376,7 @@ func (_IACU *IACU) Value(opts *tests.RunOptions) (*big.Int, uint64, error) {
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setOperator(address operator) returns()
-func (_IACU *IACU) CallSetOperator(r *tests.Runner, opts *tests.RunOptions, operator common.Address) (uint64, error) {
+func (_IACU *IACU) CallSetOperator(r *Runner, opts *RunOptions, operator common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IACU.Call(opts, "setOperator", operator)
@@ -393,7 +389,7 @@ func (_IACU *IACU) CallSetOperator(r *tests.Runner, opts *tests.RunOptions, oper
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setOracle(address oracle) returns()
-func (_IACU *IACU) CallSetOracle(r *tests.Runner, opts *tests.RunOptions, oracle common.Address) (uint64, error) {
+func (_IACU *IACU) CallSetOracle(r *Runner, opts *RunOptions, oracle common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IACU.Call(opts, "setOracle", oracle)
@@ -406,7 +402,7 @@ func (_IACU *IACU) CallSetOracle(r *tests.Runner, opts *tests.RunOptions, oracle
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function update() returns(bool status)
-func (_IACU *IACU) CallUpdate(r *tests.Runner, opts *tests.RunOptions) (bool, uint64, error) {
+func (_IACU *IACU) CallUpdate(r *Runner, opts *RunOptions) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IACU.Call(opts, "update")
@@ -415,7 +411,7 @@ func (_IACU *IACU) CallUpdate(r *tests.Runner, opts *tests.RunOptions) (bool, ui
 	if err != nil {
 		return *new(bool), consumed, _IACU.DecodeError(data, err)
 	}
-	out, err := _IACU.Contract.Abi().Unpack("update", data)
+	out, err := _IACU.abi.Unpack("update", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -428,7 +424,7 @@ func (_IACU *IACU) CallUpdate(r *tests.Runner, opts *tests.RunOptions) (bool, ui
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address operator) returns()
-func (_IACU *IACU) SetOperator(opts *tests.RunOptions, operator common.Address) (uint64, error) {
+func (_IACU *IACU) SetOperator(opts *RunOptions, operator common.Address) (uint64, error) {
 	data, consumed, err := _IACU.Call(opts, "setOperator", operator)
 	return consumed, _IACU.DecodeError(data, err)
 }
@@ -436,7 +432,7 @@ func (_IACU *IACU) SetOperator(opts *tests.RunOptions, operator common.Address) 
 // SetOracle is a paid mutator transaction binding the contract method 0x7adbf973.
 //
 // Solidity: function setOracle(address oracle) returns()
-func (_IACU *IACU) SetOracle(opts *tests.RunOptions, oracle common.Address) (uint64, error) {
+func (_IACU *IACU) SetOracle(opts *RunOptions, oracle common.Address) (uint64, error) {
 	data, consumed, err := _IACU.Call(opts, "setOracle", oracle)
 	return consumed, _IACU.DecodeError(data, err)
 }
@@ -444,7 +440,7 @@ func (_IACU *IACU) SetOracle(opts *tests.RunOptions, oracle common.Address) (uin
 // Update is a paid mutator transaction binding the contract method 0xa2e62045.
 //
 // Solidity: function update() returns(bool status)
-func (_IACU *IACU) Update(opts *tests.RunOptions) (uint64, error) {
+func (_IACU *IACU) Update(opts *RunOptions) (uint64, error) {
 	data, consumed, err := _IACU.Call(opts, "update")
 	return consumed, _IACU.DecodeError(data, err)
 }
@@ -481,19 +477,19 @@ var IAccountabilityFuncSigs = IAccountabilityMetaData.Sigs
 
 // IAccountability is an auto generated Go binding around an Ethereum contract.
 type IAccountability struct {
-	*tests.Contract
+	*Contract
 }
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
 // Solidity: function getConfig() view returns((uint256,uint256,uint256,(uint256,uint256,uint256),(uint256,uint256,uint256)))
-func (_IAccountability *IAccountability) GetConfig(opts *tests.RunOptions) (IAccountabilityConfig, uint64, error) {
+func (_IAccountability *IAccountability) GetConfig(opts *RunOptions) (IAccountabilityConfig, uint64, error) {
 	data, consumed, err := _IAccountability.Call(opts, "getConfig")
 
 	if err != nil {
 		return *new(IAccountabilityConfig), consumed, _IAccountability.DecodeError(data, err)
 	}
-	out, err := _IAccountability.Contract.Abi().Unpack("getConfig", data)
+	out, err := _IAccountability.abi.Unpack("getConfig", data)
 	if err != nil {
 		return *new(IAccountabilityConfig), consumed, err
 	}
@@ -506,13 +502,13 @@ func (_IAccountability *IAccountability) GetConfig(opts *tests.RunOptions) (IAcc
 // GetGracePeriod is a free data retrieval call binding the contract method 0xdbd18388.
 //
 // Solidity: function getGracePeriod() view returns(uint256)
-func (_IAccountability *IAccountability) GetGracePeriod(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAccountability *IAccountability) GetGracePeriod(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAccountability.Call(opts, "getGracePeriod")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAccountability.DecodeError(data, err)
 	}
-	out, err := _IAccountability.Contract.Abi().Unpack("getGracePeriod", data)
+	out, err := _IAccountability.abi.Unpack("getGracePeriod", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -526,7 +522,7 @@ func (_IAccountability *IAccountability) GetGracePeriod(opts *tests.RunOptions) 
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function distributeRewards(address _validator, uint256 _ntnReward) payable returns()
-func (_IAccountability *IAccountability) CallDistributeRewards(r *tests.Runner, opts *tests.RunOptions, _validator common.Address, _ntnReward *big.Int) (uint64, error) {
+func (_IAccountability *IAccountability) CallDistributeRewards(r *Runner, opts *RunOptions, _validator common.Address, _ntnReward *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAccountability.Call(opts, "distributeRewards", _validator, _ntnReward)
@@ -539,7 +535,7 @@ func (_IAccountability *IAccountability) CallDistributeRewards(r *tests.Runner, 
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function finalize(bool _epochEnd) returns(uint256, uint256, uint256)
-func (_IAccountability *IAccountability) CallFinalize(r *tests.Runner, opts *tests.RunOptions, _epochEnd bool) (*big.Int, *big.Int, *big.Int, uint64, error) {
+func (_IAccountability *IAccountability) CallFinalize(r *Runner, opts *RunOptions, _epochEnd bool) (*big.Int, *big.Int, *big.Int, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAccountability.Call(opts, "finalize", _epochEnd)
@@ -548,7 +544,7 @@ func (_IAccountability *IAccountability) CallFinalize(r *tests.Runner, opts *tes
 	if err != nil {
 		return *new(*big.Int), *new(*big.Int), *new(*big.Int), consumed, _IAccountability.DecodeError(data, err)
 	}
-	out, err := _IAccountability.Contract.Abi().Unpack("finalize", data)
+	out, err := _IAccountability.abi.Unpack("finalize", data)
 	if err != nil {
 		return *new(*big.Int), *new(*big.Int), *new(*big.Int), consumed, err
 	}
@@ -564,7 +560,7 @@ func (_IAccountability *IAccountability) CallFinalize(r *tests.Runner, opts *tes
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setCommittee(address[] _committee) returns()
-func (_IAccountability *IAccountability) CallSetCommittee(r *tests.Runner, opts *tests.RunOptions, _committee []common.Address) (uint64, error) {
+func (_IAccountability *IAccountability) CallSetCommittee(r *Runner, opts *RunOptions, _committee []common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAccountability.Call(opts, "setCommittee", _committee)
@@ -576,7 +572,7 @@ func (_IAccountability *IAccountability) CallSetCommittee(r *tests.Runner, opts 
 // DistributeRewards is a paid mutator transaction binding the contract method 0xa8031a1d.
 //
 // Solidity: function distributeRewards(address _validator, uint256 _ntnReward) payable returns()
-func (_IAccountability *IAccountability) DistributeRewards(opts *tests.RunOptions, _validator common.Address, _ntnReward *big.Int) (uint64, error) {
+func (_IAccountability *IAccountability) DistributeRewards(opts *RunOptions, _validator common.Address, _ntnReward *big.Int) (uint64, error) {
 	data, consumed, err := _IAccountability.Call(opts, "distributeRewards", _validator, _ntnReward)
 	return consumed, _IAccountability.DecodeError(data, err)
 }
@@ -584,7 +580,7 @@ func (_IAccountability *IAccountability) DistributeRewards(opts *tests.RunOption
 // Finalize is a paid mutator transaction binding the contract method 0x6c9789b0.
 //
 // Solidity: function finalize(bool _epochEnd) returns(uint256, uint256, uint256)
-func (_IAccountability *IAccountability) Finalize(opts *tests.RunOptions, _epochEnd bool) (uint64, error) {
+func (_IAccountability *IAccountability) Finalize(opts *RunOptions, _epochEnd bool) (uint64, error) {
 	data, consumed, err := _IAccountability.Call(opts, "finalize", _epochEnd)
 	return consumed, _IAccountability.DecodeError(data, err)
 }
@@ -592,7 +588,7 @@ func (_IAccountability *IAccountability) Finalize(opts *tests.RunOptions, _epoch
 // SetCommittee is a paid mutator transaction binding the contract method 0xe08b14ed.
 //
 // Solidity: function setCommittee(address[] _committee) returns()
-func (_IAccountability *IAccountability) SetCommittee(opts *tests.RunOptions, _committee []common.Address) (uint64, error) {
+func (_IAccountability *IAccountability) SetCommittee(opts *RunOptions, _committee []common.Address) (uint64, error) {
 	data, consumed, err := _IAccountability.Call(opts, "setCommittee", _committee)
 	return consumed, _IAccountability.DecodeError(data, err)
 }
@@ -628,14 +624,14 @@ var IAuctioneerFuncSigs = IAuctioneerMetaData.Sigs
 
 // IAuctioneer is an auto generated Go binding around an Ethereum contract.
 type IAuctioneer struct {
-	*tests.Contract
+	*Contract
 }
 
 // PaidInterest is a free data retrieval call for a paid mutator transaction binding the contract method 0x96e4547c.
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function paidInterest() payable returns()
-func (_IAuctioneer *IAuctioneer) CallPaidInterest(r *tests.Runner, opts *tests.RunOptions) (uint64, error) {
+func (_IAuctioneer *IAuctioneer) CallPaidInterest(r *Runner, opts *RunOptions) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAuctioneer.Call(opts, "paidInterest")
@@ -648,7 +644,7 @@ func (_IAuctioneer *IAuctioneer) CallPaidInterest(r *tests.Runner, opts *tests.R
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setOperator(address operator) returns()
-func (_IAuctioneer *IAuctioneer) CallSetOperator(r *tests.Runner, opts *tests.RunOptions, operator common.Address) (uint64, error) {
+func (_IAuctioneer *IAuctioneer) CallSetOperator(r *Runner, opts *RunOptions, operator common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAuctioneer.Call(opts, "setOperator", operator)
@@ -661,7 +657,7 @@ func (_IAuctioneer *IAuctioneer) CallSetOperator(r *tests.Runner, opts *tests.Ru
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setOracle(address oracle) returns()
-func (_IAuctioneer *IAuctioneer) CallSetOracle(r *tests.Runner, opts *tests.RunOptions, oracle common.Address) (uint64, error) {
+func (_IAuctioneer *IAuctioneer) CallSetOracle(r *Runner, opts *RunOptions, oracle common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAuctioneer.Call(opts, "setOracle", oracle)
@@ -674,7 +670,7 @@ func (_IAuctioneer *IAuctioneer) CallSetOracle(r *tests.Runner, opts *tests.RunO
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setStabilization(address stabilization) returns()
-func (_IAuctioneer *IAuctioneer) CallSetStabilization(r *tests.Runner, opts *tests.RunOptions, stabilization common.Address) (uint64, error) {
+func (_IAuctioneer *IAuctioneer) CallSetStabilization(r *Runner, opts *RunOptions, stabilization common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAuctioneer.Call(opts, "setStabilization", stabilization)
@@ -686,7 +682,7 @@ func (_IAuctioneer *IAuctioneer) CallSetStabilization(r *tests.Runner, opts *tes
 // PaidInterest is a paid mutator transaction binding the contract method 0x96e4547c.
 //
 // Solidity: function paidInterest() payable returns()
-func (_IAuctioneer *IAuctioneer) PaidInterest(opts *tests.RunOptions) (uint64, error) {
+func (_IAuctioneer *IAuctioneer) PaidInterest(opts *RunOptions) (uint64, error) {
 	data, consumed, err := _IAuctioneer.Call(opts, "paidInterest")
 	return consumed, _IAuctioneer.DecodeError(data, err)
 }
@@ -694,7 +690,7 @@ func (_IAuctioneer *IAuctioneer) PaidInterest(opts *tests.RunOptions) (uint64, e
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address operator) returns()
-func (_IAuctioneer *IAuctioneer) SetOperator(opts *tests.RunOptions, operator common.Address) (uint64, error) {
+func (_IAuctioneer *IAuctioneer) SetOperator(opts *RunOptions, operator common.Address) (uint64, error) {
 	data, consumed, err := _IAuctioneer.Call(opts, "setOperator", operator)
 	return consumed, _IAuctioneer.DecodeError(data, err)
 }
@@ -702,7 +698,7 @@ func (_IAuctioneer *IAuctioneer) SetOperator(opts *tests.RunOptions, operator co
 // SetOracle is a paid mutator transaction binding the contract method 0x7adbf973.
 //
 // Solidity: function setOracle(address oracle) returns()
-func (_IAuctioneer *IAuctioneer) SetOracle(opts *tests.RunOptions, oracle common.Address) (uint64, error) {
+func (_IAuctioneer *IAuctioneer) SetOracle(opts *RunOptions, oracle common.Address) (uint64, error) {
 	data, consumed, err := _IAuctioneer.Call(opts, "setOracle", oracle)
 	return consumed, _IAuctioneer.DecodeError(data, err)
 }
@@ -710,7 +706,7 @@ func (_IAuctioneer *IAuctioneer) SetOracle(opts *tests.RunOptions, oracle common
 // SetStabilization is a paid mutator transaction binding the contract method 0x4f505895.
 //
 // Solidity: function setStabilization(address stabilization) returns()
-func (_IAuctioneer *IAuctioneer) SetStabilization(opts *tests.RunOptions, stabilization common.Address) (uint64, error) {
+func (_IAuctioneer *IAuctioneer) SetStabilization(opts *RunOptions, stabilization common.Address) (uint64, error) {
 	data, consumed, err := _IAuctioneer.Call(opts, "setStabilization", stabilization)
 	return consumed, _IAuctioneer.DecodeError(data, err)
 }
@@ -801,19 +797,19 @@ var IAutonityFuncSigs = IAutonityMetaData.Sigs
 
 // IAutonity is an auto generated Go binding around an Ethereum contract.
 type IAutonity struct {
-	*tests.Contract
+	*Contract
 }
 
 // Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
 //
 // Solidity: function allowance(address owner, address spender) view returns(uint256)
-func (_IAutonity *IAutonity) Allowance(opts *tests.RunOptions, owner common.Address, spender common.Address) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) Allowance(opts *RunOptions, owner common.Address, spender common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "allowance", owner, spender)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("allowance", data)
+	out, err := _IAutonity.abi.Unpack("allowance", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -826,13 +822,13 @@ func (_IAutonity *IAutonity) Allowance(opts *tests.RunOptions, owner common.Addr
 // BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
 //
 // Solidity: function balanceOf(address account) view returns(uint256)
-func (_IAutonity *IAutonity) BalanceOf(opts *tests.RunOptions, account common.Address) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) BalanceOf(opts *RunOptions, account common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "balanceOf", account)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("balanceOf", data)
+	out, err := _IAutonity.abi.Unpack("balanceOf", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -845,13 +841,13 @@ func (_IAutonity *IAutonity) BalanceOf(opts *tests.RunOptions, account common.Ad
 // BondingAllowance is a free data retrieval call binding the contract method 0xe0e01d54.
 //
 // Solidity: function bondingAllowance(address _owner, address _caller) view returns(uint256)
-func (_IAutonity *IAutonity) BondingAllowance(opts *tests.RunOptions, _owner common.Address, _caller common.Address) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) BondingAllowance(opts *RunOptions, _owner common.Address, _caller common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "bondingAllowance", _owner, _caller)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("bondingAllowance", data)
+	out, err := _IAutonity.abi.Unpack("bondingAllowance", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -864,13 +860,13 @@ func (_IAutonity *IAutonity) BondingAllowance(opts *tests.RunOptions, _owner com
 // CirculatingSupply is a free data retrieval call binding the contract method 0x9358928b.
 //
 // Solidity: function circulatingSupply() view returns(uint256)
-func (_IAutonity *IAutonity) CirculatingSupply(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) CirculatingSupply(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "circulatingSupply")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("circulatingSupply", data)
+	out, err := _IAutonity.abi.Unpack("circulatingSupply", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -883,13 +879,13 @@ func (_IAutonity *IAutonity) CirculatingSupply(opts *tests.RunOptions) (*big.Int
 // GetBlockPeriod is a free data retrieval call binding the contract method 0x43645969.
 //
 // Solidity: function getBlockPeriod() view returns(uint256)
-func (_IAutonity *IAutonity) GetBlockPeriod(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetBlockPeriod(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getBlockPeriod")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getBlockPeriod", data)
+	out, err := _IAutonity.abi.Unpack("getBlockPeriod", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -902,13 +898,13 @@ func (_IAutonity *IAutonity) GetBlockPeriod(opts *tests.RunOptions) (*big.Int, u
 // GetBondingRequestByID is a free data retrieval call binding the contract method 0x8ebb48b7.
 //
 // Solidity: function getBondingRequestByID(uint256 _id) view returns((address,address,uint256,uint256))
-func (_IAutonity *IAutonity) GetBondingRequestByID(opts *tests.RunOptions, _id *big.Int) (IAutonityBondingRequest, uint64, error) {
+func (_IAutonity *IAutonity) GetBondingRequestByID(opts *RunOptions, _id *big.Int) (IAutonityBondingRequest, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getBondingRequestByID", _id)
 
 	if err != nil {
 		return *new(IAutonityBondingRequest), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getBondingRequestByID", data)
+	out, err := _IAutonity.abi.Unpack("getBondingRequestByID", data)
 	if err != nil {
 		return *new(IAutonityBondingRequest), consumed, err
 	}
@@ -921,13 +917,13 @@ func (_IAutonity *IAutonity) GetBondingRequestByID(opts *tests.RunOptions, _id *
 // GetClientConfig is a free data retrieval call binding the contract method 0xf3f759c1.
 //
 // Solidity: function getClientConfig() view returns((uint256,uint256,uint256,uint256,(uint256,uint256,uint256),(uint256,uint256,uint256,uint256)))
-func (_IAutonity *IAutonity) GetClientConfig(opts *tests.RunOptions) (IAutonityClientAwareConfig, uint64, error) {
+func (_IAutonity *IAutonity) GetClientConfig(opts *RunOptions) (IAutonityClientAwareConfig, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getClientConfig")
 
 	if err != nil {
 		return *new(IAutonityClientAwareConfig), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getClientConfig", data)
+	out, err := _IAutonity.abi.Unpack("getClientConfig", data)
 	if err != nil {
 		return *new(IAutonityClientAwareConfig), consumed, err
 	}
@@ -940,13 +936,13 @@ func (_IAutonity *IAutonity) GetClientConfig(opts *tests.RunOptions) (IAutonityC
 // GetCommittee is a free data retrieval call binding the contract method 0xab8f6ffe.
 //
 // Solidity: function getCommittee() view returns((address,uint256,bytes)[])
-func (_IAutonity *IAutonity) GetCommittee(opts *tests.RunOptions) ([]IAutonityCommitteeMember, uint64, error) {
+func (_IAutonity *IAutonity) GetCommittee(opts *RunOptions) ([]IAutonityCommitteeMember, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getCommittee")
 
 	if err != nil {
 		return *new([]IAutonityCommitteeMember), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getCommittee", data)
+	out, err := _IAutonity.abi.Unpack("getCommittee", data)
 	if err != nil {
 		return *new([]IAutonityCommitteeMember), consumed, err
 	}
@@ -959,13 +955,13 @@ func (_IAutonity *IAutonity) GetCommittee(opts *tests.RunOptions) ([]IAutonityCo
 // GetCommitteeEnodes is a free data retrieval call binding the contract method 0xa8b2216e.
 //
 // Solidity: function getCommitteeEnodes() view returns(string[])
-func (_IAutonity *IAutonity) GetCommitteeEnodes(opts *tests.RunOptions) ([]string, uint64, error) {
+func (_IAutonity *IAutonity) GetCommitteeEnodes(opts *RunOptions) ([]string, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getCommitteeEnodes")
 
 	if err != nil {
 		return *new([]string), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getCommitteeEnodes", data)
+	out, err := _IAutonity.abi.Unpack("getCommitteeEnodes", data)
 	if err != nil {
 		return *new([]string), consumed, err
 	}
@@ -978,13 +974,13 @@ func (_IAutonity *IAutonity) GetCommitteeEnodes(opts *tests.RunOptions) ([]strin
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
 // Solidity: function getConfig() view returns(((uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,address,uint256,uint256),(address,address,address,address,address,address,address,address,address),(address,uint256,uint256,uint256,uint256,uint256,uint256,uint256),uint256))
-func (_IAutonity *IAutonity) GetConfig(opts *tests.RunOptions) (IAutonityConfig, uint64, error) {
+func (_IAutonity *IAutonity) GetConfig(opts *RunOptions) (IAutonityConfig, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getConfig")
 
 	if err != nil {
 		return *new(IAutonityConfig), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getConfig", data)
+	out, err := _IAutonity.abi.Unpack("getConfig", data)
 	if err != nil {
 		return *new(IAutonityConfig), consumed, err
 	}
@@ -997,13 +993,13 @@ func (_IAutonity *IAutonity) GetConfig(opts *tests.RunOptions) (IAutonityConfig,
 // GetCurrentCommitteeSize is a free data retrieval call binding the contract method 0x2b56feac.
 //
 // Solidity: function getCurrentCommitteeSize() view returns(uint256)
-func (_IAutonity *IAutonity) GetCurrentCommitteeSize(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetCurrentCommitteeSize(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getCurrentCommitteeSize")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getCurrentCommitteeSize", data)
+	out, err := _IAutonity.abi.Unpack("getCurrentCommitteeSize", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1016,13 +1012,13 @@ func (_IAutonity *IAutonity) GetCurrentCommitteeSize(opts *tests.RunOptions) (*b
 // GetCurrentEpochPeriod is a free data retrieval call binding the contract method 0x0aac2da1.
 //
 // Solidity: function getCurrentEpochPeriod() view returns(uint256)
-func (_IAutonity *IAutonity) GetCurrentEpochPeriod(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetCurrentEpochPeriod(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getCurrentEpochPeriod")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getCurrentEpochPeriod", data)
+	out, err := _IAutonity.abi.Unpack("getCurrentEpochPeriod", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1035,13 +1031,13 @@ func (_IAutonity *IAutonity) GetCurrentEpochPeriod(opts *tests.RunOptions) (*big
 // GetEpochByHeight is a free data retrieval call binding the contract method 0xaffb1cf1.
 //
 // Solidity: function getEpochByHeight(uint256 _height) view returns(((address,uint256,bytes)[],uint256,uint256,uint256,uint256,(uint256,uint256,uint256,uint256)))
-func (_IAutonity *IAutonity) GetEpochByHeight(opts *tests.RunOptions, _height *big.Int) (IAutonityEpochInfo, uint64, error) {
+func (_IAutonity *IAutonity) GetEpochByHeight(opts *RunOptions, _height *big.Int) (IAutonityEpochInfo, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getEpochByHeight", _height)
 
 	if err != nil {
 		return *new(IAutonityEpochInfo), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getEpochByHeight", data)
+	out, err := _IAutonity.abi.Unpack("getEpochByHeight", data)
 	if err != nil {
 		return *new(IAutonityEpochInfo), consumed, err
 	}
@@ -1054,13 +1050,13 @@ func (_IAutonity *IAutonity) GetEpochByHeight(opts *tests.RunOptions, _height *b
 // GetEpochFromBlock is a free data retrieval call binding the contract method 0x96b477cb.
 //
 // Solidity: function getEpochFromBlock(uint256 _block) view returns(uint256)
-func (_IAutonity *IAutonity) GetEpochFromBlock(opts *tests.RunOptions, _block *big.Int) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetEpochFromBlock(opts *RunOptions, _block *big.Int) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getEpochFromBlock", _block)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getEpochFromBlock", data)
+	out, err := _IAutonity.abi.Unpack("getEpochFromBlock", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1073,13 +1069,13 @@ func (_IAutonity *IAutonity) GetEpochFromBlock(opts *tests.RunOptions, _block *b
 // GetEpochID is a free data retrieval call binding the contract method 0x6fc53515.
 //
 // Solidity: function getEpochID() view returns(uint256)
-func (_IAutonity *IAutonity) GetEpochID(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetEpochID(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getEpochID")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getEpochID", data)
+	out, err := _IAutonity.abi.Unpack("getEpochID", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1092,13 +1088,13 @@ func (_IAutonity *IAutonity) GetEpochID(opts *tests.RunOptions) (*big.Int, uint6
 // GetEpochInfo is a free data retrieval call binding the contract method 0xa9fd1a8f.
 //
 // Solidity: function getEpochInfo() view returns(((address,uint256,bytes)[],uint256,uint256,uint256,uint256,(uint256,uint256,uint256,uint256)))
-func (_IAutonity *IAutonity) GetEpochInfo(opts *tests.RunOptions) (IAutonityEpochInfo, uint64, error) {
+func (_IAutonity *IAutonity) GetEpochInfo(opts *RunOptions) (IAutonityEpochInfo, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getEpochInfo")
 
 	if err != nil {
 		return *new(IAutonityEpochInfo), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getEpochInfo", data)
+	out, err := _IAutonity.abi.Unpack("getEpochInfo", data)
 	if err != nil {
 		return *new(IAutonityEpochInfo), consumed, err
 	}
@@ -1111,13 +1107,13 @@ func (_IAutonity *IAutonity) GetEpochInfo(opts *tests.RunOptions) (IAutonityEpoc
 // GetEpochPeriod is a free data retrieval call binding the contract method 0xdfb1a4d2.
 //
 // Solidity: function getEpochPeriod() view returns(uint256)
-func (_IAutonity *IAutonity) GetEpochPeriod(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetEpochPeriod(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getEpochPeriod")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getEpochPeriod", data)
+	out, err := _IAutonity.abi.Unpack("getEpochPeriod", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1130,13 +1126,13 @@ func (_IAutonity *IAutonity) GetEpochPeriod(opts *tests.RunOptions) (*big.Int, u
 // GetEpochTotalBondedStake is a free data retrieval call binding the contract method 0x4efcd15f.
 //
 // Solidity: function getEpochTotalBondedStake() view returns(uint256)
-func (_IAutonity *IAutonity) GetEpochTotalBondedStake(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetEpochTotalBondedStake(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getEpochTotalBondedStake")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getEpochTotalBondedStake", data)
+	out, err := _IAutonity.abi.Unpack("getEpochTotalBondedStake", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1149,13 +1145,13 @@ func (_IAutonity *IAutonity) GetEpochTotalBondedStake(opts *tests.RunOptions) (*
 // GetInflationReserve is a free data retrieval call binding the contract method 0x4651e07b.
 //
 // Solidity: function getInflationReserve() view returns(uint256)
-func (_IAutonity *IAutonity) GetInflationReserve(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetInflationReserve(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getInflationReserve")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getInflationReserve", data)
+	out, err := _IAutonity.abi.Unpack("getInflationReserve", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1168,13 +1164,13 @@ func (_IAutonity *IAutonity) GetInflationReserve(opts *tests.RunOptions) (*big.I
 // GetLastEpochBlock is a free data retrieval call binding the contract method 0x731b3a03.
 //
 // Solidity: function getLastEpochBlock() view returns(uint256)
-func (_IAutonity *IAutonity) GetLastEpochBlock(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetLastEpochBlock(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getLastEpochBlock")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getLastEpochBlock", data)
+	out, err := _IAutonity.abi.Unpack("getLastEpochBlock", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1187,13 +1183,13 @@ func (_IAutonity *IAutonity) GetLastEpochBlock(opts *tests.RunOptions) (*big.Int
 // GetLastEpochTime is a free data retrieval call binding the contract method 0xba522458.
 //
 // Solidity: function getLastEpochTime() view returns(uint256)
-func (_IAutonity *IAutonity) GetLastEpochTime(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetLastEpochTime(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getLastEpochTime")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getLastEpochTime", data)
+	out, err := _IAutonity.abi.Unpack("getLastEpochTime", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1206,13 +1202,13 @@ func (_IAutonity *IAutonity) GetLastEpochTime(opts *tests.RunOptions) (*big.Int,
 // GetLiquidLogicContract is a free data retrieval call binding the contract method 0x4c1f1c77.
 //
 // Solidity: function getLiquidLogicContract() view returns(address)
-func (_IAutonity *IAutonity) GetLiquidLogicContract(opts *tests.RunOptions) (common.Address, uint64, error) {
+func (_IAutonity *IAutonity) GetLiquidLogicContract(opts *RunOptions) (common.Address, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getLiquidLogicContract")
 
 	if err != nil {
 		return *new(common.Address), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getLiquidLogicContract", data)
+	out, err := _IAutonity.abi.Unpack("getLiquidLogicContract", data)
 	if err != nil {
 		return *new(common.Address), consumed, err
 	}
@@ -1225,13 +1221,13 @@ func (_IAutonity *IAutonity) GetLiquidLogicContract(opts *tests.RunOptions) (com
 // GetMaxCommitteeSize is a free data retrieval call binding the contract method 0x819b6463.
 //
 // Solidity: function getMaxCommitteeSize() view returns(uint256)
-func (_IAutonity *IAutonity) GetMaxCommitteeSize(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetMaxCommitteeSize(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getMaxCommitteeSize")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getMaxCommitteeSize", data)
+	out, err := _IAutonity.abi.Unpack("getMaxCommitteeSize", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1244,13 +1240,13 @@ func (_IAutonity *IAutonity) GetMaxCommitteeSize(opts *tests.RunOptions) (*big.I
 // GetMaxScheduleDuration is a free data retrieval call binding the contract method 0xfed76a56.
 //
 // Solidity: function getMaxScheduleDuration() view returns(uint256)
-func (_IAutonity *IAutonity) GetMaxScheduleDuration(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetMaxScheduleDuration(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getMaxScheduleDuration")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getMaxScheduleDuration", data)
+	out, err := _IAutonity.abi.Unpack("getMaxScheduleDuration", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1263,13 +1259,13 @@ func (_IAutonity *IAutonity) GetMaxScheduleDuration(opts *tests.RunOptions) (*bi
 // GetMinimumBaseFee is a free data retrieval call binding the contract method 0x11220633.
 //
 // Solidity: function getMinimumBaseFee() view returns(uint256)
-func (_IAutonity *IAutonity) GetMinimumBaseFee(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetMinimumBaseFee(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getMinimumBaseFee")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getMinimumBaseFee", data)
+	out, err := _IAutonity.abi.Unpack("getMinimumBaseFee", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1282,13 +1278,13 @@ func (_IAutonity *IAutonity) GetMinimumBaseFee(opts *tests.RunOptions) (*big.Int
 // GetNextEpochBlock is a free data retrieval call binding the contract method 0x25ce1bb9.
 //
 // Solidity: function getNextEpochBlock() view returns(uint256)
-func (_IAutonity *IAutonity) GetNextEpochBlock(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetNextEpochBlock(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getNextEpochBlock")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getNextEpochBlock", data)
+	out, err := _IAutonity.abi.Unpack("getNextEpochBlock", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1301,13 +1297,13 @@ func (_IAutonity *IAutonity) GetNextEpochBlock(opts *tests.RunOptions) (*big.Int
 // GetOperator is a free data retrieval call binding the contract method 0xe7f43c68.
 //
 // Solidity: function getOperator() view returns(address)
-func (_IAutonity *IAutonity) GetOperator(opts *tests.RunOptions) (common.Address, uint64, error) {
+func (_IAutonity *IAutonity) GetOperator(opts *RunOptions) (common.Address, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getOperator")
 
 	if err != nil {
 		return *new(common.Address), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getOperator", data)
+	out, err := _IAutonity.abi.Unpack("getOperator", data)
 	if err != nil {
 		return *new(common.Address), consumed, err
 	}
@@ -1320,13 +1316,13 @@ func (_IAutonity *IAutonity) GetOperator(opts *tests.RunOptions) (common.Address
 // GetOracle is a free data retrieval call binding the contract method 0x833b1fce.
 //
 // Solidity: function getOracle() view returns(address)
-func (_IAutonity *IAutonity) GetOracle(opts *tests.RunOptions) (common.Address, uint64, error) {
+func (_IAutonity *IAutonity) GetOracle(opts *RunOptions) (common.Address, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getOracle")
 
 	if err != nil {
 		return *new(common.Address), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getOracle", data)
+	out, err := _IAutonity.abi.Unpack("getOracle", data)
 	if err != nil {
 		return *new(common.Address), consumed, err
 	}
@@ -1339,13 +1335,13 @@ func (_IAutonity *IAutonity) GetOracle(opts *tests.RunOptions) (common.Address, 
 // GetSchedule is a free data retrieval call binding the contract method 0x7264c4da.
 //
 // Solidity: function getSchedule(address _vault, uint256 _id) view returns((uint256,uint256,uint256,uint256,uint256))
-func (_IAutonity *IAutonity) GetSchedule(opts *tests.RunOptions, _vault common.Address, _id *big.Int) (IScheduleControllerSchedule, uint64, error) {
+func (_IAutonity *IAutonity) GetSchedule(opts *RunOptions, _vault common.Address, _id *big.Int) (IScheduleControllerSchedule, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getSchedule", _vault, _id)
 
 	if err != nil {
 		return *new(IScheduleControllerSchedule), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getSchedule", data)
+	out, err := _IAutonity.abi.Unpack("getSchedule", data)
 	if err != nil {
 		return *new(IScheduleControllerSchedule), consumed, err
 	}
@@ -1358,13 +1354,13 @@ func (_IAutonity *IAutonity) GetSchedule(opts *tests.RunOptions, _vault common.A
 // GetTotalSchedules is a free data retrieval call binding the contract method 0x088566e9.
 //
 // Solidity: function getTotalSchedules(address _vault) view returns(uint256)
-func (_IAutonity *IAutonity) GetTotalSchedules(opts *tests.RunOptions, _vault common.Address) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetTotalSchedules(opts *RunOptions, _vault common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getTotalSchedules", _vault)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getTotalSchedules", data)
+	out, err := _IAutonity.abi.Unpack("getTotalSchedules", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1377,13 +1373,13 @@ func (_IAutonity *IAutonity) GetTotalSchedules(opts *tests.RunOptions, _vault co
 // GetTreasuryAccount is a free data retrieval call binding the contract method 0xf7866ee3.
 //
 // Solidity: function getTreasuryAccount() view returns(address)
-func (_IAutonity *IAutonity) GetTreasuryAccount(opts *tests.RunOptions) (common.Address, uint64, error) {
+func (_IAutonity *IAutonity) GetTreasuryAccount(opts *RunOptions) (common.Address, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getTreasuryAccount")
 
 	if err != nil {
 		return *new(common.Address), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getTreasuryAccount", data)
+	out, err := _IAutonity.abi.Unpack("getTreasuryAccount", data)
 	if err != nil {
 		return *new(common.Address), consumed, err
 	}
@@ -1396,13 +1392,13 @@ func (_IAutonity *IAutonity) GetTreasuryAccount(opts *tests.RunOptions) (common.
 // GetTreasuryFee is a free data retrieval call binding the contract method 0x29070c6d.
 //
 // Solidity: function getTreasuryFee() view returns(uint256)
-func (_IAutonity *IAutonity) GetTreasuryFee(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetTreasuryFee(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getTreasuryFee")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getTreasuryFee", data)
+	out, err := _IAutonity.abi.Unpack("getTreasuryFee", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1415,13 +1411,13 @@ func (_IAutonity *IAutonity) GetTreasuryFee(opts *tests.RunOptions) (*big.Int, u
 // GetUnbondingPeriod is a free data retrieval call binding the contract method 0x6fd2c80b.
 //
 // Solidity: function getUnbondingPeriod() view returns(uint256)
-func (_IAutonity *IAutonity) GetUnbondingPeriod(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetUnbondingPeriod(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getUnbondingPeriod")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getUnbondingPeriod", data)
+	out, err := _IAutonity.abi.Unpack("getUnbondingPeriod", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1434,13 +1430,13 @@ func (_IAutonity *IAutonity) GetUnbondingPeriod(opts *tests.RunOptions) (*big.In
 // GetUnbondingRequestByID is a free data retrieval call binding the contract method 0x4bfe23f1.
 //
 // Solidity: function getUnbondingRequestByID(uint256 _id) view returns((address,address,uint256,uint256,uint256,bool,bool,bool))
-func (_IAutonity *IAutonity) GetUnbondingRequestByID(opts *tests.RunOptions, _id *big.Int) (IAutonityUnbondingRequest, uint64, error) {
+func (_IAutonity *IAutonity) GetUnbondingRequestByID(opts *RunOptions, _id *big.Int) (IAutonityUnbondingRequest, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getUnbondingRequestByID", _id)
 
 	if err != nil {
 		return *new(IAutonityUnbondingRequest), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getUnbondingRequestByID", data)
+	out, err := _IAutonity.abi.Unpack("getUnbondingRequestByID", data)
 	if err != nil {
 		return *new(IAutonityUnbondingRequest), consumed, err
 	}
@@ -1453,13 +1449,13 @@ func (_IAutonity *IAutonity) GetUnbondingRequestByID(opts *tests.RunOptions, _id
 // GetUnbondingShare is a free data retrieval call binding the contract method 0x8d347287.
 //
 // Solidity: function getUnbondingShare(uint256 _unbondingID) view returns(uint256)
-func (_IAutonity *IAutonity) GetUnbondingShare(opts *tests.RunOptions, _unbondingID *big.Int) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetUnbondingShare(opts *RunOptions, _unbondingID *big.Int) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getUnbondingShare", _unbondingID)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getUnbondingShare", data)
+	out, err := _IAutonity.abi.Unpack("getUnbondingShare", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1472,13 +1468,13 @@ func (_IAutonity *IAutonity) GetUnbondingShare(opts *tests.RunOptions, _unbondin
 // GetValidator is a free data retrieval call binding the contract method 0x1904bb2e.
 //
 // Solidity: function getValidator(address _addr) view returns((address,address,address,string,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,address,uint256,uint256,uint256,uint256,bytes,uint8,uint256))
-func (_IAutonity *IAutonity) GetValidator(opts *tests.RunOptions, _addr common.Address) (IAutonityValidator, uint64, error) {
+func (_IAutonity *IAutonity) GetValidator(opts *RunOptions, _addr common.Address) (IAutonityValidator, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getValidator", _addr)
 
 	if err != nil {
 		return *new(IAutonityValidator), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getValidator", data)
+	out, err := _IAutonity.abi.Unpack("getValidator", data)
 	if err != nil {
 		return *new(IAutonityValidator), consumed, err
 	}
@@ -1491,13 +1487,13 @@ func (_IAutonity *IAutonity) GetValidator(opts *tests.RunOptions, _addr common.A
 // GetValidatorState is a free data retrieval call binding the contract method 0x5b7d6c36.
 //
 // Solidity: function getValidatorState(address _addr) view returns(uint8)
-func (_IAutonity *IAutonity) GetValidatorState(opts *tests.RunOptions, _addr common.Address) (uint8, uint64, error) {
+func (_IAutonity *IAutonity) GetValidatorState(opts *RunOptions, _addr common.Address) (uint8, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getValidatorState", _addr)
 
 	if err != nil {
 		return *new(uint8), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getValidatorState", data)
+	out, err := _IAutonity.abi.Unpack("getValidatorState", data)
 	if err != nil {
 		return *new(uint8), consumed, err
 	}
@@ -1510,13 +1506,13 @@ func (_IAutonity *IAutonity) GetValidatorState(opts *tests.RunOptions, _addr com
 // GetValidators is a free data retrieval call binding the contract method 0xb7ab4db5.
 //
 // Solidity: function getValidators() view returns(address[])
-func (_IAutonity *IAutonity) GetValidators(opts *tests.RunOptions) ([]common.Address, uint64, error) {
+func (_IAutonity *IAutonity) GetValidators(opts *RunOptions) ([]common.Address, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getValidators")
 
 	if err != nil {
 		return *new([]common.Address), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getValidators", data)
+	out, err := _IAutonity.abi.Unpack("getValidators", data)
 	if err != nil {
 		return *new([]common.Address), consumed, err
 	}
@@ -1529,13 +1525,13 @@ func (_IAutonity *IAutonity) GetValidators(opts *tests.RunOptions) ([]common.Add
 // GetVersion is a free data retrieval call binding the contract method 0x0d8e6e2c.
 //
 // Solidity: function getVersion() view returns(uint256)
-func (_IAutonity *IAutonity) GetVersion(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) GetVersion(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "getVersion")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("getVersion", data)
+	out, err := _IAutonity.abi.Unpack("getVersion", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1548,13 +1544,13 @@ func (_IAutonity *IAutonity) GetVersion(opts *tests.RunOptions) (*big.Int, uint6
 // IsUnbondingReleased is a free data retrieval call binding the contract method 0xe294df7c.
 //
 // Solidity: function isUnbondingReleased(uint256 _unbondingID) view returns(bool)
-func (_IAutonity *IAutonity) IsUnbondingReleased(opts *tests.RunOptions, _unbondingID *big.Int) (bool, uint64, error) {
+func (_IAutonity *IAutonity) IsUnbondingReleased(opts *RunOptions, _unbondingID *big.Int) (bool, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "isUnbondingReleased", _unbondingID)
 
 	if err != nil {
 		return *new(bool), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("isUnbondingReleased", data)
+	out, err := _IAutonity.abi.Unpack("isUnbondingReleased", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -1567,13 +1563,13 @@ func (_IAutonity *IAutonity) IsUnbondingReleased(opts *tests.RunOptions, _unbond
 // TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
 //
 // Solidity: function totalSupply() view returns(uint256)
-func (_IAutonity *IAutonity) TotalSupply(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) TotalSupply(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "totalSupply")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("totalSupply", data)
+	out, err := _IAutonity.abi.Unpack("totalSupply", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1587,7 +1583,7 @@ func (_IAutonity *IAutonity) TotalSupply(opts *tests.RunOptions) (*big.Int, uint
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function activateValidator(address _address) returns()
-func (_IAutonity *IAutonity) CallActivateValidator(r *tests.Runner, opts *tests.RunOptions, _address common.Address) (uint64, error) {
+func (_IAutonity *IAutonity) CallActivateValidator(r *Runner, opts *RunOptions, _address common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "activateValidator", _address)
@@ -1600,7 +1596,7 @@ func (_IAutonity *IAutonity) CallActivateValidator(r *tests.Runner, opts *tests.
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function approve(address spender, uint256 amount) returns(bool)
-func (_IAutonity *IAutonity) CallApprove(r *tests.Runner, opts *tests.RunOptions, spender common.Address, amount *big.Int) (bool, uint64, error) {
+func (_IAutonity *IAutonity) CallApprove(r *Runner, opts *RunOptions, spender common.Address, amount *big.Int) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "approve", spender, amount)
@@ -1609,7 +1605,7 @@ func (_IAutonity *IAutonity) CallApprove(r *tests.Runner, opts *tests.RunOptions
 	if err != nil {
 		return *new(bool), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("approve", data)
+	out, err := _IAutonity.abi.Unpack("approve", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -1623,7 +1619,7 @@ func (_IAutonity *IAutonity) CallApprove(r *tests.Runner, opts *tests.RunOptions
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function approveBonding(address _caller, uint256 _amount) returns(bool)
-func (_IAutonity *IAutonity) CallApproveBonding(r *tests.Runner, opts *tests.RunOptions, _caller common.Address, _amount *big.Int) (bool, uint64, error) {
+func (_IAutonity *IAutonity) CallApproveBonding(r *Runner, opts *RunOptions, _caller common.Address, _amount *big.Int) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "approveBonding", _caller, _amount)
@@ -1632,7 +1628,7 @@ func (_IAutonity *IAutonity) CallApproveBonding(r *tests.Runner, opts *tests.Run
 	if err != nil {
 		return *new(bool), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("approveBonding", data)
+	out, err := _IAutonity.abi.Unpack("approveBonding", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -1646,7 +1642,7 @@ func (_IAutonity *IAutonity) CallApproveBonding(r *tests.Runner, opts *tests.Run
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function autobond(address _validator, uint256 _selfBond, uint256 _delegated) returns()
-func (_IAutonity *IAutonity) CallAutobond(r *tests.Runner, opts *tests.RunOptions, _validator common.Address, _selfBond *big.Int, _delegated *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) CallAutobond(r *Runner, opts *RunOptions, _validator common.Address, _selfBond *big.Int, _delegated *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "autobond", _validator, _selfBond, _delegated)
@@ -1659,7 +1655,7 @@ func (_IAutonity *IAutonity) CallAutobond(r *tests.Runner, opts *tests.RunOption
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function bond(address _validator, uint256 _amount) returns(uint256)
-func (_IAutonity *IAutonity) CallBond(r *tests.Runner, opts *tests.RunOptions, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) CallBond(r *Runner, opts *RunOptions, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "bond", _validator, _amount)
@@ -1668,7 +1664,7 @@ func (_IAutonity *IAutonity) CallBond(r *tests.Runner, opts *tests.RunOptions, _
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("bond", data)
+	out, err := _IAutonity.abi.Unpack("bond", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1682,7 +1678,7 @@ func (_IAutonity *IAutonity) CallBond(r *tests.Runner, opts *tests.RunOptions, _
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function bondFrom(address _account, address _validator, uint256 _amount) returns(uint256)
-func (_IAutonity *IAutonity) CallBondFrom(r *tests.Runner, opts *tests.RunOptions, _account common.Address, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) CallBondFrom(r *Runner, opts *RunOptions, _account common.Address, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "bondFrom", _account, _validator, _amount)
@@ -1691,7 +1687,7 @@ func (_IAutonity *IAutonity) CallBondFrom(r *tests.Runner, opts *tests.RunOption
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("bondFrom", data)
+	out, err := _IAutonity.abi.Unpack("bondFrom", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1705,7 +1701,7 @@ func (_IAutonity *IAutonity) CallBondFrom(r *tests.Runner, opts *tests.RunOption
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function changeCommissionRate(address _validator, uint256 _rate) returns()
-func (_IAutonity *IAutonity) CallChangeCommissionRate(r *tests.Runner, opts *tests.RunOptions, _validator common.Address, _rate *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) CallChangeCommissionRate(r *Runner, opts *RunOptions, _validator common.Address, _rate *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "changeCommissionRate", _validator, _rate)
@@ -1718,7 +1714,7 @@ func (_IAutonity *IAutonity) CallChangeCommissionRate(r *tests.Runner, opts *tes
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function jail(address _nodeAddress, uint256 _jailtime, uint8 _newJailedState) returns(uint256)
-func (_IAutonity *IAutonity) CallJail(r *tests.Runner, opts *tests.RunOptions, _nodeAddress common.Address, _jailtime *big.Int, _newJailedState uint8) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) CallJail(r *Runner, opts *RunOptions, _nodeAddress common.Address, _jailtime *big.Int, _newJailedState uint8) (*big.Int, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "jail", _nodeAddress, _jailtime, _newJailedState)
@@ -1727,7 +1723,7 @@ func (_IAutonity *IAutonity) CallJail(r *tests.Runner, opts *tests.RunOptions, _
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("jail", data)
+	out, err := _IAutonity.abi.Unpack("jail", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1741,7 +1737,7 @@ func (_IAutonity *IAutonity) CallJail(r *tests.Runner, opts *tests.RunOptions, _
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function jailbound(address _nodeAddress, uint8 _newJailboundState) returns()
-func (_IAutonity *IAutonity) CallJailbound(r *tests.Runner, opts *tests.RunOptions, _nodeAddress common.Address, _newJailboundState uint8) (uint64, error) {
+func (_IAutonity *IAutonity) CallJailbound(r *Runner, opts *RunOptions, _nodeAddress common.Address, _newJailboundState uint8) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "jailbound", _nodeAddress, _newJailboundState)
@@ -1754,7 +1750,7 @@ func (_IAutonity *IAutonity) CallJailbound(r *tests.Runner, opts *tests.RunOptio
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function pauseValidator(address _address) returns()
-func (_IAutonity *IAutonity) CallPauseValidator(r *tests.Runner, opts *tests.RunOptions, _address common.Address) (uint64, error) {
+func (_IAutonity *IAutonity) CallPauseValidator(r *Runner, opts *RunOptions, _address common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "pauseValidator", _address)
@@ -1767,7 +1763,7 @@ func (_IAutonity *IAutonity) CallPauseValidator(r *tests.Runner, opts *tests.Run
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function registerValidator(string _enode, address _oracleAddress, bytes _consensusKey, bytes _signatures) returns()
-func (_IAutonity *IAutonity) CallRegisterValidator(r *tests.Runner, opts *tests.RunOptions, _enode string, _oracleAddress common.Address, _consensusKey []byte, _signatures []byte) (uint64, error) {
+func (_IAutonity *IAutonity) CallRegisterValidator(r *Runner, opts *RunOptions, _enode string, _oracleAddress common.Address, _consensusKey []byte, _signatures []byte) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "registerValidator", _enode, _oracleAddress, _consensusKey, _signatures)
@@ -1780,7 +1776,7 @@ func (_IAutonity *IAutonity) CallRegisterValidator(r *tests.Runner, opts *tests.
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function slash(address _nodeAddress, uint256 _slashingRate) returns(uint256 slashingAmount)
-func (_IAutonity *IAutonity) CallSlash(r *tests.Runner, opts *tests.RunOptions, _nodeAddress common.Address, _slashingRate *big.Int) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) CallSlash(r *Runner, opts *RunOptions, _nodeAddress common.Address, _slashingRate *big.Int) (*big.Int, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "slash", _nodeAddress, _slashingRate)
@@ -1789,7 +1785,7 @@ func (_IAutonity *IAutonity) CallSlash(r *tests.Runner, opts *tests.RunOptions, 
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("slash", data)
+	out, err := _IAutonity.abi.Unpack("slash", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1803,7 +1799,7 @@ func (_IAutonity *IAutonity) CallSlash(r *tests.Runner, opts *tests.RunOptions, 
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function slashAndJail(address _nodeAddress, uint256 _slashingRate, uint256 _jailtime, uint8 _newJailedState, uint8 _newJailboundState) returns(uint256 slashingAmount, uint256 jailReleaseBlock, bool isJailbound)
-func (_IAutonity *IAutonity) CallSlashAndJail(r *tests.Runner, opts *tests.RunOptions, _nodeAddress common.Address, _slashingRate *big.Int, _jailtime *big.Int, _newJailedState uint8, _newJailboundState uint8) (struct {
+func (_IAutonity *IAutonity) CallSlashAndJail(r *Runner, opts *RunOptions, _nodeAddress common.Address, _slashingRate *big.Int, _jailtime *big.Int, _newJailedState uint8, _newJailboundState uint8) (struct {
 	SlashingAmount   *big.Int
 	JailReleaseBlock *big.Int
 	IsJailbound      bool
@@ -1821,7 +1817,7 @@ func (_IAutonity *IAutonity) CallSlashAndJail(r *tests.Runner, opts *tests.RunOp
 	if err != nil {
 		return *outstruct, consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("slashAndJail", data)
+	out, err := _IAutonity.abi.Unpack("slashAndJail", data)
 	if err != nil {
 		return *outstruct, consumed, err
 	}
@@ -1837,7 +1833,7 @@ func (_IAutonity *IAutonity) CallSlashAndJail(r *tests.Runner, opts *tests.RunOp
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function transfer(address recipient, uint256 amount) returns(bool)
-func (_IAutonity *IAutonity) CallTransfer(r *tests.Runner, opts *tests.RunOptions, recipient common.Address, amount *big.Int) (bool, uint64, error) {
+func (_IAutonity *IAutonity) CallTransfer(r *Runner, opts *RunOptions, recipient common.Address, amount *big.Int) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "transfer", recipient, amount)
@@ -1846,7 +1842,7 @@ func (_IAutonity *IAutonity) CallTransfer(r *tests.Runner, opts *tests.RunOption
 	if err != nil {
 		return *new(bool), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("transfer", data)
+	out, err := _IAutonity.abi.Unpack("transfer", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -1860,7 +1856,7 @@ func (_IAutonity *IAutonity) CallTransfer(r *tests.Runner, opts *tests.RunOption
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function transferFrom(address sender, address recipient, uint256 amount) returns(bool)
-func (_IAutonity *IAutonity) CallTransferFrom(r *tests.Runner, opts *tests.RunOptions, sender common.Address, recipient common.Address, amount *big.Int) (bool, uint64, error) {
+func (_IAutonity *IAutonity) CallTransferFrom(r *Runner, opts *RunOptions, sender common.Address, recipient common.Address, amount *big.Int) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "transferFrom", sender, recipient, amount)
@@ -1869,7 +1865,7 @@ func (_IAutonity *IAutonity) CallTransferFrom(r *tests.Runner, opts *tests.RunOp
 	if err != nil {
 		return *new(bool), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("transferFrom", data)
+	out, err := _IAutonity.abi.Unpack("transferFrom", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -1883,7 +1879,7 @@ func (_IAutonity *IAutonity) CallTransferFrom(r *tests.Runner, opts *tests.RunOp
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function unbond(address _validator, uint256 _amount) returns(uint256)
-func (_IAutonity *IAutonity) CallUnbond(r *tests.Runner, opts *tests.RunOptions, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) CallUnbond(r *Runner, opts *RunOptions, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "unbond", _validator, _amount)
@@ -1892,7 +1888,7 @@ func (_IAutonity *IAutonity) CallUnbond(r *tests.Runner, opts *tests.RunOptions,
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("unbond", data)
+	out, err := _IAutonity.abi.Unpack("unbond", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1906,7 +1902,7 @@ func (_IAutonity *IAutonity) CallUnbond(r *tests.Runner, opts *tests.RunOptions,
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function unbondFrom(address _account, address _validator, uint256 _amount) returns(uint256)
-func (_IAutonity *IAutonity) CallUnbondFrom(r *tests.Runner, opts *tests.RunOptions, _account common.Address, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
+func (_IAutonity *IAutonity) CallUnbondFrom(r *Runner, opts *RunOptions, _account common.Address, _validator common.Address, _amount *big.Int) (*big.Int, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "unbondFrom", _account, _validator, _amount)
@@ -1915,7 +1911,7 @@ func (_IAutonity *IAutonity) CallUnbondFrom(r *tests.Runner, opts *tests.RunOpti
 	if err != nil {
 		return *new(*big.Int), consumed, _IAutonity.DecodeError(data, err)
 	}
-	out, err := _IAutonity.Contract.Abi().Unpack("unbondFrom", data)
+	out, err := _IAutonity.abi.Unpack("unbondFrom", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -1929,7 +1925,7 @@ func (_IAutonity *IAutonity) CallUnbondFrom(r *tests.Runner, opts *tests.RunOpti
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function updateEnode(address _nodeAddress, string _enode) returns()
-func (_IAutonity *IAutonity) CallUpdateEnode(r *tests.Runner, opts *tests.RunOptions, _nodeAddress common.Address, _enode string) (uint64, error) {
+func (_IAutonity *IAutonity) CallUpdateEnode(r *Runner, opts *RunOptions, _nodeAddress common.Address, _enode string) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IAutonity.Call(opts, "updateEnode", _nodeAddress, _enode)
@@ -1941,7 +1937,7 @@ func (_IAutonity *IAutonity) CallUpdateEnode(r *tests.Runner, opts *tests.RunOpt
 // ActivateValidator is a paid mutator transaction binding the contract method 0xb46e5520.
 //
 // Solidity: function activateValidator(address _address) returns()
-func (_IAutonity *IAutonity) ActivateValidator(opts *tests.RunOptions, _address common.Address) (uint64, error) {
+func (_IAutonity *IAutonity) ActivateValidator(opts *RunOptions, _address common.Address) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "activateValidator", _address)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -1949,7 +1945,7 @@ func (_IAutonity *IAutonity) ActivateValidator(opts *tests.RunOptions, _address 
 // Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
 //
 // Solidity: function approve(address spender, uint256 amount) returns(bool)
-func (_IAutonity *IAutonity) Approve(opts *tests.RunOptions, spender common.Address, amount *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) Approve(opts *RunOptions, spender common.Address, amount *big.Int) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "approve", spender, amount)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -1957,7 +1953,7 @@ func (_IAutonity *IAutonity) Approve(opts *tests.RunOptions, spender common.Addr
 // ApproveBonding is a paid mutator transaction binding the contract method 0x50492571.
 //
 // Solidity: function approveBonding(address _caller, uint256 _amount) returns(bool)
-func (_IAutonity *IAutonity) ApproveBonding(opts *tests.RunOptions, _caller common.Address, _amount *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) ApproveBonding(opts *RunOptions, _caller common.Address, _amount *big.Int) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "approveBonding", _caller, _amount)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -1965,7 +1961,7 @@ func (_IAutonity *IAutonity) ApproveBonding(opts *tests.RunOptions, _caller comm
 // Autobond is a paid mutator transaction binding the contract method 0xf7fcc510.
 //
 // Solidity: function autobond(address _validator, uint256 _selfBond, uint256 _delegated) returns()
-func (_IAutonity *IAutonity) Autobond(opts *tests.RunOptions, _validator common.Address, _selfBond *big.Int, _delegated *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) Autobond(opts *RunOptions, _validator common.Address, _selfBond *big.Int, _delegated *big.Int) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "autobond", _validator, _selfBond, _delegated)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -1973,7 +1969,7 @@ func (_IAutonity *IAutonity) Autobond(opts *tests.RunOptions, _validator common.
 // Bond is a paid mutator transaction binding the contract method 0xa515366a.
 //
 // Solidity: function bond(address _validator, uint256 _amount) returns(uint256)
-func (_IAutonity *IAutonity) Bond(opts *tests.RunOptions, _validator common.Address, _amount *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) Bond(opts *RunOptions, _validator common.Address, _amount *big.Int) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "bond", _validator, _amount)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -1981,7 +1977,7 @@ func (_IAutonity *IAutonity) Bond(opts *tests.RunOptions, _validator common.Addr
 // BondFrom is a paid mutator transaction binding the contract method 0x41de7400.
 //
 // Solidity: function bondFrom(address _account, address _validator, uint256 _amount) returns(uint256)
-func (_IAutonity *IAutonity) BondFrom(opts *tests.RunOptions, _account common.Address, _validator common.Address, _amount *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) BondFrom(opts *RunOptions, _account common.Address, _validator common.Address, _amount *big.Int) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "bondFrom", _account, _validator, _amount)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -1989,7 +1985,7 @@ func (_IAutonity *IAutonity) BondFrom(opts *tests.RunOptions, _account common.Ad
 // ChangeCommissionRate is a paid mutator transaction binding the contract method 0x852c4849.
 //
 // Solidity: function changeCommissionRate(address _validator, uint256 _rate) returns()
-func (_IAutonity *IAutonity) ChangeCommissionRate(opts *tests.RunOptions, _validator common.Address, _rate *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) ChangeCommissionRate(opts *RunOptions, _validator common.Address, _rate *big.Int) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "changeCommissionRate", _validator, _rate)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -1997,7 +1993,7 @@ func (_IAutonity *IAutonity) ChangeCommissionRate(opts *tests.RunOptions, _valid
 // Jail is a paid mutator transaction binding the contract method 0x154d76d7.
 //
 // Solidity: function jail(address _nodeAddress, uint256 _jailtime, uint8 _newJailedState) returns(uint256)
-func (_IAutonity *IAutonity) Jail(opts *tests.RunOptions, _nodeAddress common.Address, _jailtime *big.Int, _newJailedState uint8) (uint64, error) {
+func (_IAutonity *IAutonity) Jail(opts *RunOptions, _nodeAddress common.Address, _jailtime *big.Int, _newJailedState uint8) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "jail", _nodeAddress, _jailtime, _newJailedState)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -2005,7 +2001,7 @@ func (_IAutonity *IAutonity) Jail(opts *tests.RunOptions, _nodeAddress common.Ad
 // Jailbound is a paid mutator transaction binding the contract method 0x8ef8c2fd.
 //
 // Solidity: function jailbound(address _nodeAddress, uint8 _newJailboundState) returns()
-func (_IAutonity *IAutonity) Jailbound(opts *tests.RunOptions, _nodeAddress common.Address, _newJailboundState uint8) (uint64, error) {
+func (_IAutonity *IAutonity) Jailbound(opts *RunOptions, _nodeAddress common.Address, _newJailboundState uint8) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "jailbound", _nodeAddress, _newJailboundState)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -2013,7 +2009,7 @@ func (_IAutonity *IAutonity) Jailbound(opts *tests.RunOptions, _nodeAddress comm
 // PauseValidator is a paid mutator transaction binding the contract method 0x0ae65e7a.
 //
 // Solidity: function pauseValidator(address _address) returns()
-func (_IAutonity *IAutonity) PauseValidator(opts *tests.RunOptions, _address common.Address) (uint64, error) {
+func (_IAutonity *IAutonity) PauseValidator(opts *RunOptions, _address common.Address) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "pauseValidator", _address)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -2021,7 +2017,7 @@ func (_IAutonity *IAutonity) PauseValidator(opts *tests.RunOptions, _address com
 // RegisterValidator is a paid mutator transaction binding the contract method 0x84467fdb.
 //
 // Solidity: function registerValidator(string _enode, address _oracleAddress, bytes _consensusKey, bytes _signatures) returns()
-func (_IAutonity *IAutonity) RegisterValidator(opts *tests.RunOptions, _enode string, _oracleAddress common.Address, _consensusKey []byte, _signatures []byte) (uint64, error) {
+func (_IAutonity *IAutonity) RegisterValidator(opts *RunOptions, _enode string, _oracleAddress common.Address, _consensusKey []byte, _signatures []byte) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "registerValidator", _enode, _oracleAddress, _consensusKey, _signatures)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -2029,7 +2025,7 @@ func (_IAutonity *IAutonity) RegisterValidator(opts *tests.RunOptions, _enode st
 // Slash is a paid mutator transaction binding the contract method 0x02fb4d85.
 //
 // Solidity: function slash(address _nodeAddress, uint256 _slashingRate) returns(uint256 slashingAmount)
-func (_IAutonity *IAutonity) Slash(opts *tests.RunOptions, _nodeAddress common.Address, _slashingRate *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) Slash(opts *RunOptions, _nodeAddress common.Address, _slashingRate *big.Int) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "slash", _nodeAddress, _slashingRate)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -2037,7 +2033,7 @@ func (_IAutonity *IAutonity) Slash(opts *tests.RunOptions, _nodeAddress common.A
 // SlashAndJail is a paid mutator transaction binding the contract method 0x122b4122.
 //
 // Solidity: function slashAndJail(address _nodeAddress, uint256 _slashingRate, uint256 _jailtime, uint8 _newJailedState, uint8 _newJailboundState) returns(uint256 slashingAmount, uint256 jailReleaseBlock, bool isJailbound)
-func (_IAutonity *IAutonity) SlashAndJail(opts *tests.RunOptions, _nodeAddress common.Address, _slashingRate *big.Int, _jailtime *big.Int, _newJailedState uint8, _newJailboundState uint8) (uint64, error) {
+func (_IAutonity *IAutonity) SlashAndJail(opts *RunOptions, _nodeAddress common.Address, _slashingRate *big.Int, _jailtime *big.Int, _newJailedState uint8, _newJailboundState uint8) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "slashAndJail", _nodeAddress, _slashingRate, _jailtime, _newJailedState, _newJailboundState)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -2045,7 +2041,7 @@ func (_IAutonity *IAutonity) SlashAndJail(opts *tests.RunOptions, _nodeAddress c
 // Transfer is a paid mutator transaction binding the contract method 0xa9059cbb.
 //
 // Solidity: function transfer(address recipient, uint256 amount) returns(bool)
-func (_IAutonity *IAutonity) Transfer(opts *tests.RunOptions, recipient common.Address, amount *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) Transfer(opts *RunOptions, recipient common.Address, amount *big.Int) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "transfer", recipient, amount)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -2053,7 +2049,7 @@ func (_IAutonity *IAutonity) Transfer(opts *tests.RunOptions, recipient common.A
 // TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
 //
 // Solidity: function transferFrom(address sender, address recipient, uint256 amount) returns(bool)
-func (_IAutonity *IAutonity) TransferFrom(opts *tests.RunOptions, sender common.Address, recipient common.Address, amount *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) TransferFrom(opts *RunOptions, sender common.Address, recipient common.Address, amount *big.Int) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "transferFrom", sender, recipient, amount)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -2061,7 +2057,7 @@ func (_IAutonity *IAutonity) TransferFrom(opts *tests.RunOptions, sender common.
 // Unbond is a paid mutator transaction binding the contract method 0xa5d059ca.
 //
 // Solidity: function unbond(address _validator, uint256 _amount) returns(uint256)
-func (_IAutonity *IAutonity) Unbond(opts *tests.RunOptions, _validator common.Address, _amount *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) Unbond(opts *RunOptions, _validator common.Address, _amount *big.Int) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "unbond", _validator, _amount)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -2069,7 +2065,7 @@ func (_IAutonity *IAutonity) Unbond(opts *tests.RunOptions, _validator common.Ad
 // UnbondFrom is a paid mutator transaction binding the contract method 0xa9a7d7c9.
 //
 // Solidity: function unbondFrom(address _account, address _validator, uint256 _amount) returns(uint256)
-func (_IAutonity *IAutonity) UnbondFrom(opts *tests.RunOptions, _account common.Address, _validator common.Address, _amount *big.Int) (uint64, error) {
+func (_IAutonity *IAutonity) UnbondFrom(opts *RunOptions, _account common.Address, _validator common.Address, _amount *big.Int) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "unbondFrom", _account, _validator, _amount)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -2077,7 +2073,7 @@ func (_IAutonity *IAutonity) UnbondFrom(opts *tests.RunOptions, _account common.
 // UpdateEnode is a paid mutator transaction binding the contract method 0x784304b5.
 //
 // Solidity: function updateEnode(address _nodeAddress, string _enode) returns()
-func (_IAutonity *IAutonity) UpdateEnode(opts *tests.RunOptions, _nodeAddress common.Address, _enode string) (uint64, error) {
+func (_IAutonity *IAutonity) UpdateEnode(opts *RunOptions, _nodeAddress common.Address, _enode string) (uint64, error) {
 	data, consumed, err := _IAutonity.Call(opts, "updateEnode", _nodeAddress, _enode)
 	return consumed, _IAutonity.DecodeError(data, err)
 }
@@ -2103,7 +2099,7 @@ var IConfigEventsABI = IConfigEventsMetaData.ABI
 
 // IConfigEvents is an auto generated Go binding around an Ethereum contract.
 type IConfigEvents struct {
-	*tests.Contract
+	*Contract
 }
 
 func (_IConfigEvents *IConfigEvents) DecodeError(data []byte, err error) error {
@@ -2139,19 +2135,19 @@ var IERC20FuncSigs = IERC20MetaData.Sigs
 
 // IERC20 is an auto generated Go binding around an Ethereum contract.
 type IERC20 struct {
-	*tests.Contract
+	*Contract
 }
 
 // Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
 //
 // Solidity: function allowance(address owner, address spender) view returns(uint256)
-func (_IERC20 *IERC20) Allowance(opts *tests.RunOptions, owner common.Address, spender common.Address) (*big.Int, uint64, error) {
+func (_IERC20 *IERC20) Allowance(opts *RunOptions, owner common.Address, spender common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _IERC20.Call(opts, "allowance", owner, spender)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IERC20.DecodeError(data, err)
 	}
-	out, err := _IERC20.Contract.Abi().Unpack("allowance", data)
+	out, err := _IERC20.abi.Unpack("allowance", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2164,13 +2160,13 @@ func (_IERC20 *IERC20) Allowance(opts *tests.RunOptions, owner common.Address, s
 // BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
 //
 // Solidity: function balanceOf(address account) view returns(uint256)
-func (_IERC20 *IERC20) BalanceOf(opts *tests.RunOptions, account common.Address) (*big.Int, uint64, error) {
+func (_IERC20 *IERC20) BalanceOf(opts *RunOptions, account common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _IERC20.Call(opts, "balanceOf", account)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IERC20.DecodeError(data, err)
 	}
-	out, err := _IERC20.Contract.Abi().Unpack("balanceOf", data)
+	out, err := _IERC20.abi.Unpack("balanceOf", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2183,13 +2179,13 @@ func (_IERC20 *IERC20) BalanceOf(opts *tests.RunOptions, account common.Address)
 // TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
 //
 // Solidity: function totalSupply() view returns(uint256)
-func (_IERC20 *IERC20) TotalSupply(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IERC20 *IERC20) TotalSupply(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IERC20.Call(opts, "totalSupply")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IERC20.DecodeError(data, err)
 	}
-	out, err := _IERC20.Contract.Abi().Unpack("totalSupply", data)
+	out, err := _IERC20.abi.Unpack("totalSupply", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2203,7 +2199,7 @@ func (_IERC20 *IERC20) TotalSupply(opts *tests.RunOptions) (*big.Int, uint64, er
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function approve(address spender, uint256 amount) returns(bool)
-func (_IERC20 *IERC20) CallApprove(r *tests.Runner, opts *tests.RunOptions, spender common.Address, amount *big.Int) (bool, uint64, error) {
+func (_IERC20 *IERC20) CallApprove(r *Runner, opts *RunOptions, spender common.Address, amount *big.Int) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IERC20.Call(opts, "approve", spender, amount)
@@ -2212,7 +2208,7 @@ func (_IERC20 *IERC20) CallApprove(r *tests.Runner, opts *tests.RunOptions, spen
 	if err != nil {
 		return *new(bool), consumed, _IERC20.DecodeError(data, err)
 	}
-	out, err := _IERC20.Contract.Abi().Unpack("approve", data)
+	out, err := _IERC20.abi.Unpack("approve", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -2226,7 +2222,7 @@ func (_IERC20 *IERC20) CallApprove(r *tests.Runner, opts *tests.RunOptions, spen
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function transfer(address recipient, uint256 amount) returns(bool)
-func (_IERC20 *IERC20) CallTransfer(r *tests.Runner, opts *tests.RunOptions, recipient common.Address, amount *big.Int) (bool, uint64, error) {
+func (_IERC20 *IERC20) CallTransfer(r *Runner, opts *RunOptions, recipient common.Address, amount *big.Int) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IERC20.Call(opts, "transfer", recipient, amount)
@@ -2235,7 +2231,7 @@ func (_IERC20 *IERC20) CallTransfer(r *tests.Runner, opts *tests.RunOptions, rec
 	if err != nil {
 		return *new(bool), consumed, _IERC20.DecodeError(data, err)
 	}
-	out, err := _IERC20.Contract.Abi().Unpack("transfer", data)
+	out, err := _IERC20.abi.Unpack("transfer", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -2249,7 +2245,7 @@ func (_IERC20 *IERC20) CallTransfer(r *tests.Runner, opts *tests.RunOptions, rec
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function transferFrom(address sender, address recipient, uint256 amount) returns(bool)
-func (_IERC20 *IERC20) CallTransferFrom(r *tests.Runner, opts *tests.RunOptions, sender common.Address, recipient common.Address, amount *big.Int) (bool, uint64, error) {
+func (_IERC20 *IERC20) CallTransferFrom(r *Runner, opts *RunOptions, sender common.Address, recipient common.Address, amount *big.Int) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IERC20.Call(opts, "transferFrom", sender, recipient, amount)
@@ -2258,7 +2254,7 @@ func (_IERC20 *IERC20) CallTransferFrom(r *tests.Runner, opts *tests.RunOptions,
 	if err != nil {
 		return *new(bool), consumed, _IERC20.DecodeError(data, err)
 	}
-	out, err := _IERC20.Contract.Abi().Unpack("transferFrom", data)
+	out, err := _IERC20.abi.Unpack("transferFrom", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -2271,7 +2267,7 @@ func (_IERC20 *IERC20) CallTransferFrom(r *tests.Runner, opts *tests.RunOptions,
 // Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
 //
 // Solidity: function approve(address spender, uint256 amount) returns(bool)
-func (_IERC20 *IERC20) Approve(opts *tests.RunOptions, spender common.Address, amount *big.Int) (uint64, error) {
+func (_IERC20 *IERC20) Approve(opts *RunOptions, spender common.Address, amount *big.Int) (uint64, error) {
 	data, consumed, err := _IERC20.Call(opts, "approve", spender, amount)
 	return consumed, _IERC20.DecodeError(data, err)
 }
@@ -2279,7 +2275,7 @@ func (_IERC20 *IERC20) Approve(opts *tests.RunOptions, spender common.Address, a
 // Transfer is a paid mutator transaction binding the contract method 0xa9059cbb.
 //
 // Solidity: function transfer(address recipient, uint256 amount) returns(bool)
-func (_IERC20 *IERC20) Transfer(opts *tests.RunOptions, recipient common.Address, amount *big.Int) (uint64, error) {
+func (_IERC20 *IERC20) Transfer(opts *RunOptions, recipient common.Address, amount *big.Int) (uint64, error) {
 	data, consumed, err := _IERC20.Call(opts, "transfer", recipient, amount)
 	return consumed, _IERC20.DecodeError(data, err)
 }
@@ -2287,7 +2283,7 @@ func (_IERC20 *IERC20) Transfer(opts *tests.RunOptions, recipient common.Address
 // TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
 //
 // Solidity: function transferFrom(address sender, address recipient, uint256 amount) returns(bool)
-func (_IERC20 *IERC20) TransferFrom(opts *tests.RunOptions, sender common.Address, recipient common.Address, amount *big.Int) (uint64, error) {
+func (_IERC20 *IERC20) TransferFrom(opts *RunOptions, sender common.Address, recipient common.Address, amount *big.Int) (uint64, error) {
 	data, consumed, err := _IERC20.Call(opts, "transferFrom", sender, recipient, amount)
 	return consumed, _IERC20.DecodeError(data, err)
 }
@@ -2320,19 +2316,19 @@ var IInflationControllerFuncSigs = IInflationControllerMetaData.Sigs
 
 // IInflationController is an auto generated Go binding around an Ethereum contract.
 type IInflationController struct {
-	*tests.Contract
+	*Contract
 }
 
 // CalculateSupplyDelta is a free data retrieval call binding the contract method 0x92eff3cd.
 //
 // Solidity: function calculateSupplyDelta(uint256 _currentSupply, uint256 _inflationReserve, uint256 _lastEpochTime, uint256 _currentEpochTime) view returns(uint256)
-func (_IInflationController *IInflationController) CalculateSupplyDelta(opts *tests.RunOptions, _currentSupply *big.Int, _inflationReserve *big.Int, _lastEpochTime *big.Int, _currentEpochTime *big.Int) (*big.Int, uint64, error) {
+func (_IInflationController *IInflationController) CalculateSupplyDelta(opts *RunOptions, _currentSupply *big.Int, _inflationReserve *big.Int, _lastEpochTime *big.Int, _currentEpochTime *big.Int) (*big.Int, uint64, error) {
 	data, consumed, err := _IInflationController.Call(opts, "calculateSupplyDelta", _currentSupply, _inflationReserve, _lastEpochTime, _currentEpochTime)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IInflationController.DecodeError(data, err)
 	}
-	out, err := _IInflationController.Contract.Abi().Unpack("calculateSupplyDelta", data)
+	out, err := _IInflationController.abi.Unpack("calculateSupplyDelta", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2396,19 +2392,19 @@ var ILiquidFuncSigs = ILiquidMetaData.Sigs
 
 // ILiquid is an auto generated Go binding around an Ethereum contract.
 type ILiquid struct {
-	*tests.Contract
+	*Contract
 }
 
 // Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
 //
 // Solidity: function allowance(address owner, address spender) view returns(uint256)
-func (_ILiquid *ILiquid) Allowance(opts *tests.RunOptions, owner common.Address, spender common.Address) (*big.Int, uint64, error) {
+func (_ILiquid *ILiquid) Allowance(opts *RunOptions, owner common.Address, spender common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "allowance", owner, spender)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("allowance", data)
+	out, err := _ILiquid.abi.Unpack("allowance", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2421,13 +2417,13 @@ func (_ILiquid *ILiquid) Allowance(opts *tests.RunOptions, owner common.Address,
 // BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
 //
 // Solidity: function balanceOf(address account) view returns(uint256)
-func (_ILiquid *ILiquid) BalanceOf(opts *tests.RunOptions, account common.Address) (*big.Int, uint64, error) {
+func (_ILiquid *ILiquid) BalanceOf(opts *RunOptions, account common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "balanceOf", account)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("balanceOf", data)
+	out, err := _ILiquid.abi.Unpack("balanceOf", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2440,13 +2436,13 @@ func (_ILiquid *ILiquid) BalanceOf(opts *tests.RunOptions, account common.Addres
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
 //
 // Solidity: function decimals() pure returns(uint8)
-func (_ILiquid *ILiquid) Decimals(opts *tests.RunOptions) (uint8, uint64, error) {
+func (_ILiquid *ILiquid) Decimals(opts *RunOptions) (uint8, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "decimals")
 
 	if err != nil {
 		return *new(uint8), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("decimals", data)
+	out, err := _ILiquid.abi.Unpack("decimals", data)
 	if err != nil {
 		return *new(uint8), consumed, err
 	}
@@ -2459,13 +2455,13 @@ func (_ILiquid *ILiquid) Decimals(opts *tests.RunOptions) (uint8, uint64, error)
 // GetCommissionRate is a free data retrieval call binding the contract method 0x3e4eb36c.
 //
 // Solidity: function getCommissionRate() view returns(uint256)
-func (_ILiquid *ILiquid) GetCommissionRate(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_ILiquid *ILiquid) GetCommissionRate(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "getCommissionRate")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("getCommissionRate", data)
+	out, err := _ILiquid.abi.Unpack("getCommissionRate", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2478,13 +2474,13 @@ func (_ILiquid *ILiquid) GetCommissionRate(opts *tests.RunOptions) (*big.Int, ui
 // GetTreasury is a free data retrieval call binding the contract method 0x3b19e84a.
 //
 // Solidity: function getTreasury() view returns(address)
-func (_ILiquid *ILiquid) GetTreasury(opts *tests.RunOptions) (common.Address, uint64, error) {
+func (_ILiquid *ILiquid) GetTreasury(opts *RunOptions) (common.Address, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "getTreasury")
 
 	if err != nil {
 		return *new(common.Address), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("getTreasury", data)
+	out, err := _ILiquid.abi.Unpack("getTreasury", data)
 	if err != nil {
 		return *new(common.Address), consumed, err
 	}
@@ -2497,13 +2493,13 @@ func (_ILiquid *ILiquid) GetTreasury(opts *tests.RunOptions) (common.Address, ui
 // GetTreasuryUnclaimedATN is a free data retrieval call binding the contract method 0x1eeffad0.
 //
 // Solidity: function getTreasuryUnclaimedATN() view returns(uint256)
-func (_ILiquid *ILiquid) GetTreasuryUnclaimedATN(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_ILiquid *ILiquid) GetTreasuryUnclaimedATN(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "getTreasuryUnclaimedATN")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("getTreasuryUnclaimedATN", data)
+	out, err := _ILiquid.abi.Unpack("getTreasuryUnclaimedATN", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2516,13 +2512,13 @@ func (_ILiquid *ILiquid) GetTreasuryUnclaimedATN(opts *tests.RunOptions) (*big.I
 // GetValidator is a free data retrieval call binding the contract method 0x1195e07e.
 //
 // Solidity: function getValidator() view returns(address)
-func (_ILiquid *ILiquid) GetValidator(opts *tests.RunOptions) (common.Address, uint64, error) {
+func (_ILiquid *ILiquid) GetValidator(opts *RunOptions) (common.Address, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "getValidator")
 
 	if err != nil {
 		return *new(common.Address), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("getValidator", data)
+	out, err := _ILiquid.abi.Unpack("getValidator", data)
 	if err != nil {
 		return *new(common.Address), consumed, err
 	}
@@ -2535,13 +2531,13 @@ func (_ILiquid *ILiquid) GetValidator(opts *tests.RunOptions) (common.Address, u
 // LockedBalanceOf is a free data retrieval call binding the contract method 0x59355736.
 //
 // Solidity: function lockedBalanceOf(address _delegator) view returns(uint256)
-func (_ILiquid *ILiquid) LockedBalanceOf(opts *tests.RunOptions, _delegator common.Address) (*big.Int, uint64, error) {
+func (_ILiquid *ILiquid) LockedBalanceOf(opts *RunOptions, _delegator common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "lockedBalanceOf", _delegator)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("lockedBalanceOf", data)
+	out, err := _ILiquid.abi.Unpack("lockedBalanceOf", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2554,13 +2550,13 @@ func (_ILiquid *ILiquid) LockedBalanceOf(opts *tests.RunOptions, _delegator comm
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
 //
 // Solidity: function name() view returns(string)
-func (_ILiquid *ILiquid) Name(opts *tests.RunOptions) (string, uint64, error) {
+func (_ILiquid *ILiquid) Name(opts *RunOptions) (string, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "name")
 
 	if err != nil {
 		return *new(string), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("name", data)
+	out, err := _ILiquid.abi.Unpack("name", data)
 	if err != nil {
 		return *new(string), consumed, err
 	}
@@ -2573,13 +2569,13 @@ func (_ILiquid *ILiquid) Name(opts *tests.RunOptions) (string, uint64, error) {
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
 //
 // Solidity: function symbol() view returns(string)
-func (_ILiquid *ILiquid) Symbol(opts *tests.RunOptions) (string, uint64, error) {
+func (_ILiquid *ILiquid) Symbol(opts *RunOptions) (string, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "symbol")
 
 	if err != nil {
 		return *new(string), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("symbol", data)
+	out, err := _ILiquid.abi.Unpack("symbol", data)
 	if err != nil {
 		return *new(string), consumed, err
 	}
@@ -2592,13 +2588,13 @@ func (_ILiquid *ILiquid) Symbol(opts *tests.RunOptions) (string, uint64, error) 
 // TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
 //
 // Solidity: function totalSupply() view returns(uint256)
-func (_ILiquid *ILiquid) TotalSupply(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_ILiquid *ILiquid) TotalSupply(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "totalSupply")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("totalSupply", data)
+	out, err := _ILiquid.abi.Unpack("totalSupply", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2611,13 +2607,13 @@ func (_ILiquid *ILiquid) TotalSupply(opts *tests.RunOptions) (*big.Int, uint64, 
 // UnbondingAllowance is a free data retrieval call binding the contract method 0xd768d578.
 //
 // Solidity: function unbondingAllowance(address _owner, address _caller) view returns(uint256)
-func (_ILiquid *ILiquid) UnbondingAllowance(opts *tests.RunOptions, _owner common.Address, _caller common.Address) (*big.Int, uint64, error) {
+func (_ILiquid *ILiquid) UnbondingAllowance(opts *RunOptions, _owner common.Address, _caller common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "unbondingAllowance", _owner, _caller)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("unbondingAllowance", data)
+	out, err := _ILiquid.abi.Unpack("unbondingAllowance", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2630,13 +2626,13 @@ func (_ILiquid *ILiquid) UnbondingAllowance(opts *tests.RunOptions, _owner commo
 // UnclaimedRewards is a free data retrieval call binding the contract method 0x949813b8.
 //
 // Solidity: function unclaimedRewards(address _account) view returns(uint256)
-func (_ILiquid *ILiquid) UnclaimedRewards(opts *tests.RunOptions, _account common.Address) (*big.Int, uint64, error) {
+func (_ILiquid *ILiquid) UnclaimedRewards(opts *RunOptions, _account common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "unclaimedRewards", _account)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("unclaimedRewards", data)
+	out, err := _ILiquid.abi.Unpack("unclaimedRewards", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2649,13 +2645,13 @@ func (_ILiquid *ILiquid) UnclaimedRewards(opts *tests.RunOptions, _account commo
 // UnlockedBalanceOf is a free data retrieval call binding the contract method 0x84955c88.
 //
 // Solidity: function unlockedBalanceOf(address _delegator) view returns(uint256)
-func (_ILiquid *ILiquid) UnlockedBalanceOf(opts *tests.RunOptions, _delegator common.Address) (*big.Int, uint64, error) {
+func (_ILiquid *ILiquid) UnlockedBalanceOf(opts *RunOptions, _delegator common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "unlockedBalanceOf", _delegator)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("unlockedBalanceOf", data)
+	out, err := _ILiquid.abi.Unpack("unlockedBalanceOf", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2669,7 +2665,7 @@ func (_ILiquid *ILiquid) UnlockedBalanceOf(opts *tests.RunOptions, _delegator co
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function approve(address spender, uint256 amount) returns(bool)
-func (_ILiquid *ILiquid) CallApprove(r *tests.Runner, opts *tests.RunOptions, spender common.Address, amount *big.Int) (bool, uint64, error) {
+func (_ILiquid *ILiquid) CallApprove(r *Runner, opts *RunOptions, spender common.Address, amount *big.Int) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "approve", spender, amount)
@@ -2678,7 +2674,7 @@ func (_ILiquid *ILiquid) CallApprove(r *tests.Runner, opts *tests.RunOptions, sp
 	if err != nil {
 		return *new(bool), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("approve", data)
+	out, err := _ILiquid.abi.Unpack("approve", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -2692,7 +2688,7 @@ func (_ILiquid *ILiquid) CallApprove(r *tests.Runner, opts *tests.RunOptions, sp
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function approveUnbonding(address _caller, uint256 _amount) returns(bool)
-func (_ILiquid *ILiquid) CallApproveUnbonding(r *tests.Runner, opts *tests.RunOptions, _caller common.Address, _amount *big.Int) (bool, uint64, error) {
+func (_ILiquid *ILiquid) CallApproveUnbonding(r *Runner, opts *RunOptions, _caller common.Address, _amount *big.Int) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "approveUnbonding", _caller, _amount)
@@ -2701,7 +2697,7 @@ func (_ILiquid *ILiquid) CallApproveUnbonding(r *tests.Runner, opts *tests.RunOp
 	if err != nil {
 		return *new(bool), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("approveUnbonding", data)
+	out, err := _ILiquid.abi.Unpack("approveUnbonding", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -2715,7 +2711,7 @@ func (_ILiquid *ILiquid) CallApproveUnbonding(r *tests.Runner, opts *tests.RunOp
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function burn(address _account, uint256 _amount) returns()
-func (_ILiquid *ILiquid) CallBurn(r *tests.Runner, opts *tests.RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) CallBurn(r *Runner, opts *RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "burn", _account, _amount)
@@ -2728,7 +2724,7 @@ func (_ILiquid *ILiquid) CallBurn(r *tests.Runner, opts *tests.RunOptions, _acco
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function claimRewards() returns()
-func (_ILiquid *ILiquid) CallClaimRewards(r *tests.Runner, opts *tests.RunOptions) (uint64, error) {
+func (_ILiquid *ILiquid) CallClaimRewards(r *Runner, opts *RunOptions) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "claimRewards")
@@ -2741,7 +2737,7 @@ func (_ILiquid *ILiquid) CallClaimRewards(r *tests.Runner, opts *tests.RunOption
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function claimTreasuryATN() returns()
-func (_ILiquid *ILiquid) CallClaimTreasuryATN(r *tests.Runner, opts *tests.RunOptions) (uint64, error) {
+func (_ILiquid *ILiquid) CallClaimTreasuryATN(r *Runner, opts *RunOptions) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "claimTreasuryATN")
@@ -2754,7 +2750,7 @@ func (_ILiquid *ILiquid) CallClaimTreasuryATN(r *tests.Runner, opts *tests.RunOp
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function lock(address _account, uint256 _amount) returns()
-func (_ILiquid *ILiquid) CallLock(r *tests.Runner, opts *tests.RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) CallLock(r *Runner, opts *RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "lock", _account, _amount)
@@ -2767,7 +2763,7 @@ func (_ILiquid *ILiquid) CallLock(r *tests.Runner, opts *tests.RunOptions, _acco
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function lockFrom(address _account, address _caller, uint256 _amount) returns()
-func (_ILiquid *ILiquid) CallLockFrom(r *tests.Runner, opts *tests.RunOptions, _account common.Address, _caller common.Address, _amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) CallLockFrom(r *Runner, opts *RunOptions, _account common.Address, _caller common.Address, _amount *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "lockFrom", _account, _caller, _amount)
@@ -2780,7 +2776,7 @@ func (_ILiquid *ILiquid) CallLockFrom(r *tests.Runner, opts *tests.RunOptions, _
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function mint(address _account, uint256 _amount) returns()
-func (_ILiquid *ILiquid) CallMint(r *tests.Runner, opts *tests.RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) CallMint(r *Runner, opts *RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "mint", _account, _amount)
@@ -2793,7 +2789,7 @@ func (_ILiquid *ILiquid) CallMint(r *tests.Runner, opts *tests.RunOptions, _acco
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function redistribute(uint256 _ntnReward) payable returns(uint256)
-func (_ILiquid *ILiquid) CallRedistribute(r *tests.Runner, opts *tests.RunOptions, _ntnReward *big.Int) (*big.Int, uint64, error) {
+func (_ILiquid *ILiquid) CallRedistribute(r *Runner, opts *RunOptions, _ntnReward *big.Int) (*big.Int, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "redistribute", _ntnReward)
@@ -2802,7 +2798,7 @@ func (_ILiquid *ILiquid) CallRedistribute(r *tests.Runner, opts *tests.RunOption
 	if err != nil {
 		return *new(*big.Int), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("redistribute", data)
+	out, err := _ILiquid.abi.Unpack("redistribute", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -2816,7 +2812,7 @@ func (_ILiquid *ILiquid) CallRedistribute(r *tests.Runner, opts *tests.RunOption
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setCommissionRate(uint256 _rate) returns()
-func (_ILiquid *ILiquid) CallSetCommissionRate(r *tests.Runner, opts *tests.RunOptions, _rate *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) CallSetCommissionRate(r *Runner, opts *RunOptions, _rate *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "setCommissionRate", _rate)
@@ -2829,7 +2825,7 @@ func (_ILiquid *ILiquid) CallSetCommissionRate(r *tests.Runner, opts *tests.RunO
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function transfer(address recipient, uint256 amount) returns(bool)
-func (_ILiquid *ILiquid) CallTransfer(r *tests.Runner, opts *tests.RunOptions, recipient common.Address, amount *big.Int) (bool, uint64, error) {
+func (_ILiquid *ILiquid) CallTransfer(r *Runner, opts *RunOptions, recipient common.Address, amount *big.Int) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "transfer", recipient, amount)
@@ -2838,7 +2834,7 @@ func (_ILiquid *ILiquid) CallTransfer(r *tests.Runner, opts *tests.RunOptions, r
 	if err != nil {
 		return *new(bool), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("transfer", data)
+	out, err := _ILiquid.abi.Unpack("transfer", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -2852,7 +2848,7 @@ func (_ILiquid *ILiquid) CallTransfer(r *tests.Runner, opts *tests.RunOptions, r
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function transferFrom(address sender, address recipient, uint256 amount) returns(bool)
-func (_ILiquid *ILiquid) CallTransferFrom(r *tests.Runner, opts *tests.RunOptions, sender common.Address, recipient common.Address, amount *big.Int) (bool, uint64, error) {
+func (_ILiquid *ILiquid) CallTransferFrom(r *Runner, opts *RunOptions, sender common.Address, recipient common.Address, amount *big.Int) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "transferFrom", sender, recipient, amount)
@@ -2861,7 +2857,7 @@ func (_ILiquid *ILiquid) CallTransferFrom(r *tests.Runner, opts *tests.RunOption
 	if err != nil {
 		return *new(bool), consumed, _ILiquid.DecodeError(data, err)
 	}
-	out, err := _ILiquid.Contract.Abi().Unpack("transferFrom", data)
+	out, err := _ILiquid.abi.Unpack("transferFrom", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -2875,7 +2871,7 @@ func (_ILiquid *ILiquid) CallTransferFrom(r *tests.Runner, opts *tests.RunOption
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function unlock(address _account, uint256 _amount) returns()
-func (_ILiquid *ILiquid) CallUnlock(r *tests.Runner, opts *tests.RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) CallUnlock(r *Runner, opts *RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ILiquid.Call(opts, "unlock", _account, _amount)
@@ -2887,7 +2883,7 @@ func (_ILiquid *ILiquid) CallUnlock(r *tests.Runner, opts *tests.RunOptions, _ac
 // Approve is a paid mutator transaction binding the contract method 0x095ea7b3.
 //
 // Solidity: function approve(address spender, uint256 amount) returns(bool)
-func (_ILiquid *ILiquid) Approve(opts *tests.RunOptions, spender common.Address, amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) Approve(opts *RunOptions, spender common.Address, amount *big.Int) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "approve", spender, amount)
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -2895,7 +2891,7 @@ func (_ILiquid *ILiquid) Approve(opts *tests.RunOptions, spender common.Address,
 // ApproveUnbonding is a paid mutator transaction binding the contract method 0xbf99b73e.
 //
 // Solidity: function approveUnbonding(address _caller, uint256 _amount) returns(bool)
-func (_ILiquid *ILiquid) ApproveUnbonding(opts *tests.RunOptions, _caller common.Address, _amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) ApproveUnbonding(opts *RunOptions, _caller common.Address, _amount *big.Int) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "approveUnbonding", _caller, _amount)
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -2903,7 +2899,7 @@ func (_ILiquid *ILiquid) ApproveUnbonding(opts *tests.RunOptions, _caller common
 // Burn is a paid mutator transaction binding the contract method 0x9dc29fac.
 //
 // Solidity: function burn(address _account, uint256 _amount) returns()
-func (_ILiquid *ILiquid) Burn(opts *tests.RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) Burn(opts *RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "burn", _account, _amount)
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -2911,7 +2907,7 @@ func (_ILiquid *ILiquid) Burn(opts *tests.RunOptions, _account common.Address, _
 // ClaimRewards is a paid mutator transaction binding the contract method 0x372500ab.
 //
 // Solidity: function claimRewards() returns()
-func (_ILiquid *ILiquid) ClaimRewards(opts *tests.RunOptions) (uint64, error) {
+func (_ILiquid *ILiquid) ClaimRewards(opts *RunOptions) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "claimRewards")
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -2919,7 +2915,7 @@ func (_ILiquid *ILiquid) ClaimRewards(opts *tests.RunOptions) (uint64, error) {
 // ClaimTreasuryATN is a paid mutator transaction binding the contract method 0xbd96102f.
 //
 // Solidity: function claimTreasuryATN() returns()
-func (_ILiquid *ILiquid) ClaimTreasuryATN(opts *tests.RunOptions) (uint64, error) {
+func (_ILiquid *ILiquid) ClaimTreasuryATN(opts *RunOptions) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "claimTreasuryATN")
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -2927,7 +2923,7 @@ func (_ILiquid *ILiquid) ClaimTreasuryATN(opts *tests.RunOptions) (uint64, error
 // Lock is a paid mutator transaction binding the contract method 0x282d3fdf.
 //
 // Solidity: function lock(address _account, uint256 _amount) returns()
-func (_ILiquid *ILiquid) Lock(opts *tests.RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) Lock(opts *RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "lock", _account, _amount)
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -2935,7 +2931,7 @@ func (_ILiquid *ILiquid) Lock(opts *tests.RunOptions, _account common.Address, _
 // LockFrom is a paid mutator transaction binding the contract method 0x708e91e5.
 //
 // Solidity: function lockFrom(address _account, address _caller, uint256 _amount) returns()
-func (_ILiquid *ILiquid) LockFrom(opts *tests.RunOptions, _account common.Address, _caller common.Address, _amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) LockFrom(opts *RunOptions, _account common.Address, _caller common.Address, _amount *big.Int) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "lockFrom", _account, _caller, _amount)
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -2943,7 +2939,7 @@ func (_ILiquid *ILiquid) LockFrom(opts *tests.RunOptions, _account common.Addres
 // Mint is a paid mutator transaction binding the contract method 0x40c10f19.
 //
 // Solidity: function mint(address _account, uint256 _amount) returns()
-func (_ILiquid *ILiquid) Mint(opts *tests.RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) Mint(opts *RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "mint", _account, _amount)
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -2951,7 +2947,7 @@ func (_ILiquid *ILiquid) Mint(opts *tests.RunOptions, _account common.Address, _
 // Redistribute is a paid mutator transaction binding the contract method 0xa0ce552d.
 //
 // Solidity: function redistribute(uint256 _ntnReward) payable returns(uint256)
-func (_ILiquid *ILiquid) Redistribute(opts *tests.RunOptions, _ntnReward *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) Redistribute(opts *RunOptions, _ntnReward *big.Int) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "redistribute", _ntnReward)
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -2959,7 +2955,7 @@ func (_ILiquid *ILiquid) Redistribute(opts *tests.RunOptions, _ntnReward *big.In
 // SetCommissionRate is a paid mutator transaction binding the contract method 0x19fac8fd.
 //
 // Solidity: function setCommissionRate(uint256 _rate) returns()
-func (_ILiquid *ILiquid) SetCommissionRate(opts *tests.RunOptions, _rate *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) SetCommissionRate(opts *RunOptions, _rate *big.Int) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "setCommissionRate", _rate)
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -2967,7 +2963,7 @@ func (_ILiquid *ILiquid) SetCommissionRate(opts *tests.RunOptions, _rate *big.In
 // Transfer is a paid mutator transaction binding the contract method 0xa9059cbb.
 //
 // Solidity: function transfer(address recipient, uint256 amount) returns(bool)
-func (_ILiquid *ILiquid) Transfer(opts *tests.RunOptions, recipient common.Address, amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) Transfer(opts *RunOptions, recipient common.Address, amount *big.Int) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "transfer", recipient, amount)
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -2975,7 +2971,7 @@ func (_ILiquid *ILiquid) Transfer(opts *tests.RunOptions, recipient common.Addre
 // TransferFrom is a paid mutator transaction binding the contract method 0x23b872dd.
 //
 // Solidity: function transferFrom(address sender, address recipient, uint256 amount) returns(bool)
-func (_ILiquid *ILiquid) TransferFrom(opts *tests.RunOptions, sender common.Address, recipient common.Address, amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) TransferFrom(opts *RunOptions, sender common.Address, recipient common.Address, amount *big.Int) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "transferFrom", sender, recipient, amount)
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -2983,7 +2979,7 @@ func (_ILiquid *ILiquid) TransferFrom(opts *tests.RunOptions, sender common.Addr
 // Unlock is a paid mutator transaction binding the contract method 0x7eee288d.
 //
 // Solidity: function unlock(address _account, uint256 _amount) returns()
-func (_ILiquid *ILiquid) Unlock(opts *tests.RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
+func (_ILiquid *ILiquid) Unlock(opts *RunOptions, _account common.Address, _amount *big.Int) (uint64, error) {
 	data, consumed, err := _ILiquid.Call(opts, "unlock", _account, _amount)
 	return consumed, _ILiquid.DecodeError(data, err)
 }
@@ -3025,19 +3021,19 @@ var IOmissionAccountabilityFuncSigs = IOmissionAccountabilityMetaData.Sigs
 
 // IOmissionAccountability is an auto generated Go binding around an Ethereum contract.
 type IOmissionAccountability struct {
-	*tests.Contract
+	*Contract
 }
 
 // GetDelta is a free data retrieval call binding the contract method 0xc549176e.
 //
 // Solidity: function getDelta() view returns(uint256)
-func (_IOmissionAccountability *IOmissionAccountability) GetDelta(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) GetDelta(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IOmissionAccountability.Call(opts, "getDelta")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IOmissionAccountability.DecodeError(data, err)
 	}
-	out, err := _IOmissionAccountability.Contract.Abi().Unpack("getDelta", data)
+	out, err := _IOmissionAccountability.abi.Unpack("getDelta", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3050,13 +3046,13 @@ func (_IOmissionAccountability *IOmissionAccountability) GetDelta(opts *tests.Ru
 // GetInactivityScore is a free data retrieval call binding the contract method 0x9a11e0e6.
 //
 // Solidity: function getInactivityScore(address _validator) view returns(uint256)
-func (_IOmissionAccountability *IOmissionAccountability) GetInactivityScore(opts *tests.RunOptions, _validator common.Address) (*big.Int, uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) GetInactivityScore(opts *RunOptions, _validator common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _IOmissionAccountability.Call(opts, "getInactivityScore", _validator)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IOmissionAccountability.DecodeError(data, err)
 	}
-	out, err := _IOmissionAccountability.Contract.Abi().Unpack("getInactivityScore", data)
+	out, err := _IOmissionAccountability.abi.Unpack("getInactivityScore", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3069,13 +3065,13 @@ func (_IOmissionAccountability *IOmissionAccountability) GetInactivityScore(opts
 // GetLookbackWindow is a free data retrieval call binding the contract method 0x5ca1809c.
 //
 // Solidity: function getLookbackWindow() view returns(uint256)
-func (_IOmissionAccountability *IOmissionAccountability) GetLookbackWindow(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) GetLookbackWindow(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IOmissionAccountability.Call(opts, "getLookbackWindow")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IOmissionAccountability.DecodeError(data, err)
 	}
-	out, err := _IOmissionAccountability.Contract.Abi().Unpack("getLookbackWindow", data)
+	out, err := _IOmissionAccountability.abi.Unpack("getLookbackWindow", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3088,13 +3084,13 @@ func (_IOmissionAccountability *IOmissionAccountability) GetLookbackWindow(opts 
 // GetScaleFactor is a free data retrieval call binding the contract method 0x7f5e2f11.
 //
 // Solidity: function getScaleFactor() pure returns(uint256)
-func (_IOmissionAccountability *IOmissionAccountability) GetScaleFactor(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) GetScaleFactor(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IOmissionAccountability.Call(opts, "getScaleFactor")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IOmissionAccountability.DecodeError(data, err)
 	}
-	out, err := _IOmissionAccountability.Contract.Abi().Unpack("getScaleFactor", data)
+	out, err := _IOmissionAccountability.abi.Unpack("getScaleFactor", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3107,13 +3103,13 @@ func (_IOmissionAccountability *IOmissionAccountability) GetScaleFactor(opts *te
 // GetTotalEffort is a free data retrieval call binding the contract method 0x53b1821b.
 //
 // Solidity: function getTotalEffort() view returns(uint256)
-func (_IOmissionAccountability *IOmissionAccountability) GetTotalEffort(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) GetTotalEffort(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IOmissionAccountability.Call(opts, "getTotalEffort")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IOmissionAccountability.DecodeError(data, err)
 	}
-	out, err := _IOmissionAccountability.Contract.Abi().Unpack("getTotalEffort", data)
+	out, err := _IOmissionAccountability.abi.Unpack("getTotalEffort", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3127,7 +3123,7 @@ func (_IOmissionAccountability *IOmissionAccountability) GetTotalEffort(opts *te
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function distributeProposerRewards(uint256 _ntnReward) payable returns()
-func (_IOmissionAccountability *IOmissionAccountability) CallDistributeProposerRewards(r *tests.Runner, opts *tests.RunOptions, _ntnReward *big.Int) (uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) CallDistributeProposerRewards(r *Runner, opts *RunOptions, _ntnReward *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOmissionAccountability.Call(opts, "distributeProposerRewards", _ntnReward)
@@ -3140,7 +3136,7 @@ func (_IOmissionAccountability *IOmissionAccountability) CallDistributeProposerR
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function finalize(bool _epochEnded) returns(uint256)
-func (_IOmissionAccountability *IOmissionAccountability) CallFinalize(r *tests.Runner, opts *tests.RunOptions, _epochEnded bool) (*big.Int, uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) CallFinalize(r *Runner, opts *RunOptions, _epochEnded bool) (*big.Int, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOmissionAccountability.Call(opts, "finalize", _epochEnded)
@@ -3149,7 +3145,7 @@ func (_IOmissionAccountability *IOmissionAccountability) CallFinalize(r *tests.R
 	if err != nil {
 		return *new(*big.Int), consumed, _IOmissionAccountability.DecodeError(data, err)
 	}
-	out, err := _IOmissionAccountability.Contract.Abi().Unpack("finalize", data)
+	out, err := _IOmissionAccountability.abi.Unpack("finalize", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3163,7 +3159,7 @@ func (_IOmissionAccountability *IOmissionAccountability) CallFinalize(r *tests.R
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setCommittee((address,uint256,bytes)[] _committee, address[] _treasuries) returns()
-func (_IOmissionAccountability *IOmissionAccountability) CallSetCommittee(r *tests.Runner, opts *tests.RunOptions, _committee []IAutonityCommitteeMember, _treasuries []common.Address) (uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) CallSetCommittee(r *Runner, opts *RunOptions, _committee []IAutonityCommitteeMember, _treasuries []common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOmissionAccountability.Call(opts, "setCommittee", _committee, _treasuries)
@@ -3176,7 +3172,7 @@ func (_IOmissionAccountability *IOmissionAccountability) CallSetCommittee(r *tes
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setEpochBlock(uint256 _epochBlock) returns()
-func (_IOmissionAccountability *IOmissionAccountability) CallSetEpochBlock(r *tests.Runner, opts *tests.RunOptions, _epochBlock *big.Int) (uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) CallSetEpochBlock(r *Runner, opts *RunOptions, _epochBlock *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOmissionAccountability.Call(opts, "setEpochBlock", _epochBlock)
@@ -3189,7 +3185,7 @@ func (_IOmissionAccountability *IOmissionAccountability) CallSetEpochBlock(r *te
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setOperator(address _operator) returns()
-func (_IOmissionAccountability *IOmissionAccountability) CallSetOperator(r *tests.Runner, opts *tests.RunOptions, _operator common.Address) (uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) CallSetOperator(r *Runner, opts *RunOptions, _operator common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOmissionAccountability.Call(opts, "setOperator", _operator)
@@ -3201,7 +3197,7 @@ func (_IOmissionAccountability *IOmissionAccountability) CallSetOperator(r *test
 // DistributeProposerRewards is a paid mutator transaction binding the contract method 0xeeb92233.
 //
 // Solidity: function distributeProposerRewards(uint256 _ntnReward) payable returns()
-func (_IOmissionAccountability *IOmissionAccountability) DistributeProposerRewards(opts *tests.RunOptions, _ntnReward *big.Int) (uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) DistributeProposerRewards(opts *RunOptions, _ntnReward *big.Int) (uint64, error) {
 	data, consumed, err := _IOmissionAccountability.Call(opts, "distributeProposerRewards", _ntnReward)
 	return consumed, _IOmissionAccountability.DecodeError(data, err)
 }
@@ -3209,7 +3205,7 @@ func (_IOmissionAccountability *IOmissionAccountability) DistributeProposerRewar
 // Finalize is a paid mutator transaction binding the contract method 0x6c9789b0.
 //
 // Solidity: function finalize(bool _epochEnded) returns(uint256)
-func (_IOmissionAccountability *IOmissionAccountability) Finalize(opts *tests.RunOptions, _epochEnded bool) (uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) Finalize(opts *RunOptions, _epochEnded bool) (uint64, error) {
 	data, consumed, err := _IOmissionAccountability.Call(opts, "finalize", _epochEnded)
 	return consumed, _IOmissionAccountability.DecodeError(data, err)
 }
@@ -3217,7 +3213,7 @@ func (_IOmissionAccountability *IOmissionAccountability) Finalize(opts *tests.Ru
 // SetCommittee is a paid mutator transaction binding the contract method 0xe3deef9c.
 //
 // Solidity: function setCommittee((address,uint256,bytes)[] _committee, address[] _treasuries) returns()
-func (_IOmissionAccountability *IOmissionAccountability) SetCommittee(opts *tests.RunOptions, _committee []IAutonityCommitteeMember, _treasuries []common.Address) (uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) SetCommittee(opts *RunOptions, _committee []IAutonityCommitteeMember, _treasuries []common.Address) (uint64, error) {
 	data, consumed, err := _IOmissionAccountability.Call(opts, "setCommittee", _committee, _treasuries)
 	return consumed, _IOmissionAccountability.DecodeError(data, err)
 }
@@ -3225,7 +3221,7 @@ func (_IOmissionAccountability *IOmissionAccountability) SetCommittee(opts *test
 // SetEpochBlock is a paid mutator transaction binding the contract method 0xc024cc2c.
 //
 // Solidity: function setEpochBlock(uint256 _epochBlock) returns()
-func (_IOmissionAccountability *IOmissionAccountability) SetEpochBlock(opts *tests.RunOptions, _epochBlock *big.Int) (uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) SetEpochBlock(opts *RunOptions, _epochBlock *big.Int) (uint64, error) {
 	data, consumed, err := _IOmissionAccountability.Call(opts, "setEpochBlock", _epochBlock)
 	return consumed, _IOmissionAccountability.DecodeError(data, err)
 }
@@ -3233,7 +3229,7 @@ func (_IOmissionAccountability *IOmissionAccountability) SetEpochBlock(opts *tes
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address _operator) returns()
-func (_IOmissionAccountability *IOmissionAccountability) SetOperator(opts *tests.RunOptions, _operator common.Address) (uint64, error) {
+func (_IOmissionAccountability *IOmissionAccountability) SetOperator(opts *RunOptions, _operator common.Address) (uint64, error) {
 	data, consumed, err := _IOmissionAccountability.Call(opts, "setOperator", _operator)
 	return consumed, _IOmissionAccountability.DecodeError(data, err)
 }
@@ -3284,19 +3280,19 @@ var IOracleFuncSigs = IOracleMetaData.Sigs
 
 // IOracle is an auto generated Go binding around an Ethereum contract.
 type IOracle struct {
-	*tests.Contract
+	*Contract
 }
 
 // GetDecimals is a free data retrieval call binding the contract method 0xf0141d84.
 //
 // Solidity: function getDecimals() view returns(uint8)
-func (_IOracle *IOracle) GetDecimals(opts *tests.RunOptions) (uint8, uint64, error) {
+func (_IOracle *IOracle) GetDecimals(opts *RunOptions) (uint8, uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "getDecimals")
 
 	if err != nil {
 		return *new(uint8), consumed, _IOracle.DecodeError(data, err)
 	}
-	out, err := _IOracle.Contract.Abi().Unpack("getDecimals", data)
+	out, err := _IOracle.abi.Unpack("getDecimals", data)
 	if err != nil {
 		return *new(uint8), consumed, err
 	}
@@ -3309,13 +3305,13 @@ func (_IOracle *IOracle) GetDecimals(opts *tests.RunOptions) (uint8, uint64, err
 // GetNewVotePeriod is a free data retrieval call binding the contract method 0x57eba759.
 //
 // Solidity: function getNewVotePeriod() view returns(uint256)
-func (_IOracle *IOracle) GetNewVotePeriod(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IOracle *IOracle) GetNewVotePeriod(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "getNewVotePeriod")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IOracle.DecodeError(data, err)
 	}
-	out, err := _IOracle.Contract.Abi().Unpack("getNewVotePeriod", data)
+	out, err := _IOracle.abi.Unpack("getNewVotePeriod", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3328,13 +3324,13 @@ func (_IOracle *IOracle) GetNewVotePeriod(opts *tests.RunOptions) (*big.Int, uin
 // GetNewVoters is a free data retrieval call binding the contract method 0x077945d3.
 //
 // Solidity: function getNewVoters() view returns(address[])
-func (_IOracle *IOracle) GetNewVoters(opts *tests.RunOptions) ([]common.Address, uint64, error) {
+func (_IOracle *IOracle) GetNewVoters(opts *RunOptions) ([]common.Address, uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "getNewVoters")
 
 	if err != nil {
 		return *new([]common.Address), consumed, _IOracle.DecodeError(data, err)
 	}
-	out, err := _IOracle.Contract.Abi().Unpack("getNewVoters", data)
+	out, err := _IOracle.abi.Unpack("getNewVoters", data)
 	if err != nil {
 		return *new([]common.Address), consumed, err
 	}
@@ -3347,13 +3343,13 @@ func (_IOracle *IOracle) GetNewVoters(opts *tests.RunOptions) ([]common.Address,
 // GetNonRevealThreshold is a free data retrieval call binding the contract method 0xed78349d.
 //
 // Solidity: function getNonRevealThreshold() view returns(uint256)
-func (_IOracle *IOracle) GetNonRevealThreshold(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IOracle *IOracle) GetNonRevealThreshold(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "getNonRevealThreshold")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IOracle.DecodeError(data, err)
 	}
-	out, err := _IOracle.Contract.Abi().Unpack("getNonRevealThreshold", data)
+	out, err := _IOracle.abi.Unpack("getNonRevealThreshold", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3366,13 +3362,13 @@ func (_IOracle *IOracle) GetNonRevealThreshold(opts *tests.RunOptions) (*big.Int
 // GetRound is a free data retrieval call binding the contract method 0x9f8743f7.
 //
 // Solidity: function getRound() view returns(uint256)
-func (_IOracle *IOracle) GetRound(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IOracle *IOracle) GetRound(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "getRound")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IOracle.DecodeError(data, err)
 	}
-	out, err := _IOracle.Contract.Abi().Unpack("getRound", data)
+	out, err := _IOracle.abi.Unpack("getRound", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3385,13 +3381,13 @@ func (_IOracle *IOracle) GetRound(opts *tests.RunOptions) (*big.Int, uint64, err
 // GetRoundData is a free data retrieval call binding the contract method 0x3c8510fd.
 //
 // Solidity: function getRoundData(uint256 _round, string _symbol) view returns((uint256,uint256,uint256,bool) data)
-func (_IOracle *IOracle) GetRoundData(opts *tests.RunOptions, _round *big.Int, _symbol string) (IOracleRoundData, uint64, error) {
+func (_IOracle *IOracle) GetRoundData(opts *RunOptions, _round *big.Int, _symbol string) (IOracleRoundData, uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "getRoundData", _round, _symbol)
 
 	if err != nil {
 		return *new(IOracleRoundData), consumed, _IOracle.DecodeError(data, err)
 	}
-	out, err := _IOracle.Contract.Abi().Unpack("getRoundData", data)
+	out, err := _IOracle.abi.Unpack("getRoundData", data)
 	if err != nil {
 		return *new(IOracleRoundData), consumed, err
 	}
@@ -3404,13 +3400,13 @@ func (_IOracle *IOracle) GetRoundData(opts *tests.RunOptions, _round *big.Int, _
 // GetSymbols is a free data retrieval call binding the contract method 0xdf7f710e.
 //
 // Solidity: function getSymbols() view returns(string[] _symbols)
-func (_IOracle *IOracle) GetSymbols(opts *tests.RunOptions) ([]string, uint64, error) {
+func (_IOracle *IOracle) GetSymbols(opts *RunOptions) ([]string, uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "getSymbols")
 
 	if err != nil {
 		return *new([]string), consumed, _IOracle.DecodeError(data, err)
 	}
-	out, err := _IOracle.Contract.Abi().Unpack("getSymbols", data)
+	out, err := _IOracle.abi.Unpack("getSymbols", data)
 	if err != nil {
 		return *new([]string), consumed, err
 	}
@@ -3423,13 +3419,13 @@ func (_IOracle *IOracle) GetSymbols(opts *tests.RunOptions) ([]string, uint64, e
 // GetVotePeriod is a free data retrieval call binding the contract method 0xb78dec52.
 //
 // Solidity: function getVotePeriod() view returns(uint256)
-func (_IOracle *IOracle) GetVotePeriod(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IOracle *IOracle) GetVotePeriod(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "getVotePeriod")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IOracle.DecodeError(data, err)
 	}
-	out, err := _IOracle.Contract.Abi().Unpack("getVotePeriod", data)
+	out, err := _IOracle.abi.Unpack("getVotePeriod", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3442,13 +3438,13 @@ func (_IOracle *IOracle) GetVotePeriod(opts *tests.RunOptions) (*big.Int, uint64
 // GetVoters is a free data retrieval call binding the contract method 0xcdd72253.
 //
 // Solidity: function getVoters() view returns(address[])
-func (_IOracle *IOracle) GetVoters(opts *tests.RunOptions) ([]common.Address, uint64, error) {
+func (_IOracle *IOracle) GetVoters(opts *RunOptions) ([]common.Address, uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "getVoters")
 
 	if err != nil {
 		return *new([]common.Address), consumed, _IOracle.DecodeError(data, err)
 	}
-	out, err := _IOracle.Contract.Abi().Unpack("getVoters", data)
+	out, err := _IOracle.abi.Unpack("getVoters", data)
 	if err != nil {
 		return *new([]common.Address), consumed, err
 	}
@@ -3461,13 +3457,13 @@ func (_IOracle *IOracle) GetVoters(opts *tests.RunOptions) ([]common.Address, ui
 // LatestRoundData is a free data retrieval call binding the contract method 0x33f98c77.
 //
 // Solidity: function latestRoundData(string _symbol) view returns((uint256,uint256,uint256,bool) data)
-func (_IOracle *IOracle) LatestRoundData(opts *tests.RunOptions, _symbol string) (IOracleRoundData, uint64, error) {
+func (_IOracle *IOracle) LatestRoundData(opts *RunOptions, _symbol string) (IOracleRoundData, uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "latestRoundData", _symbol)
 
 	if err != nil {
 		return *new(IOracleRoundData), consumed, _IOracle.DecodeError(data, err)
 	}
-	out, err := _IOracle.Contract.Abi().Unpack("latestRoundData", data)
+	out, err := _IOracle.abi.Unpack("latestRoundData", data)
 	if err != nil {
 		return *new(IOracleRoundData), consumed, err
 	}
@@ -3481,7 +3477,7 @@ func (_IOracle *IOracle) LatestRoundData(opts *tests.RunOptions, _symbol string)
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function distributeRewards(uint256 _ntnRewards) payable returns()
-func (_IOracle *IOracle) CallDistributeRewards(r *tests.Runner, opts *tests.RunOptions, _ntnRewards *big.Int) (uint64, error) {
+func (_IOracle *IOracle) CallDistributeRewards(r *Runner, opts *RunOptions, _ntnRewards *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOracle.Call(opts, "distributeRewards", _ntnRewards)
@@ -3494,7 +3490,7 @@ func (_IOracle *IOracle) CallDistributeRewards(r *tests.Runner, opts *tests.RunO
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function finalize() returns(bool)
-func (_IOracle *IOracle) CallFinalize(r *tests.Runner, opts *tests.RunOptions) (bool, uint64, error) {
+func (_IOracle *IOracle) CallFinalize(r *Runner, opts *RunOptions) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOracle.Call(opts, "finalize")
@@ -3503,7 +3499,7 @@ func (_IOracle *IOracle) CallFinalize(r *tests.Runner, opts *tests.RunOptions) (
 	if err != nil {
 		return *new(bool), consumed, _IOracle.DecodeError(data, err)
 	}
-	out, err := _IOracle.Contract.Abi().Unpack("finalize", data)
+	out, err := _IOracle.abi.Unpack("finalize", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -3517,7 +3513,7 @@ func (_IOracle *IOracle) CallFinalize(r *tests.Runner, opts *tests.RunOptions) (
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) returns()
-func (_IOracle *IOracle) CallSetCommitRevealConfig(r *tests.Runner, opts *tests.RunOptions, _threshold *big.Int, _resetInterval *big.Int) (uint64, error) {
+func (_IOracle *IOracle) CallSetCommitRevealConfig(r *Runner, opts *RunOptions, _threshold *big.Int, _resetInterval *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOracle.Call(opts, "setCommitRevealConfig", _threshold, _resetInterval)
@@ -3530,7 +3526,7 @@ func (_IOracle *IOracle) CallSetCommitRevealConfig(r *tests.Runner, opts *tests.
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setOperator(address _operator) returns()
-func (_IOracle *IOracle) CallSetOperator(r *tests.Runner, opts *tests.RunOptions, _operator common.Address) (uint64, error) {
+func (_IOracle *IOracle) CallSetOperator(r *Runner, opts *RunOptions, _operator common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOracle.Call(opts, "setOperator", _operator)
@@ -3543,7 +3539,7 @@ func (_IOracle *IOracle) CallSetOperator(r *tests.Runner, opts *tests.RunOptions
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setSlashingConfig(int256 _outlierSlashingThreshold, int256 _outlierDetectionThreshold, uint256 _baseSlashingRate, uint256 _slashingRateCap) returns()
-func (_IOracle *IOracle) CallSetSlashingConfig(r *tests.Runner, opts *tests.RunOptions, _outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (uint64, error) {
+func (_IOracle *IOracle) CallSetSlashingConfig(r *Runner, opts *RunOptions, _outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOracle.Call(opts, "setSlashingConfig", _outlierSlashingThreshold, _outlierDetectionThreshold, _baseSlashingRate, _slashingRateCap)
@@ -3556,7 +3552,7 @@ func (_IOracle *IOracle) CallSetSlashingConfig(r *tests.Runner, opts *tests.RunO
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setSymbols(string[] _symbols) returns()
-func (_IOracle *IOracle) CallSetSymbols(r *tests.Runner, opts *tests.RunOptions, _symbols []string) (uint64, error) {
+func (_IOracle *IOracle) CallSetSymbols(r *Runner, opts *RunOptions, _symbols []string) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOracle.Call(opts, "setSymbols", _symbols)
@@ -3569,7 +3565,7 @@ func (_IOracle *IOracle) CallSetSymbols(r *tests.Runner, opts *tests.RunOptions,
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setVoters(address[] _newVoters, address[] _treasury, address[] _validator) returns()
-func (_IOracle *IOracle) CallSetVoters(r *tests.Runner, opts *tests.RunOptions, _newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (uint64, error) {
+func (_IOracle *IOracle) CallSetVoters(r *Runner, opts *RunOptions, _newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOracle.Call(opts, "setVoters", _newVoters, _treasury, _validator)
@@ -3582,7 +3578,7 @@ func (_IOracle *IOracle) CallSetVoters(r *tests.Runner, opts *tests.RunOptions, 
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function updateVotersAndSymbol() returns()
-func (_IOracle *IOracle) CallUpdateVotersAndSymbol(r *tests.Runner, opts *tests.RunOptions) (uint64, error) {
+func (_IOracle *IOracle) CallUpdateVotersAndSymbol(r *Runner, opts *RunOptions) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOracle.Call(opts, "updateVotersAndSymbol")
@@ -3595,7 +3591,7 @@ func (_IOracle *IOracle) CallUpdateVotersAndSymbol(r *tests.Runner, opts *tests.
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function vote(uint256 _commit, (uint120,uint8)[] _reports, uint256 _salt, uint8 _extra) returns()
-func (_IOracle *IOracle) CallVote(r *tests.Runner, opts *tests.RunOptions, _commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (uint64, error) {
+func (_IOracle *IOracle) CallVote(r *Runner, opts *RunOptions, _commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IOracle.Call(opts, "vote", _commit, _reports, _salt, _extra)
@@ -3607,7 +3603,7 @@ func (_IOracle *IOracle) CallVote(r *tests.Runner, opts *tests.RunOptions, _comm
 // DistributeRewards is a paid mutator transaction binding the contract method 0x59974e38.
 //
 // Solidity: function distributeRewards(uint256 _ntnRewards) payable returns()
-func (_IOracle *IOracle) DistributeRewards(opts *tests.RunOptions, _ntnRewards *big.Int) (uint64, error) {
+func (_IOracle *IOracle) DistributeRewards(opts *RunOptions, _ntnRewards *big.Int) (uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "distributeRewards", _ntnRewards)
 	return consumed, _IOracle.DecodeError(data, err)
 }
@@ -3615,7 +3611,7 @@ func (_IOracle *IOracle) DistributeRewards(opts *tests.RunOptions, _ntnRewards *
 // Finalize is a paid mutator transaction binding the contract method 0x4bb278f3.
 //
 // Solidity: function finalize() returns(bool)
-func (_IOracle *IOracle) Finalize(opts *tests.RunOptions) (uint64, error) {
+func (_IOracle *IOracle) Finalize(opts *RunOptions) (uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "finalize")
 	return consumed, _IOracle.DecodeError(data, err)
 }
@@ -3623,7 +3619,7 @@ func (_IOracle *IOracle) Finalize(opts *tests.RunOptions) (uint64, error) {
 // SetCommitRevealConfig is a paid mutator transaction binding the contract method 0x3f422ef3.
 //
 // Solidity: function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) returns()
-func (_IOracle *IOracle) SetCommitRevealConfig(opts *tests.RunOptions, _threshold *big.Int, _resetInterval *big.Int) (uint64, error) {
+func (_IOracle *IOracle) SetCommitRevealConfig(opts *RunOptions, _threshold *big.Int, _resetInterval *big.Int) (uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "setCommitRevealConfig", _threshold, _resetInterval)
 	return consumed, _IOracle.DecodeError(data, err)
 }
@@ -3631,7 +3627,7 @@ func (_IOracle *IOracle) SetCommitRevealConfig(opts *tests.RunOptions, _threshol
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address _operator) returns()
-func (_IOracle *IOracle) SetOperator(opts *tests.RunOptions, _operator common.Address) (uint64, error) {
+func (_IOracle *IOracle) SetOperator(opts *RunOptions, _operator common.Address) (uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "setOperator", _operator)
 	return consumed, _IOracle.DecodeError(data, err)
 }
@@ -3639,7 +3635,7 @@ func (_IOracle *IOracle) SetOperator(opts *tests.RunOptions, _operator common.Ad
 // SetSlashingConfig is a paid mutator transaction binding the contract method 0xda39fbfe.
 //
 // Solidity: function setSlashingConfig(int256 _outlierSlashingThreshold, int256 _outlierDetectionThreshold, uint256 _baseSlashingRate, uint256 _slashingRateCap) returns()
-func (_IOracle *IOracle) SetSlashingConfig(opts *tests.RunOptions, _outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (uint64, error) {
+func (_IOracle *IOracle) SetSlashingConfig(opts *RunOptions, _outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "setSlashingConfig", _outlierSlashingThreshold, _outlierDetectionThreshold, _baseSlashingRate, _slashingRateCap)
 	return consumed, _IOracle.DecodeError(data, err)
 }
@@ -3647,7 +3643,7 @@ func (_IOracle *IOracle) SetSlashingConfig(opts *tests.RunOptions, _outlierSlash
 // SetSymbols is a paid mutator transaction binding the contract method 0x8d4f75d2.
 //
 // Solidity: function setSymbols(string[] _symbols) returns()
-func (_IOracle *IOracle) SetSymbols(opts *tests.RunOptions, _symbols []string) (uint64, error) {
+func (_IOracle *IOracle) SetSymbols(opts *RunOptions, _symbols []string) (uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "setSymbols", _symbols)
 	return consumed, _IOracle.DecodeError(data, err)
 }
@@ -3655,7 +3651,7 @@ func (_IOracle *IOracle) SetSymbols(opts *tests.RunOptions, _symbols []string) (
 // SetVoters is a paid mutator transaction binding the contract method 0xda78110e.
 //
 // Solidity: function setVoters(address[] _newVoters, address[] _treasury, address[] _validator) returns()
-func (_IOracle *IOracle) SetVoters(opts *tests.RunOptions, _newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (uint64, error) {
+func (_IOracle *IOracle) SetVoters(opts *RunOptions, _newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "setVoters", _newVoters, _treasury, _validator)
 	return consumed, _IOracle.DecodeError(data, err)
 }
@@ -3663,7 +3659,7 @@ func (_IOracle *IOracle) SetVoters(opts *tests.RunOptions, _newVoters []common.A
 // UpdateVotersAndSymbol is a paid mutator transaction binding the contract method 0x0f65875c.
 //
 // Solidity: function updateVotersAndSymbol() returns()
-func (_IOracle *IOracle) UpdateVotersAndSymbol(opts *tests.RunOptions) (uint64, error) {
+func (_IOracle *IOracle) UpdateVotersAndSymbol(opts *RunOptions) (uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "updateVotersAndSymbol")
 	return consumed, _IOracle.DecodeError(data, err)
 }
@@ -3671,7 +3667,7 @@ func (_IOracle *IOracle) UpdateVotersAndSymbol(opts *tests.RunOptions) (uint64, 
 // Vote is a paid mutator transaction binding the contract method 0x56833ebe.
 //
 // Solidity: function vote(uint256 _commit, (uint120,uint8)[] _reports, uint256 _salt, uint8 _extra) returns()
-func (_IOracle *IOracle) Vote(opts *tests.RunOptions, _commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (uint64, error) {
+func (_IOracle *IOracle) Vote(opts *RunOptions, _commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (uint64, error) {
 	data, consumed, err := _IOracle.Call(opts, "vote", _commit, _reports, _salt, _extra)
 	return consumed, _IOracle.DecodeError(data, err)
 }
@@ -3705,19 +3701,19 @@ var IScheduleControllerFuncSigs = IScheduleControllerMetaData.Sigs
 
 // IScheduleController is an auto generated Go binding around an Ethereum contract.
 type IScheduleController struct {
-	*tests.Contract
+	*Contract
 }
 
 // GetSchedule is a free data retrieval call binding the contract method 0x7264c4da.
 //
 // Solidity: function getSchedule(address _vault, uint256 _id) view returns((uint256,uint256,uint256,uint256,uint256))
-func (_IScheduleController *IScheduleController) GetSchedule(opts *tests.RunOptions, _vault common.Address, _id *big.Int) (IScheduleControllerSchedule, uint64, error) {
+func (_IScheduleController *IScheduleController) GetSchedule(opts *RunOptions, _vault common.Address, _id *big.Int) (IScheduleControllerSchedule, uint64, error) {
 	data, consumed, err := _IScheduleController.Call(opts, "getSchedule", _vault, _id)
 
 	if err != nil {
 		return *new(IScheduleControllerSchedule), consumed, _IScheduleController.DecodeError(data, err)
 	}
-	out, err := _IScheduleController.Contract.Abi().Unpack("getSchedule", data)
+	out, err := _IScheduleController.abi.Unpack("getSchedule", data)
 	if err != nil {
 		return *new(IScheduleControllerSchedule), consumed, err
 	}
@@ -3730,13 +3726,13 @@ func (_IScheduleController *IScheduleController) GetSchedule(opts *tests.RunOpti
 // GetTotalSchedules is a free data retrieval call binding the contract method 0x088566e9.
 //
 // Solidity: function getTotalSchedules(address _vault) view returns(uint256)
-func (_IScheduleController *IScheduleController) GetTotalSchedules(opts *tests.RunOptions, _vault common.Address) (*big.Int, uint64, error) {
+func (_IScheduleController *IScheduleController) GetTotalSchedules(opts *RunOptions, _vault common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _IScheduleController.Call(opts, "getTotalSchedules", _vault)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IScheduleController.DecodeError(data, err)
 	}
-	out, err := _IScheduleController.Contract.Abi().Unpack("getTotalSchedules", data)
+	out, err := _IScheduleController.abi.Unpack("getTotalSchedules", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3784,19 +3780,19 @@ var IStabilizationFuncSigs = IStabilizationMetaData.Sigs
 
 // IStabilization is an auto generated Go binding around an Ethereum contract.
 type IStabilization struct {
-	*tests.Contract
+	*Contract
 }
 
 // Cdps is a free data retrieval call binding the contract method 0x840c7e24.
 //
 // Solidity: function cdps(address owner) view returns((uint256,uint256,uint256,uint256,uint256))
-func (_IStabilization *IStabilization) Cdps(opts *tests.RunOptions, owner common.Address) (IStabilizationCDP, uint64, error) {
+func (_IStabilization *IStabilization) Cdps(opts *RunOptions, owner common.Address) (IStabilizationCDP, uint64, error) {
 	data, consumed, err := _IStabilization.Call(opts, "cdps", owner)
 
 	if err != nil {
 		return *new(IStabilizationCDP), consumed, _IStabilization.DecodeError(data, err)
 	}
-	out, err := _IStabilization.Contract.Abi().Unpack("cdps", data)
+	out, err := _IStabilization.abi.Unpack("cdps", data)
 	if err != nil {
 		return *new(IStabilizationCDP), consumed, err
 	}
@@ -3809,13 +3805,13 @@ func (_IStabilization *IStabilization) Cdps(opts *tests.RunOptions, owner common
 // CollateralPrice is a free data retrieval call binding the contract method 0x5891de72.
 //
 // Solidity: function collateralPrice() view returns(uint256 price)
-func (_IStabilization *IStabilization) CollateralPrice(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_IStabilization *IStabilization) CollateralPrice(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _IStabilization.Call(opts, "collateralPrice")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IStabilization.DecodeError(data, err)
 	}
-	out, err := _IStabilization.Contract.Abi().Unpack("collateralPrice", data)
+	out, err := _IStabilization.abi.Unpack("collateralPrice", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3828,13 +3824,13 @@ func (_IStabilization *IStabilization) CollateralPrice(opts *tests.RunOptions) (
 // Config is a free data retrieval call binding the contract method 0x79502c55.
 //
 // Solidity: function config() view returns((uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256))
-func (_IStabilization *IStabilization) Config(opts *tests.RunOptions) (IStabilizationConfig, uint64, error) {
+func (_IStabilization *IStabilization) Config(opts *RunOptions) (IStabilizationConfig, uint64, error) {
 	data, consumed, err := _IStabilization.Call(opts, "config")
 
 	if err != nil {
 		return *new(IStabilizationConfig), consumed, _IStabilization.DecodeError(data, err)
 	}
-	out, err := _IStabilization.Contract.Abi().Unpack("config", data)
+	out, err := _IStabilization.abi.Unpack("config", data)
 	if err != nil {
 		return *new(IStabilizationConfig), consumed, err
 	}
@@ -3847,13 +3843,13 @@ func (_IStabilization *IStabilization) Config(opts *tests.RunOptions) (IStabiliz
 // DebtAmountAtTime is a free data retrieval call binding the contract method 0x8ffba9dd.
 //
 // Solidity: function debtAmountAtTime(address account, uint256 timestamp) view returns(uint256)
-func (_IStabilization *IStabilization) DebtAmountAtTime(opts *tests.RunOptions, account common.Address, timestamp *big.Int) (*big.Int, uint64, error) {
+func (_IStabilization *IStabilization) DebtAmountAtTime(opts *RunOptions, account common.Address, timestamp *big.Int) (*big.Int, uint64, error) {
 	data, consumed, err := _IStabilization.Call(opts, "debtAmountAtTime", account, timestamp)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _IStabilization.DecodeError(data, err)
 	}
-	out, err := _IStabilization.Contract.Abi().Unpack("debtAmountAtTime", data)
+	out, err := _IStabilization.abi.Unpack("debtAmountAtTime", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -3866,13 +3862,13 @@ func (_IStabilization *IStabilization) DebtAmountAtTime(opts *tests.RunOptions, 
 // LastUpdated is a free data retrieval call binding the contract method 0xd0b06f5d.
 //
 // Solidity: function lastUpdated() view returns((uint256,uint256,uint256,uint256))
-func (_IStabilization *IStabilization) LastUpdated(opts *tests.RunOptions) (IStabilizationLastUpdated, uint64, error) {
+func (_IStabilization *IStabilization) LastUpdated(opts *RunOptions) (IStabilizationLastUpdated, uint64, error) {
 	data, consumed, err := _IStabilization.Call(opts, "lastUpdated")
 
 	if err != nil {
 		return *new(IStabilizationLastUpdated), consumed, _IStabilization.DecodeError(data, err)
 	}
-	out, err := _IStabilization.Contract.Abi().Unpack("lastUpdated", data)
+	out, err := _IStabilization.abi.Unpack("lastUpdated", data)
 	if err != nil {
 		return *new(IStabilizationLastUpdated), consumed, err
 	}
@@ -3886,7 +3882,7 @@ func (_IStabilization *IStabilization) LastUpdated(opts *tests.RunOptions) (ISta
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function liquidate(address account, uint256 collateralSold, address bidder) payable returns()
-func (_IStabilization *IStabilization) CallLiquidate(r *tests.Runner, opts *tests.RunOptions, account common.Address, collateralSold *big.Int, bidder common.Address) (uint64, error) {
+func (_IStabilization *IStabilization) CallLiquidate(r *Runner, opts *RunOptions, account common.Address, collateralSold *big.Int, bidder common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IStabilization.Call(opts, "liquidate", account, collateralSold, bidder)
@@ -3899,7 +3895,7 @@ func (_IStabilization *IStabilization) CallLiquidate(r *tests.Runner, opts *test
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setACU(address acu) returns()
-func (_IStabilization *IStabilization) CallSetACU(r *tests.Runner, opts *tests.RunOptions, acu common.Address) (uint64, error) {
+func (_IStabilization *IStabilization) CallSetACU(r *Runner, opts *RunOptions, acu common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IStabilization.Call(opts, "setACU", acu)
@@ -3912,7 +3908,7 @@ func (_IStabilization *IStabilization) CallSetACU(r *tests.Runner, opts *tests.R
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setAuctioneer(address auctioneer) returns()
-func (_IStabilization *IStabilization) CallSetAuctioneer(r *tests.Runner, opts *tests.RunOptions, auctioneer common.Address) (uint64, error) {
+func (_IStabilization *IStabilization) CallSetAuctioneer(r *Runner, opts *RunOptions, auctioneer common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IStabilization.Call(opts, "setAuctioneer", auctioneer)
@@ -3925,7 +3921,7 @@ func (_IStabilization *IStabilization) CallSetAuctioneer(r *tests.Runner, opts *
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setOperator(address operator) returns()
-func (_IStabilization *IStabilization) CallSetOperator(r *tests.Runner, opts *tests.RunOptions, operator common.Address) (uint64, error) {
+func (_IStabilization *IStabilization) CallSetOperator(r *Runner, opts *RunOptions, operator common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IStabilization.Call(opts, "setOperator", operator)
@@ -3938,7 +3934,7 @@ func (_IStabilization *IStabilization) CallSetOperator(r *tests.Runner, opts *te
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setOracle(address oracle) returns()
-func (_IStabilization *IStabilization) CallSetOracle(r *tests.Runner, opts *tests.RunOptions, oracle common.Address) (uint64, error) {
+func (_IStabilization *IStabilization) CallSetOracle(r *Runner, opts *RunOptions, oracle common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IStabilization.Call(opts, "setOracle", oracle)
@@ -3951,7 +3947,7 @@ func (_IStabilization *IStabilization) CallSetOracle(r *tests.Runner, opts *test
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setSupplyControl(address supplyControl) returns()
-func (_IStabilization *IStabilization) CallSetSupplyControl(r *tests.Runner, opts *tests.RunOptions, supplyControl common.Address) (uint64, error) {
+func (_IStabilization *IStabilization) CallSetSupplyControl(r *Runner, opts *RunOptions, supplyControl common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IStabilization.Call(opts, "setSupplyControl", supplyControl)
@@ -3963,7 +3959,7 @@ func (_IStabilization *IStabilization) CallSetSupplyControl(r *tests.Runner, opt
 // Liquidate is a paid mutator transaction binding the contract method 0x4914c008.
 //
 // Solidity: function liquidate(address account, uint256 collateralSold, address bidder) payable returns()
-func (_IStabilization *IStabilization) Liquidate(opts *tests.RunOptions, account common.Address, collateralSold *big.Int, bidder common.Address) (uint64, error) {
+func (_IStabilization *IStabilization) Liquidate(opts *RunOptions, account common.Address, collateralSold *big.Int, bidder common.Address) (uint64, error) {
 	data, consumed, err := _IStabilization.Call(opts, "liquidate", account, collateralSold, bidder)
 	return consumed, _IStabilization.DecodeError(data, err)
 }
@@ -3971,7 +3967,7 @@ func (_IStabilization *IStabilization) Liquidate(opts *tests.RunOptions, account
 // SetACU is a paid mutator transaction binding the contract method 0x4b8ef943.
 //
 // Solidity: function setACU(address acu) returns()
-func (_IStabilization *IStabilization) SetACU(opts *tests.RunOptions, acu common.Address) (uint64, error) {
+func (_IStabilization *IStabilization) SetACU(opts *RunOptions, acu common.Address) (uint64, error) {
 	data, consumed, err := _IStabilization.Call(opts, "setACU", acu)
 	return consumed, _IStabilization.DecodeError(data, err)
 }
@@ -3979,7 +3975,7 @@ func (_IStabilization *IStabilization) SetACU(opts *tests.RunOptions, acu common
 // SetAuctioneer is a paid mutator transaction binding the contract method 0x00ede7e4.
 //
 // Solidity: function setAuctioneer(address auctioneer) returns()
-func (_IStabilization *IStabilization) SetAuctioneer(opts *tests.RunOptions, auctioneer common.Address) (uint64, error) {
+func (_IStabilization *IStabilization) SetAuctioneer(opts *RunOptions, auctioneer common.Address) (uint64, error) {
 	data, consumed, err := _IStabilization.Call(opts, "setAuctioneer", auctioneer)
 	return consumed, _IStabilization.DecodeError(data, err)
 }
@@ -3987,7 +3983,7 @@ func (_IStabilization *IStabilization) SetAuctioneer(opts *tests.RunOptions, auc
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address operator) returns()
-func (_IStabilization *IStabilization) SetOperator(opts *tests.RunOptions, operator common.Address) (uint64, error) {
+func (_IStabilization *IStabilization) SetOperator(opts *RunOptions, operator common.Address) (uint64, error) {
 	data, consumed, err := _IStabilization.Call(opts, "setOperator", operator)
 	return consumed, _IStabilization.DecodeError(data, err)
 }
@@ -3995,7 +3991,7 @@ func (_IStabilization *IStabilization) SetOperator(opts *tests.RunOptions, opera
 // SetOracle is a paid mutator transaction binding the contract method 0x7adbf973.
 //
 // Solidity: function setOracle(address oracle) returns()
-func (_IStabilization *IStabilization) SetOracle(opts *tests.RunOptions, oracle common.Address) (uint64, error) {
+func (_IStabilization *IStabilization) SetOracle(opts *RunOptions, oracle common.Address) (uint64, error) {
 	data, consumed, err := _IStabilization.Call(opts, "setOracle", oracle)
 	return consumed, _IStabilization.DecodeError(data, err)
 }
@@ -4003,7 +3999,7 @@ func (_IStabilization *IStabilization) SetOracle(opts *tests.RunOptions, oracle 
 // SetSupplyControl is a paid mutator transaction binding the contract method 0x52e5a050.
 //
 // Solidity: function setSupplyControl(address supplyControl) returns()
-func (_IStabilization *IStabilization) SetSupplyControl(opts *tests.RunOptions, supplyControl common.Address) (uint64, error) {
+func (_IStabilization *IStabilization) SetSupplyControl(opts *RunOptions, supplyControl common.Address) (uint64, error) {
 	data, consumed, err := _IStabilization.Call(opts, "setSupplyControl", supplyControl)
 	return consumed, _IStabilization.DecodeError(data, err)
 }
@@ -4042,19 +4038,19 @@ var ISupplyControlFuncSigs = ISupplyControlMetaData.Sigs
 
 // ISupplyControl is an auto generated Go binding around an Ethereum contract.
 type ISupplyControl struct {
-	*tests.Contract
+	*Contract
 }
 
 // AvailableSupply is a free data retrieval call binding the contract method 0x7ecc2b56.
 //
 // Solidity: function availableSupply() view returns(uint256)
-func (_ISupplyControl *ISupplyControl) AvailableSupply(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_ISupplyControl *ISupplyControl) AvailableSupply(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _ISupplyControl.Call(opts, "availableSupply")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _ISupplyControl.DecodeError(data, err)
 	}
-	out, err := _ISupplyControl.Contract.Abi().Unpack("availableSupply", data)
+	out, err := _ISupplyControl.abi.Unpack("availableSupply", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -4067,13 +4063,13 @@ func (_ISupplyControl *ISupplyControl) AvailableSupply(opts *tests.RunOptions) (
 // GetStabilizer is a free data retrieval call binding the contract method 0x80af1799.
 //
 // Solidity: function getStabilizer() view returns(address)
-func (_ISupplyControl *ISupplyControl) GetStabilizer(opts *tests.RunOptions) (common.Address, uint64, error) {
+func (_ISupplyControl *ISupplyControl) GetStabilizer(opts *RunOptions) (common.Address, uint64, error) {
 	data, consumed, err := _ISupplyControl.Call(opts, "getStabilizer")
 
 	if err != nil {
 		return *new(common.Address), consumed, _ISupplyControl.DecodeError(data, err)
 	}
-	out, err := _ISupplyControl.Contract.Abi().Unpack("getStabilizer", data)
+	out, err := _ISupplyControl.abi.Unpack("getStabilizer", data)
 	if err != nil {
 		return *new(common.Address), consumed, err
 	}
@@ -4086,13 +4082,13 @@ func (_ISupplyControl *ISupplyControl) GetStabilizer(opts *tests.RunOptions) (co
 // GetTotalSupply is a free data retrieval call binding the contract method 0xc4e41b22.
 //
 // Solidity: function getTotalSupply() view returns(uint256)
-func (_ISupplyControl *ISupplyControl) GetTotalSupply(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_ISupplyControl *ISupplyControl) GetTotalSupply(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _ISupplyControl.Call(opts, "getTotalSupply")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _ISupplyControl.DecodeError(data, err)
 	}
-	out, err := _ISupplyControl.Contract.Abi().Unpack("getTotalSupply", data)
+	out, err := _ISupplyControl.abi.Unpack("getTotalSupply", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -4106,7 +4102,7 @@ func (_ISupplyControl *ISupplyControl) GetTotalSupply(opts *tests.RunOptions) (*
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function burn() payable returns()
-func (_ISupplyControl *ISupplyControl) CallBurn(r *tests.Runner, opts *tests.RunOptions) (uint64, error) {
+func (_ISupplyControl *ISupplyControl) CallBurn(r *Runner, opts *RunOptions) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ISupplyControl.Call(opts, "burn")
@@ -4119,7 +4115,7 @@ func (_ISupplyControl *ISupplyControl) CallBurn(r *tests.Runner, opts *tests.Run
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function mint(address recipient, uint256 amount) returns()
-func (_ISupplyControl *ISupplyControl) CallMint(r *tests.Runner, opts *tests.RunOptions, recipient common.Address, amount *big.Int) (uint64, error) {
+func (_ISupplyControl *ISupplyControl) CallMint(r *Runner, opts *RunOptions, recipient common.Address, amount *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ISupplyControl.Call(opts, "mint", recipient, amount)
@@ -4132,7 +4128,7 @@ func (_ISupplyControl *ISupplyControl) CallMint(r *tests.Runner, opts *tests.Run
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setOperator(address operator) returns()
-func (_ISupplyControl *ISupplyControl) CallSetOperator(r *tests.Runner, opts *tests.RunOptions, operator common.Address) (uint64, error) {
+func (_ISupplyControl *ISupplyControl) CallSetOperator(r *Runner, opts *RunOptions, operator common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ISupplyControl.Call(opts, "setOperator", operator)
@@ -4145,7 +4141,7 @@ func (_ISupplyControl *ISupplyControl) CallSetOperator(r *tests.Runner, opts *te
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setStabilizer(address stabilizer_) returns()
-func (_ISupplyControl *ISupplyControl) CallSetStabilizer(r *tests.Runner, opts *tests.RunOptions, stabilizer_ common.Address) (uint64, error) {
+func (_ISupplyControl *ISupplyControl) CallSetStabilizer(r *Runner, opts *RunOptions, stabilizer_ common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _ISupplyControl.Call(opts, "setStabilizer", stabilizer_)
@@ -4157,7 +4153,7 @@ func (_ISupplyControl *ISupplyControl) CallSetStabilizer(r *tests.Runner, opts *
 // Burn is a paid mutator transaction binding the contract method 0x44df8e70.
 //
 // Solidity: function burn() payable returns()
-func (_ISupplyControl *ISupplyControl) Burn(opts *tests.RunOptions) (uint64, error) {
+func (_ISupplyControl *ISupplyControl) Burn(opts *RunOptions) (uint64, error) {
 	data, consumed, err := _ISupplyControl.Call(opts, "burn")
 	return consumed, _ISupplyControl.DecodeError(data, err)
 }
@@ -4165,7 +4161,7 @@ func (_ISupplyControl *ISupplyControl) Burn(opts *tests.RunOptions) (uint64, err
 // Mint is a paid mutator transaction binding the contract method 0x40c10f19.
 //
 // Solidity: function mint(address recipient, uint256 amount) returns()
-func (_ISupplyControl *ISupplyControl) Mint(opts *tests.RunOptions, recipient common.Address, amount *big.Int) (uint64, error) {
+func (_ISupplyControl *ISupplyControl) Mint(opts *RunOptions, recipient common.Address, amount *big.Int) (uint64, error) {
 	data, consumed, err := _ISupplyControl.Call(opts, "mint", recipient, amount)
 	return consumed, _ISupplyControl.DecodeError(data, err)
 }
@@ -4173,7 +4169,7 @@ func (_ISupplyControl *ISupplyControl) Mint(opts *tests.RunOptions, recipient co
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address operator) returns()
-func (_ISupplyControl *ISupplyControl) SetOperator(opts *tests.RunOptions, operator common.Address) (uint64, error) {
+func (_ISupplyControl *ISupplyControl) SetOperator(opts *RunOptions, operator common.Address) (uint64, error) {
 	data, consumed, err := _ISupplyControl.Call(opts, "setOperator", operator)
 	return consumed, _ISupplyControl.DecodeError(data, err)
 }
@@ -4181,7 +4177,7 @@ func (_ISupplyControl *ISupplyControl) SetOperator(opts *tests.RunOptions, opera
 // SetStabilizer is a paid mutator transaction binding the contract method 0xdb7f521a.
 //
 // Solidity: function setStabilizer(address stabilizer_) returns()
-func (_ISupplyControl *ISupplyControl) SetStabilizer(opts *tests.RunOptions, stabilizer_ common.Address) (uint64, error) {
+func (_ISupplyControl *ISupplyControl) SetStabilizer(opts *RunOptions, stabilizer_ common.Address) (uint64, error) {
 	data, consumed, err := _ISupplyControl.Call(opts, "setStabilizer", stabilizer_)
 	return consumed, _ISupplyControl.DecodeError(data, err)
 }
@@ -4214,14 +4210,14 @@ var IUpgradeManagerFuncSigs = IUpgradeManagerMetaData.Sigs
 
 // IUpgradeManager is an auto generated Go binding around an Ethereum contract.
 type IUpgradeManager struct {
-	*tests.Contract
+	*Contract
 }
 
 // SetOperator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ab15fb.
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setOperator(address _account) returns()
-func (_IUpgradeManager *IUpgradeManager) CallSetOperator(r *tests.Runner, opts *tests.RunOptions, _account common.Address) (uint64, error) {
+func (_IUpgradeManager *IUpgradeManager) CallSetOperator(r *Runner, opts *RunOptions, _account common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _IUpgradeManager.Call(opts, "setOperator", _account)
@@ -4233,7 +4229,7 @@ func (_IUpgradeManager *IUpgradeManager) CallSetOperator(r *tests.Runner, opts *
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address _account) returns()
-func (_IUpgradeManager *IUpgradeManager) SetOperator(opts *tests.RunOptions, _account common.Address) (uint64, error) {
+func (_IUpgradeManager *IUpgradeManager) SetOperator(opts *RunOptions, _account common.Address) (uint64, error) {
 	data, consumed, err := _IUpgradeManager.Call(opts, "setOperator", _account)
 	return consumed, _IUpgradeManager.DecodeError(data, err)
 }
@@ -4297,7 +4293,7 @@ var Oracle0FuncSigs = Oracle0MetaData.Sigs
 var Oracle0Bin = Oracle0MetaData.Bin
 
 // DeployOracle0 deploys a new Ethereum contract, binding an instance of Oracle0 to it.
-func (r *Runner) DeployOracle0(opts *tests.RunOptions) (common.Address, uint64, *Oracle0, error) {
+func (r *Runner) DeployOracle0(opts *RunOptions) (common.Address, uint64, *Oracle0, error) {
 	parsed, err := Oracle0MetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -4306,7 +4302,7 @@ func (r *Runner) DeployOracle0(opts *tests.RunOptions) (common.Address, uint64, 
 		return common.Address{}, 0, nil, errors.New("GetABI returned nil")
 	}
 
-	address, gasConsumed, c, data, err := (*tests.Runner)(r).DeployContract(opts, parsed, common.FromHex(Oracle0Bin))
+	address, gasConsumed, c, data, err := r.DeployContract(opts, parsed, common.FromHex(Oracle0Bin))
 	if err != nil {
 		return common.Address{}, 0, nil, (&Oracle0{Contract: c}).DecodeError(data, err)
 	}
@@ -4315,19 +4311,19 @@ func (r *Runner) DeployOracle0(opts *tests.RunOptions) (common.Address, uint64, 
 
 // Oracle0 is an auto generated Go binding around an Ethereum contract.
 type Oracle0 struct {
-	*tests.Contract
+	*Contract
 }
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
 // Solidity: function getConfig() view returns((address,address,uint256,int256,int256,uint256,uint256,uint256,uint256))
-func (_Oracle0 *Oracle0) GetConfig(opts *tests.RunOptions) (Oracle0Config, uint64, error) {
+func (_Oracle0 *Oracle0) GetConfig(opts *RunOptions) (Oracle0Config, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getConfig")
 
 	if err != nil {
 		return *new(Oracle0Config), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getConfig", data)
+	out, err := _Oracle0.abi.Unpack("getConfig", data)
 	if err != nil {
 		return *new(Oracle0Config), consumed, err
 	}
@@ -4340,13 +4336,13 @@ func (_Oracle0 *Oracle0) GetConfig(opts *tests.RunOptions) (Oracle0Config, uint6
 // GetDecimals is a free data retrieval call binding the contract method 0xf0141d84.
 //
 // Solidity: function getDecimals() pure returns(uint8)
-func (_Oracle0 *Oracle0) GetDecimals(opts *tests.RunOptions) (uint8, uint64, error) {
+func (_Oracle0 *Oracle0) GetDecimals(opts *RunOptions) (uint8, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getDecimals")
 
 	if err != nil {
 		return *new(uint8), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getDecimals", data)
+	out, err := _Oracle0.abi.Unpack("getDecimals", data)
 	if err != nil {
 		return *new(uint8), consumed, err
 	}
@@ -4359,13 +4355,13 @@ func (_Oracle0 *Oracle0) GetDecimals(opts *tests.RunOptions) (uint8, uint64, err
 // GetLastRoundBlock is a free data retrieval call binding the contract method 0x5a4d3a27.
 //
 // Solidity: function getLastRoundBlock() view returns(uint256)
-func (_Oracle0 *Oracle0) GetLastRoundBlock(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_Oracle0 *Oracle0) GetLastRoundBlock(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getLastRoundBlock")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getLastRoundBlock", data)
+	out, err := _Oracle0.abi.Unpack("getLastRoundBlock", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -4378,13 +4374,13 @@ func (_Oracle0 *Oracle0) GetLastRoundBlock(opts *tests.RunOptions) (*big.Int, ui
 // GetNewVotePeriod is a free data retrieval call binding the contract method 0x57eba759.
 //
 // Solidity: function getNewVotePeriod() view returns(uint256)
-func (_Oracle0 *Oracle0) GetNewVotePeriod(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_Oracle0 *Oracle0) GetNewVotePeriod(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getNewVotePeriod")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getNewVotePeriod", data)
+	out, err := _Oracle0.abi.Unpack("getNewVotePeriod", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -4397,13 +4393,13 @@ func (_Oracle0 *Oracle0) GetNewVotePeriod(opts *tests.RunOptions) (*big.Int, uin
 // GetNewVoters is a free data retrieval call binding the contract method 0x077945d3.
 //
 // Solidity: function getNewVoters() view returns(address[])
-func (_Oracle0 *Oracle0) GetNewVoters(opts *tests.RunOptions) ([]common.Address, uint64, error) {
+func (_Oracle0 *Oracle0) GetNewVoters(opts *RunOptions) ([]common.Address, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getNewVoters")
 
 	if err != nil {
 		return *new([]common.Address), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getNewVoters", data)
+	out, err := _Oracle0.abi.Unpack("getNewVoters", data)
 	if err != nil {
 		return *new([]common.Address), consumed, err
 	}
@@ -4416,13 +4412,13 @@ func (_Oracle0 *Oracle0) GetNewVoters(opts *tests.RunOptions) ([]common.Address,
 // GetNonRevealThreshold is a free data retrieval call binding the contract method 0xed78349d.
 //
 // Solidity: function getNonRevealThreshold() view returns(uint256)
-func (_Oracle0 *Oracle0) GetNonRevealThreshold(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_Oracle0 *Oracle0) GetNonRevealThreshold(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getNonRevealThreshold")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getNonRevealThreshold", data)
+	out, err := _Oracle0.abi.Unpack("getNonRevealThreshold", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -4435,13 +4431,13 @@ func (_Oracle0 *Oracle0) GetNonRevealThreshold(opts *tests.RunOptions) (*big.Int
 // GetReports is a free data retrieval call binding the contract method 0xfb09917e.
 //
 // Solidity: function getReports(string _symbol, address _voter) view returns((uint120,uint8))
-func (_Oracle0 *Oracle0) GetReports(opts *tests.RunOptions, _symbol string, _voter common.Address) (IOracleReport, uint64, error) {
+func (_Oracle0 *Oracle0) GetReports(opts *RunOptions, _symbol string, _voter common.Address) (IOracleReport, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getReports", _symbol, _voter)
 
 	if err != nil {
 		return *new(IOracleReport), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getReports", data)
+	out, err := _Oracle0.abi.Unpack("getReports", data)
 	if err != nil {
 		return *new(IOracleReport), consumed, err
 	}
@@ -4454,13 +4450,13 @@ func (_Oracle0 *Oracle0) GetReports(opts *tests.RunOptions, _symbol string, _vot
 // GetRewardPeriodPerformance is a free data retrieval call binding the contract method 0x33d16293.
 //
 // Solidity: function getRewardPeriodPerformance(address _voter) view returns(uint256)
-func (_Oracle0 *Oracle0) GetRewardPeriodPerformance(opts *tests.RunOptions, _voter common.Address) (*big.Int, uint64, error) {
+func (_Oracle0 *Oracle0) GetRewardPeriodPerformance(opts *RunOptions, _voter common.Address) (*big.Int, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getRewardPeriodPerformance", _voter)
 
 	if err != nil {
 		return *new(*big.Int), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getRewardPeriodPerformance", data)
+	out, err := _Oracle0.abi.Unpack("getRewardPeriodPerformance", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -4473,13 +4469,13 @@ func (_Oracle0 *Oracle0) GetRewardPeriodPerformance(opts *tests.RunOptions, _vot
 // GetRound is a free data retrieval call binding the contract method 0x9f8743f7.
 //
 // Solidity: function getRound() view returns(uint256)
-func (_Oracle0 *Oracle0) GetRound(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_Oracle0 *Oracle0) GetRound(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getRound")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getRound", data)
+	out, err := _Oracle0.abi.Unpack("getRound", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -4492,13 +4488,13 @@ func (_Oracle0 *Oracle0) GetRound(opts *tests.RunOptions) (*big.Int, uint64, err
 // GetRoundData is a free data retrieval call binding the contract method 0x3c8510fd.
 //
 // Solidity: function getRoundData(uint256 _round, string _symbol) view returns((uint256,uint256,uint256,bool) data)
-func (_Oracle0 *Oracle0) GetRoundData(opts *tests.RunOptions, _round *big.Int, _symbol string) (IOracleRoundData, uint64, error) {
+func (_Oracle0 *Oracle0) GetRoundData(opts *RunOptions, _round *big.Int, _symbol string) (IOracleRoundData, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getRoundData", _round, _symbol)
 
 	if err != nil {
 		return *new(IOracleRoundData), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getRoundData", data)
+	out, err := _Oracle0.abi.Unpack("getRoundData", data)
 	if err != nil {
 		return *new(IOracleRoundData), consumed, err
 	}
@@ -4511,13 +4507,13 @@ func (_Oracle0 *Oracle0) GetRoundData(opts *tests.RunOptions, _round *big.Int, _
 // GetSymbolUpdatedRound is a free data retrieval call binding the contract method 0x99b0014b.
 //
 // Solidity: function getSymbolUpdatedRound() view returns(int256)
-func (_Oracle0 *Oracle0) GetSymbolUpdatedRound(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_Oracle0 *Oracle0) GetSymbolUpdatedRound(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getSymbolUpdatedRound")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getSymbolUpdatedRound", data)
+	out, err := _Oracle0.abi.Unpack("getSymbolUpdatedRound", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -4530,13 +4526,13 @@ func (_Oracle0 *Oracle0) GetSymbolUpdatedRound(opts *tests.RunOptions) (*big.Int
 // GetSymbols is a free data retrieval call binding the contract method 0xdf7f710e.
 //
 // Solidity: function getSymbols() view returns(string[])
-func (_Oracle0 *Oracle0) GetSymbols(opts *tests.RunOptions) ([]string, uint64, error) {
+func (_Oracle0 *Oracle0) GetSymbols(opts *RunOptions) ([]string, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getSymbols")
 
 	if err != nil {
 		return *new([]string), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getSymbols", data)
+	out, err := _Oracle0.abi.Unpack("getSymbols", data)
 	if err != nil {
 		return *new([]string), consumed, err
 	}
@@ -4549,13 +4545,13 @@ func (_Oracle0 *Oracle0) GetSymbols(opts *tests.RunOptions) ([]string, uint64, e
 // GetVotePeriod is a free data retrieval call binding the contract method 0xb78dec52.
 //
 // Solidity: function getVotePeriod() view returns(uint256)
-func (_Oracle0 *Oracle0) GetVotePeriod(opts *tests.RunOptions) (*big.Int, uint64, error) {
+func (_Oracle0 *Oracle0) GetVotePeriod(opts *RunOptions) (*big.Int, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getVotePeriod")
 
 	if err != nil {
 		return *new(*big.Int), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getVotePeriod", data)
+	out, err := _Oracle0.abi.Unpack("getVotePeriod", data)
 	if err != nil {
 		return *new(*big.Int), consumed, err
 	}
@@ -4568,13 +4564,13 @@ func (_Oracle0 *Oracle0) GetVotePeriod(opts *tests.RunOptions) (*big.Int, uint64
 // GetVoterInfo is a free data retrieval call binding the contract method 0x9ed1f255.
 //
 // Solidity: function getVoterInfo(address _voter) view returns((uint256,uint256,uint256,uint256,bool,bool))
-func (_Oracle0 *Oracle0) GetVoterInfo(opts *tests.RunOptions, _voter common.Address) (Oracle0VoterInfo, uint64, error) {
+func (_Oracle0 *Oracle0) GetVoterInfo(opts *RunOptions, _voter common.Address) (Oracle0VoterInfo, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getVoterInfo", _voter)
 
 	if err != nil {
 		return *new(Oracle0VoterInfo), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getVoterInfo", data)
+	out, err := _Oracle0.abi.Unpack("getVoterInfo", data)
 	if err != nil {
 		return *new(Oracle0VoterInfo), consumed, err
 	}
@@ -4587,13 +4583,13 @@ func (_Oracle0 *Oracle0) GetVoterInfo(opts *tests.RunOptions, _voter common.Addr
 // GetVoterTreasuries is a free data retrieval call binding the contract method 0xef5cc4d1.
 //
 // Solidity: function getVoterTreasuries(address _oracleAddress) view returns(address)
-func (_Oracle0 *Oracle0) GetVoterTreasuries(opts *tests.RunOptions, _oracleAddress common.Address) (common.Address, uint64, error) {
+func (_Oracle0 *Oracle0) GetVoterTreasuries(opts *RunOptions, _oracleAddress common.Address) (common.Address, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getVoterTreasuries", _oracleAddress)
 
 	if err != nil {
 		return *new(common.Address), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getVoterTreasuries", data)
+	out, err := _Oracle0.abi.Unpack("getVoterTreasuries", data)
 	if err != nil {
 		return *new(common.Address), consumed, err
 	}
@@ -4606,13 +4602,13 @@ func (_Oracle0 *Oracle0) GetVoterTreasuries(opts *tests.RunOptions, _oracleAddre
 // GetVoterValidators is a free data retrieval call binding the contract method 0x2d35d158.
 //
 // Solidity: function getVoterValidators(address _oracleAddress) view returns(address)
-func (_Oracle0 *Oracle0) GetVoterValidators(opts *tests.RunOptions, _oracleAddress common.Address) (common.Address, uint64, error) {
+func (_Oracle0 *Oracle0) GetVoterValidators(opts *RunOptions, _oracleAddress common.Address) (common.Address, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getVoterValidators", _oracleAddress)
 
 	if err != nil {
 		return *new(common.Address), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getVoterValidators", data)
+	out, err := _Oracle0.abi.Unpack("getVoterValidators", data)
 	if err != nil {
 		return *new(common.Address), consumed, err
 	}
@@ -4625,13 +4621,13 @@ func (_Oracle0 *Oracle0) GetVoterValidators(opts *tests.RunOptions, _oracleAddre
 // GetVoters is a free data retrieval call binding the contract method 0xcdd72253.
 //
 // Solidity: function getVoters() view returns(address[])
-func (_Oracle0 *Oracle0) GetVoters(opts *tests.RunOptions) ([]common.Address, uint64, error) {
+func (_Oracle0 *Oracle0) GetVoters(opts *RunOptions) ([]common.Address, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "getVoters")
 
 	if err != nil {
 		return *new([]common.Address), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("getVoters", data)
+	out, err := _Oracle0.abi.Unpack("getVoters", data)
 	if err != nil {
 		return *new([]common.Address), consumed, err
 	}
@@ -4644,13 +4640,13 @@ func (_Oracle0 *Oracle0) GetVoters(opts *tests.RunOptions) ([]common.Address, ui
 // LatestRoundData is a free data retrieval call binding the contract method 0x33f98c77.
 //
 // Solidity: function latestRoundData(string _symbol) view returns((uint256,uint256,uint256,bool) data)
-func (_Oracle0 *Oracle0) LatestRoundData(opts *tests.RunOptions, _symbol string) (IOracleRoundData, uint64, error) {
+func (_Oracle0 *Oracle0) LatestRoundData(opts *RunOptions, _symbol string) (IOracleRoundData, uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "latestRoundData", _symbol)
 
 	if err != nil {
 		return *new(IOracleRoundData), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("latestRoundData", data)
+	out, err := _Oracle0.abi.Unpack("latestRoundData", data)
 	if err != nil {
 		return *new(IOracleRoundData), consumed, err
 	}
@@ -4664,7 +4660,7 @@ func (_Oracle0 *Oracle0) LatestRoundData(opts *tests.RunOptions, _symbol string)
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function distributeRewards(uint256 _ntn) payable returns()
-func (_Oracle0 *Oracle0) CallDistributeRewards(r *tests.Runner, opts *tests.RunOptions, _ntn *big.Int) (uint64, error) {
+func (_Oracle0 *Oracle0) CallDistributeRewards(r *Runner, opts *RunOptions, _ntn *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _Oracle0.Call(opts, "distributeRewards", _ntn)
@@ -4677,7 +4673,7 @@ func (_Oracle0 *Oracle0) CallDistributeRewards(r *tests.Runner, opts *tests.RunO
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function finalize() returns(bool)
-func (_Oracle0 *Oracle0) CallFinalize(r *tests.Runner, opts *tests.RunOptions) (bool, uint64, error) {
+func (_Oracle0 *Oracle0) CallFinalize(r *Runner, opts *RunOptions) (bool, uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _Oracle0.Call(opts, "finalize")
@@ -4686,7 +4682,7 @@ func (_Oracle0 *Oracle0) CallFinalize(r *tests.Runner, opts *tests.RunOptions) (
 	if err != nil {
 		return *new(bool), consumed, _Oracle0.DecodeError(data, err)
 	}
-	out, err := _Oracle0.Contract.Abi().Unpack("finalize", data)
+	out, err := _Oracle0.abi.Unpack("finalize", data)
 	if err != nil {
 		return *new(bool), consumed, err
 	}
@@ -4700,7 +4696,7 @@ func (_Oracle0 *Oracle0) CallFinalize(r *tests.Runner, opts *tests.RunOptions) (
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) returns()
-func (_Oracle0 *Oracle0) CallSetCommitRevealConfig(r *tests.Runner, opts *tests.RunOptions, _threshold *big.Int, _resetInterval *big.Int) (uint64, error) {
+func (_Oracle0 *Oracle0) CallSetCommitRevealConfig(r *Runner, opts *RunOptions, _threshold *big.Int, _resetInterval *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _Oracle0.Call(opts, "setCommitRevealConfig", _threshold, _resetInterval)
@@ -4713,7 +4709,7 @@ func (_Oracle0 *Oracle0) CallSetCommitRevealConfig(r *tests.Runner, opts *tests.
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setOperator(address _operator) returns()
-func (_Oracle0 *Oracle0) CallSetOperator(r *tests.Runner, opts *tests.RunOptions, _operator common.Address) (uint64, error) {
+func (_Oracle0 *Oracle0) CallSetOperator(r *Runner, opts *RunOptions, _operator common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _Oracle0.Call(opts, "setOperator", _operator)
@@ -4726,7 +4722,7 @@ func (_Oracle0 *Oracle0) CallSetOperator(r *tests.Runner, opts *tests.RunOptions
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setSlashingConfig(int256 _outlierSlashingThreshold, int256 _outlierDetectionThreshold, uint256 _baseSlashingRate, uint256 _slashingRateCap) returns()
-func (_Oracle0 *Oracle0) CallSetSlashingConfig(r *tests.Runner, opts *tests.RunOptions, _outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (uint64, error) {
+func (_Oracle0 *Oracle0) CallSetSlashingConfig(r *Runner, opts *RunOptions, _outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _Oracle0.Call(opts, "setSlashingConfig", _outlierSlashingThreshold, _outlierDetectionThreshold, _baseSlashingRate, _slashingRateCap)
@@ -4739,7 +4735,7 @@ func (_Oracle0 *Oracle0) CallSetSlashingConfig(r *tests.Runner, opts *tests.RunO
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setSymbols(string[] _symbols) returns()
-func (_Oracle0 *Oracle0) CallSetSymbols(r *tests.Runner, opts *tests.RunOptions, _symbols []string) (uint64, error) {
+func (_Oracle0 *Oracle0) CallSetSymbols(r *Runner, opts *RunOptions, _symbols []string) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _Oracle0.Call(opts, "setSymbols", _symbols)
@@ -4752,7 +4748,7 @@ func (_Oracle0 *Oracle0) CallSetSymbols(r *tests.Runner, opts *tests.RunOptions,
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setVotePeriod(uint256 _votePeriod) returns()
-func (_Oracle0 *Oracle0) CallSetVotePeriod(r *tests.Runner, opts *tests.RunOptions, _votePeriod *big.Int) (uint64, error) {
+func (_Oracle0 *Oracle0) CallSetVotePeriod(r *Runner, opts *RunOptions, _votePeriod *big.Int) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _Oracle0.Call(opts, "setVotePeriod", _votePeriod)
@@ -4765,7 +4761,7 @@ func (_Oracle0 *Oracle0) CallSetVotePeriod(r *tests.Runner, opts *tests.RunOptio
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setVoters(address[] _newVoters, address[] _treasury, address[] _validator) returns()
-func (_Oracle0 *Oracle0) CallSetVoters(r *tests.Runner, opts *tests.RunOptions, _newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (uint64, error) {
+func (_Oracle0 *Oracle0) CallSetVoters(r *Runner, opts *RunOptions, _newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _Oracle0.Call(opts, "setVoters", _newVoters, _treasury, _validator)
@@ -4778,7 +4774,7 @@ func (_Oracle0 *Oracle0) CallSetVoters(r *tests.Runner, opts *tests.RunOptions, 
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function updateVotersAndSymbol() returns()
-func (_Oracle0 *Oracle0) CallUpdateVotersAndSymbol(r *tests.Runner, opts *tests.RunOptions) (uint64, error) {
+func (_Oracle0 *Oracle0) CallUpdateVotersAndSymbol(r *Runner, opts *RunOptions) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _Oracle0.Call(opts, "updateVotersAndSymbol")
@@ -4791,7 +4787,7 @@ func (_Oracle0 *Oracle0) CallUpdateVotersAndSymbol(r *tests.Runner, opts *tests.
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function vote(uint256 _commit, (uint120,uint8)[] _reports, uint256 _salt, uint8 _extra) returns()
-func (_Oracle0 *Oracle0) CallVote(r *tests.Runner, opts *tests.RunOptions, _commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (uint64, error) {
+func (_Oracle0 *Oracle0) CallVote(r *Runner, opts *RunOptions, _commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (uint64, error) {
 	snap := r.Snapshot()
 
 	data, consumed, err := _Oracle0.Call(opts, "vote", _commit, _reports, _salt, _extra)
@@ -4803,7 +4799,7 @@ func (_Oracle0 *Oracle0) CallVote(r *tests.Runner, opts *tests.RunOptions, _comm
 // DistributeRewards is a paid mutator transaction binding the contract method 0x59974e38.
 //
 // Solidity: function distributeRewards(uint256 _ntn) payable returns()
-func (_Oracle0 *Oracle0) DistributeRewards(opts *tests.RunOptions, _ntn *big.Int) (uint64, error) {
+func (_Oracle0 *Oracle0) DistributeRewards(opts *RunOptions, _ntn *big.Int) (uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "distributeRewards", _ntn)
 	return consumed, _Oracle0.DecodeError(data, err)
 }
@@ -4811,7 +4807,7 @@ func (_Oracle0 *Oracle0) DistributeRewards(opts *tests.RunOptions, _ntn *big.Int
 // Finalize is a paid mutator transaction binding the contract method 0x4bb278f3.
 //
 // Solidity: function finalize() returns(bool)
-func (_Oracle0 *Oracle0) Finalize(opts *tests.RunOptions) (uint64, error) {
+func (_Oracle0 *Oracle0) Finalize(opts *RunOptions) (uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "finalize")
 	return consumed, _Oracle0.DecodeError(data, err)
 }
@@ -4819,7 +4815,7 @@ func (_Oracle0 *Oracle0) Finalize(opts *tests.RunOptions) (uint64, error) {
 // SetCommitRevealConfig is a paid mutator transaction binding the contract method 0x3f422ef3.
 //
 // Solidity: function setCommitRevealConfig(uint256 _threshold, uint256 _resetInterval) returns()
-func (_Oracle0 *Oracle0) SetCommitRevealConfig(opts *tests.RunOptions, _threshold *big.Int, _resetInterval *big.Int) (uint64, error) {
+func (_Oracle0 *Oracle0) SetCommitRevealConfig(opts *RunOptions, _threshold *big.Int, _resetInterval *big.Int) (uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "setCommitRevealConfig", _threshold, _resetInterval)
 	return consumed, _Oracle0.DecodeError(data, err)
 }
@@ -4827,7 +4823,7 @@ func (_Oracle0 *Oracle0) SetCommitRevealConfig(opts *tests.RunOptions, _threshol
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address _operator) returns()
-func (_Oracle0 *Oracle0) SetOperator(opts *tests.RunOptions, _operator common.Address) (uint64, error) {
+func (_Oracle0 *Oracle0) SetOperator(opts *RunOptions, _operator common.Address) (uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "setOperator", _operator)
 	return consumed, _Oracle0.DecodeError(data, err)
 }
@@ -4835,7 +4831,7 @@ func (_Oracle0 *Oracle0) SetOperator(opts *tests.RunOptions, _operator common.Ad
 // SetSlashingConfig is a paid mutator transaction binding the contract method 0xda39fbfe.
 //
 // Solidity: function setSlashingConfig(int256 _outlierSlashingThreshold, int256 _outlierDetectionThreshold, uint256 _baseSlashingRate, uint256 _slashingRateCap) returns()
-func (_Oracle0 *Oracle0) SetSlashingConfig(opts *tests.RunOptions, _outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (uint64, error) {
+func (_Oracle0 *Oracle0) SetSlashingConfig(opts *RunOptions, _outlierSlashingThreshold *big.Int, _outlierDetectionThreshold *big.Int, _baseSlashingRate *big.Int, _slashingRateCap *big.Int) (uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "setSlashingConfig", _outlierSlashingThreshold, _outlierDetectionThreshold, _baseSlashingRate, _slashingRateCap)
 	return consumed, _Oracle0.DecodeError(data, err)
 }
@@ -4843,7 +4839,7 @@ func (_Oracle0 *Oracle0) SetSlashingConfig(opts *tests.RunOptions, _outlierSlash
 // SetSymbols is a paid mutator transaction binding the contract method 0x8d4f75d2.
 //
 // Solidity: function setSymbols(string[] _symbols) returns()
-func (_Oracle0 *Oracle0) SetSymbols(opts *tests.RunOptions, _symbols []string) (uint64, error) {
+func (_Oracle0 *Oracle0) SetSymbols(opts *RunOptions, _symbols []string) (uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "setSymbols", _symbols)
 	return consumed, _Oracle0.DecodeError(data, err)
 }
@@ -4851,7 +4847,7 @@ func (_Oracle0 *Oracle0) SetSymbols(opts *tests.RunOptions, _symbols []string) (
 // SetVotePeriod is a paid mutator transaction binding the contract method 0x67b11630.
 //
 // Solidity: function setVotePeriod(uint256 _votePeriod) returns()
-func (_Oracle0 *Oracle0) SetVotePeriod(opts *tests.RunOptions, _votePeriod *big.Int) (uint64, error) {
+func (_Oracle0 *Oracle0) SetVotePeriod(opts *RunOptions, _votePeriod *big.Int) (uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "setVotePeriod", _votePeriod)
 	return consumed, _Oracle0.DecodeError(data, err)
 }
@@ -4859,7 +4855,7 @@ func (_Oracle0 *Oracle0) SetVotePeriod(opts *tests.RunOptions, _votePeriod *big.
 // SetVoters is a paid mutator transaction binding the contract method 0xda78110e.
 //
 // Solidity: function setVoters(address[] _newVoters, address[] _treasury, address[] _validator) returns()
-func (_Oracle0 *Oracle0) SetVoters(opts *tests.RunOptions, _newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (uint64, error) {
+func (_Oracle0 *Oracle0) SetVoters(opts *RunOptions, _newVoters []common.Address, _treasury []common.Address, _validator []common.Address) (uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "setVoters", _newVoters, _treasury, _validator)
 	return consumed, _Oracle0.DecodeError(data, err)
 }
@@ -4867,7 +4863,7 @@ func (_Oracle0 *Oracle0) SetVoters(opts *tests.RunOptions, _newVoters []common.A
 // UpdateVotersAndSymbol is a paid mutator transaction binding the contract method 0x0f65875c.
 //
 // Solidity: function updateVotersAndSymbol() returns()
-func (_Oracle0 *Oracle0) UpdateVotersAndSymbol(opts *tests.RunOptions) (uint64, error) {
+func (_Oracle0 *Oracle0) UpdateVotersAndSymbol(opts *RunOptions) (uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "updateVotersAndSymbol")
 	return consumed, _Oracle0.DecodeError(data, err)
 }
@@ -4875,7 +4871,7 @@ func (_Oracle0 *Oracle0) UpdateVotersAndSymbol(opts *tests.RunOptions) (uint64, 
 // Vote is a paid mutator transaction binding the contract method 0x56833ebe.
 //
 // Solidity: function vote(uint256 _commit, (uint120,uint8)[] _reports, uint256 _salt, uint8 _extra) returns()
-func (_Oracle0 *Oracle0) Vote(opts *tests.RunOptions, _commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (uint64, error) {
+func (_Oracle0 *Oracle0) Vote(opts *RunOptions, _commit *big.Int, _reports []IOracleReport, _salt *big.Int, _extra uint8) (uint64, error) {
 	data, consumed, err := _Oracle0.Call(opts, "vote", _commit, _reports, _salt, _extra)
 	return consumed, _Oracle0.DecodeError(data, err)
 }
@@ -4883,7 +4879,7 @@ func (_Oracle0 *Oracle0) Vote(opts *tests.RunOptions, _commit *big.Int, _reports
 // Fallback is a paid mutator transaction binding the contract fallback function.
 // WARNING! UNTESTED
 // Solidity: fallback() payable returns()
-func (_Oracle0 *Oracle0) Fallback(opts *tests.RunOptions, calldata []byte) (uint64, error) {
+func (_Oracle0 *Oracle0) Fallback(opts *RunOptions, calldata []byte) (uint64, error) {
 	out, consumed, err := _Oracle0.Call(opts, "", calldata)
 	return consumed, _Oracle0.DecodeError(out, err)
 }
@@ -4891,7 +4887,7 @@ func (_Oracle0 *Oracle0) Fallback(opts *tests.RunOptions, calldata []byte) (uint
 // Receive is a paid mutator transaction binding the contract receive function.
 // WARNING! UNTESTED
 // Solidity: receive() payable returns()
-func (_Oracle0 *Oracle0) Receive(opts *tests.RunOptions) (uint64, error) {
+func (_Oracle0 *Oracle0) Receive(opts *RunOptions) (uint64, error) {
 	out, consumed, err := _Oracle0.Call(opts, "")
 	return consumed, _Oracle0.DecodeError(out, err)
 }
@@ -4917,7 +4913,7 @@ var ReentrancyGuardABI = ReentrancyGuardMetaData.ABI
 
 // ReentrancyGuard is an auto generated Go binding around an Ethereum contract.
 type ReentrancyGuard struct {
-	*tests.Contract
+	*Contract
 }
 
 func (_ReentrancyGuard *ReentrancyGuard) DecodeError(data []byte, err error) error {
