@@ -95,35 +95,32 @@ contracts: compile-contracts compile-contracts-upgrades 4byte bindings bindings-
 
 compile-contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BINARY)
 	@echo "compiling protocol contracts"
-	@$(call gen-contract,,Autonity,$(GENERATED_CONTRACTS_DIR),generated)
-	@$(call gen-contract,,Oracle,$(GENERATED_CONTRACTS_DIR),generated)
-	@$(call gen-contract,,Accountability,$(GENERATED_CONTRACTS_DIR),generated)
-	@$(call gen-contract,,OmissionAccountability,$(GENERATED_CONTRACTS_DIR),generated)
-	@$(call gen-contract,,UpgradeManager,$(GENERATED_CONTRACTS_DIR),generated)
-	@$(call gen-contract,,InflationController,$(GENERATED_CONTRACTS_DIR),generated)
-	@$(call gen-contract,asm/,ACU,$(GENERATED_CONTRACTS_DIR),generated)
-	@$(call gen-contract,asm/,SupplyControl,$(GENERATED_CONTRACTS_DIR),generated)
-	@$(call gen-contract,asm/,Stabilization,$(GENERATED_CONTRACTS_DIR),generated)
-	@$(call gen-contract,asm/,Auctioneer,$(GENERATED_CONTRACTS_DIR),generated)
+	@$(call gen-contract,,Autonity)
+	@$(call gen-contract,,Oracle)
+	@$(call gen-contract,,Accountability)
+	@$(call gen-contract,,OmissionAccountability)
+	@$(call gen-contract,,UpgradeManager)
+	@$(call gen-contract,,InflationController)
+	@$(call gen-contract,asm/,ACU)
+	@$(call gen-contract,asm/,SupplyControl)
+	@$(call gen-contract,asm/,Stabilization)
+	@$(call gen-contract,asm/,Auctioneer)
 	@echo "compiling test protocol contracts"
-	@$(call gen-contract,test-contract/,AccountabilityTest,$(GENERATED_CONTRACTS_DIR),generated)
-	@$(call gen-contract,test-contract/,AutonityTest,$(GENERATED_CONTRACTS_DIR),generated)
-	@$(call gen-contract,test-contract/,AutonityUpgradeTest,$(GENERATED_CONTRACTS_DIR),generated)
-	@$(call gen-contract,test-contract/,OmissionAccountabilityTest,$(GENERATED_CONTRACTS_DIR),generated)
+	@$(call gen-contract,test-contract/,AccountabilityTest)
+	@$(call gen-contract,test-contract/,AutonityTest)
+	@$(call gen-contract,test-contract/,AutonityUpgradeTest)
+	@$(call gen-contract,test-contract/,OmissionAccountabilityTest)
 
 compile-contracts-upgrades: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BINARY)
 	@echo "compiling protocol contract upgrades"
-	@mkdir -p $(GENERATED_CONTRACTS_UPGRADES_DIR)/0
-	@$(call gen-contract,upgrades/0/,Oracle0,$(GENERATED_CONTRACTS_UPGRADES_DIR)/0,generated0)
-	@mkdir -p $(GENERATED_CONTRACTS_UPGRADES_DIR)/1
-	@$(call gen-contract,upgrades/1/,UpgradeManager1,$(GENERATED_CONTRACTS_UPGRADES_DIR)/1,generated1)
+	@$(call gen-contract,upgrades/0/,Oracle0)
+	@$(call gen-contract,upgrades/1/,UpgradeManager1)
 	@echo "compiling protocol contract test upgrades"
-	@mkdir -p $(GENERATED_CONTRACTS_UPGRADES_DIR)/tests
-	@$(call gen-contract,upgrades/tests/,ACUTestUpgrade,$(GENERATED_CONTRACTS_UPGRADES_DIR)/tests,generatedtests)
-	@$(call gen-contract,upgrades/tests/,AuctioneerTestUpgrade,$(GENERATED_CONTRACTS_UPGRADES_DIR)/tests,generatedtests)
-	@$(call gen-contract,upgrades/tests/,InflationControllerTestUpgrade,$(GENERATED_CONTRACTS_UPGRADES_DIR)/tests,generatedtests)
-	@$(call gen-contract,upgrades/tests/,StabilizationTestUpgrade,$(GENERATED_CONTRACTS_UPGRADES_DIR)/tests,generatedtests)
-	@$(call gen-contract,upgrades/tests/,SupplyControlTestUpgrade,$(GENERATED_CONTRACTS_UPGRADES_DIR)/tests,generatedtests)
+	@$(call gen-contract,upgrades/tests/,ACUTestUpgrade)
+	@$(call gen-contract,upgrades/tests/,AuctioneerTestUpgrade)
+	@$(call gen-contract,upgrades/tests/,InflationControllerTestUpgrade)
+	@$(call gen-contract,upgrades/tests/,StabilizationTestUpgrade)
+	@$(call gen-contract,upgrades/tests/,SupplyControlTestUpgrade)
 
 4byte:
 	@echo "update 4byte selector for clef"
@@ -162,44 +159,42 @@ bindings-upgrades: $(ABIGEN_BINARY)
 # params:
 # $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR)
 # $(2) --> contract filename (which should be == with the contract's name)
-# $(3) --> output files directory
-# $(4) --> package
 define gen-contract
-	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin --bin-runtime --metadata --userdoc --devdoc -o $(3) $(CONTRACTS_DIR)/$(1)$(2).sol
+	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin --bin-runtime --metadata --userdoc --devdoc -o $(GENERATED_CONTRACTS_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
 
 	@# NOTE: the sed substitution is required to generate the same runtime bytecode that got deployed on mainnet.
 	@# it simply substitutes the metadata hash of the oracle upgraded bytecode with the metadata hash used on mainnet.
 	@# the hashes are different because the mainnet upgrade had been built in the `autonity/solidity/contracts/` folder.
 	@# for more details see https://docs.soliditylang.org/en/latest/metadata.html
 	@if [ "$(2)" = "Oracle0" ]; then \
-		sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ $(3)/$(2).bin $(3)/$(2).bin-runtime; \
+		sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ $(GENERATED_CONTRACTS_DIR)/$(2).bin $(GENERATED_CONTRACTS_DIR)/$(2).bin-runtime; \
 	fi
 
 	@echo Generating bytecode for $(2)
-	@echo 'package $(4)' > $(3)/$(2).go
-	@echo 'import (' >> $(3)/$(2).go
-	@echo '	"strings"' >> $(3)/$(2).go
-	@echo '' >> $(3)/$(2).go
-	@echo '	"github.com/autonity/autonity/accounts/abi"' >> $(3)/$(2).go
-	@echo '	"github.com/autonity/autonity/common"' >> $(3)/$(2).go
-	@echo '	"github.com/autonity/autonity/crypto"' >> $(3)/$(2).go
-	@echo ')' >> $(3)/$(2).go
+	@echo 'package generated' > $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo 'import (' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo '	"strings"' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo '' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo '	"github.com/autonity/autonity/accounts/abi"' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo '	"github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo '	"github.com/autonity/autonity/crypto"' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo ')' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
 
-	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(3)/$(2).go
-	@cat $(3)/$(2).bin >> $(3)/$(2).go
-	@printf '")\n\n' >> $(3)/$(2).go
+	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@cat $(GENERATED_CONTRACTS_DIR)/$(2).bin >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@printf '")\n\n' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
 
-	@echo -n 'var $(2)RuntimeBytecode = common.Hex2Bytes("' >> $(3)/$(2).go
-	@cat $(3)/$(2).bin-runtime >> $(3)/$(2).go
-	@printf '")\n\n' >> $(3)/$(2).go
+	@echo -n 'var $(2)RuntimeBytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@cat $(GENERATED_CONTRACTS_DIR)/$(2).bin-runtime >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@printf '")\n\n' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
 
-	@echo "var $(2)CodeHash = crypto.Keccak256Hash($(2)RuntimeBytecode)\n" >> $(3)/$(2).go
+	@echo "var $(2)CodeHash = crypto.Keccak256Hash($(2)RuntimeBytecode)\n" >> $(GENERATED_CONTRACTS_DIR)/$(2).go
 
 	@echo Generating Abi for $(2)
-	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(3)/$(2).go
-	@cat  $(3)/$(2).abi | json_pp  >> $(3)/$(2).go
-	@echo '`))' >> $(3)/$(2).go
-	@gofmt -s -w $(3)/$(2).go
+	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@cat  $(GENERATED_CONTRACTS_DIR)/$(2).abi | json_pp  >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo '`))' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@gofmt -s -w $(GENERATED_CONTRACTS_DIR)/$(2).go
 endef
 
 # |---------|
@@ -336,7 +331,6 @@ clean:
 	go clean -cache
 	rm -f $(BINDIR)/*
 	rm -f $(GENERATED_CONTRACTS_DIR)/*.abi $(GENERATED_CONTRACTS_DIR)/*.bin* $(GENERATED_CONTRACTS_DIR)/*.doc*
-	rm -f $(GENERATED_CONTRACTS_UPGRADES_DIR)/*/*.abi $(GENERATED_CONTRACTS_UPGRADES_DIR)/*/*.bin* $(GENERATED_CONTRACTS_UPGRADES_DIR)/*/*.doc*
 
 # The devtools target installs tools required for 'go generate'.
 # You need to put $BINDIR (or $GOPATH/bin) in your PATH to use 'go generate'.

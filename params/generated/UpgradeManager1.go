@@ -1,4 +1,4 @@
-package generated1
+package generated
 
 import (
 	"strings"
