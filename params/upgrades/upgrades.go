@@ -41,8 +41,8 @@ var (
 				// oracle contract bugfix upgrade
 				{
 					Target:   params.ProtocolContract(params.OracleContractAddress),
-					Abi:      &generated0.OracleAbi,
-					Bytecode: generated0.OracleBytecode,
+					Abi:      &generated0.Oracle0Abi,
+					Bytecode: generated0.Oracle0Bytecode,
 					Args:     nil,
 				},
 			},
@@ -61,8 +61,8 @@ var (
 				// upgrade manager with version history upgrade
 				{
 					Target:   params.ProtocolContract(params.UpgradeManagerContractAddress),
-					Abi:      &generated1.UpgradeManagerAbi,
-					Bytecode: generated1.UpgradeManagerBytecode,
+					Abi:      &generated1.UpgradeManager1Abi,
+					Bytecode: generated1.UpgradeManager1Bytecode,
 					Args: []interface{}{
 						[]common.Hash{
 							// version 1.0.0 contract hashes
@@ -77,9 +77,9 @@ var (
 							generated.OmissionAccountabilityCodeHash,
 							generated.AuctioneerCodeHash,
 							// oracle version 1.0.1
-							generated0.OracleCodeHash,
+							generated0.Oracle0CodeHash,
 							// upgrade manager version 1.1.0 (this upgrade)
-							generated1.UpgradeManagerCodeHash,
+							generated1.UpgradeManager1CodeHash,
 						},
 						[]bindings1.UpgradeManager1version{
 							genesisVersion,
