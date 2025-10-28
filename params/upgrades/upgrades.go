@@ -8,8 +8,6 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
-	generated0 "github.com/autonity/autonity/params/upgrades/generated/0"
-	generated1 "github.com/autonity/autonity/params/upgrades/generated/1"
 )
 
 // This file serves the purpose of defining exclusion lists for all ... TODO
@@ -41,8 +39,8 @@ var (
 				// oracle contract bugfix upgrade
 				{
 					Target:   params.ProtocolContract(params.OracleContractAddress),
-					Abi:      &generated0.Oracle0Abi,
-					Bytecode: generated0.Oracle0Bytecode,
+					Abi:      &generated.Oracle0Abi,
+					Bytecode: generated.Oracle0Bytecode,
 					Args:     nil,
 				},
 			},
@@ -61,8 +59,8 @@ var (
 				// upgrade manager with version history upgrade
 				{
 					Target:   params.ProtocolContract(params.UpgradeManagerContractAddress),
-					Abi:      &generated1.UpgradeManager1Abi,
-					Bytecode: generated1.UpgradeManager1Bytecode,
+					Abi:      &generated.UpgradeManager1Abi,
+					Bytecode: generated.UpgradeManager1Bytecode,
 					Args: []interface{}{
 						[]common.Hash{
 							// version 1.0.0 contract hashes
@@ -77,9 +75,9 @@ var (
 							generated.OmissionAccountabilityCodeHash,
 							generated.AuctioneerCodeHash,
 							// oracle version 1.0.1
-							generated0.Oracle0CodeHash,
+							generated.Oracle0CodeHash,
 							// upgrade manager version 1.1.0 (this upgrade)
-							generated1.UpgradeManager1CodeHash,
+							generated.UpgradeManager1CodeHash,
 						},
 						[]bindings1.UpgradeManager1version{
 							genesisVersion,

@@ -14,9 +14,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/params"
-	generated0 "github.com/autonity/autonity/params/upgrades/generated/0"
-	generated1 "github.com/autonity/autonity/params/upgrades/generated/1"
-	generatedtests "github.com/autonity/autonity/params/upgrades/generated/tests"
+	"github.com/autonity/autonity/params/generated"
 	"github.com/stretchr/testify/require"
 )
 
@@ -116,8 +114,8 @@ func TestUpgrade(t *testing.T) {
 		var data []byte
 		var hashes []common.Hash
 		var versions []bindings1.UpgradeManager1version
-		data = append(data, generated1.UpgradeManagerBytecode...)
-		packedArgs, err := generated1.UpgradeManagerAbi.Pack("", hashes, versions)
+		data = append(data, generated.UpgradeManager1Bytecode...)
+		packedArgs, err := generated.UpgradeManager1Abi.Pack("", hashes, versions)
 		require.NoError(r.T, err)
 		data = append(data, packedArgs...)
 
@@ -135,26 +133,26 @@ func TestOracleUpgradePatchedBytecode(t *testing.T) {
 	r := Setup(t, nil)
 
 	evmContract := vm.NewContract(vm.AccountRef(params.DeployerAddress), vm.AccountRef(params.OracleContractAddress), common.Big0, math.MaxUint64)
-	evmContract.Code = generated0.OracleBytecode
+	evmContract.Code = generated.Oracle0Bytecode
 	evmContract.CodeAddr = &params.OracleContractAddress
 
 	// run deployment bytecode to get runtime bytecode
 	ret, err := r.Evm.Interpreter().Run(evmContract, nil, false)
 	require.NoError(t, err)
 	// should be equal to the patched one
-	require.True(t, bytes.Equal(ret, generated0.OracleRuntimeBytecode))
+	require.True(t, bytes.Equal(ret, generated.Oracle0RuntimeBytecode))
 }
 
 func TestUpgradeWithVersionTag(t *testing.T) {
 	r := Setup(t, nil)
-	r.UpgradeManager.abi = &generated1.UpgradeManagerAbi
+	r.UpgradeManager.abi = &generated.UpgradeManager1Abi
 	// re-upgrade the oracle contract with same bytecode but different version
 	expectedVersionString := "12.47.11"
 	ret, _, err := r.UpgradeManager.Call(
 		r.Operator,
-		generated1.UpgradeManagerAbi.Methods["upgrade0"].Name,
+		generated.UpgradeManager1Abi.Methods["upgrade0"].Name,
 		params.OracleContractAddress,
-		string(generated0.OracleBytecode),
+		string(generated.Oracle0Bytecode),
 		expectedVersionString,
 	)
 	if err != nil {
@@ -167,11 +165,11 @@ func TestUpgradeWithVersionTag(t *testing.T) {
 		t.Fatal(err, reason)
 	}
 
-	getVersion := generated1.UpgradeManagerAbi.Methods["getVersion"]
+	getVersion := generated.UpgradeManager1Abi.Methods["getVersion"]
 	ret, _, err = r.UpgradeManager.Call(
 		r.Operator,
 		getVersion.Name,
-		generated0.OracleCodeHash,
+		generated.Oracle0CodeHash,
 	)
 	require.NoError(t, err)
 	versionI, err := getVersion.Outputs.Unpack(ret)
@@ -182,10 +180,10 @@ func TestUpgradeWithVersionTag(t *testing.T) {
 
 func TestUpgradeMultiple(t *testing.T) {
 	r := Setup(t, nil)
-	r.UpgradeManager.abi = &generated1.UpgradeManagerAbi
+	r.UpgradeManager.abi = &generated.UpgradeManager1Abi
 	ret, _, err := r.UpgradeManager.Call(
 		r.Operator,
-		generated1.UpgradeManagerAbi.Methods["upgradeMultiple0"].Name,
+		generated.UpgradeManager1Abi.Methods["upgradeMultiple0"].Name,
 		[]common.Address{
 			params.ACUContractAddress,
 			params.SupplyControlContractAddress,
@@ -194,11 +192,11 @@ func TestUpgradeMultiple(t *testing.T) {
 			params.AuctioneerContractAddress,
 		},
 		[]string{
-			string(generatedtests.ACUTestUpgradeBytecode),
-			string(generatedtests.SupplyControlTestUpgradeBytecode),
-			string(generatedtests.StabilizationTestUpgradeBytecode),
-			string(generatedtests.InflationControllerTestUpgradeBytecode),
-			string(generatedtests.AuctioneerTestUpgradeBytecode),
+			string(generated.ACUTestUpgradeBytecode),
+			string(generated.SupplyControlTestUpgradeBytecode),
+			string(generated.StabilizationTestUpgradeBytecode),
+			string(generated.InflationControllerTestUpgradeBytecode),
+			string(generated.AuctioneerTestUpgradeBytecode),
 		},
 		[]string{
 			"1.6.0",

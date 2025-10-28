@@ -24,7 +24,6 @@ CONTRACTS_DIR = $(CONTRACTS_BASE_DIR)/contracts
 CONTRACTS_UPGRADES_DIR = $(CONTRACTS_BASE_DIR)/contracts/upgrades
 CONTRACTS_TEST_DIR = $(CONTRACTS_BASE_DIR)/test
 GENERATED_CONTRACTS_DIR = ./params/generated
-GENERATED_CONTRACTS_UPGRADES_DIR = ./params/upgrades/generated
 
 # DOCKER_SUDO is set to either the empty string or "sudo" and is used to
 # control whether docker is executed with sudo or not. If the user is root or

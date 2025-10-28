@@ -18,8 +18,7 @@ import (
 	"time"
 
 	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
-	generated1 "github.com/autonity/autonity/params/upgrades/generated/1"
-	generatedtests "github.com/autonity/autonity/params/upgrades/generated/tests"
+	"github.com/autonity/autonity/params/generated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 
@@ -124,7 +123,7 @@ func TestAsmAtomicUpgrade(t *testing.T) {
 	// verify that upgrade manager version 1.1.0 has been deployed at genesis
 	upgradeManagerCode, err := network[0].WsClient.CodeAt(context.Background(), params.UpgradeManagerContractAddress, nil)
 	require.NoError(t, err)
-	require.True(t, bytes.Equal(upgradeManagerCode, generated1.UpgradeManagerRuntimeBytecode))
+	require.True(t, bytes.Equal(upgradeManagerCode, generated.UpgradeManager1RuntimeBytecode))
 
 	// build ASM contracts upgrade tx
 	upgradeManager, err := bindings1.NewUpgradeManager1(params.UpgradeManagerContractAddress, network[0].WsClient)
@@ -142,11 +141,11 @@ func TestAsmAtomicUpgrade(t *testing.T) {
 			params.AuctioneerContractAddress,
 		},
 		[]string{
-			string(generatedtests.ACUTestUpgradeBytecode),
-			string(generatedtests.SupplyControlTestUpgradeBytecode),
-			string(generatedtests.StabilizationTestUpgradeBytecode),
-			string(generatedtests.InflationControllerTestUpgradeBytecode),
-			string(generatedtests.AuctioneerTestUpgradeBytecode),
+			string(generated.ACUTestUpgradeBytecode),
+			string(generated.SupplyControlTestUpgradeBytecode),
+			string(generated.StabilizationTestUpgradeBytecode),
+			string(generated.InflationControllerTestUpgradeBytecode),
+			string(generated.AuctioneerTestUpgradeBytecode),
 		},
 	)
 	require.NoError(t, err)
