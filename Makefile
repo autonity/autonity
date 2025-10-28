@@ -1,4 +1,10 @@
-.PHONY: autonity contracts android ios all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre test-contracts-fast generate
+.PHONY: build-docker-image build-docker-image-alltools
+.PHONY: all autonity upcheck release android ios
+.PHONY: contracts compile-contracts compile-contracts-upgrades 4byte bindings bindings-upgrades
+.PHONY: test test-fast test-race-all test-race
+.PHONY: test-contracts test-contracts-fast test-contracts-pre start-autonity start-ganache
+.PHONY: test-contracts-truffle test-contracts-truffle-fast docker-e2e-test
+.PHONY: mock-gen generate lint-dead lint lint-ci lint-deps clean devtools
 
 # |-----------|
 # |	VARIABLES |
