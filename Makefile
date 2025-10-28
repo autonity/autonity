@@ -328,8 +328,9 @@ lint-deps:
 
 clean:
 	go clean -cache
-	rm -fr build/_workspace/pkg/ $(BINDIR)/*
-	rm -rf $(GENERATED_CONTRACTS_DIR)/*.abi $(GENERATED_CONTRACTS_DIR)/*.bin $(GENERATED_CONTRACTS_DIR)/*.doc*
+	rm -f $(BINDIR)/*
+	rm -f $(GENERATED_CONTRACTS_DIR)/*.abi $(GENERATED_CONTRACTS_DIR)/*.bin* $(GENERATED_CONTRACTS_DIR)/*.doc*
+	rm -f $(GENERATED_CONTRACTS_UPGRADES_DIR)/*/*.abi $(GENERATED_CONTRACTS_UPGRADES_DIR)/*/*.bin* $(GENERATED_CONTRACTS_UPGRADES_DIR)/*/*.doc*
 
 # The devtools target installs tools required for 'go generate'.
 # You need to put $BINDIR (or $GOPATH/bin) in your PATH to use 'go generate'.
