@@ -1,0 +1,59 @@
+name: Downstream Tooling (push to develop)
+
+on:
+  push:
+    branches:
+      - develop
+
+  workflow_dispatch:
+
+env:
+  GO_VERSION: 1.24.0
+
+jobs:
+  build-and-trigger:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      # The cache has already been created by the go.yml workflow
+      - name: Restore Go cache
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            /home/runner/.cache/go-build
+            /home/runner/go/pkg
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+
+      - name: Build Autonity
+        run: make autonity
+
+      - name: Build contracts
+        run: make contracts
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: |
+            build/bin/autonity
+            params/generated/*.abi
+            params/generated/*.docuser
+            params/generated/*.docdev
+
+      - name: Trigger autonity.py build
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GH_CLEARMATICSROBOT_PAT }}
+          repository: autonity/autonity.py
+          event-type: new_autonity_push
+          client-payload: >
+            {
+              "run_id": "${{ github.run_id }}",
+              "sha": "${{ github.sha }}",
+              "ref": "${{ github.ref }}"
+            }
