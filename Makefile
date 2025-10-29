@@ -13,6 +13,10 @@
 BINDIR = ./build/bin
 GO ?= latest
 LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
+# useful for CI
+ifeq ($(LATEST_COMMIT),)
+	LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
+endif
 SOLC_VERSION = 0.8.30
 SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
 GOBINDATA_VERSION = 3.23.0
