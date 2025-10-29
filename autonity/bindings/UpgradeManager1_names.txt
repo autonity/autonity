@@ -1,4 +1,0 @@
-autonity/solidity/contracts/interfaces/IConfigEvents.sol:IConfigEvents
-autonity/solidity/contracts/interfaces/IUpgradeManager.sol:IUpgradeManager
-autonity/solidity/contracts/lib/Precompiled.sol:Precompiled
-autonity/solidity/contracts/upgrades/1/UpgradeManager1.sol:UpgradeManager1

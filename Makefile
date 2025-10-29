@@ -1,6 +1,6 @@
 .PHONY: build-docker-image build-docker-image-alltools
 .PHONY: all autonity upcheck release android ios
-.PHONY: contracts compile-contracts compile-contracts-upgrades compile-contracts-standard 4byte bindings bindings-upgrades bindings-standard
+.PHONY: contracts compile-contracts compile-contracts-upgrades compile-contracts-standard 4byte bindings
 .PHONY: test test-fast test-race-all test-race
 .PHONY: test-contracts test-contracts-fast test-contracts-pre start-autonity start-ganache
 .PHONY: test-contracts-truffle test-contracts-truffle-fast docker-e2e-test
@@ -128,24 +128,14 @@ compile-contracts-upgrades: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/
 	./build/generate_4bytedb.sh $(SOLC_BINARY)
 	cd signer/fourbyte && go generate
 
-bindings: bindings-standard bindings-upgrades
-
-bindings-standard: $(ABIGEN_BINARY)
-	@$(call gen-bindings,bindings/,bindings,false,)
-
-# exclusion list containing names of all base protocol contracts
-BASE_EXCLUSION_LIST=$(shell cat autonity/bindings/bindings_names.txt | tr "\n" ",")
-
-bindings-upgrades: $(ABIGEN_BINARY)
-	@$(call gen-bindings,upgrades/0/,Oracle0,true,$(BASE_EXCLUSION_LIST))
-	@# Generate go bindings for oracle contract v1.0.1
+bindings: $(ABIGEN_BINARY)
+	@$(call gen-bindings,bindings/,bindings)
 	@# NOTE: the sed substitution is required to generate the same runtime bytecode that got deployed on mainnet.
 	@# it simply substitutes the metadata hash of the oracle upgraded bytecode with the metadata hash used on mainnet.
 	@# the hashes are different because the mainnet upgrade had been built in the `autonity/solidity/contracts/` folder.
 	@# for more details see https://docs.soliditylang.org/en/latest/metadata.html
-	sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/Oracle0.go
-	sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/tests/Oracle0.go
-	@$(call gen-bindings,upgrades/1/,UpgradeManager1,true,$(BASE_EXCLUSION_LIST))
+	sed -i s/9332f2eb7a6ca90dad8644e835fd01558f41287c53fb4f634a9a437d9ac6c96a/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/bindings.go
+	sed -i s/9332f2eb7a6ca90dad8644e835fd01558f41287c53fb4f634a9a437d9ac6c96a/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/tests/bindings.go
 
 # params:
 # $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR) )
@@ -158,7 +148,7 @@ define gen-contract
 	@# the hashes are different because the mainnet upgrade had been built in the `autonity/solidity/contracts/` folder.
 	@# for more details see https://docs.soliditylang.org/en/latest/metadata.html
 	@if [ "$(2)" = "Oracle0" ]; then \
-		sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ $(GENERATED_CONTRACTS_DIR)/$(2).bin $(GENERATED_CONTRACTS_DIR)/$(2).bin-runtime; \
+		sed -i s/9332f2eb7a6ca90dad8644e835fd01558f41287c53fb4f634a9a437d9ac6c96a/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ $(GENERATED_CONTRACTS_DIR)/$(2).bin $(GENERATED_CONTRACTS_DIR)/$(2).bin-runtime; \
 	fi
 
 	@echo Generating bytecode for $(2)
@@ -191,22 +181,17 @@ endef
 # params:
 # $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR))
 # $(2) --> contract filename
-# $(3) --> boolean: true if generating bindings for contract upgrades
-# $(4) --> exclusion list (optional)
 define gen-bindings
 	@echo "Generating bindings for $(2).sol"
 	$(ABIGEN_BINARY) --pkg bindings --solc $(SOLC_BINARY) \
 	--sol $(CONTRACTS_DIR)/$(1)$(2).sol \
-	--out ./autonity/bindings/$(2).go \
-	--dump-names --dump-out ./autonity/bindings/$(2)_names.txt \
-	$(if $(strip $(4)),--exc $(4),)
+	--out ./autonity/bindings/$(2).go
 
 	@echo "Generating testing bindings for $(2).sol"
-	$(ABIGEN_BINARY) --test $(if $(filter true,$(3)),--upgrade,) \
+	$(ABIGEN_BINARY) --test \
 	--pkg tests --solc $(SOLC_BINARY) \
 	--sol $(CONTRACTS_DIR)/$(1)$(2).sol \
-	--out ./autonity/tests/$(2).go \
-	$(if $(strip $(4)),--exc $(4),)
+	--out ./autonity/tests/$(2).go
 endef
 
 # |---------|

@@ -10,7 +10,7 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
-	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/params"
@@ -48,11 +48,11 @@ func TestExample2(t *testing.T) {
 func TestSetOperatorAccount(t *testing.T) {
 	r := Setup(t, nil)
 	r.Run("setOperatorAccount is restricted to Autonity contract", func(r *Runner) {
-		_, err := r.UpgradeManager.SetOperator(&RunOptions{origin: User}, User)
+		_, err := r.UpgradeManager.SetOperator(&runOptions{origin: User}, User)
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
 		_, err = r.UpgradeManager.SetOperator(r.Operator, User)
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted)
-		_, err = r.UpgradeManager.SetOperator(&RunOptions{origin: r.Autonity.address}, User)
+		_, err = r.UpgradeManager.SetOperator(&runOptions{origin: r.Autonity.address}, User)
 		require.NoError(r.T, err)
 	})
 }
@@ -70,7 +70,7 @@ func TestUpgrade(t *testing.T) {
 	}
 	r := Setup(t, nil)
 	r.Run("restricted to the Operator", func(r *Runner) {
-		_, err := r.UpgradeManager.Upgrade(&RunOptions{origin: User}, r.Autonity.address, "0x1111")
+		_, err := r.UpgradeManager.Upgrade(&runOptions{origin: User}, r.Autonity.address, "0x1111")
 		require.ErrorIs(r.T, err, vm.ErrExecutionReverted) // maybe check revert reason
 	})
 	r.Run("upgrade target contract", func(r *Runner) {
@@ -80,7 +80,7 @@ func TestUpgrade(t *testing.T) {
 		r.Evm.StateDB.SetNonce(params.AutonityContractAddress, 0)
 
 		// deploy first dummy contract
-		_, _, base, err := r.DeployTestBase(&RunOptions{origin: common.Address{}, value: new(big.Int)}, "v1")
+		_, _, base, err := r.DeployTestBase(&runOptions{origin: common.Address{}, value: new(big.Int)}, "v1")
 
 		require.NoError(r.T, err, base)
 		v1string, _, _ := base.Foo(nil)
@@ -113,7 +113,7 @@ func TestUpgrade(t *testing.T) {
 	r.Run("upgrade the upgrade manager itself", func(r *Runner) {
 		var data []byte
 		var hashes []common.Hash
-		var versions []bindings1.UpgradeManager1version
+		var versions []bindings.UpgradeManager1version
 		data = append(data, generated.UpgradeManager1Bytecode...)
 		packedArgs, err := generated.UpgradeManager1Abi.Pack("", hashes, versions)
 		require.NoError(r.T, err)
@@ -148,7 +148,7 @@ func TestUpgradeWithVersionTag(t *testing.T) {
 	r.UpgradeManager.abi = &generated.UpgradeManager1Abi
 	// re-upgrade the oracle contract with same bytecode but different version
 	expectedVersionString := "12.47.11"
-	ret, _, err := r.UpgradeManager.Call(
+	ret, _, err := r.UpgradeManager.call(
 		r.Operator,
 		generated.UpgradeManager1Abi.Methods["upgrade0"].Name,
 		params.OracleContractAddress,
@@ -166,7 +166,7 @@ func TestUpgradeWithVersionTag(t *testing.T) {
 	}
 
 	getVersion := generated.UpgradeManager1Abi.Methods["getVersion"]
-	ret, _, err = r.UpgradeManager.Call(
+	ret, _, err = r.UpgradeManager.call(
 		r.Operator,
 		getVersion.Name,
 		generated.Oracle0CodeHash,
@@ -181,7 +181,7 @@ func TestUpgradeWithVersionTag(t *testing.T) {
 func TestUpgradeMultiple(t *testing.T) {
 	r := Setup(t, nil)
 	r.UpgradeManager.abi = &generated.UpgradeManager1Abi
-	ret, _, err := r.UpgradeManager.Call(
+	ret, _, err := r.UpgradeManager.call(
 		r.Operator,
 		generated.UpgradeManager1Abi.Methods["upgradeMultiple0"].Name,
 		[]common.Address{

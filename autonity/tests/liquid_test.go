@@ -160,7 +160,7 @@ func TestLogicOperation(t *testing.T) {
 	})
 
 	r.Run("non-implemented method reverts", func(r *Runner) {
-		_, _, err := liquidState.CallMethod(r.Autonity.Contract, nil, "finalize")
+		_, _, err := liquidState.CallMethod(r.Autonity.contract, nil, "finalize")
 		require.Error(r.T, err)
 		require.Equal(r.T, "execution reverted: fallback not implemented for LiquidLogic", err.Error())
 	})
@@ -817,7 +817,7 @@ func checkReward(r *Runner, liquidState *ILiquid, user common.Address, atnReward
 	abi, err := ILiquidMetaData.GetAbi()
 	require.NoError(r.T, err)
 	liquidLogicInterface := ILiquid{
-		&Contract{liquidState.address, abi, r},
+		&contract{liquidState.address, abi, r},
 	}
 	unclaimedRewards, _, err := liquidLogicInterface.UnclaimedRewards(nil, user)
 	require.NoError(r.T, err)
@@ -875,7 +875,7 @@ func deployLiquid(
 	abi, err := ILiquidMetaData.GetAbi()
 	require.NoError(r.T, err)
 	return &ILiquid{
-		&Contract{liquidState.address, abi, r},
+		&contract{liquidState.address, abi, r},
 	}
 }
 

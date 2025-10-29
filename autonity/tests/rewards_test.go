@@ -343,14 +343,14 @@ func lntnToNtn(r *Runner, nodeAddress common.Address, lntn *big.Int) *big.Int {
 
 func commissionRateScaleFactor(r *Runner) *big.Int {
 	liquid := r.contractObject(LiquidLogicMetaData, r.Committee.Validators[0].LiquidStateContract)
-	scaleFactor, _, err := liquid.Call(nil, liquid.abi.Methods["COMMISSION_RATE_SCALE_FACTOR"].Name)
+	scaleFactor, _, err := liquid.call(nil, liquid.abi.Methods["COMMISSION_RATE_SCALE_FACTOR"].Name)
 	require.NoError(r.T, err)
 	return new(big.Int).SetBytes(scaleFactor)
 }
 
 func feeFactorUnitRecip(r *Runner) *big.Int {
 	liquid := r.contractObject(LiquidLogicMetaData, r.Committee.Validators[0].LiquidStateContract)
-	feeFactor, _, err := liquid.Call(nil, liquid.abi.Methods["FEE_FACTOR_UNIT_RECIP"].Name)
+	feeFactor, _, err := liquid.call(nil, liquid.abi.Methods["FEE_FACTOR_UNIT_RECIP"].Name)
 	require.NoError(r.T, err)
 	return new(big.Int).SetBytes(feeFactor)
 }
