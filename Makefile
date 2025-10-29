@@ -131,12 +131,13 @@ compile-contracts-upgrades: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/
 bindings: bindings-standard bindings-upgrades
 
 bindings-standard: $(ABIGEN_BINARY)
-	@$(call gen-bindings,bindings/,bindings,,)
+	@$(call gen-bindings,bindings/,bindings,false,)
 
-EXCLUSIONS =--exc autonity/solidity/contracts/interfaces/IAutonity.sol:IAutonity,autonity/solidity/contracts/interfaces/IERC20.sol:IERC20,autonity/solidity/contracts/interfaces/IERC20.sol:IERC20,autonity/solidity/contracts/interfaces/IOracle.sol:IOracle,autonity/solidity/contracts/interfaces/IOracle.sol:IOracle,autonity/solidity/contracts/asm/interfaces/IAuctioneer.sol:IAuctioneer,autonity/solidity/contracts/interfaces/ILiquid.sol:ILiquid,autonity/solidity/contracts/asm/interfaces/ISupplyControl.sol:ISupplyControl,autonity/solidity/contracts/interfaces/IConfigEvents.sol:IConfigEvents,autonity/solidity/contracts/interfaces/IScheduleController.sol:IScheduleController,autonity/solidity/contracts/asm/interfaces/IACU.sol:IACU,autonity/solidity/contracts/interfaces/IAccountability.sol:IAccountability,autonity/solidity/contracts/interfaces/IUpgradeManager.sol:IUpgradeManager,autonity/solidity/contracts/interfaces/IInflationController.sol:IInflationController,autonity/solidity/contracts/interfaces/IOmissionAccountability.sol:IOmissionAccountability,autonity/solidity/contracts/ReentrancyGuard.sol:ReentrancyGuard,autonity/solidity/contracts/asm/interfaces/IStabilization.sol:IStabilization,autonity/solidity/contracts/utils/Set.sol:EnumerableSet, autonity/solidity/contracts/interfaces/IConfigEvents.sol:IConfigEvents,autonity/solidity/contracts/interfaces/IUpgradeManager.sol:IUpgradeManager,autonity/solidity/contracts/lib/Precompiled.sol:Precompiled
+# exclusion list containing names of all base protocol contracts
+BASE_EXCLUSION_LIST=$(shell cat autonity/bindings/bindings_names.txt | tr "\n" ",")
 
 bindings-upgrades: $(ABIGEN_BINARY)
-	@$(call gen-bindings,upgrades/0/,Oracle0,--upgrade,$(EXCLUSIONS))
+	@$(call gen-bindings,upgrades/0/,Oracle0,true,$(BASE_EXCLUSION_LIST))
 	@# Generate go bindings for oracle contract v1.0.1
 	@# NOTE: the sed substitution is required to generate the same runtime bytecode that got deployed on mainnet.
 	@# it simply substitutes the metadata hash of the oracle upgraded bytecode with the metadata hash used on mainnet.
@@ -144,7 +145,7 @@ bindings-upgrades: $(ABIGEN_BINARY)
 	@# for more details see https://docs.soliditylang.org/en/latest/metadata.html
 	sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/Oracle0.go
 	sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/tests/Oracle0.go
-	@$(call gen-bindings,upgrades/1/,UpgradeManager1,--upgrade,$(EXCLUSIONS))
+	@$(call gen-bindings,upgrades/1/,UpgradeManager1,true,$(BASE_EXCLUSION_LIST))
 
 # params:
 # $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR) )
@@ -188,14 +189,24 @@ define gen-contract
 endef
 
 # params:
-# $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR) )
+# $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR))
 # $(2) --> contract filename
-# $(3) --> --upgrade if generating bindings for contract upgrades
+# $(3) --> boolean: true if generating bindings for contract upgrades
+# $(4) --> exclusion list (optional)
 define gen-bindings
 	@echo "Generating bindings for $(2).sol"
-	$(ABIGEN_BINARY) --pkg bindings --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/$(1)$(2).sol --out ./autonity/bindings/$(2).go $(4)
+	$(ABIGEN_BINARY) --pkg bindings --solc $(SOLC_BINARY) \
+	--sol $(CONTRACTS_DIR)/$(1)$(2).sol \
+	--out ./autonity/bindings/$(2).go \
+	--dump-names --dump-out ./autonity/bindings/$(2)_names.txt \
+	$(if $(strip $(4)),--exc $(4),)
+
 	@echo "Generating testing bindings for $(2).sol"
-	$(ABIGEN_BINARY) --test $(3) --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/$(1)$(2).sol --out ./autonity/tests/$(2).go $(4)
+	$(ABIGEN_BINARY) --test $(if $(filter true,$(3)),--upgrade,) \
+	--pkg tests --solc $(SOLC_BINARY) \
+	--sol $(CONTRACTS_DIR)/$(1)$(2).sol \
+	--out ./autonity/tests/$(2).go \
+	$(if $(strip $(4)),--exc $(4),)
 endef
 
 # |---------|
