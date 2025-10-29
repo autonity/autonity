@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/autonity/bindings"
-	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
@@ -632,9 +631,9 @@ func (a *AutonityContractAPI) AcnPeers() []*p2p.PeerInfo {
 }
 
 type ProtocolContractVersion struct {
-	Hash     common.Hash                      // == codeHash for a single contract, hash(codeHash1,codeHash2,...) for a contract group (e.g. ASM, all contracts)
-	Contract params.ProtocolContract          // address for single contract, "reference" addr for a contract group (e.g. ASM, all contracts)
-	Version  bindings1.UpgradeManager1version // version fetched from the contract
+	Hash     common.Hash                     // == codeHash for a single contract, hash(codeHash1,codeHash2,...) for a contract group (e.g. ASM, all contracts)
+	Contract params.ProtocolContract         // address for single contract, "reference" addr for a contract group (e.g. ASM, all contracts)
+	Version  bindings.UpgradeManager1version // version fetched from the contract
 }
 
 func (contractVersion ProtocolContractVersion) String() string {
@@ -654,7 +653,7 @@ func (a *AutonityContractAPI) getVersion(contract params.ProtocolContract, hash 
 	contractVersion, err := a.ac.GetVersion(nil, hash)
 	// TODO: test this case
 	if err != nil || contractVersion.Number == "" {
-		version.Version = bindings1.UpgradeManager1version{
+		version.Version = bindings.UpgradeManager1version{
 			Number: "undefined",
 			Block:  new(big.Int),
 		}

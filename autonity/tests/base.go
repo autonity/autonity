@@ -54,7 +54,7 @@ func (c *contract) Address() common.Address {
 	return c.address
 }
 
-func (c *contract) Call(opts *runOptions, method string, params ...any) ([]byte, uint64, error) {
+func (c *contract) call(opts *runOptions, method string, params ...any) ([]byte, uint64, error) {
 	var tracer tracers.Tracer
 	if c.r.Tracing {
 		tracer, _ = tracers.New("callTracer", new(tracers.Context))
@@ -75,8 +75,8 @@ func (c *contract) Call(opts *runOptions, method string, params ...any) ([]byte,
 	return out, consumed, nil
 }
 
-// call a method that does not belong to the Contract, `c`.
-// instead the method can be found in the Contract, `methodHouse`.
+// call a method that does not belong to the contract, `c`.
+// instead the method can be found in the contract, `methodHouse`.
 func (c *contract) CallMethod(methodHouse *contract, opts *runOptions, method string, params ...any) ([]any, uint64, error) {
 	var tracer tracers.Tracer
 	if c.r.Tracing {
@@ -109,7 +109,7 @@ type Committee struct {
 type Runner struct {
 	T       *testing.T
 	Evm     *vm.EVM
-	Origin  common.Address // session's sender, can be overridden via RunOptions
+	Origin  common.Address // session's sender, can be overridden via runOptions
 	Tracing bool
 	Config  *params.ChainConfig // read-only copy of the deployed chain
 
@@ -127,7 +127,7 @@ type Runner struct {
 	OmissionAccountability *OmissionAccountability
 
 	Committee Committee   // genesis validators for easy access
-	Operator  *runOptions // operator RunOptions for easy access
+	Operator  *runOptions // operator runOptions for easy access
 }
 
 func (r *Runner) NoError(gasConsumed uint64, err error) uint64 {

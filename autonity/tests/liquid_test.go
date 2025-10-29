@@ -22,9 +22,9 @@ func TestClaimRewards(t *testing.T) {
 	r.Autonity.Mint(r.Operator, staker1, params.Ntn10000)
 	r.Autonity.Mint(r.Operator, staker2, params.Ntn10000)
 	r.Autonity.Mint(r.Operator, staker3, params.Ntn10000)
-	r.Autonity.Bond(&RunOptions{origin: staker1}, r.Committee.Validators[0].NodeAddress, params.Ntn10000)
-	r.Autonity.Bond(&RunOptions{origin: staker2}, r.Committee.Validators[1].NodeAddress, params.Ntn10000)
-	r.Autonity.Bond(&RunOptions{origin: staker3}, r.Committee.Validators[1].NodeAddress, new(big.Int).Mul(common.Big2, params.Ntn10000))
+	r.Autonity.Bond(&runOptions{origin: staker1}, r.Committee.Validators[0].NodeAddress, params.Ntn10000)
+	r.Autonity.Bond(&runOptions{origin: staker2}, r.Committee.Validators[1].NodeAddress, params.Ntn10000)
+	r.Autonity.Bond(&runOptions{origin: staker3}, r.Committee.Validators[1].NodeAddress, new(big.Int).Mul(common.Big2, params.Ntn10000))
 
 	// create liquid staking contract per validator
 	r.WaitNextEpoch()

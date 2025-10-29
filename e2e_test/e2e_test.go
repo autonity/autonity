@@ -17,7 +17,6 @@ import (
 	"text/tabwriter"
 	"time"
 
-	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
 	"github.com/autonity/autonity/params/generated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
@@ -126,7 +125,7 @@ func TestAsmAtomicUpgrade(t *testing.T) {
 	require.True(t, bytes.Equal(upgradeManagerCode, generated.UpgradeManager1RuntimeBytecode))
 
 	// build ASM contracts upgrade tx
-	upgradeManager, err := bindings1.NewUpgradeManager1(params.UpgradeManagerContractAddress, network[0].WsClient)
+	upgradeManager, err := bindings.NewUpgradeManager1(params.UpgradeManagerContractAddress, network[0].WsClient)
 	require.NoError(t, err)
 
 	operatorKey := network[0].Key

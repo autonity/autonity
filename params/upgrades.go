@@ -4,7 +4,7 @@ import (
 	"math/big"
 
 	"github.com/autonity/autonity/accounts/abi"
-	bindings1 "github.com/autonity/autonity/autonity/bindings/1"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/params/generated"
 )
@@ -26,7 +26,7 @@ type ContractUpgrade struct {
 
 var (
 	// used for all protocol contracts at genesis
-	genesisVersion = bindings1.UpgradeManager1version{
+	genesisVersion = bindings.UpgradeManager1version{
 		Number: "1.0.0",
 		Block:  new(big.Int),
 	}
@@ -78,7 +78,7 @@ var (
 							// upgrade manager version 1.1.0 (this upgrade)
 							generated.UpgradeManager1CodeHash,
 						},
-						[]bindings1.UpgradeManager1version{
+						[]bindings.UpgradeManager1version{
 							genesisVersion,
 							genesisVersion,
 							genesisVersion,
