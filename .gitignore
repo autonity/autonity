@@ -39,11 +39,6 @@ __pycache__/
 /params/generated/**/*.bin-runtime
 /params/generated/**/*.docdev
 /params/generated/**/*.docuser
-/params/upgrades/generated/**/*.abi
-/params/upgrades/generated/**/*.bin
-/params/upgrades/generated/**/*.bin-runtime
-/params/upgrades/generated/**/*.docdev
-/params/upgrades/generated/**/*.docuser
 nohup.out
 
 # travis
