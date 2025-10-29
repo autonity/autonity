@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"reflect"
 	"runtime"
-	"slices"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/autonity/bindings"
@@ -521,25 +520,26 @@ func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy
 }
 
 func deployProtocolUpgrades(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, _ genericCaller, upgrade genericUpgrader) error {
-	for i, protocolUpgrade := range params.Upgrades {
-		// TODO: chainId or networkID? is it guaranteed always ==?
-		if slices.Contains(protocolUpgrade.ExclusionList, config.ChainID) || config.MustSkip(i) {
-			continue
-		}
-		log.Info("Applying protocol upgrade %d: %s", i, protocolUpgrade.Description)
-		for _, contractUpgrade := range protocolUpgrade.Upgrades {
-			err := upgrade(
-				contractUpgrade.Target.Address(),
-				contractUpgrade.Abi,
-				contractUpgrade.Bytecode,
-				contractUpgrade.Args...,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to deploy upgrade %d for %s : %w", i, contractUpgrade.Target.String(), err)
+	/*
+		for i, protocolUpgrade := range params.Upgrades {
+			// TODO: chainId or networkID? is it guaranteed always ==?
+			if slices.Contains(protocolUpgrade.ExclusionList, config.ChainID) || config.MustSkip(i) {
+				continue
+			}
+			log.Info("Applying protocol upgrade %d: %s", i, protocolUpgrade.Description)
+			for _, contractUpgrade := range protocolUpgrade.Upgrades {
+				err := upgrade(
+					contractUpgrade.Target.Address(),
+					contractUpgrade.Abi,
+					contractUpgrade.Bytecode,
+					contractUpgrade.Args...,
+				)
+				if err != nil {
+					return fmt.Errorf("failed to deploy upgrade %d for %s : %w", i, contractUpgrade.Target.String(), err)
+				}
 			}
 		}
-	}
-
+	*/
 	return nil
 }
 

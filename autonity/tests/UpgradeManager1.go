@@ -35,314 +35,6 @@ type UpgradeManager1version struct {
 	Block  *big.Int
 }
 
-// IConfigEventsMetaData contains all meta data concerning the IConfigEvents contract.
-var IConfigEventsMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"oldValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateAddress\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"oldValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"newValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateBool\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"oldValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"newValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateInt\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"oldValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateUint\",\"type\":\"event\"}]",
-}
-
-// IConfigEventsABI is the input ABI used to generate the binding from.
-// Deprecated: Use IConfigEventsMetaData.ABI instead.
-var IConfigEventsABI = IConfigEventsMetaData.ABI
-
-// IConfigEvents is an auto generated Go binding around an Ethereum contract.
-type IConfigEvents struct {
-	*Contract
-}
-
-func (_IConfigEvents *IConfigEvents) DecodeError(data []byte, err error) error {
-	if err == nil {
-		return nil
-	}
-
-	reason, _ := abi.UnpackRevert(data)
-	return fmt.Errorf("%w: %s", err, reason)
-
-}
-
-// IUpgradeManagerMetaData contains all meta data concerning the IUpgradeManager contract.
-var IUpgradeManagerMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Sigs: map[string]string{
-		"b3ab15fb": "setOperator(address)",
-	},
-}
-
-// IUpgradeManagerABI is the input ABI used to generate the binding from.
-// Deprecated: Use IUpgradeManagerMetaData.ABI instead.
-var IUpgradeManagerABI = IUpgradeManagerMetaData.ABI
-
-// Deprecated: Use IUpgradeManagerMetaData.Sigs instead.
-// IUpgradeManagerFuncSigs maps the 4-byte function signature to its string representation.
-var IUpgradeManagerFuncSigs = IUpgradeManagerMetaData.Sigs
-
-// IUpgradeManager is an auto generated Go binding around an Ethereum contract.
-type IUpgradeManager struct {
-	*Contract
-}
-
-// SetOperator is a free data retrieval call for a paid mutator transaction binding the contract method 0xb3ab15fb.
-// Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
-// the same way as done above for view only functions.
-// Solidity: function setOperator(address _account) returns()
-func (_IUpgradeManager *IUpgradeManager) CallSetOperator(r *Runner, opts *RunOptions, _account common.Address) (uint64, error) {
-	snap := r.Snapshot()
-
-	data, consumed, err := _IUpgradeManager.Call(opts, "setOperator", _account)
-	r.RevertSnapshot(snap)
-	return consumed, _IUpgradeManager.DecodeError(data, err)
-
-}
-
-// SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
-//
-// Solidity: function setOperator(address _account) returns()
-func (_IUpgradeManager *IUpgradeManager) SetOperator(opts *RunOptions, _account common.Address) (uint64, error) {
-	data, consumed, err := _IUpgradeManager.Call(opts, "setOperator", _account)
-	return consumed, _IUpgradeManager.DecodeError(data, err)
-}
-
-func (_IUpgradeManager *IUpgradeManager) DecodeError(data []byte, err error) error {
-	if err == nil {
-		return nil
-	}
-
-	reason, _ := abi.UnpackRevert(data)
-	return fmt.Errorf("%w: %s", err, reason)
-
-}
-
-// PrecompiledMetaData contains all meta data concerning the Precompiled contract.
-var PrecompiledMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"ACCUSATION_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"ACTIVITY_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"COMPUTE_COMMITTEE_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"ENODE_VERIFIER_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"INNOCENCE_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"MISBEHAVIOUR_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"POP_VERIFIER_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"SUCCESS\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"UPGRADER_CONTRACT\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
-	Sigs: map[string]string{
-		"4dc925d3": "ACCUSATION_CONTRACT()",
-		"625fb940": "ACTIVITY_CONTRACT()",
-		"2090a442": "COMPUTE_COMMITTEE_CONTRACT()",
-		"c13974e1": "ENODE_VERIFIER_CONTRACT()",
-		"8e153dc3": "INNOCENCE_CONTRACT()",
-		"925c5492": "MISBEHAVIOUR_CONTRACT()",
-		"50d93720": "POP_VERIFIER_CONTRACT()",
-		"d0a6d1a6": "SUCCESS()",
-		"a4ad5d91": "UPGRADER_CONTRACT()",
-	},
-	Bin: "0x610168610039600b82828239805160001a607314602c57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600436106100ad5760003560e01c80638e153dc311610080578063a4ad5d9111610065578063a4ad5d911461010c578063c13974e114610114578063d0a6d1a61461011c57600080fd5b80638e153dc3146100fc578063925c54921461010457600080fd5b80632090a442146100b25780634dc925d3146100e457806350d93720146100ec578063625fb940146100f4575b600080fd5b6100ba60fa81565b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020015b60405180910390f35b6100ba60fc81565b6100ba60fb81565b6100ba60f881565b6100ba60fd81565b6100ba60fe81565b6100ba60f981565b6100ba60ff81565b610124600181565b6040519081526020016100db56fea2646970667358221220ad1b147e0db6b5cc8b6ee04a14d20cf08a9e327bf70ab8857ba5df504e85a10864736f6c634300081e0033",
-}
-
-// PrecompiledABI is the input ABI used to generate the binding from.
-// Deprecated: Use PrecompiledMetaData.ABI instead.
-var PrecompiledABI = PrecompiledMetaData.ABI
-
-// Deprecated: Use PrecompiledMetaData.Sigs instead.
-// PrecompiledFuncSigs maps the 4-byte function signature to its string representation.
-var PrecompiledFuncSigs = PrecompiledMetaData.Sigs
-
-// PrecompiledBin is the compiled bytecode used for deploying new contracts.
-// Deprecated: Use PrecompiledMetaData.Bin instead.
-var PrecompiledBin = PrecompiledMetaData.Bin
-
-// DeployPrecompiled deploys a new Ethereum contract, binding an instance of Precompiled to it.
-func (r *Runner) DeployPrecompiled(opts *RunOptions) (common.Address, uint64, *Precompiled, error) {
-	parsed, err := PrecompiledMetaData.GetAbi()
-	if err != nil {
-		return common.Address{}, 0, nil, err
-	}
-	if parsed == nil {
-		return common.Address{}, 0, nil, errors.New("GetABI returned nil")
-	}
-
-	address, gasConsumed, c, data, err := r.DeployContract(opts, parsed, common.FromHex(PrecompiledBin))
-	if err != nil {
-		return common.Address{}, 0, nil, (&Precompiled{Contract: c}).DecodeError(data, err)
-	}
-	return address, gasConsumed, &Precompiled{Contract: c}, nil
-}
-
-// Precompiled is an auto generated Go binding around an Ethereum contract.
-type Precompiled struct {
-	*Contract
-}
-
-// ACCUSATIONCONTRACT is a free data retrieval call binding the contract method 0x4dc925d3.
-//
-// Solidity: function ACCUSATION_CONTRACT() view returns(address)
-func (_Precompiled *Precompiled) ACCUSATIONCONTRACT(opts *RunOptions) (common.Address, uint64, error) {
-	data, consumed, err := _Precompiled.Call(opts, "ACCUSATION_CONTRACT")
-
-	if err != nil {
-		return *new(common.Address), consumed, _Precompiled.DecodeError(data, err)
-	}
-	out, err := _Precompiled.abi.Unpack("ACCUSATION_CONTRACT", data)
-	if err != nil {
-		return *new(common.Address), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-	return out0, consumed, err
-
-}
-
-// ACTIVITYCONTRACT is a free data retrieval call binding the contract method 0x625fb940.
-//
-// Solidity: function ACTIVITY_CONTRACT() view returns(address)
-func (_Precompiled *Precompiled) ACTIVITYCONTRACT(opts *RunOptions) (common.Address, uint64, error) {
-	data, consumed, err := _Precompiled.Call(opts, "ACTIVITY_CONTRACT")
-
-	if err != nil {
-		return *new(common.Address), consumed, _Precompiled.DecodeError(data, err)
-	}
-	out, err := _Precompiled.abi.Unpack("ACTIVITY_CONTRACT", data)
-	if err != nil {
-		return *new(common.Address), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-	return out0, consumed, err
-
-}
-
-// COMPUTECOMMITTEECONTRACT is a free data retrieval call binding the contract method 0x2090a442.
-//
-// Solidity: function COMPUTE_COMMITTEE_CONTRACT() view returns(address)
-func (_Precompiled *Precompiled) COMPUTECOMMITTEECONTRACT(opts *RunOptions) (common.Address, uint64, error) {
-	data, consumed, err := _Precompiled.Call(opts, "COMPUTE_COMMITTEE_CONTRACT")
-
-	if err != nil {
-		return *new(common.Address), consumed, _Precompiled.DecodeError(data, err)
-	}
-	out, err := _Precompiled.abi.Unpack("COMPUTE_COMMITTEE_CONTRACT", data)
-	if err != nil {
-		return *new(common.Address), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-	return out0, consumed, err
-
-}
-
-// ENODEVERIFIERCONTRACT is a free data retrieval call binding the contract method 0xc13974e1.
-//
-// Solidity: function ENODE_VERIFIER_CONTRACT() view returns(address)
-func (_Precompiled *Precompiled) ENODEVERIFIERCONTRACT(opts *RunOptions) (common.Address, uint64, error) {
-	data, consumed, err := _Precompiled.Call(opts, "ENODE_VERIFIER_CONTRACT")
-
-	if err != nil {
-		return *new(common.Address), consumed, _Precompiled.DecodeError(data, err)
-	}
-	out, err := _Precompiled.abi.Unpack("ENODE_VERIFIER_CONTRACT", data)
-	if err != nil {
-		return *new(common.Address), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-	return out0, consumed, err
-
-}
-
-// INNOCENCECONTRACT is a free data retrieval call binding the contract method 0x8e153dc3.
-//
-// Solidity: function INNOCENCE_CONTRACT() view returns(address)
-func (_Precompiled *Precompiled) INNOCENCECONTRACT(opts *RunOptions) (common.Address, uint64, error) {
-	data, consumed, err := _Precompiled.Call(opts, "INNOCENCE_CONTRACT")
-
-	if err != nil {
-		return *new(common.Address), consumed, _Precompiled.DecodeError(data, err)
-	}
-	out, err := _Precompiled.abi.Unpack("INNOCENCE_CONTRACT", data)
-	if err != nil {
-		return *new(common.Address), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-	return out0, consumed, err
-
-}
-
-// MISBEHAVIOURCONTRACT is a free data retrieval call binding the contract method 0x925c5492.
-//
-// Solidity: function MISBEHAVIOUR_CONTRACT() view returns(address)
-func (_Precompiled *Precompiled) MISBEHAVIOURCONTRACT(opts *RunOptions) (common.Address, uint64, error) {
-	data, consumed, err := _Precompiled.Call(opts, "MISBEHAVIOUR_CONTRACT")
-
-	if err != nil {
-		return *new(common.Address), consumed, _Precompiled.DecodeError(data, err)
-	}
-	out, err := _Precompiled.abi.Unpack("MISBEHAVIOUR_CONTRACT", data)
-	if err != nil {
-		return *new(common.Address), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-	return out0, consumed, err
-
-}
-
-// POPVERIFIERCONTRACT is a free data retrieval call binding the contract method 0x50d93720.
-//
-// Solidity: function POP_VERIFIER_CONTRACT() view returns(address)
-func (_Precompiled *Precompiled) POPVERIFIERCONTRACT(opts *RunOptions) (common.Address, uint64, error) {
-	data, consumed, err := _Precompiled.Call(opts, "POP_VERIFIER_CONTRACT")
-
-	if err != nil {
-		return *new(common.Address), consumed, _Precompiled.DecodeError(data, err)
-	}
-	out, err := _Precompiled.abi.Unpack("POP_VERIFIER_CONTRACT", data)
-	if err != nil {
-		return *new(common.Address), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-	return out0, consumed, err
-
-}
-
-// SUCCESS is a free data retrieval call binding the contract method 0xd0a6d1a6.
-//
-// Solidity: function SUCCESS() view returns(uint256)
-func (_Precompiled *Precompiled) SUCCESS(opts *RunOptions) (*big.Int, uint64, error) {
-	data, consumed, err := _Precompiled.Call(opts, "SUCCESS")
-
-	if err != nil {
-		return *new(*big.Int), consumed, _Precompiled.DecodeError(data, err)
-	}
-	out, err := _Precompiled.abi.Unpack("SUCCESS", data)
-	if err != nil {
-		return *new(*big.Int), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-	return out0, consumed, err
-
-}
-
-// UPGRADERCONTRACT is a free data retrieval call binding the contract method 0xa4ad5d91.
-//
-// Solidity: function UPGRADER_CONTRACT() view returns(address)
-func (_Precompiled *Precompiled) UPGRADERCONTRACT(opts *RunOptions) (common.Address, uint64, error) {
-	data, consumed, err := _Precompiled.Call(opts, "UPGRADER_CONTRACT")
-
-	if err != nil {
-		return *new(common.Address), consumed, _Precompiled.DecodeError(data, err)
-	}
-	out, err := _Precompiled.abi.Unpack("UPGRADER_CONTRACT", data)
-	if err != nil {
-		return *new(common.Address), consumed, err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-	return out0, consumed, err
-
-}
-
-func (_Precompiled *Precompiled) DecodeError(data []byte, err error) error {
-	if err == nil {
-		return nil
-	}
-
-	reason, _ := abi.UnpackRevert(data)
-	return fmt.Errorf("%w: %s", err, reason)
-
-}
-
 // UpgradeManager1MetaData contains all meta data concerning the UpgradeManager1 contract.
 var UpgradeManager1MetaData = &bind.MetaData{
 	ABI: "[{\"inputs\":[{\"internalType\":\"bytes32[]\",\"name\":\"_hashes\",\"type\":\"bytes32[]\"},{\"components\":[{\"internalType\":\"string\",\"name\":\"number\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"block\",\"type\":\"uint256\"}],\"internalType\":\"structUpgradeManager1.version[]\",\"name\":\"_versions\",\"type\":\"tuple[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"oldValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newValue\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateAddress\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"oldValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"newValue\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateBool\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"oldValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"int256\",\"name\":\"newValue\",\"type\":\"int256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateInt\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"oldValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"appliesAtHeight\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdateUint\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"contractAddress\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"success\",\"type\":\"bool\"}],\"name\":\"UpgradeResult\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"getAutonity\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getOperator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_hash\",\"type\":\"bytes32\"}],\"name\":\"getVersion\",\"outputs\":[{\"components\":[{\"internalType\":\"string\",\"name\":\"number\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"block\",\"type\":\"uint256\"}],\"internalType\":\"structUpgradeManager1.version\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_account\",\"type\":\"address\"}],\"name\":\"setOperator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_hash\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"string\",\"name\":\"number\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"block\",\"type\":\"uint256\"}],\"internalType\":\"structUpgradeManager1.version\",\"name\":\"_version\",\"type\":\"tuple\"}],\"name\":\"setVersion\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_target\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_data\",\"type\":\"string\"}],\"name\":\"upgrade\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_target\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"_data\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"_versionString\",\"type\":\"string\"}],\"name\":\"upgrade\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_targets\",\"type\":\"address[]\"},{\"internalType\":\"string[]\",\"name\":\"_bytecodes\",\"type\":\"string[]\"}],\"name\":\"upgradeMultiple\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_targets\",\"type\":\"address[]\"},{\"internalType\":\"string[]\",\"name\":\"_bytecodes\",\"type\":\"string[]\"},{\"internalType\":\"string[]\",\"name\":\"_versionStrings\",\"type\":\"string[]\"}],\"name\":\"upgradeMultiple\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
@@ -373,7 +65,7 @@ var UpgradeManager1FuncSigs = UpgradeManager1MetaData.Sigs
 var UpgradeManager1Bin = UpgradeManager1MetaData.Bin
 
 // DeployUpgradeManager1 deploys a new Ethereum contract, binding an instance of UpgradeManager1 to it.
-func (r *Runner) DeployUpgradeManager1(opts *RunOptions, _hashes [][32]byte, _versions []UpgradeManager1version) (common.Address, uint64, *UpgradeManager1, error) {
+func (r *Runner) DeployUpgradeManager1(opts *runOptions, _hashes [][32]byte, _versions []UpgradeManager1version) (common.Address, uint64, *UpgradeManager1, error) {
 	parsed, err := UpgradeManager1MetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, 0, nil, err
@@ -382,23 +74,23 @@ func (r *Runner) DeployUpgradeManager1(opts *RunOptions, _hashes [][32]byte, _ve
 		return common.Address{}, 0, nil, errors.New("GetABI returned nil")
 	}
 
-	address, gasConsumed, c, data, err := r.DeployContract(opts, parsed, common.FromHex(UpgradeManager1Bin), _hashes, _versions)
+	address, gasConsumed, c, data, err := r.deployContract(opts, parsed, common.FromHex(UpgradeManager1Bin), _hashes, _versions)
 	if err != nil {
-		return common.Address{}, 0, nil, (&UpgradeManager1{Contract: c}).DecodeError(data, err)
+		return common.Address{}, 0, nil, (&UpgradeManager1{contract: c}).DecodeError(data, err)
 	}
-	return address, gasConsumed, &UpgradeManager1{Contract: c}, nil
+	return address, gasConsumed, &UpgradeManager1{contract: c}, nil
 }
 
 // UpgradeManager1 is an auto generated Go binding around an Ethereum contract.
 type UpgradeManager1 struct {
-	*Contract
+	*contract
 }
 
 // GetAutonity is a free data retrieval call binding the contract method 0x7c8ccebe.
 //
 // Solidity: function getAutonity() view returns(address)
-func (_UpgradeManager1 *UpgradeManager1) GetAutonity(opts *RunOptions) (common.Address, uint64, error) {
-	data, consumed, err := _UpgradeManager1.Call(opts, "getAutonity")
+func (_UpgradeManager1 *UpgradeManager1) GetAutonity(opts *runOptions) (common.Address, uint64, error) {
+	data, consumed, err := _UpgradeManager1.call(opts, "getAutonity")
 
 	if err != nil {
 		return *new(common.Address), consumed, _UpgradeManager1.DecodeError(data, err)
@@ -416,8 +108,8 @@ func (_UpgradeManager1 *UpgradeManager1) GetAutonity(opts *RunOptions) (common.A
 // GetOperator is a free data retrieval call binding the contract method 0xe7f43c68.
 //
 // Solidity: function getOperator() view returns(address)
-func (_UpgradeManager1 *UpgradeManager1) GetOperator(opts *RunOptions) (common.Address, uint64, error) {
-	data, consumed, err := _UpgradeManager1.Call(opts, "getOperator")
+func (_UpgradeManager1 *UpgradeManager1) GetOperator(opts *runOptions) (common.Address, uint64, error) {
+	data, consumed, err := _UpgradeManager1.call(opts, "getOperator")
 
 	if err != nil {
 		return *new(common.Address), consumed, _UpgradeManager1.DecodeError(data, err)
@@ -435,8 +127,8 @@ func (_UpgradeManager1 *UpgradeManager1) GetOperator(opts *RunOptions) (common.A
 // GetVersion is a free data retrieval call binding the contract method 0x9aaf9f08.
 //
 // Solidity: function getVersion(bytes32 _hash) view returns((string,uint256))
-func (_UpgradeManager1 *UpgradeManager1) GetVersion(opts *RunOptions, _hash [32]byte) (UpgradeManager1version, uint64, error) {
-	data, consumed, err := _UpgradeManager1.Call(opts, "getVersion", _hash)
+func (_UpgradeManager1 *UpgradeManager1) GetVersion(opts *runOptions, _hash [32]byte) (UpgradeManager1version, uint64, error) {
+	data, consumed, err := _UpgradeManager1.call(opts, "getVersion", _hash)
 
 	if err != nil {
 		return *new(UpgradeManager1version), consumed, _UpgradeManager1.DecodeError(data, err)
@@ -455,11 +147,11 @@ func (_UpgradeManager1 *UpgradeManager1) GetVersion(opts *RunOptions, _hash [32]
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setOperator(address _account) returns()
-func (_UpgradeManager1 *UpgradeManager1) CallSetOperator(r *Runner, opts *RunOptions, _account common.Address) (uint64, error) {
-	snap := r.Snapshot()
+func (_UpgradeManager1 *UpgradeManager1) CallSetOperator(r *Runner, opts *runOptions, _account common.Address) (uint64, error) {
+	snap := r.snapshot()
 
-	data, consumed, err := _UpgradeManager1.Call(opts, "setOperator", _account)
-	r.RevertSnapshot(snap)
+	data, consumed, err := _UpgradeManager1.call(opts, "setOperator", _account)
+	r.revertSnapshot(snap)
 	return consumed, _UpgradeManager1.DecodeError(data, err)
 
 }
@@ -468,11 +160,11 @@ func (_UpgradeManager1 *UpgradeManager1) CallSetOperator(r *Runner, opts *RunOpt
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function setVersion(bytes32 _hash, (string,uint256) _version) returns()
-func (_UpgradeManager1 *UpgradeManager1) CallSetVersion(r *Runner, opts *RunOptions, _hash [32]byte, _version UpgradeManager1version) (uint64, error) {
-	snap := r.Snapshot()
+func (_UpgradeManager1 *UpgradeManager1) CallSetVersion(r *Runner, opts *runOptions, _hash [32]byte, _version UpgradeManager1version) (uint64, error) {
+	snap := r.snapshot()
 
-	data, consumed, err := _UpgradeManager1.Call(opts, "setVersion", _hash, _version)
-	r.RevertSnapshot(snap)
+	data, consumed, err := _UpgradeManager1.call(opts, "setVersion", _hash, _version)
+	r.revertSnapshot(snap)
 	return consumed, _UpgradeManager1.DecodeError(data, err)
 
 }
@@ -481,11 +173,11 @@ func (_UpgradeManager1 *UpgradeManager1) CallSetVersion(r *Runner, opts *RunOpti
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function upgrade(address _target, string _data) returns()
-func (_UpgradeManager1 *UpgradeManager1) CallUpgrade(r *Runner, opts *RunOptions, _target common.Address, _data string) (uint64, error) {
-	snap := r.Snapshot()
+func (_UpgradeManager1 *UpgradeManager1) CallUpgrade(r *Runner, opts *runOptions, _target common.Address, _data string) (uint64, error) {
+	snap := r.snapshot()
 
-	data, consumed, err := _UpgradeManager1.Call(opts, "upgrade", _target, _data)
-	r.RevertSnapshot(snap)
+	data, consumed, err := _UpgradeManager1.call(opts, "upgrade", _target, _data)
+	r.revertSnapshot(snap)
 	return consumed, _UpgradeManager1.DecodeError(data, err)
 
 }
@@ -494,11 +186,11 @@ func (_UpgradeManager1 *UpgradeManager1) CallUpgrade(r *Runner, opts *RunOptions
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function upgrade(address _target, string _data, string _versionString) returns()
-func (_UpgradeManager1 *UpgradeManager1) CallUpgrade0(r *Runner, opts *RunOptions, _target common.Address, _data string, _versionString string) (uint64, error) {
-	snap := r.Snapshot()
+func (_UpgradeManager1 *UpgradeManager1) CallUpgrade0(r *Runner, opts *runOptions, _target common.Address, _data string, _versionString string) (uint64, error) {
+	snap := r.snapshot()
 
-	data, consumed, err := _UpgradeManager1.Call(opts, "upgrade0", _target, _data, _versionString)
-	r.RevertSnapshot(snap)
+	data, consumed, err := _UpgradeManager1.call(opts, "upgrade0", _target, _data, _versionString)
+	r.revertSnapshot(snap)
 	return consumed, _UpgradeManager1.DecodeError(data, err)
 
 }
@@ -507,11 +199,11 @@ func (_UpgradeManager1 *UpgradeManager1) CallUpgrade0(r *Runner, opts *RunOption
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function upgradeMultiple(address[] _targets, string[] _bytecodes) returns()
-func (_UpgradeManager1 *UpgradeManager1) CallUpgradeMultiple(r *Runner, opts *RunOptions, _targets []common.Address, _bytecodes []string) (uint64, error) {
-	snap := r.Snapshot()
+func (_UpgradeManager1 *UpgradeManager1) CallUpgradeMultiple(r *Runner, opts *runOptions, _targets []common.Address, _bytecodes []string) (uint64, error) {
+	snap := r.snapshot()
 
-	data, consumed, err := _UpgradeManager1.Call(opts, "upgradeMultiple", _targets, _bytecodes)
-	r.RevertSnapshot(snap)
+	data, consumed, err := _UpgradeManager1.call(opts, "upgradeMultiple", _targets, _bytecodes)
+	r.revertSnapshot(snap)
 	return consumed, _UpgradeManager1.DecodeError(data, err)
 
 }
@@ -520,11 +212,11 @@ func (_UpgradeManager1 *UpgradeManager1) CallUpgradeMultiple(r *Runner, opts *Ru
 // Similar to eth_call from rpc calls or function.call from truffle, it reverts the state after the call and returns the output. The output is extracted
 // the same way as done above for view only functions.
 // Solidity: function upgradeMultiple(address[] _targets, string[] _bytecodes, string[] _versionStrings) returns()
-func (_UpgradeManager1 *UpgradeManager1) CallUpgradeMultiple0(r *Runner, opts *RunOptions, _targets []common.Address, _bytecodes []string, _versionStrings []string) (uint64, error) {
-	snap := r.Snapshot()
+func (_UpgradeManager1 *UpgradeManager1) CallUpgradeMultiple0(r *Runner, opts *runOptions, _targets []common.Address, _bytecodes []string, _versionStrings []string) (uint64, error) {
+	snap := r.snapshot()
 
-	data, consumed, err := _UpgradeManager1.Call(opts, "upgradeMultiple0", _targets, _bytecodes, _versionStrings)
-	r.RevertSnapshot(snap)
+	data, consumed, err := _UpgradeManager1.call(opts, "upgradeMultiple0", _targets, _bytecodes, _versionStrings)
+	r.revertSnapshot(snap)
 	return consumed, _UpgradeManager1.DecodeError(data, err)
 
 }
@@ -532,48 +224,48 @@ func (_UpgradeManager1 *UpgradeManager1) CallUpgradeMultiple0(r *Runner, opts *R
 // SetOperator is a paid mutator transaction binding the contract method 0xb3ab15fb.
 //
 // Solidity: function setOperator(address _account) returns()
-func (_UpgradeManager1 *UpgradeManager1) SetOperator(opts *RunOptions, _account common.Address) (uint64, error) {
-	data, consumed, err := _UpgradeManager1.Call(opts, "setOperator", _account)
+func (_UpgradeManager1 *UpgradeManager1) SetOperator(opts *runOptions, _account common.Address) (uint64, error) {
+	data, consumed, err := _UpgradeManager1.call(opts, "setOperator", _account)
 	return consumed, _UpgradeManager1.DecodeError(data, err)
 }
 
 // SetVersion is a paid mutator transaction binding the contract method 0xb4062f8e.
 //
 // Solidity: function setVersion(bytes32 _hash, (string,uint256) _version) returns()
-func (_UpgradeManager1 *UpgradeManager1) SetVersion(opts *RunOptions, _hash [32]byte, _version UpgradeManager1version) (uint64, error) {
-	data, consumed, err := _UpgradeManager1.Call(opts, "setVersion", _hash, _version)
+func (_UpgradeManager1 *UpgradeManager1) SetVersion(opts *runOptions, _hash [32]byte, _version UpgradeManager1version) (uint64, error) {
+	data, consumed, err := _UpgradeManager1.call(opts, "setVersion", _hash, _version)
 	return consumed, _UpgradeManager1.DecodeError(data, err)
 }
 
 // Upgrade is a paid mutator transaction binding the contract method 0x6e3d9ff0.
 //
 // Solidity: function upgrade(address _target, string _data) returns()
-func (_UpgradeManager1 *UpgradeManager1) Upgrade(opts *RunOptions, _target common.Address, _data string) (uint64, error) {
-	data, consumed, err := _UpgradeManager1.Call(opts, "upgrade", _target, _data)
+func (_UpgradeManager1 *UpgradeManager1) Upgrade(opts *runOptions, _target common.Address, _data string) (uint64, error) {
+	data, consumed, err := _UpgradeManager1.call(opts, "upgrade", _target, _data)
 	return consumed, _UpgradeManager1.DecodeError(data, err)
 }
 
 // Upgrade0 is a paid mutator transaction binding the contract method 0x82f75182.
 //
 // Solidity: function upgrade(address _target, string _data, string _versionString) returns()
-func (_UpgradeManager1 *UpgradeManager1) Upgrade0(opts *RunOptions, _target common.Address, _data string, _versionString string) (uint64, error) {
-	data, consumed, err := _UpgradeManager1.Call(opts, "upgrade0", _target, _data, _versionString)
+func (_UpgradeManager1 *UpgradeManager1) Upgrade0(opts *runOptions, _target common.Address, _data string, _versionString string) (uint64, error) {
+	data, consumed, err := _UpgradeManager1.call(opts, "upgrade0", _target, _data, _versionString)
 	return consumed, _UpgradeManager1.DecodeError(data, err)
 }
 
 // UpgradeMultiple is a paid mutator transaction binding the contract method 0x2011c815.
 //
 // Solidity: function upgradeMultiple(address[] _targets, string[] _bytecodes) returns()
-func (_UpgradeManager1 *UpgradeManager1) UpgradeMultiple(opts *RunOptions, _targets []common.Address, _bytecodes []string) (uint64, error) {
-	data, consumed, err := _UpgradeManager1.Call(opts, "upgradeMultiple", _targets, _bytecodes)
+func (_UpgradeManager1 *UpgradeManager1) UpgradeMultiple(opts *runOptions, _targets []common.Address, _bytecodes []string) (uint64, error) {
+	data, consumed, err := _UpgradeManager1.call(opts, "upgradeMultiple", _targets, _bytecodes)
 	return consumed, _UpgradeManager1.DecodeError(data, err)
 }
 
 // UpgradeMultiple0 is a paid mutator transaction binding the contract method 0x9d897130.
 //
 // Solidity: function upgradeMultiple(address[] _targets, string[] _bytecodes, string[] _versionStrings) returns()
-func (_UpgradeManager1 *UpgradeManager1) UpgradeMultiple0(opts *RunOptions, _targets []common.Address, _bytecodes []string, _versionStrings []string) (uint64, error) {
-	data, consumed, err := _UpgradeManager1.Call(opts, "upgradeMultiple0", _targets, _bytecodes, _versionStrings)
+func (_UpgradeManager1 *UpgradeManager1) UpgradeMultiple0(opts *runOptions, _targets []common.Address, _bytecodes []string, _versionStrings []string) (uint64, error) {
+	data, consumed, err := _UpgradeManager1.call(opts, "upgradeMultiple0", _targets, _bytecodes, _versionStrings)
 	return consumed, _UpgradeManager1.DecodeError(data, err)
 }
 

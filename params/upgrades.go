@@ -1,13 +1,8 @@
 package params
 
-import (
-	"math/big"
+import ()
 
-	"github.com/autonity/autonity/accounts/abi"
-	"github.com/autonity/autonity/autonity/bindings"
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/params/generated"
-)
+/*
 
 // This file serves the purpose of defining exclusion lists for all ... TODO
 
@@ -111,3 +106,4 @@ var (
 		},
 	}
 )
+*/

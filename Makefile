@@ -1,6 +1,6 @@
 .PHONY: build-docker-image build-docker-image-alltools
 .PHONY: all autonity upcheck release android ios
-.PHONY: contracts compile-contracts compile-contracts-upgrades 4byte bindings bindings-upgrades
+.PHONY: contracts compile-contracts compile-contracts-upgrades compile-contracts-standard 4byte bindings bindings-upgrades bindings-standard
 .PHONY: test test-fast test-race-all test-race
 .PHONY: test-contracts test-contracts-fast test-contracts-pre start-autonity start-ganache
 .PHONY: test-contracts-truffle test-contracts-truffle-fast docker-e2e-test
@@ -90,9 +90,11 @@ ios:
 # |	COMPILING CONTRACTS |
 # |---------------------|
 
-contracts: compile-contracts compile-contracts-upgrades 4byte bindings bindings-upgrades
+contracts: compile-contracts 4byte bindings
 
-compile-contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BINARY)
+compile-contracts: compile-contracts-standard compile-contracts-upgrades
+
+compile-contracts-standard: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BINARY)
 	@echo "compiling protocol contracts"
 	@$(call gen-contract,,Autonity)
 	@$(call gen-contract,,Oracle)
@@ -126,11 +128,15 @@ compile-contracts-upgrades: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/
 	./build/generate_4bytedb.sh $(SOLC_BINARY)
 	cd signer/fourbyte && go generate
 
-bindings: $(ABIGEN_BINARY)
-	@$(call gen-bindings,bindings/,bindings,)
+bindings: bindings-standard bindings-upgrades
+
+bindings-standard: $(ABIGEN_BINARY)
+	@$(call gen-bindings,bindings/,bindings,,)
+
+EXCLUSIONS =--exc autonity/solidity/contracts/interfaces/IAutonity.sol:IAutonity,autonity/solidity/contracts/interfaces/IERC20.sol:IERC20,autonity/solidity/contracts/interfaces/IERC20.sol:IERC20,autonity/solidity/contracts/interfaces/IOracle.sol:IOracle,autonity/solidity/contracts/interfaces/IOracle.sol:IOracle,autonity/solidity/contracts/asm/interfaces/IAuctioneer.sol:IAuctioneer,autonity/solidity/contracts/interfaces/ILiquid.sol:ILiquid,autonity/solidity/contracts/asm/interfaces/ISupplyControl.sol:ISupplyControl,autonity/solidity/contracts/interfaces/IConfigEvents.sol:IConfigEvents,autonity/solidity/contracts/interfaces/IScheduleController.sol:IScheduleController,autonity/solidity/contracts/asm/interfaces/IACU.sol:IACU,autonity/solidity/contracts/interfaces/IAccountability.sol:IAccountability,autonity/solidity/contracts/interfaces/IUpgradeManager.sol:IUpgradeManager,autonity/solidity/contracts/interfaces/IInflationController.sol:IInflationController,autonity/solidity/contracts/interfaces/IOmissionAccountability.sol:IOmissionAccountability,autonity/solidity/contracts/ReentrancyGuard.sol:ReentrancyGuard,autonity/solidity/contracts/asm/interfaces/IStabilization.sol:IStabilization,autonity/solidity/contracts/utils/Set.sol:EnumerableSet, autonity/solidity/contracts/interfaces/IConfigEvents.sol:IConfigEvents,autonity/solidity/contracts/interfaces/IUpgradeManager.sol:IUpgradeManager,autonity/solidity/contracts/lib/Precompiled.sol:Precompiled
 
 bindings-upgrades: $(ABIGEN_BINARY)
-	@$(call gen-bindings,upgrades/0/,Oracle0,--upgrade)
+	@$(call gen-bindings,upgrades/0/,Oracle0,--upgrade,$(EXCLUSIONS))
 	@# Generate go bindings for oracle contract v1.0.1
 	@# NOTE: the sed substitution is required to generate the same runtime bytecode that got deployed on mainnet.
 	@# it simply substitutes the metadata hash of the oracle upgraded bytecode with the metadata hash used on mainnet.
@@ -138,7 +144,7 @@ bindings-upgrades: $(ABIGEN_BINARY)
 	@# for more details see https://docs.soliditylang.org/en/latest/metadata.html
 	sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/Oracle0.go
 	sed -i s/2f97bc87153f17ec51ce656795cffedb0af8747aa2e614fc51913a63887e79d9/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/tests/Oracle0.go
-	@$(call gen-bindings,upgrades/1/,UpgradeManager1,--upgrade)
+	@$(call gen-bindings,upgrades/1/,UpgradeManager1,--upgrade,$(EXCLUSIONS))
 
 # params:
 # $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR) )
@@ -187,9 +193,9 @@ endef
 # $(3) --> --upgrade if generating bindings for contract upgrades
 define gen-bindings
 	@echo "Generating bindings for $(2).sol"
-	$(ABIGEN_BINARY)  --pkg bindings --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/$(1)$(2).sol --out ./autonity/bindings/$(2).go
+	$(ABIGEN_BINARY) --pkg bindings --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/$(1)$(2).sol --out ./autonity/bindings/$(2).go $(4)
 	@echo "Generating testing bindings for $(2).sol"
-	$(ABIGEN_BINARY)  --test $(3) --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/$(1)$(2).sol --out ./autonity/tests/$(2).go
+	$(ABIGEN_BINARY) --test $(3) --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/$(1)$(2).sol --out ./autonity/tests/$(2).go $(4)
 endef
 
 # |---------|
