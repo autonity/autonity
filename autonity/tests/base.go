@@ -122,7 +122,7 @@ type Runner struct {
 	Auctioneer             *Auctioneer
 	SupplyControl          *SupplyControl
 	Stabilization          *Stabilization
-	UpgradeManager         *UpgradeManager
+	UpgradeManager         *UpgradeManager1
 	InflationController    *InflationController
 	OmissionAccountability *OmissionAccountability
 
@@ -598,9 +598,9 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 		&generated.StabilizationAbi,
 		r,
 	}}
-	r.UpgradeManager = &UpgradeManager{&contract{
+	r.UpgradeManager = &UpgradeManager1{&contract{
 		params.UpgradeManagerContractAddress,
-		&generated.UpgradeManagerAbi,
+		&generated.UpgradeManager1Abi,
 		r,
 	}}
 	r.InflationController = &InflationController{&contract{

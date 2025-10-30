@@ -8,16 +8,15 @@ import "../../lib/Precompiled.sol";
 contract UpgradeManager1 is IConfigEvents, IUpgradeManager {
     address internal autonity;
     address internal operator;
-    event UpgradeResult(address indexed contractAddress, bool success);
 
-    /** @dev added in ugpgrade 1 */
+    /** @dev added in upgrade 1 */
     struct version {
         string number; // semver version number x.x.x
         uint256 block; // block at which the upgrade happened
     }
 
-    /** @dev added in ugpgrade 1
-     * maps runtime code hash to version
+    /** @dev added in upgrade 1
+     * maps runtime bytecode hash to version
      */
     mapping(bytes32 => version) internal versionHistory;
 
@@ -27,6 +26,7 @@ contract UpgradeManager1 is IConfigEvents, IUpgradeManager {
             versionHistory[_hashes[i]] = _versions[i];
         }
     }
+    event UpgradeResult(address indexed contractAddress, bool success);
 
     /** @dev Call the in-protocol EVM replace mechanism. Requires specific tool to interact.
     * Restricted to the operator account.
@@ -105,7 +105,10 @@ contract UpgradeManager1 is IConfigEvents, IUpgradeManager {
     }
 
 
-    // TODO: reorganize and tag as upgrade 1
+    /* ----------------------------------
+     * UPGRADE 1 new functions
+     * ----------------------------------
+     */
 
     /** @dev Call the in-protocol EVM replace mechanism. Requires specific tool to interact.
     * Restricted to the operator account.
@@ -115,8 +118,6 @@ contract UpgradeManager1 is IConfigEvents, IUpgradeManager {
     */
     function upgrade(address _target, string memory _data, string memory _versionString) external virtual onlyOperator {
         _upgrade(_target,_data);
-
-        // TODO: test to ensure that this already gets the updated codehash
         versionHistory[_target.codehash] = version(_versionString, block.number);
     }
 
@@ -145,8 +146,6 @@ contract UpgradeManager1 is IConfigEvents, IUpgradeManager {
         for(uint256 i=0; i<_targets.length; i++) {
             // TODO: what about return value of upgrade from assembly
             _upgrade(_targets[i],_bytecodes[i]);
-
-            // TODO: test to ensure that this already gets the updated codehash
             versionHistory[_targets[i].codehash] = version(_versionStrings[i], block.number);
         }
     }
@@ -154,10 +153,11 @@ contract UpgradeManager1 is IConfigEvents, IUpgradeManager {
     /**
      * allows the operator to tag the codeHash of a contract with a semver version
      * @param _hash, the contract code hash
-     * @param _version, the semver version
+     * @param _number, semver version number x.x.x
+     * @param _block, block at which the upgrade happened
      */
-    function setVersion(bytes32 _hash, version memory _version) external virtual onlyOperator {
-        versionHistory[_hash] = _version;
+    function setVersion(bytes32 _hash, string memory _number, uint256 _block) external virtual onlyOperator {
+        versionHistory[_hash] = version(_number,_block);
     }
 
     /**

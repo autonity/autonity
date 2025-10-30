@@ -126,6 +126,7 @@ compile-contracts-upgrades: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/
 	@$(call gen-contract,upgrades/tests/,InflationControllerTestUpgrade)
 	@$(call gen-contract,upgrades/tests/,StabilizationTestUpgrade)
 	@$(call gen-contract,upgrades/tests/,SupplyControlTestUpgrade)
+	@$(call gen-contract,upgrades/tests/,UpgradeManagerTestUpgrade)
 
 4byte:
 	@echo "update 4byte selector for clef"
