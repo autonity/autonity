@@ -602,7 +602,10 @@ func (api *PrivateDebugAPI) GetAccessibleState(from, to rpc.BlockNumber) (uint64
 	return 0, fmt.Errorf("No state found")
 }
 
-// TODO: this name is not really accurate anymore
+// TODO: AutonityContractAPI is not an accurate name anymore,
+//		 however leaving it like this for now since I think
+//		 the plan is to remove/refactor this API
+
 // AutonityContractAPI implements rpc.Methods to expose view functions of the
 // autonity contract through the rpc api. Note, although it looks like this
 // struct would be better defined in the rpc package or in the autonity

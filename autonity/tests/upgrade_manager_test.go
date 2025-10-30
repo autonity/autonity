@@ -61,7 +61,17 @@ func TestUpgrade(t *testing.T) {
 		}
 		return append(bytecode, packedArgs...), nil
 	}
-	r := Setup(t, nil)
+	customOperator := common.Address{0xca, 0xfe}
+	r := Setup(t, func(genesis *params.AutonityContractGenesis) *params.AutonityContractGenesis {
+		genesis.Operator = customOperator
+		return genesis
+	})
+	// sanity checks on operator
+	originalOperator := r.Operator.origin
+	fetchedOperator, _, err := r.UpgradeManager.GetOperator(nil)
+	require.NoError(t, err)
+	require.Equal(t, customOperator, originalOperator)
+	require.Equal(t, customOperator, fetchedOperator)
 	r.Run("upgrade functionality is restricted to the Operator", func(r *Runner) {
 		_, err := r.UpgradeManager.Upgrade(&runOptions{origin: User},
 			r.Acu.address,
@@ -203,6 +213,14 @@ func TestUpgrade(t *testing.T) {
 		ver, _, err := r.UpgradeManager.GetVersion(nil, generated.AutonityCodeHash)
 		t.Log(ver)
 		require.NoError(t, err)
+
+		// autonity and operator should still be the original values
+		autonityAddress, _, err := r.UpgradeManager.GetAutonity(nil)
+		require.NoError(t, err)
+		require.Equal(r.T, params.AutonityContractAddress, autonityAddress)
+		operatorAddress, _, err := r.UpgradeManager.GetOperator(nil)
+		require.NoError(t, err)
+		require.Equal(r.T, originalOperator, operatorAddress)
 	})
 	r.Run("upgrade with version tag", func(r *Runner) {
 		auctioneerCodeHash := r.Evm.StateDB.GetCodeHash(params.AuctioneerContractAddress)
