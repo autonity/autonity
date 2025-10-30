@@ -172,7 +172,8 @@ func TestUpgrade(t *testing.T) {
 		require.NoError(r.T, err)
 		require.Equal(r.T, cfg.ContractVersion.Uint64(), common.Big2.Uint64())
 		// test the hot patched _transfer operation, see AutonityUpgradeTest.sol
-		r.Autonity.Transfer(r.Operator, User, big.NewInt(50))
+		_, err = r.Autonity.Transfer(r.Operator, User, big.NewInt(50))
+		require.NoError(r.T, err)
 		balance, _, err := r.Autonity.BalanceOf(nil, User)
 		require.NoError(r.T, err)
 		require.Equal(r.T, balance.Uint64(), big.NewInt(100).Uint64())

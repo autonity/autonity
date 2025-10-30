@@ -63,7 +63,16 @@ contract UpgradeManager1 is IConfigEvents, IUpgradeManager {
             if iszero(success) {
                 revert(add(returnData, 32), returnSize)
             }
-            // TODO: how to deal with
+            /** This was originally implemented to return the result
+            *   of the precompile execution. However:
+            *   1. the upgrade precompile always returns nil if execution succeeds
+            *   2. the `return` yul instruction terminates the whole execution context,
+            *      not the currently executing function only. Therefore it cannot be used
+            *      this way now that we call _upgrade() from other functions.
+            *
+            *   Leaving it commented for now, as I do not see any usefulness in bubbling up
+            *   this value.
+            */
             // return raw data skipping the length
             //return(add(returnData, 32), returnSize)
         }
@@ -129,7 +138,6 @@ contract UpgradeManager1 is IConfigEvents, IUpgradeManager {
     function upgradeMultiple(address[] memory _targets, string[] memory _bytecodes) external virtual onlyOperator {
         require(_targets.length == _bytecodes.length, "addresses and bytecodes should be in same number");
         for(uint256 i=0; i<_targets.length; i++) {
-            // TODO: what about return value of upgrade from assembly
             _upgrade(_targets[i],_bytecodes[i]);
         }
     }
@@ -144,7 +152,6 @@ contract UpgradeManager1 is IConfigEvents, IUpgradeManager {
         require(_targets.length == _bytecodes.length, "addresses and bytecodes should be in same number");
         require(_targets.length == _versionStrings.length, "addresses and version strings should be in same number");
         for(uint256 i=0; i<_targets.length; i++) {
-            // TODO: what about return value of upgrade from assembly
             _upgrade(_targets[i],_bytecodes[i]);
             versionHistory[_targets[i].codehash] = version(_versionStrings[i], block.number);
         }
