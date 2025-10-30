@@ -42,7 +42,7 @@ func (contract ProtocolContract) String() string {
 	case AuctioneerContractAddress:
 		return "AuctioneerContract"
 	default:
-		return "Unknown"
+		return "UnknownContract"
 	}
 }
 

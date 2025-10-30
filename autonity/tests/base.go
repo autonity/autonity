@@ -111,7 +111,7 @@ type Runner struct {
 	Evm     *vm.EVM
 	Origin  common.Address // session's sender, can be overridden via runOptions
 	Tracing bool
-	Config  *params.ChainConfig // read-only copy of the deployed chain
+	Config  *params.ChainConfig // read-only copy of the deployed chain config
 
 	// protocol contracts
 	// todo: see if genesis deployment flow can be abstracted somehow

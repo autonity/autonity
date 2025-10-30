@@ -138,8 +138,7 @@ bindings: $(ABIGEN_BINARY)
 	@# it simply substitutes the metadata hash of the oracle upgraded bytecode with the metadata hash used on mainnet.
 	@# the hashes are different because the mainnet upgrade had been built in the `autonity/solidity/contracts/` folder.
 	@# for more details see https://docs.soliditylang.org/en/latest/metadata.html
-	sed -i s/9332f2eb7a6ca90dad8644e835fd01558f41287c53fb4f634a9a437d9ac6c96a/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/bindings.go
-	sed -i s/9332f2eb7a6ca90dad8644e835fd01558f41287c53fb4f634a9a437d9ac6c96a/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/tests/bindings.go
+	sed -i s/9332f2eb7a6ca90dad8644e835fd01558f41287c53fb4f634a9a437d9ac6c96a/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/bindings.go ./autonity/tests/bindings.go
 
 # params:
 # $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR) )

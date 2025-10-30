@@ -19,7 +19,7 @@ import "../asm/Auctioneer.sol";
 import "../UpgradeManager.sol";
 import "../InflationController.sol";
 
-// upgraded contract
+// upgraded contracts
 import "../upgrades/0/Oracle0.sol";
 import "../upgrades/1/UpgradeManager1.sol";
 
