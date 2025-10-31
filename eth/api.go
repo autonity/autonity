@@ -634,36 +634,17 @@ func (a *AutonityContractAPI) AcnPeers() []*p2p.PeerInfo {
 }
 
 type ProtocolContractVersion struct {
-	Hash     common.Hash                     // == codeHash for a single contract, hash(codeHash1,codeHash2,...) for a contract group (e.g. ASM, all contracts)
-	Contract params.ProtocolContract         // address for single contract, "reference" addr for a contract group (e.g. ASM, all contracts)
-	Version  bindings.UpgradeManager1version // version fetched from the contract
+	CodeHash common.Hash
+	Contract params.ProtocolContract
+	Version  bindings.UpgradeManager1version
 }
 
-func (contractVersion ProtocolContractVersion) String() string {
-	return fmt.Sprintf("%s-%s (address: %s hash: %s)", contractVersion.Contract.String(), contractVersion.Version, contractVersion.Contract.Address(), contractVersion.Hash)
+func (cv ProtocolContractVersion) String() string {
+	return fmt.Sprintf("%s-%s (address: %s hash: %s)", cv.Contract.String(), cv.Version, cv.Contract.Address(), cv.CodeHash)
 }
 
 func (a *AutonityContractAPI) ProtocolContractsVersions(number *rpc.BlockNumber) ([]ProtocolContractVersion, error) {
 	return a.protocolContractsVersions(number)
-}
-
-func (a *AutonityContractAPI) getVersion(contract params.ProtocolContract, hash common.Hash) ProtocolContractVersion {
-	version := ProtocolContractVersion{
-		Hash:     hash,
-		Contract: contract,
-	}
-
-	contractVersion, err := a.ac.GetVersion(nil, hash)
-	// TODO: test this case
-	if err != nil || contractVersion.Number == "" {
-		version.Version = bindings.UpgradeManager1version{
-			Number: "undefined",
-			Block:  new(big.Int),
-		}
-	} else {
-		version.Version = contractVersion
-	}
-	return version
 }
 
 func (a *AutonityContractAPI) protocolContractsVersions(number *rpc.BlockNumber) ([]ProtocolContractVersion, error) {
@@ -671,7 +652,6 @@ func (a *AutonityContractAPI) protocolContractsVersions(number *rpc.BlockNumber)
 	if number == nil || *number == rpc.PendingBlockNumber || *number == rpc.LatestBlockNumber {
 		header = a.bc.CurrentHeader()
 	} else {
-		// TODO: can number be < -2 or is it checked at decoding
 		header = a.bc.GetHeaderByNumber(uint64(*number)) //nolint:gosec
 	}
 	if header == nil {
@@ -679,13 +659,22 @@ func (a *AutonityContractAPI) protocolContractsVersions(number *rpc.BlockNumber)
 	}
 	st, err := a.bc.StateAt(header.Root)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("state not found: %w", err)
 	}
 	versions := make([]ProtocolContractVersion, 0, len(params.ProtocolContracts))
 	for _, contract := range params.ProtocolContracts {
-		hash := st.GetCodeHash(contract.Address())
+		codeHash := st.GetCodeHash(contract.Address())
+		// fetch version from upgradeManager contract
+		contractVersion, err := a.ac.GetVersion(nil, codeHash)
+		if err != nil {
+			return nil, fmt.Errorf("error while fetching contract version %w", err)
+		}
 
-		versions = append(versions, a.getVersion(contract, hash))
+		versions = append(versions, ProtocolContractVersion{
+			CodeHash: codeHash,
+			Contract: contract,
+			Version:  contractVersion,
+		})
 	}
 	return versions, nil
 }
