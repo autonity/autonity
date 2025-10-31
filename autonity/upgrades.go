@@ -10,7 +10,11 @@ import (
 	"github.com/autonity/autonity/params/generated"
 )
 
-// This file serves the purpose of defining exclusion lists for all ... TODO
+// This file contains the list of all protocol contract upgrades
+// By default all protocol upgrades are deployed at genesis.
+// Exclusions can be made using the `ExclusionList` field. This
+// field should be set for network where the upgrade already happened
+// via operator transaction.
 
 type ProtocolUpgrade struct {
 	Upgrades      []ContractUpgrade
@@ -49,8 +53,8 @@ var (
 				"\nrevert in the `getValidator()` function in the autonity contract when" +
 				"\ntrying to do the actual slashing.",
 			ExclusionList: []*big.Int{
-				new(big.Int).SetUint64(params.AutMainnetNetworkID),
-				new(big.Int).SetUint64(65010004), // bakerloo
+				new(big.Int).Set(params.AutMainnetChainConfig.ChainID),
+				new(big.Int).Set(params.BakerlooChainConfig.ChainID),
 			},
 		},
 		// protocol upgrade 1
@@ -104,10 +108,12 @@ var (
 					},
 				},
 			},
-			Description: "TODO",
+			Description: "New features for the upgrade manager:\n" +
+				"\t1. versioning. Every contract codehash is associated a semver version number (x.x.x)\n" +
+				"\t2. atomic upgrade of multiple contract at once is now possible with the new function upgradeMultiple\n",
 			ExclusionList: []*big.Int{
-				new(big.Int).SetUint64(params.AutMainnetNetworkID),
-				new(big.Int).SetUint64(65010004), // bakerloo
+				new(big.Int).Set(params.AutMainnetChainConfig.ChainID),
+				new(big.Int).Set(params.BakerlooChainConfig.ChainID),
 			},
 		},
 	}

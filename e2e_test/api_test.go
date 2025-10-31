@@ -43,7 +43,7 @@ func TestAPI_AcnPeers(t *testing.T) {
 	}
 }
 
-func getAutApi(node *Node) *eth.AutonityContractAPI {
+func getAutAPI(node *Node) *eth.AutonityContractAPI {
 	var autContractAPI *eth.AutonityContractAPI
 
 	apis := node.Eth.APIs()
@@ -64,7 +64,7 @@ func TestAPI_Versions(t *testing.T) {
 	err = network.WaitToMineNBlocks(5, 30, false)
 	require.NoError(t, err)
 
-	autContractAPI := getAutApi(network[0])
+	autContractAPI := getAutAPI(network[0])
 	require.NotNil(t, autContractAPI)
 
 	versions, err := autContractAPI.ProtocolContractsVersions(nil)

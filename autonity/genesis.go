@@ -121,13 +121,9 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 			return fmt.Errorf("failed to pack parameters: %w, args: %v", err, args)
 		}
 		data := append(bytecode, constructorParams...)
-		_, addr, _, err := evm.Replace(vm.AccountRef(params.DeployerAddress), data, address)
+		_, _, _, err = evm.Replace(vm.AccountRef(params.DeployerAddress), data, address)
 		if err != nil {
 			return err
-		}
-		// TODO: I think it cannot happen with replace
-		if addr != address {
-			return errBadDeploymentAddress
 		}
 		return nil
 	}
@@ -522,11 +518,10 @@ func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy
 
 func deployProtocolUpgrades(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, _ genericCaller, upgrade genericUpgrader) error {
 	for i, protocolUpgrade := range Upgrades {
-		// TODO: chainId or networkID? is it guaranteed always ==?
 		if slices.Contains(protocolUpgrade.ExclusionList, config.ChainID) || config.MustSkip(i) {
 			continue
 		}
-		log.Info("Applying protocol upgrade %d: %s", i, protocolUpgrade.Description)
+		log.Info("Applying protocol upgrade", "number", i, "description", protocolUpgrade.Description)
 		for _, contractUpgrade := range protocolUpgrade.Upgrades {
 			err := upgrade(
 				contractUpgrade.Target.Address(),
@@ -535,7 +530,7 @@ func deployProtocolUpgrades(config *params.ChainConfig, _ GenesisBonds, _ generi
 				contractUpgrade.Args...,
 			)
 			if err != nil {
-				return fmt.Errorf("failed to deploy upgrade %d for %s : %w", i, contractUpgrade.Target.String(), err)
+				return fmt.Errorf("failed to deploy upgrade %d for %s: %w", i, contractUpgrade.Target.String(), err)
 			}
 		}
 	}

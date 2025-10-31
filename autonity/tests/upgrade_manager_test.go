@@ -396,6 +396,7 @@ func TestSetAndGetVersion(t *testing.T) {
 
 	// set a version for empty code hash
 	_, err = r.UpgradeManager.SetVersion(r.Operator, common.Hash{}, "145.5.6", new(big.Int).SetUint64(123))
+	require.NoError(t, err)
 	version, _, err = r.UpgradeManager.GetVersion(nil, common.Hash{})
 	require.NoError(t, err)
 	t.Logf("version: %v", version)
@@ -404,6 +405,7 @@ func TestSetAndGetVersion(t *testing.T) {
 
 	// overwrite autonity contract hash
 	_, err = r.UpgradeManager.SetVersion(r.Operator, generated.AutonityCodeHash, "a_weird_version_number", new(big.Int).SetUint64(456))
+	require.NoError(t, err)
 	version, _, err = r.UpgradeManager.GetVersion(nil, generated.AutonityCodeHash)
 	require.NoError(t, err)
 	t.Logf("version: %v", version)
