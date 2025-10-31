@@ -48,10 +48,10 @@ var (
 					Args:     nil,
 				},
 			},
-			Description: "The `slash()` function was incorrectly called, passing the oracle" +
-				"\naddress instead of the node address of the offender. This was causing a" +
-				"\nrevert in the `getValidator()` function in the autonity contract when" +
-				"\ntrying to do the actual slashing.",
+			Description: "The `slash()` function was incorrectly called, passing the oracle " +
+				"address instead of the node address of the offender. This was causing a " +
+				"revert in the `getValidator()` function in the autonity contract when " +
+				"trying to do the actual slashing.",
 			ExclusionList: []*big.Int{
 				new(big.Int).Set(params.AutMainnetChainConfig.ChainID),
 				new(big.Int).Set(params.BakerlooChainConfig.ChainID),
@@ -108,9 +108,9 @@ var (
 					},
 				},
 			},
-			Description: "New features for the upgrade manager:\n" +
-				"\t1. versioning. Every contract codehash is associated a semver version number (x.x.x)\n" +
-				"\t2. atomic upgrade of multiple contract at once is now possible with the new function upgradeMultiple\n",
+			Description: "New features for the upgrade manager: " +
+				"1. versioning. Every contract codehash is associated a semver version number (x.x.x). " +
+				"2. atomic upgrade of multiple contract at once is now possible with the new function upgradeMultiple.",
 			ExclusionList: []*big.Int{
 				new(big.Int).Set(params.AutMainnetChainConfig.ChainID),
 				new(big.Int).Set(params.BakerlooChainConfig.ChainID),

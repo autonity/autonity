@@ -640,7 +640,7 @@ type ProtocolContractVersion struct {
 }
 
 func (cv ProtocolContractVersion) String() string {
-	return fmt.Sprintf("%s-%s (address: %s hash: %s)", cv.Contract.String(), cv.Version, cv.Contract.Address(), cv.CodeHash)
+	return fmt.Sprintf("%s-%s (address: %s hash: %s)", cv.Contract.String(), cv.Version.Number, cv.Contract.Address(), cv.CodeHash)
 }
 
 func (a *AutonityContractAPI) ProtocolContractsVersions(number *rpc.BlockNumber) ([]ProtocolContractVersion, error) {
