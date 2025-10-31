@@ -72,7 +72,7 @@ func TestAPI_Versions(t *testing.T) {
 	for _, version := range versions {
 		t.Log(version)
 		// all base protocol contract versions should be defined
-		require.NotEqual(t, "undefined", version.Version)
+		require.NotEqual(t, "", version.Version)
 	}
 
 	pendingBlockNumber := rpc.PendingBlockNumber
