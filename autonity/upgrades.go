@@ -29,6 +29,14 @@ type ContractUpgrade struct {
 	Args     []interface{}
 }
 
+// exclusion list containing bakerloo and mainnet
+func standardExclusionList() []*big.Int {
+	return []*big.Int{
+		new(big.Int).Set(params.AutMainnetChainConfig.ChainID),
+		new(big.Int).Set(params.BakerlooChainConfig.ChainID),
+	}
+}
+
 var (
 	// used for all protocol contracts at genesis
 	genesisVersion = bindings.UpgradeManager1version{
@@ -52,10 +60,7 @@ var (
 				"address instead of the node address of the offender. This was causing a " +
 				"revert in the `getValidator()` function in the autonity contract when " +
 				"trying to do the actual slashing.",
-			ExclusionList: []*big.Int{
-				new(big.Int).Set(params.AutMainnetChainConfig.ChainID),
-				new(big.Int).Set(params.BakerlooChainConfig.ChainID),
-			},
+			ExclusionList: standardExclusionList(),
 		},
 		// protocol upgrade 1
 		{
@@ -111,10 +116,7 @@ var (
 			Description: "New features for the upgrade manager: " +
 				"1. versioning. Every contract codehash is associated a semver version number (x.x.x). " +
 				"2. atomic upgrade of multiple contract at once is now possible with the new function upgradeMultiple.",
-			ExclusionList: []*big.Int{
-				new(big.Int).Set(params.AutMainnetChainConfig.ChainID),
-				new(big.Int).Set(params.BakerlooChainConfig.ChainID),
-			},
+			ExclusionList: standardExclusionList(),
 		},
 	}
 )

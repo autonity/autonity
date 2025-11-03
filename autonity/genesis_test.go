@@ -1,6 +1,7 @@
 package autonity
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common/math"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/common"
@@ -478,6 +478,99 @@ func TestGenesisSteps(t *testing.T) {
 		require.Error(t, err)
 		expErr = fmt.Errorf("genesis total staking mismatch: expected: %v, bonded %v", newStakeParam, stake)
 		require.Equal(t, expErr.Error(), err.Error())
+	})
+	t.Run("test protocol contract upgrades deployment", func(t *testing.T) {
+		evm := newEVM()
+
+		// verify that no contract has been deployed yet
+		// at the moment of writing this test only upgrade 0/ (Oracle)
+		// and 1/ (UpgradeManager) are available
+		code := evm.StateDB.GetCode(params.OracleContractAddress)
+		require.True(t, len(code) == 0)
+		code = evm.StateDB.GetCode(params.UpgradeManagerContractAddress)
+		require.True(t, len(code) == 0)
+
+		// all upgrades should be deployed
+		config := &params.ChainConfig{
+			ChainID: new(big.Int).SetUint64(600),
+		}
+		err := executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
+		require.NoError(t, err)
+
+		code = evm.StateDB.GetCode(params.OracleContractAddress)
+		require.True(t, len(code) > 0)
+		require.True(t, bytes.Equal(code, generated.Oracle0RuntimeBytecode))
+		code = evm.StateDB.GetCode(params.UpgradeManagerContractAddress)
+		require.True(t, len(code) > 0)
+		require.True(t, bytes.Equal(code, generated.UpgradeManager1RuntimeBytecode))
+
+		// re-initialize EVM
+		evm = newEVM()
+
+		// on mainnet, no upgrade should be deployed
+		config = &params.ChainConfig{
+			ChainID: new(big.Int).Set(params.AutMainnetChainConfig.ChainID),
+		}
+		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
+		require.NoError(t, err)
+
+		code = evm.StateDB.GetCode(params.OracleContractAddress)
+		require.True(t, len(code) == 0)
+		code = evm.StateDB.GetCode(params.UpgradeManagerContractAddress)
+		require.True(t, len(code) == 0)
+
+		// re-initialize EVM
+		evm = newEVM()
+
+		// same for bakerloo
+		// no upgrade should be deployed
+		config = &params.ChainConfig{
+			ChainID: new(big.Int).Set(params.BakerlooChainConfig.ChainID),
+		}
+		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
+		require.NoError(t, err)
+
+		code = evm.StateDB.GetCode(params.OracleContractAddress)
+		require.True(t, len(code) == 0)
+		code = evm.StateDB.GetCode(params.UpgradeManagerContractAddress)
+		require.True(t, len(code) == 0)
+
+		// re-initialize EVM
+		evm = newEVM()
+
+		intPtr := func(v int) *int {
+			return &v
+		}
+
+		// all upgrades skipped via config
+		config = &params.ChainConfig{
+			ChainID:           new(big.Int).SetUint64(600),
+			SkipUpgradesAfter: intPtr(0),
+		}
+		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
+		require.NoError(t, err)
+
+		code = evm.StateDB.GetCode(params.OracleContractAddress)
+		require.True(t, len(code) == 0)
+		code = evm.StateDB.GetCode(params.UpgradeManagerContractAddress)
+		require.True(t, len(code) == 0)
+
+		// re-initialize EVM
+		evm = newEVM()
+
+		// only upgrade 1/ skipped via config
+		config = &params.ChainConfig{
+			ChainID:           new(big.Int).SetUint64(600),
+			SkipUpgradesAfter: intPtr(1),
+		}
+		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
+		require.NoError(t, err)
+
+		code = evm.StateDB.GetCode(params.OracleContractAddress)
+		require.True(t, len(code) > 0)
+		require.True(t, bytes.Equal(code, generated.Oracle0RuntimeBytecode))
+		code = evm.StateDB.GetCode(params.UpgradeManagerContractAddress)
+		require.True(t, len(code) == 0)
 	})
 }
 

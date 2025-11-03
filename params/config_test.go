@@ -20,6 +20,8 @@ import (
 	"math/big"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestCheckCompatible(t *testing.T) {
@@ -95,4 +97,26 @@ func TestCheckCompatible(t *testing.T) {
 			t.Errorf("error mismatch:\nstored: %v\nnew: %v\nhead: %v\nerr: %v\nwant: %v", test.stored, test.new, test.head, err, test.wantErr)
 		}
 	}
+}
+
+func TestMustSkip(t *testing.T) {
+	c := &ChainConfig{}
+
+	// nil --> do not skip any upgrade
+	require.False(t, c.MustSkip(0))
+	require.False(t, c.MustSkip(2))
+	require.False(t, c.MustSkip(6))
+	require.False(t, c.MustSkip(7))
+	require.False(t, c.MustSkip(10))
+	require.False(t, c.MustSkip(100))
+
+	// 7 --> skip any upgrade after 7 (included)
+	x := 7
+	c.SkipUpgradesAfter = &x
+	require.False(t, c.MustSkip(0))
+	require.False(t, c.MustSkip(2))
+	require.False(t, c.MustSkip(6))
+	require.True(t, c.MustSkip(7))
+	require.True(t, c.MustSkip(10))
+	require.True(t, c.MustSkip(100))
 }
