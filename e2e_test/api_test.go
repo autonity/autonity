@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/autonity/autonity/rpc"
@@ -72,7 +73,7 @@ func TestAPI_Versions(t *testing.T) {
 	for _, version := range versions {
 		t.Log(version)
 		// all base protocol contract versions should be defined
-		require.NotEqual(t, "", version.Version)
+		require.NotEqual(t, "", version.Version.Number)
 	}
 
 	pendingBlockNumber := rpc.PendingBlockNumber
@@ -89,4 +90,16 @@ func TestAPI_Versions(t *testing.T) {
 	earliestVersions, err := autContractAPI.ProtocolContractsVersions(&earliestBlockNumber)
 	require.NoError(t, err)
 	require.Equal(t, versions, earliestVersions)
+
+	veryBigNumber := int64(math.MaxInt64 - 100)
+	_, err = autContractAPI.ProtocolContractsVersions((*rpc.BlockNumber)(&veryBigNumber))
+	t.Log(err)
+	require.Error(t, err)
+
+	// this shouldn't be able to happen because json unmarshalling of negative number should fail
+	// but in any case the api will just return an error if it happens
+	negativeNumber := int64(-500)
+	_, err = autContractAPI.ProtocolContractsVersions((*rpc.BlockNumber)(&negativeNumber))
+	t.Log(err)
+	require.Error(t, err)
 }
