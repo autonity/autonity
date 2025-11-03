@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"reflect"
 	"runtime"
-	"slices"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/autonity/bindings"
@@ -518,10 +517,10 @@ func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy
 
 func deployProtocolUpgrades(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, _ genericCaller, upgrade genericUpgrader) error {
 	for i, protocolUpgrade := range Upgrades {
-		if slices.Contains(protocolUpgrade.ExclusionList, config.ChainID) || config.MustSkip(i) {
+		if common.Contains(protocolUpgrade.ExclusionList, config.ChainID) || config.MustSkip(i) {
 			continue
 		}
-		log.Info("Applying protocol upgrade", "number", i, "description", protocolUpgrade.Description)
+		log.Info("Applying protocol upgrade", "number", i, "description", protocolUpgrade.Description, "chainID", config.ChainID.String())
 		for _, contractUpgrade := range protocolUpgrade.Upgrades {
 			err := upgrade(
 				contractUpgrade.Target.Address(),
