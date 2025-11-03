@@ -571,6 +571,22 @@ func TestGenesisSteps(t *testing.T) {
 		require.True(t, bytes.Equal(code, generated.Oracle0RuntimeBytecode))
 		code = evm.StateDB.GetCode(params.UpgradeManagerContractAddress)
 		require.True(t, len(code) == 0)
+
+		// full deploy should be working fine
+
+		// re-initialize EVM
+		evm = newEVM()
+
+		params.TestChainConfig.SetDefaults()
+		err = ExecuteGenesisSequence(params.TestChainConfig, []GenesisBond{}, evm)
+		require.NoError(t, err)
+
+		code = evm.StateDB.GetCode(params.OracleContractAddress)
+		require.True(t, len(code) > 0)
+		require.True(t, bytes.Equal(code, generated.Oracle0RuntimeBytecode))
+		code = evm.StateDB.GetCode(params.UpgradeManagerContractAddress)
+		require.True(t, len(code) > 0)
+		require.True(t, bytes.Equal(code, generated.UpgradeManager1RuntimeBytecode))
 	})
 }
 
