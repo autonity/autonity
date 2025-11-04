@@ -61,7 +61,8 @@ DEFAULT_PACKAGE_CORRUPT_RATE = 0.1  # 0.1%
 
 class LoggerStream:
     """A custom stream to redirect output to a logger."""
-    def __init__(self, logger, log_level=logging.INFO):
+    def __init__(self, host, logger, log_level=logging.INFO):
+        self.host = host
         self.logger = logger
         self.log_level = log_level
         self.buffer = ""  # To handle partial lines
@@ -75,12 +76,12 @@ class LoggerStream:
         self.buffer = lines.pop()
         for line in lines:
             if line.strip():  # Avoid logging empty lines
-                self.logger.log(self.log_level, line.strip())
+                self.logger.log(self.log_level, self.host + line.strip())
 
     def flush(self):
         """Flush remaining partial data when the stream closes."""
         if self.buffer.strip():
-            self.logger.log(self.log_level, self.buffer.strip())
+            self.logger.log(self.log_level, self.host + self.buffer.strip())
 
 
 class Client(object):
@@ -231,8 +232,8 @@ class Client(object):
                 self.logger.info("*** Starting autonity client cmd: %s", cmd)
 
                 # Create stream handlers for stdout (INFO) and stderr (ERROR)
-                stdout_stream = LoggerStream(self.logger, logging.INFO)
-                stderr_stream = LoggerStream(self.logger, logging.ERROR)
+                stdout_stream = LoggerStream(self.host, self.logger, logging.INFO)
+                stderr_stream = LoggerStream(self.host, self.logger, logging.ERROR)
 
                 # Run the command with streaming output (blocking)
                 # Remove `hide=True` to allow output, and use custom streams
@@ -244,27 +245,11 @@ class Client(object):
                     err_stream=stderr_stream   # Stream stderr to logger
                 )
 
-                self.logger.info("*** Autonity client lifecycle stopped: %s", self.host)
+                self.logger.info("*** Autonity client lifecycle stopped: %s with result: %s", self.host, result)
                 self.client_stopped = True
 
         except Exception as e:
             self.logger.error("Cannot start client on %s: %s", self.host, e)
-        return False
-
-    def client_life_V0(self):
-        try:
-            with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                "password": self.ssh_pass
-            }) as c:
-                c.run("touch {}".format(LOG_PATH.format(self.ssh_user, self.host)))
-                cmd = self.cli_cmd()
-                self.logger.info("*** starting autonity client cmd: %s", cmd)
-                # this run is a blocking call, it returns until the remote autonity service terminated.
-                c.run(cmd, pty=False, warn=True, hide=True)
-                self.logger.info("*** autonity client lifecycle stopped: %s ", self.host)
-                self.client_stopped = True
-        except Exception as e:
-            self.logger.error("cannot start client, %s, %s", self.host, e)
         return False
 
     def start_client(self):
