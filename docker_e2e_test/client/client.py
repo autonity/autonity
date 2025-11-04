@@ -307,52 +307,6 @@ class Client(object):
             return False
         return True
 
-    def redirect_system_log(self, log_folder):
-        try:
-            zip_file = "{}/{}.tgz".format(log_folder, self.host)
-            log_file = "{}/{}.log".format(log_folder, self.host)
-            # untar file,
-            utility.execute("tar -zxvf {} --directory {}".format(zip_file, log_folder))
-            # read file and print into log file.
-            self.logger.info("\t\t\t **** node_%s logs started from here. **** \n\n\n", self.host)
-            with open(log_file, "r", encoding="utf-8") as fp:
-                for _, line in enumerate(fp):
-                    self.logger.info("NODE_%s_%s: %s", self.index, self.host, line.encode("utf-8"))
-            # remove file.
-            utility.execute("rm -f {}".format(log_file))
-        except Exception as e:
-            self.logger.error('Exception happens. %s', e)
-
-    def download_log(self, log_folder):
-        try:
-            with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                # "key_filename": self.ssh_key,
-                "password": self.ssh_pass,
-            }) as c:
-                sudopass = Responder(
-                    pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
-                    response=self.sudo_pass + '\n'
-                )
-
-                # tar logs for remote node.
-                tar_file = "./{}.log.tgz".format(self.host)
-                cmd = "tar -zcvf {} {}".format(tar_file, LOG_PATH.format(self.ssh_user, self.host))
-                result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=True)
-                if result and result.exited == 0 and result.ok:
-                    self.logger.info('log was zip on host: %s', self.host)
-                    # download logs.
-                    local_dir = log_folder
-                    local_file = "{}/{}.tgz".format(local_dir, self.host)
-                    c.get(tar_file, local=local_file)
-                    self.logger.info('log files was saved to %s.', local_dir)
-                else:
-                    self.logger.error('cannot zip log file at host: %s', self.host)
-
-        except (KeyError, TypeError) as e:
-            self.logger.error('wrong configuration file. %s', e)
-        except Exception as e:
-            self.logger.error('Exception happens. %s', e)
-
     def send_transaction(self, to=None, gas=None, gas_price=None, value=0, data=None):
         try:
             if self.rpc_client is None:
