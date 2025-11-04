@@ -72,7 +72,7 @@ class NetworkPlanner(object):
                 # sync template data to testbedconf.yml
                 node["index"] = client.index
                 node["role"] = client.role
-                node["name"] = client.host
+                node["name"] = client.prefix
                 node["coinBase"] = "0x{}".format(client.coin_base)
                 node["p2pPort"] = client.p2p_port
                 node["acnPort"] = client.acn_port

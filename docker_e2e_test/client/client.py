@@ -12,7 +12,6 @@ from invoke import Responder
 
 AUTONITY_PATH = "/home/{}/network-data/autonity"
 GENESIS_PATH = "/home/{}/network-data/genesis.json"
-LOG_PATH = "/home/{}/{}.log"
 CHAIN_DATA_DIR = "/home/{}/network-data/{}/data/"
 BOOT_KEY_FILE = "/home/{}/network-data/{}/boot.key"
 KEY_PASSPHRASE_FILE = "/home/{}/network-data/{}/pass.txt"
@@ -62,7 +61,7 @@ DEFAULT_PACKAGE_CORRUPT_RATE = 0.1  # 0.1%
 class LoggerStream:
     """A custom stream to redirect output to a logger."""
     def __init__(self, host, logger, log_level=logging.INFO):
-        self.host = host
+        self.prefix = host + " - "
         self.logger = logger
         self.log_level = log_level
         self.buffer = ""  # To handle partial lines
@@ -76,12 +75,12 @@ class LoggerStream:
         self.buffer = lines.pop()
         for line in lines:
             if line.strip():  # Avoid logging empty lines
-                self.logger.log(self.log_level, self.host + "-" + line.strip())
+                self.logger.log(self.log_level, self.prefix + line.strip())
 
     def flush(self):
         """Flush remaining partial data when the stream closes."""
         if self.buffer.strip():
-            self.logger.log(self.log_level, self.host + "-" + self.buffer.strip())
+            self.logger.log(self.log_level, self.prefix + self.buffer.strip())
 
 
 class Client(object):
@@ -168,7 +167,7 @@ class Client(object):
               "--http.port {6} --http --http.addr '0.0.0.0' --ws --ws.port {7} --http.corsdomain '*' " \
               "--http.api 'personal,debug,eth,net,web3,txpool,miner,tendermint' --networkid 1991 --allow-insecure-unlock " \
               "--graphql --unlock 0x{8} --password {9} --mine --miner.threads '1' " \
-              "--verbosity 3 > {10} ".format(
+              "--verbosity 3 ".format(
                                            AUTONITY_PATH.format(self.ssh_user),
                                            GENESIS_PATH.format(self.ssh_user),
                                            CHAIN_DATA_DIR.format(self.ssh_user,
@@ -181,8 +180,7 @@ class Client(object):
                                            self.ws_port,
                                            self.coin_base,
                                            KEY_PASSPHRASE_FILE.format(
-                                               self.ssh_user, self.host),
-                                           LOG_PATH.format(self.ssh_user, self.host)
+                                               self.ssh_user, self.host)
                                           )
         return cmd
 
@@ -225,9 +223,6 @@ class Client(object):
                 user=self.ssh_user,
                 connect_kwargs={"password": self.ssh_pass}
             ) as c:
-                # Create log file (unchanged)
-                c.run(f"touch {LOG_PATH.format(self.ssh_user, self.host)}")
-
                 cmd = self.cli_cmd()
                 self.logger.info("*** Starting autonity client cmd: %s", cmd)
 
@@ -635,7 +630,7 @@ class Client(object):
             if result is True:
                 self.down_link_delayed = False
             else:
-                self.logger.error('undelay up-link failed for host: %s, error: %s', self.host, result)
+                self.logger.error('undelay up-link failed for host: %s, error: %s', self.prefix, result)
                 return None
 
         except (KeyError, TypeError) as e:
