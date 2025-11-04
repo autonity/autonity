@@ -76,12 +76,12 @@ class LoggerStream:
         self.buffer = lines.pop()
         for line in lines:
             if line.strip():  # Avoid logging empty lines
-                self.logger.log(self.log_level, self.host + line.strip())
+                self.logger.log(self.log_level, self.host + "-" + line.strip())
 
     def flush(self):
         """Flush remaining partial data when the stream closes."""
         if self.buffer.strip():
-            self.logger.log(self.log_level, self.host + self.buffer.strip())
+            self.logger.log(self.log_level, self.host + "-" + self.buffer.strip())
 
 
 class Client(object):
