@@ -61,7 +61,7 @@ DEFAULT_PACKAGE_CORRUPT_RATE = 0.1  # 0.1%
 class LoggerStream:
     """A custom stream to redirect output to a logger."""
     def __init__(self, test_id, host, logger, log_level=logging.INFO):
-        self.prefix = "test-" + test_id + "-" + host + " - "
+        self.prefix = "test-" + str(test_id) + "-" + host + " - "
         self.logger = logger
         self.log_level = log_level
         self.buffer = ""  # To handle partial lines

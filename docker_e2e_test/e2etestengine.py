@@ -28,7 +28,7 @@ if __name__ == '__main__':
     LG.info(f"Running test {test_id} with validator nodes {args.ips}")
 
     conf.load_project_conf()
-    network_planner = NetworkPlanner(autonity_path, validator_ips, test_id)
+    network_planner = NetworkPlanner(autonity_path, validator_ips, test_id+1)
     network_planner.plan()
     network_planner.deploy_all_nodes()
     network_planner.start_all_nodes()
