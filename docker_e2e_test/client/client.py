@@ -2,6 +2,7 @@ import os
 import re
 import copy
 import log
+import logging
 import utility
 import threading
 from web3.auto import w3
@@ -56,6 +57,30 @@ DEFAULT_PACKAGE_LOSS_RATE = 0.1  # 0.1%
 DEFAULT_PACKAGE_DUPLICATE_RATE = 0.1  # 0.1%
 DEFAULT_PACKAGE_REORDER_RATE = 0.1  # 0.1%
 DEFAULT_PACKAGE_CORRUPT_RATE = 0.1  # 0.1%
+
+
+class LoggerStream:
+    """A custom stream to redirect output to a logger."""
+    def __init__(self, logger, log_level=logging.INFO):
+        self.logger = logger
+        self.log_level = log_level
+        self.buffer = ""  # To handle partial lines
+
+    def write(self, data):
+        """Process incoming data and log line by line."""
+        self.buffer += data
+        # Split on newlines to handle complete lines
+        lines = self.buffer.split("\n")
+        # The last element is a partial line (if any)
+        self.buffer = lines.pop()
+        for line in lines:
+            if line.strip():  # Avoid logging empty lines
+                self.logger.log(self.log_level, line.strip())
+
+    def flush(self):
+        """Flush remaining partial data when the stream closes."""
+        if self.buffer.strip():
+            self.logger.log(self.log_level, self.buffer.strip())
 
 
 class Client(object):
@@ -193,6 +218,40 @@ class Client(object):
         return False
 
     def client_life(self):
+        try:
+            with Connection(
+                self.host,
+                user=self.ssh_user,
+                connect_kwargs={"password": self.ssh_pass}
+            ) as c:
+                # Create log file (unchanged)
+                c.run(f"touch {LOG_PATH.format(self.ssh_user, self.host)}")
+
+                cmd = self.cli_cmd()
+                self.logger.info("*** Starting autonity client cmd: %s", cmd)
+
+                # Create stream handlers for stdout (INFO) and stderr (ERROR)
+                stdout_stream = LoggerStream(self.logger, logging.INFO)
+                stderr_stream = LoggerStream(self.logger, logging.ERROR)
+
+                # Run the command with streaming output (blocking)
+                # Remove `hide=True` to allow output, and use custom streams
+                result = c.run(
+                    cmd,
+                    pty=False,  # Avoids PTY buffering issues
+                    warn=True,
+                    out_stream=stdout_stream,  # Stream stdout to logger
+                    err_stream=stderr_stream   # Stream stderr to logger
+                )
+
+                self.logger.info("*** Autonity client lifecycle stopped: %s", self.host)
+                self.client_stopped = True
+
+        except Exception as e:
+            self.logger.error("Cannot start client on %s: %s", self.host, e)
+        return False
+
+    def client_life_V0(self):
         try:
             with Connection(self.host, user=self.ssh_user, connect_kwargs={
                 "password": self.ssh_pass
