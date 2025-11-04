@@ -25,10 +25,10 @@ if __name__ == '__main__':
     test_id = args.id
     validator_ips = args.ips.split(",")
 
-    LG.debug(f"Running test {test_id} with validator nodes {args.ips}")
+    LG.info(f"Running test {test_id} with validator nodes {args.ips}")
 
     conf.load_project_conf()
-    network_planner = NetworkPlanner(autonity_path, validator_ips)
+    network_planner = NetworkPlanner(autonity_path, validator_ips, test_id)
     network_planner.plan()
     network_planner.deploy_all_nodes()
     network_planner.start_all_nodes()
@@ -68,6 +68,4 @@ if __name__ == '__main__':
         exit(0)
     else:
         LG.info("[TEST FAILED]")
-        LG.info("Log collecting for failed tests...")
-        time.sleep(180)
         exit(1)

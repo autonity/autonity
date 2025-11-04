@@ -60,8 +60,8 @@ DEFAULT_PACKAGE_CORRUPT_RATE = 0.1  # 0.1%
 
 class LoggerStream:
     """A custom stream to redirect output to a logger."""
-    def __init__(self, host, logger, log_level=logging.INFO):
-        self.prefix = host + " - "
+    def __init__(self, test_id, host, logger, log_level=logging.INFO):
+        self.prefix = "test-" + test_id + "-" + host + " - "
         self.logger = logger
         self.log_level = log_level
         self.buffer = ""  # To handle partial lines
@@ -86,12 +86,13 @@ class LoggerStream:
 class Client(object):
     def __init__(self, host=None, p2p_port=None, acn_port=None, rpc_port=None, ws_port=None, net_interface=None,
                  coin_base=None, ssh_user=None, ssh_pass=None, ssh_key=None, sudo_pass=None, autonity_path=None,
-                 bootnode_path=None, key_inspector_path=None, role=None, index=None, e_node=None):
+                 bootnode_path=None, key_inspector_path=None, role=None, index=None, e_node=None, test_id=None):
         self.autonity_path = autonity_path
         self.bootnode_path = bootnode_path
         self.key_inspector_path = key_inspector_path
         self.consensus_pub_key = None
         self.host = host
+        self.test_id = test_id
         self.p2p_port = p2p_port
         self.acn_port = acn_port
         self.rpc_port = rpc_port
@@ -227,8 +228,8 @@ class Client(object):
                 self.logger.info("*** Starting autonity client cmd: %s", cmd)
 
                 # Create stream handlers for stdout (INFO) and stderr (ERROR)
-                stdout_stream = LoggerStream(self.host, self.logger, logging.INFO)
-                stderr_stream = LoggerStream(self.host, self.logger, logging.ERROR)
+                stdout_stream = LoggerStream(self.test_id, self.host, self.logger, logging.INFO)
+                stderr_stream = LoggerStream(self.test_id, self.host, self.logger, logging.ERROR)
 
                 # Run the command with streaming output (blocking)
                 # Remove `hide=True` to allow output, and use custom streams
@@ -240,7 +241,7 @@ class Client(object):
                     err_stream=stderr_stream   # Stream stderr to logger
                 )
 
-                self.logger.info("*** Autonity client lifecycle stopped: %s with result: %s", self.host, result)
+                self.logger.info("*** Autonity client lifecycle terminated: %s with result: %s", self.host, result)
                 self.client_stopped = True
 
         except Exception as e:
@@ -251,7 +252,7 @@ class Client(object):
         self.life = threading.Thread(target=self.client_life, daemon=True)
         self.life.start()
         self.client_stopped = False
-        self.logger.info("autonity client lifecycle started: %s", self.host)
+        self.logger.info("test: %d, host: %s, autonity client lifecycle started", self.test_id, self.host)
         return True
 
     def deploy_client(self):

@@ -8,7 +8,7 @@ from conf import conf
 
 
 class NetworkPlanner(object):
-    def __init__(self, autonity_path, val_ips):
+    def __init__(self, autonity_path, val_ips, test_id):
         self.logger = log.get_logger()
         self.autonity_path = autonity_path
         path_list = autonity_path.split("/")
@@ -18,6 +18,7 @@ class NetworkPlanner(object):
         self.key_inspector_path = "/".join(path_list)
         self.validator_ip_list = val_ips
         self.clients = []
+        self.test_id = test_id
 
     def get_clients(self):
         return self.clients
@@ -25,7 +26,8 @@ class NetworkPlanner(object):
     def prepare_client_instances(self):
         for index, ip in enumerate(self.validator_ip_list):
             self.clients.append(Client(ip, role="validator", autonity_path=self.autonity_path,
-                                       bootnode_path=self.bootnode_path, key_inspector_path=self.key_inspector_path, index=index))
+                                       bootnode_path=self.bootnode_path, key_inspector_path=self.key_inspector_path,
+                                       index=index, test_id=self.test_id))
 
     def create_work_dir(self):
         self.logger.info("===== SETUP INITIALIZATION =====")
