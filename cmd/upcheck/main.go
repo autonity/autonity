@@ -19,9 +19,9 @@ import (
 
 var (
 	upgradeManagerABI = generated.UpgradeManager1Abi
-	verboseFlag       = &cli.BoolFlag{
-		Name:    "verbose",
-		Aliases: []string{"v"},
+	showSourceFlag    = &cli.BoolFlag{
+		Name:    "show-source",
+		Aliases: []string{"s"},
 		Usage:   "show also source code diff",
 	}
 )
@@ -75,8 +75,7 @@ func detailUpgrade(_ context.Context, cmd *cli.Command) error {
 	fmt.Fprintf(w, "%s\n", boldify(fmt.Sprintf("upgraded contracts (%d)", len(upgrade.Upgrades))))
 	for _, contract := range upgrade.Upgrades {
 		fmt.Fprintf(w, " \t%s (%s)\n", contract.Target.String(), contract.Target.Address().String())
-		// if verbose, print also source code diff
-		if verboseFlag.IsSet() {
+		if showSourceFlag.IsSet() {
 			fmt.Fprintf(w, "%s\n\n", boldify("source code diff:"))
 			printCodeDiff(w, contract.BaseCode, contract.UpgradedCode)
 		}
@@ -148,7 +147,7 @@ func main() {
 				Name:      "detail",
 				Usage:     "see the details of one upgrade",
 				Aliases:   []string{"d"},
-				Flags:     []cli.Flag{verboseFlag},
+				Flags:     []cli.Flag{showSourceFlag},
 				ArgsUsage: "<number>",
 				Action:    detailUpgrade,
 			},
