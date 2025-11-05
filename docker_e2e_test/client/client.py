@@ -2,6 +2,7 @@ import os
 import re
 import copy
 import log
+import logging
 import utility
 import threading
 from web3.auto import w3
@@ -11,7 +12,6 @@ from invoke import Responder
 
 AUTONITY_PATH = "/home/{}/network-data/autonity"
 GENESIS_PATH = "/home/{}/network-data/genesis.json"
-LOG_PATH = "/home/{}/{}.log"
 CHAIN_DATA_DIR = "/home/{}/network-data/{}/data/"
 BOOT_KEY_FILE = "/home/{}/network-data/{}/boot.key"
 KEY_PASSPHRASE_FILE = "/home/{}/network-data/{}/pass.txt"
@@ -58,15 +58,41 @@ DEFAULT_PACKAGE_REORDER_RATE = 0.1  # 0.1%
 DEFAULT_PACKAGE_CORRUPT_RATE = 0.1  # 0.1%
 
 
+class LoggerStream:
+    """A custom stream to redirect output to a logger."""
+    def __init__(self, test_id, host, logger, log_level=logging.INFO):
+        self.prefix = "test-" + str(test_id) + "-" + host + " - "
+        self.logger = logger
+        self.log_level = log_level
+        self.buffer = ""  # To handle partial lines
+
+    def write(self, data):
+        """Process incoming data and log line by line."""
+        self.buffer += data
+        # Split on newlines to handle complete lines
+        lines = self.buffer.split("\n")
+        # The last element is a partial line (if any)
+        self.buffer = lines.pop()
+        for line in lines:
+            if line.strip():  # Avoid logging empty lines
+                self.logger.log(self.log_level, self.prefix + line.strip())
+
+    def flush(self):
+        """Flush remaining partial data when the stream closes."""
+        if self.buffer.strip():
+            self.logger.log(self.log_level, self.prefix + self.buffer.strip())
+
+
 class Client(object):
     def __init__(self, host=None, p2p_port=None, acn_port=None, rpc_port=None, ws_port=None, net_interface=None,
                  coin_base=None, ssh_user=None, ssh_pass=None, ssh_key=None, sudo_pass=None, autonity_path=None,
-                 bootnode_path=None, key_inspector_path=None, role=None, index=None, e_node=None):
+                 bootnode_path=None, key_inspector_path=None, role=None, index=None, e_node=None, test_id=None):
         self.autonity_path = autonity_path
         self.bootnode_path = bootnode_path
         self.key_inspector_path = key_inspector_path
         self.consensus_pub_key = None
         self.host = host
+        self.test_id = test_id
         self.p2p_port = p2p_port
         self.acn_port = acn_port
         self.rpc_port = rpc_port
@@ -142,7 +168,7 @@ class Client(object):
               "--http.port {6} --http --http.addr '0.0.0.0' --ws --ws.port {7} --http.corsdomain '*' " \
               "--http.api 'personal,debug,eth,net,web3,txpool,miner,tendermint' --networkid 1991 --allow-insecure-unlock " \
               "--graphql --unlock 0x{8} --password {9} --mine --miner.threads '1' " \
-              "--verbosity 3 > {10} ".format(
+              "--verbosity 3 ".format(
                                            AUTONITY_PATH.format(self.ssh_user),
                                            GENESIS_PATH.format(self.ssh_user),
                                            CHAIN_DATA_DIR.format(self.ssh_user,
@@ -155,8 +181,7 @@ class Client(object):
                                            self.ws_port,
                                            self.coin_base,
                                            KEY_PASSPHRASE_FILE.format(
-                                               self.ssh_user, self.host),
-                                           LOG_PATH.format(self.ssh_user, self.host)
+                                               self.ssh_user, self.host)
                                           )
         return cmd
 
@@ -194,25 +219,40 @@ class Client(object):
 
     def client_life(self):
         try:
-            with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                "password": self.ssh_pass
-            }) as c:
-                c.run("touch {}".format(LOG_PATH.format(self.ssh_user, self.host)))
+            with Connection(
+                self.host,
+                user=self.ssh_user,
+                connect_kwargs={"password": self.ssh_pass}
+            ) as c:
                 cmd = self.cli_cmd()
-                self.logger.info("*** starting autonity client cmd: %s", cmd)
-                # this run is a blocking call, it returns until the remote autonity service terminated.
-                c.run(cmd, pty=False, warn=True, hide=True)
-                self.logger.info("*** autonity client lifecycle stopped: %s ", self.host)
+                self.logger.info("*** Starting autonity client cmd: %s", cmd)
+
+                # Create stream handlers for stdout (INFO) and stderr (ERROR)
+                stdout_stream = LoggerStream(self.test_id, self.host, self.logger, logging.INFO)
+                stderr_stream = LoggerStream(self.test_id, self.host, self.logger, logging.ERROR)
+
+                # Run the command with streaming output (blocking)
+                # Remove `hide=True` to allow output, and use custom streams
+                result = c.run(
+                    cmd,
+                    pty=False,  # Avoids PTY buffering issues
+                    warn=True,
+                    out_stream=stdout_stream,  # Stream stdout to logger
+                    err_stream=stderr_stream   # Stream stderr to logger
+                )
+
+                self.logger.info("*** Autonity client lifecycle terminated: %s with result: %s", self.host, result)
                 self.client_stopped = True
+
         except Exception as e:
-            self.logger.error("cannot start client, %s, %s", self.host, e)
+            self.logger.error("Cannot start client on %s: %s", self.host, e)
         return False
 
     def start_client(self):
         self.life = threading.Thread(target=self.client_life, daemon=True)
         self.life.start()
         self.client_stopped = False
-        self.logger.info("autonity client lifecycle started: %s", self.host)
+        self.logger.info("test: %d, host: %s, autonity client lifecycle started", self.test_id, self.host)
         return True
 
     def deploy_client(self):
@@ -262,52 +302,6 @@ class Client(object):
             self.logger.error("cannot clean chain data. %s, %s.", self.host, e)
             return False
         return True
-
-    def redirect_system_log(self, log_folder):
-        try:
-            zip_file = "{}/{}.tgz".format(log_folder, self.host)
-            log_file = "{}/{}.log".format(log_folder, self.host)
-            # untar file,
-            utility.execute("tar -zxvf {} --directory {}".format(zip_file, log_folder))
-            # read file and print into log file.
-            self.logger.info("\t\t\t **** node_%s logs started from here. **** \n\n\n", self.host)
-            with open(log_file, "r", encoding="utf-8") as fp:
-                for _, line in enumerate(fp):
-                    self.logger.info("NODE_%s_%s: %s", self.index, self.host, line.encode("utf-8"))
-            # remove file.
-            utility.execute("rm -f {}".format(log_file))
-        except Exception as e:
-            self.logger.error('Exception happens. %s', e)
-
-    def download_log(self, log_folder):
-        try:
-            with Connection(self.host, user=self.ssh_user, connect_kwargs={
-                # "key_filename": self.ssh_key,
-                "password": self.ssh_pass,
-            }) as c:
-                sudopass = Responder(
-                    pattern=r'\[sudo\] password for ' + self.ssh_user + ':',
-                    response=self.sudo_pass + '\n'
-                )
-
-                # tar logs for remote node.
-                tar_file = "./{}.log.tgz".format(self.host)
-                cmd = "tar -zcvf {} {}".format(tar_file, LOG_PATH.format(self.ssh_user, self.host))
-                result = c.run(cmd, pty=True, watchers=[sudopass], warn=True, hide=True)
-                if result and result.exited == 0 and result.ok:
-                    self.logger.info('log was zip on host: %s', self.host)
-                    # download logs.
-                    local_dir = log_folder
-                    local_file = "{}/{}.tgz".format(local_dir, self.host)
-                    c.get(tar_file, local=local_file)
-                    self.logger.info('log files was saved to %s.', local_dir)
-                else:
-                    self.logger.error('cannot zip log file at host: %s', self.host)
-
-        except (KeyError, TypeError) as e:
-            self.logger.error('wrong configuration file. %s', e)
-        except Exception as e:
-            self.logger.error('Exception happens. %s', e)
 
     def send_transaction(self, to=None, gas=None, gas_price=None, value=0, data=None):
         try:
@@ -637,7 +631,7 @@ class Client(object):
             if result is True:
                 self.down_link_delayed = False
             else:
-                self.logger.error('undelay up-link failed for host: %s, error: %s', self.host, result)
+                self.logger.error('undelay up-link failed for host: %s, error: %s', self.prefix, result)
                 return None
 
         except (KeyError, TypeError) as e:

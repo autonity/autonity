@@ -205,7 +205,6 @@ class TestCase:
     def start_test(self):
         if self.run() is False:
             self.collect_test_case_context_log()
-            self.collect_system_log()
             return False
 
         return True
@@ -292,22 +291,3 @@ class TestCase:
             if client.heal_from_disaster() is not True:
                 failed = True
         return True if not failed else False
-
-    def collect_system_log(self):
-        try:
-            # try to create dirs
-            os.makedirs(SYSTEM_LOG_DIR, exist_ok=True)  # It never fail even if the dir is existed.
-            os.makedirs(TEST_CASE_SYSTEM_LOG_DIR.format(self.start_time), exist_ok=True)
-            for index, client in self.clients.items():
-                client.download_log(TEST_CASE_SYSTEM_LOG_DIR.format(self.start_time))
-        except Exception as e:
-            self.logger.error('Cannot fetch logs from node. %s.', e)
-            return None
-        try:
-            # redirect client logs into test engine's logger.
-            for index, client in self.clients.items():
-                client.redirect_system_log(TEST_CASE_SYSTEM_LOG_DIR.format(self.start_time))
-        except Exception as e:
-            self.logger.error('Cannot redirect system logs from client into test engine log file %s.', e)
-            return None
-        return True
