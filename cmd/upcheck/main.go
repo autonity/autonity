@@ -1,112 +1,170 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
+	"strconv"
+	"text/tabwriter"
 
-	"github.com/autonity/autonity/accounts/abi"
-	"github.com/autonity/autonity/autonity/bindings"
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/internal/flags"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/autonity/autonity/params/generated"
+	"github.com/kr/text"
+	"github.com/sergi/go-diff/diffmatchpatch"
+	"github.com/urfave/cli/v3"
 )
 
 var (
-	// Git SHA1 commit hash of the release (set via linker flags)
-	gitCommit = ""
-	gitDate   = ""
-
-	solcBin   = "solc_static_linux_v0.8.30"
-	solcFlags = []string{"--overwrite", "--optimize", "--optimize-runs", "10000", "--evm-version", "london", "--abi", "--bin", "--userdoc", "--devdoc", "-o"}
-
-	app *cli.App
+	upgradeManagerABI = generated.UpgradeManager1Abi
+	verboseFlag       = &cli.BoolFlag{
+		Name:    "verbose",
+		Aliases: []string{"v"},
+		Usage:   "show also source code diff",
+	}
 )
 
-func init() {
-	app = flags.NewApp(gitCommit, gitDate, "contract upgrade verification tool")
-	app.Flags = []cli.Flag{}
-	app.Action = utils.MigrateFlags(upcheck)
-	cli.CommandHelpTemplate = flags.OriginCommandHelpTemplate
+func boldify(s string) string {
+	return "\033[1m" + s + "\033[0m"
 }
 
-func upcheck(c *cli.Context) error {
-	if len(c.Args()) != 2 {
-		utils.Fatalf("invalid arguments. usage ./upcheck [CONTRACT] [ADDRESS]")
+func listUpgrades(_ context.Context, cmd *cli.Command) error {
+	if cmd.Args().Len() != 0 {
+		return fmt.Errorf("list command takes no arguments")
 	}
-	fmt.Fprintf(os.Stderr, "** Upgrade Verification Tool **\n")
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	exPath := filepath.Dir(ex)
-	path := c.Args().First()
-	fmt.Fprintf(os.Stderr, "Contract: %s \n", c.Args()[0])
 
-	// 1st step: Retrieve contrat's deployment bytecode
-	bin := runSolc(exPath, path)
+	w := tabwriter.NewWriter(os.Stdout, 0, 16, 0, '\t', 0)
+	defer w.Flush()
 
-	// 2nd step: Construct ABI-encoded deployment calldata
-	// for now, only simple constructors are supported with this tool
-
-	abi, err := abi.JSON(strings.NewReader(`[{ "type" : "function", "name" : ""}]`))
-	if err != nil {
-		panic(err)
+	for i, upgrade := range autonity.Upgrades {
+		fmt.Fprintf(w, "%s\t%s\n", boldify(fmt.Sprintf("upgrade %d", i)), upgrade.Name)
 	}
-	packedArgs, err := abi.Pack("")
-	if err != nil {
-		panic(err)
-	}
-	packed := append(bin, packedArgs...)
-	// fmt.Println("Packed Deployment Bytecode:", common.Bytes2Hex(packed))
-	// 3rd step: Construct ABI-encoded upgrade transaction
-	upgraderAbi, err := bindings.UpgradeManagerMetaData.GetAbi()
-	if err != nil {
-		panic(err)
-	}
-	finalPacked, err := upgraderAbi.Pack("upgrade", common.HexToAddress(c.Args()[1]), string(packed))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Fprintln(os.Stderr, "Upgrade TX Calldata:")
-	fmt.Println(common.Bytes2Hex(finalPacked))
 	return nil
 }
 
-func runSolc(self, path string) []byte {
-	solcPath := strings.Join([]string{self, solcBin}, "/")
-	outputDir, err := os.MkdirTemp("", "upcheck")
-	if err != nil {
-		panic(err)
-	}
-	cmd := &exec.Cmd{
-		Path:   solcPath,
-		Args:   append(solcFlags, outputDir, path),
-		Stdout: os.Stderr,
-		Stderr: os.Stderr,
-	}
-	fmt.Fprintf(os.Stderr, "Running solc (%s) ...\n ....", solcPath)
-	if err := cmd.Run(); err != nil {
-		panic(err)
-	}
-	//Retrieving correct binary
-	solidityFile := filepath.Base(path)
-	solidityContract := strings.TrimSuffix(solidityFile, filepath.Ext(path))
+// TODO: this can be improved to show only the actual diffs and some context around it
+func printCodeDiff(w io.Writer, base string, upgraded string) {
+	dmp := diffmatchpatch.New()
+	diffs := dmp.DiffMain(base, upgraded, false)
+	fmt.Fprintf(w, "%s", dmp.DiffPrettyText(diffs))
+}
 
-	//
-	bytecode, err := os.ReadFile(fmt.Sprintf("%s/%s.bin", outputDir, solidityContract))
-	if err != nil {
-		panic(err)
+func detailUpgrade(_ context.Context, cmd *cli.Command) error {
+	if cmd.Args().Len() != 1 {
+		return fmt.Errorf("usage: upgrade <number>")
 	}
-	return common.Hex2Bytes(string(bytecode))
+
+	upgradeNumber, err := strconv.ParseUint(cmd.Args().First(), 10, 64)
+	if err != nil {
+		return fmt.Errorf("cannot parse upgrade number: %w", err)
+	}
+
+	if upgradeNumber >= uint64(len(autonity.Upgrades)) {
+		return fmt.Errorf("upgrade number out of bound, there are only %d upgrades available", len(autonity.Upgrades))
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 16, 0, '\t', 0)
+	defer w.Flush()
+
+	upgrade := autonity.Upgrades[upgradeNumber]
+	fmt.Fprintf(w, "%s\t%s\n", boldify(fmt.Sprintf("upgrade %d", upgradeNumber)), upgrade.Name)
+	fmt.Fprintf(w, "%s%s\n", boldify("description"), text.Indent(text.Wrap(upgrade.Description, 80), "\t"))
+	fmt.Fprintf(w, "%s\t%v\n\n", boldify("excluded"), upgrade.ExclusionList)
+	fmt.Fprintf(w, "%s\n", boldify(fmt.Sprintf("upgraded contracts (%d)", len(upgrade.Upgrades))))
+	for _, contract := range upgrade.Upgrades {
+		fmt.Fprintf(w, " \t%s (%s)\n", contract.Target.String(), contract.Target.Address().String())
+		// if verbose, print also source code diff
+		if verboseFlag.IsSet() {
+			fmt.Fprintf(w, "%s\n\n", boldify("source code diff:"))
+			printCodeDiff(w, contract.BaseCode, contract.UpgradedCode)
+		}
+	}
+
+	return nil
+}
+
+// assume indexes will not result in out of bound access
+func upgradePayload(upgradeNumber uint64, contractNumber uint64) ([]byte, error) {
+	contractUpgrade := autonity.Upgrades[upgradeNumber].Upgrades[contractNumber]
+
+	// if no args are specified, `constructorArgs` will be == []
+	constructorArgs, err := contractUpgrade.Abi.Pack("", contractUpgrade.Args...)
+	if err != nil {
+		return nil, fmt.Errorf("cannot pack upgrade args: %w", err)
+	}
+	return append(contractUpgrade.Bytecode, constructorArgs...), nil
+}
+
+func assemble(_ context.Context, cmd *cli.Command) error {
+	if cmd.Args().Len() != 1 {
+		return fmt.Errorf("usage: upgrade <number>")
+	}
+
+	upgradeNumber, err := strconv.ParseUint(cmd.Args().First(), 10, 64)
+	if err != nil {
+		return fmt.Errorf("cannot parse upgrade number: %w", err)
+	}
+
+	if upgradeNumber >= uint64(len(autonity.Upgrades)) {
+		return fmt.Errorf("upgrade number out of bound, there are only %d upgrades available", len(autonity.Upgrades))
+	}
+
+	upgrade := autonity.Upgrades[upgradeNumber]
+
+	// check if 1 or more contracts need to be updated
+	if len(upgrade.Upgrades) == 1 {
+		payload, err := upgradePayload(upgradeNumber, 0)
+		if err != nil {
+			return fmt.Errorf("cannot build upgrade payload for upgrade %d - contract %d: %w", upgradeNumber, 0, err)
+		}
+		calldata, err := upgradeManagerABI.Pack("upgrade", upgrade.Upgrades[0].Target, string(payload))
+		if err != nil {
+			return fmt.Errorf("cannot build calldata for upgrade %d - contract %d: %w", upgradeNumber, 0, err)
+		}
+		fmt.Println(common.Bytes2Hex(calldata))
+		return nil
+	}
+
+	// more than 1 contract needs to be upgraded
+	// TODO: implement multiple contract upgrade
+	//       - without version tag
+	//       - with version tag
+
+	return nil
 }
 
 func main() {
-	if err := app.Run(os.Args); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	cmd := &cli.Command{
+		Commands: []*cli.Command{
+			{
+				Name:    "list",
+				Usage:   "list of available upgrades",
+				Aliases: []string{"l"},
+				Action:  listUpgrades,
+			},
+			{
+				Name:      "detail",
+				Usage:     "see the details of one upgrade",
+				Aliases:   []string{"d"},
+				Flags:     []cli.Flag{verboseFlag},
+				ArgsUsage: "<number>",
+				Action:    detailUpgrade,
+			},
+			{
+				Name:      "assemble",
+				Aliases:   []string{"a"},
+				Usage:     "assemble tx calldata for upgrades",
+				ArgsUsage: "<number>",
+				Action:    assemble,
+			},
+		},
+		Name:  "upcheck",
+		Usage: "contract upgrade verification tool",
+	}
+
+	if err := cmd.Run(context.Background(), os.Args); err != nil {
+		utils.Fatalf("error %v", err)
 	}
 }

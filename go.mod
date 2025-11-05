@@ -45,6 +45,7 @@ require (
 	github.com/jedisct1/go-minisign v0.0.0-20241212093149-d2f9f49435c7
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/karalabe/usb v0.0.2
+	github.com/kr/text v0.2.0
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.20
 	github.com/naoina/toml v0.1.2-0.20170918210437-9fafd6967416
@@ -54,14 +55,16 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/tsdb v0.10.0
 	github.com/rs/cors v1.11.1
+	github.com/sergi/go-diff v1.4.0
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/shirou/gopsutil/v4 v4.25.1
 	github.com/spf13/cobra v1.9.1
 	github.com/status-im/keycard-go v0.3.3
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/supranational/blst v0.3.15
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/tyler-smith/go-bip39 v1.1.0
+	github.com/urfave/cli/v3 v3.5.0
 	github.com/zfjagann/golang-ring v0.0.0-20220330170733-19bcea1b6289
 	go.uber.org/atomic v1.11.0
 	go.uber.org/goleak v1.3.0
@@ -107,7 +110,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/influxdata/line-protocol v0.0.0-20210922203350-b1ad95c89adf // indirect
 	github.com/kr/pretty v0.3.1 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240909124753-873cd0166683 // indirect
 	github.com/mattn/go-ieproxy v0.0.12 // indirect

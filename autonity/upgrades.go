@@ -1,6 +1,7 @@
 package autonity
 
 import (
+	_ "embed"
 	"math/big"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -16,8 +17,21 @@ import (
 // field should be set for network where the upgrade already happened
 // via operator transaction.
 
+//go:embed solidity/contracts/Oracle.sol
+var oracleCode string
+
+//go:embed solidity/contracts/upgrades/0/Oracle0.sol
+var oracle0Code string
+
+//go:embed solidity/contracts/UpgradeManager.sol
+var upgradeManagerCode string
+
+//go:embed solidity/contracts/upgrades/1/UpgradeManager1.sol
+var upgradeManager1Code string
+
 type ProtocolUpgrade struct {
 	Upgrades      []ContractUpgrade
+	Name          string
 	Description   string
 	ExclusionList []*big.Int
 }
@@ -27,6 +41,10 @@ type ContractUpgrade struct {
 	Abi      *abi.ABI
 	Bytecode []byte
 	Args     []interface{}
+
+	// used for showing code diff with upcheck
+	BaseCode     string
+	UpgradedCode string
 }
 
 // exclusion list containing bakerloo and mainnet
@@ -50,12 +68,15 @@ var (
 			Upgrades: []ContractUpgrade{
 				// oracle contract bugfix upgrade
 				{
-					Target:   params.ProtocolContract(params.OracleContractAddress),
-					Abi:      &generated.Oracle0Abi,
-					Bytecode: generated.Oracle0Bytecode,
-					Args:     nil,
+					Target:       params.ProtocolContract(params.OracleContractAddress),
+					Abi:          &generated.Oracle0Abi,
+					Bytecode:     generated.Oracle0Bytecode,
+					Args:         nil,
+					BaseCode:     oracleCode,
+					UpgradedCode: oracle0Code,
 				},
 			},
+			Name: "Oracle Contract slashing bugfix",
 			Description: "The `slash()` function was incorrectly called, passing the oracle " +
 				"address instead of the node address of the offender. This was causing a " +
 				"revert in the `getValidator()` function in the autonity contract when " +
@@ -111,8 +132,11 @@ var (
 							},
 						},
 					},
+					BaseCode:     upgradeManagerCode,
+					UpgradedCode: upgradeManager1Code,
 				},
 			},
+			Name: "UpgradeManager contract new features",
 			Description: "New features for the upgrade manager: " +
 				"1. versioning. Every contract codehash is associated a semver version number (x.x.x). " +
 				"2. atomic upgrade of multiple contract at once is now possible with the new function upgradeMultiple.",
