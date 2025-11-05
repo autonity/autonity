@@ -122,7 +122,7 @@ class NetworkPlanner(object):
                     "elasticityMultiplier": 2,
                     "maxCommitteeSize": 7,
                     "unbondingPeriod": 120,
-                    "epochPeriod": 60,
+                    "epochPeriod": 500,
                     "treasuryFee": 150000000,
                     "gasLimit": 10000000000,
                     "gasLimitBoundDivisor": 1024,
