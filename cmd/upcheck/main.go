@@ -11,15 +11,13 @@ import (
 	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/params/generated"
 	"github.com/kr/text"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/urfave/cli/v3"
 )
 
 var (
-	upgradeManagerABI = generated.UpgradeManager1Abi
-	showSourceFlag    = &cli.BoolFlag{
+	showSourceFlag = &cli.BoolFlag{
 		Name:    "show-source",
 		Aliases: []string{"s"},
 		Usage:   "show also source code diff",
@@ -87,18 +85,6 @@ func detailUpgrade(_ context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-// assume indexes will not result in out of bound access
-func upgradePayload(upgradeNumber uint64, contractNumber uint64) ([]byte, error) {
-	contractUpgrade := autonity.Upgrades[upgradeNumber].Upgrades[contractNumber]
-
-	// if no args are specified, `constructorArgs` will be == []
-	constructorArgs, err := contractUpgrade.Abi.Pack("", contractUpgrade.Args...)
-	if err != nil {
-		return nil, fmt.Errorf("cannot pack upgrade args: %w", err)
-	}
-	return append(contractUpgrade.Bytecode, constructorArgs...), nil
-}
-
 func assemble(_ context.Context, cmd *cli.Command) error {
 	if cmd.Args().Len() != 1 {
 		return fmt.Errorf("usage: upgrade <number>")
@@ -113,35 +99,12 @@ func assemble(_ context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("upgrade number out of bound, there are only %d upgrades available", len(autonity.Upgrades))
 	}
 
-	upgrade := autonity.Upgrades[upgradeNumber]
-
-	// check if 1 or more contracts need to be updated
-	if len(upgrade.Upgrades) == 1 {
-		payload, err := upgradePayload(upgradeNumber, 0)
-		if err != nil {
-			return fmt.Errorf("cannot build upgrade payload for upgrade %d - contract %d: %w", upgradeNumber, 0, err)
-		}
-		var calldata []byte
-		if upgrade.Upgrades[0].VersionString == "" {
-			calldata, err = upgradeManagerABI.Pack("upgrade", upgrade.Upgrades[0].Target, string(payload))
-			if err != nil {
-				return fmt.Errorf("cannot build calldata for upgrade %d - contract %d: %w", upgradeNumber, 0, err)
-			}
-		} else {
-			calldata, err = upgradeManagerABI.Pack("upgrade0", upgrade.Upgrades[0].Target, string(payload), upgrade.Upgrades[0].VersionString)
-			if err != nil {
-				return fmt.Errorf("cannot build calldata for upgrade %d - contract %d: %w", upgradeNumber, 0, err)
-			}
-		}
-		fmt.Print(common.Bytes2Hex(calldata))
-		return nil
+	calldata, err := autonity.Upgrades[upgradeNumber].Calldata()
+	if err != nil {
+		return fmt.Errorf("cannot assemble calldata for upgrade %d: %w", upgradeNumber, err)
 	}
 
-	panic("multiple contract upgrade, to be implemented!")
-
-	// TODO: implement multiple contract upgrade
-	//       - without version tag
-	//       - with version tag
+	fmt.Print(common.Bytes2Hex(calldata))
 
 	return nil
 }

@@ -696,7 +696,7 @@ func NewNetworkFromValidators(_ *testing.T, validators []*gengen.Validator, star
 func NewNetwork(t *testing.T, count int, formatString string) (Network, error) {
 	validators, err := Validators(t, count, formatString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build users: %v", err)
+		return nil, fmt.Errorf("failed to create validators: %w", err)
 	}
 	return NewNetworkFromValidators(t, validators, true)
 }

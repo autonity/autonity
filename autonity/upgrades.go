@@ -2,6 +2,7 @@ package autonity
 
 import (
 	_ "embed"
+	"fmt"
 	"math/big"
 
 	"github.com/autonity/autonity/accounts/abi"
@@ -29,6 +30,8 @@ var upgradeManagerCode string
 //go:embed solidity/contracts/upgrades/1/UpgradeManager1.sol
 var upgradeManager1Code string
 
+var upgradeManagerABI = generated.UpgradeManager1Abi
+
 type ProtocolUpgrade struct {
 	Upgrades      []ContractUpgrade
 	Name          string
@@ -55,6 +58,74 @@ func standardExclusionList() []*big.Int {
 		new(big.Int).Set(params.AutMainnetChainConfig.ChainID),
 		new(big.Int).Set(params.BakerlooChainConfig.ChainID),
 	}
+}
+
+// assembles the deployment bytecode of the upgrade
+func (u ContractUpgrade) DeploymentBytecode() ([]byte, error) {
+	// if no args are specified, `constructorArgs` will be == []
+	constructorArgs, err := u.Abi.Pack("", u.Args...)
+	if err != nil {
+		return nil, fmt.Errorf("cannot pack upgrade args: %w", err)
+	}
+	return append(u.Bytecode, constructorArgs...), nil
+}
+
+// assembles the calldata to be inserted in an operator tx to do the upgrade
+func (u ContractUpgrade) Calldata() ([]byte, error) {
+	payload, err := u.DeploymentBytecode()
+	if err != nil {
+		return nil, fmt.Errorf("cannot build deployment bytecode for %s: %w", u.Target.String(), err)
+	}
+	var calldata []byte
+	if u.VersionString == "" {
+		calldata, err = upgradeManagerABI.Pack("upgrade", u.Target, string(payload))
+	} else {
+		calldata, err = upgradeManagerABI.Pack("upgrade0", u.Target, string(payload), u.VersionString)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot build calldata for %s: %w", u.Target.String(), err)
+	}
+	return calldata, nil
+}
+
+func (p ProtocolUpgrade) Calldata() ([]byte, error) {
+	if len(p.Upgrades) == 1 {
+		calldata, err := p.Upgrades[0].Calldata()
+		if err != nil {
+			return nil, fmt.Errorf("cannot build upgrade calldata: %w", err)
+		}
+		return calldata, nil
+	}
+
+	// > 1 contract to upgrade atomically
+	addresses := make([]common.Address, 0, len(p.Upgrades))
+	bytecodes := make([]string, 0, len(p.Upgrades))
+	versionStrings := make([]string, 0, len(p.Upgrades))
+	allVersionsEmpty := true
+	for _, upgrade := range p.Upgrades {
+		deploymentBytecode, err := upgrade.DeploymentBytecode()
+		if err != nil {
+			return nil, fmt.Errorf("cannot build deployment bytecode for %s: %w", upgrade.Target.String(), err)
+		}
+		addresses = append(addresses, upgrade.Target.Address())
+		bytecodes = append(bytecodes, string(deploymentBytecode))
+		versionStrings = append(versionStrings, upgrade.VersionString)
+		if upgrade.VersionString != "" {
+			allVersionsEmpty = false
+		}
+	}
+
+	var calldata []byte
+	var err error
+	if allVersionsEmpty {
+		calldata, err = upgradeManagerABI.Pack("upgradeMultiple", addresses, bytecodes)
+	} else {
+		calldata, err = upgradeManagerABI.Pack("upgradeMultiple0", addresses, bytecodes, versionStrings)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot build calldata for %s: %w", p.Name, err)
+	}
+	return calldata, nil
 }
 
 var (
