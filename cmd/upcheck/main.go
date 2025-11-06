@@ -122,9 +122,11 @@ func assemble(_ context.Context, cmd *cli.Command) error {
 		if err != nil {
 			return fmt.Errorf("cannot build calldata for upgrade %d - contract %d: %w", upgradeNumber, 0, err)
 		}
-		fmt.Println(common.Bytes2Hex(calldata))
+		fmt.Print(common.Bytes2Hex(calldata))
 		return nil
 	}
+
+	fmt.Println("Multiple contract upgrade, to be implemented.")
 
 	// more than 1 contract needs to be upgraded
 	// TODO: implement multiple contract upgrade

@@ -37,10 +37,12 @@ type ProtocolUpgrade struct {
 }
 
 type ContractUpgrade struct {
-	Target   params.ProtocolContract
-	Abi      *abi.ABI
-	Bytecode []byte
-	Args     []interface{}
+	Target        params.ProtocolContract
+	Abi           *abi.ABI
+	Bytecode      []byte
+	Hash          common.Hash // codehash
+	Args          []interface{}
+	VersionString string
 
 	// used for showing code diff with upcheck
 	BaseCode     string
@@ -68,12 +70,14 @@ var (
 			Upgrades: []ContractUpgrade{
 				// oracle contract bugfix upgrade
 				{
-					Target:       params.ProtocolContract(params.OracleContractAddress),
-					Abi:          &generated.Oracle0Abi,
-					Bytecode:     generated.Oracle0Bytecode,
-					Args:         nil,
-					BaseCode:     oracleCode,
-					UpgradedCode: oracle0Code,
+					Target:        params.ProtocolContract(params.OracleContractAddress),
+					Abi:           &generated.Oracle0Abi,
+					Bytecode:      generated.Oracle0Bytecode,
+					Hash:          generated.Oracle0CodeHash,
+					Args:          nil,
+					VersionString: "", // on-chain versioning not implemented yet
+					BaseCode:      oracleCode,
+					UpgradedCode:  oracle0Code,
 				},
 			},
 			Name: "Oracle Contract slashing bugfix",
@@ -91,6 +95,7 @@ var (
 					Target:   params.ProtocolContract(params.UpgradeManagerContractAddress),
 					Abi:      &generated.UpgradeManager1Abi,
 					Bytecode: generated.UpgradeManager1Bytecode,
+					Hash:     generated.UpgradeManager1CodeHash,
 					Args: []interface{}{
 						[]common.Hash{
 							// version 1.0.0 contract hashes
@@ -132,8 +137,9 @@ var (
 							},
 						},
 					},
-					BaseCode:     upgradeManagerCode,
-					UpgradedCode: upgradeManager1Code,
+					VersionString: "", // will be set in constructor of the updated code
+					BaseCode:      upgradeManagerCode,
+					UpgradedCode:  upgradeManager1Code,
 				},
 			},
 			Name: "UpgradeManager contract new features",

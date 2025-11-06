@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
@@ -34,7 +35,7 @@ type (
 	}
 	genericDeployer func(address common.Address, abi *abi.ABI, bytecode []byte, value *big.Int, args ...interface{}) error
 	genericCaller   func(caller common.Address, contractAddress common.Address, abi *abi.ABI, method string, args ...interface{}) ([]byte, error)
-	genericUpgrader func(address common.Address, abi *abi.ABI, bytecode []byte, args ...interface{}) error
+	genericUpgrader func(address common.Address, abi *abi.ABI, bytecode []byte, hash common.Hash, versionString string, args ...interface{}) error
 	genesisStep     func(chainConfig *params.ChainConfig, genesisBonds GenesisBonds, deployer genericDeployer, caller genericCaller, upgrader genericUpgrader) error
 )
 
@@ -68,6 +69,7 @@ var (
 		commonSequence...,
 	)
 	errBadDeploymentAddress = errors.New("mismatch with params deployment address")
+	errBadCodeHash          = errors.New("code hash mismatch")
 )
 
 // *
@@ -109,24 +111,6 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 		return nil
 	}
 
-	contractUpgrader := func(
-		address common.Address,
-		abi *abi.ABI,
-		bytecode []byte,
-		args ...interface{},
-	) error {
-		constructorParams, err := abi.Pack("", args...)
-		if err != nil {
-			return fmt.Errorf("failed to pack parameters: %w, args: %v", err, args)
-		}
-		data := append(bytecode, constructorParams...)
-		_, _, _, err = evm.Replace(vm.AccountRef(params.DeployerAddress), data, address)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
 	contractCaller := func(
 		origin common.Address,
 		contractAddress common.Address,
@@ -141,6 +125,44 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 		gas := uint64(math.MaxUint64)
 		packedResult, _, err := evm.Call(vm.AccountRef(origin), contractAddress, packedArgs, gas, common.Big0)
 		return packedResult, err
+	}
+
+	contractUpgrader := func(
+		address common.Address,
+		abi *abi.ABI,
+		bytecode []byte,
+		hash common.Hash,
+		versionString string,
+		args ...interface{},
+	) error {
+		// deploy upgrade
+		constructorParams, err := abi.Pack("", args...)
+		if err != nil {
+			return fmt.Errorf("failed to pack parameters: %w, args: %v", err, args)
+		}
+		data := append(bytecode, constructorParams...)
+		runtimeCode, deployedAt, _, err := evm.Replace(vm.AccountRef(params.DeployerAddress), data, address)
+		if err != nil {
+			return fmt.Errorf("failed to replace contract: %w", err)
+		}
+
+		// sanity checks
+		if deployedAt != address {
+			return errBadDeploymentAddress
+		}
+		if crypto.Keccak256Hash(runtimeCode) != hash {
+			return errBadCodeHash
+		}
+
+		// if a version string is specified, tag the newly deployed code
+		if versionString != "" {
+			// TODO: call with operator
+			_, err = contractCaller(params.DeployerAddress, params.UpgradeManagerContractAddress, &generated.UpgradeManager1Abi, "setVersion", hash, versionString, new(big.Int))
+			if err != nil {
+				return fmt.Errorf("failed to tag contract with version: %w", err)
+			}
+		}
+		return nil
 	}
 
 	for i, fn := range genesisSeq {
@@ -520,12 +542,14 @@ func deployProtocolUpgrades(config *params.ChainConfig, _ GenesisBonds, _ generi
 		if common.Contains(protocolUpgrade.ExclusionList, config.ChainID) || config.MustSkip(i) {
 			continue
 		}
-		log.Info("Applying protocol upgrade", "number", i, "description", protocolUpgrade.Description, "chainID", config.ChainID.String())
+		log.Info("Applying protocol upgrade", "number", i, "name", protocolUpgrade.Name, "description", protocolUpgrade.Description, "chainID", config.ChainID.String())
 		for _, contractUpgrade := range protocolUpgrade.Upgrades {
 			err := upgrade(
 				contractUpgrade.Target.Address(),
 				contractUpgrade.Abi,
 				contractUpgrade.Bytecode,
+				contractUpgrade.Hash,
+				contractUpgrade.VersionString,
 				contractUpgrade.Args...,
 			)
 			if err != nil {
