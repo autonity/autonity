@@ -36,7 +36,7 @@ type (
 	genericDeployer func(address common.Address, abi *abi.ABI, bytecode []byte, value *big.Int, args ...interface{}) error
 	genericCaller   func(caller common.Address, contractAddress common.Address, abi *abi.ABI, method string, args ...interface{}) ([]byte, error)
 	genericUpgrader func(operator common.Address, address common.Address, abi *abi.ABI, bytecode []byte, hash common.Hash, versionString string, args ...interface{}) error
-	genesisStep     func(chainConfig *params.ChainConfig, genesisBonds GenesisBonds, deployer genericDeployer, caller genericCaller, upgrader genericUpgrader) error
+	genesisStep     func(chainConfig *params.ChainConfig, genesisBonds GenesisBonds, deployer genericDeployer, caller genericCaller, upgrader genericUpgrader, genesisUpgrades []ProtocolUpgrade) error
 )
 
 var (
@@ -77,14 +77,14 @@ var (
 // *
 
 func ExecuteGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evm *vm.EVM) error {
-	return executeGenesisSequence(genesisConfig, genesisBonds, evm, genesisSequence)
+	return executeGenesisSequence(genesisConfig, genesisBonds, evm, genesisSequence, Upgrades)
 }
 
 func ExecuteTestGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evm *vm.EVM) error {
-	return executeGenesisSequence(genesisConfig, genesisBonds, evm, testGenesisSequence)
+	return executeGenesisSequence(genesisConfig, genesisBonds, evm, testGenesisSequence, Upgrades)
 }
 
-func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evm *vm.EVM, genesisSeq []genesisStep) error {
+func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds GenesisBonds, evm *vm.EVM, genesisSeq []genesisStep, genesisUpgrades []ProtocolUpgrade) error {
 	contractDeployer := func(
 		address common.Address,
 		abi *abi.ABI,
@@ -166,7 +166,7 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 	}
 
 	for i, fn := range genesisSeq {
-		if err := fn(genesisConfig, genesisBonds, contractDeployer, contractCaller, contractUpgrader); err != nil {
+		if err := fn(genesisConfig, genesisBonds, contractDeployer, contractCaller, contractUpgrader, genesisUpgrades); err != nil {
 			log.Error(
 				"Failed to execute genesis step", "i", i, "err", err, "fn", runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name(),
 			)
@@ -221,7 +221,7 @@ func toContractConfig(acg *params.AutonityContractGenesis) bindings.IAutonityCon
 	}
 }
 
-func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader) error {
+func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	validators := make([]params.Validator, 0, len(config.AutonityContractConfig.Validators))
 	for _, v := range config.AutonityContractConfig.Validators {
 		validators = append(validators, *v)
@@ -240,7 +240,7 @@ func deployAutonityContract(config *params.ChainConfig, _ GenesisBonds, deploy g
 	return nil
 }
 
-func executeGenesisDelegations(config *params.ChainConfig, genesisBonds GenesisBonds, _ genericDeployer, caller genericCaller, _ genericUpgrader) error {
+func executeGenesisDelegations(config *params.ChainConfig, genesisBonds GenesisBonds, _ genericDeployer, caller genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	mint := func(address common.Address, amount *big.Int) error {
 		ret, err := caller(config.AutonityContractConfig.Operator, params.AutonityContractAddress, &generated.AutonityAbi, "mint", address, amount)
 		return newErrorWithRevertReason(err, ret)
@@ -271,7 +271,7 @@ func executeGenesisDelegations(config *params.ChainConfig, genesisBonds GenesisB
 	return nil
 }
 
-func createAutonitySchedules(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, caller genericCaller, _ genericUpgrader) error {
+func createAutonitySchedules(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, caller genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	createSchedule := func(schedule params.Schedule) error {
 		ret, err := caller(
 			config.AutonityContractConfig.Operator,
@@ -293,7 +293,7 @@ func createAutonitySchedules(config *params.ChainConfig, _ GenesisBonds, _ gener
 	return nil
 }
 
-func finalizeAutonityInitialization(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, caller genericCaller, _ genericUpgrader) error {
+func finalizeAutonityInitialization(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, caller genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	ret, err := caller(
 		params.DeployerAddress,
 		params.AutonityContractAddress,
@@ -304,7 +304,7 @@ func finalizeAutonityInitialization(config *params.ChainConfig, _ GenesisBonds, 
 	return newErrorWithRevertReason(err, ret)
 }
 
-func deployAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader) error {
+func deployAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	accountabilityConfig := bindings.IAccountabilityConfig{
 		InnocenceProofSubmissionWindow: new(big.Int).SetUint64(config.AccountabilityConfig.InnocenceProofSubmissionWindow),
 		Delta:                          new(big.Int).SetUint64(config.AccountabilityConfig.Delta),
@@ -334,7 +334,7 @@ func deployAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, de
 	return nil
 }
 
-func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader) error {
+func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	omissionConfig := config.OmissionAccountabilityConfig
 
 	conf := bindings.OmissionAccountabilityConfig{
@@ -362,7 +362,7 @@ func deployOmissionAccountabilityContract(config *params.ChainConfig, _ GenesisB
 	return nil
 }
 
-func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader) error {
+func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	voters := make([]common.Address, len(config.AutonityContractConfig.Validators))
 	treasuries := make([]common.Address, len(config.AutonityContractConfig.Validators))
 	validators := make([]common.Address, len(config.AutonityContractConfig.Validators))
@@ -401,7 +401,7 @@ func deployOracleContract(config *params.ChainConfig, _ GenesisBonds, deploy gen
 	return nil
 }
 
-func deployACUContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader) error {
+func deployACUContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	bigQuantities := make([]*big.Int, len(config.ASM.ACUContractConfig.Quantities))
 	for i := range config.ASM.ACUContractConfig.Quantities {
 		bigQuantities[i] = new(big.Int).SetUint64(config.ASM.ACUContractConfig.Quantities[i])
@@ -425,7 +425,7 @@ func deployACUContract(config *params.ChainConfig, _ GenesisBonds, deploy generi
 	return nil
 }
 
-func deploySupplyControlContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader) error {
+func deploySupplyControlContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	value := (*big.Int)(config.ASM.SupplyControlConfig.InitialAllocation)
 	err := deploy(
 		params.SupplyControlContractAddress,
@@ -442,7 +442,7 @@ func deploySupplyControlContract(config *params.ChainConfig, _ GenesisBonds, dep
 	return nil
 }
 
-func deployUpgradeManagerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader) error {
+func deployUpgradeManagerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	err := deploy(
 		params.UpgradeManagerContractAddress,
 		&generated.UpgradeManagerAbi,
@@ -457,7 +457,7 @@ func deployUpgradeManagerContract(config *params.ChainConfig, _ GenesisBonds, de
 	return nil
 }
 
-func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader) error {
+func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	stabilizationConfig := bindings.IStabilizationConfig{
 		BorrowInterestRate:        (*big.Int)(config.ASM.StabilizationContractConfig.BorrowInterestRate),
 		AnnouncementWindow:        (*big.Int)(config.ASM.StabilizationContractConfig.AnnouncementWindow),
@@ -490,7 +490,7 @@ func deployStabilizationContract(config *params.ChainConfig, _ GenesisBonds, dep
 	return nil
 }
 
-func deployInflationControllerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader) error {
+func deployInflationControllerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	param := bindings.InflationControllerParams{
 		InflationRateInitial:      (*big.Int)(config.InflationContractConfig.InflationRateInitial),
 		InflationRateTransition:   (*big.Int)(config.InflationContractConfig.InflationRateTransition),
@@ -511,7 +511,7 @@ func deployInflationControllerContract(config *params.ChainConfig, _ GenesisBond
 	return nil
 }
 
-func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader) error {
+func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	auctioneerConfig := bindings.AuctioneerConfig{
 		LiquidationAuctionDuration: config.ASM.AuctioneerContractConfig.LiquidationAuctionDuration,
 		InterestAuctionDuration:    config.ASM.AuctioneerContractConfig.InterestAuctionDuration,
@@ -537,8 +537,8 @@ func deployAuctioneerContract(config *params.ChainConfig, _ GenesisBonds, deploy
 	return nil
 }
 
-func deployProtocolUpgrades(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, _ genericCaller, upgrade genericUpgrader) error {
-	for i, protocolUpgrade := range Upgrades {
+func deployProtocolUpgrades(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, _ genericCaller, upgrade genericUpgrader, genesisUpgrades []ProtocolUpgrade) error {
+	for i, protocolUpgrade := range genesisUpgrades {
 		if common.Contains(protocolUpgrade.ExclusionList, config.ChainID) || config.MustSkip(i) {
 			continue
 		}
@@ -561,7 +561,7 @@ func deployProtocolUpgrades(config *params.ChainConfig, _ GenesisBonds, _ generi
 	return nil
 }
 
-func verifyGenesisSequence(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, caller genericCaller, _ genericUpgrader) error {
+func verifyGenesisSequence(config *params.ChainConfig, _ GenesisBonds, _ genericDeployer, caller genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	if config.AutonityContractConfig.SkipGenesisVerification {
 		return nil
 	}
@@ -635,7 +635,7 @@ func verifyGenesisSequence(config *params.ChainConfig, _ GenesisBonds, _ generic
 // Test only functions
 // *
 
-func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader) error {
+func deployAutonityTestContract(config *params.ChainConfig, _ GenesisBonds, deploy genericDeployer, _ genericCaller, _ genericUpgrader, _ []ProtocolUpgrade) error {
 	validators := make([]params.Validator, 0, len(config.AutonityContractConfig.Validators))
 	for _, v := range config.AutonityContractConfig.Validators {
 		validators = append(validators, *v)

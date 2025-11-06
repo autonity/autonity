@@ -48,7 +48,7 @@ func TestGenesisSteps(t *testing.T) {
 
 	t.Run("Test autonity deploy step", func(t *testing.T) {
 		evm := newEVM()
-		err := executeGenesisSequence(params.TestChainConfig, []GenesisBond{}, evm, []genesisStep{deployAutonityContract})
+		err := executeGenesisSequence(params.TestChainConfig, []GenesisBond{}, evm, []genesisStep{deployAutonityContract}, Upgrades)
 		require.NoError(t, err)
 
 		// Check that the autonity contract was deployed
@@ -91,7 +91,7 @@ func TestGenesisSteps(t *testing.T) {
 					},
 				},
 			},
-		}, evm, []genesisStep{deployAutonityContract, executeGenesisDelegations})
+		}, evm, []genesisStep{deployAutonityContract, executeGenesisDelegations}, Upgrades)
 		require.NoError(t, err)
 		balanceOf := func(addr common.Address) *big.Int {
 			result := new(big.Int)
@@ -119,6 +119,7 @@ func TestGenesisSteps(t *testing.T) {
 			[]GenesisBond{},
 			evm,
 			[]genesisStep{deployAutonityContract, executeGenesisDelegations, createAutonitySchedules},
+			Upgrades,
 		)
 		require.NoError(t, err)
 
@@ -145,6 +146,7 @@ func TestGenesisSteps(t *testing.T) {
 			[]GenesisBond{},
 			evm,
 			[]genesisStep{deployAutonityContract, executeGenesisDelegations, createAutonitySchedules},
+			Upgrades,
 		)
 		require.NoError(t, err)
 		getCommitteeEnodes := func() []string {
@@ -160,6 +162,7 @@ func TestGenesisSteps(t *testing.T) {
 			[]GenesisBond{},
 			evm,
 			[]genesisStep{finalizeAutonityInitialization},
+			Upgrades,
 		)
 		require.NoError(t, err)
 		require.NotEmpty(t, getCommitteeEnodes())
@@ -178,6 +181,7 @@ func TestGenesisSteps(t *testing.T) {
 				finalizeAutonityInitialization,
 				deployAccountabilityContract,
 			},
+			Upgrades,
 		)
 		require.NoError(t, err)
 
@@ -200,6 +204,7 @@ func TestGenesisSteps(t *testing.T) {
 				deployAccountabilityContract,
 				deployOracleContract,
 			},
+			Upgrades,
 		)
 		require.NoError(t, err)
 
@@ -223,6 +228,7 @@ func TestGenesisSteps(t *testing.T) {
 				deployOracleContract,
 				deployACUContract,
 			},
+			Upgrades,
 		)
 		require.NoError(t, err)
 
@@ -247,6 +253,7 @@ func TestGenesisSteps(t *testing.T) {
 				deployACUContract,
 				deploySupplyControlContract,
 			},
+			Upgrades,
 		)
 		require.NoError(t, err)
 
@@ -272,6 +279,7 @@ func TestGenesisSteps(t *testing.T) {
 				deploySupplyControlContract,
 				deployStabilizationContract,
 			},
+			Upgrades,
 		)
 		require.NoError(t, err)
 
@@ -298,6 +306,7 @@ func TestGenesisSteps(t *testing.T) {
 				deployStabilizationContract,
 				deployUpgradeManagerContract,
 			},
+			Upgrades,
 		)
 		require.NoError(t, err)
 
@@ -325,6 +334,7 @@ func TestGenesisSteps(t *testing.T) {
 				deployUpgradeManagerContract,
 				deployInflationControllerContract,
 			},
+			Upgrades,
 		)
 		require.NoError(t, err)
 
@@ -353,6 +363,7 @@ func TestGenesisSteps(t *testing.T) {
 				deployInflationControllerContract,
 				deployOmissionAccountabilityContract,
 			},
+			Upgrades,
 		)
 		require.NoError(t, err)
 
@@ -376,6 +387,7 @@ func TestGenesisSteps(t *testing.T) {
 				finalizeAutonityInitialization,
 				verifyGenesisSequence,
 			},
+			Upgrades,
 		)
 		require.NoError(t, err)
 	})
@@ -407,6 +419,7 @@ func TestGenesisSteps(t *testing.T) {
 				createAutonitySchedules,
 				verifyGenesisSequence,
 			},
+			Upgrades,
 		)
 		require.NoError(t, err)
 	})
@@ -440,6 +453,7 @@ func TestGenesisSteps(t *testing.T) {
 					createAutonitySchedules,
 					verifyGenesisSequence,
 				},
+				Upgrades,
 			)
 		}
 
@@ -498,7 +512,7 @@ func TestGenesisSteps(t *testing.T) {
 				Operator: common.Address{},
 			},
 		}
-		err := executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
+		err := executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades}, Upgrades)
 		require.NoError(t, err)
 
 		code = evm.StateDB.GetCode(params.OracleContractAddress)
@@ -518,7 +532,7 @@ func TestGenesisSteps(t *testing.T) {
 				Operator: common.Address{},
 			},
 		}
-		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
+		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades}, Upgrades)
 		require.NoError(t, err)
 
 		code = evm.StateDB.GetCode(params.OracleContractAddress)
@@ -537,7 +551,7 @@ func TestGenesisSteps(t *testing.T) {
 				Operator: common.Address{},
 			},
 		}
-		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
+		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades}, Upgrades)
 		require.NoError(t, err)
 
 		code = evm.StateDB.GetCode(params.OracleContractAddress)
@@ -560,7 +574,7 @@ func TestGenesisSteps(t *testing.T) {
 				Operator: common.Address{},
 			},
 		}
-		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
+		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades}, Upgrades)
 		require.NoError(t, err)
 
 		code = evm.StateDB.GetCode(params.OracleContractAddress)
@@ -579,7 +593,7 @@ func TestGenesisSteps(t *testing.T) {
 				Operator: common.Address{},
 			},
 		}
-		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
+		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades}, Upgrades)
 		require.NoError(t, err)
 
 		code = evm.StateDB.GetCode(params.OracleContractAddress)
@@ -609,7 +623,7 @@ func TestGenesisSteps(t *testing.T) {
 		// re-initialize EVM
 		evm = newEVM()
 
-		// deploy base contracts
+		// deploy base contracts + upgrades
 		err = executeGenesisSequence(params.TestChainConfig, []GenesisBond{}, evm, []genesisStep{
 			deployAutonityContract,
 			finalizeAutonityInitialization,
@@ -622,13 +636,12 @@ func TestGenesisSteps(t *testing.T) {
 			deployInflationControllerContract,
 			deployOmissionAccountabilityContract,
 			deployAuctioneerContract,
-		})
+			deployProtocolUpgrades,
+		}, Upgrades)
 		require.NoError(t, err)
 
-		// deploy upgrades, including test upgrade
-		// TODO: can this mess with other tests when running parallelly?
 		expectedVersion := "15.6.7"
-		Upgrades = append(Upgrades, ProtocolUpgrade{
+		testUpgrade := ProtocolUpgrade{
 			Name:          "test upgrade with version",
 			Description:   "test upgrade with version",
 			ExclusionList: nil,
@@ -645,9 +658,9 @@ func TestGenesisSteps(t *testing.T) {
 					UpgradedCode: "",
 				},
 			},
-		})
+		}
 
-		err = executeGenesisSequence(params.TestChainConfig, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
+		err = executeGenesisSequence(params.TestChainConfig, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades}, []ProtocolUpgrade{testUpgrade})
 		require.NoError(t, err)
 
 		code = evm.StateDB.GetCode(params.ACUContractAddress)
