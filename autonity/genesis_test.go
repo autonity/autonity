@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"reflect"
 	"testing"
 	"time"
 
@@ -493,6 +494,9 @@ func TestGenesisSteps(t *testing.T) {
 		// all upgrades should be deployed
 		config := &params.ChainConfig{
 			ChainID: new(big.Int).SetUint64(600),
+			AutonityContractConfig: &params.AutonityContractGenesis{
+				Operator: common.Address{},
+			},
 		}
 		err := executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
 		require.NoError(t, err)
@@ -510,6 +514,9 @@ func TestGenesisSteps(t *testing.T) {
 		// on mainnet, no upgrade should be deployed
 		config = &params.ChainConfig{
 			ChainID: new(big.Int).Set(params.AutMainnetChainConfig.ChainID),
+			AutonityContractConfig: &params.AutonityContractGenesis{
+				Operator: common.Address{},
+			},
 		}
 		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
 		require.NoError(t, err)
@@ -526,6 +533,9 @@ func TestGenesisSteps(t *testing.T) {
 		// no upgrade should be deployed
 		config = &params.ChainConfig{
 			ChainID: new(big.Int).Set(params.BakerlooChainConfig.ChainID),
+			AutonityContractConfig: &params.AutonityContractGenesis{
+				Operator: common.Address{},
+			},
 		}
 		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
 		require.NoError(t, err)
@@ -546,6 +556,9 @@ func TestGenesisSteps(t *testing.T) {
 		config = &params.ChainConfig{
 			ChainID:           new(big.Int).SetUint64(600),
 			SkipUpgradesAfter: intPtr(0),
+			AutonityContractConfig: &params.AutonityContractGenesis{
+				Operator: common.Address{},
+			},
 		}
 		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
 		require.NoError(t, err)
@@ -562,6 +575,9 @@ func TestGenesisSteps(t *testing.T) {
 		config = &params.ChainConfig{
 			ChainID:           new(big.Int).SetUint64(600),
 			SkipUpgradesAfter: intPtr(1),
+			AutonityContractConfig: &params.AutonityContractGenesis{
+				Operator: common.Address{},
+			},
 		}
 		err = executeGenesisSequence(config, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
 		require.NoError(t, err)
@@ -587,6 +603,67 @@ func TestGenesisSteps(t *testing.T) {
 		code = evm.StateDB.GetCode(params.UpgradeManagerContractAddress)
 		require.True(t, len(code) > 0)
 		require.True(t, bytes.Equal(code, generated.UpgradeManager1RuntimeBytecode))
+
+		// version tagging at genesis works correctly
+
+		// re-initialize EVM
+		evm = newEVM()
+
+		// deploy base contracts
+		err = executeGenesisSequence(params.TestChainConfig, []GenesisBond{}, evm, []genesisStep{
+			deployAutonityContract,
+			finalizeAutonityInitialization,
+			deployAccountabilityContract,
+			deployOracleContract,
+			deployACUContract,
+			deploySupplyControlContract,
+			deployStabilizationContract,
+			deployUpgradeManagerContract,
+			deployInflationControllerContract,
+			deployOmissionAccountabilityContract,
+			deployAuctioneerContract,
+		})
+		require.NoError(t, err)
+
+		// deploy upgrades, including test upgrade
+		// TODO: can this mess with other tests when running parallelly?
+		expectedVersion := "15.6.7"
+		Upgrades = append(Upgrades, ProtocolUpgrade{
+			Name:          "test upgrade with version",
+			Description:   "test upgrade with version",
+			ExclusionList: nil,
+			Upgrades: []ContractUpgrade{
+				{
+					Target:        params.ProtocolContract(params.ACUContractAddress),
+					Abi:           &generated.ACUTestUpgradeAbi,
+					Bytecode:      generated.ACUTestUpgradeBytecode,
+					Hash:          generated.ACUTestUpgradeCodeHash,
+					Args:          nil,
+					VersionString: expectedVersion,
+					// not important for this test
+					BaseCode:     "",
+					UpgradedCode: "",
+				},
+			},
+		})
+
+		err = executeGenesisSequence(params.TestChainConfig, []GenesisBond{}, evm, []genesisStep{deployProtocolUpgrades})
+		require.NoError(t, err)
+
+		code = evm.StateDB.GetCode(params.ACUContractAddress)
+		require.True(t, len(code) > 0)
+		require.True(t, bytes.Equal(code, generated.ACUTestUpgradeRuntimeBytecode))
+
+		// check that upgrade has been correctly tagged
+		input, err := generated.UpgradeManager1Abi.Pack("getVersion", generated.ACUTestUpgradeCodeHash)
+		require.NoError(t, err)
+		ret, _, err := evm.Call(vm.AccountRef(params.DeployerAddress), params.UpgradeManagerContractAddress, input, math.MaxUint64, new(big.Int))
+		require.NoError(t, err)
+		verI, err := generated.UpgradeManager1Abi.Unpack("getVersion", ret)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(verI))
+		require.Equal(t, expectedVersion, reflect.ValueOf(verI[0]).Field(0).String())
+		require.Equal(t, "0", reflect.ValueOf(verI[0]).Field(1).Interface().(*big.Int).String())
 	})
 }
 

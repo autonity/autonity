@@ -74,7 +74,10 @@ func detailUpgrade(_ context.Context, cmd *cli.Command) error {
 	fmt.Fprintf(w, "%s\t%v\n\n", boldify("excluded"), upgrade.ExclusionList)
 	fmt.Fprintf(w, "%s\n", boldify(fmt.Sprintf("upgraded contracts (%d)", len(upgrade.Upgrades))))
 	for _, contract := range upgrade.Upgrades {
-		fmt.Fprintf(w, " \t%s (%s)\n", contract.Target.String(), contract.Target.Address().String())
+		fmt.Fprintf(w, " \t%s\n", contract.Target.String())
+		fmt.Fprintf(w, " \t \t%s\t%s\n", boldify("address"), contract.Target.Address().String())
+		fmt.Fprintf(w, " \t \t%s\t%s\n", boldify("hash"), contract.Hash.String())
+		fmt.Fprintf(w, " \t \t%s\t%s\n", boldify("version"), contract.VersionString)
 		if showSourceFlag.IsSet() {
 			fmt.Fprintf(w, "%s\n\n", boldify("source code diff:"))
 			printCodeDiff(w, contract.BaseCode, contract.UpgradedCode)
@@ -118,17 +121,24 @@ func assemble(_ context.Context, cmd *cli.Command) error {
 		if err != nil {
 			return fmt.Errorf("cannot build upgrade payload for upgrade %d - contract %d: %w", upgradeNumber, 0, err)
 		}
-		calldata, err := upgradeManagerABI.Pack("upgrade", upgrade.Upgrades[0].Target, string(payload))
-		if err != nil {
-			return fmt.Errorf("cannot build calldata for upgrade %d - contract %d: %w", upgradeNumber, 0, err)
+		var calldata []byte
+		if upgrade.Upgrades[0].VersionString == "" {
+			calldata, err = upgradeManagerABI.Pack("upgrade", upgrade.Upgrades[0].Target, string(payload))
+			if err != nil {
+				return fmt.Errorf("cannot build calldata for upgrade %d - contract %d: %w", upgradeNumber, 0, err)
+			}
+		} else {
+			calldata, err = upgradeManagerABI.Pack("upgrade0", upgrade.Upgrades[0].Target, string(payload), upgrade.Upgrades[0].VersionString)
+			if err != nil {
+				return fmt.Errorf("cannot build calldata for upgrade %d - contract %d: %w", upgradeNumber, 0, err)
+			}
 		}
 		fmt.Print(common.Bytes2Hex(calldata))
 		return nil
 	}
 
-	fmt.Println("Multiple contract upgrade, to be implemented.")
+	panic("multiple contract upgrade, to be implemented!")
 
-	// more than 1 contract needs to be upgraded
 	// TODO: implement multiple contract upgrade
 	//       - without version tag
 	//       - with version tag

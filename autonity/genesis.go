@@ -35,7 +35,7 @@ type (
 	}
 	genericDeployer func(address common.Address, abi *abi.ABI, bytecode []byte, value *big.Int, args ...interface{}) error
 	genericCaller   func(caller common.Address, contractAddress common.Address, abi *abi.ABI, method string, args ...interface{}) ([]byte, error)
-	genericUpgrader func(address common.Address, abi *abi.ABI, bytecode []byte, hash common.Hash, versionString string, args ...interface{}) error
+	genericUpgrader func(operator common.Address, address common.Address, abi *abi.ABI, bytecode []byte, hash common.Hash, versionString string, args ...interface{}) error
 	genesisStep     func(chainConfig *params.ChainConfig, genesisBonds GenesisBonds, deployer genericDeployer, caller genericCaller, upgrader genericUpgrader) error
 )
 
@@ -128,6 +128,7 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 	}
 
 	contractUpgrader := func(
+		operator common.Address,
 		address common.Address,
 		abi *abi.ABI,
 		bytecode []byte,
@@ -156,8 +157,7 @@ func executeGenesisSequence(genesisConfig *params.ChainConfig, genesisBonds Gene
 
 		// if a version string is specified, tag the newly deployed code
 		if versionString != "" {
-			// TODO: call with operator
-			_, err = contractCaller(params.DeployerAddress, params.UpgradeManagerContractAddress, &generated.UpgradeManager1Abi, "setVersion", hash, versionString, new(big.Int))
+			_, err = contractCaller(operator, params.UpgradeManagerContractAddress, &generated.UpgradeManager1Abi, "setVersion", hash, versionString, new(big.Int))
 			if err != nil {
 				return fmt.Errorf("failed to tag contract with version: %w", err)
 			}
@@ -545,6 +545,7 @@ func deployProtocolUpgrades(config *params.ChainConfig, _ GenesisBonds, _ generi
 		log.Info("Applying protocol upgrade", "number", i, "name", protocolUpgrade.Name, "description", protocolUpgrade.Description, "chainID", config.ChainID.String())
 		for _, contractUpgrade := range protocolUpgrade.Upgrades {
 			err := upgrade(
+				config.AutonityContractConfig.Operator,
 				contractUpgrade.Target.Address(),
 				contractUpgrade.Abi,
 				contractUpgrade.Bytecode,
