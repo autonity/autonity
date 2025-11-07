@@ -31,10 +31,9 @@ It is divided into two sections, one for the upgrade developer and one for the n
       - `BaseCode`, the code of the non-upgraded contract (use `go:embed` directives to embed source files into strings).
       - `UpgradedCode`, the code of the upgraded contract (use `go:embed` directives to embed source files into strings).
 
-<div style="background-color: #fff3cd; border: 1px solid #ffeeba; padding: 10px; border-radius: 5px; color: #856404;">
-  <strong>Warning:</strong> make sure that the exclusion list for the upgrade is properly filled with all the network on 
-    which the upgrade will be executed via operator transaction. 
-</div>
+> [!IMPORTANT]
+> Make sure that the exclusion list for the upgrade is properly filled. It should contain
+  all the network on which the upgrade will be executed "manually" via operator transaction. 
 
 ## Operator guide
 
@@ -65,11 +64,10 @@ It is divided into two sections, one for the upgrade developer and one for the n
    append the `--show-source` flag to see the diff.
 6. Once you are satisfied, assemble the calldata for the upgrade transaction using `upcheck assemble <n>`, where `n` is the upgrade
    number of the upgrade to be deployed.
-7. Insert the generated calldata into the data field of the upgrade transaction, and proceed to the signature process.
+7. Proceed to create the upgrade transaction, signing it and sending it on the network.
 
-<div style="background-color: #fff3cd; border: 1px solid #ffeeba; padding: 10px; border-radius: 5px; color: #856404;">
-  <strong>Warning:</strong> the "assemble" sub-command returns the <b>calldata</b> of the upgraded transaction encoded
-  in a hexadecimal string. This is <b>NOT</b> the full transaction encoded, but rather just the data payload. All the 
-  other transaction fields (e.g. to, gaslimit, gasprice) are left for the operator to fill.
-</div>
+> [!WARNING]
+> The `assemble` sub-command returns the **calldata** of the upgraded transaction encoded
+> in a hexadecimal string. This is **NOT** the full transaction encoded, but rather just the data payload. All the 
+> other transaction fields (e.g. to, gaslimit, gasprice) are left for the operator to fill.
 
