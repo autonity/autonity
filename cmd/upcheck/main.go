@@ -43,7 +43,7 @@ func listUpgrades(_ context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-// substitues big equalities diffs (> 6 lines) with:
+// substitutes big equalities diffs (> 6 lines) with:
 // 3 lines of context
 // [...]
 // 3 lines of context
