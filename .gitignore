@@ -36,6 +36,7 @@ __pycache__/
 /package.json
 /params/generated/**/*.abi
 /params/generated/**/*.bin
+/params/generated/**/*.bin-runtime
 /params/generated/**/*.docdev
 /params/generated/**/*.docuser
 nohup.out

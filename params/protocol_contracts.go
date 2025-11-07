@@ -16,6 +16,40 @@ import (
 	"github.com/autonity/autonity/params/generated"
 )
 
+// wrapper for protocol contract addresses, to easily access their "name"
+type ProtocolContract common.Address
+
+func (contract ProtocolContract) String() string {
+	switch common.Address(contract) {
+	case AutonityContractAddress:
+		return "AutonityContract"
+	case AccountabilityContractAddress:
+		return "AccountabilityContract"
+	case OracleContractAddress:
+		return "OracleContract"
+	case ACUContractAddress:
+		return "ACUContract"
+	case SupplyControlContractAddress:
+		return "SupplyControlContract"
+	case StabilizationContractAddress:
+		return "StabilizationContract"
+	case UpgradeManagerContractAddress:
+		return "UpgradeManagerContract"
+	case InflationControllerContractAddress:
+		return "InflationControllerContract"
+	case OmissionAccountabilityContractAddress:
+		return "OmissionAccountabilityContract"
+	case AuctioneerContractAddress:
+		return "AuctioneerContract"
+	default:
+		return "UnknownContract"
+	}
+}
+
+func (contract ProtocolContract) Address() common.Address {
+	return common.Address(contract)
+}
+
 var (
 	DecimalPrecision = int64(18)
 	SecondsInYear    = int64(365 * 24 * 60 * 60)
@@ -37,7 +71,7 @@ var (
 	}
 
 	DefaultNTNGenesisAllocation = new(big.Int).Mul(big.NewInt(60_000_000), DecimalFactor) // 60 mil NTN
-	// TODO: update `DefautlGenesisBonding`
+	// TODO: update `DefaultGenesisBonding`
 	DefaultGenesisBonding = new(big.Int).Mul(big.NewInt(0), DecimalFactor)
 
 	// DefaultAcuContractGenesis contains the default values for the ASM ACU contract
@@ -124,17 +158,17 @@ var (
 	OmissionAccountabilityContractAddress = crypto.CreateAddress(DeployerAddress, 8)
 	AuctioneerContractAddress             = crypto.CreateAddress(DeployerAddress, 9)
 
-	ProtocolContracts = []common.Address{
-		AutonityContractAddress,
-		AccountabilityContractAddress,
-		OracleContractAddress,
-		ACUContractAddress,
-		SupplyControlContractAddress,
-		StabilizationContractAddress,
-		UpgradeManagerContractAddress,
-		InflationControllerContractAddress,
-		OmissionAccountabilityContractAddress,
-		AuctioneerContractAddress,
+	ProtocolContracts = []ProtocolContract{
+		ProtocolContract(AutonityContractAddress),
+		ProtocolContract(AccountabilityContractAddress),
+		ProtocolContract(OracleContractAddress),
+		ProtocolContract(ACUContractAddress),
+		ProtocolContract(SupplyControlContractAddress),
+		ProtocolContract(StabilizationContractAddress),
+		ProtocolContract(UpgradeManagerContractAddress),
+		ProtocolContract(InflationControllerContractAddress),
+		ProtocolContract(OmissionAccountabilityContractAddress),
+		ProtocolContract(AuctioneerContractAddress),
 	}
 )
 

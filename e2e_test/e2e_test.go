@@ -1,7 +1,9 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"math"
@@ -16,6 +18,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/params/generated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 
@@ -109,6 +113,330 @@ func TestProtocolContractsDeployment(t *testing.T) {
 	require.Equal(t, params.AutonityContractAddress, upgradeManagerAutonityAddress)
 	err = network.WaitToMineNBlocks(2, 15, false)
 	require.NoError(t, err)
+}
+
+// also increases nonce
+func sendTxAndWait(
+	t *testing.T,
+	network Network,
+	chainID *big.Int,
+	to common.Address,
+	nonce *uint64,
+	key *ecdsa.PrivateKey,
+	calldata []byte,
+) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	txData := &types.DynamicFeeTx{
+		ChainID:   new(big.Int).Set(chainID),
+		Nonce:     *nonce,
+		To:        &to,
+		Gas:       30_000_000,
+		GasFeeCap: new(big.Int).Mul(big.NewInt(5), big.NewInt(params.GWei)),
+		GasTipCap: big.NewInt(2),
+		Data:      calldata,
+	}
+	tx := types.NewTx(txData)
+
+	signedTx, err := types.SignTx(tx, types.LatestSigner(params.TestChainConfig), key)
+	require.NoError(t, err)
+
+	err = network[0].WsClient.SendTransaction(ctx, signedTx)
+	require.NoError(t, err)
+
+	err = network.AwaitTransactions(ctx, signedTx)
+	require.NoError(t, err)
+
+	receipt, err := network[0].WsClient.TransactionReceipt(ctx, signedTx.Hash())
+	require.NoError(t, err)
+	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
+
+	// increase nonce
+	*nonce++
+}
+
+func TestProtocolContractsUpgrades(t *testing.T) {
+	validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
+		// skip all upgrades, will do them manually
+		x := 0
+		genesis.Config.SkipUpgradesAfter = &x
+	})
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	err = network.WaitToMineNBlocks(2, 20, false)
+	require.NoError(t, err)
+
+	// verify that no upgrade has been deployed
+	st, err := network[0].Eth.BlockChain().State()
+	require.NoError(t, err)
+	require.Equal(t, generated.OracleCodeHash, st.GetCodeHash(params.OracleContractAddress))
+	require.Equal(t, generated.OracleRuntimeBytecode, st.GetCode(params.OracleContractAddress))
+	require.Equal(t, generated.UpgradeManagerCodeHash, st.GetCodeHash(params.UpgradeManagerContractAddress))
+	require.Equal(t, generated.UpgradeManagerRuntimeBytecode, st.GetCode(params.UpgradeManagerContractAddress))
+
+	operatorKey := network[0].Key
+	nonce := uint64(0)
+
+	// do oracle upgrade
+	calldata, err := autonity.Upgrades[0].Calldata()
+	require.NoError(t, err)
+	sendTxAndWait(t, network, params.TestChainConfig.ChainID,
+		params.UpgradeManagerContractAddress, &nonce,
+		operatorKey, calldata,
+	)
+
+	// oracle should have new code
+	st, err = network[0].Eth.BlockChain().State()
+	require.NoError(t, err)
+	require.Equal(t, generated.Oracle0CodeHash, st.GetCodeHash(params.OracleContractAddress))
+	require.Equal(t, generated.Oracle0RuntimeBytecode, st.GetCode(params.OracleContractAddress))
+
+	// do upgrade manager upgrade
+	calldata, err = autonity.Upgrades[1].Calldata()
+	require.NoError(t, err)
+	sendTxAndWait(t, network, params.TestChainConfig.ChainID,
+		params.UpgradeManagerContractAddress, &nonce,
+		operatorKey, calldata,
+	)
+
+	// upgrade manager should have new code
+	st, err = network[0].Eth.BlockChain().State()
+	require.NoError(t, err)
+	require.Equal(t, generated.UpgradeManager1CodeHash, st.GetCodeHash(params.UpgradeManagerContractAddress))
+	require.Equal(t, generated.UpgradeManager1RuntimeBytecode, st.GetCode(params.UpgradeManagerContractAddress))
+
+	// do ACU upgrade with version
+	testVersion := "test-version"
+	AcuTestUpgrade := autonity.ProtocolUpgrade{
+		Name:          "acu test upgrade",
+		Description:   "acu test upgrade",
+		ExclusionList: nil,
+		Upgrades: []autonity.ContractUpgrade{
+			{
+				Target:        params.ProtocolContract(params.ACUContractAddress),
+				Abi:           &generated.ACUTestUpgradeAbi,
+				Bytecode:      generated.ACUTestUpgradeBytecode,
+				Hash:          generated.ACUTestUpgradeCodeHash,
+				Args:          nil,
+				VersionString: testVersion,
+				BaseCode:      "",
+				UpgradedCode:  "",
+			},
+		},
+	}
+	calldata, err = AcuTestUpgrade.Calldata()
+	require.NoError(t, err)
+	sendTxAndWait(t, network, params.TestChainConfig.ChainID,
+		params.UpgradeManagerContractAddress, &nonce,
+		operatorKey, calldata,
+	)
+
+	// ACU should have new code
+	st, err = network[0].Eth.BlockChain().State()
+	require.NoError(t, err)
+	require.Equal(t, generated.ACUTestUpgradeCodeHash, st.GetCodeHash(params.ACUContractAddress))
+	require.Equal(t, generated.ACUTestUpgradeRuntimeBytecode, st.GetCode(params.ACUContractAddress))
+
+	// ACU should have been tagged with the version
+	upgradeManager, err := bindings.NewUpgradeManager1(params.UpgradeManagerContractAddress, network[0].WsClient)
+	require.NoError(t, err)
+	versionInState, err := upgradeManager.GetVersion(nil, st.GetCodeHash(params.ACUContractAddress))
+	require.NoError(t, err)
+	require.Equal(t, testVersion, versionInState.Number)
+	require.True(t, versionInState.Block.Cmp(common.Big0) > 0)
+
+	// upgrade multiple contracts atomically, without version
+	AsmTestUpgrade := autonity.ProtocolUpgrade{
+		Name:          "asm test upgrade",
+		Description:   "asm test upgrade",
+		ExclusionList: nil,
+		Upgrades: []autonity.ContractUpgrade{
+			{
+				Target:        params.ProtocolContract(params.ACUContractAddress),
+				Abi:           &generated.ACUTestUpgradeAbi,
+				Bytecode:      generated.ACUTestUpgradeBytecode,
+				Hash:          generated.ACUTestUpgradeCodeHash,
+				Args:          nil,
+				VersionString: "",
+				BaseCode:      "",
+				UpgradedCode:  "",
+			},
+			{
+				Target:        params.ProtocolContract(params.SupplyControlContractAddress),
+				Abi:           &generated.SupplyControlTestUpgradeAbi,
+				Bytecode:      generated.SupplyControlTestUpgradeBytecode,
+				Hash:          generated.SupplyControlTestUpgradeCodeHash,
+				Args:          nil,
+				VersionString: "",
+				BaseCode:      "",
+				UpgradedCode:  "",
+			},
+			{
+				Target:        params.ProtocolContract(params.StabilizationContractAddress),
+				Abi:           &generated.StabilizationTestUpgradeAbi,
+				Bytecode:      generated.StabilizationTestUpgradeBytecode,
+				Hash:          generated.StabilizationTestUpgradeCodeHash,
+				Args:          nil,
+				VersionString: "",
+				BaseCode:      "",
+				UpgradedCode:  "",
+			},
+			{
+				Target:        params.ProtocolContract(params.InflationControllerContractAddress),
+				Abi:           &generated.InflationControllerTestUpgradeAbi,
+				Bytecode:      generated.InflationControllerTestUpgradeBytecode,
+				Hash:          generated.InflationControllerTestUpgradeCodeHash,
+				Args:          nil,
+				VersionString: "",
+				BaseCode:      "",
+				UpgradedCode:  "",
+			},
+			{
+				Target:        params.ProtocolContract(params.AuctioneerContractAddress),
+				Abi:           &generated.AuctioneerTestUpgradeAbi,
+				Bytecode:      generated.AuctioneerTestUpgradeBytecode,
+				Hash:          generated.AuctioneerTestUpgradeCodeHash,
+				Args:          nil,
+				VersionString: "",
+				BaseCode:      "",
+				UpgradedCode:  "",
+			},
+		},
+	}
+
+	// do asm multi contract upgrade
+	calldata, err = AsmTestUpgrade.Calldata()
+	require.NoError(t, err)
+	sendTxAndWait(t, network, params.TestChainConfig.ChainID,
+		params.UpgradeManagerContractAddress, &nonce,
+		operatorKey, calldata,
+	)
+
+	// all contracts should have been upgraded,
+	st, err = network[0].Eth.BlockChain().State()
+	require.NoError(t, err)
+	require.Equal(t, generated.ACUTestUpgradeCodeHash, st.GetCodeHash(params.ACUContractAddress))
+	require.Equal(t, generated.ACUTestUpgradeRuntimeBytecode, st.GetCode(params.ACUContractAddress))
+	require.Equal(t, generated.SupplyControlTestUpgradeCodeHash, st.GetCodeHash(params.SupplyControlContractAddress))
+	require.Equal(t, generated.SupplyControlTestUpgradeRuntimeBytecode, st.GetCode(params.SupplyControlContractAddress))
+	require.Equal(t, generated.StabilizationTestUpgradeCodeHash, st.GetCodeHash(params.StabilizationContractAddress))
+	require.Equal(t, generated.StabilizationTestUpgradeRuntimeBytecode, st.GetCode(params.StabilizationContractAddress))
+	require.Equal(t, generated.InflationControllerTestUpgradeCodeHash, st.GetCodeHash(params.InflationControllerContractAddress))
+	require.Equal(t, generated.InflationControllerTestUpgradeRuntimeBytecode, st.GetCode(params.InflationControllerContractAddress))
+	require.Equal(t, generated.AuctioneerTestUpgradeCodeHash, st.GetCodeHash(params.AuctioneerContractAddress))
+	require.Equal(t, generated.AuctioneerTestUpgradeRuntimeBytecode, st.GetCode(params.AuctioneerContractAddress))
+
+	// but version should be unchanged
+	// acu version was already changed previously
+	// the other ones should be == ""
+	versionInState, err = upgradeManager.GetVersion(nil, st.GetCodeHash(params.ACUContractAddress))
+	require.NoError(t, err)
+	require.Equal(t, testVersion, versionInState.Number)
+	require.True(t, versionInState.Block.Cmp(common.Big0) > 0)
+	versionInState, err = upgradeManager.GetVersion(nil, st.GetCodeHash(params.SupplyControlContractAddress))
+	require.NoError(t, err)
+	require.Equal(t, "", versionInState.Number)
+	require.True(t, versionInState.Block.Cmp(common.Big0) == 0)
+	versionInState, err = upgradeManager.GetVersion(nil, st.GetCodeHash(params.StabilizationContractAddress))
+	require.NoError(t, err)
+	require.Equal(t, "", versionInState.Number)
+	require.True(t, versionInState.Block.Cmp(common.Big0) == 0)
+	versionInState, err = upgradeManager.GetVersion(nil, st.GetCodeHash(params.InflationControllerContractAddress))
+	require.NoError(t, err)
+	require.Equal(t, "", versionInState.Number)
+	require.True(t, versionInState.Block.Cmp(common.Big0) == 0)
+	versionInState, err = upgradeManager.GetVersion(nil, st.GetCodeHash(params.AuctioneerContractAddress))
+	require.NoError(t, err)
+	require.Equal(t, "", versionInState.Number)
+	require.True(t, versionInState.Block.Cmp(common.Big0) == 0)
+
+	// deploy multi-contract atomic upgrade with version
+	expectedVersion := "base"
+	for i := range AsmTestUpgrade.Upgrades {
+		AsmTestUpgrade.Upgrades[i].VersionString = expectedVersion + strconv.Itoa(i)
+	}
+	// do upgrade
+	calldata, err = AsmTestUpgrade.Calldata()
+	require.NoError(t, err)
+	sendTxAndWait(t, network, params.TestChainConfig.ChainID,
+		params.UpgradeManagerContractAddress, &nonce,
+		operatorKey, calldata,
+	)
+	// versions should be updated
+	versionInState, err = upgradeManager.GetVersion(nil, st.GetCodeHash(params.ACUContractAddress))
+	require.NoError(t, err)
+	require.Equal(t, "base0", versionInState.Number)
+	require.True(t, versionInState.Block.Cmp(common.Big0) > 0)
+	versionInState, err = upgradeManager.GetVersion(nil, st.GetCodeHash(params.SupplyControlContractAddress))
+	require.NoError(t, err)
+	require.Equal(t, "base1", versionInState.Number)
+	require.True(t, versionInState.Block.Cmp(common.Big0) > 0)
+	versionInState, err = upgradeManager.GetVersion(nil, st.GetCodeHash(params.StabilizationContractAddress))
+	require.NoError(t, err)
+	require.Equal(t, "base2", versionInState.Number)
+	require.True(t, versionInState.Block.Cmp(common.Big0) > 0)
+	versionInState, err = upgradeManager.GetVersion(nil, st.GetCodeHash(params.InflationControllerContractAddress))
+	require.NoError(t, err)
+	require.Equal(t, "base3", versionInState.Number)
+	require.True(t, versionInState.Block.Cmp(common.Big0) > 0)
+	versionInState, err = upgradeManager.GetVersion(nil, st.GetCodeHash(params.AuctioneerContractAddress))
+	require.NoError(t, err)
+	require.Equal(t, "base4", versionInState.Number)
+	require.True(t, versionInState.Block.Cmp(common.Big0) > 0)
+}
+
+// tests if upgrading all ASM contracts at once is feasible in terms of gas and tx size
+func TestAsmAtomicUpgrade(t *testing.T) {
+	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	// verify that upgrade manager version 1.1.0 has been deployed at genesis
+	upgradeManagerCode, err := network[0].WsClient.CodeAt(context.Background(), params.UpgradeManagerContractAddress, nil)
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(upgradeManagerCode, generated.UpgradeManager1RuntimeBytecode))
+
+	// build ASM contracts upgrade tx
+	upgradeManager, err := bindings.NewUpgradeManager1(params.UpgradeManagerContractAddress, network[0].WsClient)
+	require.NoError(t, err)
+
+	operatorKey := network[0].Key
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(operatorKey, params.TestChainConfig.ChainID)
+	require.NoError(t, err)
+	tx, err := upgradeManager.UpgradeMultiple(transactOpts,
+		[]common.Address{
+			params.ACUContractAddress,
+			params.SupplyControlContractAddress,
+			params.StabilizationContractAddress,
+			params.InflationControllerContractAddress,
+			params.AuctioneerContractAddress,
+		},
+		[]string{
+			string(generated.ACUTestUpgradeBytecode),
+			string(generated.SupplyControlTestUpgradeBytecode),
+			string(generated.StabilizationTestUpgradeBytecode),
+			string(generated.InflationControllerTestUpgradeBytecode),
+			string(generated.AuctioneerTestUpgradeBytecode),
+		},
+	)
+	require.NoError(t, err)
+	t.Logf("upgrade transaction size: %s", tx.Size().String())
+	require.True(t, tx.Size() < ccore.TxMaxSize)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	err = network.AwaitTransactions(ctx, tx)
+	require.NoError(t, err)
+
+	receipt, err := network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+	require.NoError(t, err)
+	require.True(t, receipt.Status == types.ReceiptStatusSuccessful)
+	t.Logf("gas used %d, gas limit on mainnet %d", receipt.GasUsed, params.AutMainnetChainConfig.AutonityContractConfig.GasLimit)
+	require.True(t, receipt.GasUsed < params.AutMainnetChainConfig.AutonityContractConfig.GasLimit)
 }
 
 func fetchMinimumBaseFee(t *testing.T, chain *ccore.BlockChain, number *uint64) *big.Int {

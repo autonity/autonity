@@ -11,7 +11,7 @@ LABEL org.opencontainers.image.source=https://github.com/autonity/autonity
 RUN apk add --no-cache make git gcc libc-dev linux-headers
 
 ADD . /autonity
-RUN cd /autonity && make autonity-docker
+RUN cd /autonity && make autonity
 
 
 # Pull Autonity into a second stage deploy alpine container

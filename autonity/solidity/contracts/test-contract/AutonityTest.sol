@@ -37,7 +37,7 @@ contract AutonityTest is Autonity {
         return unbondingMap[_id];
    }
 
-    function getCommitteeSlot() external view returns (uint256) {
+    function getCommitteeSlot() external pure returns (uint256) {
         uint256 _committeeSlot;
         assembly{
             _committeeSlot := committee.slot
@@ -57,6 +57,10 @@ contract AutonityTest is Autonity {
    function getTailBondingID() public view returns (uint256) {
      return tailBondingID;
    }
+
+    function performRedistribution(uint256 _atn, uint256 _ntn) external {
+        _performRedistribution(_atn,_ntn);
+    }
 
    function getLastUnlockedUnbonding() public view returns (uint256) {
      return lastUnlockedUnbonding;     

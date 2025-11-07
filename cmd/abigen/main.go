@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"gopkg.in/urfave/cli.v1"
@@ -103,10 +104,18 @@ var (
 		Name:  "test",
 		Usage: "Generate test bindings",
 	}
+	dumpNamesFlag = cli.BoolFlag{
+		Name:  "dump-names",
+		Usage: "Dump names of the compiled contracts",
+	}
+	dumpOutFlag = cli.StringFlag{
+		Name:  "dump-out",
+		Usage: "Files where to dump names (default = stdout)",
+	}
 )
 
 func init() {
-	app = flags.NewApp(gitCommit, gitDate, "ethereum checkpoint helper tool")
+	app = flags.NewApp(gitCommit, gitDate, "binding generation tool")
 	app.Flags = []cli.Flag{
 		abiFlag,
 		binFlag,
@@ -122,6 +131,8 @@ func init() {
 		langFlag,
 		aliasFlag,
 		testFlag,
+		dumpNamesFlag,
+		dumpOutFlag,
 	}
 	app.Action = utils.MigrateFlags(abigen)
 	cli.CommandHelpTemplate = flags.OriginCommandHelpTemplate
@@ -152,6 +163,7 @@ func abigen(c *cli.Context) error {
 		sigs    []map[string]string
 		libs    = make(map[string]string)
 		aliases = make(map[string]string)
+		names   []string
 	)
 	if c.GlobalString(abiFlag.Name) != "" {
 		// Load up the ABI, optional bytecode and type name from the parameters
@@ -228,8 +240,10 @@ func abigen(c *cli.Context) error {
 				utils.Fatalf("Failed to read contract information from json output: %v", err)
 			}
 		}
+
 		// Gather all non-excluded contract for binding
 		for name, contract := range contracts {
+			names = append(names, name)
 			if exclude[strings.ToLower(name)] {
 				continue
 			}
@@ -245,6 +259,21 @@ func abigen(c *cli.Context) error {
 
 			libPattern := crypto.Keccak256Hash([]byte(name)).String()[2:36]
 			libs[libPattern] = nameParts[len(nameParts)-1]
+		}
+	}
+	if c.GlobalBool(dumpNamesFlag.Name) {
+		var namesOut string
+		sort.Strings(names)
+		for i, name := range names {
+			namesOut += name
+			// do not add \n to the last one
+			if i != len(names)-1 {
+				namesOut += "\n"
+			}
+		}
+		// dump names
+		if err := output(c, namesOut, dumpOutFlag.Name); err != nil {
+			utils.Fatalf("Failed to write names: %v", err)
 		}
 	}
 	// Extract all aliases from the flags
@@ -264,13 +293,20 @@ func abigen(c *cli.Context) error {
 	if err != nil {
 		utils.Fatalf("Failed to generate ABI binding: %v", err)
 	}
-	// Either flush it out to a file or display on the standard output
-	if !c.GlobalIsSet(outFlag.Name) {
-		fmt.Printf("%s\n", code)
+	if err := output(c, code, outFlag.Name); err != nil {
+		utils.Fatalf("Failed to write ABI binding: %v", err)
+	}
+	return nil
+}
+
+// Either flush it out to a file or display on the standard output
+func output(c *cli.Context, content string, flagName string) error {
+	if !c.GlobalIsSet(flagName) {
+		fmt.Printf("%s\n", content)
 		return nil
 	}
-	if err := ioutil.WriteFile(c.GlobalString(outFlag.Name), []byte(code), 0600); err != nil {
-		utils.Fatalf("Failed to write ABI binding: %v", err)
+	if err := ioutil.WriteFile(c.GlobalString(flagName), []byte(content), 0600); err != nil {
+		return err
 	}
 	return nil
 }

@@ -111,17 +111,18 @@ type Runner struct {
 	Evm     *vm.EVM
 	Origin  common.Address // session's sender, can be overridden via runOptions
 	Tracing bool
+	Config  *params.ChainConfig // read-only copy of the deployed chain config
 
 	// protocol contracts
 	// todo: see if genesis deployment flow can be abstracted somehow
-	Autonity               *Autonity
+	Autonity               *AutonityTest
 	Accountability         *Accountability
 	Oracle                 *Oracle
 	Acu                    *ACU
 	Auctioneer             *Auctioneer
 	SupplyControl          *SupplyControl
 	Stabilization          *Stabilization
-	UpgradeManager         *UpgradeManager
+	UpgradeManager         *UpgradeManager1
 	InflationController    *InflationController
 	OmissionAccountability *OmissionAccountability
 
@@ -350,7 +351,7 @@ func (r *Runner) FinalizeBlock() {
 	require.NoError(r.T, err)
 	_, err = r.Autonity.Finalize(&runOptions{origin: common.Address{}})
 	// consider monitoring gas cost here and fail if it's too much
-	require.NoError(r.T, err, "finalize function error in block", r.Evm.Context.BlockNumber)
+	require.NoError(r.T, err, fmt.Sprintf("finalize error in block %s: %v", r.Evm.Context.BlockNumber.String(), err))
 	r.Evm.Context.BlockNumber = new(big.Int).Add(r.Evm.Context.BlockNumber, common.Big1)
 	r.Evm.Context.Time = new(big.Int).Add(r.Evm.Context.Time, common.Big1)
 	// clean up activity proof related data
@@ -554,6 +555,7 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	genesisConfig.Config.AutonityContractConfig = autonityGenesis
 
 	genesisConfig.Config.SetDefaults()
+	r.Config = genesisConfig.Config
 
 	//
 	// Step 1: Execute test genesis sequence
@@ -566,7 +568,7 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 	// Step 2: Setup internal bindings
 	//
 
-	r.Autonity = &Autonity{&contract{
+	r.Autonity = &AutonityTest{&contract{
 		params.AutonityContractAddress,
 		&generated.AutonityTestAbi,
 		r,
@@ -596,9 +598,9 @@ func Setup(t *testing.T, configOverride func(*params.AutonityContractGenesis) *p
 		&generated.StabilizationAbi,
 		r,
 	}}
-	r.UpgradeManager = &UpgradeManager{&contract{
+	r.UpgradeManager = &UpgradeManager1{&contract{
 		params.UpgradeManagerContractAddress,
-		&generated.UpgradeManagerAbi,
+		&generated.UpgradeManager1Abi,
 		r,
 	}}
 	r.InflationController = &InflationController{&contract{
@@ -748,36 +750,37 @@ func NewAccusationEvent(height uint64, value common.Hash, reporter common.Addres
 	}
 }
 
-func RandomValidator() (params.Validator, []byte, *ecdsa.PrivateKey, blst.SecretKey, error) {
-	var privateKey *ecdsa.PrivateKey
-	var secretKey blst.SecretKey
-	var err error
-	for {
-		privateKey, err = crypto.GenerateKey()
-		if err == nil {
-			break
-		}
+func RandomValidator() (params.Validator, []byte, *ecdsa.PrivateKey, *ecdsa.PrivateKey, blst.SecretKey, error) {
+	nodeKey, err := crypto.GenerateKey()
+	if err != nil {
+		return params.Validator{}, nil, nil, nil, nil, err
 	}
-	for {
-		secretKey, err = blst.RandKey()
-		if err == nil {
-			break
-		}
+	oracleKey, err := crypto.GenerateKey()
+	if err != nil {
+		return params.Validator{}, nil, nil, nil, nil, err
 	}
-	// ecdsaSecretKeyList[i] = privateKey
-	// blsSecretKeyList[i] = &secretKey
-	consensusKey := secretKey.PublicKey()
-	publicKey := privateKey.PublicKey
-	enode := "enode://" + string(crypto.PubECDSAToHex(&publicKey)[2:]) + "@3.209.45.79:30303"
-	address := crypto.PubkeyToAddress(publicKey)
+	treasuryKey, err := crypto.GenerateKey()
+	if err != nil {
+		return params.Validator{}, nil, nil, nil, nil, err
+	}
+	consensusKey, err := blst.RandKey()
+	if err != nil {
+		return params.Validator{}, nil, nil, nil, nil, err
+	}
+	enode := "enode://" + string(crypto.PubECDSAToHex(&nodeKey.PublicKey)[2:]) + "@3.209.45.79:30303"
+	oracleAddress := crypto.PubkeyToAddress(oracleKey.PublicKey)
+	treasuryAddress := crypto.PubkeyToAddress(treasuryKey.PublicKey)
 	validator := params.Validator{
-		Treasury:      address,
+		Treasury:      treasuryAddress,
 		Enode:         enode,
-		OracleAddress: address,
-		ConsensusKey:  consensusKey.Marshal(),
+		OracleAddress: oracleAddress,
+		ConsensusKey:  consensusKey.PublicKey().Marshal(),
 	}
-	pop, err := crypto.AutonityPOPProof(privateKey, privateKey, address.Hex(), secretKey)
-	return validator, pop, privateKey, secretKey, err
+	pop, err := crypto.AutonityPOPProof(nodeKey, oracleKey, treasuryAddress.Hex(), consensusKey)
+	if err != nil {
+		return params.Validator{}, nil, nil, nil, nil, err
+	}
+	return validator, pop, nodeKey, oracleKey, consensusKey, nil
 }
 
 // abi.encode(_reports, _salt, msg.sender) follows below encoding schema of the eth ABI specification.

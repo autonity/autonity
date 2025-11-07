@@ -19,10 +19,17 @@ import "../asm/Auctioneer.sol";
 import "../UpgradeManager.sol";
 import "../InflationController.sol";
 
+// upgraded contracts
+import "../upgrades/0/Oracle0.sol";
+import "../upgrades/1/UpgradeManager1.sol";
+
 // test contracts
 import "../liquid/LiquidStateTest.sol";
 import "../test-contract/StabilizationMathTest.sol";
 import "../test-contract/AccountabilityTest.sol";
+import "../test-contract/OmissionAccountabilityTest.sol";
+import "../test-contract/AutonityTest.sol";
+import "../test-contract/OracleTest.sol";
 import "../test-contract/AutonityUpgradeTest.sol";
 import "../test-contract/DummyContract.sol";
 import "../test-contract/DummyMaliciousContract.sol";

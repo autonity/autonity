@@ -2,8 +2,10 @@ package e2e
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 
+	"github.com/autonity/autonity/rpc"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autonity/autonity/eth"
@@ -40,4 +42,64 @@ func TestAPI_AcnPeers(t *testing.T) {
 	for _, peer := range result {
 		require.True(t, peer.Network.Trusted)
 	}
+}
+
+func getAutAPI(node *Node) *eth.AutonityContractAPI {
+	var autContractAPI *eth.AutonityContractAPI
+
+	apis := node.Eth.APIs()
+	for _, api := range apis {
+		if api.Namespace == "aut" {
+			autContractAPI = api.Service.(*eth.AutonityContractAPI)
+			break
+		}
+	}
+	return autContractAPI
+}
+
+func TestAPI_Versions(t *testing.T) {
+	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	require.NoError(t, err)
+	defer network.Shutdown(t)
+
+	err = network.WaitToMineNBlocks(5, 30, false)
+	require.NoError(t, err)
+
+	autContractAPI := getAutAPI(network[0])
+	require.NotNil(t, autContractAPI)
+
+	versions, err := autContractAPI.ProtocolContractsVersions(nil)
+	require.NoError(t, err)
+	for _, version := range versions {
+		t.Log(version)
+		// all base protocol contract versions should be defined
+		require.NotEqual(t, "", version.Version.Number)
+	}
+
+	pendingBlockNumber := rpc.PendingBlockNumber
+	pendingVersions, err := autContractAPI.ProtocolContractsVersions(&pendingBlockNumber)
+	require.NoError(t, err)
+	require.Equal(t, versions, pendingVersions)
+
+	latestBlockNumber := rpc.LatestBlockNumber
+	latestVersions, err := autContractAPI.ProtocolContractsVersions(&latestBlockNumber)
+	require.NoError(t, err)
+	require.Equal(t, versions, latestVersions)
+
+	earliestBlockNumber := rpc.EarliestBlockNumber
+	earliestVersions, err := autContractAPI.ProtocolContractsVersions(&earliestBlockNumber)
+	require.NoError(t, err)
+	require.Equal(t, versions, earliestVersions)
+
+	veryBigNumber := int64(math.MaxInt64 - 100)
+	_, err = autContractAPI.ProtocolContractsVersions((*rpc.BlockNumber)(&veryBigNumber))
+	t.Log(err)
+	require.Error(t, err)
+
+	// this shouldn't be able to happen because json unmarshalling of negative number should fail
+	// but in any case the api will just return an error if it happens
+	negativeNumber := int64(-500)
+	_, err = autContractAPI.ProtocolContractsVersions((*rpc.BlockNumber)(&negativeNumber))
+	t.Log(err)
+	require.Error(t, err)
 }

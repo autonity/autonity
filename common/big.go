@@ -29,3 +29,20 @@ var (
 	Big32  = big.NewInt(32)
 	Big256 = big.NewInt(256)
 )
+
+// inspired by slices.Contains, but compares value instead of pointer
+// elements are assumed to be != nil, responsibility to check is of the caller
+func Contains(s []*big.Int, v *big.Int) bool {
+	return Index(s, v) >= 0
+}
+
+// Index returns the index of the first occurrence of v in s,
+// or -1 if not present.
+func Index(s []*big.Int, v *big.Int) int {
+	for i := range s {
+		if v.Cmp(s[i]) == 0 {
+			return i
+		}
+	}
+	return -1
+}

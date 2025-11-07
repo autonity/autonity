@@ -257,7 +257,7 @@ func (u *Upgrader) Run(input []byte, _ uint64, evm *EVM, caller common.Address) 
 		targetContract = common.Address(input[:common.AddressLength])
 		code           = input[common.AddressLength:]
 	)
-	if !slices.Contains(params.ProtocolContracts, targetContract) {
+	if !slices.Contains(params.ProtocolContracts, params.ProtocolContract(targetContract)) {
 		return nil, errBadUpgradeTarget
 	}
 	// input is TARGET_ADDRESS + DEPLOY_CALLDATA

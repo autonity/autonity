@@ -61,7 +61,7 @@ type solcOutputV8 struct {
 func (s *Solidity) makeArgs() []string {
 	p := []string{
 		"--combined-json", "bin,bin-runtime,srcmap,srcmap-runtime,abi,userdoc,devdoc",
-		"--optimize",                  // code optimizer switched on
+		"--optimize", "--optimize-runs", "10000", // code optimizer switched on
 		"--allow-paths", "., ./, ../", // default to support relative paths
 		"--evm-version", "london", // autonity only supports london for now
 	}

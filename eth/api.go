@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/autonity/bindings"
-
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
@@ -603,6 +602,10 @@ func (api *PrivateDebugAPI) GetAccessibleState(from, to rpc.BlockNumber) (uint64
 	return 0, fmt.Errorf("No state found")
 }
 
+// TODO: AutonityContractAPI is not an accurate name anymore,
+//		 however leaving it like this for now since I think
+//		 the plan is to remove/refactor this API
+
 // AutonityContractAPI implements rpc.Methods to expose view functions of the
 // autonity contract through the rpc api. Note, although it looks like this
 // struct would be better defined in the rpc package or in the autonity
@@ -628,6 +631,52 @@ func (a *AutonityContractAPI) Address() common.Address {
 
 func (a *AutonityContractAPI) AcnPeers() []*p2p.PeerInfo {
 	return a.server.PeersInfo()
+}
+
+type ProtocolContractVersion struct {
+	CodeHash common.Hash
+	Contract params.ProtocolContract
+	Version  bindings.UpgradeManager1version
+}
+
+func (cv ProtocolContractVersion) String() string {
+	return fmt.Sprintf("%s-%s (address: %s hash: %s)", cv.Contract.String(), cv.Version.Number, cv.Contract.Address(), cv.CodeHash)
+}
+
+func (a *AutonityContractAPI) ProtocolContractsVersions(number *rpc.BlockNumber) ([]ProtocolContractVersion, error) {
+	return a.protocolContractsVersions(number)
+}
+
+func (a *AutonityContractAPI) protocolContractsVersions(number *rpc.BlockNumber) ([]ProtocolContractVersion, error) {
+	var header *types.Header
+	if number == nil || *number == rpc.PendingBlockNumber || *number == rpc.LatestBlockNumber {
+		header = a.bc.CurrentHeader()
+	} else {
+		header = a.bc.GetHeaderByNumber(uint64(*number)) //nolint:gosec
+	}
+	if header == nil {
+		return nil, fmt.Errorf("header not found")
+	}
+	st, err := a.bc.StateAt(header.Root)
+	if err != nil {
+		return nil, fmt.Errorf("state not found: %w", err)
+	}
+	versions := make([]ProtocolContractVersion, 0, len(params.ProtocolContracts))
+	for _, contract := range params.ProtocolContracts {
+		codeHash := st.GetCodeHash(contract.Address())
+		// fetch version from upgradeManager contract
+		contractVersion, err := a.ac.GetVersion(nil, codeHash)
+		if err != nil {
+			return nil, fmt.Errorf("error while fetching contract version %w", err)
+		}
+
+		versions = append(versions, ProtocolContractVersion{
+			CodeHash: codeHash,
+			Contract: contract,
+			Version:  contractVersion,
+		})
+	}
+	return versions, nil
 }
 
 // NewAutonityContractAPI builds a map of function name to method representing

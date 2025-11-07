@@ -1,14 +1,21 @@
-# This Makefile is meant to be used by people that do not usually work
-# with Go source code. If you know what GOPATH is then you probably
-# don't need to bother with make.
+.PHONY: build-docker-image build-docker-image-alltools
+.PHONY: all autonity upcheck release android ios
+.PHONY: contracts compile-contracts compile-contracts-upgrades compile-contracts-standard 4byte bindings
+.PHONY: test test-fast test-race-all test-race
+.PHONY: test-contracts test-contracts-fast test-contracts-pre start-autonity start-ganache
+.PHONY: test-contracts-truffle test-contracts-truffle-fast docker-e2e-test
+.PHONY: mock-gen generate lint-dead lint lint-ci lint-deps clean devtools
 
-.PHONY: autonity contracts android ios autonity-cross evm all test clean lint mock-gen test-fast test-contracts test-contracts-truffle-fast test-contracts-truffle start-autonity start-ganache test-contracts-pre test-contracts-fast generate
+# |-----------|
+# |	VARIABLES |
+# |-----------|
 
 BINDIR = ./build/bin
 GO ?= latest
 LATEST_COMMIT ?= $(shell git log -n 1 develop --pretty=format:"%H")
+# useful for CI
 ifeq ($(LATEST_COMMIT),)
-LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
+	LATEST_COMMIT := $(shell git log -n 1 HEAD~1 --pretty=format:"%H")
 endif
 SOLC_VERSION = 0.8.30
 SOLC_BINARY = $(BINDIR)/solc_static_linux_v$(SOLC_VERSION)
@@ -18,8 +25,9 @@ ABIGEN_BINARY = $(BINDIR)/abigen
 
 CONTRACTS_BASE_DIR = ./autonity/solidity
 CONTRACTS_DIR = $(CONTRACTS_BASE_DIR)/contracts
+CONTRACTS_UPGRADES_DIR = $(CONTRACTS_BASE_DIR)/contracts/upgrades
 CONTRACTS_TEST_DIR = $(CONTRACTS_BASE_DIR)/test
-GENERATED_CONTRACT_DIR = ./params/generated
+GENERATED_CONTRACTS_DIR = ./params/generated
 
 # DOCKER_SUDO is set to either the empty string or "sudo" and is used to
 # control whether docker is executed with sudo or not. If the user is root or
@@ -36,11 +44,22 @@ GENERATED_CONTRACT_DIR = ./params/generated
 # we then echo "sudo".
 DOCKER_SUDO = $(shell [ `id -u` -eq 0 ] || id -nG $(USER) | grep "\<docker\>" > /dev/null || echo sudo )
 
+# |--------|
+# |	DOCKER |
+# |--------|
+
 build-docker-image:
 	@$(DOCKER_SUDO) docker build -t autonity .
 
 build-docker-image-alltools:
 	@$(DOCKER_SUDO) docker build -f Dockerfile.alltools -t autonity-alltools .
+
+# |----------|
+# |	BUILDING |
+# |----------|
+
+all: $(ABIGEN_BINARY) contracts
+	go run build/ci.go install
 
 autonity:
 	mkdir -p $(BINDIR)
@@ -48,83 +67,16 @@ autonity:
 	@echo "Done building."
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
-bindings:
-	@echo Generating protocol contracts bindings
-	$(ABIGEN_BINARY)  --pkg bindings --solc $(SOLC_BINARY) --sol "$(CONTRACTS_DIR)/bindings/bindings.sol" --out ./autonity/bindings/bindings.go
-	@echo Generating internal testing bindings
-	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings/bindings.sol --out ./autonity/tests/bindings.go
-
-
-# Builds Autonity without contract compilation, useful with alpine containers not supporting
-# glibc for solc.
-autonity-docker:
-	mkdir -p $(BINDIR)
-	go build -o $(BINDIR)/autonity ./cmd/autonity
-	@echo "Done building."
-	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
-
-define gen-contract
-	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin --userdoc --devdoc -o $(GENERATED_CONTRACT_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
-
-	@echo Generating bytecode for $(2)
-	@echo 'package generated' > $(GENERATED_CONTRACT_DIR)/$(2).go
-	@echo 'import (' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@echo '	"strings"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@echo '' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@echo '	"github.com/autonity/autonity/accounts/abi"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@echo '	"github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@echo ')' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-
-	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@cat $(GENERATED_CONTRACT_DIR)/$(2).bin >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@printf '")\n\n' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-
-	@echo Generating Abi for $(2)
-	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@cat  $(GENERATED_CONTRACT_DIR)/$(2).abi | json_pp  >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@echo '`))' >> $(GENERATED_CONTRACT_DIR)/$(2).go
-	@gofmt -s -w $(GENERATED_CONTRACT_DIR)/$(2).go
-
-endef
-
-contracts: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BINARY)
-	@$(call gen-contract,,Autonity)
-	@$(call gen-contract,,Oracle)
-	@$(call gen-contract,,Accountability)
-	@$(call gen-contract,,OmissionAccountability)
-	@$(call gen-contract,,UpgradeManager)
-	@$(call gen-contract,,InflationController)
-	@$(call gen-contract,asm/,ACU)
-	@$(call gen-contract,asm/,SupplyControl)
-	@$(call gen-contract,asm/,Stabilization)
-	@$(call gen-contract,asm/,Auctioneer)
-	@$(call gen-contract,test-contract/,AccountabilityTest)
-	@$(call gen-contract,test-contract/,AutonityTest)
-	@$(call gen-contract,test-contract/,AutonityUpgradeTest)
-	# update 4byte selector for clef
-	./build/generate_4bytedb.sh $(SOLC_BINARY)
-	cd signer/fourbyte && go generate
-	# Generate go bindings
-	@echo Generating protocol contracts bindings
-	$(ABIGEN_BINARY)  --pkg bindings --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings/bindings.sol --out ./autonity/bindings/bindings.go
-	@echo Generating internal testing bindings
-	$(ABIGEN_BINARY)  --test --pkg tests --solc $(SOLC_BINARY) --sol $(CONTRACTS_DIR)/bindings/bindings.sol --out ./autonity/tests/bindings.go
-
-$(SOLC_BINARY):
-	mkdir -p $(BINDIR)
-	wget -O $(SOLC_BINARY) https://github.com/ethereum/solidity/releases/download/v$(SOLC_VERSION)/solc-static-linux
-	chmod +x $(SOLC_BINARY)
-
-$(GOBINDATA_BINARY):
-	mkdir -p $(BINDIR)
-	wget -O $(GOBINDATA_BINARY) https://github.com/kevinburke/go-bindata/releases/download/v$(GOBINDATA_VERSION)/go-bindata-linux-amd64
-	chmod +x $(GOBINDATA_BINARY)
-
 $(ABIGEN_BINARY):
 	go build -o $(ABIGEN_BINARY) ./cmd/abigen
 
-all: $(ABIGEN_BINARY) contracts
-	go run build/ci.go install
+upcheck: contracts
+	go build -o $(BINDIR)/upcheck ./cmd/upcheck
+
+release: autonity contracts
+	mkdir -p ./build/release/$(VERSION)
+	cd ./build/bin && tar -czvf ../release/$(VERSION)/autonity-linux-amd64-$(VERSION).tar.gz autonity
+	cd ./params/generated && tar -czvf ../../build/release/$(VERSION)/protocol-contracts-abi-$(VERSION).tar.gz *.abi
 
 android:
 	go run build/ci.go aar --local
@@ -137,6 +89,118 @@ ios:
 	go run build/ci.go xcode --local
 	@echo "Done building."
 	@echo "Import \"$(BINDIR)/autonity.framework\" to use the library."
+
+# |---------------------|
+# |	COMPILING CONTRACTS |
+# |---------------------|
+
+contracts: compile-contracts 4byte bindings
+
+compile-contracts: compile-contracts-standard compile-contracts-upgrades
+
+compile-contracts-standard: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BINARY)
+	@echo "compiling protocol contracts"
+	@$(call gen-contract,,Autonity)
+	@$(call gen-contract,,Oracle)
+	@$(call gen-contract,,Accountability)
+	@$(call gen-contract,,OmissionAccountability)
+	@$(call gen-contract,,UpgradeManager)
+	@$(call gen-contract,,InflationController)
+	@$(call gen-contract,asm/,ACU)
+	@$(call gen-contract,asm/,SupplyControl)
+	@$(call gen-contract,asm/,Stabilization)
+	@$(call gen-contract,asm/,Auctioneer)
+	@echo "compiling test protocol contracts"
+	@$(call gen-contract,test-contract/,AccountabilityTest)
+	@$(call gen-contract,test-contract/,AutonityTest)
+	@$(call gen-contract,test-contract/,AutonityUpgradeTest)
+	@$(call gen-contract,test-contract/,OmissionAccountabilityTest)
+
+compile-contracts-upgrades: $(SOLC_BINARY) $(GOBINDATA_BINARY) $(CONTRACTS_DIR)/*.sol $(ABIGEN_BINARY)
+	@echo "compiling protocol contract upgrades"
+	@$(call gen-contract,upgrades/0/,Oracle0)
+	@$(call gen-contract,upgrades/1/,UpgradeManager1)
+	@echo "compiling protocol contract test upgrades"
+	@$(call gen-contract,upgrades/tests/,ACUTestUpgrade)
+	@$(call gen-contract,upgrades/tests/,AuctioneerTestUpgrade)
+	@$(call gen-contract,upgrades/tests/,InflationControllerTestUpgrade)
+	@$(call gen-contract,upgrades/tests/,StabilizationTestUpgrade)
+	@$(call gen-contract,upgrades/tests/,SupplyControlTestUpgrade)
+	@$(call gen-contract,upgrades/tests/,UpgradeManagerTestUpgrade)
+
+4byte:
+	@echo "update 4byte selector for clef"
+	./build/generate_4bytedb.sh $(SOLC_BINARY)
+	cd signer/fourbyte && go generate
+
+bindings: $(ABIGEN_BINARY)
+	@$(call gen-bindings,bindings/,bindings)
+	@# NOTE: the sed substitution is required to generate the same runtime bytecode that got deployed on mainnet.
+	@# it simply substitutes the metadata hash of the oracle upgraded bytecode with the metadata hash used on mainnet.
+	@# the hashes are different because the mainnet upgrade had been built in the `autonity/solidity/contracts/` folder.
+	@# for more details see https://docs.soliditylang.org/en/latest/metadata.html
+	sed -i s/9332f2eb7a6ca90dad8644e835fd01558f41287c53fb4f634a9a437d9ac6c96a/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ ./autonity/bindings/bindings.go ./autonity/tests/bindings.go
+
+# params:
+# $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR) )
+# $(2) --> contract filename (which should be == with the contract's name)
+define gen-contract
+	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin --bin-runtime --metadata --userdoc --devdoc -o $(GENERATED_CONTRACTS_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
+
+	@# NOTE: the sed substitution is required to generate the same runtime bytecode that got deployed on mainnet.
+	@# it simply substitutes the metadata hash of the oracle upgraded bytecode with the metadata hash used on mainnet.
+	@# the hashes are different because the mainnet upgrade had been built in the `autonity/solidity/contracts/` folder.
+	@# for more details see https://docs.soliditylang.org/en/latest/metadata.html
+	@if [ "$(2)" = "Oracle0" ]; then \
+		sed -i s/9332f2eb7a6ca90dad8644e835fd01558f41287c53fb4f634a9a437d9ac6c96a/397c7e11019699c95916f85b08a3150696523f8159ab4f3bc820cc82275c34bc/ $(GENERATED_CONTRACTS_DIR)/$(2).bin $(GENERATED_CONTRACTS_DIR)/$(2).bin-runtime; \
+	fi
+
+	@echo Generating bytecode for $(2)
+	@echo 'package generated' > $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo 'import (' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo '	"strings"' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo '' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo '	"github.com/autonity/autonity/accounts/abi"' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo '	"github.com/autonity/autonity/common"' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo '	"github.com/autonity/autonity/crypto"' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo ')' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+
+	@echo -n 'var $(2)Bytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@cat $(GENERATED_CONTRACTS_DIR)/$(2).bin >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@printf '")\n\n' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+
+	@echo -n 'var $(2)RuntimeBytecode = common.Hex2Bytes("' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@cat $(GENERATED_CONTRACTS_DIR)/$(2).bin-runtime >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@printf '")\n\n' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+
+	@echo "var $(2)CodeHash = crypto.Keccak256Hash($(2)RuntimeBytecode)\n" >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+
+	@echo Generating Abi for $(2)
+	@echo -n 'var $(2)Abi,_ = abi.JSON(strings.NewReader(`' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@cat  $(GENERATED_CONTRACTS_DIR)/$(2).abi | json_pp  >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@echo '`))' >> $(GENERATED_CONTRACTS_DIR)/$(2).go
+	@gofmt -s -w $(GENERATED_CONTRACTS_DIR)/$(2).go
+endef
+
+# params:
+# $(1) --> contract folder (can be empty if the contract is in $(CONTRACTS_DIR))
+# $(2) --> contract filename
+define gen-bindings
+	@echo "Generating bindings for $(2).sol"
+	$(ABIGEN_BINARY) --pkg bindings --solc $(SOLC_BINARY) \
+	--sol $(CONTRACTS_DIR)/$(1)$(2).sol \
+	--out ./autonity/bindings/$(2).go
+
+	@echo "Generating testing bindings for $(2).sol"
+	$(ABIGEN_BINARY) --test \
+	--pkg tests --solc $(SOLC_BINARY) \
+	--sol $(CONTRACTS_DIR)/$(1)$(2).sol \
+	--out ./autonity/tests/$(2).go
+endef
+
+# |---------|
+# |	TESTING |
+# |---------|
 
 test: all
 	go run build/ci.go test -coverage
@@ -218,6 +282,10 @@ docker-e2e-test: contracts
 	build/env.sh go run build/ci.go install
 	cd docker_e2e_test && sudo python3 test_via_docker.py ..
 
+# |-----------|
+# |	UTILITIES |
+# |-----------|
+
 mock-gen:
 	mockgen -source=consensus/tendermint/core/interfaces/core_backend.go -package=interfaces -destination=consensus/tendermint/core/interfaces/core_backend_mock.go
 	mockgen -source=consensus/tendermint/accountability/fault_detector.go -package=accountability -destination=consensus/tendermint/accountability/fault_detector_mock.go
@@ -257,22 +325,16 @@ lint:
 
 lint-ci: lint
 
-test-deps:
-	go get golang.org/x/tools/cmd/cover
-	go get github.com/mattn/goveralls
-	cd tests/testdata && git checkout b5eb9900ee2147b40d3e681fe86efa4fd693959a
-
 lint-deps:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./build/bin v1.64.2
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./.github/tools v1.64.2
 
 clean:
 	go clean -cache
-	rm -fr build/_workspace/pkg/ $(BINDIR)/*
-	rm -rf $(GENERATED_CONTRACT_DIR)/*.abi $(GENERATED_CONTRACT_DIR)/*.bin $(GENERATED_CONTRACT_DIR)/*.doc*
+	rm -f $(BINDIR)/*
+	rm -f $(GENERATED_CONTRACTS_DIR)/*.abi $(GENERATED_CONTRACTS_DIR)/*.bin* $(GENERATED_CONTRACTS_DIR)/*.doc*
 
 # The devtools target installs tools required for 'go generate'.
 # You need to put $BINDIR (or $GOPATH/bin) in your PATH to use 'go generate'.
-
 devtools:
 	go get -u go.uber.org/mock/mockgen
 	env BINDIR= go get -u golang.org/x/tools/cmd/stringer
@@ -284,7 +346,13 @@ devtools:
 	@type "solc" 2> /dev/null || echo 'Please install solc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
 
-release: autonity contracts
-	mkdir -p ./build/release/$(VERSION)
-	cd ./build/bin && tar -czvf ../release/$(VERSION)/autonity-linux-amd64-$(VERSION).tar.gz autonity
-	cd ./params/generated && tar -czvf ../../build/release/$(VERSION)/protocol-contracts-abi-$(VERSION).tar.gz *.abi
+$(SOLC_BINARY):
+	mkdir -p $(BINDIR)
+	wget -O $(SOLC_BINARY) https://github.com/ethereum/solidity/releases/download/v$(SOLC_VERSION)/solc-static-linux
+	chmod +x $(SOLC_BINARY)
+
+$(GOBINDATA_BINARY):
+	mkdir -p $(BINDIR)
+	wget -O $(GOBINDATA_BINARY) https://github.com/kevinburke/go-bindata/releases/download/v$(GOBINDATA_VERSION)/go-bindata-linux-amd64
+	chmod +x $(GOBINDATA_BINARY)
+
