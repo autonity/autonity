@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/autonity/autonity/autonity"
@@ -42,10 +43,70 @@ func listUpgrades(_ context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-// TODO: this can be improved to show only the actual diffs and some context around it
+// substitues big equalities diffs (> 6 lines) with:
+// 3 lines of context
+// [...]
+// 3 lines of context
+func dryUp(diffs []diffmatchpatch.Diff) []diffmatchpatch.Diff {
+	driedUpDiffs := make([]diffmatchpatch.Diff, 0, len(diffs))
+
+	for _, diff := range diffs {
+
+		// dry up only equalities
+		if diff.Type != diffmatchpatch.DiffEqual {
+			driedUpDiffs = append(driedUpDiffs, diff)
+			continue
+		}
+
+		// count total number of lines.
+		// kinda ugly but it works and no need to deal with
+		// edge cases such as "does the last line end with \n or not"
+		n := 0
+		for range strings.Lines(diff.Text) {
+			n++
+		}
+
+		// small equal diffs are left untouched
+		if n <= 6 {
+			driedUpDiffs = append(driedUpDiffs, diff)
+			continue
+		}
+
+		// long equality diff here. dry it up
+		var firsts string
+		var lasts string
+		i := 0
+		for line := range strings.Lines(diff.Text) {
+			if i < 3 {
+				firsts += line
+			}
+			if i >= n-3 {
+				lasts += line
+			}
+			i++
+		}
+
+		driedUpDiffs = append(driedUpDiffs, diffmatchpatch.Diff{
+			Type: diff.Type, // == DiffEqual
+			Text: firsts + "[...]\n" + lasts,
+		})
+	}
+	return driedUpDiffs
+}
+
+// prints a line-mode diff
+// see https://github.com/sergi/go-diff/issues/69#issuecomment-688602689
+// and https://github.com/google/diff-match-patch/wiki/Line-or-Word-Diffs
 func printCodeDiff(w io.Writer, base string, upgraded string) {
 	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffMain(base, upgraded, false)
+
+	baseReduced, upgradedReduced, lines := dmp.DiffLinesToChars(base, upgraded)
+	diffs := dmp.DiffMain(baseReduced, upgradedReduced, false)
+	diffs = dmp.DiffCharsToLines(diffs, lines)
+	diffs = dmp.DiffCleanupSemantic(diffs)
+
+	diffs = dryUp(diffs)
+
 	fmt.Fprintf(w, "%s", dmp.DiffPrettyText(diffs))
 }
 
