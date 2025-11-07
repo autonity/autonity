@@ -70,7 +70,7 @@ autonity:
 $(ABIGEN_BINARY):
 	go build -o $(ABIGEN_BINARY) ./cmd/abigen
 
-upcheck: $(SOLC_BINARY)
+upcheck: contracts
 	go build -o $(BINDIR)/upcheck ./cmd/upcheck
 
 release: autonity contracts
