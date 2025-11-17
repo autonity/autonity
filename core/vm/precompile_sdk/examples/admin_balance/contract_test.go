@@ -11,7 +11,6 @@ import (
 	"github.com/autonity/autonity/core/vm/precompile_sdk"
 	"github.com/autonity/autonity/core/vm/precompile_sdk/abiselector"
 	"github.com/autonity/autonity/core/vm/precompile_sdk/storage"
-	"github.com/autonity/autonity/core/vm/precompile_sdk/types"
 	"github.com/autonity/autonity/crypto"
 )
 
@@ -29,7 +28,7 @@ func TestAdminBalanceContract_Init(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedAdmin := types.Address(common.HexToAddress("0x000000000000000000000000000000000000dead"))
+	expectedAdmin := storage.Address(common.HexToAddress("0x000000000000000000000000000000000000dead"))
 	if admin != expectedAdmin {
 		t.Errorf("expected admin %v, got %v", expectedAdmin, admin)
 	}
@@ -38,8 +37,8 @@ func TestAdminBalanceContract_Init(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if balance.Eq(types.NewUint256FromInt(100).Int) == false {
-		t.Errorf("expected balance %v, got %v", types.NewUint256FromInt(100).Int, balance)
+	if balance.Eq(storage.NewUint256FromInt(100).Int) == false {
+		t.Errorf("expected balance %v, got %v", storage.NewUint256FromInt(100).Int, balance)
 	}
 }
 
