@@ -59,9 +59,8 @@ func getPrimitiveSize(typ reflect.Type) (int, bool) {
 		return 32, true
 	}
 	switch typ.Kind() {
-	case reflect.Bool:
+	case reflect.Bool, reflect.Int8, reflect.Uint8:
 		return 1, true
-	case reflect.Int8, reflect.Uint8:
 	case reflect.Int16, reflect.Uint16:
 		return 2, true
 	case reflect.Int32, reflect.Uint32:
@@ -115,6 +114,7 @@ func assignSlotsRecursive(typ reflect.Type, prefix string, currentSlot *uint64,
 			}
 			slotMap[fName] = info
 			*currentOffset += size
+			continue
 		}
 
 		if isDynamicType(fType) {
@@ -140,7 +140,6 @@ func assignSlotsRecursive(typ reflect.Type, prefix string, currentSlot *uint64,
 			slotMap[fName] = info
 			*currentSlot++
 			*currentOffset = 0
-			//todo
 			continue
 		}
 
@@ -152,6 +151,7 @@ func assignSlotsRecursive(typ reflect.Type, prefix string, currentSlot *uint64,
 			// continue with next field
 			continue
 		}
+		return fmt.Errorf("unsupported type: %s", fType)
 	}
 	return nil
 }
@@ -348,7 +348,7 @@ func (s *Storage) GetAddress(field string) (types.Address, error) {
 		return types.Address{}, fmt.Errorf("no such slot for %s", field)
 	}
 	if slotInfo.Size != 20 {
-		return types.Address{}, fmt.Errorf("invalid slot layout, field %s is not a uint256", field)
+		return types.Address{}, fmt.Errorf("invalid slot layout, field %s is not an address", field)
 	}
 	data := s.stateDB.GetState(s.address, slotInfo.Slot)
 	return types.NewAddressFromBytes(data[slotInfo.Offset : slotInfo.Offset+slotInfo.Size]), nil
@@ -361,12 +361,12 @@ func (s *Storage) SetAddress(field string, address types.Address) error {
 	}
 
 	if slotInfo.Size != 20 {
-		return fmt.Errorf("invalid slot layout, field %s is not a uint256", field)
+		return fmt.Errorf("invalid slot layout, field %s is not an address", field)
 	}
-	addr := address.ToCommonAddress()
 	// read full
-	data := s.stateDB.GetState(addr, slotInfo.Slot)
+	data := s.stateDB.GetState(s.address, slotInfo.Slot)
 	// write after the offset in 32 byte slot
+	addr := address.ToCommonAddress()
 	copy(data[slotInfo.Offset:], addr.Bytes())
 	// write full
 	s.stateDB.SetState(s.address, slotInfo.Slot, data)
@@ -416,6 +416,10 @@ func (s *Storage) SetBytes(field string, value []byte) error {
 	if !slotInfo.IsDynamic || slotInfo.ValueType == nil || slotInfo.KeyType != nil {
 		return fmt.Errorf("field %s is not a dynamic bytes type", field)
 	}
+
+	if slotInfo.ValueType.Kind() != reflect.Uint8 {
+		return fmt.Errorf("field %s is not a bytes slice (value type not uint8)", field)
+	}
 	// first store the data length
 	length := uint64(len(value))
 	// right aligned
@@ -454,6 +458,10 @@ func (s *Storage) GetBytes(field string) ([]byte, error) {
 	// for byte slices only value is expected
 	if !slotInfo.IsDynamic || slotInfo.ValueType == nil || slotInfo.KeyType != nil {
 		return nil, fmt.Errorf("field %s is not a dynamic bytes type", field)
+	}
+
+	if slotInfo.ValueType.Kind() != reflect.Uint8 {
+		return nil, fmt.Errorf("field %s is not a bytes slice (value type not uint8)", field)
 	}
 
 	lenData := s.stateDB.GetState(s.address, slotInfo.Slot)
@@ -562,13 +570,13 @@ func (s *Storage) GetAddressFromMap(field string, key interface{}) (types.Addres
 	if !ok {
 		return types.Address{}, fmt.Errorf("no such slot for %s", field)
 	}
-	if !slotInfo.IsDynamic || slotInfo.ValueType == nil || slotInfo.KeyType != nil {
+	if !slotInfo.IsDynamic || slotInfo.ValueType == nil || slotInfo.KeyType == nil {
 		return types.Address{}, fmt.Errorf("field %s is not a dynamic bytes type", field)
 	}
 	if slotInfo.ValueType != reflect.TypeOf(types.Address{}) {
 		return types.Address{}, fmt.Errorf("field %s is not a Address type", field)
 	}
-	keyBytes, err := encodeTo32Bytes(key, reflect.TypeOf(types.Address{}))
+	keyBytes, err := encodeTo32Bytes(key, slotInfo.KeyType)
 	if err != nil {
 		return types.Address{}, err
 	}
@@ -583,13 +591,13 @@ func (s *Storage) SetAddressInMap(field string, key interface{}, value types.Add
 	if !ok {
 		return fmt.Errorf("no such slot for %s", field)
 	}
-	if !slotInfo.IsDynamic || slotInfo.ValueType == nil || slotInfo.KeyType != nil {
+	if !slotInfo.IsDynamic || slotInfo.ValueType == nil || slotInfo.KeyType == nil {
 		return fmt.Errorf("field %s is not a dynamic bytes type", field)
 	}
 	if slotInfo.ValueType != reflect.TypeOf(types.Address{}) {
 		return fmt.Errorf("field %s is not a Address type", field)
 	}
-	keyBytes, err := encodeTo32Bytes(key, reflect.TypeOf(types.Address{}))
+	keyBytes, err := encodeTo32Bytes(key, slotInfo.KeyType)
 	if err != nil {
 		return err
 	}
@@ -605,13 +613,13 @@ func (s *Storage) GetUint256FromMap(field string, key interface{}) (types.Uint25
 	if !ok {
 		return types.Uint256{}, fmt.Errorf("no such slot for %s", field)
 	}
-	if !slotInfo.IsDynamic || slotInfo.ValueType == nil || slotInfo.KeyType != nil {
+	if !slotInfo.IsDynamic || slotInfo.ValueType == nil || slotInfo.KeyType == nil {
 		return types.Uint256{}, fmt.Errorf("field %s is not a dynamic bytes type", field)
 	}
 	if slotInfo.ValueType != reflect.TypeOf(types.Uint256{}) {
 		return types.Uint256{}, fmt.Errorf("field %s is not a uint256 type", field)
 	}
-	keyBytes, err := encodeTo32Bytes(key, reflect.TypeOf(types.Uint256{}))
+	keyBytes, err := encodeTo32Bytes(key, slotInfo.KeyType)
 	if err != nil {
 		return types.Uint256{}, err
 	}
@@ -627,13 +635,13 @@ func (s *Storage) SetUint256InMap(field string, key interface{}, value types.Uin
 	if !ok {
 		return fmt.Errorf("no such slot for %s", field)
 	}
-	if !slotInfo.IsDynamic || slotInfo.ValueType == nil || slotInfo.KeyType != nil {
+	if !slotInfo.IsDynamic || slotInfo.ValueType == nil || slotInfo.KeyType == nil {
 		return fmt.Errorf("field %s is not a dynamic bytes type", field)
 	}
 	if slotInfo.ValueType != reflect.TypeOf(types.Uint256{}) {
 		return fmt.Errorf("field %s is not a uint256 type", field)
 	}
-	keyBytes, err := encodeTo32Bytes(key, reflect.TypeOf(types.Uint256{}))
+	keyBytes, err := encodeTo32Bytes(key, slotInfo.KeyType)
 	if err != nil {
 		return err
 	}
