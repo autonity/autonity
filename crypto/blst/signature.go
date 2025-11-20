@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
+	blst "github.com/supranational/blst/bindings/go"
 
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/log"
@@ -209,6 +210,21 @@ func FastAggregateVerifyBatch(sigs []Signature, pubkeys []PublicKey, msg [32]byt
 *  utility funcs
 *  ----------------
  */
+
+func MultSigs(sigs []Signature, scalars []blst.Scalar) Signature {
+	if len(sigs) != len(scalars) {
+		panic("TODO")
+	}
+	rawSigs := make(blstSignatureSet, 0, len(sigs))
+	for i := 0; i < len(sigs); i++ {
+		rawSigs = append(rawSigs, *sigs[i].(*BlsSignature).s)
+	}
+
+	// TODO: verify nbits
+	aggregatedSignatureAffine := rawSigs.Mult(scalars, 255).ToAffine()
+	aggregatedSignature := &BlsSignature{s: aggregatedSignatureAffine}
+	return aggregatedSignature
+}
 
 // Marshal a signature into a LittleEndian byte slice.
 func (s *BlsSignature) Marshal() []byte {

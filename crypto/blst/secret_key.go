@@ -101,7 +101,7 @@ func (s *bls12SecretKey) Sign(msg []byte) Signature {
 	return &BlsSignature{s: signature}
 }
 
-// Marshal a secret key into a LittleEndian byte slice.
+// Marshal a secret key into a BigEndian byte slice.
 func (s *bls12SecretKey) Marshal() []byte {
 	keyBytes := s.p.Serialize()
 	return keyBytes
@@ -109,4 +109,8 @@ func (s *bls12SecretKey) Marshal() []byte {
 
 func (s *bls12SecretKey) Hex() string {
 	return HexPrefix + hex.EncodeToString(s.Marshal())
+}
+
+func ScalarToSecretKey(scalar *blst.SecretKey) SecretKey {
+	return &bls12SecretKey{p: scalar}
 }
