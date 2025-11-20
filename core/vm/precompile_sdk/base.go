@@ -16,7 +16,7 @@ type Contract interface {
 type BaseContract struct {
 	Address    common.Address
 	StateType  reflect.Type
-	Slots      map[string]common.Hash
+	Slots      map[string]storage.SlotInfo
 	Dispatcher *abiselector.Dispatcher
 }
 

@@ -3,22 +3,10 @@ package storage
 import (
 	"fmt"
 	"math/big"
-	"reflect"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
 )
-
-type SlotInfo struct {
-	Slot      common.Hash
-	Offset    int
-	Size      int
-	IsDynamic bool
-	// for maps
-	KeyType reflect.Type
-	// for maps/arrays
-	ValueType reflect.Type
-}
 
 type Storage struct {
 	address common.Address // storage scope, generally should be the contract address

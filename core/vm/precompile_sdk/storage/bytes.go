@@ -25,9 +25,9 @@ func (s *Storage) SetBytes(field string, value []byte) error {
 	}
 	// first store the data length
 	length := uint64(len(value))
-	// right aligned
+	// left aligned
 	var lenData common.Hash
-	binary.BigEndian.PutUint64(lenData[24:], length)
+	binary.BigEndian.PutUint64(lenData[:8], length)
 	s.stateDB.SetState(s.address, slotInfo.Slot, lenData)
 	if length == 0 {
 		return nil
@@ -68,7 +68,7 @@ func (s *Storage) GetBytes(field string) ([]byte, error) {
 	}
 
 	lenData := s.stateDB.GetState(s.address, slotInfo.Slot)
-	length := binary.BigEndian.Uint64(lenData[24:])
+	length := binary.BigEndian.Uint64(lenData[:8])
 	if length == 0 {
 		return []byte{}, nil
 	}
