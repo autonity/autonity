@@ -291,6 +291,11 @@ func bzEncrypt(pk blst.PublicKey, msg []byte) (*blstbind.P1, []byte, *blstbind.P
 	W := hashG1G2(U, V)
 	W.MultAssign(rScalar)
 
+	// sanity check, verification of the tag should work after generating it
+	if errTag := verifyTag(U, V, W); errTag != nil {
+		return nil, nil, nil, fmt.Errorf("should never happen %w", errTag)
+	}
+
 	return U, V, W, nil
 }
 
