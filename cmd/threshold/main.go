@@ -3,8 +3,11 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"math/big"
+	mrand "math/rand"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/crypto/blst"
@@ -16,6 +19,8 @@ import (
 var q, _ = new(big.Int).SetString(
 	"52435875175126190479447740508185965837690552500527637822603658699938581184513", 10,
 )
+
+var generalDST = []byte("BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_")
 
 func randomNonZeroScalar() (*big.Int, error) {
 	r := new(big.Int)
@@ -93,7 +98,6 @@ func evalPoly(coeffs []*big.Int, x *big.Int) *big.Int {
 	return res
 }
 
-// TODO: correct to compute in x=0?
 // compute Lagrange coefficient at x=0
 func lagrangeCoeff(i *big.Int, Js []*big.Int) *big.Int {
 	num := big.NewInt(1)
@@ -122,6 +126,7 @@ func lagrangeCoeff(i *big.Int, Js []*big.Int) *big.Int {
 func thresholdSigning() {
 	n := 5 // number of participants
 	t := 3 // threshold
+	// TODO: from boldireya paper seems like there is a constraint t < n/2
 	msg := []byte("Hello Threshold BLS")
 
 	// generate master secret
@@ -185,6 +190,7 @@ func thresholdSigning() {
 	fmt.Printf("lagrange coeffs %v \n", lagrangeCoeffs)
 	fmt.Printf("lagrange scalars %v \n", lagrangeScalars)
 
+	// TODO: partial sigs need also to be verified individually
 	reconstructedSig := blst.MultSigs(sigSubset, lagrangeScalars)
 
 	fmt.Printf("reconstructed sig %s \n", reconstructedSig.Hex())
@@ -203,6 +209,240 @@ func thresholdSigning() {
 	}
 }
 
+// -----------------------------------------------------------------------------
+// Threshold Encryption / Decryption (Baek–Zheng, PKC'03 Section II.C)
+// -----------------------------------------------------------------------------
+
+// returns a copy of the source to avoid modifying it by mistake with the Mult operations
+// not sure if it is necessary or not, but keep for now
+func copyPoint(source *blstbind.P1) *blstbind.P1 {
+	sourceBytes := source.ToAffine().Serialize()
+	sourceCopyAffine := new(blstbind.P1Affine)
+	sourceCopyAffine.Deserialize(sourceBytes)
+	sourceCopy := new(blstbind.P1)
+	sourceCopy.FromAffine(sourceCopyAffine)
+	return sourceCopy
+
+}
+
+func bitwiseXor(a, b []byte) []byte {
+	if len(a) != len(b) {
+		panic("mismatch bitwise xor")
+	}
+	res := make([]byte, len(a))
+	for i, aa := range a {
+		res[i] = aa ^ b[i]
+	}
+	return res
+}
+
+// taken from
+// https://github.com/poanetwork/threshold_crypto/blob/master/src/lib.rs#L710
+func xorWithHash(g1 *blstbind.P1, b []byte) ([]byte, error) {
+	digest := sha256.Sum256(g1.ToAffine().Compress())
+	seed := binary.BigEndian.Uint64(digest[:]) // TODO: fine that digest is 32 bytes instead of 8?
+	// TODO: fine to use mrand?
+	rng := mrand.New(mrand.NewSource(int64(seed))) // TODO: conversion uint64 --> int64
+
+	rngBytes := make([]byte, len(b))
+	n, err := rng.Read(rngBytes)
+	if err != nil || n != len(b) {
+		return nil, fmt.Errorf("error while generating random bytes. err: %v, n: %d, len(b): %d", err, n, len(b))
+	}
+
+	return bitwiseXor(rngBytes, b), nil
+}
+
+// https://github.com/poanetwork/threshold_crypto/blob/master/src/lib.rs#L697
+func hashG1G2(u *blstbind.P1, v []byte) *blstbind.P2 {
+	uBytes := u.ToAffine().Compress()
+	var vBytes []byte
+	if len(v) > 64 {
+		sum := sha256.Sum256(v)
+		vBytes = sum[:]
+	} else {
+		vBytes = v
+	}
+	b := sha256.Sum256(append(vBytes, uBytes...))
+	return blstbind.HashToG2(b[:], generalDST) // TODO: different from PoA network
+}
+
+func bzEncrypt(pk blst.PublicKey, msg []byte) (*blstbind.P1, []byte, *blstbind.P2, error) {
+	r, err := randomNonZeroScalar()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rScalar := bigToScalar(r)
+	fmt.Printf("random scalar for encryption r: %s (%v)\n", r.String(), r.Bytes())
+
+	// U = rP
+	U := copyPoint(blstbind.P1Generator())
+	U.MultAssign(rScalar)
+
+	// V = F1(rY) xor M
+	rY := copyPoint(pk.ToP1())
+	rY.MultAssign(rScalar)
+	V, err := xorWithHash(rY, msg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// W = r * F2(U,V)
+	W := hashG1G2(U, V)
+	W.MultAssign(rScalar)
+
+	return U, V, W, nil
+}
+
+func verifyTag(U *blstbind.P1, V []byte, W *blstbind.P2) error {
+	WAffine := W.ToAffine()
+	if !WAffine.SigValidate(true) { // TODO: inf check or not
+		return fmt.Errorf("W signature fails group check")
+	}
+	if !U.ToAffine().KeyValidate() {
+		return fmt.Errorf("U public key fails group check")
+	}
+	// e(P,W) == e(U,H(U,V))
+	// where W = rH(U,V)
+	//       U = rP
+	if !WAffine.Verify(false, U.ToAffine(), false, hashG1G2(U, V).Compress(), generalDST, false) {
+		return fmt.Errorf("W signature fails verification")
+	}
+	return nil
+}
+
+func bzDecrypt(U *blstbind.P1, V []byte, W *blstbind.P2, sk *blstbind.Scalar) ([]byte, error) {
+	// step 1. verify sig
+	if err := verifyTag(U, V, W); err != nil {
+		return nil, err
+	}
+
+	// decrypt ciphertext
+	// M = F1(xU) xor V
+	xU := copyPoint(U)
+	xU.MultAssign(sk)
+
+	m, err := xorWithHash(xU, V)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
+func bzPartialDecrypt(U *blstbind.P1, V []byte, W *blstbind.P2, sk *blstbind.Scalar) (*blstbind.P1, error) {
+	// step 1. verify sig
+	if err := verifyTag(U, V, W); err != nil {
+		return nil, err
+	}
+
+	// compute decryption share
+	xU := copyPoint(U)
+	xU.MultAssign(sk)
+
+	return xU, nil
+}
+
+// recombine decryption shares and decrypt message
+func bzSharesDecrypt(U *blstbind.P1, V []byte, W *blstbind.P2, decryptionShares []*blstbind.P1) ([]byte, error) {
+	// verify tag first
+	if err := verifyTag(U, V, W); err != nil {
+		return nil, err
+	}
+
+	// assumes indexes are 1,2,...,t
+	t := len(decryptionShares)
+	Js := make([]*big.Int, 0, t)
+	for i := 1; i <= t; i++ {
+		Js = append(Js, big.NewInt(int64(i)))
+	}
+	lambdas := make([]*blstbind.Scalar, 0, t)
+	decryptionSharesAffine := make(blstbind.P1Affines, 0, t)
+	for i := 1; i <= t; i++ {
+		lambda := bigToScalar(lagrangeCoeff(big.NewInt(int64(i)), Js))
+		lambdas = append(lambdas, lambda)
+		decryptionSharesAffine = append(decryptionSharesAffine, *decryptionShares[i-1].ToAffine())
+	}
+	reconstructedKey := decryptionSharesAffine.Mult(lambdas, 255) // TODO: nbits
+
+	return xorWithHash(reconstructedKey, V)
+}
+
+func thresholdDecryption() {
+	fmt.Println("---- Threshold Encryption / Decryption (Baek–Zheng) ----")
+
+	n := 5 // number of participants
+	t := 3 // threshold
+	msg := []byte("Hello Threshold BLS decryption")
+
+	// master secret
+	secretScalar, err := randomNonZeroScalar()
+	if err != nil {
+		panic(err)
+	}
+	secretKey := bigToSecretKey(secretScalar)
+	publicKey := secretKey.PublicKey()
+
+	fmt.Printf("secret scalar: %s (%v)\n", secretScalar.String(), secretScalar.Bytes())
+	fmt.Printf("secret key %s (%v)\n", secretKey.Hex(), secretKey.Marshal())
+	fmt.Printf("public key %s (%v)\n", publicKey.Hex(), publicKey.Marshal())
+
+	// Shamir polynomial
+	poly, err := makePoly(t, secretScalar)
+	if err != nil {
+		panic(err)
+	}
+
+	// compute shares. NOTE: secretShares[0] == secretScalar
+	secretShares := make([]*big.Int, 0, n)
+	for i := 0; i <= n; i++ {
+		secretShares = append(secretShares, evalPoly(poly, new(big.Int).SetUint64(uint64(i))))
+	}
+	fmt.Printf("secret shares %v \n", secretShares)
+
+	// encrypt
+	u, v, w, err := bzEncrypt(publicKey, msg)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("ciphertext encrypted")
+
+	// master secret key should be able to decrypt
+	decryptedMsg, err := bzDecrypt(u, v, w, bigToScalar(secretScalar))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("decryptedMsg by master secret key: %v\n", string(decryptedMsg))
+	if !bytes.Equal(decryptedMsg, msg) {
+		panic("decryption failed")
+	}
+
+	// pick t participants to decrypt
+	// NOTE: share 0 == full decryption
+	decryptionShares := make([]*blstbind.P1, 0, t)
+	for i := 0; i <= t; i++ {
+		decryptionShare, err := bzPartialDecrypt(u, v, w, bigToScalar(secretShares[i]))
+		if err != nil {
+			panic(err)
+		}
+		decryptionShares = append(decryptionShares, decryptionShare)
+	}
+
+	//TODO: verification algorithm on each share
+
+	// decrypt by recombining shares
+	decryptedMsg, err = bzSharesDecrypt(u, v, w, decryptionShares[1:])
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("decryptedMsg by share recombination: %v\n", string(decryptedMsg))
+	if !bytes.Equal(decryptedMsg, msg) {
+		panic("decryption by share recombination failed")
+	}
+}
+
 func main() {
-	thresholdSigning()
+	//thresholdSigning()
+	thresholdDecryption()
 }

@@ -6,6 +6,7 @@ import (
 
 	farmhash "github.com/dgryski/go-farm"
 	"github.com/pkg/errors"
+	blst "github.com/supranational/blst/bindings/go"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fixsizecache"
@@ -115,6 +116,12 @@ func (p *BlsPublicKey) Marshal() []byte {
 func (p *BlsPublicKey) Copy() PublicKey {
 	np := *p.p
 	return &BlsPublicKey{p: &np}
+}
+
+func (p *BlsPublicKey) ToP1() *blst.P1 {
+	pp1 := new(blst.P1)
+	pp1.FromAffine(p.p)
+	return pp1
 }
 
 func (p *BlsPublicKey) Hex() string {

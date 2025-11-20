@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/autonity/autonity/rlp"
+	blst "github.com/supranational/blst/bindings/go"
 )
 
 const (
@@ -45,6 +46,7 @@ type PublicKey interface {
 	Marshal() []byte
 	Copy() PublicKey
 	Hex() string
+	ToP1() *blst.P1
 }
 
 // Signature represents a BLS signature.
@@ -61,4 +63,5 @@ type Signature interface {
 	DecodeRLP(stream *rlp.Stream) error
 	MarshalText() ([]byte, error)
 	UnmarshalText(input []byte) error
+	ToP2() *blst.P2
 }

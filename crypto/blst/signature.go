@@ -249,6 +249,12 @@ func (s *BlsSignature) DecodeRLP(stream *rlp.Stream) error {
 	return nil
 }
 
+func (s *BlsSignature) ToP2() *blst.P2 {
+	pp2 := new(blst.P2)
+	pp2.FromAffine(s.s)
+	return pp2
+}
+
 // for allowing JSON encoding/decoding of quorum certificate in the header
 func (s *BlsSignature) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(s.Marshal()).MarshalText()
