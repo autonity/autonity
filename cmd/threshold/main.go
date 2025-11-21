@@ -254,7 +254,7 @@ func xorWithHash(g1 *blstbind.P1, b []byte) ([]byte, error) {
 }
 
 // https://github.com/poanetwork/threshold_crypto/blob/master/src/lib.rs#L697
-func hashG1G2(u *blstbind.P1, v []byte) *blstbind.P2 {
+func reduceUV(u *blstbind.P1, v []byte) []byte {
 	uBytes := u.ToAffine().Compress()
 	var vBytes []byte
 	if len(v) > 64 {
@@ -264,7 +264,9 @@ func hashG1G2(u *blstbind.P1, v []byte) *blstbind.P2 {
 		vBytes = v
 	}
 	b := sha256.Sum256(append(vBytes, uBytes...))
-	return blstbind.HashToG2(b[:], generalDST) // TODO: different from PoA network
+	// TODO: the way I compute W deviates from PoA network.
+	// 	     needs more verification
+	return b[:]
 }
 
 func bzEncrypt(pk blst.PublicKey, msg []byte) (*blstbind.P1, []byte, *blstbind.P2, error) {
@@ -288,7 +290,7 @@ func bzEncrypt(pk blst.PublicKey, msg []byte) (*blstbind.P1, []byte, *blstbind.P
 	}
 
 	// W = r * F2(U,V)
-	W := hashG1G2(U, V)
+	W := blstbind.HashToG2(reduceUV(U, V), generalDST)
 	W.MultAssign(rScalar)
 
 	// sanity check, verification of the tag should work after generating it
@@ -310,7 +312,7 @@ func verifyTag(U *blstbind.P1, V []byte, W *blstbind.P2) error {
 	// e(P,W) == e(U,H(U,V))
 	// where W = rH(U,V)
 	//       U = rP
-	if !WAffine.Verify(false, U.ToAffine(), false, hashG1G2(U, V).Compress(), generalDST, false) {
+	if !WAffine.Verify(false, U.ToAffine(), false, reduceUV(U, V), generalDST) {
 		return fmt.Errorf("W signature fails verification")
 	}
 	return nil
