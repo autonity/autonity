@@ -190,7 +190,14 @@ func thresholdSigning() {
 	fmt.Printf("lagrange coeffs %v \n", lagrangeCoeffs)
 	fmt.Printf("lagrange scalars %v \n", lagrangeScalars)
 
-	// TODO: partial sigs need also to be verified individually
+	// verify all signature shares individually
+	for i, sig := range sigSubset {
+		publicKeyShare := bigToSecretKey(secretShares[xCoords[i].Int64()]).PublicKey()
+		if !sig.Verify(publicKeyShare, msg, false) {
+			panic("partial signature verification failed")
+		}
+	}
+
 	reconstructedSig := blst.MultSigs(sigSubset, lagrangeScalars)
 
 	fmt.Printf("reconstructed sig %s \n", reconstructedSig.Hex())
@@ -222,7 +229,6 @@ func copyPoint(source *blstbind.P1) *blstbind.P1 {
 	sourceCopy := new(blstbind.P1)
 	sourceCopy.FromAffine(sourceCopyAffine)
 	return sourceCopy
-
 }
 
 func bitwiseXor(a, b []byte) []byte {
@@ -290,6 +296,7 @@ func bzEncrypt(pk blst.PublicKey, msg []byte) (*blstbind.P1, []byte, *blstbind.P
 	}
 
 	// W = r * F2(U,V)
+	// TODO: this part needs more cryptographic verification
 	W := blstbind.HashToG2(reduceUV(U, V), generalDST)
 	W.MultAssign(rScalar)
 
@@ -348,6 +355,52 @@ func bzPartialDecrypt(U *blstbind.P1, V []byte, W *blstbind.P2, sk *blstbind.Sca
 	xU.MultAssign(sk)
 
 	return xU, nil
+}
+
+// TODO: verifyShare is a bit different from the crypto algo of the paper because I just panic in case of invalid share
+//		in production this will need to be handled as it can of course happen
+
+func verifyShare(decryptionShare *blstbind.P1, publicKeyShare *blstbind.P1, U *blstbind.P1, V []byte, W *blstbind.P2) error {
+	if err := verifyTag(U, V, W); err != nil {
+		return err
+	}
+
+	// TODO: it is highly likely that the following verification might not be correct.
+
+	// paper says to verify
+	// e(P, Ui) == e(U, Yi)
+	// however that is not possible because of the groups the points belong to.
+	// P --> I can set it to g1 or g2
+	// Ui --> g1 (forced because it is a scalar multiplication of U)
+	// U --> g1
+	// Yi --> g1 I guess but I could map the secret share to g2, so not really sure
+
+	// https://github.com/poanetwork/threshold_crypto/blob/master/src/lib.rs#L182-L186 does:
+	// e(Ui, H(U,V)) == e(Yi, W)
+	// which seems to make sense because it is equivalent to:
+	// e(xi * r * P, H(U,V)) = e(xi * P, r * H(U,V))
+	// same thing seems to be done here: https://github.com/LATOKEN/lachain/blob/dev/src/Lachain.Crypto/TPKE/PublicKey.cs#L90-L94
+
+	//pairing := blstbind.PairingCtx(false, generalDST)
+	//blstbind.PairingRawAggregate(pairing, blstbind.HashToG2(reduceUV(U, V), generalDST).ToAffine(), decryptionShare.ToAffine())
+
+	if !pairing(decryptionShare, blstbind.HashToG2(reduceUV(U, V), generalDST), publicKeyShare, W) {
+		return fmt.Errorf("decryption share fails verification")
+	}
+	return nil
+}
+
+// TODO: the pairing function passes basic smoke-checks, but needs further scrutiny
+// e(P,Q) == e(R,S)
+func pairing(p *blstbind.P1, q *blstbind.P2, r *blstbind.P1, s *blstbind.P2) bool {
+	pairing1 := blstbind.PairingCtx(false, generalDST)
+	blstbind.PairingRawAggregate(pairing1, q.ToAffine(), p.ToAffine())
+	blstbind.PairingCommit(pairing1)
+	pairing2 := blstbind.PairingCtx(false, generalDST)
+	blstbind.PairingRawAggregate(pairing2, s.ToAffine(), r.ToAffine())
+	blstbind.PairingCommit(pairing2)
+
+	return blstbind.Fp12FinalVerify(blstbind.PairingAsFp12(pairing1), blstbind.PairingAsFp12(pairing2))
 }
 
 // recombine decryption shares and decrypt message
@@ -436,7 +489,11 @@ func thresholdDecryption() {
 		decryptionShares = append(decryptionShares, decryptionShare)
 	}
 
-	//TODO: verification algorithm on each share
+	for i, share := range decryptionShares {
+		if err := verifyShare(share, bigToSecretKey(secretShares[i]).PublicKey().ToP1(), u, v, w); err != nil {
+			panic(err)
+		}
+	}
 
 	// decrypt by recombining shares
 	decryptedMsg, err = bzSharesDecrypt(u, v, w, decryptionShares[1:])
@@ -450,6 +507,6 @@ func thresholdDecryption() {
 }
 
 func main() {
-	//thresholdSigning()
+	thresholdSigning()
 	thresholdDecryption()
 }
