@@ -8,8 +8,11 @@ import (
 )
 
 type Array[T any] struct {
-	p    *Path
-	elem reflect.Type
+	p         *Path
+	elem      reflect.Type
+	// for fixed size arrays
+	isStatic  bool
+	staticLen uint64
 }
 
 func NewArray[T any](p *Path) (*Array[T], error) {
@@ -18,10 +21,18 @@ func NewArray[T any](p *Path) (*Array[T], error) {
 		return nil, fmt.Errorf("not an array/slice: %v", kind)
 	}
 
-	return &Array[T]{p: p}, nil
+	arr := &Array[T]{p: p}
+	if kind == reflect.Array {
+		arr.isStatic = true
+		arr.staticLen = uint64(p.info.ValueType.Len())
+	}
+	return arr, nil
 }
 
 func (a *Array[T]) Len() (uint64, error) {
+	if a.isStatic {
+		return a.staticLen, nil
+	}
 	return a.p.Len()
 }
 
@@ -30,6 +41,7 @@ func (a *Array[T]) At(index uint64) *Path {
 	return a.p.Index(index)
 }
 
+// GetAt gets the value at index i
 func (a *Array[T]) GetAt(i uint64) (T, error) {
 	var zero T
 	length, err := a.Len()
@@ -39,6 +51,7 @@ func (a *Array[T]) GetAt(i uint64) (T, error) {
 	return Get[T](a.p.Index(i))
 }
 
+// SetAt sets the value at index i
 func (a *Array[T]) SetAt(i uint64, value T) error {
 	length, err := a.Len()
 	if err != nil || i >= length {
@@ -47,9 +60,11 @@ func (a *Array[T]) SetAt(i uint64, value T) error {
 	return Set[T](a.p.Index(i), value)
 }
 
-// Next increases the array length by 1 and returns the Path to the new element.
-// It initializes the slot effectively with zero-values
-func (a *Array[T]) Next() (*Path, error) {
+// Grow increases the array length by 1 and returns the Path to the new element.
+func (a *Array[T]) Grow() (*Path, error) {
+	if a.isStatic {
+		return nil, fmt.Errorf("cannot grow static array")
+	}
 	length, err := a.Len()
 	if err != nil {
 		return nil, err
@@ -62,8 +77,8 @@ func (a *Array[T]) Next() (*Path, error) {
 	return a.p.Index(length), nil
 }
 
-// Pop decreases the array length by 1.
-func (a *Array[T]) Pop() error {
+// Shrink decreases the array length by 1.
+func (a *Array[T]) Shrink() error {
 	length, err := a.Len()
 	if err != nil {
 		return err

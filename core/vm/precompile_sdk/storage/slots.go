@@ -126,21 +126,20 @@ func compileTypeLayout(typ reflect.Type) (map[string]SlotInfo, uint64) {
 
 		if isDynamicType(fieldType) {
 			ensureNewSlot()
+			elemT := fieldType.Elem()
 			info := SlotInfo{
 				Slot:      computeSlotHash(currentSlot),
 				Offset:    currentOffset,
+				ValueType: elemT,
 				IsDynamic: true,
 				Size:      32, // full slot for dynamic type
 			}
 
-			elemT := fieldType.Elem()
 			if fieldType.Kind() == reflect.Map {
 				info.KeyType = fieldType.Key()
 				info.ValueType = elemT
 			} else if fieldType.Kind() == reflect.Slice {
 				info.ValueType = fieldType // keep the slice type
-			} else {
-				info.ValueType = elemT
 			}
 			// recurse to get the underlying type
 			info.SubSlots = getSubSlotsForType(elemT)

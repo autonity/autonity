@@ -150,7 +150,7 @@ func TestMapOfAddressToStructArrays(t *testing.T) {
 	arr, err := NewArray[Profile](mapPath)          // Wraps for push
 	require.NoError(t, err)
 
-	profileRef, err := arr.Next()
+	profileRef, err := arr.Grow()
 	require.NoError(t, err)
 	err = Set[uint64](profileRef, testProfile.Level)
 	require.NoError(t, err)
@@ -179,7 +179,7 @@ func TestMapOfAddressToStructArrays(t *testing.T) {
 	require.Equal(t, uint64(42), gotLevel)
 
 	// Pop: Remove last (clears slot for refund, dec len)
-	err = arr.Pop()
+	err = arr.Shrink()
 	require.NoError(t, err)
 
 }
@@ -187,22 +187,20 @@ func TestMapOfAddressToStructArrays(t *testing.T) {
 // --- New Complex State for Advanced Tests ---
 
 type ComplexState struct {
-	// 1. Map Key Variations
 	MapBool   map[bool]uint64
 	MapUint8  map[uint8]string // Using []byte/string if supported, else uint64
 	MapUint64 map[uint64]Profile
 
-	// 2. Nested Maps
 	// Mapping Address -> (ID -> Active Status)
 	UserPermissions map[Address]map[uint64]bool
 
-	// 3. Slice of Maps (Dynamic Array where elements are Maps)
 	// A list of historical snapshots, each snapshot is a map of ID->Value
 	Snapshots []map[uint64]uint64
 
-	// 4. Packed Fixed Array
+	SnapshotsFixedMapping [10]map[uint64]uint64
+	SnapshotsFixedStruct  [10]Profile
 	// 4 * 8 bytes = 32 bytes (Fits in 1 slot)
-	PackedRates [4]uint64
+	PackedRates [3]uint64
 }
 
 // Helper to create storage for ComplexState
@@ -212,12 +210,9 @@ func newComplexStorage(t *testing.T) *Storage {
 	return NewStorage(testContractAddr, r.Evm.StateDB, slots)
 }
 
-// --- Test 1: Map Key Variations ---
 func TestMapKeyVariations(t *testing.T) {
 	st := newComplexStorage(t)
 
-	// Case A: Bool Key
-	// Solidity: mapping(bool => uint64)
 	truePath := st.Field("MapBool").Map(true)
 	falsePath := st.Field("MapBool").Map(false)
 
@@ -232,13 +227,6 @@ func TestMapKeyVariations(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(200), valFalse)
 
-	// Case B: Uint8 Key
-	// Solidity: mapping(uint8 => uint64) - reusing MapUint8 definition logic
-	// (Assuming we change string to uint64 for simple testing, or use bytes)
-	// Let's rely on MapBool logic to prove primitive keys work.
-
-	// Case C: Uint64 Key -> Struct Value
-	// Solidity: mapping(uint64 => Profile)
 	profileMap := st.Field("MapUint64")
 	key := uint64(9999)
 
@@ -281,7 +269,39 @@ func TestNestedMaps(t *testing.T) {
 	require.False(t, gotOther)
 }
 
-// --- Test 3: Slice of Maps ---
+func TestArrayOfMaps(t *testing.T) {
+	st := newComplexStorage(t)
+
+	snapshotsArr, err := NewArray[map[uint64]uint64](st.Field("Snapshots")) // Type T doesn't matter much for Next/Map calls
+	require.NoError(t, err)
+
+	// 1. Add a new Snapshot (Index 0)
+	snap0 := snapshotsArr.At(0)
+	require.NoError(t, snap0.err)
+
+	// 3. Set values in Snapshot 0
+	// Snapshots[0][Key: 100] = 500
+	err = Set(snap0.Map(uint64(100)), uint64(500))
+	require.NoError(t, err)
+
+	// 1. Add a new Snapshot (Index 0)
+	snap1 := snapshotsArr.At(1)
+	require.NoError(t, snap0.err)
+	// 4. Set values in Snapshot 1
+	// Snapshots[1][Key: 100] = 900 (Different value, same key, diff map)
+	err = Set(snap1.Map(uint64(100)), uint64(900))
+	require.NoError(t, err)
+
+	// 5. Verify Isolation
+	val0, err := Get[uint64](snapshotsArr.At(0).Map(uint64(100)))
+	require.NoError(t, err)
+	require.Equal(t, uint64(500), val0)
+
+	val1, err := Get[uint64](snapshotsArr.At(1).Map(uint64(100)))
+	require.NoError(t, err)
+	require.Equal(t, uint64(900), val1)
+}
+
 func TestSliceOfMaps(t *testing.T) {
 	st := newComplexStorage(t)
 
@@ -291,11 +311,11 @@ func TestSliceOfMaps(t *testing.T) {
 
 	// 1. Add a new Snapshot (Index 0)
 	// Next() returns path to Snapshots[0] (which is a Map root)
-	snap0, err := snapshotsArr.Next()
+	snap0, err := snapshotsArr.Grow()
 	require.NoError(t, snap0.err)
 
 	// 2. Add another Snapshot (Index 1)
-	snap1, err := snapshotsArr.Next()
+	snap1, err := snapshotsArr.Grow()
 	require.NoError(t, snap1.err)
 
 	// 3. Set values in Snapshot 0
@@ -321,11 +341,6 @@ func TestSliceOfMaps(t *testing.T) {
 // --- Test 4: Packed Fixed Arrays ---
 func TestPackedFixedArray(t *testing.T) {
 	st := newComplexStorage(t)
-
-	// Definition: PackedRates [4]uint64
-	// In Solidity, this fits exactly into 1 slot (4 * 8 bytes = 32 bytes).
-	// Slot Layout: [Index3 | Index2 | Index1 | Index0] (Right-to-left or Left-to-right depending on impl)
-	// Our Accessor handles the offset math.
 
 	ratesArr, err := NewArray[uint64](st.Field("PackedRates"))
 	require.NoError(t, err)
