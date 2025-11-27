@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/binary"
 	"fmt"
 	"reflect"
 
@@ -32,7 +33,8 @@ func (a *Array[T]) Len() (uint64, error) {
 	if a.isStatic {
 		return a.staticLen, nil
 	}
-	return a.p.Len()
+	data := a.p.s.stateDB.GetState(a.p.s.address, a.p.slot)
+	return binary.BigEndian.Uint64(data[:8]), nil
 }
 
 // ReferenceAt is a helper to get the Path to the element at index
@@ -69,7 +71,7 @@ func (a *Array[T]) Grow() (*Path, error) {
 		return nil, err
 	}
 
-	if err := a.p.setDynamicLength(length + 1); err != nil {
+	if err := a.setDynamicLength(length + 1); err != nil {
 		return nil, err
 	}
 
@@ -78,6 +80,9 @@ func (a *Array[T]) Grow() (*Path, error) {
 
 // Shrink decreases the array length by 1.
 func (a *Array[T]) Shrink() error {
+	if a.isStatic {
+		return fmt.Errorf("cannot shrink static array")
+	}
 	length, err := a.Len()
 	if err != nil {
 		return err
@@ -86,9 +91,16 @@ func (a *Array[T]) Shrink() error {
 	tailP := a.p.Index(length - 1)
 	a.p.s.stateDB.SetState(tailP.s.address, tailP.slot, common.Hash{})
 
-	if err := a.p.setDynamicLength(length - 1); err != nil {
+	if err := a.setDynamicLength(length - 1); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (a *Array[T]) setDynamicLength(newLen uint64) error {
+	var headData common.Hash
+	binary.BigEndian.PutUint64(headData[:8], newLen)
+	a.p.s.stateDB.SetState(a.p.s.address, a.p.slot, headData)
 	return nil
 }
 

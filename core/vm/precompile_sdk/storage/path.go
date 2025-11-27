@@ -176,21 +176,3 @@ func Set[T any](p *Path, v T) error {
 	return nil
 }
 
-// Len returns the length of a dynamic array/slice at the given path.
-func (p *Path) Len() (uint64, error) {
-	if p.err != nil {
-		return 0, p.err
-	}
-	if !p.info.IsDynamic || p.info.ValueType.Kind() != reflect.Slice {
-		return 0, fmt.Errorf("len() called on non-dynamic array")
-	}
-	data := p.s.stateDB.GetState(p.s.address, p.slot)
-	return binary.BigEndian.Uint64(data[:8]), nil
-}
-
-func (p *Path) setDynamicLength(newLen uint64) error {
-	var headData common.Hash
-	binary.BigEndian.PutUint64(headData[:8], newLen)
-	p.s.stateDB.SetState(p.s.address, p.slot, headData)
-	return nil
-}
