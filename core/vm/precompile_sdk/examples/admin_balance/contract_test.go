@@ -52,12 +52,12 @@ func TestAdminBalanceContract_FullFlow(t *testing.T) {
 	// assign slots
 	newAdmin := common.BytesToAddress([]byte("0xalive"))
 	caller := common.BytesToAddress([]byte("adminCaller"))
-	storage := storage.NewStorage(c.Address, runner.Evm.StateDB, c.Slots)
+	st := storage.NewStorage(c.Address, runner.Evm.StateDB, c.Slots)
 	input := buildInput(t, c.Dispatcher, "UpdateAdmin", newAdmin)
 	_, err := c.Run(input, runner.Evm.Context.BlockNumber.Uint64(), runner.Evm, caller)
 	require.NoError(t, err, "UpdateAdmin failed")
 
-	address, err := storage.GetAddress("Admin")
+	address, err := st.GetAddress("Admin")
 	require.NoError(t, err, "GetAddress failed")
 	require.Equal(t, newAdmin, address.ToCommonAddress(), "GetAddress mismatch")
 	t.Log(address.ToCommonAddress().String())
