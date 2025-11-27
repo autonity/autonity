@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+
+	"github.com/autonity/autonity/common"
 )
 
 // encodeTo32Bytes, key is passed as interface and keytype passed as reflect type, this keyType is actual
@@ -113,4 +115,36 @@ func isDynamicType(typ reflect.Type) bool {
 		return true
 	}
 	return false
+}
+
+// getElemSize calculates the storage size of a single element
+func getElemSize(typ reflect.Type) (int, bool) {
+	// Primitive
+	if size, ok := getPrimitiveSize(typ); ok {
+		return size, true
+	}
+	// Struct
+	if typ.Kind() == reflect.Struct {
+		// Compile layout to see total size
+		_, slots := compileTypeLayout(typ)
+		return int(slots * 32), true
+	}
+	// Array
+	if typ.Kind() == reflect.Array {
+		elemSize, ok := getElemSize(typ.Elem())
+		if !ok {
+			return 0, false
+		}
+		return elemSize * typ.Len(), true
+	}
+	if typ.Kind() == reflect.Map || typ.Kind() == reflect.Slice {
+		return 32, true
+	}
+	return 0, false
+}
+
+func computeSlotHash(slotIndex uint64) common.Hash {
+	var slot [32]byte
+	binary.BigEndian.PutUint64(slot[24:], slotIndex)
+	return common.BytesToHash(slot[:])
 }

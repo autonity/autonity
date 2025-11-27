@@ -18,6 +18,7 @@ type Path struct {
 	err  error
 }
 
+// Map navigates to the map value for the given key, returns the path to that value.
 func (p *Path) Map(key any) *Path {
 	if p.err != nil {
 		return p
@@ -62,6 +63,7 @@ func (p *Path) Map(key any) *Path {
 	}
 }
 
+// Index navigates to the array/slice element at the given index, returns the path to that element.
 func (p *Path) Index(idx uint64) *Path {
 	if p.err != nil {
 		return p
@@ -108,6 +110,7 @@ func (p *Path) Index(idx uint64) *Path {
 	}
 }
 
+// Field navigates to the struct field with the given name, returns the path to that field.
 func (p *Path) Field(name string) *Path {
 	if p.err != nil {
 		return p
@@ -131,6 +134,7 @@ func (p *Path) Field(name string) *Path {
 	}
 }
 
+// Get retrieves the value at the given path.
 func Get[T any](p *Path) (T, error) {
 	var zero T // zero value to return in case of error
 	if p.err != nil {
@@ -145,6 +149,7 @@ func Get[T any](p *Path) (T, error) {
 	return val.(T), err
 }
 
+// Set sets the value at the given path.
 func Set[T any](p *Path, v T) error {
 	if p.err != nil {
 		return p.err
@@ -171,6 +176,7 @@ func Set[T any](p *Path, v T) error {
 	return nil
 }
 
+// Len returns the length of a dynamic array/slice at the given path.
 func (p *Path) Len() (uint64, error) {
 	if p.err != nil {
 		return 0, p.err

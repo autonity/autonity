@@ -8,8 +8,7 @@ import (
 )
 
 type Array[T any] struct {
-	p         *Path
-	elem      reflect.Type
+	p *Path
 	// for fixed size arrays
 	isStatic  bool
 	staticLen uint64
@@ -36,13 +35,13 @@ func (a *Array[T]) Len() (uint64, error) {
 	return a.p.Len()
 }
 
-// At is a helper to get the Path to the element at index
-func (a *Array[T]) At(index uint64) *Path {
+// ReferenceAt is a helper to get the Path to the element at index
+func (a *Array[T]) ReferenceAt(index uint64) *Path {
 	return a.p.Index(index)
 }
 
-// GetAt gets the value at index i
-func (a *Array[T]) GetAt(i uint64) (T, error) {
+// ValueAt gets the value at index i
+func (a *Array[T]) ValueAt(i uint64) (T, error) {
 	var zero T
 	length, err := a.Len()
 	if err != nil || i >= length {
@@ -51,8 +50,8 @@ func (a *Array[T]) GetAt(i uint64) (T, error) {
 	return Get[T](a.p.Index(i))
 }
 
-// SetAt sets the value at index i
-func (a *Array[T]) SetAt(i uint64, value T) error {
+// SetValueAt sets the value at index i
+func (a *Array[T]) SetValueAt(i uint64, value T) error {
 	length, err := a.Len()
 	if err != nil || i >= length {
 		return fmt.Errorf("index %d out of range, len=%d", i, length)

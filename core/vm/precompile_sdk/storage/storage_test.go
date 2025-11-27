@@ -276,7 +276,7 @@ func TestArrayOfMaps(t *testing.T) {
 	require.NoError(t, err)
 
 	// 1. Add a new Snapshot (Index 0)
-	snap0 := snapshotsArr.At(0)
+	snap0 := snapshotsArr.ReferenceAt(0)
 	require.NoError(t, snap0.err)
 
 	// 3. Set values in Snapshot 0
@@ -285,7 +285,7 @@ func TestArrayOfMaps(t *testing.T) {
 	require.NoError(t, err)
 
 	// 1. Add a new Snapshot (Index 0)
-	snap1 := snapshotsArr.At(1)
+	snap1 := snapshotsArr.ReferenceAt(1)
 	require.NoError(t, snap0.err)
 	// 4. Set values in Snapshot 1
 	// Snapshots[1][Key: 100] = 900 (Different value, same key, diff map)
@@ -293,11 +293,11 @@ func TestArrayOfMaps(t *testing.T) {
 	require.NoError(t, err)
 
 	// 5. Verify Isolation
-	val0, err := Get[uint64](snapshotsArr.At(0).Map(uint64(100)))
+	val0, err := Get[uint64](snapshotsArr.ReferenceAt(0).Map(uint64(100)))
 	require.NoError(t, err)
 	require.Equal(t, uint64(500), val0)
 
-	val1, err := Get[uint64](snapshotsArr.At(1).Map(uint64(100)))
+	val1, err := Get[uint64](snapshotsArr.ReferenceAt(1).Map(uint64(100)))
 	require.NoError(t, err)
 	require.Equal(t, uint64(900), val1)
 }
@@ -329,11 +329,11 @@ func TestSliceOfMaps(t *testing.T) {
 	require.NoError(t, err)
 
 	// 5. Verify Isolation
-	val0, err := Get[uint64](snapshotsArr.At(0).Map(uint64(100)))
+	val0, err := Get[uint64](snapshotsArr.ReferenceAt(0).Map(uint64(100)))
 	require.NoError(t, err)
 	require.Equal(t, uint64(500), val0)
 
-	val1, err := Get[uint64](snapshotsArr.At(1).Map(uint64(100)))
+	val1, err := Get[uint64](snapshotsArr.ReferenceAt(1).Map(uint64(100)))
 	require.NoError(t, err)
 	require.Equal(t, uint64(900), val1)
 }
@@ -346,21 +346,21 @@ func TestPackedFixedArray(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set Index 0 (Offset 0)
-	err = Set(ratesArr.At(0), uint64(10))
+	err = Set(ratesArr.ReferenceAt(0), uint64(10))
 	require.NoError(t, err)
 
 	// Set Index 1 (Offset 8)
-	err = Set(ratesArr.At(1), uint64(20))
+	err = Set(ratesArr.ReferenceAt(1), uint64(20))
 	require.NoError(t, err)
 
 	// Set Index 3 (Offset 24 - Last element in slot)
-	err = Set(ratesArr.At(3), uint64(40))
+	err = Set(ratesArr.ReferenceAt(3), uint64(40))
 	require.NoError(t, err)
 
 	// Verify
-	v0, _ := Get[uint64](ratesArr.At(0))
-	v1, _ := Get[uint64](ratesArr.At(1))
-	v3, _ := Get[uint64](ratesArr.At(3))
+	v0, _ := Get[uint64](ratesArr.ReferenceAt(0))
+	v1, _ := Get[uint64](ratesArr.ReferenceAt(1))
+	v3, _ := Get[uint64](ratesArr.ReferenceAt(3))
 
 	require.Equal(t, uint64(10), v0)
 	require.Equal(t, uint64(20), v1)
