@@ -19,11 +19,17 @@ func encodeTo32Bytes(key interface{}, keyType reflect.Type) ([]byte, error) {
 		return nil, fmt.Errorf("key type mismatch, expected %v got %v", keyType, keyValue.Type())
 	}
 
-	if keyType == reflect.TypeOf(Address{}) {
-		addr := key.(Address)
-		keyBytes := addr.ToCommonAddress().Bytes() // 20 bytes
+	if keyType == reflect.TypeOf(common.Address{}) {
+		addr := key.(common.Address)
+		keyBytes := addr.Bytes() // 20 bytes
 		// Right-align the 20-byte address in the 32-byte buffer
 		copy(encodedBytes[12:], keyBytes)
+		return encodedBytes, nil
+	}
+	if keyType == reflect.TypeOf(common.Hash{}) {
+		hash := key.(common.Hash)
+		keyBytes := hash.Bytes() // 32 bytes full slot
+		copy(encodedBytes[:], keyBytes)
 		return encodedBytes, nil
 	}
 
@@ -85,8 +91,11 @@ func encodeTo32Bytes(key interface{}, keyType reflect.Type) ([]byte, error) {
 }
 
 func getPrimitiveSize(typ reflect.Type) (int, bool) {
-	if reflect.TypeOf(Address{}) == typ {
+	if reflect.TypeOf(common.Address{}) == typ {
 		return 20, true
+	}
+	if reflect.TypeOf(common.Hash{}) == typ {
+		return 32, true
 	}
 	if reflect.TypeOf(Uint256{}) == typ {
 		return 32, true

@@ -144,8 +144,7 @@ func Get[T any](p *Path) (T, error) {
 	if !ok {
 		return zero, fmt.Errorf("no accessor for type %T", zero)
 	}
-	data := p.s.stateDB.GetState(p.s.address, p.slot)
-	val, err := accessor.ReadAt(data, p.info.Offset, p.s)
+	val, err := accessor.ReadAt(p.slot, p.info.Offset, p.s)
 	return val.(T), err
 }
 
@@ -159,20 +158,7 @@ func Set[T any](p *Path, v T) error {
 	if !ok {
 		return fmt.Errorf("no accessor for type %T", v)
 	}
-	// full slot, there is no need of extra read, just set
-	if p.info.Offset == 0 && p.info.Size == 32 {
-		var data common.Hash
-		newSlot := accessor.WriteAt(data, 0, v, p.s)
-		// normal full 32 byte write
-		p.s.stateDB.SetState(p.s.address, p.slot, newSlot)
-		return nil
-	}
 
-	// fetch current slot value
-	current := p.s.stateDB.GetState(p.s.address, p.slot)
 	// update the specific part
-	newSlot := accessor.WriteAt(current, p.info.Offset, v, p.s)
-	p.s.stateDB.SetState(p.s.address, p.slot, newSlot)
-	return nil
+	return accessor.WriteAt(p.slot, p.info.Offset, v, p.s)
 }
-

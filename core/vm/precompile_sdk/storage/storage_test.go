@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"encoding/binary"
+	"math/big"
 	"reflect"
 	"testing"
 
@@ -8,6 +10,7 @@ import (
 
 	"github.com/autonity/autonity/autonity/tests"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
 )
 
 type Config struct {
@@ -32,7 +35,7 @@ type DeepCommission struct {
 type TestState struct {
 	// primitive types
 	Version uint8
-	Address Address
+	Address common.Address
 	Balance Uint256
 
 	// nested struct
@@ -42,19 +45,19 @@ type TestState struct {
 	History []common.Hash
 
 	// map with struct
-	UserStats map[Address]DeepCommission
+	UserStats map[common.Address]DeepCommission
 
 	// map with primitive arrays
-	Scores map[Address][]uint32
+	Scores map[common.Address][]uint32
 
-	Category   map[Address]uint64
-	UserArrays map[Address][]Profile
+	Category   map[common.Address]uint64
+	UserArrays map[common.Address][]Profile
 }
 
 var (
 	testContractAddr = common.HexToAddress("0xCAFECAFECAFECAFECAFECAFECAFECAFECAFECAFE")
-	testUserAddr     = NewAddressFromBytes(common.HexToAddress("0x1134567890123456789012345678901234567890").Bytes())
-	testValidator    = NewAddressFromBytes(common.HexToAddress("0x1234567890123456789012345678901234567890").Bytes())
+	testUserAddr     = common.HexToAddress("0x1134567890123456789012345678901234567890")
+	testValidator    = common.HexToAddress("0x1234567890123456789012345678901234567890")
 )
 
 func newStorage(t *testing.T) *Storage {
@@ -71,9 +74,9 @@ func TestStoragePrimitives(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint8(42), v)
 
-	err = Set(st.Field("Address"), testUserAddr)
+	err = Set[common.Address](st.Field("Address"), testUserAddr)
 	require.NoError(t, err)
-	addr, err := Get[Address](st.Field("Address"))
+	addr, err := Get[common.Address](st.Field("Address"))
 	require.NoError(t, err)
 	require.Equal(t, testUserAddr, addr)
 
@@ -184,15 +187,13 @@ func TestMapOfAddressToStructArrays(t *testing.T) {
 
 }
 
-// --- New Complex State for Advanced Tests ---
-
 type ComplexState struct {
 	MapBool   map[bool]uint64
 	MapUint8  map[uint8]string // Using []byte/string if supported, else uint64
 	MapUint64 map[uint64]Profile
 
 	// Mapping Address -> (ID -> Active Status)
-	UserPermissions map[Address]map[uint64]bool
+	UserPermissions map[common.Address]map[uint64]bool
 
 	// A list of historical snapshots, each snapshot is a map of ID->Value
 	Snapshots []map[uint64]uint64
@@ -201,6 +202,7 @@ type ComplexState struct {
 	SnapshotsFixedStruct  [10]Profile
 	// 4 * 8 bytes = 32 bytes (Fits in 1 slot)
 	PackedRates [3]uint64
+	UserData    []byte // dynamic byte fields
 }
 
 // Helper to create storage for ComplexState
@@ -365,4 +367,138 @@ func TestPackedFixedArray(t *testing.T) {
 	require.Equal(t, uint64(10), v0)
 	require.Equal(t, uint64(20), v1)
 	require.Equal(t, uint64(40), v3)
+}
+
+func TestByteAccessor(t *testing.T) {
+	st := newComplexStorage(t)
+
+	// Path to the bytes field (assumes AssignSlots includes it at some slot)
+	bytesPath := st.Field("UserData")
+	if bytesPath.err != nil {
+		t.Fatalf("Failed to resolve UserData path: %v", bytesPath.err)
+	}
+
+	t.Run("EmptyBytes", func(t *testing.T) {
+		empty := []byte{}
+		require.NoError(t, Set(bytesPath, empty))
+
+		got, err := Get[[]byte](bytesPath)
+		require.NoError(t, err)
+		require.Equal(t, empty, got)
+
+		// Verify head slot: len=0, no data slots touched (should be zero)
+		headSlot := bytesPath.slot
+		headData := st.stateDB.GetState(st.address, headSlot)
+		require.Equal(t, uint64(0), binary.BigEndian.Uint64(headData[:8]))
+		baseSlot := crypto.Keccak256Hash(headSlot.Bytes())
+		require.Equal(t, common.Hash{}, st.stateDB.GetState(st.address, baseSlot)) // Untouched chunk 0
+	})
+
+	t.Run("SmallBytesSingleChunk", func(t *testing.T) {
+		data := []byte("hello world") // 11 bytes <32
+		require.NoError(t, Set(bytesPath, data))
+
+		got, err := Get[[]byte](bytesPath)
+		require.NoError(t, err)
+		require.Equal(t, data, got)
+
+		// Manual verification: head len=11, chunk0 has padded data
+		headData := st.stateDB.GetState(st.address, bytesPath.slot)
+		require.Equal(t, uint64(11), binary.BigEndian.Uint64(headData[:8]))
+
+		baseSlot := crypto.Keccak256Hash(bytesPath.slot.Bytes())
+		chunk0 := st.stateDB.GetState(st.address, baseSlot)
+		require.Equal(t, data, chunk0[:11]) // First 11 bytes match
+		empty21Bytes := [21]byte{}
+		require.EqualValues(t, empty21Bytes[:], chunk0[11:]) // Rest zero-padded
+	})
+
+	t.Run("MediumBytesTwoChunks", func(t *testing.T) {
+		data := make([]byte, 40) // 40 >32, spans two chunks
+		copy(data, "this is a medium byte array that spans slots exactly")
+		require.NoError(t, Set(bytesPath, data))
+
+		got, err := Get[[]byte](bytesPath)
+		require.NoError(t, err)
+		require.Equal(t, data, got)
+
+		// Verify chunks
+		headData := st.stateDB.GetState(st.address, bytesPath.slot)
+		require.Equal(t, uint64(40), binary.BigEndian.Uint64(headData[:8]))
+
+		baseSlot := crypto.Keccak256Hash(bytesPath.slot.Bytes())
+		chunk0 := st.stateDB.GetState(st.address, baseSlot) // Full 32B
+		chunk1 := st.stateDB.GetState(st.address, common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(baseSlot.Bytes()), big.NewInt(1))))
+
+		require.Equal(t, data[:32], chunk0[:])
+		require.Equal(t, data[32:], chunk1[:8]) // Partial: 8B
+
+		empty24Bytes := [24]byte{}
+		require.Equal(t, empty24Bytes[:], chunk1[8:]) // Rest zero
+	})
+
+	t.Run("LargeBytesMultiChunk", func(t *testing.T) {
+		data := make([]byte, 100) // Multi-chunk: 4 full (128B needed, but partial last)
+		for i := range data {
+			data[i] = byte('A' + (i % 26)) // Repeat pattern for easy verify
+		}
+		require.NoError(t, Set(bytesPath, data))
+
+		got, err := Get[[]byte](bytesPath)
+		require.NoError(t, err)
+		require.Equal(t, data, got)
+
+		// Spot-check chunks (no full manual decode; trust accessor)
+		headData := st.stateDB.GetState(st.address, bytesPath.slot)
+		require.Equal(t, uint64(100), binary.BigEndian.Uint64(headData[:8]))
+
+		baseSlot := crypto.Keccak256Hash(bytesPath.slot.Bytes())
+		// Chunk 0: bytes 0-31
+		chunk0 := st.stateDB.GetState(st.address, baseSlot)
+		require.Equal(t, data[:32], chunk0[:])
+		// Chunk 3: bytes 96-100 (partial)
+		chunk3Slot := common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(baseSlot.Bytes()), big.NewInt(3)))
+		chunk3 := st.stateDB.GetState(st.address, chunk3Slot)
+		require.Equal(t, data[96:100], chunk3[:4])
+		empty28Bytes := [28]byte{}
+		require.Equal(t, empty28Bytes[:], chunk3[4:]) // Padded zero
+	})
+
+	t.Run("OverwriteResize", func(t *testing.T) {
+		// Set initial large
+		initial := make([]byte, 50)
+		copy(initial, "initial data longer than 32")
+		require.NoError(t, Set(bytesPath, initial))
+
+		// Overwrite smaller: should clear extra chunks
+		updated := []byte("shorter data")
+		require.NoError(t, Set(bytesPath, updated))
+
+		got, err := Get[[]byte](bytesPath)
+		require.NoError(t, err)
+		require.Equal(t, updated, got)
+		require.NotEqual(t, initial, got) // Different
+
+		// Verify old tail chunk zeroed (gas refund sim)
+		headData := st.stateDB.GetState(st.address, bytesPath.slot)
+		require.Equal(t, uint64(len(updated)), binary.BigEndian.Uint64(headData[:8])) // New len
+
+		baseSlot := crypto.Keccak256Hash(bytesPath.slot.Bytes())
+		// Old chunk 1 (bytes 32-50) should now be zero
+		chunk1 := st.stateDB.GetState(st.address, common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(baseSlot.Bytes()), big.NewInt(1))))
+		require.Equal(t, common.Hash{}, chunk1) // Fully zeroed
+	})
+
+	t.Run("ErrorLargeSize", func(t *testing.T) {
+		// Test panic on >1<<20 (1MB); use recover for coverage
+		huge := make([]byte, 1<<20+1)
+		defer func() {
+			if r := recover(); r != nil {
+				require.Contains(t, r.(error).Error(), "bytes too large") // Matches panic msg
+			}
+		}()
+		// This should panic in WriteAt
+		Set(bytesPath, huge)
+		t.Error("Expected panic on oversized bytes") // Fail if no panic
+	})
 }

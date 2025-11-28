@@ -4,19 +4,7 @@ import (
 	"math/big"
 
 	"github.com/holiman/uint256"
-
-	"github.com/autonity/autonity/common"
 )
-
-type Address common.Address
-
-func NewAddressFromBytes(bytes []byte) Address {
-	return Address(common.BytesToAddress(bytes))
-}
-
-func (a *Address) ToCommonAddress() common.Address {
-	return common.Address(*a)
-}
 
 type Uint256 struct {
 	uint256.Int
