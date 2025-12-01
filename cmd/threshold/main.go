@@ -123,16 +123,11 @@ func lagrangeCoeff(i *big.Int, Js []*big.Int) *big.Int {
 	return lambda
 }
 
-func thresholdSigning() {
-	n := 5 // number of participants
-	t := 3 // threshold
-	// TODO: from boldireya paper seems like there is a constraint t < n/2
-	msg := []byte("Hello Threshold BLS")
-
+func shamirSecretSharing(n int, t int) (*big.Int, []*big.Int, blst.PublicKey, error) {
 	// generate master secret
 	secretScalar, err := randomNonZeroScalar()
 	if err != nil {
-		panic(err)
+		return nil, nil, nil, fmt.Errorf("error while generating secret scalar: %w", err)
 	}
 	fmt.Printf("secret scalar: %s (%v)\n", secretScalar.String(), secretScalar.Bytes())
 	secretKey := bigToSecretKey(secretScalar)
@@ -143,7 +138,7 @@ func thresholdSigning() {
 	// generate shamir poly
 	poly, err := makePoly(t, secretScalar)
 	if err != nil {
-		panic(err)
+		return nil, nil, nil, fmt.Errorf("error while generating poly: %w", err)
 	}
 	fmt.Printf("poly %v \n", poly)
 
@@ -153,6 +148,19 @@ func thresholdSigning() {
 		secretShares = append(secretShares, evalPoly(poly, new(big.Int).SetUint64(uint64(i))))
 	}
 	fmt.Printf("secret shares %v \n", secretShares)
+	return secretScalar, secretShares, publicKey, nil
+}
+
+func thresholdSigning() {
+	n := 5 // number of participants
+	t := 3 // threshold
+	// TODO: from boldireya paper seems like there is a constraint t < n/2
+	msg := []byte("Hello Threshold BLS")
+
+	_, secretShares, publicKey, err := shamirSecretSharing(n, t)
+	if err != nil {
+		panic(err)
+	}
 
 	// generate partial sigs
 	partialSigs := make([]blst.Signature, 0, n) // NOTE: partialSigs[0] == reconstructed signature
@@ -435,30 +443,10 @@ func thresholdDecryption() {
 	t := 3 // threshold
 	msg := []byte("Hello Threshold BLS decryption")
 
-	// master secret
-	secretScalar, err := randomNonZeroScalar()
+	secretScalar, secretShares, publicKey, err := shamirSecretSharing(n, t)
 	if err != nil {
 		panic(err)
 	}
-	secretKey := bigToSecretKey(secretScalar)
-	publicKey := secretKey.PublicKey()
-
-	fmt.Printf("secret scalar: %s (%v)\n", secretScalar.String(), secretScalar.Bytes())
-	fmt.Printf("secret key %s (%v)\n", secretKey.Hex(), secretKey.Marshal())
-	fmt.Printf("public key %s (%v)\n", publicKey.Hex(), publicKey.Marshal())
-
-	// Shamir polynomial
-	poly, err := makePoly(t, secretScalar)
-	if err != nil {
-		panic(err)
-	}
-
-	// compute shares. NOTE: secretShares[0] == secretScalar
-	secretShares := make([]*big.Int, 0, n)
-	for i := 0; i <= n; i++ {
-		secretShares = append(secretShares, evalPoly(poly, new(big.Int).SetUint64(uint64(i))))
-	}
-	fmt.Printf("secret shares %v \n", secretShares)
 
 	// encrypt
 	u, v, w, err := bzEncrypt(publicKey, msg)
