@@ -28,6 +28,39 @@ var (
 		reflect.TypeOf([]byte{}): func() (abi.Type, error) {
 			return abi.NewType("bytes", "bytes", nil)
 		},
+		reflect.TypeOf(""): func() (abi.Type, error) {
+			return abi.NewType("string", "string", nil)
+		},
+		reflect.TypeOf(uint8(0)): func() (abi.Type, error) {
+			return abi.NewType("uint8", "", nil)
+		},
+		reflect.TypeOf(uint16(0)): func() (abi.Type, error) {
+			return abi.NewType("uint16", "", nil)
+		},
+		reflect.TypeOf(uint32(0)): func() (abi.Type, error) {
+			return abi.NewType("uint32", "", nil)
+		},
+		reflect.TypeOf(uint64(0)): func() (abi.Type, error) {
+			return abi.NewType("uint64", "", nil)
+		},
+		reflect.TypeOf(int8(0)): func() (abi.Type, error) {
+			return abi.NewType("int8", "", nil)
+		},
+		reflect.TypeOf(int16(0)): func() (abi.Type, error) {
+			return abi.NewType("int16", "", nil)
+		},
+		reflect.TypeOf(int32(0)): func() (abi.Type, error) {
+			return abi.NewType("int32", "", nil)
+		},
+		reflect.TypeOf(int64(0)): func() (abi.Type, error) {
+			return abi.NewType("int64", "", nil)
+		},
+		reflect.TypeOf(common.Hash{}): func() (abi.Type, error) {
+			return abi.NewType("bytes32", "", nil)
+		},
+		reflect.TypeOf([32]byte{}): func() (abi.Type, error) {
+			return abi.NewType("bytes32", "", nil)
+		},
 		//todo: more types
 	}
 )
@@ -53,6 +86,35 @@ func (d *Dispatcher) AddMethod(method abi.Method, goMethod reflect.Value) {
 	copy(selArray[:], sel)
 	d.Methods[selArray] = goMethod
 	d.SelectorToName[selArray] = method.Name
+}
+
+func resolveABIType(goType reflect.Type) (abi.Type, error) {
+	mapped, ok := GoTypeToABI[goType]
+	if !ok {
+		// check if this is a dynamic type
+		if goType.Kind() == reflect.Slice {
+			elemType := goType.Elem()
+			elemMapped, elemOk := GoTypeToABI[elemType]
+			if elemOk {
+				abiElemType, err := elemMapped()
+				if err != nil {
+					log.Info(err.Error())
+					return abiElemType, err
+				}
+				// construct dynamic array type
+				arrayTypeStr := abiElemType.String() + "[]"
+				// udpate mapped
+				mapped = func() (abi.Type, error) {
+					return abi.NewType(arrayTypeStr, arrayTypeStr, nil)
+				}
+				return mapped()
+			} else {
+				err := fmt.Errorf("unsupported input type %s", goType.String())
+				log.Info(err.Error())
+			}
+		}
+	}
+	return mapped()
 }
 
 func InferABIMethods(d *Dispatcher, contractVal reflect.Value) error {
@@ -99,32 +161,22 @@ loop:
 		// structure inputs
 		inputs := abi.Arguments{}
 		for j := 4; j < mt.NumIn(); j++ {
-			inputType := mt.In(j)
-			mapped, ok := GoTypeToABI[inputType]
-			if !ok {
-				err := fmt.Errorf("unsupported input type %s for method %s", inputType.String(), m.Name)
-				log.Info(err.Error())
-				continue loop
-			}
-			abiType, err := mapped()
+			abiType, err := resolveABIType(mt.In(j))
 			if err != nil {
-				log.Info(err.Error())
+				log.Info("Skipping method due to input type", "method", m.Name, "err", err)
 				continue loop
 			}
 			// 1-based indexing(j-3) for input arguments, as 0 is reserved for the method receiver
-			inputs = append(inputs, abi.Argument{Name: fmt.Sprintf("arg%d", j-3), Type: abiType, Indexed: false})
+			inputs = append(inputs, abi.Argument{
+				Name: fmt.Sprintf("arg%d", j-3),
+				Type: abiType,
+			})
 		}
 
 		// structure outputs
 		outputs := abi.Arguments{}
 		for j := 0; j < mt.NumOut()-1; j++ {
-			outType := mt.Out(j)
-			mapped, ok := GoTypeToABI[outType]
-			if !ok {
-				err := fmt.Errorf("unsupported output type %s for method %s", outType.String(), m.Name)
-				log.Info(err.Error())
-			}
-			abiType, err := mapped()
+			abiType, err := resolveABIType(mt.Out(j))
 			if err != nil {
 				log.Info(err.Error())
 				continue loop
