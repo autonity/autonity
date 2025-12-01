@@ -9,10 +9,6 @@ import (
 	"github.com/autonity/autonity/core/vm/precompile_sdk/storage"
 )
 
-type Contract interface {
-	Run(input []byte, blockNumber uint64, evm *vm.EVM, caller common.Address) ([]byte, error)
-}
-
 type BaseContract struct {
 	Address    common.Address
 	StateType  reflect.Type
@@ -36,4 +32,9 @@ func SetupContract(childContract interface{}, stateType reflect.Type, addr commo
 func (b *BaseContract) Run(input []byte, blockNumber uint64, evm *vm.EVM, caller common.Address) ([]byte, error) {
 	st := storage.NewStorage(b.Address, evm.StateDB, b.Slots)
 	return b.Dispatcher.Dispatch(input, evm, caller, st)
+}
+
+func (p *BaseContract) RequiredGas(input []byte) uint64 {
+	// todo: we can keep it dynamic, for now a fixed value
+	return 1000
 }

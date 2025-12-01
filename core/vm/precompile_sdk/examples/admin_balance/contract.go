@@ -19,12 +19,12 @@ func NewAdminBalanceContract(evm *vm.EVM, address common.Address) *AdminBalanceC
 	c.BaseContract = precompile_sdk.SetupContract(c, reflect.TypeOf(AdminBalanceState{}), address)
 	// set default values
 	st := storage.NewStorage(c.Address, evm.StateDB, c.Slots)
-	protocolAdmin := storage.Address(common.HexToAddress("0x000000000000000000000000000000000000dead"))
-	err := st.SetAddress("Admin", protocolAdmin)
+	protocolAdmin := common.HexToAddress("0x000000000000000000000000000000000000dead")
+	err := storage.Set[common.Address](st.Field("Admin"), protocolAdmin)
 	if err != nil {
 		panic(err)
 	}
-	err = st.SetUint256("Balance", storage.NewUint256FromInt(100))
+	err = storage.Set[storage.Uint256](st.Field("Balance"), storage.NewUint256FromInt(100))
 	if err != nil {
 		panic(err)
 	}
@@ -34,10 +34,10 @@ func NewAdminBalanceContract(evm *vm.EVM, address common.Address) *AdminBalanceC
 func (c *AdminBalanceContract) UpdateBalance(evm *vm.EVM, caller common.Address, st *storage.Storage, newBalance *big.Int) error {
 	// authorization checks
 	newbal := storage.NewUint256FromBig(newBalance)
-	return st.SetUint256("Balance", newbal)
+	return storage.Set[storage.Uint256](st.Field("Balance"), newbal)
 }
 
 func (c *AdminBalanceContract) UpdateAdmin(evm *vm.EVM, caller common.Address, st *storage.Storage, adminAddress common.Address) error {
 	// authorization checks
-	return st.SetAddress("Admin", storage.NewAddressFromBytes(adminAddress.Bytes()))
+	return storage.Set[common.Address](st.Field("Admin"), adminAddress)
 }
