@@ -18,6 +18,10 @@ type Path struct {
 	err  error
 }
 
+func (p *Path) Error() error {
+	return p.err
+}
+
 // Map navigates to the map value for the given key, returns the path to that value.
 func (p *Path) Map(key any) *Path {
 	if p.err != nil {

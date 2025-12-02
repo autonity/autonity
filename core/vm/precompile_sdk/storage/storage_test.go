@@ -402,7 +402,6 @@ func TestByteAccessor(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, data, got)
 
-		// Manual verification: head len=11, chunk0 has padded data
 		headData := st.stateDB.GetState(st.address, bytesPath.slot)
 		require.Equal(t, uint64(11), binary.BigEndian.Uint64(headData[:8]))
 
@@ -448,7 +447,6 @@ func TestByteAccessor(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, data, got)
 
-		// Spot-check chunks (no full manual decode; trust accessor)
 		headData := st.stateDB.GetState(st.address, bytesPath.slot)
 		require.Equal(t, uint64(100), binary.BigEndian.Uint64(headData[:8]))
 
@@ -479,12 +477,10 @@ func TestByteAccessor(t *testing.T) {
 		require.Equal(t, updated, got)
 		require.NotEqual(t, initial, got) // Different
 
-		// Verify old tail chunk zeroed (gas refund sim)
 		headData := st.stateDB.GetState(st.address, bytesPath.slot)
 		require.Equal(t, uint64(len(updated)), binary.BigEndian.Uint64(headData[:8])) // New len
 
 		baseSlot := crypto.Keccak256Hash(bytesPath.slot.Bytes())
-		// Old chunk 1 (bytes 32-50) should now be zero
 		chunk1 := st.stateDB.GetState(st.address, common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(baseSlot.Bytes()), big.NewInt(1))))
 		require.Equal(t, common.Hash{}, chunk1) // Fully zeroed
 	})

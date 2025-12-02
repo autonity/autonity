@@ -61,7 +61,7 @@ var (
 		reflect.TypeOf([32]byte{}): func() (abi.Type, error) {
 			return abi.NewType("bytes32", "", nil)
 		},
-		//todo: more types
+		//todo: more types and structs
 	}
 )
 
