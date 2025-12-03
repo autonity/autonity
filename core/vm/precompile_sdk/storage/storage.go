@@ -110,12 +110,13 @@ func AssignSlots(stateType reflect.Type) map[string]SlotInfo {
 
 	rootLayout, _ := compileTypeLayout(stateType)
 	globalSlotMap := make(map[string]SlotInfo)
+	// flattening the layout is optional, however it makes it easier to lookup slots by full absolute path
+	// and since it's done only once at initialization, the cost is acceptable
 	flattenLayout("", rootLayout, globalSlotMap)
 	return globalSlotMap
 }
 
-// getSubSlotsForType drills down through Arrays/Slices to find the underlying
-// Struct layout. This ensures map[Addr][]Profile gets the layout of Profile.
+// getSubSlotsForType drills down through dynamic types to find the underlying type layout.
 func getSubSlotsForType(typ reflect.Type) map[string]SlotInfo {
 	if typ.Kind() == reflect.Struct {
 		layout, _ := compileTypeLayout(typ)
@@ -191,7 +192,7 @@ func compileTypeLayout(typ reflect.Type) (map[string]SlotInfo, uint64) {
 			} else {
 				// For Arrays, we need the Layout of the ELEMENT, not the array itself
 				// But we need the Size of the ARRAY
-				// if the element is an struct the subLayout will capture the struct layout
+				// if the element is a struct, then subLayout will capture the layout of that struct
 				// else sublayout will be set to nil
 				subLayOut, _ = compileTypeLayout(fieldType.Elem())
 				// Calculate Array Size
@@ -244,7 +245,6 @@ func compileTypeLayout(typ reflect.Type) (map[string]SlotInfo, uint64) {
 	return layout, currentSlot
 }
 
-// todo: optimize flattening
 func flattenLayout(prefix string, layout map[string]SlotInfo, target map[string]SlotInfo) {
 	for name, info := range layout {
 		fullName := name

@@ -1,6 +1,7 @@
 package trade_engine
 
 import (
+	"crypto/sha256"
 	"math/big"
 	"testing"
 
@@ -44,11 +45,11 @@ func TestSubmitOrder(t *testing.T) {
 	require.Equal(t, qty.Uint64(), ord.Qty.Uint64())
 	require.Equal(t, uint8(0), ord.Status) // Open
 
+	updatedBook, err := c.repo.GetBook(sha256.Sum256([]byte(pair)))
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), updatedBook.NextID.Uint64())
+
 	// todo: verify/fix order book updated
-	//updatedBook, err := c.repo.GetBook(sha256.Sum256([]byte(pair)))
-	//require.NoError(t, err)
-	//require.Equal(t, uint64(2), updatedBook.NextID.Uint64())
-	//
 	//require.Equal(t, qty.Uint64(), updatedBook.Bids[0].TotalQty.Uint64())
 	//require.Equal(t, 1, len(updatedBook.Bids[0].OrderIDs)) // Grown append
 	//require.Equal(t, orderID, updatedBook.Bids[0].OrderIDs[0])

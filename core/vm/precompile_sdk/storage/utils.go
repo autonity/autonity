@@ -128,17 +128,13 @@ func isDynamicType(typ reflect.Type) bool {
 
 // getElemSize calculates the storage size of a single element
 func getElemSize(typ reflect.Type) (int, bool) {
-	// Primitive
 	if size, ok := getPrimitiveSize(typ); ok {
 		return size, true
 	}
-	// Struct
 	if typ.Kind() == reflect.Struct {
-		// Compile layout to see total size
 		_, slots := compileTypeLayout(typ)
 		return int(slots * 32), true
 	}
-	// Array
 	if typ.Kind() == reflect.Array {
 		elemSize, ok := getElemSize(typ.Elem())
 		if !ok {
