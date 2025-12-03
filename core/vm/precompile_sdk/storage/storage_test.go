@@ -149,8 +149,8 @@ func TestMapOfAddressToStructArrays(t *testing.T) {
 	}
 
 	// Set: Chain to map value (dynamic array), append profile, set sub-fields
-	mapPath := st.Field("UserArrays").Map(testAddr) // Resolves keccak(encode(addr) || base_slot)
-	arr, err := NewArray[Profile](mapPath)          // Wraps for push
+	mapPath := st.Field("UserArrays").Map(testAddr)
+	arr, err := NewArray[Profile](mapPath) // Wraps for push
 	require.NoError(t, err)
 
 	profileRef, err := arr.Grow()
@@ -167,11 +167,10 @@ func TestMapOfAddressToStructArrays(t *testing.T) {
 	require.NoError(t, err)
 
 	// Update nested: Index(0).Field("Config").Field("Enabled").Set(false)
-	updatedPath := mapPath.Index(0).Field("Config").Field("IsEnabled") // resolveSliceElemSlot → struct rel offset
-	err = Set[bool](updatedPath, false)                                // Accessor overlays bool at offset (byte 4 in packed struct, right-aligned)
+	updatedPath := mapPath.Index(0).Field("Config").Field("IsEnabled")
+	err = Set[bool](updatedPath, false)
 	require.NoError(t, err)
 
-	// Get: Chain read back, verify
 	_, err = arr.Len()
 	require.NoError(t, err)
 
@@ -181,7 +180,6 @@ func TestMapOfAddressToStructArrays(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(42), gotLevel)
 
-	// Pop: Remove last (clears slot for refund, dec len)
 	err = arr.Shrink()
 	require.NoError(t, err)
 
@@ -242,11 +240,9 @@ func TestMapKeyVariations(t *testing.T) {
 	require.Equal(t, uint64(55), gotLevel)
 }
 
-// --- Test 2: Nested Maps ---
 func TestNestedMaps(t *testing.T) {
 	st := newComplexStorage(t)
 
-	// Solidity: mapping(address => mapping(uint64 => bool))
 	rootMap := st.Field("UserPermissions")
 
 	user := testUserAddr
@@ -274,7 +270,7 @@ func TestNestedMaps(t *testing.T) {
 func TestArrayOfMaps(t *testing.T) {
 	st := newComplexStorage(t)
 
-	snapshotsArr, err := NewArray[map[uint64]uint64](st.Field("Snapshots")) // Type T doesn't matter much for Next/Map calls
+	snapshotsArr, err := NewArray[map[uint64]uint64](st.Field("Snapshots"))
 	require.NoError(t, err)
 
 	// 1. Add a new Snapshot (Index 0)
@@ -307,12 +303,10 @@ func TestArrayOfMaps(t *testing.T) {
 func TestSliceOfMaps(t *testing.T) {
 	st := newComplexStorage(t)
 
-	// Solidity: mapping(uint64 => uint64)[] snapshots;
 	snapshotsArr, err := NewArray[map[uint64]uint64](st.Field("Snapshots")) // Type T doesn't matter much for Next/Map calls
 	require.NoError(t, err)
 
 	// 1. Add a new Snapshot (Index 0)
-	// Next() returns path to Snapshots[0] (which is a Map root)
 	snap0, err := snapshotsArr.Grow()
 	require.NoError(t, snap0.err)
 
@@ -340,7 +334,6 @@ func TestSliceOfMaps(t *testing.T) {
 	require.Equal(t, uint64(900), val1)
 }
 
-// --- Test 4: Packed Fixed Arrays ---
 func TestPackedFixedArray(t *testing.T) {
 	st := newComplexStorage(t)
 
@@ -372,7 +365,6 @@ func TestPackedFixedArray(t *testing.T) {
 func TestByteAccessor(t *testing.T) {
 	st := newComplexStorage(t)
 
-	// Path to the bytes field (assumes AssignSlots includes it at some slot)
 	bytesPath := st.Field("UserData")
 	if bytesPath.err != nil {
 		t.Fatalf("Failed to resolve UserData path: %v", bytesPath.err)
@@ -496,5 +488,141 @@ func TestByteAccessor(t *testing.T) {
 		// This should panic in WriteAt
 		Set(bytesPath, huge)
 		t.Error("Expected panic on oversized bytes") // Fail if no panic
+	})
+}
+
+func Test2DArrays(t *testing.T) {
+	t.Run("Primitive2D", func(t *testing.T) {
+		type Primitive2D struct {
+			Data [2][3]uint64 // Fixed 2D array of primitives: packed contiguous
+		}
+		r := tests.Setup(t, nil)
+		slots := AssignSlots(reflect.TypeOf(Primitive2D{}))
+		st := NewStorage(testContractAddr, r.Evm.StateDB, slots)
+
+		path := st.Field("Data")
+		require.NoError(t, path.err)
+
+		// Set values: Data[0][0]=1, Data[0][1]=2, Data[1][2]=6 (spills across slots?)
+		err := Set(path.Index(0).Index(0), uint64(5))
+		require.NoError(t, err)
+		err = Set(path.Index(0).Index(1), uint64(2))
+		require.NoError(t, err)
+		err = Set(path.Index(1).Index(2), uint64(6))
+		require.NoError(t, err)
+
+		// Verify
+		v00, err := Get[uint64](path.Index(0).Index(0))
+		require.NoError(t, err)
+		require.Equal(t, uint64(5), v00)
+		v01, err := Get[uint64](path.Index(0).Index(1))
+		require.NoError(t, err)
+		require.Equal(t, uint64(2), v01)
+		v12, err := Get[uint64](path.Index(1).Index(2))
+		require.NoError(t, err)
+		require.Equal(t, uint64(6), v12)
+
+		// Check default zeros
+		v10, err := Get[uint64](path.Index(1).Index(0))
+		require.NoError(t, err)
+		require.Zero(t, v10)
+	})
+
+	t.Run("Dynamic2D", func(t *testing.T) {
+		type Dynamic2D struct {
+			Data [][]uint64 // Slice of slices: outer dynamic, inner dynamic (primitives)
+		}
+		r := tests.Setup(t, nil)
+		slots := AssignSlots(reflect.TypeOf(Dynamic2D{}))
+		st := NewStorage(testContractAddr, r.Evm.StateDB, slots)
+
+		outerPath := st.Field("Data")
+		require.NoError(t, outerPath.err)
+
+		// Grow outer to len=2 (sets length at base)
+		outerArr, err := NewArray[[]uint64](outerPath)
+		require.NoError(t, err)
+		_, err = outerArr.Grow() // Row 0
+		require.NoError(t, err)
+		_, err = outerArr.Grow() // Row 1
+		require.NoError(t, err)
+
+		// For row 0: Grow inner to len=3, set [0]=10, [1]=20
+		row0Path := outerArr.ReferenceAt(0)
+		inner0Arr, err := NewArray[uint64](row0Path)
+		require.NoError(t, err)
+		for i := 0; i < 3; i++ {
+			_, err = inner0Arr.Grow()
+			require.NoError(t, err)
+		}
+		err = Set(inner0Arr.ReferenceAt(0), uint64(10))
+		require.NoError(t, err)
+		err = Set(inner0Arr.ReferenceAt(1), uint64(20))
+		require.NoError(t, err)
+
+		// For row 1: Grow inner to len=2, set [0]=30
+		row1Path := outerArr.ReferenceAt(1)
+		inner1Arr, err := NewArray[uint64](row1Path)
+		require.NoError(t, err)
+		for i := 0; i < 2; i++ {
+			_, err = inner1Arr.Grow()
+			require.NoError(t, err)
+		}
+		err = Set(inner1Arr.ReferenceAt(0), uint64(30))
+		require.NoError(t, err)
+
+		//// Verify isolation
+		out0 := outerArr.ReferenceAt(0)
+		out0Arr, err := NewArray[uint64](out0)
+		require.NoError(t, err)
+		got00, err := Get[uint64](out0Arr.ReferenceAt(0))
+		require.NoError(t, err)
+		require.Equal(t, uint64(10), got00)
+
+		got01, err := Get[uint64](out0Arr.ReferenceAt(1))
+		require.NoError(t, err)
+		require.Equal(t, uint64(20), got01)
+
+		out1 := outerArr.ReferenceAt(1)
+		out1Arr, err := NewArray[uint64](out1)
+		require.NoError(t, err)
+		got10, err := Get[uint64](out1Arr.ReferenceAt(0))
+		require.NoError(t, err)
+		require.Equal(t, uint64(30), got10)
+
+		// todo: shrink doesn't work for 2D slices
+		//err = out1Arr.Shrink()
+		//require.NoError(t, err)
+		//
+		//got10, err = Get[uint64](out1Arr.ReferenceAt(1))
+		//require.NoError(t, err)
+	})
+
+	t.Run("FixedDynamic2D", func(t *testing.T) {
+		// Test fixed outer, dynamic inner: [2][]uint64 – exposes layout gaps (dynamic elems in fixed)
+		type FixedDynamic2D struct {
+			Data [2][]uint64 // Fixed array of dynamic slices: Should err or under-resolve
+		}
+		r := tests.Setup(t, nil)
+		slots := AssignSlots(reflect.TypeOf(FixedDynamic2D{}))
+		st := NewStorage(testContractAddr, r.Evm.StateDB, slots)
+
+		path := st.Field("Data")
+		require.NoError(t, path.err)
+
+		row0Path := path.Index(0)
+		inner0Arr, err := NewArray[uint64](row0Path)
+		require.NoError(t, err)
+		_, err = inner0Arr.Grow()
+		require.NoError(t, err)
+		err = Set(inner0Arr.ReferenceAt(0), uint64(123))
+		require.NoError(t, err)
+
+		row0Path = path.Index(0)
+		inner0Arr, _ = NewArray[uint64](row0Path)
+		val, err := Get[uint64](inner0Arr.ReferenceAt(0))
+		require.NoError(t, err)
+		require.Equal(t, uint64(123), val)
+
 	})
 }

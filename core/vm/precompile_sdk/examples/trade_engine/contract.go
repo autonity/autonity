@@ -99,7 +99,7 @@ func (te *TradingEngineContract) CancelOrder(evm *vm.EVM, caller common.Address,
 	}
 
 	pairHash := sha256.Sum256([]byte(pair))
-	// todo: pass order here
+	// todo(optimize): pass order here
 	if err := te.repo.RemoveFromOrderBook(pairHash, orderID); err != nil {
 		return err
 	}

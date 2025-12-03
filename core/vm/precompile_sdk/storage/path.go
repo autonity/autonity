@@ -56,9 +56,9 @@ func (p *Path) Map(key any) *Path {
 	} else if valType.Kind() == reflect.Slice {
 		newInfo.ValueType = valType
 		newInfo.IsDynamic = true
-		newInfo.Resolver = NewResolverForType(valType, newSlot)
+		newInfo.Resolver = NewResolverForType(valType, newSlot, 0)
 	} else if valType.Kind() == reflect.Array {
-		newInfo.Resolver = NewResolverForType(valType, newSlot)
+		newInfo.Resolver = NewResolverForType(valType, newSlot, 0)
 	}
 	return &Path{
 		s:    p.s,
@@ -104,7 +104,10 @@ func (p *Path) Index(idx uint64) *Path {
 	// If the element is a Slice (Slice of Slices), we need a new resolver
 	if elemType.Kind() == reflect.Slice {
 		info.IsDynamic = true
-		info.Resolver = NewDynamicResolver(slot)
+	}
+
+	if elemType.Kind() == reflect.Array || elemType.Kind() == reflect.Slice {
+		info.Resolver = NewResolverForType(elemType, slot, offset)
 	}
 	// always create a new instance
 	return &Path{

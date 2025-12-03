@@ -61,7 +61,7 @@ func (a *Array[T]) SetValueAt(i uint64, value T) error {
 	return Set[T](a.p.Index(i), value)
 }
 
-// Grow increases the array length by 1 and returns the Path to the new element.
+// Grow increases the array length by 1 and returns the Path to the new element. doesn't support 2D Slices.
 func (a *Array[T]) Grow() (*Path, error) {
 	if a.isStatic {
 		return nil, fmt.Errorf("cannot grow static array")
@@ -78,7 +78,7 @@ func (a *Array[T]) Grow() (*Path, error) {
 	return a.p.Index(length), nil
 }
 
-// Shrink decreases the array length by 1.
+// Shrink decreases the array length by 1, doesn't support 2D Slices.
 func (a *Array[T]) Shrink() error {
 	if a.isStatic {
 		return fmt.Errorf("cannot shrink static array")

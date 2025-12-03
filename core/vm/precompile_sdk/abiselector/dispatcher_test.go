@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/core/vm/precompile_sdk/storage"
@@ -19,31 +21,26 @@ type mockContract struct {
 	ret2   bool
 }
 
-// Simple void method.
 func (m *mockContract) NoParamVoid(_ *vm.EVM, _ common.Address, _ *storage.Storage) error {
 	m.called = true
 	return nil
 }
 
-// Method with uint256 param.
 func (m *mockContract) WithUintParam(_ *vm.EVM, _ common.Address, _ *storage.Storage, param *big.Int) error {
 	m.param1 = param
 	return nil
 }
 
-// Method with return.
 func (m *mockContract) WithReturn(_ *vm.EVM, _ common.Address, _ *storage.Storage) (*big.Int, error) {
 	return m.ret1, nil
 }
 
-// Complex: Multi-param, multi-return.
 func (m *mockContract) MultiParamReturn(_ *vm.EVM, _ common.Address, _ *storage.Storage, addr common.Address, val *big.Int) (bool, *big.Int, error) {
 	m.param2 = addr
 	m.param1 = val
 	return m.ret2, m.ret1, nil
 }
 
-// Unsupported type for error test (e.g., float64 not in map).
 func (m *mockContract) UnsupportedParam(_ *vm.EVM, _ common.Address, _ *storage.Storage, f float64) error {
 	return nil
 }
@@ -83,7 +80,6 @@ func TestInferABIMethods(t *testing.T) {
 	}
 }
 
-// TestDispatch_SimpleVoid: Call no-param void.
 func TestDispatch_SimpleVoid(t *testing.T) {
 	d := NewDispatcher()
 	mock := &mockContract{}
@@ -107,11 +103,11 @@ func TestDispatch_SimpleVoid(t *testing.T) {
 	}
 }
 
-// TestDispatch_WithParam: Uint256 input.
 func TestDispatch_WithParam(t *testing.T) {
 	d := NewDispatcher()
 	mock := &mockContract{}
-	InferABIMethods(d, reflect.ValueOf(mock))
+	err := InferABIMethods(d, reflect.ValueOf(mock))
+	require.NoError(t, err)
 
 	method := d.ABI.Methods["WithUintParam"]
 	sel := crypto.Keccak256Hash([]byte(method.Sig)).Bytes()[:4]
@@ -120,16 +116,13 @@ func TestDispatch_WithParam(t *testing.T) {
 	input := append(sel, args...)
 
 	caller := common.Address{}
-	_, err := d.Dispatch(input, caller, mockEVM(), mockStorage())
-	if err != nil {
-		t.Fatalf("dispatch error: %v", err)
-	}
+	_, err = d.Dispatch(input, caller, mockEVM(), mockStorage())
+	require.NoError(t, err)
 	if mock.param1.Cmp(param) != 0 {
 		t.Errorf("expected param %v, got %v", param, mock.param1)
 	}
 }
 
-// TestDispatch_WithReturn: Output packing.
 func TestDispatch_WithReturn(t *testing.T) {
 	d := NewDispatcher()
 	mock := &mockContract{ret1: big.NewInt(100)}
@@ -154,7 +147,6 @@ func TestDispatch_WithReturn(t *testing.T) {
 	}
 }
 
-// TestDispatch_MultiParamReturn: Complex case.
 func TestDispatch_MultiParamReturn(t *testing.T) {
 	d := NewDispatcher()
 	mock := &mockContract{ret1: big.NewInt(200), ret2: true}

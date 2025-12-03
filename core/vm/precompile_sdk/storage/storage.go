@@ -33,7 +33,7 @@ type ElementResolver interface {
 	ResolveElementSlot(index uint64) (slot common.Hash, offset uint64, err error)
 }
 
-func NewResolverForType(typ reflect.Type, baseSlot common.Hash) ElementResolver {
+func NewResolverForType(typ reflect.Type, baseSlot common.Hash, offset uint64) ElementResolver {
 	kind := typ.Kind()
 	if kind != reflect.Slice && kind != reflect.Array {
 		return nil
@@ -45,16 +45,17 @@ func NewResolverForType(typ reflect.Type, baseSlot common.Hash) ElementResolver 
 	if elemSize == 0 {
 		return nil // Err in caller
 	}
-	return NewFixedResolver(baseSlot, uint64(elemSize))
+	return NewFixedResolver(baseSlot, uint64(elemSize), offset)
 }
 
 type FixedResolver struct {
-	baseSlot common.Hash
-	elemSize uint64
+	baseSlot   common.Hash
+	baseOffset uint64 // for multi dimensional arrays, the base offset can be non-zero
+	elemSize   uint64
 }
 
-func NewFixedResolver(baseSlot common.Hash, elemSize uint64) *FixedResolver {
-	return &FixedResolver{baseSlot: baseSlot, elemSize: elemSize}
+func NewFixedResolver(baseSlot common.Hash, elemSize uint64, offset uint64) *FixedResolver {
+	return &FixedResolver{baseSlot: baseSlot, elemSize: elemSize, baseOffset: offset}
 }
 
 func (fr *FixedResolver) ResolveElementSlot(index uint64) (common.Hash, uint64, error) {
@@ -63,7 +64,7 @@ func (fr *FixedResolver) ResolveElementSlot(index uint64) (common.Hash, uint64, 
 	}
 	baseBig := new(big.Int).SetBytes(fr.baseSlot.Bytes())
 	// calculate slot offset
-	cumSize := index * fr.elemSize
+	cumSize := index*fr.elemSize + fr.baseOffset
 	slotIdx := cumSize / 32
 	slotBig := new(big.Int).Add(baseBig, new(big.Int).SetUint64(slotIdx))
 
@@ -145,7 +146,7 @@ func compileTypeLayout(typ reflect.Type) (map[string]SlotInfo, uint64) {
 			}
 			layout[name] = SlotInfo{
 				Slot:      computeSlotHash(currentSlot),
-				Offset:    32 - (currentOffset + size), // right aligned
+				Offset:    32 - (currentOffset + size), // right aligned in the slot
 				Size:      size,
 				ValueType: fieldType,
 			}
@@ -154,11 +155,12 @@ func compileTypeLayout(typ reflect.Type) (map[string]SlotInfo, uint64) {
 		}
 
 		if isDynamicType(fieldType) {
+			// for a dynamic type, we always start a new slot
 			ensureNewSlot()
 			elemT := fieldType.Elem()
 			info := SlotInfo{
 				Slot:      computeSlotHash(currentSlot),
-				Offset:    currentOffset,
+				Offset:    0, // offset 0 in the slot
 				ValueType: elemT,
 				IsDynamic: true,
 				Size:      32, // full slot for dynamic type
@@ -166,14 +168,13 @@ func compileTypeLayout(typ reflect.Type) (map[string]SlotInfo, uint64) {
 
 			if fieldType.Kind() == reflect.Map {
 				info.KeyType = fieldType.Key()
-				info.ValueType = elemT
 			} else if fieldType.Kind() == reflect.Slice {
 				info.ValueType = fieldType // keep the slice type
 			}
 			// recurse to get the underlying type
 			info.SubSlots = getSubSlotsForType(elemT)
 			// attach resovler
-			info.Resolver = NewResolverForType(fieldType, info.Slot)
+			info.Resolver = NewResolverForType(fieldType, info.Slot, uint64(info.Offset))
 			layout[name] = info
 			currentSlot++
 			return
@@ -190,8 +191,9 @@ func compileTypeLayout(typ reflect.Type) (map[string]SlotInfo, uint64) {
 			} else {
 				// For Arrays, we need the Layout of the ELEMENT, not the array itself
 				// But we need the Size of the ARRAY
-				subLayOut, _ = compileTypeLayout(fieldType.Elem()) // Get Element Layout for SubSlots
-
+				// if the element is an struct the subLayout will capture the struct layout
+				// else sublayout will be set to nil
+				subLayOut, _ = compileTypeLayout(fieldType.Elem())
 				// Calculate Array Size
 				elemSize, _ := getElemSize(fieldType.Elem())
 				totalSize := elemSize * fieldType.Len()
@@ -203,7 +205,7 @@ func compileTypeLayout(typ reflect.Type) (map[string]SlotInfo, uint64) {
 				SubSlots:  subLayOut,
 			}
 			if fieldType.Kind() == reflect.Array {
-				info.Resolver = NewResolverForType(fieldType, info.Slot)
+				info.Resolver = NewResolverForType(fieldType, info.Slot, uint64(info.Offset))
 			}
 			layout[name] = info
 			currentSlot += slotsUsed
@@ -224,6 +226,8 @@ func compileTypeLayout(typ reflect.Type) (map[string]SlotInfo, uint64) {
 			addField(field.Name, field.Type)
 		}
 	}
+	// Although we only compile struct layouts, but we need the array case to handle nested 2D arrays
+	// here we only calculate the total size of a 2D array to advance the slot counter
 	if typ.Kind() == reflect.Array {
 		elem := typ.Elem()
 		elemSize, _ := getElemSize(elem)
