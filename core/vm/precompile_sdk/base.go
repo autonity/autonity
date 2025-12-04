@@ -34,7 +34,7 @@ func (b *BaseContract) Run(input []byte, blockNumber uint64, evm *vm.EVM, caller
 	return b.Dispatcher.Dispatch(input, evm, caller, st)
 }
 
-func (p *BaseContract) RequiredGas(input []byte) uint64 {
+func (b *BaseContract) RequiredGas(input []byte) uint64 {
 	// todo: we can keep it dynamic, for now a fixed value
 	return 1000
 }

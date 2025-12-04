@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
 )
@@ -21,6 +22,15 @@ func NewStorage(address common.Address, stateDB vm.StateDB, slots map[string]Slo
 	return &Storage{address: address, stateDB: stateDB, slotMap: slots}
 }
 
+func (s *Storage) AddLog(topics []common.Hash, data []byte) {
+	log := &types.Log{
+		Address: s.address,
+		Topics:  topics,
+		Data:    data,
+	}
+	s.stateDB.AddLog(log)
+	return
+}
 func (s *Storage) Field(name string) *Path {
 	slotInfo, ok := s.slotMap[name]
 	if !ok {

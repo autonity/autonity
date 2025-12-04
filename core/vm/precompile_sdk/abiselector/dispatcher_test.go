@@ -41,7 +41,7 @@ func (m *mockContract) MultiParamReturn(_ *vm.EVM, _ common.Address, _ *storage.
 	return m.ret2, m.ret1, nil
 }
 
-func (m *mockContract) UnsupportedParam(_ *vm.EVM, _ common.Address, _ *storage.Storage, f float64) error {
+func (m *mockContract) UnsupportedParam(_ *vm.EVM, _ common.Address, _ *storage.Storage, _ float64) error {
 	return nil
 }
 

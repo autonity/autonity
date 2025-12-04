@@ -82,7 +82,7 @@ func (u Uint256Accessor) WriteAt(slot common.Hash, _ int, value any, st *Storage
 
 type AddressAccessor struct{}
 
-func (u AddressAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
+func (a AddressAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	data := st.stateDB.GetState(st.address, slot)
 	return common.BytesToAddress(data[offset : offset+20]), nil
 }

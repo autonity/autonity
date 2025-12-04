@@ -88,7 +88,7 @@ func (d *Dispatcher) AddMethod(method abi.Method, goMethod reflect.Value) {
 	d.SelectorToName[selArray] = method.Name
 }
 
-func resolveABIType(goType reflect.Type) (abi.Type, error) {
+func ResolveABIType(goType reflect.Type) (abi.Type, error) {
 	mapped, ok := GoTypeToABI[goType]
 	if !ok {
 		// check if this is a dynamic type
@@ -108,11 +108,10 @@ func resolveABIType(goType reflect.Type) (abi.Type, error) {
 					return abi.NewType(arrayTypeStr, arrayTypeStr, nil)
 				}
 				return mapped()
-			} else {
-				err := fmt.Errorf("unsupported input type %s", goType.String())
-				log.Info(err.Error())
 			}
 		}
+		err := fmt.Errorf("unsupported input type %s", goType.String())
+		return abi.Type{}, err
 	}
 	return mapped()
 }
@@ -161,7 +160,7 @@ loop:
 		// structure inputs
 		inputs := abi.Arguments{}
 		for j := 4; j < mt.NumIn(); j++ {
-			abiType, err := resolveABIType(mt.In(j))
+			abiType, err := ResolveABIType(mt.In(j))
 			if err != nil {
 				log.Info("Skipping method due to input type", "method", m.Name, "err", err)
 				continue loop
@@ -176,7 +175,7 @@ loop:
 		// structure outputs
 		outputs := abi.Arguments{}
 		for j := 0; j < mt.NumOut()-1; j++ {
-			abiType, err := resolveABIType(mt.Out(j))
+			abiType, err := ResolveABIType(mt.Out(j))
 			if err != nil {
 				log.Info(err.Error())
 				continue loop
