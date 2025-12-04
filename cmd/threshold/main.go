@@ -14,6 +14,14 @@ import (
 	blstbind "github.com/supranational/blst/bindings/go"
 )
 
+/* --------------------------------------------------
+ * !!!!!!!!!!!!!!!!!  WARNING !!!!!!!!!!!!!!!!!!!!
+ * PROOF OF CONCEPT CODE
+ * DO NOT USE IN PRODUCTION
+ * !!!!!!!!!!!!!!!!!  WARNING !!!!!!!!!!!!!!!!!!!!
+ * -------------------------------------------------
+ */
+
 // TODO: verify
 // BLS12-381 group order
 var q, _ = new(big.Int).SetString(
