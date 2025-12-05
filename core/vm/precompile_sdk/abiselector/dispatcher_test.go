@@ -91,7 +91,7 @@ func TestDispatch_SimpleVoid(t *testing.T) {
 	input := sel // No args.
 
 	caller := common.Address{}
-	out, err := d.Dispatch(input, caller, mockEVM(), mockStorage())
+	out, err := d.Dispatch(input, mockEVM(), caller, mockStorage())
 	if err != nil {
 		t.Fatalf("dispatch error: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestDispatch_WithParam(t *testing.T) {
 	input := append(sel, args...)
 
 	caller := common.Address{}
-	_, err = d.Dispatch(input, caller, mockEVM(), mockStorage())
+	_, err = d.Dispatch(input, mockEVM(), caller, mockStorage())
 	require.NoError(t, err)
 	if mock.param1.Cmp(param) != 0 {
 		t.Errorf("expected param %v, got %v", param, mock.param1)
@@ -133,7 +133,7 @@ func TestDispatch_WithReturn(t *testing.T) {
 	input := sel
 
 	caller := common.Address{}
-	out, err := d.Dispatch(input, caller, mockEVM(), mockStorage())
+	out, err := d.Dispatch(input, mockEVM(), caller, mockStorage())
 	if err != nil {
 		t.Fatalf("dispatch error: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestDispatch_MultiParamReturn(t *testing.T) {
 	args, _ := method.Inputs.Pack(addr, val)
 	input := append(sel, args...)
 
-	out, err := d.Dispatch(input, addr, mockEVM(), mockStorage())
+	out, err := d.Dispatch(input, mockEVM(), addr, mockStorage())
 	if err != nil {
 		t.Fatalf("dispatch error: %v", err)
 	}
