@@ -73,9 +73,26 @@ func Emit(st *storage.Storage, event interface{}) error {
 }
 
 func encodeTopic(fieldValue reflect.Value) (common.Hash, error) {
-	//todo:
-	return common.Hash{}, nil
+	abiType, err := abiselector.ResolveABIType(fieldValue.Type())
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("unsupported indexed field type %s", fieldValue.Type().String())
+	}
+	if abiType.T == abi.StringTy {
+		return crypto.Keccak256Hash([]byte(fieldValue.String())), nil
+	}
+	if abiType.T == abi.BytesTy {
+		return crypto.Keccak256Hash(fieldValue.Bytes()), nil
+	}
 
+	packed, err := abi.Arguments{{Type: abiType}}.Pack(fieldValue.Interface())
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to pack indexed field: %v", err)
+	}
+	// large and complex types needs to be hashed as per ABI spec
+	if abiType.T == abi.ArrayTy || abiType.T == abi.SliceTy || abiType.T == abi.TupleTy {
+		return crypto.Keccak256Hash(packed), nil
+	}
+	return common.BytesToHash(packed), nil
 }
 
 func isIndexed(structField reflect.StructField) bool {
