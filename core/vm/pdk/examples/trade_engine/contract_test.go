@@ -9,8 +9,8 @@ import (
 
 	"github.com/autonity/autonity/autonity/tests"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/vm/precompile_sdk"
-	"github.com/autonity/autonity/core/vm/precompile_sdk/abiselector"
+	"github.com/autonity/autonity/core/vm/pdk"
+	"github.com/autonity/autonity/core/vm/pdk/abiselector"
 	"github.com/autonity/autonity/crypto"
 )
 
@@ -19,7 +19,7 @@ func TestSubmitOrder(t *testing.T) {
 	precompiledAddr := common.HexToAddress("0x1")
 	c := NewTradingEngineContract(r.Evm, precompiledAddr)
 
-	precompile_sdk.AddToPrecompiles(precompiledAddr, c)
+	pdk.AddToPrecompiles(precompiledAddr, c)
 
 	pair := "NTN/USDC"
 	side := uint8(0) // Bid

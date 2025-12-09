@@ -1,4 +1,4 @@
-package precompile_sdk
+package pdk
 
 import (
 	"github.com/autonity/autonity/common"

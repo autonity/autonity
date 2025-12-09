@@ -2,7 +2,7 @@ package admin_balance
 
 import (
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/vm/precompile_sdk/storage"
+	"github.com/autonity/autonity/core/vm/pdk/storage"
 )
 
 // AdminBalanceState defines state fields.

@@ -12,19 +12,19 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/core/vm/precompile_sdk"
-	"github.com/autonity/autonity/core/vm/precompile_sdk/storage"
+	"github.com/autonity/autonity/core/vm/pdk"
+	"github.com/autonity/autonity/core/vm/pdk/storage"
 	"github.com/autonity/autonity/crypto"
 )
 
 type TradingEngineContract struct {
-	*precompile_sdk.BaseContract
+	*pdk.BaseContract
 	repo Repository
 }
 
 func NewTradingEngineContract(vm *vm.EVM, address common.Address) *TradingEngineContract {
 	c := &TradingEngineContract{}
-	c.BaseContract = precompile_sdk.SetupContract(c, reflect.TypeOf(TradingEngineState{}), address)
+	c.BaseContract = pdk.SetupContract(c, reflect.TypeOf(TradingEngineState{}), address)
 
 	st := storage.NewStorage(c.Address, vm.StateDB, c.Slots)
 	c.repo = NewPrecompileRepository(st)

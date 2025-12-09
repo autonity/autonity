@@ -1,12 +1,12 @@
-package precompile_sdk
+package pdk
 
 import (
 	"reflect"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/core/vm/precompile_sdk/abiselector"
-	"github.com/autonity/autonity/core/vm/precompile_sdk/storage"
+	"github.com/autonity/autonity/core/vm/pdk/abiselector"
+	"github.com/autonity/autonity/core/vm/pdk/storage"
 )
 
 type BaseContract struct {

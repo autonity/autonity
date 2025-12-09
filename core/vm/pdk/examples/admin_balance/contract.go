@@ -6,17 +6,17 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/core/vm/precompile_sdk"
-	"github.com/autonity/autonity/core/vm/precompile_sdk/storage"
+	"github.com/autonity/autonity/core/vm/pdk"
+	"github.com/autonity/autonity/core/vm/pdk/storage"
 )
 
 type AdminBalanceContract struct {
-	*precompile_sdk.BaseContract
+	*pdk.BaseContract
 }
 
 func NewAdminBalanceContract(evm *vm.EVM, address common.Address) *AdminBalanceContract {
 	c := &AdminBalanceContract{}
-	c.BaseContract = precompile_sdk.SetupContract(c, reflect.TypeOf(AdminBalanceState{}), address)
+	c.BaseContract = pdk.SetupContract(c, reflect.TypeOf(AdminBalanceState{}), address)
 	// set default values
 	st := storage.NewStorage(c.Address, evm.StateDB, c.Slots)
 	protocolAdmin := common.HexToAddress("0x000000000000000000000000000000000000dead")

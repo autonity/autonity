@@ -9,9 +9,9 @@ import (
 
 	"github.com/autonity/autonity/autonity/tests"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/vm/precompile_sdk"
-	"github.com/autonity/autonity/core/vm/precompile_sdk/abiselector"
-	"github.com/autonity/autonity/core/vm/precompile_sdk/storage"
+	"github.com/autonity/autonity/core/vm/pdk"
+	"github.com/autonity/autonity/core/vm/pdk/abiselector"
+	"github.com/autonity/autonity/core/vm/pdk/storage"
 	"github.com/autonity/autonity/crypto"
 )
 
@@ -21,7 +21,7 @@ func TestAdminBalanceContract_Init(t *testing.T) {
 	precompiledAddr := common.HexToAddress("0x1")
 	c := NewAdminBalanceContract(r.Evm, precompiledAddr)
 
-	precompile_sdk.AddToPrecompiles(precompiledAddr, c)
+	pdk.AddToPrecompiles(precompiledAddr, c)
 
 	// Check slots via storage.
 	st := storage.NewStorage(c.Address, r.Evm.StateDB, c.Slots)
@@ -49,7 +49,7 @@ func TestAdminBalanceContract_FullFlow(t *testing.T) {
 	precompiledAddr := common.BigToAddress(big.NewInt(1))
 	c := NewAdminBalanceContract(runner.Evm, precompiledAddr)
 	// register
-	precompile_sdk.AddToPrecompiles(precompiledAddr, c)
+	pdk.AddToPrecompiles(precompiledAddr, c)
 
 	// assign slots
 	newAdmin := common.BytesToAddress([]byte("0xalive"))
