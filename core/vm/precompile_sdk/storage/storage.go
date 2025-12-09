@@ -28,6 +28,7 @@ func (s *Storage) AddLog(topics []common.Hash, data []byte) {
 		Topics:  topics,
 		Data:    data,
 	}
+
 	s.stateDB.AddLog(log)
 	return
 }

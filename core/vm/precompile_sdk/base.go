@@ -29,12 +29,12 @@ func SetupContract(childContract interface{}, stateType reflect.Type, addr commo
 	return base
 }
 
-func (b *BaseContract) Run(input []byte, blockNumber uint64, evm *vm.EVM, caller common.Address) ([]byte, error) {
+func (b *BaseContract) Run(input []byte, _ uint64, evm *vm.EVM, caller common.Address) ([]byte, error) {
 	st := storage.NewStorage(b.Address, evm.StateDB, b.Slots)
 	return b.Dispatcher.Dispatch(input, evm, caller, st)
 }
 
-func (b *BaseContract) RequiredGas(input []byte) uint64 {
+func (b *BaseContract) RequiredGas(_ []byte) uint64 {
 	// todo: we can keep it dynamic, for now a fixed value
 	return 1000
 }
