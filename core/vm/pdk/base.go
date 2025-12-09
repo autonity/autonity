@@ -38,3 +38,11 @@ func (b *BaseContract) RequiredGas(_ []byte) uint64 {
 	// todo: we can keep it dynamic, for now a fixed value
 	return 1000
 }
+
+func AddToPrecompiles(address common.Address, c vm.PrecompiledContract) {
+	vm.PrecompiledAddressesIstanbul = append(vm.PrecompiledAddressesIstanbul, address)
+	if vm.PrecompiledContractsIstanbul == nil {
+		vm.PrecompiledContractsIstanbul = make(map[common.Address]vm.PrecompiledContract)
+	}
+	vm.PrecompiledContractsIstanbul[address] = c
+}
