@@ -40,9 +40,16 @@ func (b *BaseContract) RequiredGas(_ []byte) uint64 {
 }
 
 func AddToPrecompiles(address common.Address, c vm.PrecompiledContract) {
-	vm.PrecompiledAddressesIstanbul = append(vm.PrecompiledAddressesIstanbul, address)
-	if vm.PrecompiledContractsIstanbul == nil {
-		vm.PrecompiledContractsIstanbul = make(map[common.Address]vm.PrecompiledContract)
+	addToPrecompile := func(registry map[common.Address]vm.PrecompiledContract) {
+		if registry == nil {
+			registry = make(map[common.Address]vm.PrecompiledContract)
+		}
+		registry[address] = c
 	}
-	vm.PrecompiledContractsIstanbul[address] = c
+
+	addToPrecompile(vm.PrecompiledContractsByzantium)
+	addToPrecompile(vm.PrecompiledContractsHomestead)
+	addToPrecompile(vm.PrecompiledContractsIstanbul)
+	addToPrecompile(vm.PrecompiledContractsBerlin)
+	addToPrecompile(vm.PrecompiledContractsBLS)
 }

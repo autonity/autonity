@@ -22,6 +22,10 @@ type TradingEngineContract struct {
 	repo Repository
 }
 
+func SetupTradingEngineContract(vm *vm.EVM, address common.Address) {
+	pdk.AddToPrecompiles(address, NewTradingEngineContract(vm, address))
+}
+
 func NewTradingEngineContract(vm *vm.EVM, address common.Address) *TradingEngineContract {
 	c := &TradingEngineContract{}
 	c.BaseContract = pdk.SetupContract(c, reflect.TypeOf(TradingEngineState{}), address)

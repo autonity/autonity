@@ -247,7 +247,7 @@ func compileTypeLayout(typ reflect.Type) (map[string]SlotInfo, uint64) {
 		slots := (totalSize + 31) / 32
 		currentSlot += uint64(slots)
 		if totalSize%32 != 0 {
-			currentOffset = int(totalSize % 32)
+			currentOffset = totalSize % 32
 		}
 	}
 	if currentOffset > 0 {

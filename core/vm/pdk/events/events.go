@@ -40,8 +40,7 @@ func Emit(st *storage.Storage, event interface{}) error {
 		schema = schemaVal.(*eventSchema)
 	}
 	// prepare indexed topics
-	var topics []common.Hash
-	topics = append(topics, schema.topicHash)
+	topics := make([]common.Hash, 0, len(schema.indexedFields)+1)
 	val := reflect.ValueOf(event)
 	for _, idx := range schema.indexedFields {
 		fieldVal := val.Field(idx)

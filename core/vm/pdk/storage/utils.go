@@ -68,7 +68,7 @@ func encodeTo32Bytes(key interface{}, keyType reflect.Type) ([]byte, error) {
 		uval := keyValue.Uint()
 		switch size {
 		case 1:
-			keyBytes[0] = byte(uint8(uval))
+			keyBytes[0] = uint8(uval)
 		case 2:
 			binary.BigEndian.PutUint16(keyBytes, uint16(uval))
 		case 4:

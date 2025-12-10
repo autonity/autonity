@@ -18,7 +18,7 @@ var (
 type ValueAccessor interface {
 	//ReadAt reads the value at the given slot and offset
 	ReadAt(slot common.Hash, offset int, st *Storage) (any, error)
-	// WriteAt returns the full 32 bytes encoded value
+	//WriteAt writes the value at the given slot and offset
 	WriteAt(slot common.Hash, offset int, value any, st *Storage) error
 }
 
