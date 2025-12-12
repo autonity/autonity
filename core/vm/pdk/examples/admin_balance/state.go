@@ -2,6 +2,7 @@ package admin_balance
 
 import (
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/vm/pdk/access"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 )
 
@@ -9,4 +10,5 @@ import (
 type AdminBalanceState struct {
 	Admin   common.Address
 	Balance storage.Uint256
+	RBAC    access.State // embed RBAC state
 }
