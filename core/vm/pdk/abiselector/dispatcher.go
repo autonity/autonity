@@ -66,12 +66,13 @@ var (
 )
 
 type Dispatcher struct {
+	// todo:(piyush) refactor dispatcher visibility
 	ABI            abi.ABI
 	Methods        map[[4]byte]reflect.Value // selector registry
 	SelectorToName map[[4]byte]string
 }
 
-func NewDispatcher() *Dispatcher {
+func newDispatcher() *Dispatcher {
 	return &Dispatcher{
 		ABI:            abi.ABI{Methods: make(map[string]abi.Method)},
 		Methods:        map[[4]byte]reflect.Value{},

@@ -11,15 +11,16 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm/pdk"
 	"github.com/autonity/autonity/core/vm/pdk/abiselector"
+	"github.com/autonity/autonity/core/vm/pdk/storage"
 	"github.com/autonity/autonity/crypto"
 )
 
 func TestSubmitOrder(t *testing.T) {
 	r := tests.Setup(t, nil)
-	precompiledAddr := common.HexToAddress("0x1")
-	c := NewTradingEngineContract(r.Evm, precompiledAddr)
 
-	pdk.AddToPrecompiles(precompiledAddr, c)
+	c := NewTradingEngineContract(r.Evm, ContractAddress)
+
+	pdk.AddToPrecompiles(ContractAddress, c)
 
 	pair := "NTN/USDC"
 	side := uint8(0) // Bid
@@ -36,8 +37,10 @@ func TestSubmitOrder(t *testing.T) {
 
 	orderID := common.BytesToHash(result[:32])
 	require.NotEqual(t, common.Hash{}, orderID) // Non-zero ID
+	st := storage.NewStorage(c.Address, r.Evm.StateDB, c.Slots)
+	repo := NewPrecompileRepository(st)
 
-	ord, err := c.repo.GetOrder(orderID)
+	ord, err := repo.GetOrder(orderID)
 	require.NoError(t, err)
 	require.Equal(t, sender, ord.User)
 	require.Equal(t, side, uint8(ord.Side))
@@ -45,7 +48,7 @@ func TestSubmitOrder(t *testing.T) {
 	require.Equal(t, qty.Uint64(), ord.Qty.Uint64())
 	require.Equal(t, uint8(0), ord.Status) // Open
 
-	updatedBook, err := c.repo.GetBook(sha256.Sum256([]byte(pair)))
+	updatedBook, err := repo.GetBook(sha256.Sum256([]byte(pair)))
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), updatedBook.NextID.Uint64())
 

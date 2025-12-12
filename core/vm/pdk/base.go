@@ -16,16 +16,12 @@ type BaseContract struct {
 	Dispatcher *abiselector.Dispatcher
 }
 
-func SetupContract(childContract interface{}, stateType reflect.Type, addr common.Address) *BaseContract {
+func SetupContract(logic interface{}, stateType reflect.Type, addr common.Address) *BaseContract {
 	base := &BaseContract{}
 	base.StateType = stateType
-	base.Dispatcher = abiselector.NewDispatcher()
 	base.Slots = storage.AssignSlots(stateType)
 	base.Address = addr
-	err := abiselector.InferABIMethods(base.Dispatcher, reflect.ValueOf(childContract))
-	if err != nil {
-		panic(err)
-	}
+	base.Dispatcher = abiselector.GetOrRegisterDispatcher(logic)
 	return base
 }
 

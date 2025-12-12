@@ -11,6 +11,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm/pdk"
 	"github.com/autonity/autonity/core/vm/pdk/abiselector"
+	"github.com/autonity/autonity/core/vm/pdk/examples/trade_engine"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 	"github.com/autonity/autonity/crypto"
 )
@@ -18,10 +19,9 @@ import (
 // TestAdminBalanceContract_Init verifies defaults are set.
 func TestAdminBalanceContract_Init(t *testing.T) {
 	r := tests.Setup(t, nil)
-	precompiledAddr := common.HexToAddress("0x1")
-	c := NewAdminBalanceContract(r.Evm, precompiledAddr)
+	c := NewAdminBalanceContract(r.Evm, ContractAddress)
 
-	pdk.AddToPrecompiles(precompiledAddr, c)
+	pdk.AddToPrecompiles(ContractAddress, c)
 
 	// Check slots via storage.
 	st := storage.NewStorage(c.Address, r.Evm.StateDB, c.Slots)
@@ -46,10 +46,9 @@ func TestAdminBalanceContract_Init(t *testing.T) {
 
 func TestAdminBalanceContract_FullFlow(t *testing.T) {
 	runner := tests.Setup(t, nil)
-	precompiledAddr := common.BigToAddress(big.NewInt(1))
-	c := NewAdminBalanceContract(runner.Evm, precompiledAddr)
+	c := NewAdminBalanceContract(runner.Evm, ContractAddress)
 	// register
-	pdk.AddToPrecompiles(precompiledAddr, c)
+	pdk.AddToPrecompiles(ContractAddress, c)
 
 	// assign slots
 	newAdmin := common.BytesToAddress([]byte("0xalive"))
@@ -61,6 +60,30 @@ func TestAdminBalanceContract_FullFlow(t *testing.T) {
 	address, err := storage.Get[common.Address](st.Field("Admin"))
 	require.NoError(t, err, "GetAddress failed")
 	require.Equal(t, newAdmin, address, "GetAddress mismatch")
+}
+
+func TestCrossContractCallInPrecompile_SubmitOrder(t *testing.T) {
+	r := tests.Setup(t, nil)
+	bc := NewAdminBalanceContract(r.Evm, ContractAddress)
+	pdk.AddToPrecompiles(ContractAddress, bc)
+
+	trade_engine.SetupTradingEngineContract(r.Evm, trade_engine.ContractAddress)
+
+	pair := "NTN/USDC"
+	side := uint8(0) // Bid
+	price := big.NewInt(100)
+	qty := big.NewInt(10)
+	input := buildInput(t, bc.BaseContract.Dispatcher, "CallSubmitOrder", trade_engine.ContractAddress,
+		pair, side, price, qty)
+
+	sender := common.HexToAddress("0xdummyuser")
+	result, err := bc.Run(input, r.Evm.Context.BlockNumber.Uint64(), r.Evm, sender)
+	require.NoError(t, err)
+	require.Greater(t, len(result), 0) // Return: ABI-packed orderID hash (32B)
+
+	orderID := common.BytesToHash(result[:32])
+	require.NotEqual(t, common.Hash{}, orderID) // Non-zero ID
+	t.Log("orderID", orderID)
 }
 
 func buildInput(t *testing.T, d *abiselector.Dispatcher, methodName string, args ...interface{}) []byte {

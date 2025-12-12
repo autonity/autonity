@@ -9,11 +9,13 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/core/vm/pdk"
 	"github.com/autonity/autonity/core/vm/pdk/access"
+	"github.com/autonity/autonity/core/vm/pdk/examples/trade_engine"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 )
 
 var (
-	contractOwner = common.BytesToAddress([]byte("owner"))
+	contractOwner   = common.BytesToAddress([]byte("owner"))
+	ContractAddress = common.HexToAddress("0x1") // example address for precompiled contract
 )
 
 type AdminBalanceContract struct {
@@ -54,4 +56,15 @@ func (c *AdminBalanceContract) UpdateAdmin(evm *vm.EVM, caller common.Address, s
 	}
 
 	return storage.Set[common.Address](st.Field("Admin"), adminAddress)
+}
+
+func (c *AdminBalanceContract) CallSubmitOrder(evm *vm.EVM, caller common.Address, st *storage.Storage,
+	teAddress common.Address, pair string, side uint8, price, qty *big.Int) (common.Hash, error) {
+	cl := pdk.NewClient(teAddress, &trade_engine.TradingEngineContract{})
+	result, err := cl.Call(evm, caller, "SubmitOrder", pair, side, price, qty)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	orderId := common.BytesToHash(result[:32])
+	return orderId, nil
 }

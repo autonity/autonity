@@ -58,7 +58,7 @@ func TestInferABIMethods(t *testing.T) {
 		ret1: big.NewInt(42),
 		ret2: true,
 	}
-	dispatcher := NewDispatcher()
+	dispatcher := newDispatcher()
 	_ = InferABIMethods(dispatcher, reflect.ValueOf(mc))
 	//t.Log("Error:", err)
 
@@ -81,7 +81,7 @@ func TestInferABIMethods(t *testing.T) {
 }
 
 func TestDispatch_SimpleVoid(t *testing.T) {
-	d := NewDispatcher()
+	d := newDispatcher()
 	mock := &mockContract{}
 	_ = InferABIMethods(d, reflect.ValueOf(mock))
 
@@ -104,7 +104,7 @@ func TestDispatch_SimpleVoid(t *testing.T) {
 }
 
 func TestDispatch_WithParam(t *testing.T) {
-	d := NewDispatcher()
+	d := newDispatcher()
 	mock := &mockContract{}
 	err := InferABIMethods(d, reflect.ValueOf(mock))
 	require.NoError(t, err)
@@ -124,7 +124,7 @@ func TestDispatch_WithParam(t *testing.T) {
 }
 
 func TestDispatch_WithReturn(t *testing.T) {
-	d := NewDispatcher()
+	d := newDispatcher()
 	mock := &mockContract{ret1: big.NewInt(100)}
 	InferABIMethods(d, reflect.ValueOf(mock))
 
@@ -148,7 +148,7 @@ func TestDispatch_WithReturn(t *testing.T) {
 }
 
 func TestDispatch_MultiParamReturn(t *testing.T) {
-	d := NewDispatcher()
+	d := newDispatcher()
 	mock := &mockContract{ret1: big.NewInt(200), ret2: true}
 	InferABIMethods(d, reflect.ValueOf(mock))
 

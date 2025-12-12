@@ -17,9 +17,12 @@ import (
 	"github.com/autonity/autonity/crypto"
 )
 
+var (
+	ContractAddress = common.HexToAddress("0x23") // example address for precompiled contract
+)
+
 type TradingEngineContract struct {
 	*pdk.BaseContract
-	repo Repository
 }
 
 func SetupTradingEngineContract(vm *vm.EVM, address common.Address) {
@@ -31,11 +34,11 @@ func NewTradingEngineContract(vm *vm.EVM, address common.Address) *TradingEngine
 	c.BaseContract = pdk.SetupContract(c, reflect.TypeOf(TradingEngineState{}), address)
 
 	st := storage.NewStorage(c.Address, vm.StateDB, c.Slots)
-	c.repo = NewPrecompileRepository(st)
+	repo := NewPrecompileRepository(st)
 	// set order book
 	pairHash := sha256.Sum256([]byte("NTN/USDC"))
 	emptyBook := OrderBook{NextID: storage.NewUint256FromInt(1)}
-	err := c.repo.SetBook(pairHash, emptyBook)
+	err := repo.SetBook(pairHash, emptyBook)
 	if err != nil {
 		panic("failed to set initial order book: " + err.Error())
 	}
@@ -45,7 +48,8 @@ func NewTradingEngineContract(vm *vm.EVM, address common.Address) *TradingEngine
 func (te *TradingEngineContract) SubmitOrder(evm *vm.EVM, caller common.Address, st *storage.Storage,
 	pair string, side uint8, price, qty *big.Int) (common.Hash, error) {
 	pairHash := sha256.Sum256([]byte(pair))
-	ob, err := te.repo.GetBook(pairHash)
+	repo := NewPrecompileRepository(st)
+	ob, err := repo.GetBook(pairHash)
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -61,12 +65,12 @@ func (te *TradingEngineContract) SubmitOrder(evm *vm.EVM, caller common.Address,
 		Status:    0, // open
 		Timestamp: ts,
 	}
-	err = te.repo.SetOrder(newID, newOrder)
+	err = repo.SetOrder(newID, newOrder)
 	if err != nil {
 		return common.Hash{}, err
 	}
 
-	err = te.repo.InsertToOrderBook(pairHash, newOrder)
+	err = repo.InsertToOrderBook(pairHash, newOrder)
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -84,12 +88,13 @@ func (te *TradingEngineContract) SubmitOrder(evm *vm.EVM, caller common.Address,
 	}
 
 	ob.NextID.Add(&ob.NextID.Int, &uint256.Int{1})
-	err = te.repo.SetBook(pairHash, ob)
+	err = repo.SetBook(pairHash, ob)
 	return newID, err
 }
 
 func (te *TradingEngineContract) CancelOrder(evm *vm.EVM, caller common.Address, st *storage.Storage, pair string, orderID common.Hash) error {
-	ord, err := te.repo.GetOrder(orderID)
+	repo := NewPrecompileRepository(st)
+	ord, err := repo.GetOrder(orderID)
 	if err != nil {
 		return err
 	}
@@ -98,13 +103,13 @@ func (te *TradingEngineContract) CancelOrder(evm *vm.EVM, caller common.Address,
 	}
 
 	ord.Status = 2 // Cancelled
-	if err := te.repo.SetOrder(orderID, ord); err != nil {
+	if err := repo.SetOrder(orderID, ord); err != nil {
 		return err
 	}
 
 	pairHash := sha256.Sum256([]byte(pair))
 	// todo(optimize): pass order here
-	if err := te.repo.RemoveFromOrderBook(pairHash, orderID); err != nil {
+	if err := repo.RemoveFromOrderBook(pairHash, orderID); err != nil {
 		return err
 	}
 	return nil
