@@ -82,8 +82,41 @@ func TestCrossContractCallInPrecompile_SubmitOrder(t *testing.T) {
 	require.Greater(t, len(result), 0) // Return: ABI-packed orderID hash (32B)
 
 	orderID := common.BytesToHash(result[:32])
-	require.NotEqual(t, common.Hash{}, orderID) // Non-zero ID
 	t.Log("orderID", orderID)
+}
+
+func TestCrossContractCallInSolidity_SubmitOrder(t *testing.T) {
+	r := tests.Setup(t, nil)
+	bc := NewAdminBalanceContract(r.Evm, ContractAddress)
+	pdk.AddToPrecompiles(ContractAddress, bc)
+
+	trade_engine.SetupTradingEngineContract(r.Evm, trade_engine.ContractAddress)
+
+	pair := "NTN/USDC"
+	side := uint8(0) // Bid
+	price := big.NewInt(100)
+	qty := big.NewInt(10)
+
+	usedGas, err := r.Trader.Trade(nil, pair, side, price, qty)
+	require.NoError(t, err)
+	t.Log("used gas", usedGas)
+
+	// get the logs to fetch the order ID
+	logs := r.Evm.StateDB.GetLogs(common.Hash{}, common.Hash{})
+	require.Greater(t, len(logs), 0, "no logs found")
+
+	// event thrown by trading engine solidity wrapper
+	eventSig := crypto.Keccak256Hash([]byte("OrderSubmitted(bytes32,string,uint8,uint256,uint256)"))
+
+	found := false
+	for _, log := range logs {
+		if log.Topics[0] == eventSig {
+			orderID := log.Topics[1]
+			t.Log("orderID", orderID.Hex())
+			found = true
+		}
+	}
+	require.True(t, found)
 }
 
 func buildInput(t *testing.T, d *abiselector.Dispatcher, methodName string, args ...interface{}) []byte {

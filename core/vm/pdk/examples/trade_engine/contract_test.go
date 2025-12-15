@@ -31,6 +31,7 @@ func TestSubmitOrder(t *testing.T) {
 
 	sender := common.HexToAddress("0xdummyuser")
 
+	//todo: use evm call to truly test precompile execution context
 	result, err := c.Run(input, r.Evm.Context.BlockNumber.Uint64(), r.Evm, sender)
 	require.NoError(t, err)
 	require.Greater(t, len(result), 0) // Return: ABI-packed orderID hash (32B)
