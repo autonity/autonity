@@ -19,10 +19,7 @@ func GetOrRegisterDispatcher(logic interface{}) *Dispatcher {
 		return dispatcher.(*Dispatcher)
 	}
 	d := newDispatcher()
-	// since we are passing address of struct, type will be pointer type,
-	// we can create a zero value type, which can be used for lookup later
-	val := reflect.New(typ)
-	err := InferABIMethods(d, val)
+	err := InferABIMethods(d, reflect.ValueOf(logic))
 	if err != nil {
 		panic(err)
 	}
