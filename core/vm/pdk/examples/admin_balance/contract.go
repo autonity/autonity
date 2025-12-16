@@ -61,7 +61,7 @@ func (c *AdminBalanceContract) UpdateAdmin(evm *vm.EVM, caller common.Address, s
 func (c *AdminBalanceContract) CallSubmitOrder(evm *vm.EVM, caller common.Address, st *storage.Storage,
 	teAddress common.Address, pair string, side uint8, price, qty *big.Int) (common.Hash, error) {
 	cl := pdk.NewClient(teAddress, &trade_engine.TradingEngineContract{})
-	result, err := cl.Call(evm, caller, "SubmitOrder", pair, side, price, qty)
+	result, err := cl.Call(evm, caller, st, "SubmitOrder", pair, side, price, qty)
 	if err != nil {
 		return common.Hash{}, err
 	}

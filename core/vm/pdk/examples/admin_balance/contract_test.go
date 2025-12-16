@@ -85,6 +85,8 @@ func TestCrossContractCallInPrecompile_SubmitOrder(t *testing.T) {
 	t.Log("orderID", orderID)
 }
 
+/*
+// commented out as it is dependent on trader object which is a temporary solidity contract
 func TestCrossContractCallInSolidity_SubmitOrder(t *testing.T) {
 	r := tests.Setup(t, nil)
 	bc := NewAdminBalanceContract(r.Evm, ContractAddress)
@@ -118,6 +120,7 @@ func TestCrossContractCallInSolidity_SubmitOrder(t *testing.T) {
 	}
 	require.True(t, found)
 }
+*/
 
 func buildInput(t *testing.T, d *abiselector.Dispatcher, methodName string, args ...interface{}) []byte {
 	abiMethod, ok := d.ABI.Methods[methodName]

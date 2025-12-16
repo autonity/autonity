@@ -33,7 +33,7 @@ func (a *Array[T]) Len() (uint64, error) {
 	if a.isStatic {
 		return a.staticLen, nil
 	}
-	data := a.p.s.stateDB.GetState(a.p.s.address, a.p.slot)
+	data := a.p.s.GetState(a.p.slot)
 	return binary.BigEndian.Uint64(data[:8]), nil
 }
 
@@ -89,7 +89,7 @@ func (a *Array[T]) Shrink() error {
 	}
 	// clear tail slot
 	tailP := a.p.Index(length - 1)
-	a.p.s.stateDB.SetState(tailP.s.address, tailP.slot, common.Hash{})
+	a.p.s.SetState(tailP.slot, common.Hash{})
 
 	if err := a.setDynamicLength(length - 1); err != nil {
 		return err

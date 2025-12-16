@@ -14,6 +14,8 @@ import (
 	"github.com/autonity/autonity/log"
 )
 
+type selector [4]byte
+
 var (
 	GoTypeToABI = map[reflect.Type]func() (abi.Type, error){
 		reflect.TypeOf(common.Address{}): func() (abi.Type, error) {
@@ -68,15 +70,15 @@ var (
 type Dispatcher struct {
 	// todo:(piyush) refactor dispatcher visibility
 	ABI            abi.ABI
-	Methods        map[[4]byte]reflect.Value // selector registry
-	SelectorToName map[[4]byte]string
+	Methods        map[selector]reflect.Value // selector registry
+	SelectorToName map[selector]string
 }
 
 func newDispatcher() *Dispatcher {
 	return &Dispatcher{
 		ABI:            abi.ABI{Methods: make(map[string]abi.Method)},
-		Methods:        map[[4]byte]reflect.Value{},
-		SelectorToName: map[[4]byte]string{},
+		Methods:        map[selector]reflect.Value{},
+		SelectorToName: map[selector]string{},
 	}
 }
 
@@ -198,15 +200,15 @@ func (d *Dispatcher) Dispatch(input []byte, evm interface{}, caller interface{},
 	if len(input) < 4 {
 		return nil, fmt.Errorf("Input too short")
 	}
-	var selector [4]byte
-	copy(selector[:], input[:4])
+	var sel selector
+	copy(sel[:], input[:4])
 
-	goMethod, ok := d.Methods[selector]
+	goMethod, ok := d.Methods[sel]
 	if !ok {
 		return nil, fmt.Errorf("Method not found")
 	}
 
-	methodName, ok := d.SelectorToName[selector]
+	methodName, ok := d.SelectorToName[sel]
 	if !ok {
 		return nil, fmt.Errorf("Method not found")
 	}

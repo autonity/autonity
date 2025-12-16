@@ -13,13 +13,47 @@ import (
 )
 
 type Storage struct {
-	address common.Address // storage scope, generally should be the contract address
+	address common.Address // storage scope, should be contract address
 	stateDB vm.StateDB     // state accessor
 	slotMap map[string]SlotInfo
+
+	// cache
+	cache map[common.Hash]common.Hash
+	dirty map[common.Hash]struct{}
 }
 
 func NewStorage(address common.Address, stateDB vm.StateDB, slots map[string]SlotInfo) *Storage {
-	return &Storage{address: address, stateDB: stateDB, slotMap: slots}
+	return &Storage{
+		address: address,
+		stateDB: stateDB,
+		slotMap: slots,
+		cache:   make(map[common.Hash]common.Hash),
+		dirty:   make(map[common.Hash]struct{}),
+	}
+}
+
+func (s *Storage) GetState(slot common.Hash) common.Hash {
+	if val, ok := s.cache[slot]; ok {
+		return val
+	}
+	val := s.stateDB.GetState(s.address, slot)
+	s.cache[slot] = val
+	return val
+}
+
+func (s *Storage) SetState(slot common.Hash, value common.Hash) {
+	s.cache[slot] = value
+	s.dirty[slot] = struct{}{}
+	return
+}
+
+func (s *Storage) Commit() {
+	for slot := range s.dirty {
+		val := s.cache[slot]
+		s.stateDB.SetState(s.address, slot, val)
+	}
+	s.dirty = make(map[common.Hash]struct{})
+	return
 }
 
 func (s *Storage) AddLog(topics []common.Hash, data []byte) {

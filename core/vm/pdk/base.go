@@ -27,7 +27,12 @@ func SetupContract(logic interface{}, stateType reflect.Type, addr common.Addres
 
 func (b *BaseContract) Run(input []byte, _ uint64, evm *vm.EVM, caller common.Address) ([]byte, error) {
 	st := storage.NewStorage(b.Address, evm.StateDB, b.Slots)
-	return b.Dispatcher.Dispatch(input, evm, caller, st)
+	out, err := b.Dispatcher.Dispatch(input, evm, caller, st)
+	if err != nil {
+		return nil, err
+	}
+	st.Commit()
+	return out, nil
 }
 
 func (b *BaseContract) RequiredGas(_ []byte) uint64 {

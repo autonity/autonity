@@ -49,14 +49,14 @@ func (u HashAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, er
 	if offset != 0 {
 		return nil, fmt.Errorf("hash values must start from zero offset")
 	}
-	return st.stateDB.GetState(st.address, slot), nil
+	return st.GetState(slot), nil
 }
 
 func (u HashAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
 	if offset != 0 {
 		return fmt.Errorf("hash values must start from zero offset")
 	}
-	st.stateDB.SetState(st.address, slot, value.(common.Hash))
+	st.SetState(slot, value.(common.Hash))
 	return nil
 }
 
@@ -66,7 +66,7 @@ func (u Uint256Accessor) ReadAt(slot common.Hash, offset int, st *Storage) (any,
 	if offset != 0 {
 		return nil, fmt.Errorf("uint256 values must start from zero offset")
 	}
-	data := st.stateDB.GetState(st.address, slot)
+	data := st.GetState(slot)
 	var u256 Uint256
 	u256.SetBytes(data[:])
 	return u256, nil
@@ -76,24 +76,24 @@ func (u Uint256Accessor) WriteAt(slot common.Hash, _ int, value any, st *Storage
 	var u256 = value.(Uint256)
 	var data common.Hash
 	u256.WriteToSlice(data[:])
-	st.stateDB.SetState(st.address, slot, data)
+	st.SetState(slot, data)
 	return nil
 }
 
 type AddressAccessor struct{}
 
 func (a AddressAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
-	data := st.stateDB.GetState(st.address, slot)
+	data := st.GetState(slot)
 	return common.BytesToAddress(data[offset : offset+20]), nil
 }
 
 func (a AddressAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
-	data := st.stateDB.GetState(st.address, slot)
+	data := st.GetState(slot)
 	var addr = value.(common.Address)
 	copy(data[offset:offset+20], zeroAddressBytes)
 	copy(data[offset:offset+20], addr.Bytes())
 
-	st.stateDB.SetState(st.address, slot, data)
+	st.SetState(slot, data)
 	return nil
 }
 
@@ -103,7 +103,7 @@ func (u uintAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, er
 	if offset+u.size > 32 {
 		return nil, fmt.Errorf("offset and size exceed slot boundary")
 	}
-	data := st.stateDB.GetState(st.address, slot)
+	data := st.GetState(slot)
 	fieldBytes := data[offset : offset+u.size]
 	switch u.size {
 	case 1:
@@ -123,7 +123,7 @@ func (u uintAccessor) WriteAt(slot common.Hash, offset int, value any, st *Stora
 	if offset+u.size > 32 {
 		panic(fmt.Errorf("offset and size exceed slot boundary"))
 	}
-	data := st.stateDB.GetState(st.address, slot)
+	data := st.GetState(slot)
 	copy(data[offset:offset+u.size], zeroHashBytes[:u.size])
 	switch val := value.(type) {
 	case uint8:
@@ -137,7 +137,7 @@ func (u uintAccessor) WriteAt(slot common.Hash, offset int, value any, st *Stora
 	default:
 		panic(fmt.Errorf("invalid type: %T", value))
 	}
-	st.stateDB.SetState(st.address, slot, data)
+	st.SetState(slot, data)
 	return nil
 }
 
@@ -160,17 +160,17 @@ func (i intAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storag
 type boolAccessor struct{}
 
 func (b boolAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
-	data := st.stateDB.GetState(st.address, slot)
+	data := st.GetState(slot)
 	return data[offset] == 1, nil
 }
 
 func (b boolAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
-	data := st.stateDB.GetState(st.address, slot)
+	data := st.GetState(slot)
 	data[offset] = 0
 	if value.(bool) {
 		data[offset] = 1
 	}
-	st.stateDB.SetState(st.address, slot, data)
+	st.SetState(slot, data)
 	return nil
 }
 
@@ -180,7 +180,7 @@ func (b ByteAccessor) ReadAt(headSlot common.Hash, _ int, st *Storage) (any, err
 	if st == nil {
 		return nil, fmt.Errorf("storage is nil")
 	}
-	lenData := st.stateDB.GetState(st.address, headSlot)
+	lenData := st.GetState(headSlot)
 	length := binary.BigEndian.Uint64(lenData[:8])
 	if length == 0 {
 		return []byte{}, nil
@@ -193,7 +193,7 @@ func (b ByteAccessor) ReadAt(headSlot common.Hash, _ int, st *Storage) (any, err
 		chunkSlotBig := new(big.Int).Add(baseBig, big.NewInt(int64(i)))
 		// calculate slot for this chunk
 		chunkSlotHash := common.BigToHash(chunkSlotBig)
-		chunkData := st.stateDB.GetState(st.address, chunkSlotHash)
+		chunkData := st.GetState(chunkSlotHash)
 		start := i * 32
 		end := start + 32
 		if end > length {
@@ -216,7 +216,7 @@ func (b ByteAccessor) WriteAt(headSlot common.Hash, _ int, value any, st *Storag
 		panic(fmt.Errorf("bytes too large: %d", length))
 	}
 	binary.BigEndian.PutUint64(head[:8], length)
-	st.stateDB.SetState(st.address, headSlot, head)
+	st.SetState(headSlot, head)
 	base := crypto.Keccak256Hash(headSlot.Bytes())
 	baseBig := new(big.Int).SetBytes(base.Bytes())
 	numChunks := (length + 31) / 32
@@ -230,7 +230,7 @@ func (b ByteAccessor) WriteAt(headSlot common.Hash, _ int, value any, st *Storag
 		}
 		copy(chunk[:end-start], bytesVal[start:end])
 		chunkSlot := common.BigToHash(chunkSlotBig)
-		st.stateDB.SetState(st.address, chunkSlot, chunk)
+		st.SetState(chunkSlot, chunk)
 	}
 	return nil
 }
