@@ -71,7 +71,7 @@ func (s *Storage) Field(name string) *Path {
 	if !ok {
 		return &Path{err: fmt.Errorf("no such slot for %s", name)}
 	}
-	return &Path{s: s, slot: slotInfo.Slot, info: slotInfo}
+	return &Path{st: s, slot: slotInfo.Slot, info: slotInfo}
 }
 
 type ElementResolver interface {

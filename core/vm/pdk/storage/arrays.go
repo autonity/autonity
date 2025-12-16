@@ -9,7 +9,7 @@ import (
 )
 
 type Array[T any] struct {
-	p *Path
+	path *Path
 	// for fixed size arrays
 	isStatic  bool
 	staticLen uint64
@@ -21,7 +21,7 @@ func NewArray[T any](p *Path) (*Array[T], error) {
 		return nil, fmt.Errorf("not an array/slice: %v", kind)
 	}
 
-	arr := &Array[T]{p: p}
+	arr := &Array[T]{path: p}
 	if kind == reflect.Array {
 		arr.isStatic = true
 		arr.staticLen = uint64(p.info.ValueType.Len())
@@ -33,13 +33,13 @@ func (a *Array[T]) Len() (uint64, error) {
 	if a.isStatic {
 		return a.staticLen, nil
 	}
-	data := a.p.s.GetState(a.p.slot)
+	data := a.path.st.GetState(a.path.slot)
 	return binary.BigEndian.Uint64(data[:8]), nil
 }
 
 // ReferenceAt is a helper to get the Path to the element at index
 func (a *Array[T]) ReferenceAt(index uint64) *Path {
-	return a.p.Index(index)
+	return a.path.Index(index)
 }
 
 // ValueAt gets the value at index i
@@ -49,7 +49,7 @@ func (a *Array[T]) ValueAt(i uint64) (T, error) {
 	if err != nil || i >= length {
 		return zero, fmt.Errorf("index %d out of range, len=%d", i, length)
 	}
-	return Get[T](a.p.Index(i))
+	return Get[T](a.path.Index(i))
 }
 
 // SetValueAt sets the value at index i
@@ -58,7 +58,7 @@ func (a *Array[T]) SetValueAt(i uint64, value T) error {
 	if err != nil || i >= length {
 		return fmt.Errorf("index %d out of range, len=%d", i, length)
 	}
-	return Set[T](a.p.Index(i), value)
+	return Set[T](a.path.Index(i), value)
 }
 
 // Grow increases the array length by 1 and returns the Path to the new element. doesn't support 2D Slices.
@@ -75,7 +75,7 @@ func (a *Array[T]) Grow() (*Path, error) {
 		return nil, err
 	}
 
-	return a.p.Index(length), nil
+	return a.path.Index(length), nil
 }
 
 // Shrink decreases the array length by 1, doesn't support 2D Slices.
@@ -88,8 +88,8 @@ func (a *Array[T]) Shrink() error {
 		return err
 	}
 	// clear tail slot
-	tailP := a.p.Index(length - 1)
-	a.p.s.SetState(tailP.slot, common.Hash{})
+	tailP := a.path.Index(length - 1)
+	a.path.st.SetState(tailP.slot, common.Hash{})
 
 	if err := a.setDynamicLength(length - 1); err != nil {
 		return err
@@ -100,7 +100,7 @@ func (a *Array[T]) Shrink() error {
 func (a *Array[T]) setDynamicLength(newLen uint64) error {
 	var headData common.Hash
 	binary.BigEndian.PutUint64(headData[:8], newLen)
-	a.p.s.stateDB.SetState(a.p.s.address, a.p.slot, headData)
+	a.path.st.SetState(a.path.slot, headData)
 	return nil
 }
 

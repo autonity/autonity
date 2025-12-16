@@ -181,7 +181,7 @@ func (b ByteAccessor) ReadAt(headSlot common.Hash, _ int, st *Storage) (any, err
 		return nil, fmt.Errorf("storage is nil")
 	}
 	lenData := st.GetState(headSlot)
-	length := binary.BigEndian.Uint64(lenData[:8])
+	length := binary.BigEndian.Uint64(lenData[24:])
 	if length == 0 {
 		return []byte{}, nil
 	}
@@ -215,7 +215,7 @@ func (b ByteAccessor) WriteAt(headSlot common.Hash, _ int, value any, st *Storag
 	if length > 1<<20 {
 		panic(fmt.Errorf("bytes too large: %d", length))
 	}
-	binary.BigEndian.PutUint64(head[:8], length)
+	binary.BigEndian.PutUint64(head[24:], length)
 	st.SetState(headSlot, head)
 	base := crypto.Keccak256Hash(headSlot.Bytes())
 	baseBig := new(big.Int).SetBytes(base.Bytes())

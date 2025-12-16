@@ -380,8 +380,8 @@ func TestByteAccessor(t *testing.T) {
 
 		// Verify head slot: len=0, no data slots touched (should be zero)
 		headSlot := bytesPath.slot
-		headData := st.stateDB.GetState(st.address, headSlot)
-		require.Equal(t, uint64(0), binary.BigEndian.Uint64(headData[:8]))
+		headData := st.GetState(headSlot)
+		require.Equal(t, uint64(0), binary.BigEndian.Uint64(headData[24:]))
 		baseSlot := crypto.Keccak256Hash(headSlot.Bytes())
 		require.Equal(t, common.Hash{}, st.stateDB.GetState(st.address, baseSlot)) // Untouched chunk 0
 	})
@@ -394,11 +394,11 @@ func TestByteAccessor(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, data, got)
 
-		headData := st.stateDB.GetState(st.address, bytesPath.slot)
-		require.Equal(t, uint64(11), binary.BigEndian.Uint64(headData[:8]))
+		headData := st.GetState(bytesPath.slot)
+		require.Equal(t, uint64(11), binary.BigEndian.Uint64(headData[24:]))
 
 		baseSlot := crypto.Keccak256Hash(bytesPath.slot.Bytes())
-		chunk0 := st.stateDB.GetState(st.address, baseSlot)
+		chunk0 := st.GetState(baseSlot)
 		require.Equal(t, data, chunk0[:11]) // First 11 bytes match
 		empty21Bytes := [21]byte{}
 		require.EqualValues(t, empty21Bytes[:], chunk0[11:]) // Rest zero-padded
@@ -414,12 +414,12 @@ func TestByteAccessor(t *testing.T) {
 		require.Equal(t, data, got)
 
 		// Verify chunks
-		headData := st.stateDB.GetState(st.address, bytesPath.slot)
-		require.Equal(t, uint64(40), binary.BigEndian.Uint64(headData[:8]))
+		headData := st.GetState(bytesPath.slot)
+		require.Equal(t, uint64(40), binary.BigEndian.Uint64(headData[24:]))
 
 		baseSlot := crypto.Keccak256Hash(bytesPath.slot.Bytes())
-		chunk0 := st.stateDB.GetState(st.address, baseSlot) // Full 32B
-		chunk1 := st.stateDB.GetState(st.address, common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(baseSlot.Bytes()), big.NewInt(1))))
+		chunk0 := st.GetState(baseSlot) // Full 32B
+		chunk1 := st.GetState(common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(baseSlot.Bytes()), big.NewInt(1))))
 
 		require.Equal(t, data[:32], chunk0[:])
 		require.Equal(t, data[32:], chunk1[:8]) // Partial: 8B
@@ -439,16 +439,16 @@ func TestByteAccessor(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, data, got)
 
-		headData := st.stateDB.GetState(st.address, bytesPath.slot)
-		require.Equal(t, uint64(100), binary.BigEndian.Uint64(headData[:8]))
+		headData := st.GetState(bytesPath.slot)
+		require.Equal(t, uint64(100), binary.BigEndian.Uint64(headData[24:]))
 
 		baseSlot := crypto.Keccak256Hash(bytesPath.slot.Bytes())
 		// Chunk 0: bytes 0-31
-		chunk0 := st.stateDB.GetState(st.address, baseSlot)
+		chunk0 := st.GetState(baseSlot)
 		require.Equal(t, data[:32], chunk0[:])
 		// Chunk 3: bytes 96-100 (partial)
 		chunk3Slot := common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(baseSlot.Bytes()), big.NewInt(3)))
-		chunk3 := st.stateDB.GetState(st.address, chunk3Slot)
+		chunk3 := st.GetState(chunk3Slot)
 		require.Equal(t, data[96:100], chunk3[:4])
 		empty28Bytes := [28]byte{}
 		require.Equal(t, empty28Bytes[:], chunk3[4:]) // Padded zero
@@ -467,13 +467,13 @@ func TestByteAccessor(t *testing.T) {
 		got, err := Get[[]byte](bytesPath)
 		require.NoError(t, err)
 		require.Equal(t, updated, got)
-		require.NotEqual(t, initial, got) // Different
+		require.NotEqual(t, initial, got)
 
-		headData := st.stateDB.GetState(st.address, bytesPath.slot)
-		require.Equal(t, uint64(len(updated)), binary.BigEndian.Uint64(headData[:8])) // New len
+		headData := st.GetState(bytesPath.slot)
+		require.Equal(t, uint64(len(updated)), binary.BigEndian.Uint64(headData[24:])) // New len
 
 		baseSlot := crypto.Keccak256Hash(bytesPath.slot.Bytes())
-		chunk1 := st.stateDB.GetState(st.address, common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(baseSlot.Bytes()), big.NewInt(1))))
+		chunk1 := st.GetState(common.BigToHash(new(big.Int).Add(new(big.Int).SetBytes(baseSlot.Bytes()), big.NewInt(1))))
 		require.Equal(t, common.Hash{}, chunk1) // Fully zeroed
 	})
 
@@ -625,4 +625,104 @@ func Test2DArrays(t *testing.T) {
 		require.Equal(t, uint64(123), val)
 
 	})
+}
+
+func TestCache_BufferWrites(t *testing.T) {
+	r := tests.Setup(t, nil)
+	addr := common.HexToAddress("0x123")
+	slots := AssignSlots(reflect.TypeOf(TestState{}))
+	st := NewStorage(addr, r.Evm.StateDB, slots)
+
+	// write to storage cache
+	verPath := st.Field("Version")
+	err := Set(verPath, uint8(99))
+	require.NoError(t, err)
+
+	// read from storage cache
+	val, err := Get[uint8](verPath)
+	require.NoError(t, err)
+	require.Equal(t, uint8(99), val)
+
+	// Verify StateDB is NOT updated yet
+	slot := verPath.slot
+	directVal := r.Evm.StateDB.GetState(addr, slot)
+	require.Equal(t, common.Hash{}, directVal, "StateDB should be empty before commit")
+
+	// commit and check stateDB
+	st.Commit()
+	directValAfter := r.Evm.StateDB.GetState(addr, slot)
+	// We expect the value 99 (0x63) right-aligned
+	expected := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000063")
+	require.Equal(t, expected, directValAfter, "StateDB should have value after commit")
+}
+
+func TestCache_ReadThrough(t *testing.T) {
+	r := tests.Setup(t, nil)
+	addr := common.HexToAddress("0x456")
+	slots := AssignSlots(reflect.TypeOf(TestState{}))
+	st := NewStorage(addr, r.Evm.StateDB, slots)
+
+	path := st.Field("Balance")
+	slot := path.slot
+
+	// Manually write to StateDB
+	balanceVal := common.BigToHash(big.NewInt(5000))
+	r.Evm.StateDB.SetState(addr, slot, balanceVal)
+
+	// Read from Storage (It should miss cache, hit StateDB and populate cache)
+	bal, err := Get[Uint256](path)
+	require.NoError(t, err)
+	require.Equal(t, uint64(5000), bal.Uint64())
+
+	// check internal cache structure
+	cachedVal, ok := st.cache[slot]
+	require.True(t, ok, "Slot should be cached after read")
+	require.Equal(t, balanceVal, cachedVal)
+}
+
+func TestCache_Overwrite(t *testing.T) {
+	r := tests.Setup(t, nil)
+	addr := common.HexToAddress("0x789")
+	slots := AssignSlots(reflect.TypeOf(TestState{}))
+	st := NewStorage(addr, r.Evm.StateDB, slots)
+
+	path := st.Field("Version")
+	// write
+	require.NoError(t, Set(path, uint8(10)))
+	// Overwrite
+	require.NoError(t, Set(path, uint8(20)))
+	// Verify Cache has latest
+	val, _ := Get[uint8](path)
+	require.Equal(t, uint8(20), val)
+
+	// commit and verify stateDB
+	st.Commit()
+	directVal := r.Evm.StateDB.GetState(addr, path.slot)
+	expected := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000014") // 20
+	require.Equal(t, expected, directVal)
+}
+
+// TestBytesCache verifies that multi-slot writes (Bytes) are buffered correctly
+func TestCache_Bytes(t *testing.T) {
+	r := tests.Setup(t, nil)
+	addr := common.HexToAddress("0xABC")
+	slots := AssignSlots(reflect.TypeOf(ComplexState{})) // Has UserData []byte
+	st := NewStorage(addr, r.Evm.StateDB, slots)
+
+	path := st.Field("UserData")
+	data := []byte{0xAA, 0xBB, 0xCC}
+
+	// Write Bytes
+	require.NoError(t, Set(path, data))
+
+	// Verify StateDB is empty
+	headSlot := path.slot
+	require.Equal(t, common.Hash{}, r.Evm.StateDB.GetState(addr, headSlot))
+
+	// Commit
+	st.Commit()
+
+	// Verify StateDB has Head Length
+	headVal := r.Evm.StateDB.GetState(addr, headSlot)
+	require.Equal(t, uint64(3), new(big.Int).SetBytes(headVal.Bytes()).Uint64())
 }

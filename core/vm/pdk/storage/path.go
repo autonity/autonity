@@ -12,7 +12,7 @@ import (
 
 // Path represents a path to a specific slot in the storage.
 type Path struct {
-	s    *Storage
+	st   *Storage
 	slot common.Hash
 	info SlotInfo
 	err  error
@@ -61,7 +61,7 @@ func (p *Path) Map(key any) *Path {
 		newInfo.Resolver = NewResolverForType(valType, newSlot, 0)
 	}
 	return &Path{
-		s:    p.s,
+		st:   p.st,
 		slot: newSlot,
 		info: newInfo,
 	}
@@ -111,7 +111,7 @@ func (p *Path) Index(idx uint64) *Path {
 	}
 	// always create a new instance
 	return &Path{
-		s:    p.s,
+		st:   p.st,
 		slot: slot,
 		info: info,
 	}
@@ -135,7 +135,7 @@ func (p *Path) Field(name string) *Path {
 	newBig := new(big.Int).Add(baseBig, new(big.Int).SetUint64(relIdx))
 
 	return &Path{
-		s:    p.s,
+		st:   p.st,
 		slot: common.BigToHash(newBig),
 		info: subInfo,
 	}
@@ -151,7 +151,7 @@ func Get[T any](p *Path) (T, error) {
 	if !ok {
 		return zero, fmt.Errorf("no accessor for type %T", zero)
 	}
-	val, err := accessor.ReadAt(p.slot, p.info.Offset, p.s)
+	val, err := accessor.ReadAt(p.slot, p.info.Offset, p.st)
 	return val.(T), err
 }
 
@@ -167,5 +167,5 @@ func Set[T any](p *Path, v T) error {
 	}
 
 	// update the specific part
-	return accessor.WriteAt(p.slot, p.info.Offset, v, p.s)
+	return accessor.WriteAt(p.slot, p.info.Offset, v, p.st)
 }
