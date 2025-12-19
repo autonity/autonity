@@ -111,9 +111,12 @@ func TestStorageNestedStruct(t *testing.T) {
 func TestStorageMapWithPrimitives(t *testing.T) {
 	st := newStorage(t)
 	testVal := uint64(95)
-	err := Set(st.Field("Category").Map(testValidator), testVal)
+
+	catMap := NewMap[common.Address, uint64](st.Field("Category"))
+	err := catMap.Set(testValidator, testVal)
 	require.NoError(t, err)
-	val, err := Get[uint64](st.Field("Category").Map(testValidator))
+
+	val, err := catMap.Get(testValidator)
 	require.NoError(t, err)
 	require.Equal(t, testVal, val)
 }
@@ -123,15 +126,17 @@ func TestStorageMapWithPrimitiveSlice(t *testing.T) {
 	testVal := uint32(95)
 
 	// Set length to 1 (full slot for dynamic array)
-	err := Set(st.Field("Scores").Map(testValidator), uint64(1))
+	scoreMapPath := st.Field("Scores").Map(testValidator)
+	scoresSlice := NewSlice[uint32](scoreMapPath)
+	err := scoresSlice.Append(testVal)
 	require.NoError(t, err)
 
-	// Set element at index 0
-	err = Set(st.Field("Scores").Map(testValidator).Index(0), testVal)
+	length, err := scoresSlice.Len()
 	require.NoError(t, err)
+	require.Equal(t, uint64(1), length)
 
 	// Get element at index 0
-	val, err := Get[uint32](st.Field("Scores").Map(testValidator).Index(0))
+	val, err := scoresSlice.Get(0)
 	require.NoError(t, err)
 	require.Equal(t, testVal, val)
 }
@@ -150,39 +155,35 @@ func TestMapOfAddressToStructArrays(t *testing.T) {
 
 	// Set: Chain to map value (dynamic array), append profile, set sub-fields
 	mapPath := st.Field("UserArrays").Map(testAddr)
-	arr, err := NewArray[Profile](mapPath) // Wraps for push
+	profileSlice := NewSlice[Profile](mapPath) // Wraps for push
+
+	// append new Profile
+	err := profileSlice.Append(testProfile)
 	require.NoError(t, err)
 
-	profileRef, err := arr.Grow()
+	// verify len
+	length, err := profileSlice.Len()
 	require.NoError(t, err)
-	err = Set[uint64](profileRef, testProfile.Level)
-	require.NoError(t, err)
-
-	err = Set(profileRef.Field("Level"), testProfile.Level)
-	require.NoError(t, err)
-
-	err = Set[uint32](profileRef.Field("Config").Field("TimeoutSeconds"), testProfile.Config.TimeoutSeconds)
-	require.NoError(t, err)
-	err = Set[bool](profileRef.Field("Config").Field("IsEnabled"), testProfile.Config.IsEnabled)
+	require.Equal(t, uint64(1), length)
+	prof, err := profileSlice.Get(0)
 	require.NoError(t, err)
 
-	// Update nested: Index(0).Field("Config").Field("Enabled").Set(false)
-	updatedPath := mapPath.Index(0).Field("Config").Field("IsEnabled")
-	err = Set[bool](updatedPath, false)
+	prof.Config.IsEnabled = false
+	err = profileSlice.Set(0, prof)
 	require.NoError(t, err)
 
-	_, err = arr.Len()
+	// verify update
+	prof, err = profileSlice.Get(0)
 	require.NoError(t, err)
+	require.Equal(t, uint64(42), prof.Level)
+	require.Equal(t, false, prof.Config.IsEnabled)
 
-	// Nested get: Direct field chain
-	levelPath := st.Field("UserArrays").Map(testAddr).Index(0).Field("Level")
-	gotLevel, err := Get[uint64](levelPath) // uintAccessor.ReadAt(struct_slot, level_offset=0, st)
+	// pop
+	err = profileSlice.Pop()
 	require.NoError(t, err)
-	require.Equal(t, uint64(42), gotLevel)
-
-	err = arr.Shrink()
+	length, err = profileSlice.Len()
 	require.NoError(t, err)
-
+	require.Equal(t, uint64(0), length)
 }
 
 type ComplexState struct {
@@ -213,123 +214,81 @@ func newComplexStorage(t *testing.T) *Storage {
 func TestMapKeyVariations(t *testing.T) {
 	st := newComplexStorage(t)
 
-	truePath := st.Field("MapBool").Map(true)
-	falsePath := st.Field("MapBool").Map(false)
+	boolMap := NewMap[bool, uint64](st.Field("MapBool"))
 
-	require.NoError(t, Set(truePath, uint64(100)))
-	require.NoError(t, Set(falsePath, uint64(200)))
+	require.NoError(t, boolMap.Set(true, 100))
+	require.NoError(t, boolMap.Set(false, 200))
 
-	valTrue, err := Get[uint64](truePath)
+	valTrue, err := boolMap.Get(true)
 	require.NoError(t, err)
 	require.Equal(t, uint64(100), valTrue)
 
-	valFalse, err := Get[uint64](falsePath)
+	valFalse, err := boolMap.Get(false)
 	require.NoError(t, err)
 	require.Equal(t, uint64(200), valFalse)
 
-	profileMap := st.Field("MapUint64")
+	profileMap := NewMap[uint64, Profile](st.Field("MapUint64"))
 	key := uint64(9999)
-
-	// Set Field in the struct inside map
-	err = Set(profileMap.Map(key).Field("Level"), uint64(55))
+	p := Profile{
+		Level: 10,
+	}
+	require.NoError(t, profileMap.Set(key, p))
+	p1, err := profileMap.Get(key)
 	require.NoError(t, err)
-
-	// Get Field back
-	gotLevel, err := Get[uint64](profileMap.Map(key).Field("Level"))
-	require.NoError(t, err)
-	require.Equal(t, uint64(55), gotLevel)
+	require.Equal(t, uint64(10), p1.Level)
 }
 
 func TestNestedMaps(t *testing.T) {
 	st := newComplexStorage(t)
-
 	rootMap := st.Field("UserPermissions")
-
 	user := testUserAddr
 	resourceID := uint64(42)
 
 	// Construct Path: Root -> Map(Addr) -> Map(ID) -> Value
-	targetPath := rootMap.Map(user).Map(resourceID)
+	innerMapPath := rootMap.Map(user)
+	innerMap := NewMap[uint64, bool](innerMapPath)
+	require.NoError(t, innerMap.Set(resourceID, true))
 
-	// 1. Set Permission to True
-	err := Set(targetPath, true)
-	require.NoError(t, err)
-
-	// 2. Verify
-	gotPerm, err := Get[bool](targetPath)
+	gotPerm, err := innerMap.Get(resourceID)
 	require.NoError(t, err)
 	require.True(t, gotPerm)
 
-	// 3. Verify distinct key (different ID) is still false (default)
-	otherPath := rootMap.Map(user).Map(uint64(99))
-	gotOther, err := Get[bool](otherPath)
+	// Verify distinct key (different ID) is still false (default)
+	gotOther, err := innerMap.Get(99)
 	require.NoError(t, err)
 	require.False(t, gotOther)
-}
-
-func TestArrayOfMaps(t *testing.T) {
-	st := newComplexStorage(t)
-
-	snapshotsArr, err := NewArray[map[uint64]uint64](st.Field("Snapshots"))
-	require.NoError(t, err)
-
-	// 1. Add a new Snapshot (Index 0)
-	snap0 := snapshotsArr.ReferenceAt(0)
-	require.NoError(t, snap0.err)
-
-	// 3. Set values in Snapshot 0
-	// Snapshots[0][Key: 100] = 500
-	err = Set(snap0.Map(uint64(100)), uint64(500))
-	require.NoError(t, err)
-
-	// 1. Add a new Snapshot (Index 0)
-	snap1 := snapshotsArr.ReferenceAt(1)
-	require.NoError(t, snap0.err)
-	// 4. Set values in Snapshot 1
-	// Snapshots[1][Key: 100] = 900 (Different value, same key, diff map)
-	err = Set(snap1.Map(uint64(100)), uint64(900))
-	require.NoError(t, err)
-
-	// 5. Verify Isolation
-	val0, err := Get[uint64](snapshotsArr.ReferenceAt(0).Map(uint64(100)))
-	require.NoError(t, err)
-	require.Equal(t, uint64(500), val0)
-
-	val1, err := Get[uint64](snapshotsArr.ReferenceAt(1).Map(uint64(100)))
-	require.NoError(t, err)
-	require.Equal(t, uint64(900), val1)
 }
 
 func TestSliceOfMaps(t *testing.T) {
 	st := newComplexStorage(t)
 
-	snapshotsArr, err := NewArray[map[uint64]uint64](st.Field("Snapshots")) // Type T doesn't matter much for Next/Map calls
+	snapshotsArr := NewSlice[Map[uint64, uint64]](st.Field("Snapshots"))
+
+	// 1. Add a new Snapshot (Index 0)
+	map0, err := snapshotsArr.Grow()
+	require.NoError(t, err)
+
+	err = map0.Set(100, 500)
 	require.NoError(t, err)
 
 	// 1. Add a new Snapshot (Index 0)
-	snap0, err := snapshotsArr.Grow()
-	require.NoError(t, snap0.err)
-
-	// 2. Add another Snapshot (Index 1)
-	snap1, err := snapshotsArr.Grow()
-	require.NoError(t, snap1.err)
-
-	// 3. Set values in Snapshot 0
-	// Snapshots[0][Key: 100] = 500
-	err = Set(snap0.Map(uint64(100)), uint64(500))
+	map1, err := snapshotsArr.Grow()
 	require.NoError(t, err)
-
 	// 4. Set values in Snapshot 1
 	// Snapshots[1][Key: 100] = 900 (Different value, same key, diff map)
-	err = Set(snap1.Map(uint64(100)), uint64(900))
+	err = map1.Set(100, 900)
 	require.NoError(t, err)
 
 	// 5. Verify Isolation
-	val0, err := Get[uint64](snapshotsArr.ReferenceAt(0).Map(uint64(100)))
+	val0Map, err := snapshotsArr.Get(0)
+	require.NoError(t, err)
+	val0, err := val0Map.Get(100)
 	require.NoError(t, err)
 	require.Equal(t, uint64(500), val0)
 
-	val1, err := Get[uint64](snapshotsArr.ReferenceAt(1).Map(uint64(100)))
+	val1Map, err := snapshotsArr.Get(1)
+	require.NoError(t, err)
+	val1, err := val1Map.Get(100)
 	require.NoError(t, err)
 	require.Equal(t, uint64(900), val1)
 }
@@ -341,25 +300,23 @@ func TestPackedFixedArray(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set Index 0 (Offset 0)
-	err = Set(ratesArr.ReferenceAt(0), uint64(10))
+	err = ratesArr.Set(0, uint64(10))
 	require.NoError(t, err)
 
 	// Set Index 1 (Offset 8)
-	err = Set(ratesArr.ReferenceAt(1), uint64(20))
+	err = ratesArr.Set(1, uint64(20))
 	require.NoError(t, err)
 
-	// Set Index 3 (Offset 24 - Last element in slot)
-	err = Set(ratesArr.ReferenceAt(3), uint64(40))
-	require.NoError(t, err)
+	// Set Index 3 - index out of bounds
+	err = ratesArr.Set(3, uint64(40))
+	require.Error(t, err)
 
 	// Verify
-	v0, _ := Get[uint64](ratesArr.ReferenceAt(0))
-	v1, _ := Get[uint64](ratesArr.ReferenceAt(1))
-	v3, _ := Get[uint64](ratesArr.ReferenceAt(3))
+	v0, _ := ratesArr.Get(0)
+	v1, _ := ratesArr.Get(1)
 
 	require.Equal(t, uint64(10), v0)
 	require.Equal(t, uint64(20), v1)
-	require.Equal(t, uint64(40), v3)
 }
 
 func TestByteAccessor(t *testing.T) {
@@ -536,66 +493,30 @@ func Test2DArrays(t *testing.T) {
 		slots := AssignSlots(reflect.TypeOf(Dynamic2D{}))
 		st := NewStorage(testContractAddr, r.Evm.StateDB, slots)
 
-		outerPath := st.Field("Data")
-		require.NoError(t, outerPath.err)
-
 		// Grow outer to len=2 (sets length at base)
-		outerArr, err := NewArray[[]uint64](outerPath)
-		require.NoError(t, err)
-		_, err = outerArr.Grow() // Row 0
-		require.NoError(t, err)
-		_, err = outerArr.Grow() // Row 1
+		outerArr := NewSlice[Slice[uint64]](st.Field("Data"))
+		row0, err := outerArr.Grow() // Row 0
 		require.NoError(t, err)
 
 		// For row 0: Grow inner to len=3, set [0]=10, [1]=20
-		row0Path := outerArr.ReferenceAt(0)
-		inner0Arr, err := NewArray[uint64](row0Path)
-		require.NoError(t, err)
-		for i := 0; i < 3; i++ {
-			_, err = inner0Arr.Grow()
-			require.NoError(t, err)
-		}
-		err = Set(inner0Arr.ReferenceAt(0), uint64(10))
-		require.NoError(t, err)
-		err = Set(inner0Arr.ReferenceAt(1), uint64(20))
+		require.NoError(t, row0.Append(10))
+		require.NoError(t, row0.Append(20))
+
+		val00, err := row0.Get(0)
+		require.Equal(t, uint64(10), val00)
+		val01, err := row0.Get(1)
+		require.Equal(t, uint64(20), val01)
+
+		row1, err := outerArr.Grow() // Row 1
 		require.NoError(t, err)
 
-		// For row 1: Grow inner to len=2, set [0]=30
-		row1Path := outerArr.ReferenceAt(1)
-		inner1Arr, err := NewArray[uint64](row1Path)
-		require.NoError(t, err)
-		for i := 0; i < 2; i++ {
-			_, err = inner1Arr.Grow()
-			require.NoError(t, err)
-		}
-		err = Set(inner1Arr.ReferenceAt(0), uint64(30))
-		require.NoError(t, err)
+		require.NoError(t, row1.Append(30))
+		require.NoError(t, row1.Append(40))
 
-		//// Verify isolation
-		out0 := outerArr.ReferenceAt(0)
-		out0Arr, err := NewArray[uint64](out0)
-		require.NoError(t, err)
-		got00, err := Get[uint64](out0Arr.ReferenceAt(0))
-		require.NoError(t, err)
-		require.Equal(t, uint64(10), got00)
-
-		got01, err := Get[uint64](out0Arr.ReferenceAt(1))
-		require.NoError(t, err)
-		require.Equal(t, uint64(20), got01)
-
-		out1 := outerArr.ReferenceAt(1)
-		out1Arr, err := NewArray[uint64](out1)
-		require.NoError(t, err)
-		got10, err := Get[uint64](out1Arr.ReferenceAt(0))
-		require.NoError(t, err)
-		require.Equal(t, uint64(30), got10)
-
-		// todo: shrink doesn't work for 2D slices
-		//err = out1Arr.Shrink()
-		//require.NoError(t, err)
-		//
-		//got10, err = Get[uint64](out1Arr.ReferenceAt(1))
-		//require.NoError(t, err)
+		val10, err := row1.Get(0)
+		require.Equal(t, uint64(30), val10)
+		val11, err := row1.Get(1)
+		require.Equal(t, uint64(40), val11)
 	})
 
 	t.Run("FixedDynamic2D", func(t *testing.T) {
@@ -610,17 +531,20 @@ func Test2DArrays(t *testing.T) {
 		path := st.Field("Data")
 		require.NoError(t, path.err)
 
-		row0Path := path.Index(0)
-		inner0Arr, err := NewArray[uint64](row0Path)
+		outerArr, err := NewArray[[]uint64](path)
 		require.NoError(t, err)
-		_, err = inner0Arr.Grow()
-		require.NoError(t, err)
-		err = Set(inner0Arr.ReferenceAt(0), uint64(123))
+		require.Equal(t, uint64(2), outerArr.Len())
+
+		row0Path, err := outerArr.PathAt(0)
 		require.NoError(t, err)
 
-		row0Path = path.Index(0)
-		inner0Arr, _ = NewArray[uint64](row0Path)
-		val, err := Get[uint64](inner0Arr.ReferenceAt(0))
+		inner0Slice := NewSlice[uint64](row0Path)
+		_, err = inner0Slice.Grow()
+		require.NoError(t, err)
+		err = inner0Slice.Set(0, 123)
+		require.NoError(t, err)
+
+		val, err := inner0Slice.Get(0)
 		require.NoError(t, err)
 		require.Equal(t, uint64(123), val)
 
@@ -719,10 +643,9 @@ func TestCache_Bytes(t *testing.T) {
 	headSlot := path.slot
 	require.Equal(t, common.Hash{}, r.Evm.StateDB.GetState(addr, headSlot))
 
-	// Commit
+	// Commit and Verify StateDB has Head Length
 	st.Commit()
 
-	// Verify StateDB has Head Length
 	headVal := r.Evm.StateDB.GetState(addr, headSlot)
 	require.Equal(t, uint64(3), new(big.Int).SetBytes(headVal.Bytes()).Uint64())
 }

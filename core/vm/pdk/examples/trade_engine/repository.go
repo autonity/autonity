@@ -28,59 +28,63 @@ func (ps *PrecompileRepository) GetOrder(id common.Hash) (Order, error) {
 	if orderPath.Error() != nil {
 		return order, orderPath.Error()
 	}
-	// ID
-	id, err := storage.Get[common.Hash](orderPath.Field("ID"))
+	err := storage.Load(orderPath, &order)
 	if err != nil {
-		return order, err
+		return Order{}, err
 	}
-	// User
-	user, err := storage.Get[common.Address](orderPath.Field("User"))
-	if err != nil {
-		return order, err
-	}
-
-	// Side
-	sideUint, err := storage.Get[uint8](orderPath.Field("Side"))
-	if err != nil {
-		return order, err
-	}
-
-	// Price
-	price, err := storage.Get[storage.Uint256](orderPath.Field("Price"))
-	if err != nil {
-		return order, err
-	}
-
-	// Qty
-	qty, err := storage.Get[storage.Uint256](orderPath.Field("Qty"))
-	if err != nil {
-		return order, err
-	}
-
-	// Filled
-	filled, err := storage.Get[storage.Uint256](orderPath.Field("Filled"))
-	if err != nil {
-		return order, err
-	}
-	// Status
-	status, err := storage.Get[uint8](orderPath.Field("Status"))
-	if err != nil {
-		return order, err
-	}
-	// timestamp
-	timestamp, err := storage.Get[int64](orderPath.Field("Timestamp"))
-	if err != nil {
-		return order, err
-	}
-
-	order.ID = id
-	order.User = user
-	order.Side = sideUint
-	order.Price = price
-	order.Qty = qty
-	order.Filled = filled
-	order.Status = status
-	order.Timestamp = timestamp
+	//// ID
+	//id, err := storage.Get[common.Hash](orderPath.Field("ID"))
+	//if err != nil {
+	//	return order, err
+	//}
+	//// User
+	//user, err := storage.Get[common.Address](orderPath.Field("User"))
+	//if err != nil {
+	//	return order, err
+	//}
+	//
+	//// Side
+	//sideUint, err := storage.Get[uint8](orderPath.Field("Side"))
+	//if err != nil {
+	//	return order, err
+	//}
+	//
+	//// Price
+	//price, err := storage.Get[storage.Uint256](orderPath.Field("Price"))
+	//if err != nil {
+	//	return order, err
+	//}
+	//
+	//// Qty
+	//qty, err := storage.Get[storage.Uint256](orderPath.Field("Qty"))
+	//if err != nil {
+	//	return order, err
+	//}
+	//
+	//// Filled
+	//filled, err := storage.Get[storage.Uint256](orderPath.Field("Filled"))
+	//if err != nil {
+	//	return order, err
+	//}
+	//// Status
+	//status, err := storage.Get[uint8](orderPath.Field("Status"))
+	//if err != nil {
+	//	return order, err
+	//}
+	//// timestamp
+	//timestamp, err := storage.Get[int64](orderPath.Field("Timestamp"))
+	//if err != nil {
+	//	return order, err
+	//}
+	//
+	//order.ID = id
+	//order.User = user
+	//order.Side = sideUint
+	//order.Price = price
+	//order.Qty = qty
+	//order.Filled = filled
+	//order.Status = status
+	//order.Timestamp = timestamp
 
 	return order, nil
 }
@@ -90,49 +94,53 @@ func (ps *PrecompileRepository) SetOrder(id common.Hash, order Order) error {
 	if orderPath.Error() != nil {
 		return orderPath.Error()
 	}
-	// ID
-	err := storage.Set[common.Hash](orderPath.Field("ID"), order.ID)
+	err := storage.Save(orderPath, &order)
 	if err != nil {
 		return err
 	}
-	// User
-	err = storage.Set[common.Address](orderPath.Field("User"), order.User)
-	if err != nil {
-		return err
-	}
-
-	// Side
-	err = storage.Set[uint8](orderPath.Field("Side"), uint8(order.Side))
-	if err != nil {
-		return err
-	}
-
-	// Price
-	err = storage.Set[storage.Uint256](orderPath.Field("Price"), order.Price)
-	if err != nil {
-		return err
-	}
-	// Qty
-	err = storage.Set[storage.Uint256](orderPath.Field("Qty"), order.Qty)
-	if err != nil {
-		return err
-	}
-	// Filled
-	err = storage.Set[storage.Uint256](orderPath.Field("Filled"), order.Filled)
-	if err != nil {
-		return err
-	}
-	// Status
-	err = storage.Set[uint8](orderPath.Field("Status"), order.Status)
-	if err != nil {
-		return err
-	}
-
-	// Timestamp
-	err = storage.Set[int64](orderPath.Field("Timestamp"), order.Timestamp)
-	if err != nil {
-		return err
-	}
+	//// ID
+	//err := storage.Set[common.Hash](orderPath.Field("ID"), order.ID)
+	//if err != nil {
+	//	return err
+	//}
+	//// User
+	//err = storage.Set[common.Address](orderPath.Field("User"), order.User)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// Side
+	//err = storage.Set[uint8](orderPath.Field("Side"), uint8(order.Side))
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// Price
+	//err = storage.Set[storage.Uint256](orderPath.Field("Price"), order.Price)
+	//if err != nil {
+	//	return err
+	//}
+	//// Qty
+	//err = storage.Set[storage.Uint256](orderPath.Field("Qty"), order.Qty)
+	//if err != nil {
+	//	return err
+	//}
+	//// Filled
+	//err = storage.Set[storage.Uint256](orderPath.Field("Filled"), order.Filled)
+	//if err != nil {
+	//	return err
+	//}
+	//// Status
+	//err = storage.Set[uint8](orderPath.Field("Status"), order.Status)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//// Timestamp
+	//err = storage.Set[int64](orderPath.Field("Timestamp"), order.Timestamp)
+	//if err != nil {
+	//	return err
+	//}
 	return nil
 }
 

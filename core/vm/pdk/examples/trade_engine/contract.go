@@ -45,6 +45,11 @@ func NewTradingEngineContract(vm *vm.EVM, address common.Address) *TradingEngine
 	return c
 }
 
+func (te *TradingEngineContract) MatchOrders(evm *vm.EVM, caller common.Address, st *storage.Storage, pair string) error {
+	// only autonity contract can call this function
+	return nil
+}
+
 func (te *TradingEngineContract) SubmitOrder(evm *vm.EVM, caller common.Address, st *storage.Storage,
 	pair string, side uint8, price, qty *big.Int) (common.Hash, error) {
 	pairHash := sha256.Sum256([]byte(pair))
