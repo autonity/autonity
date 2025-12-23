@@ -62,9 +62,6 @@ func (ps *PrecompileRepository) getLevel(path *storage.Path) (Level, error) {
 		return level, err
 	}
 	for orderIndex := range orderLength {
-		if orderIndex >= uint64(len(level.OrderIDs)) {
-			break
-		}
 		orderID, err := orderSlice.Get(orderIndex)
 		if err != nil {
 			return level, err
@@ -164,6 +161,13 @@ func (ps *PrecompileRepository) SetBook(pair common.Hash, book OrderBook) error 
 	if err != nil {
 		return err
 	}
+
+	var tempBook OrderBook
+	err = storage.Load(bookPath, &tempBook)
+	if err != nil {
+		return err
+	}
+
 	// Bids
 	bidsPath := bookPath.Field("Bids")
 	if bidsPath.Error() != nil {
@@ -264,6 +268,7 @@ func (ps *PrecompileRepository) InsertToOrderBook(pair common.Hash, order Order)
 		if err != nil {
 			return err
 		}
+		return nil
 	}
 	levelPath := sidePath.Index(0)
 	if levelPath.Error() != nil {

@@ -34,7 +34,7 @@ func TestSubmitOrder(t *testing.T) {
 	//todo: use evm call to truly test precompile execution context
 	result, err := c.Run(input, r.Evm.Context.BlockNumber.Uint64(), r.Evm, sender)
 	require.NoError(t, err)
-	require.Greater(t, len(result), 0) // Return: ABI-packed orderID hash (32B)
+	require.Greater(t, len(result), 0)
 
 	orderID := common.BytesToHash(result[:32])
 	require.NotEqual(t, common.Hash{}, orderID) // Non-zero ID
@@ -53,10 +53,9 @@ func TestSubmitOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), updatedBook.NextID.Uint64())
 
-	// todo: verify/fix order book updated
-	//require.Equal(t, qty.Uint64(), updatedBook.Bids[0].TotalQty.Uint64())
-	//require.Equal(t, 1, len(updatedBook.Bids[0].OrderIDs)) // Grown append
-	//require.Equal(t, orderID, updatedBook.Bids[0].OrderIDs[0])
+	require.Equal(t, qty.Uint64(), updatedBook.Bids[0].TotalQty.Uint64())
+	require.Equal(t, 1, len(updatedBook.Bids[0].OrderIDs)) // Grown append
+	require.Equal(t, orderID, updatedBook.Bids[0].OrderIDs[0])
 
 }
 

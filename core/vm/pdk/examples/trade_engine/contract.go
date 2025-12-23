@@ -15,6 +15,7 @@ import (
 	"github.com/autonity/autonity/core/vm/pdk"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 )
 
 var (
@@ -42,6 +43,7 @@ func NewTradingEngineContract(vm *vm.EVM, address common.Address) *TradingEngine
 	if err != nil {
 		panic("failed to set initial order book: " + err.Error())
 	}
+	st.Commit()
 	return c
 }
 
@@ -74,26 +76,35 @@ func (te *TradingEngineContract) SubmitOrder(evm *vm.EVM, caller common.Address,
 	if err != nil {
 		return common.Hash{}, err
 	}
-
-	err = repo.InsertToOrderBook(pairHash, newOrder)
+	updatedOrder, err := repo.GetOrder(newID)
 	if err != nil {
 		return common.Hash{}, err
 	}
+	log.Info("updated order", "value ", updatedOrder)
 
 	if side == 0 {
 		if len(ob.Bids) == 0 {
 			ob.Bids = append(ob.Bids, Level{})
 		}
+		ob.Bids[0].Price = storage.NewUint256FromBig(price)
 		ob.Bids[0].TotalQty.Add(&ob.Bids[0].TotalQty.Int, &newOrder.Qty.Int)
+		ob.Bids[0].OrderIDs = append(ob.Bids[0].OrderIDs, newOrder.ID)
 	} else {
 		if len(ob.Asks) == 0 {
 			ob.Asks = append(ob.Asks, Level{})
 		}
+		ob.Asks[0].Price = storage.NewUint256FromBig(price)
 		ob.Asks[0].TotalQty.Add(&ob.Bids[0].TotalQty.Int, &newOrder.Qty.Int)
+		ob.Asks[0].OrderIDs = append(ob.Asks[0].OrderIDs, newOrder.ID)
 	}
 
 	ob.NextID.Add(&ob.NextID.Int, &uint256.Int{1})
 	err = repo.SetBook(pairHash, ob)
+	book, err := repo.GetBook(pairHash)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	log.Info("updated book", "value ", book)
 	return newID, err
 }
 
