@@ -106,12 +106,16 @@ func loadRecurse(p *Path, val reflect.Value) error {
 }
 
 func Save[T any](path *Path, source T) error {
+	if _, ok := getAccessor(reflect.TypeOf(source)); ok {
+		return Set(path, source)
+	}
+
 	val := reflect.ValueOf(source)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
 
-	// defined custom accessors
+	// Check if de-referenced type has  accessor
 	if _, ok := getAccessor(val.Type()); ok {
 		return Set(path, source)
 	}

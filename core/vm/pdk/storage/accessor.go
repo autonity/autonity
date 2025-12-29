@@ -13,6 +13,10 @@ import (
 var (
 	zeroHashBytes    = common.Hash{}.Bytes()
 	zeroAddressBytes = common.Address{}.Bytes()
+	maxInt256        = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 255), big.NewInt(1))
+	minInt256        = new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 255))
+	tt255            = new(big.Int).Lsh(big.NewInt(1), 255) // two to the power of 255 to check the -ve number
+	tt256            = new(big.Int).Lsh(big.NewInt(1), 256) // two to the power of 256 for modulo operation
 )
 
 type ValueAccessor interface {
@@ -41,6 +45,45 @@ func init() {
 	registry[reflect.TypeOf(common.Address{})] = AddressAccessor{}
 	registry[reflect.TypeOf([]byte{})] = ByteAccessor{}
 	registry[reflect.TypeOf(common.Hash{})] = HashAccessor{}
+	registry[reflect.TypeOf(&big.Int{})] = BigIntAccessor{}
+}
+
+// BigIntAccessor handles reading and writing big.Int values in the range of int256. for uint256 use Uint256Accessor
+type BigIntAccessor struct{}
+
+func (b BigIntAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
+	if offset != 0 {
+		return nil, fmt.Errorf("big.Int values must start from zero offset")
+	}
+	data := st.GetState(slot)
+	ret := new(big.Int).SetBytes(data[:])
+	// check if negative
+
+	if ret.Cmp(tt255) >= 0 { // negative number
+		ret.Sub(ret, tt256) // convert to negative value
+	}
+	return ret, nil
+}
+
+func (b BigIntAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
+	valBig, ok := value.(*big.Int)
+	if !ok {
+		return fmt.Errorf("expected *big.Int type, got %T", value)
+	}
+	if valBig.Cmp(maxInt256) > 0 {
+		return fmt.Errorf("big.Int value exceeds maximum int256")
+	}
+	if valBig.Cmp(minInt256) < 0 {
+		return fmt.Errorf("big.Int value below minimum int256")
+	}
+	toWrite := new(big.Int).Set(valBig)
+	if toWrite.Sign() < 0 { // negative number
+		toWrite.Add(toWrite, tt256) // uint256 representation
+	}
+	var padded [32]byte
+	toWrite.FillBytes(padded[:])
+	st.SetState(slot, padded)
+	return nil
 }
 
 type HashAccessor struct{}

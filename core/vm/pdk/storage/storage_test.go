@@ -649,3 +649,104 @@ func TestCache_Bytes(t *testing.T) {
 	headVal := r.Evm.StateDB.GetState(addr, headSlot)
 	require.Equal(t, uint64(3), new(big.Int).SetBytes(headVal.Bytes()).Uint64())
 }
+
+type BigIntState struct {
+	Counter   *big.Int
+	Balances  map[common.Address]*big.Int
+	Historics []*big.Int
+}
+
+func TestBigIntAccessor(t *testing.T) {
+	r := tests.Setup(t, nil)
+	slots := AssignSlots(reflect.TypeOf(BigIntState{}))
+	st := NewStorage(testContractAddr, r.Evm.StateDB, slots)
+
+	path := st.Field("Counter")
+
+	t.Run("Positive Values", func(t *testing.T) {
+		val := big.NewInt(1000)
+		require.NoError(t, Set(path, val))
+
+		got, err := Get[*big.Int](path)
+		require.NoError(t, err)
+		require.Equal(t, 0, val.Cmp(got))
+
+		// Raw slot check: should look like normal uint256 1000
+		raw := st.GetState(path.slot)
+		require.Equal(t, uint64(1000), new(big.Int).SetBytes(raw[:]).Uint64())
+	})
+
+	t.Run("Negative Values", func(t *testing.T) {
+		val := big.NewInt(-1)
+		require.NoError(t, Set(path, val))
+
+		got, err := Get[*big.Int](path)
+		require.NoError(t, err)
+		require.Equal(t, 0, val.Cmp(got))
+
+		raw := st.GetState(path.slot)
+		expectedRaw := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1)) // 2^256 - 1
+		require.Equal(t, expectedRaw.Bytes(), raw[:])
+	})
+
+	t.Run("Boundaries", func(t *testing.T) {
+		// Max: 2^255 - 1
+		maxInt := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 255), big.NewInt(1))
+		require.NoError(t, Set(path, maxInt))
+
+		got, err := Get[*big.Int](path)
+		require.NoError(t, err)
+		require.Equal(t, 0, maxInt.Cmp(got))
+
+		// Min: -2^255
+		minInt := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 255))
+		require.NoError(t, Set(path, minInt))
+
+		got, err = Get[*big.Int](path)
+		require.NoError(t, err)
+		require.Equal(t, 0, minInt.Cmp(got))
+	})
+
+	t.Run("Overflow Protection", func(t *testing.T) {
+		// 2^255 (1 greater than MaxInt256)
+		overflow := new(big.Int).Lsh(big.NewInt(1), 255)
+		err := Set(path, overflow)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "exceeds maximum int256")
+
+		// -2^255 - 1 (1 less than MinInt256)
+		underflow := new(big.Int).Sub(new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 255)), big.NewInt(1))
+		err = Set(path, underflow)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "below minimum int256")
+	})
+
+	t.Run("Map Integration", func(t *testing.T) {
+		mapPath := st.Field("Balances").Map(testUserAddr)
+		val := big.NewInt(-5000)
+
+		require.NoError(t, Set(mapPath, val))
+
+		got, err := Get[*big.Int](mapPath)
+		require.NoError(t, err)
+		require.Equal(t, 0, val.Cmp(got))
+	})
+
+	t.Run("Slice Integration", func(t *testing.T) {
+		slicePath := NewSlice[*big.Int](st.Field("Historics"))
+
+		val1 := big.NewInt(100)
+		val2 := big.NewInt(-100)
+
+		require.NoError(t, slicePath.Append(val1))
+		require.NoError(t, slicePath.Append(val2))
+
+		got1, err := slicePath.Get(0)
+		require.NoError(t, err)
+		require.Equal(t, 0, val1.Cmp(got1))
+
+		got2, err := slicePath.Get(1)
+		require.NoError(t, err)
+		require.Equal(t, 0, val2.Cmp(got2))
+	})
+}

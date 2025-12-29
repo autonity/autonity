@@ -3,6 +3,7 @@ package storage
 import (
 	"encoding/binary"
 	"fmt"
+	"math/big"
 	"reflect"
 
 	"github.com/autonity/autonity/common"
@@ -98,6 +99,9 @@ func getPrimitiveSize(typ reflect.Type) (int, bool) {
 		return 32, true
 	}
 	if reflect.TypeOf(Uint256{}) == typ {
+		return 32, true
+	}
+	if reflect.TypeOf(&big.Int{}) == typ {
 		return 32, true
 	}
 	switch typ.Kind() {
