@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/big"
-	"reflect"
 	"time"
 
 	"github.com/holiman/uint256"
@@ -23,18 +22,22 @@ var (
 )
 
 type TradingEngineContract struct {
-	*pdk.BaseContract
+	// storage layout
+	Books        map[common.Hash]OrderBook // per pair orderbook, e.g. NTN/USDC, ATN/USDC etc.
+	Orders       map[common.Hash]Order     // order to orderID mapping
+	TradeHistory []Trade                   // todo:
 }
 
-func SetupTradingEngineContract(vm *vm.EVM, address common.Address) {
-	pdk.AddToPrecompiles(address, NewTradingEngineContract(vm, address))
-}
-
-func NewTradingEngineContract(vm *vm.EVM, address common.Address) *TradingEngineContract {
+func SetupTradingEngineContract(vm *vm.EVM, address common.Address) *TradingEngineContract {
+	// todo: define address
+	// address := common.HexToAddress("0x23")
 	c := &TradingEngineContract{}
-	c.BaseContract = pdk.SetupContract(c, reflect.TypeOf(TradingEngineState{}), address)
+	pdk.AddToPrecompiles(address, c, vm, initialize)
+	return c
+}
 
-	st := storage.NewStorage(c.Address, vm.StateDB, c.Slots)
+func initialize(st *storage.Storage) {
+	// base contract assignment in add to precompiles
 	repo := NewPrecompileRepository(st)
 	// set order book
 	pairHash := sha256.Sum256([]byte("NTN/USDC"))
@@ -44,7 +47,6 @@ func NewTradingEngineContract(vm *vm.EVM, address common.Address) *TradingEngine
 		panic("failed to set initial order book: " + err.Error())
 	}
 	st.Commit()
-	return c
 }
 
 func (te *TradingEngineContract) MatchOrders(evm *vm.EVM, caller common.Address, st *storage.Storage, pair string) error {

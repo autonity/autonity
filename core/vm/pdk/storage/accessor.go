@@ -65,7 +65,7 @@ func (b BigIntAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, 
 	return ret, nil
 }
 
-func (b BigIntAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
+func (b BigIntAccessor) WriteAt(slot common.Hash, _ int, value any, st *Storage) error {
 	valBig, ok := value.(*big.Int)
 	if !ok {
 		return fmt.Errorf("expected *big.Int type, got %T", value)

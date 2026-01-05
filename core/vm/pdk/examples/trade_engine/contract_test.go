@@ -9,6 +9,7 @@ import (
 
 	"github.com/autonity/autonity/autonity/tests"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/core/vm/pdk"
 	"github.com/autonity/autonity/core/vm/pdk/abiselector"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
@@ -18,27 +19,28 @@ import (
 func TestSubmitOrder(t *testing.T) {
 	r := tests.Setup(t, nil)
 
-	c := NewTradingEngineContract(r.Evm, ContractAddress)
-
-	pdk.AddToPrecompiles(ContractAddress, c)
+	SetupTradingEngineContract(r.Evm, ContractAddress)
 
 	pair := "NTN/USDC"
 	side := uint8(0) // Bid
 	price := big.NewInt(100)
 	qty := big.NewInt(10)
 
-	input := buildInput(t, c.BaseContract.Dispatcher, "SubmitOrder", pair, side, price, qty)
+	bc := vm.PrecompiledContractsIstanbul[ContractAddress]
+	bcTyped, _ := bc.(*pdk.BaseContract)
+
+	input := buildInput(t, bcTyped.Dispatcher, "SubmitOrder", pair, side, price, qty)
 
 	sender := common.HexToAddress("0xdummyuser")
 
 	//todo: use evm call to truly test precompile execution context
-	result, err := c.Run(input, r.Evm.Context.BlockNumber.Uint64(), r.Evm, sender)
+	result, err := bc.Run(input, r.Evm.Context.BlockNumber.Uint64(), r.Evm, sender)
 	require.NoError(t, err)
 	require.Greater(t, len(result), 0)
 
 	orderID := common.BytesToHash(result[:32])
 	require.NotEqual(t, common.Hash{}, orderID) // Non-zero ID
-	st := storage.NewStorage(c.Address, r.Evm.StateDB, c.Slots)
+	st := storage.NewStorage(bcTyped.Address, r.Evm.StateDB, bcTyped.Slots)
 	repo := NewPrecompileRepository(st)
 
 	ord, err := repo.GetOrder(orderID)

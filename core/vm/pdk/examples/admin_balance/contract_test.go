@@ -9,6 +9,7 @@ import (
 
 	"github.com/autonity/autonity/autonity/tests"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/core/vm/pdk"
 	"github.com/autonity/autonity/core/vm/pdk/abiselector"
 	"github.com/autonity/autonity/core/vm/pdk/examples/trade_engine"
@@ -19,12 +20,12 @@ import (
 // TestAdminBalanceContract_Init verifies defaults are set.
 func TestAdminBalanceContract_Init(t *testing.T) {
 	r := tests.Setup(t, nil)
-	c := NewAdminBalanceContract(r.Evm, ContractAddress)
+	SetupAdminBalanceContract(r.Evm, ContractAddress)
 
-	pdk.AddToPrecompiles(ContractAddress, c)
-
+	bc := vm.PrecompiledContractsIstanbul[ContractAddress]
+	bcTyped, _ := bc.(*pdk.BaseContract)
 	// Check slots via storage.
-	st := storage.NewStorage(c.Address, r.Evm.StateDB, c.Slots)
+	st := storage.NewStorage(bcTyped.Address, r.Evm.StateDB, bcTyped.Slots)
 	admin, err := storage.Get[common.Address](st.Field("Admin"))
 	if err != nil {
 		t.Fatal(err)
@@ -46,15 +47,17 @@ func TestAdminBalanceContract_Init(t *testing.T) {
 
 func TestAdminBalanceContract_FullFlow(t *testing.T) {
 	runner := tests.Setup(t, nil)
-	c := NewAdminBalanceContract(runner.Evm, ContractAddress)
-	// register
-	pdk.AddToPrecompiles(ContractAddress, c)
 
 	// assign slots
+	SetupAdminBalanceContract(runner.Evm, ContractAddress)
+
+	bc := vm.PrecompiledContractsIstanbul[ContractAddress]
+	bcTyped, _ := bc.(*pdk.BaseContract)
+	// Check slots via storage.
+	st := storage.NewStorage(bcTyped.Address, runner.Evm.StateDB, bcTyped.Slots)
 	newAdmin := common.BytesToAddress([]byte("0xalive"))
-	st := storage.NewStorage(c.Address, runner.Evm.StateDB, c.Slots)
-	input := buildInput(t, c.Dispatcher, "UpdateAdmin", newAdmin)
-	_, err := c.Run(input, runner.Evm.Context.BlockNumber.Uint64(), runner.Evm, contractOwner)
+	input := buildInput(t, bcTyped.Dispatcher, "UpdateAdmin", newAdmin)
+	_, err := bc.Run(input, runner.Evm.Context.BlockNumber.Uint64(), runner.Evm, contractOwner)
 	require.NoError(t, err, "UpdateAdmin failed")
 
 	address, err := storage.Get[common.Address](st.Field("Admin"))
@@ -64,8 +67,10 @@ func TestAdminBalanceContract_FullFlow(t *testing.T) {
 
 func TestCrossContractCallInPrecompile_SubmitOrder(t *testing.T) {
 	r := tests.Setup(t, nil)
-	bc := NewAdminBalanceContract(r.Evm, ContractAddress)
-	pdk.AddToPrecompiles(ContractAddress, bc)
+	SetupAdminBalanceContract(r.Evm, ContractAddress)
+
+	bc := vm.PrecompiledContractsIstanbul[ContractAddress]
+	bcTyped, _ := bc.(*pdk.BaseContract)
 
 	trade_engine.SetupTradingEngineContract(r.Evm, trade_engine.ContractAddress)
 
@@ -73,7 +78,7 @@ func TestCrossContractCallInPrecompile_SubmitOrder(t *testing.T) {
 	side := uint8(0) // Bid
 	price := big.NewInt(100)
 	qty := big.NewInt(10)
-	input := buildInput(t, bc.BaseContract.Dispatcher, "CallSubmitOrder", trade_engine.ContractAddress,
+	input := buildInput(t, bcTyped.Dispatcher, "CallSubmitOrder", trade_engine.ContractAddress,
 		pair, side, price, qty)
 
 	sender := common.HexToAddress("0xdummyuser")

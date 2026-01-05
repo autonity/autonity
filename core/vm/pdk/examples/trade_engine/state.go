@@ -35,9 +35,3 @@ type Trade struct {
 	Qty       storage.Uint256
 	Timestamp uint64
 }
-
-type TradingEngineState struct {
-	Books        map[common.Hash]OrderBook // per pair orderbook, e.g. NTN/USDC, ATN/USDC etc.
-	Orders       map[common.Hash]Order     // order to orderID mapping
-	TradeHistory []Trade                   // todo:
-}

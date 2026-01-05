@@ -10,19 +10,15 @@ import (
 )
 
 type BaseContract struct {
+	contract interface{} // app contract instance
+
 	Address    common.Address
-	StateType  reflect.Type
 	Slots      map[string]storage.SlotInfo
 	Dispatcher *abiselector.Dispatcher
 }
 
-func SetupContract(logic interface{}, stateType reflect.Type, addr common.Address) *BaseContract {
-	base := &BaseContract{}
-	base.StateType = stateType
-	base.Slots = storage.AssignSlots(stateType)
-	base.Address = addr
-	base.Dispatcher = abiselector.GetOrRegisterDispatcher(logic)
-	return base
+func (b *BaseContract) GetAppContract() interface{} {
+	return b.contract
 }
 
 func (b *BaseContract) Run(input []byte, _ uint64, evm *vm.EVM, caller common.Address) ([]byte, error) {
@@ -40,12 +36,24 @@ func (b *BaseContract) RequiredGas(_ []byte) uint64 {
 	return 1000
 }
 
-func AddToPrecompiles(address common.Address, c vm.PrecompiledContract) {
+func AddToPrecompiles(address common.Address, contractPtr interface{}, evm *vm.EVM, initFunc func(st *storage.Storage)) {
+	elem := reflect.ValueOf(contractPtr).Elem()
+	base := &BaseContract{
+		contract:   contractPtr,
+		Address:    address,
+		Slots:      storage.AssignSlots(elem.Type()),
+		Dispatcher: abiselector.GetOrRegisterDispatcher(contractPtr),
+	}
+	if initFunc != nil {
+		st := storage.NewStorage(address, evm.StateDB, base.Slots)
+		initFunc(st)
+	}
+
 	addToPrecompile := func(registry map[common.Address]vm.PrecompiledContract) {
 		if registry == nil {
 			registry = make(map[common.Address]vm.PrecompiledContract)
 		}
-		registry[address] = c
+		registry[address] = base
 	}
 
 	addToPrecompile(vm.PrecompiledContractsByzantium)

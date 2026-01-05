@@ -7,7 +7,6 @@ import (
 	"github.com/autonity/autonity/common"
 )
 
-
 type Slice[T any] struct {
 	path *Path
 }
@@ -91,9 +90,9 @@ func (s *Slice[T]) Pop() error {
 	return s.setLength(length - 1)
 }
 
-func (a *Slice[T]) setLength(newLen uint64) error {
+func (s *Slice[T]) setLength(newLen uint64) error {
 	var headData common.Hash
 	binary.BigEndian.PutUint64(headData[:8], newLen)
-	a.path.st.SetState(a.path.slot, headData)
+	s.path.st.SetState(s.path.slot, headData)
 	return nil
 }

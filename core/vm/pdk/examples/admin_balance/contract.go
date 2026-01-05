@@ -1,14 +1,11 @@
 package admin_balance
 
 import (
-	"fmt"
 	"math/big"
-	"reflect"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/core/vm/pdk"
-	"github.com/autonity/autonity/core/vm/pdk/access"
 	"github.com/autonity/autonity/core/vm/pdk/examples/trade_engine"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 )
@@ -19,14 +16,20 @@ var (
 )
 
 type AdminBalanceContract struct {
-	*pdk.BaseContract
+	Admin   common.Address
+	Balance storage.Uint256
 }
 
-func NewAdminBalanceContract(evm *vm.EVM, address common.Address) *AdminBalanceContract {
+func SetupAdminBalanceContract(vm *vm.EVM, address common.Address) *AdminBalanceContract {
+	// todo: define address
+	// address := common.HexToAddress("0x23")
 	c := &AdminBalanceContract{}
-	c.BaseContract = pdk.SetupContract(c, reflect.TypeOf(AdminBalanceState{}), address)
+	pdk.AddToPrecompiles(address, c, vm, initialize)
+	return c
+}
+
+func initialize(st *storage.Storage) {
 	// set default values
-	st := storage.NewStorage(c.Address, evm.StateDB, c.Slots)
 	protocolAdmin := common.HexToAddress("0x000000000000000000000000000000000000dead")
 	err := storage.Set[common.Address](st.Field("Admin"), protocolAdmin)
 	if err != nil {
@@ -36,10 +39,7 @@ func NewAdminBalanceContract(evm *vm.EVM, address common.Address) *AdminBalanceC
 	if err != nil {
 		panic(err)
 	}
-	// setup access controller
-	accessController := access.NewRBAC(st, "RBAC")
-	accessController.SetupOwnerAsAdmin(contractOwner)
-	return c
+	st.Commit()
 }
 
 func (c *AdminBalanceContract) UpdateBalance(evm *vm.EVM, caller common.Address, st *storage.Storage, newBalance *big.Int) error {
@@ -50,10 +50,6 @@ func (c *AdminBalanceContract) UpdateBalance(evm *vm.EVM, caller common.Address,
 
 func (c *AdminBalanceContract) UpdateAdmin(evm *vm.EVM, caller common.Address, st *storage.Storage, adminAddress common.Address) error {
 	// authorization checks
-	rbac := access.NewRBAC(st, "RBAC")
-	if !rbac.HasRole(access.RoleAdmin, caller) {
-		return fmt.Errorf("ERR_UNAUTHORIZED: caller is not admin")
-	}
 
 	return storage.Set[common.Address](st.Field("Admin"), adminAddress)
 }
