@@ -19,7 +19,7 @@ import (
 func TestSubmitOrder(t *testing.T) {
 	r := tests.Setup(t, nil)
 
-	SetupTradingEngineContract(r.Evm, ContractAddress)
+	SetupTradingEngineContract(r.Evm)
 
 	pair := "NTN/USDC"
 	side := uint8(0) // Bid

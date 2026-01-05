@@ -28,11 +28,11 @@ type TradingEngineContract struct {
 	TradeHistory []Trade                   // todo:
 }
 
-func SetupTradingEngineContract(vm *vm.EVM, address common.Address) *TradingEngineContract {
+func SetupTradingEngineContract(vm *vm.EVM) *TradingEngineContract {
 	// todo: define address
 	// address := common.HexToAddress("0x23")
 	c := &TradingEngineContract{}
-	pdk.AddToPrecompiles(address, c, vm, initialize)
+	pdk.AddToPrecompiles(ContractAddress, c, vm, initialize)
 	return c
 }
 

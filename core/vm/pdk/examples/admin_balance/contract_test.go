@@ -72,7 +72,7 @@ func TestCrossContractCallInPrecompile_SubmitOrder(t *testing.T) {
 	bc := vm.PrecompiledContractsIstanbul[ContractAddress]
 	bcTyped, _ := bc.(*pdk.BaseContract)
 
-	trade_engine.SetupTradingEngineContract(r.Evm, trade_engine.ContractAddress)
+	trade_engine.SetupTradingEngineContract(r.Evm)
 
 	pair := "NTN/USDC"
 	side := uint8(0) // Bid
