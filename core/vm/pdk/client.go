@@ -19,7 +19,7 @@ type Client struct {
 func NewClient(address common.Address, logic interface{}) *Client {
 	return &Client{
 		address:    address,
-		dispatcher: abiselector.GetOrRegisterDispatcher(logic),
+		dispatcher: abiselector.GetDispatcher(logic),
 	}
 }
 

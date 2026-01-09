@@ -6,32 +6,32 @@ import (
 )
 
 type Order struct {
-	ID        common.Hash
-	User      common.Address
-	Side      uint8
-	Price     storage.Uint256
-	Qty       storage.Uint256
-	Filled    storage.Uint256
-	Status    uint8
-	Timestamp int64
+	ID        storage.Var[common.Hash]
+	User      storage.Var[common.Address]
+	Side      storage.Var[uint8]
+	Price     storage.Var[storage.Uint256]
+	Qty       storage.Var[storage.Uint256]
+	Filled    storage.Var[storage.Uint256]
+	Status    storage.Var[uint8]
+	Timestamp storage.Var[int64]
 }
 
 type Level struct {
-	Price    storage.Uint256
-	TotalQty storage.Uint256
-	OrderIDs []common.Hash // reference to all orders for this price
+	Price    storage.Var[storage.Uint256]
+	TotalQty storage.Var[storage.Uint256]
+	OrderIDs storage.Slice[storage.Var[common.Hash]] // reference to all orders for this price
 }
 
 type OrderBook struct {
-	Bids   []Level
-	Asks   []Level
-	NextID storage.Uint256 // simple sequence for orderIDs
+	Bids   storage.Slice[Level]
+	Asks   storage.Slice[Level]
+	NextID storage.Var[storage.Uint256] // simple sequence for orderIDs
 }
 
 type Trade struct {
-	TakerID   common.Hash
-	MakerID   common.Hash
-	Price     storage.Uint256
-	Qty       storage.Uint256
-	Timestamp uint64
+	TakerID   storage.Var[common.Hash]
+	MakerID   storage.Var[common.Hash]
+	Price     storage.Var[storage.Uint256]
+	Qty       storage.Var[storage.Uint256]
+	Timestamp storage.Var[uint64]
 }

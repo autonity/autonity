@@ -1,32 +1,36 @@
 package storage
 
-import "fmt"
+import (
+	"reflect"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/crypto"
+)
 
 type Map[K any, V any] struct {
-	path *Path
+	st       *Storage
+	baseSlot common.Hash
 }
 
-func NewMap[K any, V any](p *Path) *Map[K, V] {
-	return &Map[K, V]{path: p}
-}
-
-func (m *Map[K, V]) BindPath(p *Path) {
-	m.path = p
-}
-
-func (m *Map[K, V]) Get(key K) (V, error) {
-	var zero V
-	if m.path == nil {
-		return zero, fmt.Errorf("[K, V]: cannot get value from nil path")
+func (m *Map[K, V]) Bind(st *Storage, baseSlot common.Hash, offset uint64) (common.Hash, uint64) {
+	m.st = st
+	if offset > 0 {
+		baseSlot = addSlot(baseSlot, 1)
 	}
-	var val V
-	err := Load(m.path.Map(key), &val)
-	return val, err
+	m.baseSlot = baseSlot
+	// return next usable slot
+	return addSlot(m.baseSlot, 1), offset
 }
 
-func (m *Map[K, V]) Set(key K, value V) error {
-	if m.path == nil {
-		return fmt.Errorf("[K, V]: cannot set value to nil path")
+// Get obtains the pointer to value Wrapper, which is bound to the key slot
+// there is no need ot set, because the V can be used to V.Set(...) directly
+func (m *Map[K, V]) Get(key K) *V {
+	keyBytes, err := encodeTo32Bytes(key, reflect.TypeOf(key))
+	if err != nil {
+		panic(err)
 	}
-	return Save(m.path.Map(key), value)
+	keyHash := crypto.Keccak256Hash(append(keyBytes, m.baseSlot.Bytes()...))
+	val := new(V)
+	BindState(m.st, keyHash, val)
+	return val
 }

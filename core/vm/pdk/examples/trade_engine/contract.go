@@ -23,29 +23,24 @@ var (
 
 type TradingEngineContract struct {
 	// storage layout
-	Books        map[common.Hash]OrderBook // per pair orderbook, e.g. NTN/USDC, ATN/USDC etc.
-	Orders       map[common.Hash]Order     // order to orderID mapping
-	TradeHistory []Trade                   // todo:
+	Books        storage.Map[common.Hash, OrderBook] // per pair orderbook, e.g. NTN/USDC, ATN/USDC etc.
+	Orders       storage.Map[common.Hash, Order]     // order to orderID mapping
+	TradeHistory storage.Slice[Trade]
 }
 
 func SetupTradingEngineContract(vm *vm.EVM) *TradingEngineContract {
-	// todo: define address
-	// address := common.HexToAddress("0x23")
 	c := &TradingEngineContract{}
 	pdk.AddToPrecompiles(ContractAddress, c, vm, initialize)
 	return c
 }
 
-func initialize(st *storage.Storage) {
-	// base contract assignment in add to precompiles
-	repo := NewPrecompileRepository(st)
-	// set order book
+func initialize(st *storage.Storage, bc *pdk.BaseContract) {
 	pairHash := sha256.Sum256([]byte("NTN/USDC"))
-	emptyBook := OrderBook{NextID: storage.NewUint256FromInt(1)}
-	err := repo.SetBook(pairHash, emptyBook)
-	if err != nil {
-		panic("failed to set initial order book: " + err.Error())
-	}
+	nextID := storage.NewUint256FromInt(1)
+
+	te := bc.GetAppContract().(*TradingEngineContract)
+	ob := te.Books.Get(pairHash)
+	ob.NextID.Set(nextID)
 	st.Commit()
 }
 
@@ -57,84 +52,67 @@ func (te *TradingEngineContract) MatchOrders(evm *vm.EVM, caller common.Address,
 func (te *TradingEngineContract) SubmitOrder(evm *vm.EVM, caller common.Address, st *storage.Storage,
 	pair string, side uint8, price, qty *big.Int) (common.Hash, error) {
 	pairHash := sha256.Sum256([]byte(pair))
-	repo := NewPrecompileRepository(st)
-	ob, err := repo.GetBook(pairHash)
-	if err != nil {
-		return common.Hash{}, err
-	}
+	ob := te.Books.Get(pairHash)
 
 	ts := time.Now().Unix()
-	newID := genOrderID(caller, &ob.NextID, ts)
-	newOrder := Order{
-		ID:        newID,
-		User:      caller,
-		Side:      side,
-		Price:     storage.NewUint256FromBig(price),
-		Qty:       storage.NewUint256FromBig(qty),
-		Status:    0, // open
-		Timestamp: ts,
-	}
-	err = repo.SetOrder(newID, newOrder)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	updatedOrder, err := repo.GetOrder(newID)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	log.Info("updated order", "value ", updatedOrder)
+	newID := genOrderID(caller, ob.NextID.Get(), ts)
+	newOrder := te.Orders.Get(newID)
+	newOrder.ID.Set(newID)
+	newOrder.Side.Set(side)
+	newOrder.User.Set(caller)
+	newOrder.Qty.Set(storage.NewUint256FromBig(qty))
+	newOrder.Price.Set(storage.NewUint256FromBig(price))
+	newOrder.Status.Set(0)
+	newOrder.Timestamp.Set(ts)
 
 	if side == 0 {
-		if len(ob.Bids) == 0 {
-			ob.Bids = append(ob.Bids, Level{})
-		}
-		ob.Bids[0].Price = storage.NewUint256FromBig(price)
-		ob.Bids[0].TotalQty.Add(&ob.Bids[0].TotalQty.Int, &newOrder.Qty.Int)
-		ob.Bids[0].OrderIDs = append(ob.Bids[0].OrderIDs, newOrder.ID)
+		ob.Bids.Append(func(l *Level) {
+			l.Price.Set(storage.NewUint256FromBig(price))
+			lq := l.TotalQty.Get()
+			newQty := newOrder.Qty.Get()
+			newQty.Add(&lq.Int, &newQty.Int)
+			l.TotalQty.Set(newQty)
+
+			l.OrderIDs.Append(func(idVar *storage.Var[common.Hash]) {
+				idVar.Set(newOrder.ID.Get())
+			})
+		})
 	} else {
-		if len(ob.Asks) == 0 {
-			ob.Asks = append(ob.Asks, Level{})
-		}
-		ob.Asks[0].Price = storage.NewUint256FromBig(price)
-		ob.Asks[0].TotalQty.Add(&ob.Bids[0].TotalQty.Int, &newOrder.Qty.Int)
-		ob.Asks[0].OrderIDs = append(ob.Asks[0].OrderIDs, newOrder.ID)
+		ob.Asks.Append(func(l *Level) {
+			l.Price.Set(storage.NewUint256FromBig(price))
+			lq := l.TotalQty.Get()
+			newQty := newOrder.Qty.Get()
+			newQty.Add(&lq.Int, &newQty.Int)
+			l.TotalQty.Set(newQty)
+			l.OrderIDs.Append(func(idVar *storage.Var[common.Hash]) {
+				idVar.Set(newOrder.ID.Get())
+			})
+		})
 	}
 
-	ob.NextID.Add(&ob.NextID.Int, &uint256.Int{1})
-	err = repo.SetBook(pairHash, ob)
-	book, err := repo.GetBook(pairHash)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	log.Info("updated book", "value ", book)
-	return newID, err
+	nextId := ob.NextID.Get()
+	nextId.Add(&nextId.Int, &uint256.Int{1})
+	ob.NextID.Set(nextId)
+
+	book := te.Books.Get(pairHash)
+	log.Info("updated book", "value ", book.NextID.Get())
+	return newID, nil
 }
 
 func (te *TradingEngineContract) CancelOrder(evm *vm.EVM, caller common.Address, st *storage.Storage, pair string, orderID common.Hash) error {
-	repo := NewPrecompileRepository(st)
-	ord, err := repo.GetOrder(orderID)
-	if err != nil {
-		return err
-	}
-	if ord.User != caller || ord.Status != 0 {
+	ord := te.Orders.Get(orderID)
+	if ord.User.Get() != caller || ord.Status.Get() != 0 {
 		return fmt.Errorf("unauthorized: wrong user or already cancelled")
 	}
 
-	ord.Status = 2 // Cancelled
-	if err := repo.SetOrder(orderID, ord); err != nil {
-		return err
-	}
+	ord.Status.Set(2) // Cancelled
 
-	pairHash := sha256.Sum256([]byte(pair))
-	// todo(optimize): pass order here
-	if err := repo.RemoveFromOrderBook(pairHash, orderID); err != nil {
-		return err
-	}
+	// todo remove from order book
 	return nil
 }
 
 // stub function to generate order ID
-func genOrderID(user common.Address, next *storage.Uint256, ts int64) common.Hash {
+func genOrderID(user common.Address, next storage.Uint256, ts int64) common.Hash {
 	bytes := append(user.Bytes(), append(next.Bytes(), make([]byte, 8)...)...)
 	binary.BigEndian.PutUint64(bytes[len(bytes)-8:], uint64(ts))
 	return common.BytesToHash(crypto.Keccak256(bytes))

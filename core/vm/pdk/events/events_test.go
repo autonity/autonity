@@ -22,7 +22,7 @@ func TestEmit_SimpleEvent(t *testing.T) {
 	id := uint64(10)
 	event := SimpleEvent{ID: id}
 	address := common.HexToAddress("0xaabbccddeeff00112233445566778899aabbccdd")
-	st := storage.NewStorage(address, r.Evm.StateDB, nil)
+	st := storage.NewStorage(address, r.Evm.StateDB)
 	err := Emit(st, event)
 	require.NoError(t, err)
 
@@ -55,7 +55,7 @@ func TestEmit_IndexedEvent(t *testing.T) {
 	size := uint32(11)
 	event := IndexedEvent{ID: id, Title: title, Size: size}
 	address := common.HexToAddress("0x11223344556677889900aabbccddeeff11223344")
-	st := storage.NewStorage(address, r.Evm.StateDB, nil)
+	st := storage.NewStorage(address, r.Evm.StateDB)
 	err := Emit(st, event)
 	require.NoError(t, err)
 
@@ -94,7 +94,7 @@ func TestEmit_DynamicIndexedEvent(t *testing.T) {
 	payload := []byte("DynamicPayloadData")
 	event := DynamicIndexedEvent{ID: id, Payload: payload}
 	address := common.HexToAddress("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
-	st := storage.NewStorage(address, r.Evm.StateDB, nil)
+	st := storage.NewStorage(address, r.Evm.StateDB)
 	err := Emit(st, event)
 	require.NoError(t, err)
 	// verify logs

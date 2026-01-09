@@ -10,7 +10,21 @@ var (
 	registry = sync.Map{}
 )
 
-func GetOrRegisterDispatcher(logic interface{}) *Dispatcher {
+func RegisterDispatcher(logic interface{}) *Dispatcher {
+	typ := reflect.TypeOf(logic)
+	if typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	d := newDispatcher()
+	err := InferABIMethods(d, reflect.ValueOf(logic))
+	if err != nil {
+		panic(err)
+	}
+	registry.Store(typ, d)
+	return d
+}
+
+func GetDispatcher(logic interface{}) *Dispatcher {
 	typ := reflect.TypeOf(logic)
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
@@ -18,12 +32,24 @@ func GetOrRegisterDispatcher(logic interface{}) *Dispatcher {
 	if dispatcher, ok := registry.Load(typ); ok {
 		return dispatcher.(*Dispatcher)
 	}
-	d := newDispatcher()
-	err := InferABIMethods(d, reflect.ValueOf(logic))
-	if err != nil {
-		panic(err)
-	}
-
-	registry.Store(typ, d)
-	return d
+	// note: we could choose to auto register here, but to avoid unintended consequences, we return nil
+	return nil
 }
+
+//func GetOrRegisterDispatcher(logic interface{}) *Dispatcher {
+//	typ := reflect.TypeOf(logic)
+//	if typ.Kind() == reflect.Ptr {
+//		typ = typ.Elem()
+//	}
+//	if dispatcher, ok := registry.Load(typ); ok {
+//		return dispatcher.(*Dispatcher)
+//	}
+//	d := newDispatcher()
+//	err := InferABIMethods(d, reflect.ValueOf(logic))
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	registry.Store(typ, d)
+//	return d
+//}

@@ -9,6 +9,29 @@ import (
 	"github.com/autonity/autonity/common"
 )
 
+func addSlot(baseSlot common.Hash, numSlots uint64) common.Hash {
+	baseBig := new(big.Int).SetBytes(baseSlot.Bytes())
+	numSlotBig := new(big.Int).SetUint64(numSlots)
+	sumBig := new(big.Int).Add(baseBig, numSlotBig)
+	return common.BigToHash(sumBig)
+}
+
+func slotDiff(baseSlot, nextSlot common.Hash) uint64 {
+	baseBig := new(big.Int).SetBytes(baseSlot.Bytes())
+	nextBig := new(big.Int).SetBytes(nextSlot.Bytes())
+	return new(big.Int).Sub(nextBig, baseBig).Uint64()
+}
+
+func getSlotConsumption[T any]() uint64 {
+	var zero T
+	// simulating bindstate toe get the consumed slots
+	consumed := BindState(nil, common.Hash{}, &zero)
+	if consumed == 0 {
+		return 1
+	}
+	return consumed
+}
+
 // encodeTo32Bytes, key is passed as interface and keytype passed as reflect type, this keyType is actual
 // map keyType and the key is the user value what use wants to pass
 func encodeTo32Bytes(key interface{}, keyType reflect.Type) ([]byte, error) {
@@ -89,71 +112,4 @@ func encodeTo32Bytes(key interface{}, keyType reflect.Type) ([]byte, error) {
 	// Right-align the key bytes.
 	copy(encodedBytes[32-len(keyBytes):], keyBytes)
 	return encodedBytes, nil
-}
-
-func getPrimitiveSize(typ reflect.Type) (int, bool) {
-	if reflect.TypeOf(common.Address{}) == typ {
-		return 20, true
-	}
-	if reflect.TypeOf(common.Hash{}) == typ {
-		return 32, true
-	}
-	if reflect.TypeOf(Uint256{}) == typ {
-		return 32, true
-	}
-	if reflect.TypeOf(&big.Int{}) == typ {
-		return 32, true
-	}
-	switch typ.Kind() {
-	case reflect.Bool, reflect.Int8, reflect.Uint8:
-		return 1, true
-	case reflect.Int16, reflect.Uint16:
-		return 2, true
-	case reflect.Int32, reflect.Uint32:
-		return 4, true
-	case reflect.Int64, reflect.Uint64:
-		return 8, true
-	case reflect.Array:
-		if typ.Elem().Kind() == reflect.Uint8 {
-			if typ.Len() > 0 && typ.Len() <= 32 {
-				return typ.Len(), true
-			}
-		}
-	}
-	return 0, false
-}
-
-func isDynamicType(typ reflect.Type) bool {
-	if typ.Kind() == reflect.Map || typ.Kind() == reflect.Slice {
-		return true
-	}
-	return false
-}
-
-// getElemSize calculates the storage size of a single element
-func getElemSize(typ reflect.Type) (int, bool) {
-	if size, ok := getPrimitiveSize(typ); ok {
-		return size, true
-	}
-	if typ.Kind() == reflect.Struct {
-		_, slots := compileTypeLayout(typ)
-		return int(slots * 32), true
-	}
-	if typ.Kind() == reflect.Array {
-		elemSize, ok := getElemSize(typ.Elem())
-		if !ok {
-			return 0, false
-		}
-		return elemSize * typ.Len(), true
-	}
-	if typ.Kind() == reflect.Map || typ.Kind() == reflect.Slice {
-		return 32, true
-	}
-	return 0, false
-}
-
-func computeSlotHash(slotIndex uint64) common.Hash {
-	var slot [32]byte
-	binary.BigEndian.PutUint64(slot[24:], slotIndex)
-	return common.BytesToHash(slot[:])
 }

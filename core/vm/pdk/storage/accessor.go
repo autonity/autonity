@@ -19,6 +19,54 @@ var (
 	tt256            = new(big.Int).Lsh(big.NewInt(1), 256) // two to the power of 256 for modulo operation
 )
 
+type Var[T any] struct {
+	st       *Storage
+	baseSlot common.Hash
+	offset   uint64
+}
+
+func (v *Var[T]) Bind(st *Storage, baseSlot common.Hash, offset uint64) (common.Hash, uint64) {
+	size := uint64(reflect.TypeOf(*new(T)).Size())
+	if size+offset > 32 {
+		baseSlot = addSlot(baseSlot, 1)
+		offset = 0
+	}
+	v.st = st
+	v.offset = offset
+	v.baseSlot = baseSlot
+	if offset+size == 32 { // exactly filled the slot
+		// return new slot
+		return addSlot(baseSlot, 1), 0
+	}
+	return baseSlot, offset + size
+}
+
+func (v *Var[T]) Get() T {
+	var zero T
+	acc, ok := getAccessor(reflect.TypeOf(zero))
+	if !ok {
+		panic(fmt.Errorf("no accessor found for type %T", zero))
+	}
+	val, err := acc.ReadAt(v.baseSlot, int(v.offset), v.st)
+	if err != nil {
+		panic(err)
+	}
+	return val.(T)
+}
+
+func (v *Var[T]) Set(val T) {
+	typ := reflect.TypeOf(val)
+	acc, ok := getAccessor(typ)
+	if !ok {
+		panic(fmt.Errorf("no accessor found for type %T", val))
+	}
+	err := acc.WriteAt(v.baseSlot, int(v.offset), val, v.st)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
 type ValueAccessor interface {
 	//ReadAt reads the value at the given slot and offset
 	ReadAt(slot common.Hash, offset int, st *Storage) (any, error)

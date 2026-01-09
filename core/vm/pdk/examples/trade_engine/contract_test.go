@@ -12,14 +12,13 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/core/vm/pdk"
 	"github.com/autonity/autonity/core/vm/pdk/abiselector"
-	"github.com/autonity/autonity/core/vm/pdk/storage"
 	"github.com/autonity/autonity/crypto"
 )
 
 func TestSubmitOrder(t *testing.T) {
 	r := tests.Setup(t, nil)
 
-	SetupTradingEngineContract(r.Evm)
+	te := SetupTradingEngineContract(r.Evm)
 
 	pair := "NTN/USDC"
 	side := uint8(0) // Bid
@@ -28,9 +27,7 @@ func TestSubmitOrder(t *testing.T) {
 
 	bc := vm.PrecompiledContractsIstanbul[ContractAddress]
 	bcTyped, _ := bc.(*pdk.BaseContract)
-
 	input := buildInput(t, bcTyped.Dispatcher, "SubmitOrder", pair, side, price, qty)
-
 	sender := common.HexToAddress("0xdummyuser")
 
 	//todo: use evm call to truly test precompile execution context
@@ -40,25 +37,24 @@ func TestSubmitOrder(t *testing.T) {
 
 	orderID := common.BytesToHash(result[:32])
 	require.NotEqual(t, common.Hash{}, orderID) // Non-zero ID
-	st := storage.NewStorage(bcTyped.Address, r.Evm.StateDB, bcTyped.Slots)
-	repo := NewPrecompileRepository(st)
 
-	ord, err := repo.GetOrder(orderID)
-	require.NoError(t, err)
-	require.Equal(t, sender, ord.User)
-	require.Equal(t, side, uint8(ord.Side))
-	require.Equal(t, price.Uint64(), ord.Price.Uint64())
-	require.Equal(t, qty.Uint64(), ord.Qty.Uint64())
-	require.Equal(t, uint8(0), ord.Status) // Open
+	ord := te.Orders.Get(orderID)
+	require.Equal(t, sender, ord.User.Get())
+	require.Equal(t, side, ord.Side.Get())
+	ordPrice := ord.Price.Get()
+	require.Equal(t, price.Uint64(), ordPrice.Uint64())
+	ordQty := ord.Qty.Get()
+	require.Equal(t, qty.Uint64(), ordQty.Uint64())
+	require.Equal(t, uint8(0), ord.Status.Get()) // Open
 
-	updatedBook, err := repo.GetBook(sha256.Sum256([]byte(pair)))
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), updatedBook.NextID.Uint64())
+	updatedBook := te.Books.Get(sha256.Sum256([]byte(pair)))
+	uNextID := updatedBook.NextID.Get()
+	require.Equal(t, uint64(2), uNextID.Uint64())
 
-	require.Equal(t, qty.Uint64(), updatedBook.Bids[0].TotalQty.Uint64())
-	require.Equal(t, 1, len(updatedBook.Bids[0].OrderIDs)) // Grown append
-	require.Equal(t, orderID, updatedBook.Bids[0].OrderIDs[0])
-
+	gQty := updatedBook.Bids.Get(0).TotalQty.Get()
+	require.Equal(t, qty.Uint64(), gQty.Uint64())
+	require.Equal(t, uint64(1), updatedBook.Bids.Get(0).OrderIDs.Len()) // Grown append
+	require.Equal(t, orderID, updatedBook.Bids.Get(0).OrderIDs.Get(0).Get())
 }
 
 func buildInput(t *testing.T, d *abiselector.Dispatcher, methodName string, args ...interface{}) []byte {

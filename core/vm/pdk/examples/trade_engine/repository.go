@@ -1,5 +1,6 @@
 package trade_engine
 
+/*
 import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
@@ -23,6 +24,7 @@ func NewPrecompileRepository(st *storage.Storage) *PrecompileRepository {
 }
 
 func (ps *PrecompileRepository) GetOrder(id common.Hash) (Order, error) {
+
 	var order Order
 	orderPath := ps.st.Field("Orders").Map(id)
 	if orderPath.Error() != nil {
@@ -54,8 +56,7 @@ func (ps *PrecompileRepository) getLevel(path *storage.Path) (Level, error) {
 		return Level{}, err
 	}
 	// load the dynamic members manually
-	orderIDPath := path.Field("OrderIDs")
-	orderSlice := storage.NewSlice[common.Hash](orderIDPath)
+	orderSlice := storage.NewSlice[common.Hash](ps.st, "OrderIDs")
 	var orderIDs []common.Hash
 	orderLength, err := orderSlice.Len()
 	if err != nil {
@@ -83,8 +84,7 @@ func (ps *PrecompileRepository) setLevel(path *storage.Path, level Level) error 
 	}
 
 	// get order IDs array path:
-	orderIDPath := path.Field("OrderIDs")
-	orderIDArr := storage.NewSlice[common.Hash](orderIDPath)
+	orderIDArr := storage.NewSlice[common.Hash](ps.st, "OrderIDs")
 	orderLength, err := orderIDArr.Len()
 	if err != nil {
 		return err
@@ -117,8 +117,7 @@ func (ps *PrecompileRepository) GetBook(pair common.Hash) (OrderBook, error) {
 		return OrderBook{}, err
 	}
 
-	bids := bookPath.Field("Bids")
-	bidsWrapper := storage.NewSlice[Level](bids)
+	bidsWrapper := storage.NewSlice[Level](ps.st, "Bids")
 	bidsLen, err := bidsWrapper.Len()
 	if err != nil {
 		return OrderBook{}, err
@@ -126,22 +125,21 @@ func (ps *PrecompileRepository) GetBook(pair common.Hash) (OrderBook, error) {
 
 	orderBook.Bids = make([]Level, bidsLen)
 	for index := range bidsLen {
-		level, err := ps.getLevel(bids.Index(index))
+		level, err := bidsWrapper.Get(index)
 		if err != nil {
 			return OrderBook{}, err
 		}
 		orderBook.Bids[index] = level
 	}
 
-	asks := bookPath.Field("Asks")
-	asksArr := storage.NewSlice[Level](asks)
+	asksArr := storage.NewSlice[Level](ps.st, "Asks")
 	asksLen, err := asksArr.Len()
 	orderBook.Asks = make([]Level, asksLen)
 	for index := range asksLen {
 		if index >= uint64(len(orderBook.Asks)) {
 			break
 		}
-		level, err := ps.getLevel(asks.Index(index))
+		level, err := asksArr.Get(index)
 		if err != nil {
 			return OrderBook{}, err
 		}
@@ -169,19 +167,14 @@ func (ps *PrecompileRepository) SetBook(pair common.Hash, book OrderBook) error 
 	}
 
 	// Bids
-	bidsPath := bookPath.Field("Bids")
-	if bidsPath.Error() != nil {
-		return bidsPath.Error()
-	}
-
-	bidsArr := storage.NewSlice[Level](bidsPath)
+	bidsArr := storage.NewSlice[Level](ps.st, "Bids")
 	bidsLength, err := bidsArr.Len()
 	if err != nil {
 		return err
 	}
 	for i := uint64(0); i < uint64(len(book.Bids)); i++ {
 		if i < bidsLength {
-			err = ps.setLevel(bidsPath.Index(i), book.Bids[i])
+			err = bidsArr.Set(i, book.Bids[i])
 			if err != nil {
 				return err
 			}
@@ -190,7 +183,7 @@ func (ps *PrecompileRepository) SetBook(pair common.Hash, book OrderBook) error 
 			if err != nil {
 				return err
 			}
-			err = ps.setLevel(bidsPath.Index(i), book.Bids[i])
+			err = bidsArr.Set(i, book.Bids[i])
 			if err != nil {
 				return err
 			}
@@ -204,8 +197,7 @@ func (ps *PrecompileRepository) SetBook(pair common.Hash, book OrderBook) error 
 		}
 	}
 
-	asksPath := bookPath.Field("Asks")
-	asksSlice := storage.NewSlice[Level](asksPath)
+	asksSlice := storage.NewSlice[Level](ps.st, "Asks")
 	asksLength, err := asksSlice.Len()
 	if err != nil {
 		return err
@@ -213,7 +205,7 @@ func (ps *PrecompileRepository) SetBook(pair common.Hash, book OrderBook) error 
 
 	for i := uint64(0); i < uint64(len(book.Asks)); i++ {
 		if i < asksLength {
-			err = ps.setLevel(asksPath.Index(i), book.Asks[i])
+			err = asksSlice.Set(i, book.Asks[i])
 			if err != nil {
 				return err
 			}
@@ -222,7 +214,7 @@ func (ps *PrecompileRepository) SetBook(pair common.Hash, book OrderBook) error 
 			if err != nil {
 				return err
 			}
-			err = ps.setLevel(asksPath.Index(i), book.Asks[i])
+			err = asksSlice.Set(i, book.Asks[i])
 			if err != nil {
 				return err
 			}
@@ -242,17 +234,13 @@ func (ps *PrecompileRepository) InsertToOrderBook(pair common.Hash, order Order)
 	if bookPath.Error() != nil {
 		return bookPath.Error()
 	}
-	var sidePath *storage.Path
+	var levelSlice *storage.Slice[Level]
 	if order.Side == 0 { // bid
-		sidePath = bookPath.Field("Bids")
+		levelSlice = storage.NewSlice[Level](ps.st, "Bids")
 	} else {
-		sidePath = bookPath.Field("Asks")
-	}
-	if sidePath.Error() != nil {
-		return sidePath.Error()
+		levelSlice = storage.NewSlice[Level](ps.st, "Asks")
 	}
 
-	levelSlice := storage.NewSlice[Level](sidePath)
 	levelLen, err := levelSlice.Len()
 	if err != nil {
 		return err
@@ -264,23 +252,14 @@ func (ps *PrecompileRepository) InsertToOrderBook(pair common.Hash, order Order)
 		if err != nil {
 			return err
 		}
-		err = ps.setLevel(sidePath.Index(0), Level{Price: order.Price, TotalQty: order.Qty, OrderIDs: []common.Hash{order.ID}})
+		err = levelSlice.Set(0, Level{Price: order.Price, TotalQty: order.Qty, OrderIDs: []common.Hash{order.ID}})
 		if err != nil {
 			return err
 		}
 		return nil
 	}
-	levelPath := sidePath.Index(0)
-	if levelPath.Error() != nil {
-		return levelPath.Error()
-	}
 
-	orderIDPath := levelPath.Field("OrderIDs")
-	if orderIDPath.Error() != nil {
-		return orderIDPath.Error()
-	}
-
-	orderIDSlice := storage.NewSlice[common.Hash](orderIDPath)
+	orderIDSlice := storage.NewSlice[common.Hash](ps.st, "OrderIDs")
 	err = orderIDSlice.Append(order.ID)
 	if err != nil {
 		return err
@@ -316,14 +295,13 @@ func (ps *PrecompileRepository) RemoveFromOrderBook(pair common.Hash, orderID co
 	if levelPath.Error() != nil {
 		return levelPath.Error()
 	}
-	orderIDPath := levelPath.Field("OrderIDs")
-	if orderIDPath.Error() != nil {
-		return orderIDPath.Error()
-	}
-	orderIDSlice := storage.NewSlice[Level](orderIDPath)
+	orderIDSlice := storage.NewSlice[Level](ps.st, "OrderIDs")
 	err = orderIDSlice.Pop()
 	if err != nil {
 		return err
 	}
 	return nil
 }
+
+
+*/

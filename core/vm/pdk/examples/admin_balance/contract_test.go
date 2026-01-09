@@ -20,25 +20,18 @@ import (
 // TestAdminBalanceContract_Init verifies defaults are set.
 func TestAdminBalanceContract_Init(t *testing.T) {
 	r := tests.Setup(t, nil)
-	SetupAdminBalanceContract(r.Evm, ContractAddress)
+	ContractAddress = common.HexToAddress("0x21")
+	ac := SetupAdminBalanceContract(r.Evm)
 
-	bc := vm.PrecompiledContractsIstanbul[ContractAddress]
-	bcTyped, _ := bc.(*pdk.BaseContract)
 	// Check slots via storage.
-	st := storage.NewStorage(bcTyped.Address, r.Evm.StateDB, bcTyped.Slots)
-	admin, err := storage.Get[common.Address](st.Field("Admin"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	admin := ac.Admin.Get()
+
 	expectedAdmin := common.HexToAddress("0x000000000000000000000000000000000000dead")
 	if admin != expectedAdmin {
 		t.Errorf("expected admin %v, got %v", expectedAdmin, admin)
 	}
 
-	balance, err := storage.Get[storage.Uint256](st.Field("Balance"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	balance := ac.Balance.Get()
 	expBal := &uint256.Int{100}
 	if balance.Eq(expBal) == false {
 		t.Errorf("expected balance %v, got %v", storage.NewUint256FromInt(100).Int, balance)
@@ -48,26 +41,32 @@ func TestAdminBalanceContract_Init(t *testing.T) {
 func TestAdminBalanceContract_FullFlow(t *testing.T) {
 	runner := tests.Setup(t, nil)
 
+	ContractAddress = common.HexToAddress("0x22")
 	// assign slots
-	SetupAdminBalanceContract(runner.Evm, ContractAddress)
+	ac := SetupAdminBalanceContract(runner.Evm)
+	t.Log("admin address: - 1", ac.Admin.Get())
 
+	t.Log("Contract address:", ContractAddress.Hex())
 	bc := vm.PrecompiledContractsIstanbul[ContractAddress]
 	bcTyped, _ := bc.(*pdk.BaseContract)
 	// Check slots via storage.
-	st := storage.NewStorage(bcTyped.Address, runner.Evm.StateDB, bcTyped.Slots)
 	newAdmin := common.BytesToAddress([]byte("0xalive"))
 	input := buildInput(t, bcTyped.Dispatcher, "UpdateAdmin", newAdmin)
+	t.Log("admin address: - 2", ac.Admin.Get())
 	_, err := bc.Run(input, runner.Evm.Context.BlockNumber.Uint64(), runner.Evm, contractOwner)
+	t.Log("admin address: - 3", ac.Admin.Get())
 	require.NoError(t, err, "UpdateAdmin failed")
 
-	address, err := storage.Get[common.Address](st.Field("Admin"))
-	require.NoError(t, err, "GetAddress failed")
+	address := ac.Admin.Get()
+	t.Log("admin address: - 5", ac.Admin.Get())
+	t.Log("expected", newAdmin, "actual", address)
 	require.Equal(t, newAdmin, address, "GetAddress mismatch")
 }
 
 func TestCrossContractCallInPrecompile_SubmitOrder(t *testing.T) {
 	r := tests.Setup(t, nil)
-	SetupAdminBalanceContract(r.Evm, ContractAddress)
+	ContractAddress = common.HexToAddress("0x23")
+	SetupAdminBalanceContract(r.Evm)
 
 	bc := vm.PrecompiledContractsIstanbul[ContractAddress]
 	bcTyped, _ := bc.(*pdk.BaseContract)
@@ -83,6 +82,7 @@ func TestCrossContractCallInPrecompile_SubmitOrder(t *testing.T) {
 
 	sender := common.HexToAddress("0xdummyuser")
 	result, err := bc.Run(input, r.Evm.Context.BlockNumber.Uint64(), r.Evm, sender)
+
 	require.NoError(t, err)
 	require.Greater(t, len(result), 0) // Return: ABI-packed orderID hash (32B)
 

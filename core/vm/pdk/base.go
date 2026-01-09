@@ -1,8 +1,6 @@
 package pdk
 
 import (
-	"reflect"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/core/vm/pdk/abiselector"
@@ -13,7 +11,6 @@ type BaseContract struct {
 	contract interface{} // app contract instance
 
 	Address    common.Address
-	Slots      map[string]storage.SlotInfo
 	Dispatcher *abiselector.Dispatcher
 }
 
@@ -22,7 +19,8 @@ func (b *BaseContract) GetAppContract() interface{} {
 }
 
 func (b *BaseContract) Run(input []byte, _ uint64, evm *vm.EVM, caller common.Address) ([]byte, error) {
-	st := storage.NewStorage(b.Address, evm.StateDB, b.Slots)
+	st := storage.NewStorage(b.Address, evm.StateDB)
+	storage.BindState(st, common.Hash{}, b.contract)
 	out, err := b.Dispatcher.Dispatch(input, evm, caller, st)
 	if err != nil {
 		return nil, err
@@ -36,17 +34,21 @@ func (b *BaseContract) RequiredGas(_ []byte) uint64 {
 	return 1000
 }
 
-func AddToPrecompiles(address common.Address, contractPtr interface{}, evm *vm.EVM, initFunc func(st *storage.Storage)) {
-	elem := reflect.ValueOf(contractPtr).Elem()
+func AddToPrecompiles(
+	address common.Address,
+	contractPtr interface{},
+	evm *vm.EVM,
+	initFunc func(st *storage.Storage, bc *BaseContract)) {
 	base := &BaseContract{
 		contract:   contractPtr,
 		Address:    address,
-		Slots:      storage.AssignSlots(elem.Type()),
-		Dispatcher: abiselector.GetOrRegisterDispatcher(contractPtr),
+		Dispatcher: abiselector.RegisterDispatcher(contractPtr),
 	}
+	st := storage.NewStorage(address, evm.StateDB)
+	storage.BindState(st, common.Hash{}, contractPtr)
+
 	if initFunc != nil {
-		st := storage.NewStorage(address, evm.StateDB, base.Slots)
-		initFunc(st)
+		initFunc(st, base)
 	}
 
 	addToPrecompile := func(registry map[common.Address]vm.PrecompiledContract) {

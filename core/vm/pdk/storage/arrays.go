@@ -1,54 +1,49 @@
 package storage
 
 import (
-	"fmt"
 	"reflect"
+
+	"github.com/autonity/autonity/common"
 )
 
-type Array[T any] struct {
-	path *Path
-	len  uint64
+type Array[V any, S any] struct {
+	st       *Storage
+	len      uint64
+	baseSlot common.Hash
+	elemSize uint64
 }
 
-func NewArray[T any](p *Path) (*Array[T], error) {
-	kind := p.info.ValueType.Kind()
-	if kind != reflect.Array {
-		return nil, fmt.Errorf("not an array: %v", kind)
+func (a *Array[V, S]) Bind(st *Storage, baseSlot common.Hash, offset uint64) (common.Hash, uint64) {
+	a.st = st
+	// new slot for all arrays
+	if offset > 0 {
+		baseSlot = addSlot(baseSlot, 1)
 	}
+	a.baseSlot = baseSlot
+	// determine length of the array from shape S
+	var shape S
+	shapeType := reflect.TypeOf(shape)
+	if shapeType.Kind() != reflect.Array {
+		panic("shape must be an array")
+	}
+	a.len = uint64(shapeType.Len())
+	// determine slot consumption per element V
+	a.elemSize = getSlotConsumption[V]()
+	totalSlots := a.len * a.elemSize
 
-	return &Array[T]{
-		path: p,
-		len:  uint64(p.info.ValueType.Len()),
-	}, nil
+	return addSlot(baseSlot, totalSlots), 0
 }
 
-func (a *Array[T]) Len() uint64 {
+func (a *Array[V, S]) Len() uint64 {
 	return a.len
 }
 
-func (a *Array[T]) Get(index uint64) (T, error) {
-	var zero T
+func (a *Array[V, S]) Get(index uint64) *V {
 	if index >= a.len {
-		return zero, fmt.Errorf("index %d out of range, len=%d", index, a.len)
+		return nil
 	}
-	var val T
-	err := Load(a.path.Index(index), &val)
-	return val, err
-}
-
-func (a *Array[T]) Set(index uint64, value T) error {
-	if index >= a.len {
-		return fmt.Errorf("index %d out of range, len=%d", index, a.len)
-	}
-	return Save(a.path.Index(index), value)
-}
-
-func (a *Array[T]) PathAt(index uint64) (*Path, error) {
-	if index >= a.len {
-		return nil, fmt.Errorf("index %d out of range, len=%d", index, a.len)
-	}
-	if a.path == nil {
-		return nil, fmt.Errorf("nil path")
-	}
-	return a.path.Index(index), nil
+	itemSlot := addSlot(a.baseSlot, index*a.elemSize)
+	val := new(V)
+	BindState(a.st, itemSlot, val)
+	return val
 }
