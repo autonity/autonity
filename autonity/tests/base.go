@@ -509,6 +509,7 @@ func initializeEVM() (*vm.EVM, error) {
 		Time:        big.NewInt(time.Now().Unix()),
 		// used by the AbsenteeComputer precompile to verify activity proofs
 		GetHash: hashFaker,
+		BaseFee: big.NewInt(1000000000),
 	}
 	txContext := vm.TxContext{
 		Origin:   common.Address{},

@@ -39,6 +39,13 @@ func (b *RunnerBackend) SendTransaction(ctx context.Context, tx *types.Transacti
 	if err != nil {
 		return err
 	}
+	b.Runner.Evm.TxContext.Origin = sender
+	b.Runner.Evm.TxContext.GasPrice = tx.GasPrice()
+
+	if tx.To() == nil {
+		_, _, _, err := b.Runner.Evm.Create(vm.AccountRef(sender), tx.Data(), tx.Gas(), tx.Value())
+		return err
+	}
 
 	_, _, err = b.Runner.call(
 		&runOptions{origin: sender, value: tx.Value()},
@@ -58,8 +65,9 @@ func (b *RunnerBackend) PendingCodeAt(ctx context.Context, account common.Addres
 
 func (b *RunnerBackend) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
 	return &types.Header{
-		Number: b.Runner.Evm.Context.BlockNumber,
-		Time:   uint64(b.Runner.Evm.Context.Time.Int64()),
+		Number:  b.Runner.Evm.Context.BlockNumber,
+		Time:    uint64(b.Runner.Evm.Context.Time.Int64()),
+		BaseFee: b.Runner.Evm.Context.BaseFee,
 	}, nil
 }
 
@@ -67,7 +75,7 @@ func (b *RunnerBackend) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	return common.Big0, nil
 }
 func (b *RunnerBackend) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
-	return common.Big0, nil
+	return big.NewInt(1_000_000_000), nil
 }
 
 func (b *RunnerBackend) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
@@ -75,7 +83,17 @@ func (b *RunnerBackend) PendingNonceAt(ctx context.Context, account common.Addre
 }
 
 func (b *RunnerBackend) EstimateGas(ctx context.Context, call autonity.CallMsg) (gas uint64, err error) {
-	return 0, nil
+	snapshot := b.Runner.snapshot()
+	defer b.Runner.Evm.StateDB.RevertToSnapshot(snapshot)
+	if call.To == nil {
+		return 10_000_000, nil
+	}
+	_, usedGas, err := b.Runner.call(
+		&runOptions{origin: call.From, value: call.Value},
+		*call.To,
+		call.Data)
+
+	return usedGas, err
 }
 
 func (b *RunnerBackend) FilterLogs(ctx context.Context, query autonity.FilterQuery) ([]types.Log, error) {
