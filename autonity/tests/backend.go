@@ -11,6 +11,7 @@ import (
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 )
@@ -65,7 +66,18 @@ func (b *RunnerBackend) SendTransaction(ctx context.Context, tx *types.Transacti
 	if value == nil {
 		value = common.Big0
 	}
+	// todo: statedb prepare for logs
+	//var statedb *state.StateDB
+	//if db, ok := b.Runner.Evm.StateDB.(*state.StateDB); ok {
+	//	db.Prepare(tx.Hash(), 0)
+	//}
 
+	intrinsic, err := core.IntrinsicGas(tx.Data(), nil, tx.To() == nil, true, true)
+	if err != nil {
+		return err
+	}
+
+	gas = tx.Gas() - intrinsic
 	var (
 		ret          []byte
 		leftOverGas  uint64
@@ -96,21 +108,21 @@ func (b *RunnerBackend) SendTransaction(ctx context.Context, tx *types.Transacti
 		}
 	}
 
-	// 4. Save Receipt
+	log := b.Runner.Evm.StateDB.GetLogs(common.Hash{}, common.Hash{})
 	receipt := &types.Receipt{
 		Type:            tx.Type(),
 		Status:          status,
 		TxHash:          tx.Hash(),
 		ContractAddress: contractAddr,
-		GasUsed:         gas - leftOverGas,
+		GasUsed:         tx.Gas() - leftOverGas,
 		BlockNumber:     b.Runner.Evm.Context.BlockNumber,
+		Logs:            log,
 	}
 	b.receipts[tx.Hash()] = receipt
 
 	return vmerr
 }
 
-// TransactionReceipt returns the stored receipt.
 func (b *RunnerBackend) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
