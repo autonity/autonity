@@ -13,12 +13,38 @@ import (
 	"github.com/autonity/autonity/crypto"
 )
 
+// Test struct types for ABI tuple mapping
+type TestStruct struct {
+	ID      *big.Int
+	Address common.Address
+	Amount  *big.Int
+	Active  bool
+	Data    []byte
+}
+
+type NestedStruct struct {
+	Inner  TestStruct
+	Values []*big.Int
+	Name   string
+}
+
+type ByteArrayStruct struct {
+	Hash32   [32]byte
+	Address  [20]byte
+	Selector [4]byte
+}
+
 type mockContract struct {
-	called bool
-	param1 *big.Int
-	param2 common.Address
-	ret1   *big.Int
-	ret2   bool
+	called      bool
+	param1      *big.Int
+	param2      common.Address
+	ret1        *big.Int
+	ret2        bool
+	structParam TestStruct
+	nestedParam NestedStruct
+	byteParam   ByteArrayStruct
+	structRet   TestStruct
+	sliceParam  []TestStruct
 }
 
 func (m *mockContract) NoParamVoid(_ *vm.EVM, _ common.Address, _ *storage.Storage) error {
@@ -45,6 +71,30 @@ func (m *mockContract) UnsupportedParam(_ *vm.EVM, _ common.Address, _ *storage.
 	return nil
 }
 
+func (m *mockContract) WithStructParam(_ *vm.EVM, _ common.Address, _ *storage.Storage, param TestStruct) error {
+	m.structParam = param
+	return nil
+}
+
+func (m *mockContract) WithNestedStructParam(_ *vm.EVM, _ common.Address, _ *storage.Storage, param NestedStruct) error {
+	m.nestedParam = param
+	return nil
+}
+
+func (m *mockContract) WithByteArrayStruct(_ *vm.EVM, _ common.Address, _ *storage.Storage, param ByteArrayStruct) error {
+	m.byteParam = param
+	return nil
+}
+
+func (m *mockContract) WithStructReturn(_ *vm.EVM, _ common.Address, _ *storage.Storage) (TestStruct, error) {
+	return m.structRet, nil
+}
+
+func (m *mockContract) WithStructSlice(_ *vm.EVM, _ common.Address, _ *storage.Storage, params []TestStruct) ([]TestStruct, error) {
+	m.sliceParam = params
+	return params, nil
+}
+
 func mockEVM() *vm.EVM {
 	return &vm.EVM{Context: vm.BlockContext{}}
 }
@@ -63,7 +113,11 @@ func TestInferABIMethods(t *testing.T) {
 	//t.Log("Error:", err)
 
 	// Check registered methods.
-	expectedMethods := []string{"NoParamVoid", "WithUintParam", "WithReturn", "MultiParamReturn"} // Unsupported skipped.
+	expectedMethods := []string{
+		"NoParamVoid", "WithUintParam", "WithReturn", "MultiParamReturn",
+		"WithStructParam", "WithNestedStructParam", "WithByteArrayStruct",
+		"WithStructReturn", "WithStructSlice",
+	} // Unsupported skipped.
 	if len(dispatcher.ABI.Methods) != len(expectedMethods) {
 		t.Errorf("expected %d methods, got %d", len(expectedMethods), len(dispatcher.ABI.Methods))
 	}
@@ -177,5 +231,128 @@ func TestDispatch_MultiParamReturn(t *testing.T) {
 	}
 	if retBig, ok := ret[1].(*big.Int); !ok || retBig.Cmp(big.NewInt(200)) != 0 {
 		t.Error("big.Int return mismatch")
+	}
+}
+
+func TestResolveABIType_BasicStruct(t *testing.T) {
+	structType := reflect.TypeOf(TestStruct{})
+	abiType, err := ResolveABIType(structType)
+	require.NoError(t, err)
+
+	expected := "(uint256,address,uint256,bool,bytes)"
+	require.Equal(t, expected, abiType.String())
+}
+
+func TestResolveABIType_NestedStruct(t *testing.T) {
+	structType := reflect.TypeOf(NestedStruct{})
+	abiType, err := ResolveABIType(structType)
+	require.NoError(t, err)
+
+	expected := "((uint256,address,uint256,bool,bytes),uint256[],string)"
+	require.Equal(t, expected, abiType.String())
+}
+
+func TestResolveABIType_ByteArrayStruct(t *testing.T) {
+	structType := reflect.TypeOf(ByteArrayStruct{})
+	abiType, err := ResolveABIType(structType)
+	require.NoError(t, err)
+
+	expected := "(bytes32,bytes20,bytes4)"
+	require.Equal(t, expected, abiType.String())
+}
+
+func TestResolveABIType_StructSlice(t *testing.T) {
+	sliceType := reflect.TypeOf([]TestStruct{})
+	abiType, err := ResolveABIType(sliceType)
+	require.NoError(t, err)
+
+	expected := "(uint256,address,uint256,bool,bytes)[]"
+	require.Equal(t, expected, abiType.String())
+}
+
+func TestResolveABIType_NewByteTypes(t *testing.T) {
+	tests := []struct {
+		name     string
+		goType   reflect.Type
+		expected string
+	}{
+		{"bytes32", reflect.TypeOf([32]byte{}), "bytes32"},
+		{"bytes20", reflect.TypeOf([20]byte{}), "bytes20"},
+		{"bytes4", reflect.TypeOf([4]byte{}), "bytes4"},
+		{"common.Hash", reflect.TypeOf(common.Hash{}), "bytes32"},
+		{"uint", reflect.TypeOf(uint(0)), "uint256"},
+		{"int", reflect.TypeOf(int(0)), "int256"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			abiType, err := ResolveABIType(tt.goType)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, abiType.String())
+		})
+	}
+}
+
+func TestResolveABIType_UnsupportedTypes(t *testing.T) {
+	tests := []struct {
+		name   string
+		goType reflect.Type
+	}{
+		{"fixed array", reflect.TypeOf([5]int{})},
+		{"map", reflect.TypeOf(map[string]int{})},
+		{"channel", reflect.TypeOf(make(chan int))},
+		{"function", reflect.TypeOf(func() {})},
+		{"interface", reflect.TypeOf((*interface{})(nil)).Elem()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ResolveABIType(tt.goType)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "unsupported type")
+		})
+	}
+}
+
+// Integration test for struct ABI generation
+func TestInferABIMethods_StructTypes(t *testing.T) {
+	d := newDispatcher()
+	mock := &mockContract{}
+	err := InferABIMethods(d, reflect.ValueOf(mock))
+	require.NoError(t, err)
+
+	// Test that struct methods have correct ABI signatures
+	testCases := []struct {
+		methodName string
+		signature  string
+	}{
+		{
+			"WithStructParam",
+			"withStructParam((uint256,address,uint256,bool,bytes))",
+		},
+		{
+			"WithNestedStructParam",
+			"withNestedStructParam(((uint256,address,uint256,bool,bytes),uint256[],string))",
+		},
+		{
+			"WithByteArrayStruct",
+			"withByteArrayStruct((bytes32,bytes20,bytes4))",
+		},
+		{
+			"WithStructReturn",
+			"withStructReturn()",
+		},
+		{
+			"WithStructSlice",
+			"withStructSlice((uint256,address,uint256,bool,bytes)[])",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.methodName, func(t *testing.T) {
+			method, exists := d.ABI.Methods[tc.methodName]
+			require.True(t, exists, "Method %s should exist", tc.methodName)
+			require.Equal(t, tc.signature, method.Sig, "Method signature mismatch")
+		})
 	}
 }

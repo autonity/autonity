@@ -15,9 +15,7 @@ func BindState(st *Storage, baseSlot common.Hash, target any) uint64 {
 	return slotDiff(baseSlot, nextSlot)
 }
 
-// todo: optimization selfBinder for allowing structs to self bind it's field instead of reflection
 func bindStateRecursive(st *Storage, baseSlot common.Hash, offset uint64, target any) (common.Hash, uint64) {
-	// todo: optimization: check for self binder first
 
 	if binder, ok := target.(Binder); ok {
 		return binder.Bind(st, baseSlot, offset)
@@ -37,7 +35,7 @@ func bindStateRecursive(st *Storage, baseSlot common.Hash, offset uint64, target
 	for i := 0; i < val.NumField(); i++ {
 		fieldVal := val.Field(i)
 		fieldType := val.Type().Field(i)
-		if !fieldType.IsExported() { // skip unexported fields //todo: review
+		if !fieldType.IsExported() {
 			continue
 		}
 		if binder, ok := fieldVal.Addr().Interface().(Binder); ok {

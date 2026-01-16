@@ -45,6 +45,9 @@ var (
 		reflect.TypeOf(uint64(0)): func() (abi.Type, error) {
 			return abi.NewType("uint64", "", nil)
 		},
+		reflect.TypeOf(uint(0)): func() (abi.Type, error) {
+			return abi.NewType("uint256", "", nil)
+		},
 		reflect.TypeOf(int8(0)): func() (abi.Type, error) {
 			return abi.NewType("int8", "", nil)
 		},
@@ -57,18 +60,25 @@ var (
 		reflect.TypeOf(int64(0)): func() (abi.Type, error) {
 			return abi.NewType("int64", "", nil)
 		},
+		reflect.TypeOf(int(0)): func() (abi.Type, error) {
+			return abi.NewType("int256", "", nil)
+		},
 		reflect.TypeOf(common.Hash{}): func() (abi.Type, error) {
 			return abi.NewType("bytes32", "", nil)
 		},
 		reflect.TypeOf([32]byte{}): func() (abi.Type, error) {
 			return abi.NewType("bytes32", "", nil)
 		},
-		//todo: more types and structs
+		reflect.TypeOf([20]byte{}): func() (abi.Type, error) {
+			return abi.NewType("bytes20", "", nil)
+		},
+		reflect.TypeOf([4]byte{}): func() (abi.Type, error) {
+			return abi.NewType("bytes4", "", nil)
+		},
 	}
 )
 
 type Dispatcher struct {
-	// todo:(piyush) refactor dispatcher visibility
 	ABI            abi.ABI
 	Methods        map[selector]reflect.Value // selector registry
 	SelectorToName map[selector]string
@@ -93,30 +103,88 @@ func (d *Dispatcher) AddMethod(method abi.Method, goMethod reflect.Value) {
 
 func ResolveABIType(goType reflect.Type) (abi.Type, error) {
 	mapped, ok := GoTypeToABI[goType]
-	if !ok {
-		// check if this is a dynamic type
-		if goType.Kind() == reflect.Slice {
-			elemType := goType.Elem()
-			elemMapped, elemOk := GoTypeToABI[elemType]
-			if elemOk {
-				abiElemType, err := elemMapped()
-				if err != nil {
-					log.Info(err.Error())
-					return abiElemType, err
-				}
-				// construct dynamic array type
-				arrayTypeStr := abiElemType.String() + "[]"
-				// udpate mapped
-				mapped = func() (abi.Type, error) {
-					return abi.NewType(arrayTypeStr, arrayTypeStr, nil)
-				}
-				return mapped()
-			}
-		}
-		err := fmt.Errorf("unsupported input type %s", goType.String())
-		return abi.Type{}, err
+	if ok {
+		return mapped()
 	}
-	return mapped()
+
+	if goType.Kind() == reflect.Ptr {
+		return ResolveABIType(goType.Elem())
+	}
+
+	// Handle dynamic arrays (slices only)
+	if goType.Kind() == reflect.Slice {
+		elemType := goType.Elem()
+		elemABIType, err := ResolveABIType(elemType)
+		if err != nil {
+			return abi.Type{}, fmt.Errorf("failed to resolve slice element type %s: %w", elemType, err)
+		}
+		arrayTypeStr := elemABIType.String() + "[]"
+		return abi.NewType(arrayTypeStr, arrayTypeStr, nil)
+	}
+
+	if goType.Kind() == reflect.Struct {
+		return resolveStructABIType(goType)
+	}
+
+	return abi.Type{}, fmt.Errorf("unsupported type %s", goType.String())
+}
+
+// resolveStructABIType converts Go struct types to ABI tuple types
+func resolveStructABIType(goType reflect.Type) (abi.Type, error) {
+	if goType.Kind() != reflect.Struct {
+		return abi.Type{}, fmt.Errorf("expected struct type, got %s", goType.Kind())
+	}
+
+	var components []abi.ArgumentMarshaling
+	for i := 0; i < goType.NumField(); i++ {
+		field := goType.Field(i)
+		// Skip unexported fields
+		if !field.IsExported() {
+			continue
+		}
+
+		fieldABIType, err := ResolveABIType(field.Type)
+		if err != nil {
+			return abi.Type{}, fmt.Errorf("failed to resolve field %s of type %s: %w", field.Name, field.Type, err)
+		}
+
+		fieldName := strings.ToLower(field.Name[0:1]) + field.Name[1:]
+		components = append(components, abi.ArgumentMarshaling{
+			Name:         fieldName,
+			Type:         fieldABIType.String(),
+			InternalType: fieldABIType.String(),
+			Components:   convertTupleElemsToArgumentMarshaling(fieldABIType.TupleElems),
+		})
+	}
+
+	if len(components) == 0 {
+		return abi.Type{}, fmt.Errorf("struct %s has no ABI-serializable fields", goType.Name())
+	}
+
+	tupleType, err := abi.NewType("tuple", "", components)
+	if err != nil {
+		return abi.Type{}, fmt.Errorf("failed to create tuple type for struct %s: %w", goType.Name(), err)
+	}
+
+	return tupleType, nil
+}
+
+// convertTupleElemsToArgumentMarshaling converts []*abi.Type to []abi.ArgumentMarshaling for nested tuples
+func convertTupleElemsToArgumentMarshaling(tupleElems []*abi.Type) []abi.ArgumentMarshaling {
+	if tupleElems == nil {
+		return nil
+	}
+
+	var components []abi.ArgumentMarshaling
+	for i, elem := range tupleElems {
+		components = append(components, abi.ArgumentMarshaling{
+			Name:         fmt.Sprintf("field%d", i),
+			Type:         elem.String(),
+			InternalType: elem.String(),
+			Components:   convertTupleElemsToArgumentMarshaling(elem.TupleElems), // Recursive for deeply nested
+		})
+	}
+	return components
 }
 
 func InferABIMethods(d *Dispatcher, contractVal reflect.Value) error {
@@ -130,32 +198,12 @@ loop:
 		}
 		mt := m.Type
 		// method signature ==> func (evm *vm.EVM, caller common.Address, storage *storage.Storage, args...)
-		//todo(piyush): merge checks
-		if mt.NumIn() < 3 || mt.NumOut() < 1 {
-			log.Info("Method %s has incompatible signature, skipping", m.Name)
-			continue
-		}
-		if mt.In(0) != contractType {
-			log.Info("Method %s has incompatible signature, skipping", m.Name)
-			continue
-		} // first arg is receiver - Contract
-		if mt.In(1) != reflect.TypeOf((*vm.EVM)(nil)) {
-			log.Info("Method %s has incompatible signature, skipping", m.Name)
-			continue
-		} // second arg is *vm.EVM
-
-		if mt.In(2) != reflect.TypeOf(common.Address{}) {
-			log.Info("Method %s has incompatible signature, skipping", m.Name)
-			continue
-		} // third arg is caller address
-
-		if mt.In(3) != reflect.TypeOf((*storage.Storage)(nil)) {
-			log.Info("Method %s has incompatible signature, skipping", m.Name)
-			continue
-		} // 4th arg is storage
-
-		// last out argument must be error
-		if mt.Out(mt.NumOut()-1) != reflect.TypeOf((*error)(nil)).Elem() {
+		if mt.NumIn() < 3 || mt.NumOut() < 1 ||
+			mt.In(0) != contractType || // first arg is receiver itself (contract)
+			mt.In(1) != reflect.TypeOf((*vm.EVM)(nil)) || // second arg is *vm.EVM
+			mt.In(2) != reflect.TypeOf(common.Address{}) || // third arg is caller address
+			mt.In(3) != reflect.TypeOf((*storage.Storage)(nil)) || // 4th arg is storage
+			mt.Out(mt.NumOut()-1) != reflect.TypeOf((*error)(nil)).Elem() {
 			log.Info("Method %s has incompatible signature, skipping", m.Name)
 			continue
 		}
@@ -187,7 +235,6 @@ loop:
 		}
 		// build signature
 		sig := strings.ToLower(m.Name[0:1]) + m.Name[1:] // camelCase
-		// review:
 		abiMethod := abi.NewMethod(m.Name, sig, abi.Function, "nonpayable", false, false, inputs, outputs)
 		goMethod := contractVal.Method(i)
 		log.Info("Go Method name", "name", goMethod.Type().Name())
@@ -198,19 +245,19 @@ loop:
 
 func (d *Dispatcher) Dispatch(input []byte, evm interface{}, caller interface{}, storage interface{}) ([]byte, error) {
 	if len(input) < 4 {
-		return nil, fmt.Errorf("Input too short")
+		return nil, fmt.Errorf("input too short")
 	}
 	var sel selector
 	copy(sel[:], input[:4])
 
 	goMethod, ok := d.Methods[sel]
 	if !ok {
-		return nil, fmt.Errorf("Method not found")
+		return nil, fmt.Errorf("method not found")
 	}
 
 	methodName, ok := d.SelectorToName[sel]
 	if !ok {
-		return nil, fmt.Errorf("Method not found")
+		return nil, fmt.Errorf("method not found")
 	}
 	method := d.ABI.Methods[methodName]
 	args, err := method.Inputs.Unpack(input[4:])
