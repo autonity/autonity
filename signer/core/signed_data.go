@@ -18,6 +18,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"mime"
@@ -126,38 +127,42 @@ func (api *SignerAPI) determineSignatureFormat(ctx context.Context, contentType 
 			{
 				Name:  "Full message for signing",
 				Typ:   "hexdata",
-				Value: fmt.Sprintf("0x%x", msg),
+				Value: fmt.Sprintf("%#x", msg),
 			},
 		}
 		req = &SignDataRequest{ContentType: mediaType, Rawdata: []byte(msg), Messages: messages, Hash: sighash}
+
+	case apitypes.DataTyped.Mime:
+		// EIP-712 conformant typed data
+		var err error
+		req, err = typedDataRequest(data)
+		if err != nil {
+			return nil, useEthereumV, err
+		}
 	default: // also case TextPlain.Mime:
 		// Calculates an Ethereum ECDSA signature for:
-		// hash = keccak256("\x19${byteVersion}Ethereum Signed Message:\n${message length}${message}")
-		// We expect it to be a string
-		if stringData, ok := data.(string); !ok {
-			return nil, useEthereumV, fmt.Errorf("input for text/plain must be an hex-encoded string")
-		} else {
-			if textData, err := hexutil.Decode(stringData); err != nil {
-				return nil, useEthereumV, err
-			} else {
-				sighash, msg := accounts.TextAndHash(textData)
-				messages := []*apitypes.NameValueType{
-					{
-						Name:  "message",
-						Typ:   accounts.MimetypeTextPlain,
-						Value: msg,
-					},
-				}
-				req = &SignDataRequest{ContentType: mediaType, Rawdata: []byte(msg), Messages: messages, Hash: sighash}
-			}
+		// hash = keccak256("\x19Ethereum Signed Message:\n${message length}${message}")
+		// We expect input to be a hex-encoded string
+		textData, err := fromHex(data)
+		if err != nil {
+			return nil, useEthereumV, err
 		}
+		sighash, msg := accounts.TextAndHash(textData)
+		messages := []*apitypes.NameValueType{
+			{
+				Name:  "message",
+				Typ:   accounts.MimetypeTextPlain,
+				Value: msg,
+			},
+		}
+		req = &SignDataRequest{ContentType: mediaType, Rawdata: []byte(msg), Messages: messages, Hash: sighash}
 	}
 	req.Address = addr
 	req.Meta = MetadataFromContext(ctx)
 	return req, useEthereumV, nil
 }
 
-// SignTextWithValidator signs the given message which can be further recovered
+// SignTextValidator signs the given message which can be further recovered
 // with the given validator.
 // hash = keccak256("\x19\x00"${address}${data}).
 func SignTextValidator(validatorData apitypes.ValidatorData) (hexutil.Bytes, string) {
@@ -179,26 +184,12 @@ func (api *SignerAPI) SignTypedData(ctx context.Context, addr common.MixedcaseAd
 // - the signature preimage (hash)
 func (api *SignerAPI) signTypedData(ctx context.Context, addr common.MixedcaseAddress,
 	typedData apitypes.TypedData, validationMessages *apitypes.ValidationMessages) (hexutil.Bytes, hexutil.Bytes, error) {
-	domainSeparator, err := typedData.HashStruct("EIP712Domain", typedData.Domain.Map())
+	req, err := typedDataRequest(typedData)
 	if err != nil {
 		return nil, nil, err
 	}
-	typedDataHash, err := typedData.HashStruct(typedData.PrimaryType, typedData.Message)
-	if err != nil {
-		return nil, nil, err
-	}
-	rawData := []byte(fmt.Sprintf("\x19\x01%s%s", string(domainSeparator), string(typedDataHash)))
-	sighash := crypto.Keccak256(rawData)
-	messages, err := typedData.Format()
-	if err != nil {
-		return nil, nil, err
-	}
-	req := &SignDataRequest{
-		ContentType: apitypes.DataTyped.Mime,
-		Rawdata:     rawData,
-		Messages:    messages,
-		Hash:        sighash,
-		Address:     addr}
+	req.Address = addr
+	req.Meta = MetadataFromContext(ctx)
 	if validationMessages != nil {
 		req.Callinfo = validationMessages.Messages
 	}
@@ -207,7 +198,46 @@ func (api *SignerAPI) signTypedData(ctx context.Context, addr common.MixedcaseAd
 		api.UI.ShowError(err.Error())
 		return nil, nil, err
 	}
-	return signature, sighash, nil
+	return signature, req.Hash, nil
+}
+
+// fromHex tries to interpret the data as type string, and convert from
+// hexadecimal to []byte
+func fromHex(data any) ([]byte, error) {
+	if stringData, ok := data.(string); ok {
+		binary, err := hexutil.Decode(stringData)
+		return binary, err
+	}
+	return nil, fmt.Errorf("wrong type %T", data)
+}
+
+// typedDataRequest tries to convert the data into a SignDataRequest.
+func typedDataRequest(data any) (*SignDataRequest, error) {
+	var typedData apitypes.TypedData
+	if td, ok := data.(apitypes.TypedData); ok {
+		typedData = td
+	} else { // Hex-encoded data
+		jsonData, err := fromHex(data)
+		if err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(jsonData, &typedData); err != nil {
+			return nil, err
+		}
+	}
+	messages, err := typedData.Format()
+	if err != nil {
+		return nil, err
+	}
+	sighash, rawData, err := apitypes.TypedDataAndHash(typedData)
+	if err != nil {
+		return nil, err
+	}
+	return &SignDataRequest{
+		ContentType: apitypes.DataTyped.Mime,
+		Rawdata:     []byte(rawData),
+		Messages:    messages,
+		Hash:        sighash}, nil
 }
 
 // EcRecover recovers the address associated with the given sig.
@@ -215,20 +245,20 @@ func (api *SignerAPI) signTypedData(ctx context.Context, addr common.MixedcaseAd
 func (api *SignerAPI) EcRecover(ctx context.Context, data hexutil.Bytes, sig hexutil.Bytes) (common.Address, error) {
 	// Returns the address for the Account that was used to create the signature.
 	//
-	// Note, this function is compatible with eth_sign and personal_sign. As such it recovers
+	// Note, this function is compatible with eth_sign. As such it recovers
 	// the address of:
-	// hash = keccak256("\x19${byteVersion}Ethereum Signed Message:\n${message length}${message}")
+	// hash = keccak256("\x19Ethereum Signed Message:\n${message length}${message}")
 	// addr = ecrecover(hash, signature)
 	//
 	// Note, the signature must conform to the secp256k1 curve R, S and V values, where
-	// the V value must be be 27 or 28 for legacy reasons.
+	// the V value must be 27 or 28 for legacy reasons.
 	//
-	// https://github.com/autonity/autonity/wiki/Management-APIs#personal_ecRecover
+	// https://geth.ethereum.org/docs/tools/clef/apis#account-ecrecover
 	if len(sig) != 65 {
-		return common.Address{}, fmt.Errorf("signature must be 65 bytes long")
+		return common.Address{}, errors.New("signature must be 65 bytes long")
 	}
 	if sig[64] != 27 && sig[64] != 28 {
-		return common.Address{}, fmt.Errorf("invalid Ethereum signature (V is not 27 or 28)")
+		return common.Address{}, errors.New("invalid Ethereum signature (V is not 27 or 28)")
 	}
 	sig[64] -= 27 // Transform yellow paper V from 27/28 to 0/1
 	hash := accounts.TextHash(data)
@@ -245,30 +275,20 @@ func UnmarshalValidatorData(data interface{}) (apitypes.ValidatorData, error) {
 	if !ok {
 		return apitypes.ValidatorData{}, errors.New("validator input is not a map[string]interface{}")
 	}
-	addr, ok := raw["address"].(string)
-	if !ok {
-		return apitypes.ValidatorData{}, errors.New("validator address is not sent as a string")
-	}
-	addrBytes, err := hexutil.Decode(addr)
+	addrBytes, err := fromHex(raw["address"])
 	if err != nil {
-		return apitypes.ValidatorData{}, err
+		return apitypes.ValidatorData{}, fmt.Errorf("validator address error: %w", err)
 	}
-	if !ok || len(addrBytes) == 0 {
+	if len(addrBytes) == 0 {
 		return apitypes.ValidatorData{}, errors.New("validator address is undefined")
 	}
-
-	message, ok := raw["message"].(string)
-	if !ok {
-		return apitypes.ValidatorData{}, errors.New("message is not sent as a string")
-	}
-	messageBytes, err := hexutil.Decode(message)
+	messageBytes, err := fromHex(raw["message"])
 	if err != nil {
-		return apitypes.ValidatorData{}, err
+		return apitypes.ValidatorData{}, fmt.Errorf("message error: %w", err)
 	}
-	if !ok || len(messageBytes) == 0 {
+	if len(messageBytes) == 0 {
 		return apitypes.ValidatorData{}, errors.New("message is undefined")
 	}
-
 	return apitypes.ValidatorData{
 		Address: common.BytesToAddress(addrBytes),
 		Message: messageBytes,

@@ -128,11 +128,11 @@ type Backend struct {
 	logger       log.Logger
 	blockchain   *core.BlockChain
 	database     ethdb.Database
-	currentBlock func() *types.Block
+	currentBlock func() *types.Header
 	hasBadBlock  func(hash common.Hash) bool
 
 	// the channels for tendermint engine notifications
-	proposalVerifiedCh  chan<- *types.Block
+	proposalVerifiedCh  chan<- *types.Header
 	commitCh            chan<- *types.Block
 	aggregatorMessageCh chan events.UnverifiedMessageEvent // to send events to the aggregator
 	afdDispatchCh       chan<- events.MessageEventer       // to send events to the fault detector
@@ -353,7 +353,7 @@ func (sb *Backend) VerifyProposal(proposalBlock *types.Block) (time.Duration, er
 	}
 
 	// verify the header of proposed proposal
-	err := sb.VerifyHeader(sb.blockchain, proposalBlock.Header(), false)
+	err := sb.VerifyHeader(sb.blockchain, proposalBlock.Header())
 	// ignore errEmptyQuorumCertificate error because we don't have the quorum certificate yet
 	if err == nil || errors.Is(err, errEmptyQuorumCertificate) {
 		var (
@@ -372,14 +372,13 @@ func (sb *Backend) VerifyProposal(proposalBlock *types.Block) (time.Duration, er
 		if err = sb.blockchain.Validator().ValidateBody(proposalBlock); err != nil {
 			return 0, err
 		}
-
-		receipts, _, usedGas, epochInfo, contractsConfig, err := sb.blockchain.Processor().Process(proposalBlock, state, *sb.vmConfig)
+		res, epochInfo, contractsConfig, err := sb.blockchain.Processor().Process(proposalBlock, state, *sb.vmConfig)
 		if err != nil {
 			sb.logger.Error("state processing failed", "error", err, "height", proposalNumber)
 			return 0, err
 		}
 		//Validate the state of the proposal
-		if err = sb.blockchain.Validator().ValidateState(proposalBlock, state, receipts, usedGas); err != nil {
+		if err = sb.blockchain.Validator().ValidateState(proposalBlock, state, res, false); err != nil {
 			sb.logger.Error("proposal proposed, bad root state", "error", err)
 			return 0, err
 		}
@@ -399,7 +398,7 @@ func (sb *Backend) VerifyProposal(proposalBlock *types.Block) (time.Duration, er
 		}
 
 		// cache verified proposal state
-		sb.blockchain.CacheProposalState(proposalBlock.Hash(), receipts, usedGas, state, contractsConfig)
+		sb.blockchain.CacheProposalState(proposalBlock.Hash(), res.Receipts, res.GasUsed, state, contractsConfig)
 
 		return 0, nil
 	} else if errors.Is(err, consensus.ErrFutureTimestampBlock) {
@@ -421,7 +420,7 @@ func (sb *Backend) Sign(data common.Hash) blst.Signature {
 	return signature
 }
 
-func (sb *Backend) HeadBlock() *types.Block {
+func (sb *Backend) HeadBlock() *types.Header {
 	return sb.currentBlock()
 }
 
@@ -443,7 +442,7 @@ func (sb *Backend) CoreState() interfaces.CoreState {
 
 // CommitteeEnodes retrieve the list of validators enodes for the current block
 func (sb *Backend) CommitteeEnodes() []string {
-	header := sb.blockchain.CurrentBlock().Header()
+	header := sb.blockchain.CurrentBlock()
 	stateDB, err := sb.blockchain.StateAt(header.Root)
 	if err != nil {
 		sb.logger.Error("Failed to get state", "err", err, "height", header.Number.Uint64())

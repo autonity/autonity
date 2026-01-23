@@ -266,7 +266,7 @@ func TestCustomGenesis(t *testing.T) {
 
 	// Query the custom genesis block, check if the chain db have the wanted genesis block.
 	assertMatchGenesis := func(t *testing.T, datadir string, query string, wanted string) {
-		autonity := runAutonity(t, "--nousb",
+		autonity := runAutonity(t,
 			"--datadir", datadir, "--maxpeers", "0", "--port", "0",
 			"--nodiscover", "--nat", "none", "--ipcdisable",
 			"--exec", query, "console")

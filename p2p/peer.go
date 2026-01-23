@@ -21,12 +21,9 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sort"
+	"slices"
 	"sync"
-	"sync/atomic"
 	"time"
-
-	"github.com/autonity/autonity/crypto"
 
 	"github.com/autonity/autonity/common/mclock"
 	"github.com/autonity/autonity/event"
@@ -75,6 +72,7 @@ var (
 	ProposalPacketsEgCounter             = metrics.GetOrRegisterCounter(egressMeterName+"/acn/1/0x11/packets/count", nil)  //nolint:goconst
 	PrevotePacketsEgCounter              = metrics.GetOrRegisterCounter(egressMeterName+"/acn/1/0x12/packets/count", nil)  //nolint:goconst
 	PrecommitPacketsEgCounter            = metrics.GetOrRegisterCounter(egressMeterName+"/acn/1/0x13/packets/count", nil)  //nolint:goconst
+
 )
 
 const (
@@ -160,8 +158,6 @@ type Peer struct {
 }
 
 // NewPeer returns a peer for testing purposes.
-// Warning! Due network permissionning, protocol manager tests with Autonity need a valid enode
-// that is not generated here.
 func NewPeer(id enode.ID, name string, caps []Cap) *Peer {
 	// Generate a fake set of local protocols to match as running caps. Almost
 	// no fields needs to be meaningful here as we're only using it to cross-
@@ -172,9 +168,7 @@ func NewPeer(id enode.ID, name string, caps []Cap) *Peer {
 		protos[i].Version = cap.Version
 	}
 	pipe, _ := net.Pipe()
-	key, _ := crypto.GenerateKey()
-	node := enode.NewV4(&key.PublicKey, net.IP{}, 0, 0)
-	//node := enode.SignNull(new(enr.Record), id)
+	node := enode.SignNull(new(enr.Record), id)
 	conn := &conn{fd: pipe, transport: nil, node: node, caps: caps, name: name}
 	peer := newPeer(log.Root(), conn, protos)
 	close(peer.closed) // ensures Disconnect doesn't block
@@ -268,6 +262,30 @@ func (p *Peer) Inbound() bool {
 	return p.rw.is(inboundConn)
 }
 
+// Trusted returns true if the peer is configured as trusted.
+// Trusted peers are accepted in above the MaxInboundConns limit.
+// The peer can be either inbound or dialed.
+func (p *Peer) Trusted() bool {
+	return p.rw.is(trustedConn)
+}
+
+// DynDialed returns true if the peer was dialed successfully (passed handshake) and
+// it is not configured as static.
+func (p *Peer) DynDialed() bool {
+	return p.rw.is(dynDialedConn)
+}
+
+// StaticDialed returns true if the peer was dialed successfully (passed handshake) and
+// it is configured as static.
+func (p *Peer) StaticDialed() bool {
+	return p.rw.is(staticDialedConn)
+}
+
+// Lifetime returns the time since peer creation.
+func (p *Peer) Lifetime() mclock.AbsTime {
+	return mclock.Now() - p.created
+}
+
 func newPeer(log log.Logger, conn *conn, protocols []Protocol) *Peer {
 	protomap := matchProtocols(protocols, conn.caps, conn)
 	p := &Peer{
@@ -278,7 +296,7 @@ func newPeer(log log.Logger, conn *conn, protocols []Protocol) *Peer {
 		protoErr: make(chan error, len(protomap)+1), // protocols + pingLoop
 		closed:   make(chan struct{}),
 		pingRecv: make(chan struct{}, 16),
-		log:      log.New("id", conn.node.ID(), "conn", connFlag(atomic.LoadInt32((*int32)(&conn.flags)))),
+		log:      log.New("id", conn.node.ID(), "conn", conn.flags),
 	}
 	return p
 }
@@ -297,6 +315,8 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 	p.wg.Add(2)
 	go p.readLoop(readErr)
 	go p.pingLoop()
+	live1min := time.NewTimer(1 * time.Minute)
+	defer live1min.Stop()
 
 	// Start all protocol handlers.
 	writeStart <- struct{}{}
@@ -328,6 +348,12 @@ loop:
 		case err = <-p.disc:
 			reason = discReasonForError(err)
 			break loop
+		case <-live1min.C:
+			if p.Inbound() {
+				serve1MinSuccessMeter.Mark(1)
+			} else {
+				dial1MinSuccessMeter.Mark(1)
+			}
 		}
 	}
 
@@ -339,10 +365,8 @@ loop:
 
 func (p *Peer) pingLoop() {
 	defer p.wg.Done()
-
 	ping := time.NewTimer(pingInterval)
 	defer ping.Stop()
-
 	for {
 		select {
 		case <-ping.C:
@@ -398,7 +422,7 @@ func (p *Peer) handle(msg Msg) error {
 		if err != nil {
 			return fmt.Errorf("msg code out of range: %v", msg.Code)
 		}
-		if metrics.Enabled {
+		if metrics.Enabled() {
 			data, packet, counter := getP2PMetricIngress(msg.Code-proto.offset, proto)
 			data.Mark(int64(msg.meterSize))
 			packet.Mark(1)
@@ -414,7 +438,7 @@ func (p *Peer) handle(msg Msg) error {
 	return nil
 }
 
-func getP2PMetricIngress(code uint64, proto *protoRW) (metrics.Meter, metrics.Meter, metrics.Counter) {
+func getP2PMetricIngress(code uint64, proto *protoRW) (*metrics.Meter, *metrics.Meter, *metrics.Counter) {
 	switch code {
 	case 0x02:
 		return TransactionPayloadIn, TransactionPacketsIn, TransactionPacketsInCounter
@@ -432,7 +456,7 @@ func getP2PMetricIngress(code uint64, proto *protoRW) (metrics.Meter, metrics.Me
 	}
 }
 
-func getP2PMetricEgress(code uint64, name string, version uint) (metrics.Meter, metrics.Meter, metrics.Counter) {
+func getP2PMetricEgress(code uint64, name string, version uint) (*metrics.Meter, *metrics.Meter, *metrics.Counter) {
 	switch code {
 	case 0x02:
 		return TransactionPayloadEg, TransactionPacketsEg, TransactionPacketsEgCounter
@@ -485,7 +509,7 @@ func countMatchingProtocols(protocols []Protocol, caps []Cap) int {
 
 // matchProtocols creates structures for matching named subprotocols.
 func matchProtocols(protocols []Protocol, caps []Cap, rw MsgReadWriter) map[string]*protoRW {
-	sort.Sort(capsByNameAndVersion(caps))
+	slices.SortFunc(caps, Cap.Cmp)
 	offset := baseProtocolLength
 	result := make(map[string]*protoRW)
 
@@ -511,7 +535,6 @@ outer:
 func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error) {
 	p.wg.Add(len(p.running))
 	for _, proto := range p.running {
-		proto := proto
 		proto.closed = p.closed
 		proto.wstart = writeStart
 		proto.werr = writeErr
@@ -526,7 +549,7 @@ func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error)
 			if err == nil {
 				p.log.Trace(fmt.Sprintf("Protocol %s/%d returned", proto.Name, proto.Version))
 				err = errProtocolReturned
-			} else if err != io.EOF {
+			} else if !errors.Is(err, io.EOF) {
 				p.log.Trace(fmt.Sprintf("Protocol %s/%d failed", proto.Name, proto.Version), "err", err)
 			}
 			p.protoErr <- err
@@ -620,7 +643,7 @@ func (p *Peer) Info() *PeerInfo {
 		ID:        p.ID().String(),
 		Name:      p.Fullname(),
 		Caps:      caps,
-		Protocols: make(map[string]interface{}),
+		Protocols: make(map[string]interface{}, len(p.running)),
 	}
 	if p.Node().Seq() > 0 {
 		info.ENR = p.Node().String()
@@ -644,39 +667,4 @@ func (p *Peer) Info() *PeerInfo {
 		info.Protocols[proto.Name] = protoInfo
 	}
 	return info
-}
-
-func NewTestPeer(name string, caps []Cap) (*Peer, error) {
-	fd, _ := net.Pipe()
-	c := &conn{
-		fd:   fd,
-		caps: caps,
-		name: name,
-	}
-
-	var r enr.Record
-	enode.ValidSchemes.NodeAddr(&r)
-
-	privkey, err := crypto.GenerateKey()
-	if err != nil {
-		return nil, err
-	}
-
-	err = enode.SignV4(&r, privkey)
-	if err != nil {
-		return nil, err
-	}
-
-	c.node, err = enode.New(enode.ValidSchemes, &r)
-	if err != nil {
-		return nil, err
-	}
-
-	c.transport = newTestTransport(&privkey.PublicKey, fd, nil)
-
-	peer := newPeer(log.Root(), c, nil)
-
-	close(peer.closed) // ensures Disconnect doesn't block
-
-	return peer, nil
 }

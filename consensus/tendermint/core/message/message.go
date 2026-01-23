@@ -696,7 +696,7 @@ func (v *vote) PreValidate(committee *types.Committee, shouldRespectCap bool) er
 		return types.ErrInvalidCoefficient
 	}
 
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		maxCoefficientBg.Add(maxCoefficient.Int64())
 	}
 
@@ -845,7 +845,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 		panic("Trying to aggregate empty set of votes")
 	}
 
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		votesIn.Inc(int64(len(votes)))
 	}
 
@@ -924,7 +924,7 @@ func AggregateVotes[E Prevote | Precommit](votes []Vote, ignoreBoundaries bool) 
 		votesToProcess = nextVotesToProcess
 	}
 
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		votesOut.Inc(int64(len(results)))
 	}
 

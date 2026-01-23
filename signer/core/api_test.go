@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -40,7 +39,7 @@ import (
 	"github.com/autonity/autonity/signer/storage"
 )
 
-//Used for testing
+// Used for testing
 type headlessUi struct {
 	approveCh chan string // to send approve/deny
 	inputCh   chan string // to send password
@@ -56,14 +55,13 @@ func (ui *headlessUi) RegisterUIServer(api *core.UIServerAPI)       {}
 func (ui *headlessUi) OnApprovedTx(tx ethapi.SignTransactionResult) {}
 
 func (ui *headlessUi) ApproveTx(request *core.SignTxRequest) (core.SignTxResponse, error) {
-
 	switch <-ui.approveCh {
 	case "Y":
 		return core.SignTxResponse{request.Transaction, true}, nil
 	case "M": // modify
 		// The headless UI always modifies the transaction
 		old := big.Int(request.Transaction.Value)
-		newVal := big.NewInt(0).Add(&old, big.NewInt(1))
+		newVal := new(big.Int).Add(&old, big.NewInt(1))
 		request.Transaction.Value = hexutil.Big(*newVal)
 		return core.SignTxResponse{request.Transaction, true}, nil
 	default:
@@ -109,11 +107,8 @@ func (ui *headlessUi) ShowInfo(message string) {
 }
 
 func tmpDirName(t *testing.T) string {
-	d, err := ioutil.TempDir("", "eth-keystore-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	d, err = filepath.EvalSymlinks(d)
+	d := t.TempDir()
+	d, err := filepath.EvalSymlinks(d)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +124,6 @@ func setup(t *testing.T) (*core.SignerAPI, *headlessUi) {
 	am := core.StartClefAccountManager(tmpDirName(t), true, true, "")
 	api := core.NewSignerAPI(am, 1337, true, ui, db, true, &storage.NoStorage{})
 	return api, ui
-
 }
 func createAccount(ui *headlessUi, api *core.SignerAPI, t *testing.T) {
 	ui.approveCh <- "Y"
@@ -143,7 +137,6 @@ func createAccount(ui *headlessUi, api *core.SignerAPI, t *testing.T) {
 }
 
 func failCreateAccountWithPassword(ui *headlessUi, api *core.SignerAPI, password string, t *testing.T) {
-
 	ui.approveCh <- "Y"
 	// We will be asked three times to provide a suitable password
 	ui.inputCh <- password
@@ -173,10 +166,10 @@ func failCreateAccount(ui *headlessUi, api *core.SignerAPI, t *testing.T) {
 func list(ui *headlessUi, api *core.SignerAPI, t *testing.T) ([]common.Address, error) {
 	ui.approveCh <- "A"
 	return api.List(context.Background())
-
 }
 
 func TestNewAcc(t *testing.T) {
+	t.Parallel()
 	api, control := setup(t)
 	verifyNum := func(num int) {
 		list, err := list(control, api, t)
@@ -243,6 +236,7 @@ func mkTestTx(from common.MixedcaseAddress) apitypes.SendTxArgs {
 }
 
 func TestSignTx(t *testing.T) {
+	t.Parallel()
 	var (
 		list      []common.Address
 		res, res2 *ethapi.SignTransactionResult
@@ -290,7 +284,7 @@ func TestSignTx(t *testing.T) {
 		t.Fatal(err)
 	}
 	parsedTx := &types.Transaction{}
-	rlp.Decode(bytes.NewReader(res.Raw), parsedTx)
+	rlp.DecodeBytes(res.Raw, parsedTx)
 
 	//The tx should NOT be modified by the UI
 	if parsedTx.Value().Cmp(tx.Value.ToInt()) != 0 {
@@ -316,7 +310,7 @@ func TestSignTx(t *testing.T) {
 		t.Fatal(err)
 	}
 	parsedTx2 := &types.Transaction{}
-	rlp.Decode(bytes.NewReader(res.Raw), parsedTx2)
+	rlp.DecodeBytes(res.Raw, parsedTx2)
 
 	//The tx should be modified by the UI
 	if parsedTx2.Value().Cmp(tx.Value.ToInt()) != 0 {
@@ -325,5 +319,4 @@ func TestSignTx(t *testing.T) {
 	if bytes.Equal(res.Raw, res2.Raw) {
 		t.Error("Expected tx to be modified by UI")
 	}
-
 }

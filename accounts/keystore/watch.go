@@ -20,27 +20,24 @@
 package keystore
 
 import (
-	"sync/atomic"
+	"os"
 	"time"
 
-	"github.com/JekaMas/notify"
 	"github.com/autonity/autonity/log"
+	"github.com/fsnotify/fsnotify"
 )
 
 type watcher struct {
 	ac       *accountCache
 	starting bool
 	running  bool
-	ev       chan notify.EventInfo
+	runEnded bool
 	quit     chan struct{}
 }
-
-var watcherCount = new(uint32)
 
 func newWatcher(ac *accountCache) *watcher {
 	return &watcher{
 		ac:   ac,
-		ev:   make(chan notify.EventInfo, 10),
 		quit: make(chan struct{}),
 	}
 }
@@ -61,29 +58,30 @@ func (w *watcher) close() {
 }
 
 func (w *watcher) loop() {
-	atomic.AddUint32(watcherCount, 1)
-
 	defer func() {
 		w.ac.mu.Lock()
 		w.running = false
 		w.starting = false
+		w.runEnded = true
 		w.ac.mu.Unlock()
 	}()
 	logger := log.New("path", w.ac.keydir)
 
-	if err := notify.Watch(w.ac.keydir, w.ev, notify.All); err != nil {
-		logger.Trace("Failed to watch keystore folder", "err", err)
+	// Create new watcher.
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Error("Failed to start filesystem watcher", "err", err)
+		return
+	}
+	defer watcher.Close()
+	if err := watcher.Add(w.ac.keydir); err != nil {
+		if !os.IsNotExist(err) {
+			logger.Warn("Failed to watch keystore folder", "err", err)
+		}
 		return
 	}
 
-	defer func() {
-		notify.Stop(w.ev)
-		if count := atomic.AddUint32(watcherCount, ^uint32(0)); count == 0 {
-			notify.Close()
-		}
-	}()
-
-	logger.Trace("Started watching keystore folder")
+	logger.Trace("Started watching keystore folder", "folder", w.ac.keydir)
 	defer logger.Trace("Stopped watching keystore folder")
 
 	w.ac.mu.Lock()
@@ -107,12 +105,20 @@ func (w *watcher) loop() {
 		select {
 		case <-w.quit:
 			return
-		case <-w.ev:
+		case _, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
 			// Trigger the scan (with delay), if not already triggered
 			if !rescanTriggered {
 				debounce.Reset(debounceDuration)
 				rescanTriggered = true
 			}
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
+			log.Info("Filesystem watcher error", "err", err)
 		case <-debounce.C:
 			w.ac.scanAccounts()
 			rescanTriggered = false

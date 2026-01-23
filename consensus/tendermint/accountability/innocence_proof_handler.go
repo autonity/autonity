@@ -127,7 +127,7 @@ func (fd *FaultDetector) handleOffChainAccusation(accusation *Proof, sender comm
 		return errInvalidAccusation
 	}
 
-	currentCoreHeight := fd.blockchain.CurrentBlock().NumberU64() + 1
+	currentCoreHeight := fd.blockchain.CurrentBlock().Number.Uint64() + 1
 	accountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(currentCoreHeight)
 	if err != nil {
 		// this shouldn't happen unless the node has some aggressive state pruning in place

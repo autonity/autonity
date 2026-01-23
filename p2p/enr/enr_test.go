@@ -24,9 +24,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/rlp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/autonity/autonity/rlp"
 )
 
 var rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -48,7 +49,7 @@ func TestGetSetID(t *testing.T) {
 	assert.Equal(t, id, id2)
 }
 
-// TestGetSetIP4 tests encoding/decoding and setting/getting of the IP key.
+// TestGetSetIPv4 tests encoding/decoding and setting/getting of the IP key.
 func TestGetSetIPv4(t *testing.T) {
 	ip := IPv4{192, 168, 0, 3}
 	var r Record
@@ -59,7 +60,7 @@ func TestGetSetIPv4(t *testing.T) {
 	assert.Equal(t, ip, ip2)
 }
 
-// TestGetSetIP6 tests encoding/decoding and setting/getting of the IP6 key.
+// TestGetSetIPv6 tests encoding/decoding and setting/getting of the IP6 key.
 func TestGetSetIPv6(t *testing.T) {
 	ip := IPv6{0x20, 0x01, 0x48, 0x60, 0, 0, 0x20, 0x01, 0, 0, 0, 0, 0, 0, 0x00, 0x68}
 	var r Record
@@ -169,6 +170,32 @@ func TestDirty(t *testing.T) {
 	}
 }
 
+func TestSize(t *testing.T) {
+	var r Record
+
+	// Empty record size is 3 bytes.
+	// Unsigned records cannot be encoded, but they could, the encoding
+	// would be [ 0, 0 ] -> 0xC28080.
+	assert.Equal(t, uint64(3), r.Size())
+
+	// Add one attribute. The size increases to 5, the encoding
+	// would be [ 0, 0, "k", "v" ] -> 0xC58080C26B76.
+	r.Set(WithEntry("k", "v"))
+	assert.Equal(t, uint64(5), r.Size())
+
+	// Now add a signature.
+	nodeid := []byte{1, 2, 3, 4, 5, 6, 7, 8}
+	signTest(nodeid, &r)
+	assert.Equal(t, uint64(45), r.Size())
+	enc, _ := rlp.EncodeToBytes(&r)
+	if r.Size() != uint64(len(enc)) {
+		t.Error("Size() not equal encoded length", len(enc))
+	}
+	if r.Size() != computeSize(&r) {
+		t.Error("Size() not equal computed size", computeSize(&r))
+	}
+}
+
 func TestSeq(t *testing.T) {
 	var r Record
 
@@ -268,8 +295,11 @@ func TestSignEncodeAndDecodeRandom(t *testing.T) {
 	}
 
 	require.NoError(t, signTest([]byte{5}, &r))
-	_, err := rlp.EncodeToBytes(r)
+
+	enc, err := rlp.EncodeToBytes(r)
 	require.NoError(t, err)
+	require.Equal(t, uint64(len(enc)), r.Size())
+	require.Equal(t, uint64(len(enc)), computeSize(&r))
 
 	for k, v := range pairs {
 		desc := fmt.Sprintf("key %q", k)

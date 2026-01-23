@@ -93,7 +93,7 @@ func NewGenesis(validators []*Validator, options ...GenesisOption) (*core.Genesi
 		return nil, fmt.Errorf("failed to construct initial user state: %v", err)
 	}
 
-	config := copyConfig(params.TestChainConfig)
+	config := copyConfig(params.TestConfigNoVerkle)
 	config.AutonityContractConfig.Operator = *operatorAddress
 	config.AutonityContractConfig.Validators = genesisValidators
 	config.Ethash = nil
@@ -165,11 +165,11 @@ func ParseUint(str string) (*big.Int, error) {
 func generateValidatorState(validators []*Validator) (
 	operatorAddress *common.Address,
 	genesisValidators []*params.Validator,
-	genesisAlloc core.GenesisAlloc,
+	genesisAlloc types.GenesisAlloc,
 	err error,
 ) {
 	genesisValidators = make([]*params.Validator, len(validators))
-	genesisAlloc = make(core.GenesisAlloc, len(validators))
+	genesisAlloc = make(types.GenesisAlloc, len(validators))
 	for i, u := range validators {
 		if u.SelfBondedStake > u.Stake {
 			return nil, nil, nil, fmt.Errorf("selfBondedStake (%d) cannot be higher than total stake (%d)", u.SelfBondedStake, u.Stake)
@@ -203,10 +203,10 @@ func generateValidatorState(validators []*Validator) (
 		if i == 0 {
 			operatorAddress = &userAddress
 		}
-		genesisAlloc[treasuryAddress] = core.GenesisAccount{
+		genesisAlloc[treasuryAddress] = types.Account{
 			Balance: u.InitialEth,
 		}
-		genesisAlloc[userAddress] = core.GenesisAccount{
+		genesisAlloc[userAddress] = types.Account{
 			Balance: u.InitialEth,
 		}
 	}

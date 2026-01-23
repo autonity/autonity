@@ -88,7 +88,7 @@ func (g *Gossiper) SlowGossip(committee *types.Committee, msg message.Msg, sende
 	if sender == g.address {
 		g.knownMessages.Add(msg.Hash(), true)
 	}
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		slowGossipCounter.Inc(1)
 	}
 	g.router.Forward(committee, msg, sender, recipients)
@@ -100,7 +100,7 @@ func (g *Gossiper) Gossip(committee *types.Committee, msg message.Msg, sender co
 	if sender == g.address {
 		g.knownMessages.Add(msg.Hash(), true)
 	}
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		gossipCounter.Inc(1) // increment gossip counter
 	}
 	g.router.Forward(committee, msg, sender, nil)

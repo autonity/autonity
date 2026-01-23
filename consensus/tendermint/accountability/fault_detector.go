@@ -10,28 +10,33 @@ import (
 	"sync"
 	"time"
 
-	"github.com/autonity/autonity/accounts/abi/bind"
-	"github.com/autonity/autonity/autonity"
+	"github.com/autonity/autonity/consensus/tendermint/helpers"
+
 	"github.com/autonity/autonity/autonity/bindings"
+
+	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/accounts/abi/bind/backends"
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	engineCore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	"github.com/autonity/autonity/consensus/tendermint/events"
-	"github.com/autonity/autonity/consensus/tendermint/helpers"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/internal/ethapi"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
 
 type ChainContext interface {
 	consensus.ChainReader
-	CurrentBlock() *types.Block
+	backends.ChainContext
+	CurrentBlock() *types.Header
 	SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription
 	State() (*state.StateDB, error)
 	ProtocolContracts() *autonity.ProtocolContracts
@@ -76,7 +81,6 @@ type FaultDetector struct {
 	tendermintMsgSub *event.TypeMuxSubscription
 	messageEventCh   <-chan events.MessageEventer
 
-	txPool     *core.TxPool
 	ethBackend ethapi.Backend
 	txOpts     *bind.TransactOpts // transactor options for accountability events
 
@@ -116,7 +120,6 @@ func NewFaultDetector(
 	nodeAddress common.Address,
 	sub *event.TypeMuxSubscription,
 	ms *engineCore.MsgStore,
-	txPool *core.TxPool,
 	ethBackend ethapi.Backend,
 	nodeKey *ecdsa.PrivateKey,
 	protocolContracts *autonity.ProtocolContracts,
@@ -127,14 +130,14 @@ func NewFaultDetector(
 	if err != nil {
 		logger.Crit("Critical error building transactor", "err", err)
 	}
-	// tip needs to be >=1, otherwise accountability tx will not be broadcasted due to the txpool logic (validateTx function)
-	txOpts.GasTipCap = common.Big1
+	// prioritize the accountability events with 1 GWei, otherwise accountability tx be pending
+	// in TXN pool due to the txpool logic.
+	txOpts.GasTipCap = new(big.Int).SetUint64(params.GWei)
 
 	fd := &FaultDetector{
 		innocenceProofBuff:    NewInnocenceProofBuffer(),
 		protocolContracts:     protocolContracts,
 		accusationRateLimiter: NewAFDRateLimiter(),
-		txPool:                txPool,
 		ethBackend:            ethBackend,
 		txOpts:                txOpts,
 		tendermintMsgSub:      sub,
@@ -189,7 +192,7 @@ tendermintMsgLoop:
 			if !ok {
 				break tendermintMsgLoop
 			}
-			currentCoreHeight := fd.blockchain.CurrentBlock().NumberU64() + 1
+			currentCoreHeight := fd.blockchain.CurrentBlock().Number.Uint64() + 1
 			accountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(currentCoreHeight)
 			if err != nil {
 				fd.logger.Error("cannot fetch accountability params", "block", currentCoreHeight, "err", err)
@@ -255,15 +258,15 @@ tendermintMsgLoop:
 			}
 
 			// on every 60 blocks, reset Peer Justified Accusations and height accusations counters.
-			if e.Block.NumberU64()%msgGCInterval == 0 {
-				currentCoreHeight := fd.blockchain.CurrentBlock().NumberU64() + 1
+			if e.Header.Number.Uint64()%msgGCInterval == 0 {
+				currentCoreHeight := fd.blockchain.CurrentBlock().Number.Uint64() + 1
 				accountabilityParams, err := fd.blockchain.AccountabilityParamsByHeight(currentCoreHeight)
 				if err != nil {
 					fd.logger.Error("cannot fetch accountability params", "block", currentCoreHeight, "err", err)
 					continue tendermintMsgLoop
 				}
 				btl := accountabilityParams.Range.Uint64() //nolint:typecheck
-				fd.accusationRateLimiter.Cleanup(e.Block.NumberU64(), btl)
+				fd.accusationRateLimiter.Cleanup(e.Header.Number.Uint64(), btl)
 			}
 		case err, ok := <-fd.chainEventSub.Err():
 			if ok {
@@ -347,7 +350,7 @@ loop:
 				break loop
 			}
 
-			number := ev.Block.Number()
+			number := ev.Header.Number
 
 			// try to escalate expired off chain accusation on chain.
 			fd.escalateExpiredAccusations(number.Uint64() + 1)

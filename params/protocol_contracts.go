@@ -69,7 +69,7 @@ var (
 	}
 
 	DefaultSupplyControlGenesis = &SupplyControlGenesis{
-		InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Sub(new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), common.Big1)),
+		InitialAllocation: (*math.HexOrDecimal256)(new(big.Int).Sub(new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil), common.Big1)),
 	}
 
 	DefaultInflationControllerGenesis = &InflationControllerGenesis{

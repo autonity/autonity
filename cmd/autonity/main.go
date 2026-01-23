@@ -20,32 +20,30 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/urfave/cli/v2"
+	"go.uber.org/automaxprocs/maxprocs"
+
 	"github.com/autonity/autonity/accounts"
-	"github.com/autonity/autonity/accounts/keystore"
 	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/console/prompt"
-	"github.com/autonity/autonity/eth"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/ethclient"
 	"github.com/autonity/autonity/internal/debug"
-	"github.com/autonity/autonity/internal/ethapi"
 	"github.com/autonity/autonity/internal/flags"
+	"github.com/autonity/autonity/internal/version"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/node"
-	"github.com/autonity/autonity/params"
 
 	// Force-load the tracer engines to trigger registration
 	_ "github.com/autonity/autonity/eth/tracers/js"
 	_ "github.com/autonity/autonity/eth/tracers/native"
-
-	"gopkg.in/urfave/cli.v1"
 )
 
 const (
@@ -58,20 +56,16 @@ var (
 	gitCommit = ""
 	gitDate   = ""
 	// The app that holds all commands and flags.
-	app = flags.NewApp(gitCommit, gitDate, "the autonity command line interface")
+	app = flags.NewApp("the autonity command line interface")
 	// flags that configure the node
-	nodeFlags = []cli.Flag{
+	nodeFlags = slices.Concat([]cli.Flag{
 		utils.IdentityFlag,
-		utils.UnlockedAccountFlag,
 		utils.PasswordFileFlag,
 		utils.BootnodesFlag,
-		utils.DataDirFlag,
 		utils.InitGenesisFlag,
-		utils.AncientFlag,
 		utils.MinFreeDiskSpaceFlag,
 		utils.KeyStoreDirFlag,
 		utils.ExternalSignerFlag,
-		utils.NoUSBFlag,
 		utils.USBFlag,
 		utils.SmartCardDaemonPathFlag,
 		utils.TxPoolLocalsFlag,
@@ -89,14 +83,11 @@ var (
 		utils.ExitWhenSyncedFlag,
 		utils.GCModeFlag,
 		utils.SnapshotFlag,
-		utils.TxLookupLimitFlag,
 		utils.EthRequiredBlocksFlag,
 		utils.BloomFilterSizeFlag,
 		utils.CacheFlag,
 		utils.CacheDatabaseFlag,
 		utils.CacheTrieFlag,
-		utils.CacheTrieJournalFlag,
-		utils.CacheTrieRejournalFlag,
 		utils.CacheGCFlag,
 		utils.CacheSnapshotFlag,
 		utils.CacheNoPrefetchFlag,
@@ -105,9 +96,7 @@ var (
 		utils.MaxPeersFlag,
 		utils.MaxPendingPeersFlag,
 		utils.MiningEnabledFlag,
-		utils.MinerThreadsFlag,
 		utils.MinerNotifyFlag,
-		utils.LegacyMinerGasTargetFlag,
 		utils.LightKDFFlag,
 		utils.MinerGasPriceFlag,
 		utils.MinerExtraDataFlag,
@@ -135,12 +124,10 @@ var (
 		utils.GpoMaxGasPriceFlag,
 		utils.GpoIgnoreGasPriceFlag,
 		utils.MinerNotifyFullFlag,
-		utils.PiccadillyFlag,
-		utils.BakerlooFlag,
 		utils.ConsensusListenPortFlag,
 		utils.ConsensusNATFlag,
 		configFileFlag,
-	}
+	}, utils.NetworkFlags, utils.DatabaseFlags)
 
 	rpcFlags = []cli.Flag{
 		utils.HTTPEnabledFlag,
@@ -161,7 +148,6 @@ var (
 		utils.WSPathPrefixFlag,
 		utils.IPCDisabledFlag,
 		utils.IPCPathFlag,
-		utils.InsecureUnlockAllowedFlag,
 		utils.RPCGlobalGasCapFlag,
 		utils.RPCGlobalEVMTimeoutFlag,
 		utils.RPCGlobalTxFeeCapFlag,
@@ -190,13 +176,12 @@ func init() {
 	// Initialize the CLI app and start Autonity
 	app.Action = autonity
 	app.HideVersion = true // we have a command to print the version
-	app.Copyright = "Copyright 2013-2022 The go-ethereum Authors"
-	app.Commands = []cli.Command{
+	app.Copyright = ""
+	app.Commands = []*cli.Command{
 		// See chaincmd.go:
 		importCommand,
 		exportCommand,
 		importPreimagesCommand,
-		exportPreimagesCommand,
 		removedbCommand,
 		dumpCommand,
 		// See accountcmd.go:
@@ -214,21 +199,28 @@ func init() {
 		dumpConfigCommand,
 		// see dbcmd.go
 		dbCommand,
-		// See cmd/utils/flags_legacy.go
-		utils.ShowDeprecated,
 		// See snapshot.go
 		snapshotCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
-	app.Flags = append(app.Flags, nodeFlags...)
-	app.Flags = append(app.Flags, rpcFlags...)
-	app.Flags = append(app.Flags, consoleFlags...)
-	app.Flags = append(app.Flags, debug.Flags...)
-	app.Flags = append(app.Flags, metricsFlags...)
+	app.Flags = slices.Concat(
+		nodeFlags,
+		rpcFlags,
+		consoleFlags,
+		debug.Flags,
+		metricsFlags,
+	)
+	flags.AutoEnvVars(app.Flags, "AUT")
 
 	app.Before = func(ctx *cli.Context) error {
-		return debug.Setup(ctx)
+		maxprocs.Set() // Automatically set GOMAXPROCS to match Linux container CPU quota.
+		flags.MigrateGlobalFlags(ctx)
+		if err := debug.Setup(ctx); err != nil {
+			return err
+		}
+		flags.CheckEnvVars(ctx, app.Flags, "AUT")
+		return nil
 	}
 	app.After = func(ctx *cli.Context) error {
 		debug.Exit()
@@ -249,12 +241,37 @@ func main() {
 func prepare(ctx *cli.Context) {
 	// If we're running a known preset, log it for convenience.
 	switch {
-	case ctx.GlobalIsSet(utils.PiccadillyFlag.Name):
-		log.Warn("Autonity Piccadilly testnet is currently disabled", "version", params.Version)
-		os.Exit(1)
-	case ctx.GlobalIsSet(utils.BakerlooFlag.Name):
-		log.Info(`Starting Autonity on Bakerloo Testnet`, "version", params.Version)
-		log.Info(banner)
+	case ctx.IsSet(utils.PiccadillyFlag.Name):
+		log.Info(`Starting Autonity on Piccadilly Testnet
+
+ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα		
+ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
+
+                        888                     d8b 888             
+                        888                     Y8P 888             
+                        888                         888             
+       8888b.  888  888 888888 .d88b.  88888b.  888 888888 888  888 
+          "88b 888  888 888   d88""88b 888 "88b 888 888    888  888 
+      .d888888 888  888 888   888  888 888  888 888 888    888  888 
+      888  888 Y88b 888 Y88b. Y88..88P 888  888 888 Y88b.  Y88b 888 
+      "Y888888  "Y88888  "Y888 "Y88P"  888  888 888  "Y888  "Y88888 
+                                                                888 
+                         autonity.org                      Y8b d88P 
+                                                            "Y88P"  
+
+ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
+ααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααααα
+
+Take part in the Piccadilly Tiber Challenges! More infos @ https://autonity.org
+Please remain tuned to our social channels for announcements
+Discord:  https://discord.com/invite/autonity 
+Telegram: https://t.me/autonity
+X:        https://twitter.com/autonity_
+
+
+`)
+	case ctx.IsSet(utils.BakerlooFlag.Name):
+		log.Info("Starting Autonity on Bakerloo testnet")
 	case ctx.IsSet(utils.DeveloperFlag.Name):
 		log.Info("Starting Autonity in ephemeral dev mode")
 		log.Warn(`You are running autonity in --dev mode. Please note the following:
@@ -275,26 +292,19 @@ func prepare(ctx *cli.Context) {
 	--password <password file path>
 	--keystore <account's keystore directory path>
 `)
-	case !ctx.GlobalIsSet(utils.NetworkIdFlag.Name):
-		log.Info(`Starting Autonity on Mainnet`, "version", params.Version)
+	case !ctx.IsSet(utils.NetworkIdFlag.Name):
+		version, _ := version.Info()
+		log.Info(`Starting Autonity on Mainnet`, "version", version)
 		log.Info(banner)
 	default:
-		log.Info("Starting the Autonity node client", "version", params.Version, "networkid", ctx.GlobalInt(utils.NetworkIdFlag.Name))
+		log.Info("Starting the Autonity node client", "version", version.Semantic, "networkid", ctx.Int(utils.NetworkIdFlag.Name))
 	}
 	// If we're a full node on mainnet without --cache specified, bump default cache allowance
-	if ctx.GlobalString(utils.SyncModeFlag.Name) != syncModeLight && !ctx.GlobalIsSet(utils.CacheFlag.Name) &&
-		!ctx.GlobalIsSet(utils.NetworkIdFlag.Name) && !ctx.IsSet(utils.DeveloperFlag.Name) {
+	if ctx.String(utils.SyncModeFlag.Name) != syncModeLight && !ctx.IsSet(utils.CacheFlag.Name) &&
+		!ctx.IsSet(utils.NetworkIdFlag.Name) && !ctx.IsSet(utils.DeveloperFlag.Name) {
 		// Make sure we're not on any supported preconfigured testnet either
-		ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(4096))
+		ctx.Set(utils.CacheFlag.Name, strconv.Itoa(4096))
 	}
-	// If we're running a light client on any network, drop the cache to some meaningfully low amount
-	if ctx.GlobalString(utils.SyncModeFlag.Name) == syncModeLight && !ctx.GlobalIsSet(utils.CacheFlag.Name) {
-		log.Info("Dropping default light client cache", "provided", ctx.GlobalInt(utils.CacheFlag.Name), "updated", 128)
-		ctx.GlobalSet(utils.CacheFlag.Name, strconv.Itoa(128))
-	}
-
-	// Start metrics export if enabled
-	utils.SetupMetrics(ctx)
 
 	// Start system runtime metrics collection
 	go metrics.CollectProcessMetrics(3 * time.Second)
@@ -304,40 +314,33 @@ func prepare(ctx *cli.Context) {
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
 func autonity(ctx *cli.Context) error {
-	if args := ctx.Args(); len(args) > 0 {
+	if args := ctx.Args().Slice(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
 
 	prepare(ctx)
 
-	stack, backend := makeFullNode(ctx)
+	stack := makeFullNode(ctx)
 	defer stack.Close()
 
-	startNode(ctx, stack, backend, false)
+	startNode(ctx, stack, false)
 	stack.Wait()
 
 	return nil
 }
 
 // startNode boots up the system node and all registered protocols, after which
-// it unlocks any requested accounts, and starts the RPC/IPC interfaces and the
-// miner.
-func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend, isConsole bool) {
+// it starts the RPC/IPC interfaces and the miner.
+func startNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
 	// Start up the node itself
 	utils.StartNode(ctx, stack, isConsole)
-
-	// Unlock any account specifically requested
-	unlockAccounts(ctx, stack)
 
 	// Register wallet event handlers to open and auto-derive wallets
 	events := make(chan accounts.WalletEvent, 16)
 	stack.AccountManager().Subscribe(events)
 
 	// Create a client to interact with local geth node.
-	rpcClient, err := stack.Attach()
-	if err != nil {
-		utils.Fatalf("Failed to attach to self: %v", err)
-	}
+	rpcClient := stack.Attach()
 	ethClient := ethclient.NewClient(rpcClient)
 
 	go func() {
@@ -375,7 +378,7 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend, isCon
 
 	// Spawn a standalone goroutine for status synchronization monitoring,
 	// close the node when synchronization is complete if user required.
-	if ctx.GlobalBool(utils.ExitWhenSyncedFlag.Name) {
+	if ctx.Bool(utils.ExitWhenSyncedFlag.Name) {
 		go func() {
 			sub := stack.EventMux().Subscribe(downloader.DoneEvent{})
 			defer sub.Unsubscribe()
@@ -395,52 +398,6 @@ func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend, isCon
 				}
 			}
 		}()
-	}
-
-	// Start auxiliary services if enabled
-	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.Bool(utils.DeveloperFlag.Name) {
-		// Mining only makes sense if a full Ethereum node is running
-		if ctx.GlobalString(utils.SyncModeFlag.Name) == syncModeLight {
-			utils.Fatalf("Light clients do not support mining")
-		}
-		ethBackend, ok := backend.(*eth.EthAPIBackend)
-		if !ok {
-			utils.Fatalf("Autonity service not running")
-		}
-		// Set the gas price to the limits from the CLI and start mining
-		gasprice := utils.GlobalBig(ctx, utils.MinerGasPriceFlag.Name)
-		ethBackend.TxPool().SetGasPrice(gasprice)
-		// start mining
-		threads := ctx.GlobalInt(utils.MinerThreadsFlag.Name)
-		if err := ethBackend.StartMining(threads); err != nil {
-			utils.Fatalf("Failed to start mining: %v", err)
-		}
-	}
-}
-
-// unlockAccounts unlocks any account specifically requested.
-func unlockAccounts(ctx *cli.Context, stack *node.Node) {
-	var unlocks []string
-	inputs := strings.Split(ctx.GlobalString(utils.UnlockedAccountFlag.Name), ",")
-	for _, input := range inputs {
-		if trimmed := strings.TrimSpace(input); trimmed != "" {
-			unlocks = append(unlocks, trimmed)
-		}
-	}
-	// Short circuit if there is no account to unlock.
-	if len(unlocks) == 0 {
-		return
-	}
-
-	// If insecure account unlocking is not allowed if node's APIs are exposed to external.
-	// Print warning log to user and skip unlocking.
-	if !stack.Config().InsecureUnlockAllowed && stack.Config().ExtRPCEnabled() {
-		utils.Fatalf("Account unlock with HTTP access is forbidden!")
-	}
-	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-	passwords := utils.MakePasswordList(ctx)
-	for i, account := range unlocks {
-		unlockAccount(ks, account, i, passwords)
 	}
 }
 

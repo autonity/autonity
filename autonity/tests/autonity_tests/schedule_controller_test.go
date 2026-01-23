@@ -115,7 +115,7 @@ func TestScheduleOperation(t *testing.T) {
 		require.True(r.T, schedule.UnlockedAmount.Cmp(common.Big0) == 0)
 
 		r.WaitNextEpoch()
-		unlocked := r.Evm.Context.Time.Int64() - 1 - start
+		unlocked := int64(r.Evm.Context.Time) - 1 - start
 		require.True(r.T, unlocked > 0, "cannot test")
 		schedule, _, err = r.Autonity.GetSchedule(nil, vaultAddress, common.Big0)
 		require.NoError(r.T, err)
@@ -140,7 +140,7 @@ func TestScheduleOperation(t *testing.T) {
 
 func createSchedule(r *tests.Runner, vaultAddress common.Address, amount, startTime, totalDuration int64) {
 	if startTime == 0 {
-		startTime = r.Evm.Context.Time.Int64()
+		startTime = int64(r.Evm.Context.Time)
 	}
 	if totalDuration == 0 {
 		totalDuration = 1

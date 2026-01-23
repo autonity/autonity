@@ -3,7 +3,6 @@ package byzantine
 import (
 	"context"
 	"math/big"
-	"sync/atomic"
 	"testing"
 
 	fuzz "github.com/google/gofuzz"
@@ -42,7 +41,7 @@ func (c *duplicateProposalSender) SendProposal(_ context.Context, p *types.Block
 
 // TestDuplicateProposal broadcasts two proposals with same round and same height but different validround
 func TestDuplicateProposal(t *testing.T) {
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
@@ -102,7 +101,7 @@ func (c *proposalApprover) HandleProposal(ctx context.Context, proposal *message
 
 func TestNonProposerWithFaultyApprover(t *testing.T) {
 	t.Skip("a malicious proposer will be kicked out from network now, this test is no more valid")
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
@@ -123,7 +122,7 @@ func TestNonProposerWithFaultyApprover(t *testing.T) {
 }
 
 func TestDuplicateProposalWithFaultyApprover(t *testing.T) {
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
@@ -155,13 +154,10 @@ type partialProposalSender struct {
 func (c *partialProposalSender) SendProposal(_ context.Context, p *types.Block) {
 	fakeTransactions := make([]*types.Transaction, 0)
 	for i := 0; i < 5; i++ {
-		var fakeTransaction types.Transaction
 		f := fuzz.New()
-		f.Fuzz(&fakeTransaction)
 		var tx types.LegacyTx
 		f.Fuzz(&tx)
-		fakeTransaction.SetInner(&tx)
-		fakeTransactions = append(fakeTransactions, &fakeTransaction)
+		fakeTransactions = append(fakeTransactions, types.NewTx(&tx))
 	}
 	p.SetTransactions(fakeTransactions)
 	self, _ := selfAndCommittee(c.Core, c.Height().Uint64())
@@ -173,7 +169,7 @@ func (c *partialProposalSender) SendProposal(_ context.Context, p *types.Block) 
 }
 
 func TestPartialProposal(t *testing.T) {
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender
@@ -205,21 +201,15 @@ func (c *invalidBlockProposer) SendProposal(_ context.Context, p *types.Block) {
 	fakeTransactions := make([]*types.Transaction, 0)
 	f := fuzz.New()
 	for i := 0; i < 5; i++ {
-		var fakeTransaction types.Transaction
-		f.Fuzz(&fakeTransaction)
 		var tx types.LegacyTx
 		f.Fuzz(&tx)
-		fakeTransaction.SetInner(&tx)
-
-		fakeTransactions = append(fakeTransactions, &fakeTransaction)
+		fakeTransactions = append(fakeTransactions, types.NewTx(&tx))
 	}
 	p.SetTransactions(fakeTransactions)
 	var hash common.Hash
 	f.Fuzz(&hash)
-	var atmHash atomic.Value
-	atmHash.Store(hash)
 	// nil hash
-	p.SetHash(atmHash)
+	p.SetHash(&hash)
 
 	// nil header
 	var num big.Int
@@ -236,7 +226,7 @@ func (c *invalidBlockProposer) SendProposal(_ context.Context, p *types.Block) {
 
 func TestInvalidBlockProposal(t *testing.T) {
 	//for i := 0; i < 20; i++ {
-	users, err := e2e.Validators(t, 4, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, 4, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious proposalSender

@@ -2,11 +2,12 @@ package topology
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/autonity/autonity/common/graph"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/stretchr/testify/require"
-	"strings"
-	"testing"
 )
 
 // run network with different topology with gossiping, thus the network should have liveness at all case.
@@ -36,7 +37,7 @@ func TestTopology(t *testing.T) {
 }
 
 func runTopologyTest(t *testing.T, topology string) {
-	network, err := e2e.NewNetwork(t, 5, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, 5, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 

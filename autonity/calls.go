@@ -3,13 +3,14 @@ package autonity
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"reflect"
 
+	"github.com/holiman/uint256"
+
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/autonity/bindings"
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/log"
@@ -27,7 +28,7 @@ type raw []byte
 
 func (c *evmContract) replaceAutonityBytecode(header *types.Header, statedb vm.StateDB, bytecode []byte) error {
 	evm := c.evmProvider(header, params.DeployerAddress, statedb)
-	_, _, _, vmerr := evm.Replace(vm.AccountRef(params.DeployerAddress), bytecode, params.AutonityContractAddress)
+	_, _, _, vmerr := evm.Replace(params.DeployerAddress, bytecode, params.AutonityContractAddress)
 	if vmerr != nil {
 		log.Error("replaceAutonityBytecode evm.Create", "err", vmerr)
 		return vmerr
@@ -70,13 +71,14 @@ func AutonityContractCall(autonityAbi *abi.ABI, evm *vm.EVM, function string, re
 	if err != nil {
 		return 0, err
 	}
-	ret, usedGas, err := evm.Call(
-		vm.AccountRef(params.DeployerAddress),
+	ret, leftOver, err := evm.Call(
+		params.DeployerAddress,
 		params.AutonityContractAddress,
 		packedArgs,
 		math.MaxUint64,
-		common.Big0,
+		uint256.NewInt(0),
 	)
+	usedGas := math.MaxUint64 - leftOver
 	if err != nil {
 		return usedGas, newErrorWithRevertReason(err, ret)
 	}
@@ -324,12 +326,12 @@ func (c *AutonityContract) callRetrieveContract(state vm.StateDB, header *types.
 func recordFinalizeGasUsage(isEpochHeader bool, number uint64, usedGas int64) {
 	if isEpochHeader {
 		log.Debug("gas used to finalize epoch block", "number", number, "usedGas", usedGas)
-		if metrics.Enabled {
+		if metrics.Enabled() {
 			epochFinalizeGas.Add(usedGas)
 		}
 	} else {
 		log.Debug("gas used to finalize block", "number", number, "usedGas", usedGas)
-		if metrics.Enabled {
+		if metrics.Enabled() {
 			finalizeGas.Add(usedGas)
 		}
 	}

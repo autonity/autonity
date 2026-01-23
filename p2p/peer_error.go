@@ -59,7 +59,7 @@ var errProtocolReturned = errors.New("protocol returned")
 
 const syncFailedSuspensionSpan = 30 * time.Second
 
-type DiscReason uint8
+type DiscReason uint
 
 const (
 	DiscRequested DiscReason = iota
@@ -123,7 +123,7 @@ func discReasonForError(err error) DiscReason {
 	if reason, ok := err.(DiscReason); ok {
 		return reason
 	}
-	if err == errProtocolReturned {
+	if errors.Is(err, errProtocolReturned) {
 		return DiscQuitting
 	}
 

@@ -52,6 +52,9 @@ type Batcher interface {
 	// until a final write is called.
 	NewBatch() Batch
 
+	// NewBatchWithSize creates a write-only database batch with pre-allocated buffer.
+	NewBatchWithSize(size int) Batch
+
 	// NewBatchWithReader creates a standard batch, but allows for reading
 	// "pre-batch" state.
 	NewBatchWithReader() BatchWithReader

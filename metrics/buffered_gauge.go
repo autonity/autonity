@@ -38,7 +38,7 @@ func GetOrRegisterBufferedGauge(name string, r Registry) BufferedGauge {
 
 // NewBufferedGauge constructs a new BufferedGauge.
 func NewBufferedGauge(capacity *int) BufferedGauge {
-	if !Enabled {
+	if !metricsEnabled {
 		return NilBufferedGauge{}
 	}
 	var c int
@@ -166,4 +166,8 @@ func (g *StandardBufferedGauge) Values() []GaugeValue {
 	g.Lock()
 	defer g.Unlock()
 	return g.values
+}
+
+func GetIntPointer(val int) *int {
+	return &val
 }

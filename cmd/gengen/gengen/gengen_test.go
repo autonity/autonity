@@ -68,7 +68,11 @@ func TestEncodeDecodeConsistency(t *testing.T) {
 	err = json.Unmarshal(encoded, decoded)
 	require.NoError(t, err)
 
-	assert.Equal(t, g, decoded)
+	// Re-encode both to JSON and compare - this handles big.Int zero value
+	// representation differences (nil vs empty slice internally)
+	reencoded, err := json.Marshal(decoded)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(encoded), string(reencoded))
 }
 
 func TestGenesisCreationErrors(t *testing.T) {

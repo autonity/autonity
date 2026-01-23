@@ -903,7 +903,7 @@ async function setup(event) {
   // If the tendermint module is loaded then load the contract bindings
   if (parsed.result.hasOwnProperty('tendermint')) {
     contract = await Promise.all([web3.tendermint.getContractABI(), web3.eth.getGasPrice(), web3.eth.getCoinbase()]).then((results) => {
-      return new web3.eth.Contract(JSON.parse(results[0]), '0xbd770416a3345f91e4b34576cb804a576fa48eb1');
+      return new web3.eth.Contract(results[0], '0xbd770416a3345f91e4b34576cb804a576fa48eb1');
     });
     initMessage += 'autonity ';
     hasAutonity = true

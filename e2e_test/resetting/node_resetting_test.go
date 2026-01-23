@@ -13,7 +13,7 @@ import (
 // mining.
 func TestResetAllNodes(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
@@ -41,7 +41,7 @@ func TestResetAllNodes(t *testing.T) {
 // F nodes one by one, the network should keep mining all the time.
 func TestResetRandomFNodes(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
@@ -81,7 +81,7 @@ func TestResetRandomFNodes(t *testing.T) {
 // recover anyone of the stopped node to get quorum voting power and observe if the net is mining again.
 func TestResetRandomFPlusOneNodes(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
@@ -120,7 +120,7 @@ func TestResetRandomFPlusOneNodes(t *testing.T) {
 // recover random selected any two of the stopped node to get quorum voting power, and observe if the net is mining again.
 func TestResetRandomFPlusTwoNodes(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
@@ -163,7 +163,7 @@ func TestResetRandomFPlusTwoNodes(t *testing.T) {
 // recover it at that round, after each round the network should keep mining.
 func TestKeepResettingRandomOneNode(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
@@ -192,7 +192,7 @@ func TestKeepResettingRandomOneNode(t *testing.T) {
 // then recover them at that round, after each round the network should keep mining.
 func TestKeepResettingRandomTwoNodes(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
@@ -228,7 +228,7 @@ func TestKeepResettingRandomTwoNodes(t *testing.T) {
 // then recover them at that round, after each round the network should keep mining.
 func TestKeepResettingRandomThreeNodes(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.

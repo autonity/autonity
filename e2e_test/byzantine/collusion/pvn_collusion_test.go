@@ -24,7 +24,7 @@ import (
 func TestCollusionPVN(t *testing.T) {
 	t.Skip("Flaky test")
 	numOfNodes := 8
-	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	initCollusion(users, autonity.PVN, newCollusionPVNPlaner())

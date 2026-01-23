@@ -26,7 +26,7 @@ import (
 
 // NewCandidateBlockEvent is posted to propose a proposal
 type NewCandidateBlockEvent struct {
-	NewCandidateBlock types.Block
+	NewCandidateBlock *types.Block
 	CreatedAt         time.Time
 }
 

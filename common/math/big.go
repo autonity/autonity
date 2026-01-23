@@ -25,12 +25,9 @@ import (
 
 // Various big integer limit values.
 var (
-	tt255     = BigPow(2, 255)
 	tt256     = BigPow(2, 256)
 	tt256m1   = new(big.Int).Sub(tt256, big.NewInt(1))
-	tt63      = BigPow(2, 63)
 	MaxBig256 = new(big.Int).Set(tt256m1)
-	MaxBig63  = new(big.Int).Sub(tt63, big.NewInt(1))
 )
 
 const (
@@ -76,14 +73,14 @@ func (i *HexOrDecimal256) MarshalText() ([]byte, error) {
 	if i == nil {
 		return []byte("0x0"), nil
 	}
-	return []byte(fmt.Sprintf("%#x", (*big.Int)(i))), nil
+	return fmt.Appendf(nil, "%#x", (*big.Int)(i)), nil
 }
 
 // Decimal256 unmarshals big.Int as a decimal string. When unmarshalling,
 // it however accepts either "0x"-prefixed (hex encoded) or non-prefixed (decimal)
 type Decimal256 big.Int
 
-// NewHexOrDecimal256 creates a new Decimal256
+// NewDecimal256 creates a new Decimal256
 func NewDecimal256(x int64) *Decimal256 {
 	b := big.NewInt(x)
 	d := Decimal256(*b)
@@ -229,7 +226,7 @@ func ReadBits(bigint *big.Int, buf []byte) {
 	}
 }
 
-// U256 encodes as a 256 bit two's complement number. This operation is destructive.
+// U256 encodes x as a 256 bit two's complement number. This operation is destructive.
 func U256(x *big.Int) *big.Int {
 	return x.And(x, tt256m1)
 }
@@ -238,38 +235,4 @@ func U256(x *big.Int) *big.Int {
 // This operation is destructive.
 func U256Bytes(n *big.Int) []byte {
 	return PaddedBigBytes(U256(n), 32)
-}
-
-// S256 interprets x as a two's complement number.
-// x must not exceed 256 bits (the result is undefined if it does) and is not modified.
-//
-//	S256(0)        = 0
-//	S256(1)        = 1
-//	S256(2**255)   = -2**255
-//	S256(2**256-1) = -1
-func S256(x *big.Int) *big.Int {
-	if x.Cmp(tt255) < 0 {
-		return x
-	}
-	return new(big.Int).Sub(x, tt256)
-}
-
-// Exp implements exponentiation by squaring.
-// Exp returns a newly-allocated big integer and does not change
-// base or exponent. The result is truncated to 256 bits.
-//
-// Courtesy @karalabe and @chfast
-func Exp(base, exponent *big.Int) *big.Int {
-	result := big.NewInt(1)
-
-	for _, word := range exponent.Bits() {
-		for i := 0; i < wordBits; i++ {
-			if word&1 == 1 {
-				U256(result.Mul(result, base))
-			}
-			U256(base.Mul(base, base))
-			word >>= 1
-		}
-	}
-	return result
 }

@@ -16,6 +16,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/autonity/autonity/rlp"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 
@@ -33,27 +34,38 @@ import (
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
-	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
-	"github.com/autonity/autonity/rlp"
+	"github.com/autonity/autonity/triedb"
 )
 
 // This test checks that we can process transactions that transfer value from
 // one participant to another.
 func TestSendingValue(t *testing.T) {
-	network, err := NewNetwork(t, 7, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := NewNetwork(t, 7, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	err = network[0].SendAUTtracked(ctx, network[1].Address, 10)
 	require.NoError(t, err)
-	_ = network.WaitToMineNBlocks(100, 100, false)
+	_ = network.WaitToMineNBlocks(50, 60, false)
+}
+
+// Used to find goroutines leaks
+func TestStartStopNode(t *testing.T) {
+	network, err := NewNetwork(t, 1, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
+	require.NoError(t, err)
+	time.Sleep(2 * time.Second)
+	network[0].Close(false)
+	buf := make([]byte, 1<<20)    // 1MB buffer for stack traces
+	n := runtime.Stack(buf, true) // true = dump all goroutines
+	t.Logf("Goroutine stack traces:\n%s", string(buf[:n]))
+	time.Sleep(7 * time.Second)
 }
 
 func TestProtocolContractsDeployment(t *testing.T) {
-	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := NewNetwork(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// Autonity Contract
@@ -115,7 +127,7 @@ func fetchMinimumBaseFee(t *testing.T, chain *ccore.BlockChain, number *uint64) 
 	// if number is nil, take the latest core height as number
 	if number == nil {
 		number = new(uint64)
-		*number = chain.CurrentBlock().NumberU64() + 1
+		*number = chain.CurrentBlock().Number.Uint64() + 1
 	}
 	eip1559Params, err := chain.Eip1559ParamsByHeight(*number)
 	require.NoError(t, err)
@@ -126,7 +138,7 @@ func fetchGasLimit(t *testing.T, chain *ccore.BlockChain, number *uint64) *big.I
 	// if number is nil, take the latest core height as number
 	if number == nil {
 		number = new(uint64)
-		*number = chain.CurrentBlock().NumberU64() + 1
+		*number = chain.CurrentBlock().Number.Uint64() + 1
 	}
 	gasLimit, err := chain.GasLimitByHeight(*number)
 	require.NoError(t, err)
@@ -137,7 +149,7 @@ func fetchElasticityMultiplier(t *testing.T, chain *ccore.BlockChain, number *ui
 	// if number is nil, take the latest core height as number
 	if number == nil {
 		number = new(uint64)
-		*number = chain.CurrentBlock().NumberU64() + 1
+		*number = chain.CurrentBlock().Number.Uint64() + 1
 	}
 	eip1559Params, err := chain.Eip1559ParamsByHeight(*number)
 	require.NoError(t, err)
@@ -148,7 +160,7 @@ func fetchGasLimitBoundDivisor(t *testing.T, chain *ccore.BlockChain, number *ui
 	// if number is nil, take the latest core height as number
 	if number == nil {
 		number = new(uint64)
-		*number = chain.CurrentBlock().NumberU64() + 1
+		*number = chain.CurrentBlock().Number.Uint64() + 1
 	}
 	eip1559Params, err := chain.Eip1559ParamsByHeight(*number)
 	require.NoError(t, err)
@@ -173,7 +185,7 @@ func setEip1559Params(t *testing.T, autonity *bindings.Autonity, transactOpts *b
 
 func TestCachedProtocolParameterChange(t *testing.T) {
 	t.Run("If minimum base fee is updated, at epoch end cached value is updated as well", func(t *testing.T) {
-		network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		network, err := NewNetwork(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 		defer network.Shutdown(t)
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -212,7 +224,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.Equal(t, updatedMinBaseFee.String(), fetchMinimumBaseFee(t, network[1].Eth.BlockChain(), &firstBlockOfNewEpoch).String())
 	})
 	t.Run("gas limit parameters update", func(t *testing.T) {
-		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 		// set genesis gas limit to the target to ease future computations
 		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
@@ -230,8 +242,8 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.NoError(t, network.WaitToMineNBlocks(5, 20, false))
 
 		startBlock := network[0].Eth.BlockChain().CurrentBlock()
-		startGasLimit := startBlock.GasLimit()
-		startNumber := startBlock.NumberU64()
+		startGasLimit := startBlock.GasLimit
+		startNumber := startBlock.Number.Uint64()
 		t.Logf("at block %d, gasLimit: %d", startNumber, startGasLimit)
 
 		// update gas limit
@@ -269,8 +281,8 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.NoError(t, err)
 
 		endBlock := network[0].Eth.BlockChain().CurrentBlock()
-		endGasLimit := endBlock.GasLimit()
-		endNumber := endBlock.NumberU64()
+		endGasLimit := endBlock.GasLimit
+		endNumber := endBlock.Number.Uint64()
 
 		t.Logf("at block %d, gasLimit: %d", endNumber, endGasLimit)
 
@@ -312,7 +324,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 
 		// close the epoch so change is applied
 		epochPeriod := params.TestChainConfig.AutonityContractConfig.EpochPeriod
-		require.True(t, network[0].Eth.BlockChain().CurrentBlock().NumberU64() < epochPeriod)
+		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod)
 		require.NoError(t, network.WaitForHeight(epochPeriod+5, int(epochPeriod*2)))
 
 		require.Equal(t, params.DefaultGasLimitBoundDivisor, fetchGasLimitBoundDivisor(t, network[0].Eth.BlockChain(), &epochPeriod).Uint64())
@@ -320,14 +332,14 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.Equal(t, params.DefaultGasLimitBoundDivisor/10, fetchGasLimitBoundDivisor(t, network[0].Eth.BlockChain(), &firstBlock).Uint64())
 
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
-		startNumber = startBlock.NumberU64()
-		startGasLimit = startBlock.GasLimit()
+		startNumber = startBlock.Number.Uint64()
+		startGasLimit = startBlock.GasLimit
 
 		require.NoError(t, network.WaitToMineNBlocks(20, 30, false))
 
 		endBlock = network[0].Eth.BlockChain().CurrentBlock()
-		endNumber = endBlock.NumberU64()
-		endGasLimit = endBlock.GasLimit()
+		endNumber = endBlock.Number.Uint64()
+		endGasLimit = endBlock.GasLimit
 
 		t.Logf("startNumber: %d, gasLimit: %d", startNumber, startGasLimit)
 		t.Logf("endNumber: %d, gasLimit: %d", endNumber, endGasLimit)
@@ -359,14 +371,14 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		t.Logf("gas limit bound divisor change tx mined at block %d", receipt.BlockNumber.Uint64())
 
 		// close the epoch so change is applied
-		require.True(t, network[0].Eth.BlockChain().CurrentBlock().NumberU64() < epochPeriod*2)
+		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod*2)
 		require.NoError(t, network.WaitForHeight(epochPeriod*2+5, int(epochPeriod*2)))
 
 		// mine some blocks with the new params
 		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
 	})
 	t.Run("gas limit == gas limit bound divisor doesn't cause issues", func(t *testing.T) {
-		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
 			genesis.GasLimit = params.MinGasLimit
@@ -379,7 +391,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.NoError(t, network.WaitToMineNBlocks(20, 30, false))
 	})
 	t.Run("gas limit < min gas limit doesn't cause issues", func(t *testing.T) {
-		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
 			genesis.Config.AutonityContractConfig.GasLimit = 1
@@ -390,7 +402,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.NoError(t, network.WaitToMineNBlocks(20, 30, false))
 	})
 	t.Run("minbasefee == 0 does not cause issues", func(t *testing.T) {
-		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
 			genesis.Config.AutonityContractConfig.MinBaseFee = 0
@@ -454,7 +466,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status)
 	})
 	t.Run("testing changes of baseFeeChangeDenominator", func(t *testing.T) {
-		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
 			// set a high gas limit, base fee should decrease
@@ -469,18 +481,18 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		defer network.Shutdown(t)
 
 		startBlock := network[0].Eth.BlockChain().CurrentBlock()
-		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
 		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
 
-		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
 
-		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+		require.True(t, startBlock.BaseFee.Uint64() > endBlock.BaseFee().Uint64())
 
-		diffBaseFee := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFee := new(big.Int).Sub(startBlock.BaseFee, endBlock.BaseFee())
 		diffBaseFeeFloat, _ := diffBaseFee.Float64()
-		startBaseFeeFloat, _ := startBlock.BaseFee().Float64()
+		startBaseFeeFloat, _ := startBlock.BaseFee.Float64()
 		diffBaseFeePerc := diffBaseFeeFloat * 100 / startBaseFeeFloat
 		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee.String(), diffBaseFeePerc)
 
@@ -503,22 +515,22 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 
 		// close the epoch so change is applied
 		epochPeriod := params.TestChainConfig.AutonityContractConfig.EpochPeriod
-		require.True(t, network[0].Eth.BlockChain().CurrentBlock().NumberU64() < epochPeriod)
+		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod)
 		require.NoError(t, network.WaitForHeight(epochPeriod+5, int(epochPeriod*2)))
 
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
-		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
 		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
 
-		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
 
-		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+		require.True(t, startBlock.BaseFee.Uint64() > endBlock.BaseFee().Uint64())
 
-		diffBaseFee2 := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFee2 := new(big.Int).Sub(startBlock.BaseFee, endBlock.BaseFee())
 		diffBaseFee2Float, _ := diffBaseFee2.Float64()
-		startBaseFeeFloat, _ = startBlock.BaseFee().Float64()
+		startBaseFeeFloat, _ = startBlock.BaseFee.Float64()
 		diffBaseFee2Perc := diffBaseFee2Float * 100 / startBaseFeeFloat
 		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee2.String(), diffBaseFee2Perc)
 
@@ -543,22 +555,22 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 
 		// close the epoch so change is applied
 		epochPeriod = params.TestChainConfig.AutonityContractConfig.EpochPeriod
-		require.True(t, network[0].Eth.BlockChain().CurrentBlock().NumberU64() < epochPeriod*2)
+		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod*2)
 		require.NoError(t, network.WaitForHeight(epochPeriod*2+5, int(epochPeriod*2)))
 
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
-		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
 		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
 
-		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
 
-		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+		require.True(t, startBlock.BaseFee.Uint64() > endBlock.BaseFee().Uint64())
 
-		diffBaseFee3 := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFee3 := new(big.Int).Sub(startBlock.BaseFee, endBlock.BaseFee())
 		diffBaseFee3Float, _ := diffBaseFee3.Float64()
-		startBaseFeeFloat, _ = startBlock.BaseFee().Float64()
+		startBaseFeeFloat, _ = startBlock.BaseFee.Float64()
 		diffBaseFee3Perc := diffBaseFee3Float * 100 / startBaseFeeFloat
 		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee3.String(), diffBaseFee3Perc)
 
@@ -567,7 +579,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.True(t, diffBaseFee3Perc < diffBaseFeePerc)
 	})
 	t.Run("test very big base fee change denominator", func(t *testing.T) {
-		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
 			genesis.BaseFee = new(big.Int).SetUint64(100_000_000_000_00)
@@ -579,23 +591,23 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		defer network.Shutdown(t)
 
 		startBlock := network[0].Eth.BlockChain().CurrentBlock()
-		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
 		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
 
-		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
 
-		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+		require.True(t, startBlock.BaseFee.Uint64() > endBlock.BaseFee().Uint64())
 
-		diffBaseFee := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFee := new(big.Int).Sub(startBlock.BaseFee, endBlock.BaseFee())
 		diffBaseFeeFloat, _ := diffBaseFee.Float64()
-		startBaseFeeFloat, _ := startBlock.BaseFee().Float64()
+		startBaseFeeFloat, _ := startBlock.BaseFee.Float64()
 		diffBaseFeePerc := diffBaseFeeFloat * 100 / startBaseFeeFloat
 		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee.String(), diffBaseFeePerc)
 	})
 	t.Run("test very big elasticity multiplier", func(t *testing.T) {
-		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
 			genesis.BaseFee = new(big.Int).SetUint64(100_000_000_000_00)
@@ -608,23 +620,23 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		defer network.Shutdown(t)
 
 		startBlock := network[0].Eth.BlockChain().CurrentBlock()
-		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
 		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
 
-		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
 
-		require.True(t, startBlock.BaseFee().Uint64() < endBlock.BaseFee().Uint64())
+		require.True(t, startBlock.BaseFee.Uint64() < endBlock.BaseFee().Uint64())
 
-		diffBaseFee := new(big.Int).Sub(endBlock.BaseFee(), startBlock.BaseFee())
+		diffBaseFee := new(big.Int).Sub(endBlock.BaseFee(), startBlock.BaseFee)
 		diffBaseFeeFloat, _ := diffBaseFee.Float64()
-		startBaseFeeFloat, _ := startBlock.BaseFee().Float64()
+		startBaseFeeFloat, _ := startBlock.BaseFee.Float64()
 		diffBaseFeePerc := diffBaseFeeFloat * 100 / startBaseFeeFloat
 		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee.String(), diffBaseFeePerc)
 	})
 	t.Run("testing changes of elasticityMultiplier", func(t *testing.T) {
-		validators, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
 			genesis.BaseFee = new(big.Int).SetUint64(100_000_000_000_00)
@@ -637,18 +649,18 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		defer network.Shutdown(t)
 
 		startBlock := network[0].Eth.BlockChain().CurrentBlock()
-		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
 		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
 
-		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
 
-		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+		require.True(t, startBlock.BaseFee.Uint64() > endBlock.BaseFee().Uint64())
 
-		diffBaseFee := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFee := new(big.Int).Sub(startBlock.BaseFee, endBlock.BaseFee())
 		diffBaseFeeFloat, _ := diffBaseFee.Float64()
-		startBaseFeeFloat, _ := startBlock.BaseFee().Float64()
+		startBaseFeeFloat, _ := startBlock.BaseFee.Float64()
 		diffBaseFeePerc := diffBaseFeeFloat * 100 / startBaseFeeFloat
 		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee.String(), diffBaseFeePerc)
 
@@ -670,7 +682,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 
 		// close the epoch so change is applied
 		epochPeriod := params.TestChainConfig.AutonityContractConfig.EpochPeriod
-		require.True(t, network[0].Eth.BlockChain().CurrentBlock().NumberU64() < epochPeriod)
+		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod)
 		require.NoError(t, network.WaitForHeight(epochPeriod+5, int(epochPeriod*2)))
 
 		// check if cache has changed
@@ -681,18 +693,18 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.Equal(t, uint64(8), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &firstBlock).Uint64())
 
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
-		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
 		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
 
-		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
 
-		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+		require.True(t, startBlock.BaseFee.Uint64() > endBlock.BaseFee().Uint64())
 
-		diffBaseFee2 := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFee2 := new(big.Int).Sub(startBlock.BaseFee, endBlock.BaseFee())
 		diffBaseFee2Float, _ := diffBaseFee2.Float64()
-		startBaseFeeFloat, _ = startBlock.BaseFee().Float64()
+		startBaseFeeFloat, _ = startBlock.BaseFee.Float64()
 		diffBaseFee2Perc := diffBaseFee2Float * 100 / startBaseFeeFloat
 		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee2.String(), diffBaseFee2Perc)
 
@@ -714,7 +726,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 
 		// close the epoch so change is applied
 		epochPeriod = params.TestChainConfig.AutonityContractConfig.EpochPeriod
-		require.True(t, network[0].Eth.BlockChain().CurrentBlock().NumberU64() < epochPeriod*2)
+		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod*2)
 		require.NoError(t, network.WaitForHeight(epochPeriod*2+5, int(epochPeriod*2)))
 
 		// check if cache has changed
@@ -726,18 +738,18 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.Equal(t, uint64(2), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &firstBlock).Uint64())
 
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
-		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number().String(), startBlock.BaseFee().String(), startBlock.GasUsed())
+		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
 		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
 
-		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number().Uint64() + 5)
+		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
 
-		require.True(t, startBlock.BaseFee().Uint64() > endBlock.BaseFee().Uint64())
+		require.True(t, startBlock.BaseFee.Uint64() > endBlock.BaseFee().Uint64())
 
-		diffBaseFee3 := new(big.Int).Sub(startBlock.BaseFee(), endBlock.BaseFee())
+		diffBaseFee3 := new(big.Int).Sub(startBlock.BaseFee, endBlock.BaseFee())
 		diffBaseFee3Float, _ := diffBaseFee3.Float64()
-		startBaseFeeFloat, _ = startBlock.BaseFee().Float64()
+		startBaseFeeFloat, _ = startBlock.BaseFee.Float64()
 		diffBaseFee3Perc := diffBaseFee3Float * 100 / startBaseFeeFloat
 		t.Logf("diff baseFee %s (%.2f %%)", diffBaseFee3.String(), diffBaseFee3Perc)
 
@@ -784,7 +796,7 @@ func rlpEncodeConfig(config *types.ContractsConfig) []byte {
 }
 
 func TestCacheCoherentWithState(t *testing.T) {
-	users, err := Validators(t, 2, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := Validators(t, 2, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	network, err := NewNetworkFromValidators(t, users, true)
 	require.NoError(t, err)
@@ -808,7 +820,7 @@ func TestCacheCoherentWithState(t *testing.T) {
 
 // a change in the delta parameter should be applied at epoch end
 func TestOmissionDeltaUpdate(t *testing.T) {
-	network, err := NewNetwork(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := NewNetwork(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 
@@ -832,7 +844,7 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 	sendAndWait(tx)
 
 	deltaRespected := func(node *Node, delta uint64, epochPeriod uint64) bool {
-		currentBlock := node.Eth.BlockChain().CurrentBlock().Number().Uint64()
+		currentBlock := node.Eth.BlockChain().CurrentBlock().Number.Uint64()
 		if currentBlock%epochPeriod <= delta {
 			t.Fatal("Not enough blocks in the epoch") // cannot really check if delta is correctly respected if we don't have at least delta + 1 blocks in the epoch
 		}
@@ -938,7 +950,7 @@ func TestOmissionDeltaUpdate(t *testing.T) {
 func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 	t.Skip("Is broken with Penalty Absorbing Stake")
 	//todo: fix. Genesis validators are no longer issued Liquid Newton. Need to introduce 3rd party delegators.
-	vals, err := Validators(t, 3, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
+	vals, err := Validators(t, 3, "10e18,v,10000,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	vals[2].Stake = 25000
@@ -1028,7 +1040,7 @@ func TestFeeRedistributionValidatorsAndDelegators(t *testing.T) {
 
 // a node is verifying a proposal, but while he is verifying the finalized block is injected from p2p layer
 func TestNodeAlreadyHasProposedBlock(t *testing.T) {
-	vals, err := Validators(t, 2, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	vals, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// trick to get a handle to Proposer of node 0
@@ -1057,8 +1069,9 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 	node0Core.Messages().Reset()
 
 	// get latest inserted block and generate proposal out of it
-	block := node.Eth.BlockChain().CurrentBlock()
-	proposal := message.NewPropose(0, block.NumberU64(), -1, block, func(hash common.Hash) blst.Signature {
+	header := node.Eth.BlockChain().CurrentBlock()
+	block := node.Eth.BlockChain().GetBlock(header.Hash(), header.Number.Uint64())
+	proposal := message.NewPropose(0, header.Number.Uint64(), -1, block, func(hash common.Hash) blst.Signature {
 		return node.ConsensusKey.Sign(hash.Bytes())
 	}, &types.CommitteeMember{
 		Address:           node.Address,
@@ -1068,8 +1081,8 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 	})
 	//reset cache to force verify proposal
 	ethDb := rawdb.NewMemoryDatabase()
-	db := state.NewDatabase(ethDb)
-	stateDB, _ := state.New(common.Hash{}, db, nil)
+	db := state.NewDatabase(triedb.NewDatabase(ethDb, nil), nil)
+	stateDB, _ := state.New(common.Hash{}, db)
 	node0Core.Backend().BlockChain().CacheProposalState(common.Hash{}, nil, 0, stateDB, &types.ContractsConfig{})
 
 	// handle the proposal
@@ -1078,7 +1091,7 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 }
 
 func TestStartingAndStoppingNodes(t *testing.T) {
-	network, err := NewNetwork(t, 5, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := NewNetwork(t, 5, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	n := network[0]
@@ -1158,7 +1171,7 @@ func (s *broadcasterWithCheck) Broadcast(msg message.Msg) {
 
 // Tests that a stopped node, once restarted, will sync up to chain head before sending consensus messages
 func TestWaitForChainSyncAfterStop(t *testing.T) {
-	network, err := NewNetwork(t, 5, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := NewNetwork(t, 5, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 
@@ -1211,7 +1224,7 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 // b.start the network with 1st 3 nodes only, the network should be on-hold since the online voting power is less than 2/3 of 7
 // c.after the on-holding for a while, start the 4th node, then the network should start to produce blocks without any on-holding.
 func TestTendermintQuorum(t *testing.T) {
-	users, err := Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := Validators(t, 6, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	network, err := NewNetworkFromValidators(t, users, false)
 	require.NoError(t, err)
@@ -1240,7 +1253,7 @@ func TestTendermintQuorum(t *testing.T) {
 // c.stop 3 nodes one by one, then the network should on-hold when the online voting power is less than 2/3 of 6.
 // d.after the on-holding for a while, recover the stopped nodes, then the network should start to produce blocks without any on-holding.
 func TestTendermintQuorum2(t *testing.T) {
-	users, err := Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := Validators(t, 6, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := NewNetworkFromValidators(t, users, true)
@@ -1286,7 +1299,7 @@ func TestTendermintQuorum2(t *testing.T) {
 // g. Then shut down node E and F, the network should still keep liveness, TXs are mined.
 // h. Recover E and F, they should get synchronized finally.
 func TestTendermintQuorum4(t *testing.T) {
-	users, err := Validators(t, 7, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := Validators(t, 7, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	// creates a network of 7 users and starts all the nodes in it
 	network, err := NewNetworkFromValidators(t, users, true)
@@ -1386,7 +1399,7 @@ func TestTendermintQuorum4(t *testing.T) {
 // restart all nodes and ensures that network resumes mining new blocks
 func TestStartStopAllNodesInParallel(t *testing.T) {
 	const nodeCount = 12
-	users, err := Validators(t, nodeCount, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := Validators(t, nodeCount, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	// creates a network of 6 users and starts all the nodes in it
 	network, err := NewNetworkFromValidators(t, users, true)
@@ -1466,7 +1479,7 @@ func TestStartStopAllNodesInParallel(t *testing.T) {
 }
 
 func TestValidatorMigration(t *testing.T) {
-	vals, err := Validators(t, 5, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
+	vals, err := Validators(t, 5, "10e18,v,10000,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	network, err := NewNetworkFromValidators(t, vals, true)
@@ -1604,10 +1617,10 @@ func TestCommitteeSizeChangeMidEpoch(t *testing.T) {
 	params.DefaultOmissionAccountabilityConfig.LookbackWindow = 4
 	params.TestOracleConfig.VotePeriod = 4
 
-	log.DefaultVerbosity = log.LvlError
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	// log.DefaultVerbosity = log.LvlError
+	// log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
-	vals, err := Validators(t, 20, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
+	vals, err := Validators(t, 20, "10e18,v,10000,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	network, err := NewNetworkFromValidators(t, vals, true)
@@ -1642,9 +1655,9 @@ func TestLargeNetwork(t *testing.T) {
 	//
 
 	// DefaultVerbosity will set the log levels for the main components: consensus, eth, blockchain..
-	log.DefaultVerbosity = log.LvlError
+	//log.DefaultVerbosity = log.LvlError
 	//Set the root logger level for everything else.
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 	// Fast epoch to see changes in committee reflected fast
 	// too short epoch can cause validators be omission faulty, 20 is relatively safe
 	params.TestAutonityContractConfig.EpochPeriod = 20
@@ -1793,7 +1806,7 @@ func TestLoad(t *testing.T) {
 						})
 						signed, err := types.SignTx(rawTx, types.LatestSigner(network[0].EthConfig.Genesis.Config), network[id].Key)
 						require.NoError(t, err)
-						network[id].Eth.TxPool().AddLocal(signed)
+						network[id].Eth.TxPool().Add([]*types.Transaction{signed}, false)
 						nonce++
 					}
 				case <-closeCh:
@@ -1848,7 +1861,7 @@ func extractBackend(engine consensus.Engine) *backend.Backend {
 
 func TestJailingPersistence(t *testing.T) {
 
-	vals, err := Validators(t, 12, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	vals, err := Validators(t, 12, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// set node that is doing equivocation
@@ -1913,7 +1926,7 @@ func thirdEquivocator(c interfaces.Core) interfaces.Broadcaster {
 func TestJailingRotation(t *testing.T) {
 	t.Skip("TODO")
 	// 6 nodes --> f = 2
-	vals, err := Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	vals, err := Validators(t, 6, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// set nodes that are doing equivocation

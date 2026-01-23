@@ -19,7 +19,6 @@ package eth
 import (
 	"fmt"
 	"math/big"
-	"sync/atomic"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -52,7 +51,7 @@ func (h *ethHandler) PeerInfo(id enode.ID) interface{} {
 // AcceptTxs retrieves whether transaction processing is enabled on the node
 // or if inbound transactions should simply be dropped.
 func (h *ethHandler) AcceptTxs() bool {
-	return atomic.LoadUint32(&h.acceptTxs) == 1
+	return h.synced.Load()
 }
 
 // Handle is invoked from a peer's message handler when it receives a new remote
@@ -68,12 +67,15 @@ func (h *ethHandler) Handle(peer *eth.Peer, packet eth.Packet) error {
 		return h.handleBlockBroadcast(peer, packet.Block, packet.TD)
 
 	case *eth.NewPooledTransactionHashesPacket:
-		return h.txFetcher.Notify(peer.ID(), *packet)
+		return h.txFetcher.Notify(peer.ID(), packet.Types, packet.Sizes, packet.Hashes)
+
+	case *eth.NewPooledTransactionHashesPacket66:
+		return h.txFetcher.Notify(peer.ID(), nil, nil, []common.Hash(*packet))
 
 	case *eth.TransactionsPacket:
 		return h.txFetcher.Enqueue(peer.ID(), *packet, false)
 
-	case *eth.PooledTransactionsPacket:
+	case *eth.PooledTransactionsResponse:
 		return h.txFetcher.Enqueue(peer.ID(), *packet, true)
 
 	default:
@@ -110,13 +112,13 @@ func (h *ethHandler) handleBlockBroadcast(peer *eth.Peer, block *types.Block, td
 	// Assuming the block is importable by the peer, but possibly not yet done so,
 	// calculate the head hash and TD that the peer truly must have.
 	var (
-		trueHead = block.ParentHash()
-		trueTD   = new(big.Int).Sub(td, block.Difficulty())
+		trueHead   = block.ParentHash()
+		trueHeight = new(big.Int).Sub(block.Number(), common.Big1)
 	)
-	// Update the peer's total difficulty if better than the previous
-	if _, td := peer.Head(); trueTD.Cmp(td) > 0 {
-		peer.SetHead(trueHead, trueTD)
-		h.chainSync.handlePeerEvent(peer)
+	// Update the peer's height if better than the previous
+	if _, height := peer.Head(); trueHeight.Cmp(height) > 0 {
+		peer.SetHead(trueHead, trueHeight)
+		h.chainSync.handlePeerEvent()
 	}
 	return nil
 }

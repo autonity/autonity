@@ -54,6 +54,8 @@ var (
 
 	// ErrInvalidEpochBoundary is return if the bi-direction link of epoch header is broken.
 	ErrInvalidEpochBoundary = errors.New("invalid epoch boundary")
+
+	ErrFutureBlock = errors.New("future block")
 )
 
 type ErrDelayedProposal struct {

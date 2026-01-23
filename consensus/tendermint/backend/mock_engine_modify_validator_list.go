@@ -39,17 +39,17 @@ func (m *ModifyCommitteeEngine) VerifyProposal(block *types.Block) (time.Duratio
 	return 0, nil
 }
 
-func (m *ModifyCommitteeEngine) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, seal bool) error {
+func (m *ModifyCommitteeEngine) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header) error {
 	if header.Number.Uint64() < 2 {
 		// skip genesis and the first block
-		return m.Backend.VerifyHeader(chain, header, seal)
+		return m.Backend.VerifyHeader(chain, header)
 	}
 	return nil
 }
 
-func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, error) {
+func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, body *types.Body, receipts *[]*types.Receipt) (*types.Block, error) {
 	// create a normal block and check for errors
-	block, _, err := m.Backend.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts)
+	block, _, err := m.Backend.FinalizeAndAssemble(chain, header, state, body, receipts)
 	if err != nil {
 		m.T.Error("m.core.FinalizeAndAssemble returned error:", err, "Expected nil")
 	}
@@ -65,14 +65,14 @@ func (m *ModifyCommitteeEngine) FinalizeAndAssemble(chain consensus.ChainReader,
 	}
 
 	lastMinedBlock := m.Backend.HeadBlock()
-	if lastMinedBlock.Number().Cmp(header.Number) != 0 {
+	if lastMinedBlock.Number.Cmp(header.Number) != 0 {
 		return block, nil
 	}
 
 	header = m.Modifier.ModifyHeader(block.Header())
 
 	// create a new block with the modified header
-	newBlock := types.NewBlock(header, block.Transactions(), block.Uncles(), *receipts, new(trie.Trie))
+	newBlock := types.NewBlock(header, &types.Body{block.Transactions(), block.Uncles()}, *receipts, new(trie.Trie))
 
 	newBlock, err = m.Backend.AddSeal(newBlock)
 	if err != nil {

@@ -3,13 +3,11 @@ package core
 import (
 	"context"
 	"errors"
-	"math/big"
 	"time"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/tendermint/core/constants"
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
-	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
 )
@@ -42,7 +40,7 @@ func (c *Prevoter) SendPrevote(ctx context.Context, isNil bool) {
 	c.LogPrevoteMessageEvent("MessageEvent(Prevote): Sent", prevote)
 	c.sentPrevote = true
 	c.Broadcaster().Broadcast(prevote)
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		PrevoteSentBlockTSDeltaBg.Add(time.Since(c.currBlockTimeStamp).Nanoseconds())
 	}
 }
@@ -81,22 +79,24 @@ func (c *Prevoter) HandlePrevote(ctx context.Context, prevote *message.Prevote) 
 }
 
 func (c *Prevoter) LogPrevoteMessageEvent(message string, prevote *message.Prevote) {
-	c.logger.Debug(message,
-		"type", "Prevote",
-		"local address", log.Lazy{Fn: func() string { return c.Address().String() }},
-		"currentHeight", log.Lazy{Fn: c.Height},
-		"msgHeight", prevote.H(),
-		"currentRound", log.Lazy{Fn: c.Round},
-		"msgRound", prevote.R(),
-		"currentStep", c.step,
-		"isProposer", log.Lazy{Fn: c.IsProposer},
-		"currentProposer", log.Lazy{Fn: func() *types.CommitteeMember { return c.CommitteeSet().GetProposer(c.Round()) }},
-		"isNilMsg", prevote.Value() == common.Hash{},
-		"value", prevote.Value(),
-		"totalVotes", log.Lazy{Fn: c.curRoundMessages.PrevotesTotalPower},
-		"totalNilVotes", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrevotesPower(common.Hash{}) }},
-		"quorum", log.Lazy{Fn: c.committee.Quorum},
-		"VoteProposedBlock", log.Lazy{Fn: func() *big.Int { return c.curRoundMessages.PrevotesPower(c.curRoundMessages.ProposalHash()) }},
-		"prevote", log.Lazy{Fn: func() string { return prevote.String() }},
-	)
+	if c.logger.Enabled(context.Background(), log.LevelDebug) {
+		c.logger.Debug(message,
+			"type", "Prevote",
+			"local address", c.Address().String(),
+			"currentHeight", c.Height(),
+			"msgHeight", prevote.H(),
+			"currentRound", c.Round(),
+			"msgRound", prevote.R(),
+			"currentStep", c.step,
+			"isProposer", c.IsProposer(),
+			"currentProposer", c.CommitteeSet().GetProposer(c.Round()),
+			"isNilMsg", prevote.Value() == common.Hash{},
+			"value", prevote.Value(),
+			"totalVotes", c.curRoundMessages.PrevotesTotalPower(),
+			"totalNilVotes", c.curRoundMessages.PrevotesPower(common.Hash{}),
+			"quorum", c.committee.Quorum(),
+			"VoteProposedBlock", c.curRoundMessages.PrevotesPower(c.curRoundMessages.ProposalHash()),
+			"prevote", prevote.String(),
+		)
+	}
 }

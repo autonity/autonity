@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/autonity/autonity/consensus/ethash"
+	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/ethdb"
-	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/stretchr/testify/require"
 )
@@ -41,12 +41,10 @@ func tamperCache(t *testing.T, db ethdb.Database, number uint64, tamperedData []
 }
 
 func TestBlockchainCache(t *testing.T) {
-	log.Root().SetHandler(log.StderrHandler)
-
 	blockToBeMined := 100
 	targetBlock := uint64(blockToBeMined / 2)
 
-	db, chain, err := newCanonical(t, ethash.NewFaker(), blockToBeMined, true)
+	db, _, chain, err := newCanonical(t, ethash.NewFaker(), blockToBeMined, true, rawdb.HashScheme)
 	require.NoError(t, err)
 
 	// all block should store the fake ethhash config

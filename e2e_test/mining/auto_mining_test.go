@@ -1,7 +1,6 @@
 package mining
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -16,7 +15,7 @@ import (
 func TestMiningStartAfterGenesisTime(t *testing.T) {
 	delay := 2 * 60
 	genesisStart := uint64(time.Now().Unix()) + uint64(delay)
-	validators, _ := e2e.Validators(t, 4, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	validators, _ := e2e.Validators(t, 4, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	network, err := e2e.NewNetworkFromValidators(t, validators, true, func(genesis *core.Genesis) {
 		genesis.Timestamp = genesisStart
 	})
@@ -40,7 +39,7 @@ func TestMiningStartAfterGenesisTime(t *testing.T) {
 // non validator nodes.
 func TestMiningManagementOfValidators(t *testing.T) {
 	numOfNodes := 4
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
@@ -48,8 +47,7 @@ func TestMiningManagementOfValidators(t *testing.T) {
 
 	// all validators should be mining.
 	for i := 0; i < numOfNodes; i++ {
-		isMining, err := network[i].WsClient.IsMining(context.Background())
-		require.NoError(t, err)
+		isMining := network[i].Eth.IsMining()
 		require.True(t, isMining)
 	}
 
@@ -59,7 +57,7 @@ func TestMiningManagementOfValidators(t *testing.T) {
 	// shrink committee size to less than numOfNodes, some validators shouldn't be mining if they
 	// are no longer in the committee.
 	newSize := new(big.Int).SetUint64(uint64(numOfNodes - 1))
-	tm := 5 * time.Second
+	tm := 8 * time.Second
 	err = client.AwaitSetCommitteeSize(optKey, newSize, tm)
 	require.NoError(t, err)
 
@@ -71,6 +69,9 @@ func TestMiningManagementOfValidators(t *testing.T) {
 		}
 		time.Sleep(time.Second)
 	}
+
+	// wait for a while to let the nodes get synced with epoch rotation
+	network.WaitToMineNBlocks(10, 10, false)
 
 	// get new committee, and check the new size.
 	shrunkCommittee, err := client.Interactor.Call(nil).GetCommittee()
@@ -87,8 +88,7 @@ func TestMiningManagementOfValidators(t *testing.T) {
 		if _, ok := shrunkCommitteeMap[network[i].Address]; ok {
 			isMining = true
 		}
-		mining, err := network[i].WsClient.IsMining(context.Background())
-		require.NoError(t, err)
+		mining := network[i].Eth.IsMining()
 		require.Equal(t, isMining, mining)
 	}
 
@@ -104,6 +104,9 @@ func TestMiningManagementOfValidators(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 
+	// wait for a while to let the nodes get synced with epoch rotation
+	network.WaitToMineNBlocks(10, 10, false)
+
 	// get new committee, and check the new size.
 	extendedCommittee, err := client.Interactor.Call(nil).GetCommittee()
 	require.NoError(t, err)
@@ -114,8 +117,7 @@ func TestMiningManagementOfValidators(t *testing.T) {
 
 	// all validators should be mining.
 	for i := 0; i < numOfNodes; i++ {
-		isMining, err := network[i].WsClient.IsMining(context.Background())
-		require.NoError(t, err)
+		isMining := network[i].Eth.IsMining()
 		require.True(t, isMining)
 	}
 }

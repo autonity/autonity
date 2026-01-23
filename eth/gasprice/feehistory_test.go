@@ -28,8 +28,8 @@ import (
 func TestFeeHistory(t *testing.T) {
 	var cases = []struct {
 		pending             bool
-		maxHeader, maxBlock int
-		count               int
+		maxHeader, maxBlock uint64
+		count               uint64
 		last                rpc.BlockNumber
 		percent             []float64
 		expFirst            uint64
@@ -57,10 +57,9 @@ func TestFeeHistory(t *testing.T) {
 			MaxBlockHistory:  c.maxBlock,
 		}
 		backend := newTestBackend(t, big.NewInt(16), c.pending)
-		oracle := NewOracle(backend, config)
+		oracle := NewOracle(backend, config, nil)
 
-		first, reward, baseFee, ratio, err := oracle.FeeHistory(context.Background(), c.count, c.last, c.percent)
-
+		first, reward, baseFee, ratio, _, _, err := oracle.FeeHistory(context.Background(), c.count, c.last, c.percent)
 		expReward := c.expCount
 		if len(c.percent) == 0 {
 			expReward = 0
@@ -82,6 +81,12 @@ func TestFeeHistory(t *testing.T) {
 		if len(ratio) != c.expCount {
 			t.Fatalf("Test case %d: gasUsedRatio array length mismatch, want %d, got %d", i, c.expCount, len(ratio))
 		}
+		for _, ratio := range ratio {
+			if ratio > 1 {
+				t.Fatalf("Test case %d: gasUsedRatio greater than 1, got %f", i, ratio)
+			}
+		}
+
 		if err != c.expErr && !errors.Is(err, c.expErr) {
 			t.Fatalf("Test case %d: error mismatch, want %v, got %v", i, c.expErr, err)
 		}

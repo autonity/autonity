@@ -80,7 +80,7 @@ func (sb *Backend) Author(header *types.Header) (common.Address, error) {
 // VerifyHeader checks whether a header conforms to the consensus rules of a
 // given engine. Verifying the seal may be done optionally here, or explicitly
 // via the VerifySeal method.
-func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header, _ bool) error {
+func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header) error {
 	// Short circuit if the header is known, or its parent not
 	number := header.Number.Uint64()
 	if chain.GetHeader(header.Hash(), number) != nil {
@@ -222,7 +222,7 @@ func (sb *Backend) verifyActivityProof(header *types.Header, epoch *types.EpochI
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications (the order is that of
 // the input slice).
-func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header, _ []bool) (chan<- struct{}, <-chan error) {
+func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header) (chan<- struct{}, <-chan error) {
 	abort := make(chan struct{}, 1)
 	results := make(chan error, len(headers))
 
@@ -245,9 +245,10 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 	go func() {
 		firstHeight := headers[0].Number.Uint64()
 		epoch, err := chain.EpochByHeight(firstHeight)
-		// short circuit, if we cannot find the correct epoch for the 1st header, we quit this batch of verification.
 		if err != nil {
-			sb.logger.Error("VerifyHeaders", "cannot find epoch for the 1st header of the batch: ", err.Error(), "height", firstHeight)
+			// If we can't retrieve the epoch for this first header, it could mean the chain is not synced yet.
+
+			//sb.logger.Error("VerifyHeaders", "cannot find epoch for the 1st header of the batch: ", err.Error(), "height", firstHeight)
 			results <- err
 			return
 		}
@@ -348,8 +349,8 @@ func (sb *Backend) Prepare(_ consensus.ChainHeaderReader, parentHeader, header *
 	// set header's timestamp
 	// todo: block period from contract
 	header.Time = parentHeader.Time + 1
-	if int64(header.Time) < time.Now().Unix() {
-		header.Time = uint64(time.Now().Unix())
+	if int64(header.Time) < now().Unix() {
+		header.Time = uint64(now().Unix())
 	}
 
 	// try fetching from the chain, this would fail on epoch boundary
@@ -423,24 +424,21 @@ func (sb *Backend) assembleActivityProof(h uint64, epochInfo *types.EpochInfo) (
 
 // Finalize runs any post-transaction state modifications (e.g. block rewards)
 // Finalize doesn't modify the passed header.
-func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	_ []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
-
-	receipt, epochInfo, contractsConfig, err := sb.AutonityContractFinalize(header, chain, state, txs, receipts)
+func (sb *Backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, body *types.Body,
+	receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
+	state.SetTxContext(common.ACHash(header.Number), len(body.Transactions))
+	receipt, epochInfo, contractsConfig, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-
 	return receipt, epochInfo, contractsConfig, nil
 }
 
 // FinalizeAndAssemble call Finalize to compute post transaction state modifications
 // and assembles the final block.
-func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
-
-	statedb.Prepare(common.ACHash(header.Number), len(txs))
-	receipt, epochInfo, contractsConfig, err := sb.Finalize(chain, header, statedb, txs, uncles, *receipts)
+// todo(youssef): can we avoid using a pointer for the receipts?
+func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, statedb *state.StateDB, body *types.Body, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
+	receipt, epochInfo, contractsConfig, err := sb.Finalize(chain, header, statedb, body, *receipts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -449,27 +447,7 @@ func (sb *Backend) FinalizeAndAssemble(chain consensus.ChainReader, header *type
 	header.Root = statedb.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = nilUncleHash
 	header.Epoch = epochInfo
-
-	return types.NewBlock(header, txs, nil, *receipts, new(trie.Trie)), contractsConfig, nil
-}
-
-// AutonityContractFinalize is called to deploy the Autonity Contract at block #1. it returns as well the
-// committee field containing the list of committee members allowed to participate in consensus for the next block.
-func (sb *Backend) AutonityContractFinalize(
-	header *types.Header,
-	_ consensus.ChainReader,
-	state *state.StateDB,
-	_ []*types.Transaction,
-	_ []*types.Receipt,
-) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
-
-	receipt, epochInfo, contractsConfig, err := sb.blockchain.ProtocolContracts().FinalizeAndGetCommittee(header, state)
-	if err != nil {
-		sb.logger.Error("Autonity Contract finalize", "err", err)
-		return nil, nil, nil, err
-	}
-
-	return receipt, epochInfo, contractsConfig, nil
+	return types.NewBlock(header, body, *receipts, trie.NewStackTrie(nil)), contractsConfig, nil
 }
 
 // Seal generates a new block for the given input block with the local miner's
@@ -492,7 +470,7 @@ func (sb *Backend) Seal(parent *types.Header, block *types.Block, _ chan<- *type
 
 	// wait for the timestamp of header, use this to adjust the block period
 	delay := time.Unix(int64(block.Header().Time), 0).Sub(now())
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		sealDelayBg.Add(delay.Nanoseconds())
 	}
 	select {
@@ -506,19 +484,19 @@ func (sb *Backend) Seal(parent *types.Header, block *types.Block, _ chan<- *type
 
 	// post block into BFT engine
 	sb.Post(events.NewCandidateBlockEvent{
-		NewCandidateBlock: *block,
+		NewCandidateBlock: block,
 		CreatedAt:         time.Now(),
 	})
 
 	return nil
 }
 
-func (sb *Backend) SetProposalVerifiedEventChan(proposalVerifiedCh chan<- *types.Block) {
+func (sb *Backend) SetProposalVerifiedEventChan(proposalVerifiedCh chan<- *types.Header) {
 	sb.proposalVerifiedCh = proposalVerifiedCh
 }
 
 func (sb *Backend) ProposalVerified(block *types.Block) {
-	sb.proposalVerifiedCh <- block
+	sb.proposalVerifiedCh <- block.Header()
 }
 
 func (sb *Backend) IsProposalStateCached(hash common.Hash) bool {
@@ -673,7 +651,7 @@ func (sb *Backend) faultyValidatorsWatcher(ctx context.Context) {
 	}()
 
 	// re-initialize jailed metadata from disk
-	currentHeader := sb.blockchain.CurrentBlock().Header()
+	currentHeader := sb.blockchain.CurrentBlock()
 	state, err := sb.blockchain.StateAt(currentHeader.Root)
 	if err != nil {
 		sb.logger.Crit("Could not retrieve state at head block", "err", err)

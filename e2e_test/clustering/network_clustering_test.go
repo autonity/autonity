@@ -34,7 +34,7 @@ func TestClusteringHappyCase(t *testing.T) {
 	// mocked service with a local ping simulator which generates [0, 500) ms latency.
 	mockedService := &interfaces.Services{Pinger: newSimulatedPinger}
 
-	validators, err := e2e.Validators(t, 10, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, 10, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	for _, validator := range validators {
@@ -56,7 +56,7 @@ func TestClusteringResetAllNodes(t *testing.T) {
 	numOfNodes := 36
 	mockedService := &interfaces.Services{Pinger: newSimulatedPinger}
 
-	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	for _, validator := range validators {
 		validator.TendermintServices = mockedService
@@ -85,7 +85,7 @@ func TestClusteringResetFNodes(t *testing.T) {
 	numOfNodes := 36
 	mockedService := &interfaces.Services{Pinger: newSimulatedPinger}
 
-	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	for _, validator := range validators {
 		validator.TendermintServices = mockedService
@@ -159,7 +159,7 @@ func TestFFaultyRelayers(t *testing.T) {
 	numOfNodes := 36
 	pinger := newSimulatedPinger
 
-	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// Create the network with F num of nodes which does not relay proposal.
@@ -184,7 +184,7 @@ func Test2FFaultyRelayers(t *testing.T) {
 	numOfNodes := 36
 	pinger := newSimulatedPinger
 
-	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// Create the network with F num of nodes which does not relay proposal.
@@ -210,7 +210,7 @@ func Test3FFaultyRelayers(t *testing.T) {
 	numOfNodes := 36
 	pinger := newSimulatedPinger
 
-	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// Create the network with F num of nodes which does not relay proposal.
@@ -273,7 +273,7 @@ func TestCrossingClusteringThreshold(t *testing.T) {
 		require.NoError(t, err)
 		nodes := make([]*e2e.Node, 0, n)
 		for i := 0; i < n; i++ {
-			node, err := e2e.NewValidatorNode(validators[i], genesis, i+3, false)
+			node, err := e2e.NewValidatorNode(t, validators[i], genesis, i+3, false)
 			require.NoError(t, err)
 
 			node.Config.ExecutionP2P.BootstrapNodes = originalEnodes

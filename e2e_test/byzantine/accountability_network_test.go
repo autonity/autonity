@@ -257,7 +257,7 @@ func TestOffChainAccusation(t *testing.T) {
 	}
 
 	t.Run("off-chain accusation - C1 rule", func(t *testing.T) {
-		validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
+		validators, err := e2e.Validators(t, 4, "10e36,v,100,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 
 		c := committeeFromValidators(validators)
@@ -330,7 +330,7 @@ func TestOffChainAccusation(t *testing.T) {
 		require.ErrorIs(t, err, e2e.ErrAccountabilityEventMissing)
 	})
 	t.Run("off-chain accusation - PVN rule", func(t *testing.T) {
-		validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
+		validators, err := e2e.Validators(t, 4, "10e36,v,100,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 
 		c := committeeFromValidators(validators)
@@ -417,7 +417,7 @@ func TestOffChainAccusation(t *testing.T) {
 }
 
 func runDropPeerConnectionTest(t *testing.T, handler *interfaces.Services, testPeriod uint64, numSec int) { // nolint
-	validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, 4, "10e36,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// set malicious

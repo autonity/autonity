@@ -8,41 +8,42 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/autonity/bindings"
-	"github.com/autonity/autonity/common/math"
-
-	"github.com/stretchr/testify/require"
-
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/tracing"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/internal/testrand"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
+	"github.com/holiman/uint256"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenesisSteps(t *testing.T) {
 	newEVM := func() *vm.EVM {
-		stateDB, err := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		db := state.NewDatabaseForTesting()
+		stateDB, err := state.New(common.Hash{}, db)
 		require.NoError(t, err)
 
 		vmBlockContext := vm.BlockContext{
-			Transfer: func(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
-				db.SubBalance(sender, amount)
-				db.AddBalance(recipient, amount)
+			Transfer: func(db vm.StateDB, sender, recipient common.Address, amount *uint256.Int) {
+				db.SubBalance(sender, amount, tracing.BalanceChangeTransfer)
+				db.AddBalance(recipient, amount, tracing.BalanceChangeTransfer)
 			},
-			CanTransfer: func(db vm.StateDB, addr common.Address, amount *big.Int) bool {
+			CanTransfer: func(db vm.StateDB, addr common.Address, amount *uint256.Int) bool {
 				return db.GetBalance(addr).Cmp(amount) >= 0
 			},
 			BlockNumber: common.Big0,
-			Time:        big.NewInt(time.Now().Unix()),
+			Time:        uint64(time.Now().Unix()),
 		}
+		evm := vm.NewEVM(vmBlockContext, stateDB, params.TestChainConfig, vm.Config{})
 		txContext := vm.TxContext{
 			Origin:   common.Address{},
 			GasPrice: common.Big0,
 		}
-
-		return vm.NewEVM(vmBlockContext, txContext, stateDB, params.TestChainConfig, vm.Config{})
+		evm.SetTxContext(txContext)
+		return evm
 	}
 
 	t.Run("Test autonity deploy step", func(t *testing.T) {

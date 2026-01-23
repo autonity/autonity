@@ -19,7 +19,6 @@ package node
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -55,7 +54,7 @@ type Config struct {
 	ConsensusKey blst.SecretKey
 
 	// Name sets the instance name of the node. It must not contain the / character and is
-	// used in the devp2p node identifier. The instance name of autonity is "autonity". If no
+	// used in the devp2p node identifier. The instance name of geth is "geth". If no
 	// value is specified, the basename of the current executable is used.
 	Name string `toml:"-"`
 
@@ -88,14 +87,14 @@ type Config struct {
 	// is created by New and destroyed when the node is stopped.
 	KeyStoreDir string `toml:",omitempty"`
 
-	// ExternalSigner specifies an external URI for a clef-type signer
+	// ExternalSigner specifies an external URI for a clef-type signer.
 	ExternalSigner string `toml:",omitempty"`
 
 	// UseLightweightKDF lowers the memory and CPU requirements of the key store
 	// scrypt KDF at the expense of security.
 	UseLightweightKDF bool `toml:",omitempty"`
 
-	// InsecureUnlockAllowed allows user to unlock accounts in unsafe http environment.
+	// InsecureUnlockAllowed is a deprecated option to  allow users to accounts in unsafe http environment.
 	InsecureUnlockAllowed bool `toml:",omitempty"`
 
 	// NoUSB disables hardware wallet monitoring and connectivity.
@@ -105,7 +104,7 @@ type Config struct {
 	// USB enables hardware wallet monitoring and connectivity.
 	USB bool `toml:",omitempty"`
 
-	// SmartCardDaemonPath is the path to the smartcard daemon's socket
+	// SmartCardDaemonPath is the path to the smartcard daemon's socket.
 	SmartCardDaemonPath string `toml:",omitempty"`
 
 	// IPCPath is the requested location to place the IPC endpoint. If the path is
@@ -148,6 +147,16 @@ type Config struct {
 
 	// HTTPPathPrefix specifies a path prefix on which http-rpc is to be served.
 	HTTPPathPrefix string `toml:",omitempty"`
+
+	// AuthAddr is the listening address on which authenticated APIs are provided.
+	AuthAddr string `toml:",omitempty"`
+
+	// AuthPort is the port number on which authenticated APIs are provided.
+	AuthPort int `toml:",omitempty"`
+
+	// AuthVirtualHosts is the list of virtual hostnames which are allowed on incoming requests
+	// for the authenticated api. This is by default {'localhost'}.
+	AuthVirtualHosts []string `toml:",omitempty"`
 
 	// WSHost is the host interface on which to start the websocket RPC server. If
 	// this field is empty, no websocket API endpoint will be started.
@@ -195,9 +204,20 @@ type Config struct {
 	// Logger is a custom logger to use with the p2p.Server.
 	Logger log.Logger `toml:",omitempty"`
 
+	// BatchRequestLimit is the maximum number of requests in a batch.
+	BatchRequestLimit int `toml:",omitempty"`
+
+	// BatchResponseMaxSize is the maximum number of bytes returned from a batched rpc call.
+	BatchResponseMaxSize int `toml:",omitempty"`
+
 	staticNodesWarning         bool
 	trustedNodesWarning        bool
 	oldAutonityResourceWarning bool
+
+	// EnablePersonal enables the deprecated personal namespace.
+	EnablePersonal bool `toml:"-"`
+
+	DBEngine string `toml:",omitempty"`
 
 	// AllowUnprotectedTxs allows non EIP-155 protected transactions to be send over RPC.
 	AllowUnprotectedTxs bool `toml:",omitempty"`
@@ -505,6 +525,30 @@ func (c *Config) parsePersistentNodes(w *bool, path string) []*enode.Node {
 	return nodes
 }
 
+// GetKeyStoreDir retrieves the key directory and will create
+// and ephemeral one if necessary.
+func (c *Config) GetKeyStoreDir() (string, bool, error) {
+	keydir, err := c.KeyDirConfig()
+	if err != nil {
+		return "", false, err
+	}
+	isEphemeral := false
+	if keydir == "" {
+		// There is no datadir.
+		keydir, err = os.MkdirTemp("", "autonity-keystore")
+		isEphemeral = true
+	}
+
+	if err != nil {
+		return "", false, err
+	}
+	if err := os.MkdirAll(keydir, 0700); err != nil {
+		return "", false, err
+	}
+
+	return keydir, isEphemeral, nil
+}
+
 // KeyDirConfig determines the settings for keydirectory
 func (c *Config) KeyDirConfig() (string, error) {
 	var (
@@ -524,30 +568,6 @@ func (c *Config) KeyDirConfig() (string, error) {
 		keydir, err = filepath.Abs(c.KeyStoreDir)
 	}
 	return keydir, err
-}
-
-// getKeyStoreDir retrieves the key directory and will create
-// and ephemeral one if necessary.
-func getKeyStoreDir(conf *Config) (string, bool, error) {
-	keydir, err := conf.KeyDirConfig()
-	if err != nil {
-		return "", false, err
-	}
-	isEphemeral := false
-	if keydir == "" {
-		// There is no datadir.
-		keydir, err = ioutil.TempDir("", "go-ethereum-keystore")
-		isEphemeral = true
-	}
-
-	if err != nil {
-		return "", false, err
-	}
-	if err := os.MkdirAll(keydir, 0700); err != nil {
-		return "", false, err
-	}
-
-	return keydir, isEphemeral, nil
 }
 
 var warnLock sync.Mutex

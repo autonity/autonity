@@ -52,7 +52,7 @@ func (c *invalidSignatureBroadcaster) SendPrevote(ctx context.Context, isNil boo
 func TestInvalidBlsSignatureDisconnection(t *testing.T) {
 	t.Run("Malicious peer sending an invalid BLS signature should be disconnect for at least 1 epoch", func(t *testing.T) {
 		n := 4
-		validators, err := e2e.Validators(t, n, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
+		validators, err := e2e.Validators(t, n, "10e36,v,100,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 
 		// set malicious handler
@@ -71,7 +71,7 @@ func TestInvalidBlsSignatureDisconnection(t *testing.T) {
 		require.NoError(t, err)
 		defer network.Shutdown(t)
 
-		currentCoreHeight := network[0].Eth.BlockChain().CurrentBlock().NumberU64() + 1
+		currentCoreHeight := network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() + 1
 		epochPeriodBig, err := network[0].Eth.BlockChain().EpochPeriodByHeight(currentCoreHeight)
 		require.NoError(t, err)
 		epochPeriod := epochPeriodBig.Uint64()

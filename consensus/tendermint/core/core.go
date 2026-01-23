@@ -319,7 +319,7 @@ func (c *Core) Commit(ctx context.Context, round int64, messages *message.RoundM
 		c.logger.Error("failed to commit a block", "err", err)
 		return
 	}
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		now := time.Now()
 		CommitTimer.Update(now.Sub(start))
 		CommitBg.Add(now.Sub(start).Nanoseconds())
@@ -419,17 +419,16 @@ func (c *Core) setInitialState(r int64) {
 	// Start of new height where round is 0
 	if r == 0 {
 		lastBlockMined := c.backend.HeadBlock()
-		c.setHeight(new(big.Int).Add(lastBlockMined.Number(), common.Big1))
-		lastHeader := lastBlockMined.Header()
-		c.committee.SetLastHeader(lastHeader)
+		c.setHeight(new(big.Int).Add(lastBlockMined.Number, common.Big1))
+		c.committee.SetLastHeader(lastBlockMined)
 		epoch, err := c.Backend().EpochByHeight(c.Height().Uint64())
 		if err != nil {
 			panic("failed to fetch epoch info: " + err.Error())
 		}
 		if c.epoch.EpochBlock.Cmp(epoch.EpochBlock) != 0 {
-			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number())
+			log.Debug("on epoch rotation, update committee!", "number", lastBlockMined.Number)
 			c.epoch = epoch
-			committeeSet := com.NewWeightedRandomSamplingCommittee(lastHeader, epoch.Committee, c.protocolContracts)
+			committeeSet := com.NewWeightedRandomSamplingCommittee(lastBlockMined, epoch.Committee, c.protocolContracts)
 			c.setCommitteeSet(committeeSet)
 		}
 
@@ -444,7 +443,7 @@ func (c *Core) setInitialState(r int64) {
 		clear(c.futurePower)
 		c.futureRoundLock.Unlock()
 		// update height duration timer
-		if metrics.Enabled {
+		if metrics.Enabled() {
 			now := time.Now()
 			HeightTimer.Update(now.Sub(c.newHeight))
 			HeightBg.Add(now.Sub(c.newHeight).Nanoseconds())
@@ -463,7 +462,7 @@ func (c *Core) setInitialState(r int64) {
 	c.setRound(r)
 
 	// update round duration timer
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		now := time.Now()
 		RoundTimer.Update(now.Sub(c.newRound))
 		RoundBg.Add(now.Sub(c.newRound).Nanoseconds())
@@ -473,7 +472,7 @@ func (c *Core) setInitialState(r int64) {
 
 func (c *Core) SetStep(ctx context.Context, step Step) {
 	now := time.Now()
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		switch {
 		// "standard" tendermint transitions
 		case c.step == PrecommitDone && step == Propose: // precommitdone --> propose
@@ -608,6 +607,8 @@ type Broadcaster struct {
 }
 
 func (s *Broadcaster) Broadcast(msg message.Msg) {
-	s.logger.Debug("Broadcasting", "message", log.Lazy{Fn: msg.String})
+	if s.logger.Enabled(context.Background(), log.LevelDebug) {
+		s.logger.Debug("Broadcasting", "message", msg.String())
+	}
 	s.BroadcastAll(msg)
 }

@@ -16,7 +16,11 @@
 
 package params
 
-import "math/big"
+import (
+	"math/big"
+
+	"github.com/autonity/autonity/common"
+)
 
 const (
 	MinGasLimit     uint64 = 100_000            // Minimum the gas limit may ever be. Needs to allow at least for a call to SetGasLimit.
@@ -37,6 +41,7 @@ const (
 
 	Keccak256Gas     uint64 = 30 // Once per KECCAK256 operation.
 	Keccak256WordGas uint64 = 6  // Once per word of the KECCAK256 operation's data.
+	InitCodeWordGas  uint64 = 2  // Once per word of the init code when creating a contract.
 
 	SstoreSetGas    uint64 = 20000 // Once per SSTORE operation.
 	SstoreResetGas  uint64 = 5000  // Once per SSTORE operation if the zeroness changes from zero.
@@ -80,13 +85,17 @@ const (
 	LogTopicGas           uint64 = 375   // Multiplied by the * of the LOG*, per LOG transaction. e.g. LOG0 incurs 0 * c_txLogTopicGas, LOG4 incurs 4 * c_txLogTopicGas.
 	CreateGas             uint64 = 32000 // Once per CREATE operation & contract-creation transaction.
 	Create2Gas            uint64 = 32000 // Once per CREATE2 operation
+	CreateNGasEip4762     uint64 = 1000  // Once per CREATEn operations post-verkle
 	SelfdestructRefundGas uint64 = 24000 // Refunded following a selfdestruct operation.
 	MemoryGas             uint64 = 3     // Times the address of the (highest referenced byte in memory + 1). NOTE: referencing happens on read, write and in instructions such as RETURN and CALL.
 
-	TxDataNonZeroGasFrontier  uint64 = 68   // Per byte of data attached to a transaction that is not equal to zero. NOTE: Not payable on data of calls between transactions.
-	TxDataNonZeroGasEIP2028   uint64 = 16   // Per byte of non zero data attached to a transaction after EIP 2028 (part in Istanbul)
-	TxAccessListAddressGas    uint64 = 2400 // Per address specified in EIP 2930 access list
-	TxAccessListStorageKeyGas uint64 = 1900 // Per storage key specified in EIP 2930 access list
+	TxDataNonZeroGasFrontier  uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero. NOTE: Not payable on data of calls between transactions.
+	TxDataNonZeroGasEIP2028   uint64 = 16    // Per byte of non zero data attached to a transaction after EIP 2028 (part in Istanbul)
+	TxTokenPerNonZeroByte     uint64 = 4     // Token cost per non-zero byte as specified by EIP-7623.
+	TxCostFloorPerToken       uint64 = 10    // Cost floor per byte of data as specified by EIP-7623.
+	TxAccessListAddressGas    uint64 = 2400  // Per address specified in EIP 2930 access list
+	TxAccessListStorageKeyGas uint64 = 1900  // Per storage key specified in EIP 2930 access list
+	TxAuthTupleGas            uint64 = 12500 // Per auth tuple code specified in EIP-7702
 
 	// These have been changed during the course of the chain
 	CallGasFrontier              uint64 = 40  // Once per CALL operation & message call transaction.
@@ -121,7 +130,8 @@ const (
 	InitialBaseFee = 1_000_000_000 // Initial base fee for EIP-1559 blocks.
 
 	// changes of parameters were recorded at: https://github.com/autonity/autonity-wiki/wiki/Autonity-Chain-Parameter-Highlights
-	MaxCodeSize = 2457600 // Maximum bytecode to permit for a contract
+	MaxCodeSize     = 2457600         // Maximum bytecode to permit for a contract
+	MaxInitCodeSize = 2 * MaxCodeSize // Maximum initcode to permit in a creation transaction and create instructions
 
 	// Precompiled contract gas prices
 
@@ -161,6 +171,18 @@ const (
 	// up to half the consumed gas could be refunded. Redefined as 1/5th in EIP-3529
 	RefundQuotient        uint64 = 2
 	RefundQuotientEIP3529 uint64 = 5
+
+	BlobTxBytesPerFieldElement         = 32      // Size in bytes of a field element
+	BlobTxFieldElementsPerBlob         = 4096    // Number of field elements stored in a single data blob
+	BlobTxBlobGasPerBlob               = 1 << 17 // Gas consumption of a single data blob (== blob byte size)
+	BlobTxMinBlobGasprice              = 1       // Minimum gas price for data blobs
+	BlobTxBlobGaspriceUpdateFraction   = 3338477 // Controls the maximum rate of change for blob gas price
+	BlobTxPointEvaluationPrecompileGas = 50000   // Gas price for the point evaluation precompile.
+
+	BlobTxTargetBlobGasPerBlock = 3 * BlobTxBlobGasPerBlob // Target consumable blob gas for data blobs per block (for 1559-like pricing)
+	MaxBlobGasPerBlock          = 6 * BlobTxBlobGasPerBlob // Maximum consumable blob gas for data blobs per block
+
+	HistoryServeWindow = 8192 // Number of blocks to serve historical block hashes for, EIP-2935.
 )
 
 // Gas discount table for BLS12-381 G1 and G2 multi exponentiation operations
@@ -171,4 +193,6 @@ var (
 	GenesisDifficulty      = big.NewInt(0)      // Difficulty of the Genesis block.
 	MinimumDifficulty      = big.NewInt(131072) // The minimum that the difficulty may ever be.
 	DurationLimit          = big.NewInt(13)     // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
+
+	SystemAddress = common.HexToAddress("0xfffffffffffffffffffffffffffffffffffffffe")
 )

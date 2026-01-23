@@ -18,8 +18,10 @@ package dbtest
 
 import (
 	"bytes"
-	"reflect"
+	"crypto/rand"
+	"slices"
 	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/autonity/autonity/ethdb"
@@ -147,7 +149,7 @@ func TestDatabaseSuite(t *testing.T, New func() ethdb.KeyValueStore) {
 			if err := it.Error(); err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(got, want) {
+			if !slices.Equal(got, want) {
 				t.Errorf("Iterator: got: %s; want: %s", got, want)
 			}
 		}
@@ -158,7 +160,7 @@ func TestDatabaseSuite(t *testing.T, New func() ethdb.KeyValueStore) {
 			if err := it.Error(); err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(got, want) {
+			if !slices.Equal(got, want) {
 				t.Errorf("IteratorWith(1,nil): got: %s; want: %s", got, want)
 			}
 		}
@@ -169,7 +171,7 @@ func TestDatabaseSuite(t *testing.T, New func() ethdb.KeyValueStore) {
 			if err := it.Error(); err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(got, want) {
+			if !slices.Equal(got, want) {
 				t.Errorf("IteratorWith(5,nil): got: %s; want: %s", got, want)
 			}
 		}
@@ -180,7 +182,7 @@ func TestDatabaseSuite(t *testing.T, New func() ethdb.KeyValueStore) {
 			if err := it.Error(); err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(got, want) {
+			if !slices.Equal(got, want) {
 				t.Errorf("IteratorWith(nil,2): got: %s; want: %s", got, want)
 			}
 		}
@@ -191,7 +193,7 @@ func TestDatabaseSuite(t *testing.T, New func() ethdb.KeyValueStore) {
 			if err := it.Error(); err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(got, want) {
+			if !slices.Equal(got, want) {
 				t.Errorf("IteratorWith(nil,5): got: %s; want: %s", got, want)
 			}
 		}
@@ -260,7 +262,7 @@ func TestDatabaseSuite(t *testing.T, New func() ethdb.KeyValueStore) {
 
 		{
 			it := db.NewIterator(nil, nil)
-			if got, want := iterateKeys(it), []string{"1", "2", "3", "4"}; !reflect.DeepEqual(got, want) {
+			if got, want := iterateKeys(it), []string{"1", "2", "3", "4"}; !slices.Equal(got, want) {
 				t.Errorf("got: %s; want: %s", got, want)
 			}
 		}
@@ -271,8 +273,12 @@ func TestDatabaseSuite(t *testing.T, New func() ethdb.KeyValueStore) {
 		b.Put([]byte("5"), nil)
 		b.Delete([]byte("1"))
 		b.Put([]byte("6"), nil)
-		b.Delete([]byte("3"))
+
+		b.Delete([]byte("3")) // delete then put
 		b.Put([]byte("3"), nil)
+
+		b.Put([]byte("7"), nil) // put then delete
+		b.Delete([]byte("7"))
 
 		if err := b.Write(); err != nil {
 			t.Fatal(err)
@@ -280,7 +286,7 @@ func TestDatabaseSuite(t *testing.T, New func() ethdb.KeyValueStore) {
 
 		{
 			it := db.NewIterator(nil, nil)
-			if got, want := iterateKeys(it), []string{"2", "3", "4", "5", "6"}; !reflect.DeepEqual(got, want) {
+			if got, want := iterateKeys(it), []string{"2", "3", "4", "5", "6"}; !slices.Equal(got, want) {
 				t.Errorf("got: %s; want: %s", got, want)
 			}
 		}
@@ -308,11 +314,212 @@ func TestDatabaseSuite(t *testing.T, New func() ethdb.KeyValueStore) {
 		}
 
 		it := db.NewIterator(nil, nil)
-		if got := iterateKeys(it); !reflect.DeepEqual(got, want) {
+		if got := iterateKeys(it); !slices.Equal(got, want) {
 			t.Errorf("got: %s; want: %s", got, want)
 		}
 	})
 
+	t.Run("OperationsAfterClose", func(t *testing.T) {
+		db := New()
+		db.Put([]byte("key"), []byte("value"))
+		db.Close()
+		if _, err := db.Get([]byte("key")); err == nil {
+			t.Fatalf("expected error on Get after Close")
+		}
+		if _, err := db.Has([]byte("key")); err == nil {
+			t.Fatalf("expected error on Get after Close")
+		}
+		if err := db.Put([]byte("key2"), []byte("value2")); err == nil {
+			t.Fatalf("expected error on Put after Close")
+		}
+		if err := db.Delete([]byte("key")); err == nil {
+			t.Fatalf("expected error on Delete after Close")
+		}
+
+		b := db.NewBatch()
+		if err := b.Put([]byte("batchkey"), []byte("batchval")); err != nil {
+			t.Fatalf("expected no error on batch.Put after Close, got %v", err)
+		}
+		if err := b.Write(); err == nil {
+			t.Fatalf("expected error on batch.Write after Close")
+		}
+	})
+
+	t.Run("DeleteRange", func(t *testing.T) {
+		db := New()
+		defer db.Close()
+
+		addRange := func(start, stop int) {
+			for i := start; i <= stop; i++ {
+				db.Put([]byte(strconv.Itoa(i)), nil)
+			}
+		}
+
+		checkRange := func(start, stop int, exp bool) {
+			for i := start; i <= stop; i++ {
+				has, _ := db.Has([]byte(strconv.Itoa(i)))
+				if has && !exp {
+					t.Fatalf("unexpected key %d", i)
+				}
+				if !has && exp {
+					t.Fatalf("missing expected key %d", i)
+				}
+			}
+		}
+
+		addRange(1, 9)
+		db.DeleteRange([]byte("9"), []byte("1"))
+		checkRange(1, 9, true)
+		db.DeleteRange([]byte("5"), []byte("5"))
+		checkRange(1, 9, true)
+		db.DeleteRange([]byte("5"), []byte("50"))
+		checkRange(1, 4, true)
+		checkRange(5, 5, false)
+		checkRange(6, 9, true)
+		db.DeleteRange([]byte(""), []byte("a"))
+		checkRange(1, 9, false)
+
+		addRange(1, 999)
+		db.DeleteRange([]byte("12345"), []byte("54321"))
+		checkRange(1, 1, true)
+		checkRange(2, 5, false)
+		checkRange(6, 12, true)
+		checkRange(13, 54, false)
+		checkRange(55, 123, true)
+		checkRange(124, 543, false)
+		checkRange(544, 999, true)
+
+		addRange(1, 999)
+		db.DeleteRange([]byte("3"), []byte("7"))
+		checkRange(1, 2, true)
+		checkRange(3, 6, false)
+		checkRange(7, 29, true)
+		checkRange(30, 69, false)
+		checkRange(70, 299, true)
+		checkRange(300, 699, false)
+		checkRange(700, 999, true)
+
+		db.DeleteRange([]byte(""), []byte("a"))
+		checkRange(1, 999, false)
+	})
+}
+
+// BenchDatabaseSuite runs a suite of benchmarks against a KeyValueStore database
+// implementation.
+func BenchDatabaseSuite(b *testing.B, New func() ethdb.KeyValueStore) {
+	var (
+		keys, vals   = makeDataset(1_000_000, 32, 32, false)
+		sKeys, sVals = makeDataset(1_000_000, 32, 32, true)
+	)
+	// Run benchmarks sequentially
+	b.Run("Write", func(b *testing.B) {
+		benchWrite := func(b *testing.B, keys, vals [][]byte) {
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			db := New()
+			defer db.Close()
+
+			for i := 0; i < len(keys); i++ {
+				db.Put(keys[i], vals[i])
+			}
+		}
+		b.Run("WriteSorted", func(b *testing.B) {
+			benchWrite(b, sKeys, sVals)
+		})
+		b.Run("WriteRandom", func(b *testing.B) {
+			benchWrite(b, keys, vals)
+		})
+	})
+	b.Run("Read", func(b *testing.B) {
+		benchRead := func(b *testing.B, keys, vals [][]byte) {
+			db := New()
+			defer db.Close()
+
+			for i := 0; i < len(keys); i++ {
+				db.Put(keys[i], vals[i])
+			}
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			for i := 0; i < len(keys); i++ {
+				db.Get(keys[i])
+			}
+		}
+		b.Run("ReadSorted", func(b *testing.B) {
+			benchRead(b, sKeys, sVals)
+		})
+		b.Run("ReadRandom", func(b *testing.B) {
+			benchRead(b, keys, vals)
+		})
+	})
+	b.Run("Iteration", func(b *testing.B) {
+		benchIteration := func(b *testing.B, keys, vals [][]byte) {
+			db := New()
+			defer db.Close()
+
+			for i := 0; i < len(keys); i++ {
+				db.Put(keys[i], vals[i])
+			}
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			it := db.NewIterator(nil, nil)
+			for it.Next() {
+			}
+			it.Release()
+		}
+		b.Run("IterationSorted", func(b *testing.B) {
+			benchIteration(b, sKeys, sVals)
+		})
+		b.Run("IterationRandom", func(b *testing.B) {
+			benchIteration(b, keys, vals)
+		})
+	})
+	b.Run("BatchWrite", func(b *testing.B) {
+		benchBatchWrite := func(b *testing.B, keys, vals [][]byte) {
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			db := New()
+			defer db.Close()
+
+			batch := db.NewBatch()
+			for i := 0; i < len(keys); i++ {
+				batch.Put(keys[i], vals[i])
+			}
+			batch.Write()
+		}
+		b.Run("BenchWriteSorted", func(b *testing.B) {
+			benchBatchWrite(b, sKeys, sVals)
+		})
+		b.Run("BenchWriteRandom", func(b *testing.B) {
+			benchBatchWrite(b, keys, vals)
+		})
+	})
+	b.Run("DeleteRange", func(b *testing.B) {
+		benchDeleteRange := func(b *testing.B, count int) {
+			db := New()
+			defer db.Close()
+
+			for i := 0; i < count; i++ {
+				db.Put([]byte(strconv.Itoa(i)), nil)
+			}
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			db.DeleteRange([]byte("0"), []byte("999999999"))
+		}
+		b.Run("DeleteRange100", func(b *testing.B) {
+			benchDeleteRange(b, 100)
+		})
+		b.Run("DeleteRange1k", func(b *testing.B) {
+			benchDeleteRange(b, 1000)
+		})
+		b.Run("DeleteRange10k", func(b *testing.B) {
+			benchDeleteRange(b, 10000)
+		})
+	})
 }
 
 func iterateKeys(it ethdb.Iterator) []string {
@@ -323,4 +530,26 @@ func iterateKeys(it ethdb.Iterator) []string {
 	sort.Strings(keys)
 	it.Release()
 	return keys
+}
+
+// randBytes generates a random blob of data.
+func randBytes(len int) []byte {
+	buf := make([]byte, len)
+	if n, err := rand.Read(buf); n != len || err != nil {
+		panic(err)
+	}
+	return buf
+}
+
+func makeDataset(size, ksize, vsize int, order bool) ([][]byte, [][]byte) {
+	var keys [][]byte
+	var vals [][]byte
+	for i := 0; i < size; i += 1 {
+		keys = append(keys, randBytes(ksize))
+		vals = append(vals, randBytes(vsize))
+	}
+	if order {
+		slices.SortFunc(keys, bytes.Compare)
+	}
+	return keys, vals
 }

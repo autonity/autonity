@@ -21,7 +21,6 @@ package signify
 
 import (
 	"crypto/rand"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -34,7 +33,7 @@ var (
 )
 
 func TestSignify(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "")
+	tmpFile, err := os.CreateTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +75,7 @@ func TestSignify(t *testing.T) {
 }
 
 func TestSignifyTrustedCommentTooManyLines(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "")
+	tmpFile, err := os.CreateTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +98,7 @@ func TestSignifyTrustedCommentTooManyLines(t *testing.T) {
 }
 
 func TestSignifyTrustedCommentTooManyLinesLF(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "")
+	tmpFile, err := os.CreateTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +121,7 @@ func TestSignifyTrustedCommentTooManyLinesLF(t *testing.T) {
 }
 
 func TestSignifyTrustedCommentEmpty(t *testing.T) {
-	tmpFile, err := ioutil.TempFile("", "")
+	tmpFile, err := os.CreateTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -19,7 +19,7 @@ func ReadJailedCount(db ethdb.Reader, epochID uint64) uint64 {
 
 // WriteJailedCount stores the count of jailed validators for epoch = `epochID`.
 func WriteJailedCount(db ethdb.KeyValueWriter, epochID, count uint64) {
-	if err := db.Put(jailedCountKey(epochID), encodeNumber(count)); err != nil {
+	if err := db.Put(jailedCountKey(epochID), encodeBlockNumber(count)); err != nil {
 		log.Crit("Failed to store jailed validators count", "epochID", epochID, "count", count, "err", err)
 	}
 }

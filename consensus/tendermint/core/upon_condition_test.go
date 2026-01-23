@@ -46,7 +46,7 @@ func TestStartRoundVariables(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		env.setupCore(backendMock, env.clientAddress)
 		backendMock.EXPECT().EpochByHeight(env.core.Height().Uint64()).Return(env.LatestEpoch(), nil)
-		backendMock.EXPECT().HeadBlock().Return(env.previousValue)
+		backendMock.EXPECT().HeadBlock().Return(env.previousValue.Header())
 		backendMock.EXPECT().ProcessFutureMsgs(env.previousHeight.Uint64() + 1).Times(1)
 
 		env.core.StartRound(context.Background(), env.curRound)
@@ -69,7 +69,7 @@ func TestStartRoundVariables(t *testing.T) {
 		backendMock := interfaces.NewMockBackend(ctrl)
 		env.setupCore(backendMock, env.clientAddress)
 		backendMock.EXPECT().EpochByHeight(env.core.Height().Uint64()).Return(env.LatestEpoch(), nil)
-		backendMock.EXPECT().HeadBlock().Return(env.previousValue).MaxTimes(2)
+		backendMock.EXPECT().HeadBlock().Return(env.previousValue.Header()).MaxTimes(2)
 		backendMock.EXPECT().ProcessFutureMsgs(env.previousHeight.Uint64() + 1).Times(1)
 
 		// Check the initial consensus state
@@ -120,7 +120,7 @@ func TestStartRound(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), proposal)
-		backendMock.EXPECT().HeadBlock().Return(e.previousValue).Times(2)
+		backendMock.EXPECT().HeadBlock().Return(e.previousValue.Header()).Times(2)
 		backendMock.EXPECT().ProcessFutureMsgs(e.previousHeight.Uint64() + 1).Times(1)
 		e.core.pendingCandidateBlocks[e.curHeight.Uint64()] = proposal.Block()
 
@@ -149,7 +149,7 @@ func TestStartRound(t *testing.T) {
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(e.clientSigner)
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Broadcast(e.committee.Committee(), proposal)
-		backendMock.EXPECT().HeadBlock().Return(e.previousValue)
+		backendMock.EXPECT().HeadBlock().Return(e.previousValue.Header())
 
 		e.setupCore(backendMock, e.clientAddress)
 		e.core.validValue = proposal.Block()
@@ -182,7 +182,7 @@ func TestStartRound(t *testing.T) {
 		e.core.setCommitteeSet(e.committee)
 
 		if e.curRound == 0 {
-			backendMock.EXPECT().HeadBlock().Return(e.previousValue)
+			backendMock.EXPECT().HeadBlock().Return(e.previousValue.Header())
 			backendMock.EXPECT().ProcessFutureMsgs(e.previousHeight.Uint64() + 1).Times(1)
 		}
 
@@ -1223,7 +1223,7 @@ func TestQuorumPrecommit(t *testing.T) {
 	assert.NoError(t, err)
 	e.core.committee = newCommitteeSet
 
-	backendMock.EXPECT().HeadBlock().Return(proposal.Block()).MaxTimes(2)
+	backendMock.EXPECT().HeadBlock().Return(proposal.Block().Header()).MaxTimes(2)
 
 	backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(signer(e, 0))
 	// if the client is the next proposer

@@ -8,6 +8,8 @@ import (
 
 	"github.com/autonity/autonity/autonity/bindings"
 
+	"github.com/holiman/uint256"
+
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/params/generated"
 
@@ -1001,7 +1003,7 @@ func committeeByHeight(height uint64, evm *vm.EVM, caller common.Address) (*type
 		return nil, err
 	}
 	// Todo(scott): consider using the existing call on the for callEpochByHeight from the autonity package
-	ret, _, err := evm.Call(vm.AccountRef(caller), params.AutonityContractAddress, packedArgs, gas, new(big.Int))
+	ret, _, err := evm.Call(caller, params.AutonityContractAddress, packedArgs, gas, uint256.NewInt(0))
 	if err != nil {
 		return nil, err
 	}

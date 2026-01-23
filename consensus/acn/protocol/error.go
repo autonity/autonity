@@ -32,7 +32,7 @@ func newACNError(backend Backend, err error) *p2p.ProtocolError {
 		if errors.Is(err, message.ErrBadSignature) {
 			// TODO: implement more harsh exponential approach disconnection?
 			// the +1 is needed to fetch the latest epoch period finalized by the chain
-			currentCoreHeight := backend.Chain().CurrentBlock().NumberU64() + 1
+			currentCoreHeight := backend.Chain().CurrentBlock().Number.Uint64() + 1
 			epochPeriod, errEpochPeriod := backend.Chain().EpochPeriodByHeight(currentCoreHeight)
 			if errEpochPeriod != nil {
 				log.Error("failed to fetch epoch period, using default", "err", errEpochPeriod, "block", currentCoreHeight, "default", params.DefaultEpochPeriod)

@@ -17,7 +17,6 @@
 package core
 
 import (
-	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
 )
 
@@ -31,14 +30,17 @@ type NewMinedBlockEvent struct{ Block *types.Block }
 type RemovedLogsEvent struct{ Logs []*types.Log }
 
 type ChainEvent struct {
-	Block *types.Block
-	Hash  common.Hash
-	Logs  []*types.Log
+	Header *types.Header
 }
 
 type ChainSideEvent struct {
 	Block *types.Block
 }
 
-type ChainHeadEvent struct{ Block *types.Block }
-type EpochHeadEvent struct{ Header *types.Header }
+type ChainHeadEvent struct {
+	Header *types.Header
+}
+
+type EpochHeadEvent struct {
+	Header *types.Header
+}

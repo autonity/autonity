@@ -12,11 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/internal/version"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"go.uber.org/goleak"
 
 	ethereum "github.com/autonity/autonity"
 	"github.com/autonity/autonity/cmd/gengen/gengen"
+	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/graph"
 	"github.com/autonity/autonity/consensus/acn"
@@ -33,17 +35,17 @@ import (
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
-	"github.com/autonity/autonity/params"
 )
 
 const (
 	localhost = "127.0.0.1"
+	verbosity = log.LvlDebug
 )
 
 var (
 	baseNodeConfig = &node.Config{
 		Name:    "autonity",
-		Version: params.Version,
+		Version: version.WithMeta,
 		ExecutionP2P: p2p.Config{
 			MaxPeers: 50,
 		},
@@ -53,32 +55,6 @@ var (
 		HTTPHost: localhost,
 		WSHost:   localhost,
 	}
-
-	terminalColors = []struct {
-		foreground string
-		background string
-	}{{
-		foreground: log.White,
-		background: log.BackgroundBlack,
-	}, {
-		foreground: log.Black,
-		background: log.BackgroundLightCyan,
-	}, {
-		foreground: log.Black,
-		background: log.BackgroundLightYellow,
-	}, {
-		foreground: log.Black,
-		background: log.BackgroundLightRed,
-	}, {
-		foreground: log.Black,
-		background: log.BackgroundLightGray,
-	}, {
-		foreground: log.Black,
-		background: log.BackgroundLightMagenta,
-	}, {
-		foreground: log.Black,
-		background: log.BackgroundLightGreen,
-	}}
 )
 
 // Node provides an enhanced interface to node.Node with useful additions, the
@@ -112,7 +88,7 @@ type Node struct {
 // port the node bound on till after starting if using the 0 port. This means
 // that we have to predefine ports in the genesis, which could cause problems
 // if anything is already bound on that port.
-func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int, inMemory bool) (*Node, error) {
+func NewValidatorNode(t *testing.T, validator *gengen.Validator, genesis *core.Genesis, id int, inMemory bool) (*Node, error) {
 	address := crypto.PubkeyToAddress(validator.NodeKey.PublicKey)
 
 	// Copy the base node config, so we can modify it without damaging the
@@ -134,6 +110,9 @@ func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int
 
 	if !inMemory {
 		tempDir, err := os.MkdirTemp("", "autonity-datadir")
+		t.Cleanup(func() {
+			os.RemoveAll(tempDir)
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -145,36 +124,44 @@ func NewValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id int
 	// copy the base eth config, so we can modify it without damaging the
 	// original.
 	ethConfig := &ethconfig.Config{}
-	ethconfig.Defaults.SyncMode = downloader.FullSync
-	ethconfig.Defaults.Miner.Recommit = time.Second
 	if err := copyConfig(&ethconfig.Defaults, ethConfig); err != nil {
 		return nil, err
 	}
-	// Set the min gas price on the mining pool config, otherwise the miner
-	// starts with a default min gas price. Which causes transactions to be
-	// dropped.
+	// Set the min gas price on the mining pool config and tx pool config,
+	// otherwise the miner starts with a default min gas price.
+	// Which causes transactions to be dropped.
 	ethConfig.Miner.GasPrice = (&big.Int{}).SetUint64(genesis.Config.AutonityContractConfig.MinBaseFee)
+	ethConfig.TxPool.PriceLimit = genesis.Config.AutonityContractConfig.MinBaseFee
 	ethConfig.Miner.Etherbase = crypto.PubkeyToAddress(validator.NodeKey.PublicKey)
 	ethConfig.Genesis = genesis
-	ethConfig.NetworkID = genesis.Config.ChainID.Uint64()
+	ethConfig.NetworkId = genesis.Config.ChainID.Uint64()
+	ethConfig.SyncMode = downloader.FullSync
+	ethConfig.Miner.Recommit = time.Second
 
 	// Give this logger context based on the node address so that we can easily
 	// trace single node execution in the logs. We set the logger only on the
 	// copy, since it is not useful for black box testing and it is also not
 	// marshalable since the implementation contains unexported fields.
-	logger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.FormatFunc(func(record *log.Record) []byte {
-		b := log.TerminalFormat(false).Format(record)
-		if id < len(terminalColors) {
-			prefix := []byte(terminalColors[id].background + terminalColors[id].foreground)
-			suffix := []byte("\x1b[0;K\033[0m\n")
-			return append(append(prefix, b[:len(b)-1]...), suffix...)
-		}
-		return b
-	})))
+	logger := log.NewGlogHandler(log.NewTerminalHandler(os.Stderr, true))
 
-	logger.Verbosity(log.DefaultVerbosity)
-	nodeConfig.Logger = log.New()
-	nodeConfig.Logger.SetHandler(logger)
+	/* Todo(youssef): create new terminal handler with support for background colors
+
+	log.FormatFunc(func(record *log.Record) []byte {
+			b := log.TerminalFormat(false).Format(record)
+			if id < len(terminalColors) {
+				prefix := []byte(terminalColors[id].background + terminalColors[id].foreground)
+				suffix := []byte("\x1b[0;K\033[0m\n")
+				return append(append(prefix, b[:len(b)-1]...), suffix...)
+			}
+			return b
+		})
+	*/
+	logger.Verbosity(verbosity)
+	if id < 2 {
+		nodeConfig.Logger = log.NewLogger(logger)
+	} else {
+		nodeConfig.Logger = log.Root()
+	}
 
 	// set custom tendermint services
 	nodeConfig.SetTendermintServices(validator.TendermintServices)
@@ -231,25 +218,26 @@ func NewNoneValidatorNode(validator *gengen.Validator, genesis *core.Genesis, id
 		return nil, err
 	}
 	ethConfig.Genesis = genesis
-	ethConfig.NetworkID = genesis.Config.ChainID.Uint64()
+	ethConfig.NetworkId = genesis.Config.ChainID.Uint64()
 
-	// Give this logger context based on the node address so that we can easily
-	// trace single node execution in the logs. We set the logger only on the
-	// copy, since it is not useful for black box testing and it is also not
-	// marshalable since the implementation contains unexported fields.
-	logger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.FormatFunc(func(record *log.Record) []byte {
-		b := log.TerminalFormat(false).Format(record)
-		if id < len(terminalColors) {
-			prefix := []byte(terminalColors[id].background + terminalColors[id].foreground)
-			suffix := []byte("\x1b[0;K\033[0m\n")
-			return append(append(prefix, b[:len(b)-1]...), suffix...)
-		}
-		return b
-	})))
+	//
+	//// Give this logger context based on the node address so that we can easily
+	//// trace single node execution in the logs. We set the logger only on the
+	//// copy, since it is not useful for black box testing and it is also not
+	//// marshalable since the implementation contains unexported fields.
+	//logger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.FormatFunc(func(record *log.Record) []byte {
+	//	b := log.TerminalFormat(false).Format(record)
+	//	if id < len(terminalColors) {
+	//		prefix := []byte(terminalColors[id].background + terminalColors[id].foreground)
+	//		suffix := []byte("\x1b[0;K\033[0m\n")
+	//		return append(append(prefix, b[:len(b)-1]...), suffix...)
+	//	}
+	//	return b
+	//})))
 
-	logger.Verbosity(log.DefaultVerbosity)
-	nodeConfig.Logger = log.New()
-	nodeConfig.Logger.SetHandler(logger)
+	//logger.Verbosity(verbosity)
+	//nodeConfig.Logger = log.New()
+	//nodeConfig.Logger.SetHandler(logger)
 
 	n := &Node{
 		Config:       nodeConfig,
@@ -296,7 +284,9 @@ func (n *Node) Start() error {
 		return fmt.Errorf("cannot create new eth: %w", err)
 	}
 
-	acn.New(n.Node, n.Eth, ethconfig.Defaults.NetworkID)
+	utils.RegisterFilterAPI(n.Node, n.Eth.APIBackend, n.EthConfig)
+
+	acn.New(n.Node, n.Eth, ethconfig.Defaults.NetworkId)
 	if err = n.Node.Start(); err != nil {
 		return fmt.Errorf("failed to start a node: %w", err)
 	}
@@ -568,6 +558,7 @@ func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int, verifyRate boo
 			}
 			// all the running nodes should reach the required chainHeight
 			if syncedNodes == totalRunning {
+				fmt.Fprintf(os.Stderr, "[ORC] All nodes synced \n")
 				return nil
 			}
 		case <-ctx.Done():
@@ -619,7 +610,7 @@ func (nw Network) CheckReimbursement(height uint64, reporter common.Address) err
 		preState, err := n.Eth.BlockChain().StateAt(preHeight.Root())
 		if err != nil {
 			// for debugging in the ci test context.
-			curHeight := n.Eth.BlockChain().CurrentBlock().NumberU64()
+			curHeight := n.Eth.BlockChain().CurrentBlock().Number.Uint64()
 			for h := uint64(0); h <= curHeight; h++ {
 				b := n.Eth.BlockChain().GetBlockByNumber(h)
 				_, err = n.Eth.BlockChain().StateAt(b.Root())
@@ -656,14 +647,14 @@ func (nw Network) CheckReimbursement(height uint64, reporter common.Address) err
 // mining. For each provided user a corresponding node is created. If there is
 // an error it will be returned immediately, meaning that some nodes may be
 // running and others not.
-func NewNetworkFromValidators(_ *testing.T, validators []*gengen.Validator, start bool, options ...gengen.GenesisOption) (Network, error) {
-	g, err := Genesis(validators, options...)
+func NewNetworkFromValidators(t *testing.T, validators []*gengen.Validator, start bool, options ...gengen.GenesisOption) (Network, error) {
+	gspec, err := Genesis(validators, options...)
 	if err != nil {
 		return nil, fmt.Errorf("failed the genesis: %w", err)
 	}
 	network := make([]*Node, len(validators))
-	for i, u := range validators {
-		n, err := NewValidatorNode(u, g, i, false)
+	for i, validator := range validators {
+		n, err := NewValidatorNode(t, validator, gspec, i, false)
 		if len(validators) > 21 {
 			n.EthConfig.DatabaseCache = 16
 			n.EthConfig.DatabaseHandles = 8
@@ -767,7 +758,7 @@ func NewInMemoryNetwork(t *testing.T, validators []*gengen.Validator, start bool
 	for i, u := range validators {
 		wg.Add(1)
 		go func(id int, val *gengen.Validator) {
-			n, _ := NewValidatorNode(val, g, id, true)
+			n, _ := NewValidatorNode(t, val, g, id, true)
 			if id == 0 {
 				n.Config.WSPort = freeport.GetOne(t)
 			}
@@ -828,15 +819,26 @@ func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transacti
 // Shutdown closes all nodes in the network, any errors that are encounter are
 // printed to stdout.
 func (nw Network) Shutdown(t *testing.T) {
-	defer checkGoRoutineLeak(t)
-	for _, node := range nw {
-		if node != nil && node.isRunning {
-			err := node.Close(true)
-			if err != nil {
-				fmt.Printf("error shutting down node %v: %v", node.Address.String(), err)
+	var wg sync.WaitGroup
+	fmt.Fprintf(os.Stderr, "[ORC] Shutting down network\n")
+	for i, node := range nw {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if node != nil && node.isRunning {
+				fmt.Fprintf(os.Stderr, "[ORC] Closing Node %d \n", i)
+				err := node.Close(true)
+				if err != nil {
+					t.Errorf("error shutting down node %v: %v", node.Address.String(), err)
+				} else {
+					fmt.Fprintf(os.Stderr, "[ORC] Node %d OFF\n", i)
+				}
 			}
-		}
+		}()
 	}
+	wg.Wait()
+	fmt.Fprintf(os.Stderr, "[ORC] Network shut down\n")
+	//checkGoRoutineLeak(t)
 }
 
 func checkGoRoutineLeak(t *testing.T) {
@@ -953,7 +955,7 @@ func ValueTransferTransaction(client *ethclient.Client,
 // The format string should follow the format defined for users in the gengen
 // package see the variable 'userDescription' in the gengen package for a
 // detailed description of the meaning of the format string.
-// E.G. for a validator '10e18,v,1,0.0.0.0:%s,%s,%s,%s'.
+// E.G. for a validator '10e18,v,1,127.0.0.1:%s,%s,%s,%s'.
 func Validators(t *testing.T, count int, formatString string) ([]*gengen.Validator, error) {
 	var validators []*gengen.Validator
 	for i := 0; i < count; i++ {

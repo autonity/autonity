@@ -990,7 +990,7 @@ func (ns *NodeStateMachine) GetNode(id enode.ID) *enode.Node {
 
 // AddLogMetrics adds logging and/or metrics for nodes entering, exiting and currently
 // being in a given set specified by required and disabled state flags
-func (ns *NodeStateMachine) AddLogMetrics(requireFlags, disableFlags Flags, name string, inMeter, outMeter metrics.Meter, gauge metrics.Gauge) {
+func (ns *NodeStateMachine) AddLogMetrics(requireFlags, disableFlags Flags, name string, inMeter, outMeter *metrics.Meter, gauge *metrics.Gauge) {
 	var count int64
 	ns.SubscribeState(requireFlags.Or(disableFlags), func(n *enode.Node, oldState, newState Flags) {
 		oldMatch := oldState.HasAll(requireFlags) && oldState.HasNone(disableFlags)

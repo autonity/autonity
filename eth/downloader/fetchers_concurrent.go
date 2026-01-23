@@ -25,7 +25,6 @@ import (
 	"github.com/autonity/autonity/common/prque"
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/p2p"
 )
 
 // timeoutGracePeriod is the amount of time to allow for a peer to deliver a
@@ -48,7 +47,7 @@ type typedQueue interface {
 
 	// capacity is responsible for calculating how many items of the abstracted
 	// type a particular peer is estimated to be able to retrieve within the
-	// alloted round trip time.
+	// allotted round trip time.
 	capacity(peer *peerConnection, rtt time.Duration) int
 
 	// updateCapacity is responsible for updating how many items of the abstracted
@@ -59,7 +58,7 @@ type typedQueue interface {
 	// from the download queue to the specified peer.
 	reserve(peer *peerConnection, items int) (*fetchRequest, bool, bool)
 
-	// unreserve is resposible for removing the current retrieval allocation
+	// unreserve is responsible for removing the current retrieval allocation
 	// assigned to a specific peer and placing it back into the pool to allow
 	// reassigning to some other peer.
 	unreserve(peer string) int
@@ -92,8 +91,8 @@ func (d *Downloader) concurrentFetch(queue typedQueue) error {
 		}
 	}()
 	ordering := make(map[*eth.Request]int)
-	timeouts := prque.New(func(data interface{}, index int) {
-		ordering[data.(*eth.Request)] = index
+	timeouts := prque.New[int64, *eth.Request](func(data *eth.Request, index int) {
+		ordering[data] = index
 	})
 
 	timeout := time.NewTimer(0)
@@ -153,7 +152,7 @@ func (d *Downloader) concurrentFetch(queue typedQueue) error {
 						// permitted it, consider the peer malicious attempting to
 						// stall the sync.
 						peer.log.Warn("Peer stalling, dropping", "waited", common.PrettyDuration(waited))
-						d.dropPeer(peer.id, p2p.DiscSyncFailed)
+						d.dropPeer(peer.id)
 					}
 				}
 			}
@@ -191,7 +190,7 @@ func (d *Downloader) concurrentFetch(queue typedQueue) error {
 				req, err := queue.request(peer, request, responses)
 				if err != nil {
 					// Sending the request failed, which generally means the peer
-					// was diconnected in between assignment and network send.
+					// was disconnected in between assignment and network send.
 					// Although all peer removal operations return allocated tasks
 					// to the queue, that is async, and we can do better here by
 					// immediately pushing the unfulfilled requests.
@@ -269,27 +268,26 @@ func (d *Downloader) concurrentFetch(queue typedQueue) error {
 			// below is purely for to catch programming errors, given the correct
 			// code, there's no possible order of events that should result in a
 			// timeout firing for a non-existent event.
-			item, exp := timeouts.Peek()
+			req, exp := timeouts.Peek()
 			if now, at := time.Now(), time.Unix(0, -exp); now.Before(at) {
 				log.Error("Timeout triggered but not reached", "left", at.Sub(now))
 				timeout.Reset(at.Sub(now))
 				continue
 			}
-			req := item.(*eth.Request)
-
 			// Stop tracking the timed out request from a timing perspective,
 			// cancel it, so it's not considered in-flight anymore, but keep
 			// the peer marked busy to prevent assigning a second request and
 			// overloading it further.
 			delete(pending, req.Peer)
 			stales[req.Peer] = req
-			delete(ordering, req)
 
-			timeouts.Pop()
+			timeouts.Pop() // Popping an item will reorder indices in `ordering`, delete after, otherwise will resurrect!
 			if timeouts.Size() > 0 {
 				_, exp := timeouts.Peek()
 				timeout.Reset(time.Until(time.Unix(0, -exp)))
 			}
+			delete(ordering, req)
+
 			// New timeout potentially set if there are more requests pending,
 			// reschedule the failed one to a free peer
 			fails := queue.unreserve(req.Peer)
@@ -316,7 +314,7 @@ func (d *Downloader) concurrentFetch(queue typedQueue) error {
 			if fails > 2 {
 				queue.updateCapacity(peer, 0, 0)
 			} else {
-				d.dropPeer(peer.id, p2p.DiscSyncFailed)
+				d.dropPeer(peer.id)
 
 				// If this peer was the master peer, abort sync immediately
 				d.cancelLock.RLock()

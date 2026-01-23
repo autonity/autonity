@@ -1,4 +1,4 @@
-// Copyright 2015 The go-ethereum Authors
+// Copyright 2020 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -17,12 +17,14 @@
 package eth
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/forkid"
+	"github.com/autonity/autonity/metrics"
 	"github.com/autonity/autonity/p2p"
 )
 
@@ -34,17 +36,17 @@ const (
 
 // Handshake executes the eth protocol handshake, negotiating version number,
 // network IDs, difficulties, head and genesis blocks.
-func (p *Peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash, forkID forkid.ID, forkFilter forkid.Filter) error {
+func (p *Peer) Handshake(network uint64, height *big.Int, head common.Hash, genesis common.Hash, forkID forkid.ID, forkFilter forkid.Filter) error {
 	// Send out own handshake in a new thread
 	errc := make(chan error, 2)
 
-	var status StatusPacket // safe to read after two values have been received from errc
+	var status StatusPacket68 // safe to read after two values have been received from errc
 
 	go func() {
-		errc <- p2p.Send(p.rw, StatusMsg, &StatusPacket{
+		errc <- p2p.Send(p.rw, StatusMsg, &StatusPacket68{
 			ProtocolVersion: uint32(p.version),
 			NetworkID:       network,
-			TD:              td,
+			TD:              new(big.Int).Set(height), // used by autonity to communicate last height
 			Head:            head,
 			Genesis:         genesis,
 			ForkID:          forkID,
@@ -59,24 +61,23 @@ func (p *Peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis 
 		select {
 		case err := <-errc:
 			if err != nil {
+				markError(p, err)
 				return err
 			}
 		case <-timeout.C:
+			markError(p, p2p.DiscReadTimeout)
 			return p2p.DiscReadTimeout
 		}
 	}
-	p.td, p.head = status.TD, status.Head
-
-	// TD at mainnet block #7753254 is 76 bits. If it becomes 100 million times
-	// larger, it will still fit within 100 bits
-	if tdlen := p.td.BitLen(); tdlen > 100 {
-		return fmt.Errorf("too large total difficulty: bitlen %d", tdlen)
+	p.height, p.head = status.TD, status.Head
+	if heightlen := p.height.BitLen(); heightlen > 100 {
+		return fmt.Errorf("too large chain height: heightlen %d", heightlen)
 	}
 	return nil
 }
 
 // readStatus reads the remote handshake message.
-func (p *Peer) readStatus(network uint64, status *StatusPacket, genesis common.Hash, forkFilter forkid.Filter) error {
+func (p *Peer) readStatus(network uint64, status *StatusPacket68, genesis common.Hash, forkFilter forkid.Filter) error {
 	msg, err := p.rw.ReadMsg()
 	if err != nil {
 		return err
@@ -102,6 +103,39 @@ func (p *Peer) readStatus(network uint64, status *StatusPacket, genesis common.H
 	}
 	if err := forkFilter(status.ForkID); err != nil {
 		return fmt.Errorf("%w: %v", errForkIDRejected, err)
+	}
+	return nil
+}
+
+// markError registers the error with the corresponding metric.
+func markError(p *Peer, err error) {
+	if !metrics.Enabled() {
+		return
+	}
+	m := meters.get(p.Inbound())
+	switch errors.Unwrap(err) {
+	case errNetworkIDMismatch:
+		m.networkIDMismatch.Mark(1)
+	case errProtocolVersionMismatch:
+		m.protocolVersionMismatch.Mark(1)
+	case errGenesisMismatch:
+		m.genesisMismatch.Mark(1)
+	case errForkIDRejected:
+		m.forkidRejected.Mark(1)
+	case p2p.DiscReadTimeout:
+		m.timeoutError.Mark(1)
+	default:
+		m.peerError.Mark(1)
+	}
+}
+
+// Validate checks basic validity of a block range announcement.
+func (p *BlockRangeUpdatePacket) Validate() error {
+	if p.EarliestBlock > p.LatestBlock {
+		return errors.New("earliest > latest")
+	}
+	if p.LatestBlockHash == (common.Hash{}) {
+		return errors.New("zero latest hash")
 	}
 	return nil
 }

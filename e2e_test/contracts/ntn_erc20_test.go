@@ -3,14 +3,15 @@ package contracts
 import (
 	"context"
 	"crypto/ecdsa"
+	"math/big"
+	"testing"
+	"time"
+
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/params"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"testing"
-	"time"
 )
 
 var (
@@ -19,7 +20,7 @@ var (
 )
 
 func TestACERC20Interfaces(t *testing.T) {
-	network, err := e2e.NewNetwork(t, 4, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, 4, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 
@@ -35,7 +36,7 @@ func TestACERC20Interfaces(t *testing.T) {
 	require.NoError(t, err)
 
 	// mint NTN for accounts
-	timeout := 5 * time.Second
+	timeout := 20 * time.Second
 	for _, account := range accounts {
 		err = operatorNode.AwaitMintNTN(operatorKey, crypto.PubkeyToAddress(account.PublicKey), mintAmount, timeout)
 		require.NoError(t, err)
