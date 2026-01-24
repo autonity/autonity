@@ -97,6 +97,7 @@ func NewGenesis(validators []*Validator, options ...GenesisOption) (*core.Genesi
 	config.AutonityContractConfig.Operator = *operatorAddress
 	config.AutonityContractConfig.Validators = genesisValidators
 	config.Ethash = nil
+	config.TestMode = false // Enable real Tendermint consensus for e2e tests
 	genesis := &core.Genesis{
 
 		Timestamp: uint64(time.Now().Unix()),

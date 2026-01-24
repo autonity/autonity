@@ -392,7 +392,7 @@ var (
 			SupplyControlConfig:         DefaultSupplyControlGenesis,
 		},
 		OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig,
-		TestMode:                     false,
+		TestMode:                     true,
 	}
 
 	TestNodeKeys = []string{

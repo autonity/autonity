@@ -30,6 +30,7 @@ import (
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
 )
 
 // scratchHeaders is the number of headers to store in a scratch space to allow
@@ -793,7 +794,7 @@ func (s *skeleton) executeTask(peer *peerConnection, req *headerRequest) {
 		// gone stale and monitor them. However, in that case too, we need a way
 		// to protect against malicious peers never responding, so it would need
 		// a second, hard-timeout mechanism.
-		s.drop(peer.id)
+		s.drop(peer.id, p2p.DiscSyncFailed)
 
 	case res := <-resCh:
 		// Headers successfully retrieved, update the metrics
@@ -955,7 +956,7 @@ func (s *skeleton) processResponse(res *headerResponse) (linked bool, merged boo
 			for i := 0; i < requestHeaders; i++ {
 				s.scratchSpace[i] = nil
 			}
-			s.drop(s.scratchOwners[0])
+			s.drop(s.scratchOwners[0], p2p.DiscUselessPeer)
 			s.scratchOwners[0] = ""
 			break
 		}

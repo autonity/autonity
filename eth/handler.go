@@ -391,7 +391,7 @@ func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 				res.Done <- nil
 			case <-timeout.C:
 				peer.Log().Warn("Required block challenge timed out, dropping", "addr", peer.RemoteAddr(), "type", peer.Name())
-				h.removePeer(peer.ID())
+				h.removePeer(peer.ID(), p2p.DiscUselessPeer)
 			}
 		}(number, hash, req)
 	}
@@ -424,10 +424,10 @@ func (h *handler) runSnapExtension(peer *snap.Peer, handler snap.Handler) error 
 }
 
 // removePeer requests disconnection of a peer.
-func (h *handler) removePeer(id string) {
+func (h *handler) removePeer(id string, reason p2p.DiscReason) {
 	peer := h.peers.peer(id)
 	if peer != nil {
-		peer.Peer.Disconnect(p2p.DiscUselessPeer)
+		peer.Peer.Disconnect(reason)
 	}
 }
 

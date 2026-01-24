@@ -34,6 +34,7 @@ import (
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/common/mclock"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enode"
 )
 
@@ -291,7 +292,7 @@ func TestDecodeErrorsV5(t *testing.T) {
 		enc := hexFile(testDataFile)
 		//delete some byte from handshake to make it invalid
 		enc = enc[:len(enc)-requiredNumber]
-		net.nodeB.expectDecodeErr(t, errMsgTooShort, enc)
+		net.nodeB.expectDecodeErr(t, errAuthSize, enc)
 	})
 
 	t.Run("invalid-auth-datasize", func(t *testing.T) {
@@ -545,7 +546,7 @@ func (t *handshakeTest) close() {
 
 func (n *handshakeTestNode) init(key *ecdsa.PrivateKey, ip net.IP, clock mclock.Clock, protocolID [6]byte) {
 	db, _ := enode.OpenDB("")
-	n.ln = enode.NewLocalNode(db, key)
+	n.ln = enode.NewLocalNode(db, key, log.Root())
 	n.ln.SetStaticIP(ip)
 	n.c = NewCodec(n.ln, key, clock, nil)
 }

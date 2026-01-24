@@ -102,14 +102,14 @@ type ethstatsConfig struct {
 	URL string `toml:",omitempty"`
 }
 
-type gethConfig struct {
+type autonityConfig struct {
 	Eth      ethconfig.Config
 	Node     node.Config
 	Ethstats ethstatsConfig
 	Metrics  metrics.Config
 }
 
-func loadConfig(file string, cfg *gethConfig) error {
+func loadConfig(file string, cfg *autonityConfig) error {
 	f, err := os.Open(file)
 	if err != nil {
 		return err
@@ -135,11 +135,11 @@ func defaultNodeConfig() node.Config {
 	return cfg
 }
 
-// loadBaseConfig loads the gethConfig based on the given command line
+// loadBaseConfig loads the autonityConfig based on the given command line
 // parameters and config file.
-func loadBaseConfig(ctx *cli.Context) gethConfig {
+func loadBaseConfig(ctx *cli.Context) autonityConfig {
 	// Load defaults.
-	cfg := gethConfig{
+	cfg := autonityConfig{
 		Eth:     ethconfig.Defaults,
 		Node:    defaultNodeConfig(),
 		Metrics: metrics.DefaultConfig,
@@ -158,7 +158,7 @@ func loadBaseConfig(ctx *cli.Context) gethConfig {
 }
 
 // makeConfigNode loads geth configuration and creates a blank node instance.
-func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
+func makeConfigNode(ctx *cli.Context) (*node.Node, autonityConfig) {
 	cfg := loadBaseConfig(ctx)
 	stack, err := node.New(&cfg.Node)
 	if err != nil {
@@ -208,6 +208,8 @@ func makeFullNode(ctx *cli.Context) *node.Node {
 	utils.SetupMetrics(&cfg.Metrics)
 
 	backend, eth := utils.RegisterEthService(stack, &cfg.Eth)
+	utils.RegisterConsensusService(stack, eth, cfg.Eth.NetworkId)
+	utils.RegisterMonitorService(stack)
 
 	// Create gauge with geth system and build information
 	if eth != nil { // The 'eth' backend may be nil in light mode
@@ -267,7 +269,7 @@ func dumpConfig(ctx *cli.Context) error {
 	return nil
 }
 
-func applyMetricConfig(ctx *cli.Context, cfg *gethConfig) {
+func applyMetricConfig(ctx *cli.Context, cfg *autonityConfig) {
 	if ctx.IsSet(utils.MetricsEnabledFlag.Name) {
 		cfg.Metrics.Enabled = ctx.Bool(utils.MetricsEnabledFlag.Name)
 	}

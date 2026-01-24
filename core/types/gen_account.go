@@ -34,7 +34,6 @@ func (a Account) MarshalJSON() ([]byte, error) {
 		}
 	}
 	enc.Balance = (*math.HexOrDecimal256)(a.Balance)
-	enc.Balance = (*math.HexOrDecimal256)(a.Balance)
 	enc.NewtonBalance = (*math.HexOrDecimal256)(a.NewtonBalance)
 	if a.Bonds != nil {
 		enc.Bonds = make(map[common.Address]*math.HexOrDecimal256, len(a.Bonds))

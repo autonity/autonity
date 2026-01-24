@@ -658,7 +658,7 @@ func (srv *Server) setupLocalNode() error {
 	}
 	srv.nodedb = db
 	// Create the local node.
-	srv.localnode = enode.NewLocalNode(db, srv.PrivateKey)
+	srv.localnode = enode.NewLocalNode(db, srv.PrivateKey, srv.log)
 	srv.localnode.SetFallbackIP(net.IP{127, 0, 0, 1})
 	for _, p := range srv.Protocols {
 		for _, e := range p.Attributes {
@@ -1018,7 +1018,7 @@ func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *
 // listenLoop runs in its own goroutine and accepts
 // inbound connections.
 func (srv *Server) listenLoop() {
-	srv.log.Debug("TCP listener up", "addr", srv.listener.Addr())
+	srv.log.Debug("TCP listener up", "addr", srv.listener.Addr(), "server", srv.Net.String())
 
 	// The slots channel limits accepts of new connections.
 	tokens := defaultMaxPendingPeers
@@ -1052,13 +1052,13 @@ func (srv *Server) listenLoop() {
 			fd, err = srv.listener.Accept()
 			if netutil.IsTemporaryError(err) {
 				if time.Since(lastLog) > 1*time.Second {
-					srv.log.Debug("Temporary read error", "err", err)
+					srv.log.Debug("Temporary read error", "err", err, "server", srv.Net.String())
 					lastLog = time.Now()
 				}
 				time.Sleep(time.Millisecond * 200)
 				continue
 			} else if err != nil {
-				srv.log.Debug("Read error", "err", err)
+				srv.log.Debug("Read error", "err", err, "server", srv.Net.String())
 				slots <- struct{}{}
 				return
 			}
@@ -1067,14 +1067,14 @@ func (srv *Server) listenLoop() {
 
 		remoteIP := netutil.AddrAddr(fd.RemoteAddr())
 		if err := srv.checkInboundConn(remoteIP); err != nil {
-			srv.log.Debug("Rejected inbound connection", "addr", fd.RemoteAddr(), "err", err)
+			srv.log.Debug("Rejected inbound connection", "addr", fd.RemoteAddr(), "err", err, "server", srv.Net.String())
 			fd.Close()
 			slots <- struct{}{}
 			continue
 		}
 		if remoteIP.IsValid() {
 			fd = newMeteredConn(fd, true, nil, srv.Net)
-			srv.log.Trace("Accepted connection", "addr", fd.RemoteAddr())
+			srv.log.Trace("Accepted connection", "addr", fd.RemoteAddr(), "server", srv.Net.String())
 		}
 		go func() {
 			srv.SetupConn(fd, inboundConn, nil)

@@ -35,6 +35,7 @@ import (
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/triedb"
@@ -96,7 +97,7 @@ const (
 )
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
-type peerDropFn func(id string)
+type peerDropFn func(id string, reason p2p.DiscReason)
 
 // badBlockFn is a callback for the async beacon sync to notify the caller that
 // the origin header requested to sync to, produced a chain with a bad block.
@@ -344,7 +345,7 @@ func (d *Downloader) LegacySync(id string, head common.Hash, height *big.Int, mo
 			// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 			d.log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", id)
 		} else {
-			d.dropPeer(id)
+			d.dropPeer(id, p2p.DiscSyncFailed)
 		}
 		return err
 	}
@@ -1441,7 +1442,7 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, head uint64) e
 		default:
 			// Header retrieval either timed out, or the peer failed in some strange way
 			// (e.g. disconnect). Consider the master peer bad and drop
-			d.dropPeer(p.id)
+			d.dropPeer(p.id, p2p.DiscSyncFailed)
 
 			// Finish the sync gracefully instead of dumping the gathered data though
 			for _, ch := range []chan bool{d.queue.blockWakeCh, d.queue.receiptWakeCh} {

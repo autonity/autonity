@@ -199,8 +199,8 @@ type LegacyTxLookupEntry struct {
 	Index      uint64
 }
 
-// encodeBlockNumber encodes a block number as big endian uint64
-func encodeBlockNumber(number uint64) []byte {
+// encodeNumber encodes a number as big endian uint64
+func encodeNumber(number uint64) []byte {
 	enc := make([]byte, 8)
 	binary.BigEndian.PutUint64(enc, number)
 	return enc
@@ -208,30 +208,30 @@ func encodeBlockNumber(number uint64) []byte {
 
 // jailedCountKey = jailedValidatorCountPrefix + epochID (uint64 big endian)
 func jailedCountKey(number uint64) []byte {
-	return append(jailedValidatorCountPrefix, encodeBlockNumber(number)...)
+	return append(jailedValidatorCountPrefix, encodeNumber(number)...)
 }
 
 // jailedAddressKey = jailedValidatorAddressPrefix + jailedCount (uint64 big endian)
 func jailedAddressKey(epochID, index uint64) []byte {
 	return append(
 		jailedValidatorAddressPrefix,
-		append(encodeBlockNumber(epochID), encodeBlockNumber(index)...)...,
+		append(encodeNumber(epochID), encodeNumber(index)...)...,
 	)
 }
 
 // headerKeyPrefix = headerPrefix + num (uint64 big endian)
 func headerKeyPrefix(number uint64) []byte {
-	return append(headerPrefix, encodeBlockNumber(number)...)
+	return append(headerPrefix, encodeNumber(number)...)
 }
 
 // headerKey = headerPrefix + num (uint64 big endian) + hash
 func headerKey(number uint64, hash common.Hash) []byte {
-	return append(append(headerPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
+	return append(append(headerPrefix, encodeNumber(number)...), hash.Bytes()...)
 }
 
 // headerHashKey = headerPrefix + num (uint64 big endian) + headerHashSuffix
 func headerHashKey(number uint64) []byte {
-	return append(append(headerPrefix, encodeBlockNumber(number)...), headerHashSuffix...)
+	return append(append(headerPrefix, encodeNumber(number)...), headerHashSuffix...)
 }
 
 // headerNumberKey = headerNumberPrefix + hash
@@ -241,12 +241,12 @@ func headerNumberKey(hash common.Hash) []byte {
 
 // blockBodyKey = blockBodyPrefix + num (uint64 big endian) + hash
 func blockBodyKey(number uint64, hash common.Hash) []byte {
-	return append(append(blockBodyPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
+	return append(append(blockBodyPrefix, encodeNumber(number)...), hash.Bytes()...)
 }
 
 // blockReceiptsKey = blockReceiptsPrefix + num (uint64 big endian) + hash
 func blockReceiptsKey(number uint64, hash common.Hash) []byte {
-	return append(append(blockReceiptsPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
+	return append(append(blockReceiptsPrefix, encodeNumber(number)...), hash.Bytes()...)
 }
 
 // txLookupKey = txLookupPrefix + hash
@@ -285,7 +285,7 @@ func bloomBitsKey(bit uint, section uint64, hash common.Hash) []byte {
 
 // skeletonHeaderKey = skeletonHeaderPrefix + num (uint64 big endian)
 func skeletonHeaderKey(number uint64) []byte {
-	return append(skeletonHeaderPrefix, encodeBlockNumber(number)...)
+	return append(skeletonHeaderPrefix, encodeNumber(number)...)
 }
 
 // preimageKey = PreimagePrefix + hash
@@ -314,7 +314,7 @@ func configKey(hash common.Hash) []byte {
 
 // contractsConfigKey = contractsConfigPrefix + number (uint64 big endian)
 func contractsConfigKey(number uint64) []byte {
-	return append(contractsConfigPrefix, encodeBlockNumber(number)...)
+	return append(contractsConfigPrefix, encodeNumber(number)...)
 }
 
 // genesisStateSpecKey = genesisPrefix + hash

@@ -286,7 +286,7 @@ func (n *Node) Start() error {
 
 	utils.RegisterFilterAPI(n.Node, n.Eth.APIBackend, n.EthConfig)
 
-	acn.New(n.Node, n.Eth, ethconfig.Defaults.NetworkId)
+	acn.New(n.Node, n.Eth, n.EthConfig.NetworkId)
 	if err = n.Node.Start(); err != nil {
 		return fmt.Errorf("failed to start a node: %w", err)
 	}

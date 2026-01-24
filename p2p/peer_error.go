@@ -59,7 +59,7 @@ var errProtocolReturned = errors.New("protocol returned")
 
 const syncFailedSuspensionSpan = 30 * time.Second
 
-type DiscReason uint
+type DiscReason uint8
 
 const (
 	DiscRequested DiscReason = iota

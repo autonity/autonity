@@ -28,6 +28,7 @@ import (
 	"github.com/autonity/autonity/common/mclock"
 	"github.com/autonity/autonity/core/txpool"
 	"github.com/autonity/autonity/core/types"
+	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
 )
 
@@ -1557,7 +1558,7 @@ func TestInvalidAnnounceMetadata(t *testing.T) {
 					return make([]error, len(txs))
 				},
 				func(string, []common.Hash) error { return nil },
-				func(peer string) { drop <- peer },
+				func(peer string, reason p2p.DiscReason) { drop <- peer },
 			)
 		},
 		steps: []interface{}{
@@ -1764,6 +1765,7 @@ func TestTransactionFetcherFuzzCrash04(t *testing.T) {
 // This test ensures the blob transactions will be scheduled for fetching
 // once they are announced in the network.
 func TestBlobTransactionAnnounce(t *testing.T) {
+	t.Skip("Blob transactions (EIP-4844) are not supported in Autonity")
 	testTransactionFetcherParallel(t, txFetcherTest{
 		init: func() *TxFetcher {
 			return NewTxFetcher(
@@ -2177,7 +2179,7 @@ func TestTransactionForgotten(t *testing.T) {
 			return errs
 		},
 		func(string, []common.Hash) error { return nil },
-		func(string) {},
+		func(string, p2p.DiscReason) {},
 		mockClock,
 		mockTime,
 		rand.New(rand.NewSource(0)), // Use fixed seed for deterministic behavior

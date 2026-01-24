@@ -28,6 +28,7 @@ import (
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/trie"
 )
 
@@ -93,7 +94,7 @@ type headersInsertFn func(headers []*types.Header) (int, error)
 type chainInsertFn func(types.Blocks) (int, error)
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
-type peerDropFn func(id string)
+type peerDropFn func(id string, reason p2p.DiscReason)
 
 // blockAnnounce is the hash notification of the availability of a new block in the
 // network.
@@ -490,7 +491,7 @@ func (f *BlockFetcher) loop() {
 								// was already rescheduled at this point, we were
 								// waiting for a catchup. With an unresponsive
 								// peer however, it's a protocol violation.
-								f.dropPeer(peer)
+								f.dropPeer(peer, p2p.DiscUselessPeer)
 							}
 						}(hash)
 					}
@@ -549,7 +550,7 @@ func (f *BlockFetcher) loop() {
 						// was already rescheduled at this point, we were
 						// waiting for a catchup. With an unresponsive
 						// peer however, it's a protocol violation.
-						f.dropPeer(peer)
+						f.dropPeer(peer, p2p.DiscUselessPeer)
 					}
 				}(peer, hashes)
 			}
@@ -579,7 +580,7 @@ func (f *BlockFetcher) loop() {
 					// If the delivered header does not match the promised number, drop the announcer
 					if header.Number.Uint64() != announce.number {
 						f.log.Trace("Invalid block number fetched", "peer", announce.origin, "hash", header.Hash(), "announced", announce.number, "provided", header.Number)
-						f.dropPeer(announce.origin)
+						f.dropPeer(announce.origin, p2p.DiscUselessPeer)
 						f.forgetHash(hash)
 						continue
 					}
@@ -808,7 +809,12 @@ func (f *BlockFetcher) importHeaders(peer string, header *types.Header) {
 	f.log.Debug("Importing propagated header", "peer", peer, "number", header.Number, "hash", hash)
 
 	go func() {
-		defer func() { f.done <- hash }()
+		defer func() {
+			select {
+			case <-f.quit:
+			case f.done <- hash:
+			}
+		}()
 		// If the parent's unknown, abort insertion
 		parent := f.getHeader(header.ParentHash)
 		if parent == nil {
@@ -816,9 +822,9 @@ func (f *BlockFetcher) importHeaders(peer string, header *types.Header) {
 			return
 		}
 		// Validate the header and if something went wrong, drop the peer
-		if err := f.verifyHeader(header); err != nil && err != consensus.ErrFutureBlock {
+		if err := f.verifyHeader(header); err != nil && err != consensus.ErrFutureTimestampBlock {
 			f.log.Debug("Propagated header verification failed", "peer", peer, "number", header.Number, "hash", hash, "err", err)
-			f.dropPeer(peer)
+			f.dropPeer(peer, p2p.DiscUselessPeer)
 			return
 		}
 		// Run the actual import and log any issues
@@ -842,7 +848,12 @@ func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 	// Run the import on a new thread
 	f.log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", hash)
 	go func() {
-		defer func() { f.done <- hash }()
+		defer func() {
+			select {
+			case <-f.quit:
+			case f.done <- hash:
+			}
+		}()
 
 		// If the parent's unknown, abort insertion
 		parent := f.getBlock(block.ParentHash())
@@ -857,13 +868,13 @@ func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 			blockBroadcastOutTimer.UpdateSince(block.ReceivedAt)
 			go f.broadcastBlock(block, true)
 
-		case consensus.ErrFutureBlock:
+		case consensus.ErrFutureTimestampBlock:
 			// Weird future block, don't fail, but neither propagate
 
 		default:
 			// Something went very wrong, drop the peer
 			f.log.Debug("Propagated block verification failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
-			f.dropPeer(peer)
+			f.dropPeer(peer, p2p.DiscUselessPeer)
 			return
 		}
 		// Run the actual import and log any issues

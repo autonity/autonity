@@ -1897,7 +1897,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node, readonly bool) (*core.BlockCh
 	evMux := new(event.TypeMux)
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
-	engine := ethconfig.CreateConsensusEngine(chainDb, stack, &vm.Config{}, evMux, msgStore, nil)
+	engine := ethconfig.CreateConsensusEngine(chainDb, stack, &vm.Config{}, evMux, msgStore, nil, gspec.Config)
 	if gcmode := ctx.String(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}

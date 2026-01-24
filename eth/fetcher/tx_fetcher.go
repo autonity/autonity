@@ -31,6 +31,7 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/metrics"
+	"github.com/autonity/autonity/p2p"
 )
 
 const (
@@ -200,7 +201,7 @@ type TxFetcher struct {
 	hasTx    func(common.Hash) bool             // Retrieves a tx from the local txpool
 	addTxs   func([]*types.Transaction) []error // Insert a batch of transactions into local txpool
 	fetchTxs func(string, []common.Hash) error  // Retrieves a set of txs from a remote peer
-	dropPeer func(string)                       // Drops a peer in case of announcement violation
+	dropPeer func(string, p2p.DiscReason)        // Drops a peer in case of announcement violation
 
 	step     chan struct{}    // Notification channel when the fetcher loop iterates
 	clock    mclock.Clock     // Monotonic clock or simulated clock for tests
@@ -210,14 +211,14 @@ type TxFetcher struct {
 
 // NewTxFetcher creates a transaction fetcher to retrieve transaction
 // based on hash announcements.
-func NewTxFetcher(hasTx func(common.Hash) bool, addTxs func([]*types.Transaction) []error, fetchTxs func(string, []common.Hash) error, dropPeer func(string)) *TxFetcher {
+func NewTxFetcher(hasTx func(common.Hash) bool, addTxs func([]*types.Transaction) []error, fetchTxs func(string, []common.Hash) error, dropPeer func(string, p2p.DiscReason)) *TxFetcher {
 	return NewTxFetcherForTests(hasTx, addTxs, fetchTxs, dropPeer, mclock.System{}, time.Now, nil)
 }
 
 // NewTxFetcherForTests is a testing method to mock out the realtime clock with
 // a simulated version and the internal randomness with a deterministic one.
 func NewTxFetcherForTests(
-	hasTx func(common.Hash) bool, addTxs func([]*types.Transaction) []error, fetchTxs func(string, []common.Hash) error, dropPeer func(string),
+	hasTx func(common.Hash) bool, addTxs func([]*types.Transaction) []error, fetchTxs func(string, []common.Hash) error, dropPeer func(string, p2p.DiscReason),
 	clock mclock.Clock, realTime func() time.Time, rand *mrand.Rand) *TxFetcher {
 	return &TxFetcher{
 		notify:      make(chan *txAnnounce),
@@ -649,10 +650,10 @@ func (f *TxFetcher) loop() {
 			for i, hash := range delivery.hashes {
 				if _, ok := f.waitlist[hash]; ok {
 					for peer, txset := range f.waitslots {
-						if meta := txset[hash]; meta.txMetadata != nil {
+						if meta := txset[hash]; meta != nil && meta.txMetadata != nil {
 							if delivery.metas[i].kind != meta.kind {
 								log.Warn("Announced transaction type mismatch", "peer", peer, "tx", hash, "type", delivery.metas[i].kind, "ann", meta.kind)
-								f.dropPeer(peer)
+								f.dropPeer(peer, p2p.DiscUselessPeer)
 							} else if delivery.metas[i].size != meta.size {
 								if math.Abs(float64(delivery.metas[i].size)-float64(meta.size)) > 8 {
 									log.Warn("Announced transaction size mismatch", "peer", peer, "tx", hash, "size", delivery.metas[i].size, "ann", meta.size)
@@ -662,7 +663,7 @@ func (f *TxFetcher) loop() {
 									// wiggle-room where we only warn, but don't drop.
 									//
 									// TODO(karalabe): Get rid of this relaxation when clients are proven stable.
-									f.dropPeer(peer)
+									f.dropPeer(peer, p2p.DiscUselessPeer)
 								}
 							}
 						}
@@ -675,10 +676,10 @@ func (f *TxFetcher) loop() {
 					delete(f.waittime, hash)
 				} else {
 					for peer, txset := range f.announces {
-						if meta := txset[hash]; meta.txMetadata != nil {
+						if meta := txset[hash]; meta != nil && meta.txMetadata != nil {
 							if delivery.metas[i].kind != meta.kind {
 								log.Warn("Announced transaction type mismatch", "peer", peer, "tx", hash, "type", delivery.metas[i].kind, "ann", meta.kind)
-								f.dropPeer(peer)
+								f.dropPeer(peer, p2p.DiscUselessPeer)
 							} else if delivery.metas[i].size != meta.size {
 								if math.Abs(float64(delivery.metas[i].size)-float64(meta.size)) > 8 {
 									log.Warn("Announced transaction size mismatch", "peer", peer, "tx", hash, "size", delivery.metas[i].size, "ann", meta.size)
@@ -688,7 +689,7 @@ func (f *TxFetcher) loop() {
 									// wiggle-room where we only warn, but don't drop.
 									//
 									// TODO(karalabe): Get rid of this relaxation when clients are proven stable.
-									f.dropPeer(peer)
+									f.dropPeer(peer, p2p.DiscUselessPeer)
 								}
 							}
 						}

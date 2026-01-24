@@ -195,7 +195,7 @@ func getGenesisState(db ethdb.Database, blockhash common.Hash) (alloc types.Gene
 	var genesis *Genesis
 	switch blockhash {
 	case params.MainnetGenesisHash:
-		genesis = DefaultGenesisBlock()
+		genesis = DefaultMainnetGenesisBlock()
 	}
 	if genesis != nil {
 		return genesis.Alloc, nil
@@ -267,7 +267,7 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, triedb *triedb.Database, g
 		// genesis will be used as default and the initialization will always fail.
 		if genesis == nil {
 			log.Info("Writing default main-net genesis block")
-			genesis = DefaultGenesisBlock()
+			genesis = DefaultMainnetGenesisBlock()
 		} else {
 			log.Info("Writing custom genesis block")
 		}

@@ -31,6 +31,7 @@ import (
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
 )
 
 // hookedBackfiller is a tester backfiller with all interface methods mocked and
@@ -842,7 +843,7 @@ func TestSkeletonSyncRetrievals(t *testing.T) {
 		}
 		// Create a peer dropper to track malicious peers
 		dropped := make(map[string]int)
-		drop := func(peer string) {
+		drop := func(peer string, reason p2p.DiscReason) {
 			if p := peerset.Peer(peer); p != nil {
 				p.peer.(*skeletonTestPeer).dropped.Add(1)
 			}

@@ -24,6 +24,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
+	"github.com/autonity/autonity/consensus/ethash"
 	tendermintBackend "github.com/autonity/autonity/consensus/tendermint/backend"
 	tendermintcore "github.com/autonity/autonity/consensus/tendermint/core"
 	"github.com/autonity/autonity/consensus/tendermint/events"
@@ -170,12 +171,11 @@ type MinerConfig struct {
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
-func CreateConsensusEngine(db ethdb.Database, ctx *node.Node, vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore, afdDispatchCh chan<- events.MessageEventer) consensus.Engine {
-	/*
-		if testMode {
-			return ethash.NewFullFaker()
-		}
-	*/
+func CreateConsensusEngine(db ethdb.Database, ctx *node.Node, vmConfig *vm.Config, evMux *event.TypeMux, ms *tendermintcore.MsgStore, afdDispatchCh chan<- events.MessageEventer, chainConfig *params.ChainConfig) consensus.Engine {
+	// Use ethash faker for tests that don't need full Tendermint consensus
+	if chainConfig != nil && chainConfig.TestMode {
+		return ethash.NewFullFaker()
+	}
 	nodeKey, consensusKey := ctx.Config().AutonityKeys()
 	return tendermintBackend.New(db, nodeKey, consensusKey, vmConfig, ctx.Config().TendermintServices(), evMux, ms, afdDispatchCh, ctx.Logger())
 }

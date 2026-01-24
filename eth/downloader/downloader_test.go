@@ -36,6 +36,7 @@ import (
 	"github.com/autonity/autonity/eth/protocols/snap"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 	"github.com/autonity/autonity/trie"
@@ -111,7 +112,7 @@ func (dl *downloadTester) newPeer(id string, version uint, blocks []*types.Block
 }
 
 // dropPeer simulates a hard peer removal from the connection pool.
-func (dl *downloadTester) dropPeer(id string) {
+func (dl *downloadTester) dropPeer(id string, reason p2p.DiscReason) {
 	dl.lock.Lock()
 	defer dl.lock.Unlock()
 

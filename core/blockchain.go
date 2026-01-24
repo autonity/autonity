@@ -1550,7 +1550,7 @@ func (bc *BlockChain) writeBlockWithoutState(block *types.Block) (err error) {
 // and introduces chain reorg if necessary.
 func (bc *BlockChain) writeKnownBlock(block *types.Block) error {
 	current := bc.CurrentBlock()
-	if block.ParentHash() != current.Hash() {
+	if block.ParentHash() != current.Hash() && block.Hash() != current.Hash() {
 		if err := bc.reorg(current, block.Header()); err != nil {
 			return err
 		}
@@ -1652,7 +1652,7 @@ func (bc *BlockChain) WriteBlockAndSetHead(block *types.Block, receipts []*types
 	currentBlock := bc.CurrentBlock()
 
 	// Reorganise the chain if the parent is not the head block
-	if block.ParentHash() != currentBlock.Hash() {
+	if block.ParentHash() != currentBlock.Hash() && block.Hash() != currentBlock.Hash() {
 		if err := bc.reorg(currentBlock, block.Header()); err != nil {
 			return NonStatTy, err
 		}
@@ -2548,7 +2548,7 @@ func (bc *BlockChain) SetCanonical(head *types.Block) (common.Hash, error) {
 	}
 	// Run the reorg if necessary and set the given block as new head.
 	start := time.Now()
-	if head.ParentHash() != bc.CurrentBlock().Hash() {
+	if head.ParentHash() != bc.CurrentBlock().Hash() && head.Hash() != bc.CurrentBlock().Hash() {
 		if err := bc.reorg(bc.CurrentBlock(), head.Header()); err != nil {
 			return common.Hash{}, err
 		}

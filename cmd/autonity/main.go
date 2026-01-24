@@ -176,7 +176,7 @@ func init() {
 	// Initialize the CLI app and start Autonity
 	app.Action = autonity
 	app.HideVersion = true // we have a command to print the version
-	app.Copyright = ""
+	app.Copyright = "Copyright 2013-2022 The go-ethereum Authors"
 	app.Commands = []*cli.Command{
 		// See chaincmd.go:
 		importCommand,

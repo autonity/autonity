@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/p2p/enr"
 	"github.com/autonity/autonity/p2p/netutil"
 	"github.com/stretchr/testify/assert"
@@ -31,7 +32,7 @@ import (
 func newLocalNodeForTesting() (*LocalNode, *DB) {
 	db, _ := OpenDB("")
 	key, _ := crypto.GenerateKey()
-	return NewLocalNode(db, key), db
+	return NewLocalNode(db, key, log.Root()), db
 }
 
 func TestLocalNode(t *testing.T) {
@@ -71,7 +72,7 @@ func TestLocalNodeSeqPersist(t *testing.T) {
 	// Create a new instance, it should reload the sequence number.
 	// The number increases just after that because a new record is
 	// created without the "x" entry.
-	ln2 := NewLocalNode(db, ln.key)
+	ln2 := NewLocalNode(db, ln.key, log.Root())
 	if s := ln2.Node().Seq(); s != initialSeq+2 {
 		t.Fatalf("wrong seq %d on new instance, want %d", s, initialSeq+2)
 	}
@@ -81,7 +82,7 @@ func TestLocalNodeSeqPersist(t *testing.T) {
 	// Create a new instance with a different node key on the same database.
 	// This should reset the sequence number.
 	key, _ := crypto.GenerateKey()
-	ln3 := NewLocalNode(db, key)
+	ln3 := NewLocalNode(db, key, log.Root())
 	if s := ln3.Node().Seq(); s < finalSeq {
 		t.Fatalf("wrong seq %d on instance with changed key, want >= %d", s, finalSeq)
 	}

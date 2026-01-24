@@ -510,7 +510,7 @@ func (d *dialScheduler) dnsResolveHostname(n *enode.Node) (*enode.Node, error) {
 // startDial runs the given dial task in a separate goroutine.
 func (d *dialScheduler) startDial(task *dialTask) {
 	node := task.dest()
-	d.log.Trace("Starting p2p dial", "id", node.ID(), "endpoint", nodeEndpointForLog(node), "flag", task.flags)
+	d.log.Trace("Starting p2p dial", "id", node.ID(), "endpoint", nodeEndpointForLog(node), "flag", task.flags, "server", d.net.String())
 	hkey := string(node.ID().Bytes())
 	randomDelay := time.Duration(mrand.Intn(1000)) * time.Millisecond
 	if d.net == Consensus {
@@ -618,7 +618,7 @@ func (t *dialTask) resolve(d *dialScheduler) bool {
 	t.resolveDelay = initialResolveDelay
 	t.destPtr.Store(resolved)
 	resAddr, _ := resolved.TCPEndpoint()
-	d.log.Debug("Resolved node", "id", resolved.ID(), "addr", resAddr)
+	d.log.Debug("Resolved node", "id", resolved.ID(), "addr", resAddr, "server", d.net.String())
 	return true
 }
 

@@ -319,7 +319,7 @@ func makeDiscoveryConfig(ctx *cli.Context) (*enode.LocalNode, discover.Config) {
 	if err != nil {
 		exit(err)
 	}
-	ln := enode.NewLocalNode(db, cfg.PrivateKey)
+	ln := enode.NewLocalNode(db, cfg.PrivateKey, log.Root())
 	return ln, cfg
 }
 

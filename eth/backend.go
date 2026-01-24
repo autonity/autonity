@@ -96,8 +96,6 @@ type Ethereum struct {
 	engine         consensus.Engine
 	accountManager *accounts.Manager
 
-	closeBloomHandler chan struct{}
-
 	filterMaps      *filtermaps.FilterMaps
 	closeFilterMaps chan chan struct{}
 
@@ -205,7 +203,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	afdDispatchCh := make(chan events.MessageEventer, 10000) // fauld detector needs to process old + new message so double buffer for FD
 	// single instance of msgStore shared by misbehaviour detector and omission fault detector.
 	msgStore := tendermintcore.NewMsgStore()
-	consensusEngine := ethconfig.CreateConsensusEngine(chainDb, stack, &vmConfig, evMux, msgStore, afdDispatchCh)
+	consensusEngine := ethconfig.CreateConsensusEngine(chainDb, stack, &vmConfig, evMux, msgStore, afdDispatchCh, chainConfig)
 	stack.Logger().Info("Initialised chain configuration", "config", chainConfig)
 
 	nodeKey, _ := stack.Config().AutonityKeys()
@@ -216,7 +214,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		eventMux:          stack.EventMux(),
 		accountManager:    stack.AccountManager(),
 		engine:            consensusEngine,
-		closeBloomHandler: make(chan struct{}),
 		networkID:         networkID,
 		gasPrice:          config.Miner.GasPrice,
 		p2pServer:         stack.ExecutionServer(),
@@ -390,16 +387,11 @@ func (s *Ethereum) APIs() []rpc.API {
 	// Append any APIs exposed explicitly by the consensus engine
 	apis = append(apis, s.engine.APIs(s.BlockChain())...)
 
-	/* Todo(youssef): revisit aut api
-	if _, ok := s.engine.(consensus.BFT); ok {
-		apis = append(apis, rpc.API{
-			Namespace: "aut",
-			Version:   params.Version,
-			Service:   NewAutonityContractAPI(s.BlockChain(), s.BlockChain().ProtocolContracts(), s.consensusServer),
-			Public:    true,
-		})
-	}
-	*/
+	// Note: The aut.* API namespace has been removed as redundant:
+	// - aut.config() -> use eth_call to autonity.getConfig()
+	// - aut.address() -> constant AutonityContractAddress
+	// - aut.acnPeers() -> admin.peers now includes consensus peers
+
 	return append(apis, []rpc.API{
 		{
 			Namespace: "miner",

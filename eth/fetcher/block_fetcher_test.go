@@ -32,6 +32,7 @@ import (
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth/protocols/eth"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/trie"
 	"github.com/autonity/autonity/triedb"
@@ -60,7 +61,7 @@ func makeChain(n int, seed byte, parent *types.Block) ([]common.Hash, map[common
 
 		// If the block number is multiple of 3, send a bonus transaction to the miner
 		if parent == genesis && i%3 == 0 {
-			signer := types.MakeSigner(params.TestChainConfig, block.Number())
+			signer := types.MakeSigner(gspec.Config, block.Number())
 			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, block.BaseFee(), nil), signer, testKey)
 			if err != nil {
 				panic(err)
@@ -189,7 +190,7 @@ func (f *fetcherTester) insertChain(blocks types.Blocks) (int, error) {
 
 // dropPeer is an emulator for the peer removal, simply accumulating the various
 // peers dropped by the fetcher.
-func (f *fetcherTester) dropPeer(peer string) {
+func (f *fetcherTester) dropPeer(peer string, reason p2p.DiscReason) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 

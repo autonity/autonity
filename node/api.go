@@ -298,13 +298,19 @@ func (api *adminAPI) StopWS() (bool, error) {
 }
 
 // Peers retrieves all the information we know about each individual peer at the
-// protocol granularity.
+// protocol granularity. Returns peers from both execution and consensus networks.
 func (api *adminAPI) Peers() ([]*p2p.PeerInfo, error) {
 	server := api.node.ExecutionServer()
 	if server == nil {
 		return nil, ErrNodeStopped
 	}
-	return server.PeersInfo(), nil
+	peers := server.PeersInfo()
+
+	// Also include consensus network peers
+	if consensusServer := api.node.ConsensusServer(); consensusServer != nil {
+		peers = append(peers, consensusServer.PeersInfo()...)
+	}
+	return peers, nil
 }
 
 // NodeInfo retrieves all the information we know about the host node at the
