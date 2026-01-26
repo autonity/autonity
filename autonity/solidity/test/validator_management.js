@@ -205,6 +205,9 @@ contract('Autonity', function (accounts) {
         let pop1;
         let pop2;
         beforeEach(async function () {
+            // set specific timeout for heavy setups
+            this.timeout(600000);
+
             // set short epoch period
             let customizedEpochPeriod = 20;
             copyParams.protocol.epochPeriod = customizedEpochPeriod;

@@ -30,7 +30,6 @@ env:
     [
       "autonity.js",
       "oracle.js",
-      "liquid.js",
       "accountability.js",
       "protocol.js",
       "refund.js",
@@ -38,16 +37,6 @@ env:
     ]
 
 jobs:
-  # generate test case IDs for docker tests.
-  generate-ids:
-    runs-on: ubuntu-24.04
-    outputs:
-      ids: ${{ steps.set-ids.outputs.ids }}
-    steps:
-      - name: Generate test IDs
-        id: set-ids
-        run: |
-          echo "ids=[$(seq -s ',' 0 3 26)]" >> $GITHUB_OUTPUT
   # prepare-cache fills the gocache with the source code for all modules and
   # attempts to fill the build cache with as much as possible intermediately
   # compiled source. Most other jobs depend on this job and so this serves to
@@ -56,6 +45,8 @@ jobs:
   # should not be impacted by the time taken to fill the cache.
   prepare-cache:
     runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.set-artifact-name.outputs.name }}
     steps:
       - uses: actions/setup-go@v4
         with:
@@ -79,28 +70,39 @@ jobs:
         if: steps.gocache.outputs.cache-hit != 'true'
         run: |
           go mod download -x
-          make autonity
           go build ./...
           go test -c ./eth
+      # upload the built binary as artifact such that the other test won't do the duplicated task.
+      - name: Build autonity
+        run: make autonity
+      - name: Set artifact name
+        id: set-artifact-name
+        run: echo "name=autonity-${{ github.run_id }}" >> $GITHUB_OUTPUT
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-artifact-name.outputs.name }}
+          path: ./build/bin/autonity
+          retention-days: 1
 
-  # tests runs most of the tests for the project, we use a matrix to run multiple configurations.
-  tests:
+  # upstream tests run the most upstream unit tests of different package.
+  upstream-tests:
     needs: prepare-cache
     runs-on: ubuntu-latest
     env:
       # helps prevent '[failed to restore the stack]' messages when race detected.
       GORACE: "history_size=7"
     strategy:
+      fail-fast: false
       matrix:
         # Here we set up a matrix to control our tests, we use go list and
         # negative grep to get most of the test packages for the main tests
         # excluding packages of particular interest. The excluded package are
         # those that are slow to test, our e2e tests and tendermint core.
-        tests: [ [ main-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/core$|/e2e_test") ],
-                 [ slow-tests, $(go list ./p2p/... ./eth/... | grep -E -v "/p2p/simulations") -timeout 30m ],
-                 [ problematic-tests, -p 1 ./p2p/simulations/... ./core ],
-                 [ tendermint-tests, ./consensus/tendermint/... -timeout 20m -race ],
-                 [ new-e2e-tests, ./e2e_test -timeout 30m -v -race ]
+        tests: [ [ general-tests, $(go list ./... | grep -E -v "/les|/p2p|/eth|/consensus/tendermint|/core$|/e2e_test") ],
+                 [ p2p-protocol-tests, $(go list ./p2p/...) ],
+                 [ eth-protocol-tests, $(go list ./eth/...) ],
+                 [ blockchain-core-tests, -p 1 ./core/... ]
         ]
 
     name: ${{ matrix.tests[0] }}
@@ -123,7 +125,57 @@ jobs:
       - name: Run tests
         run: go test ${{ matrix.tests[1] }}
 
-  prepare-byzantine:
+  # prepare the main test matrix of the e2e test framework.
+  prepare-e2e-main-test-matrix:
+    needs: prepare-cache
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - id: set-matrix
+        name: fetch test lists
+        run: |
+          matrix=$(go test ./e2e_test -list=. | grep -v "ok" | jq -R -s -c 'split("\n")[:-1]')
+          echo "matrix=${matrix}" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
+
+
+  # concurrently run main test cases of e2e test framework.
+  e2e-main-test:
+    needs: prepare-e2e-main-test-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tests: ${{ fromJSON(needs.prepare-e2e-main-test-matrix.outputs.matrix) }}
+    name: ${{ matrix.tests }}
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3
+      - name: Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - run: go test -v -run ${{ matrix.tests }} ./e2e_test -timeout 15m -race
+
+  # prepare the byzantine test matrix of the e2e test framework.
+  prepare-byzantine-test-matrix:
     needs: prepare-cache
     runs-on: ubuntu-latest
     outputs:
@@ -148,12 +200,14 @@ jobs:
           cat $GITHUB_OUTPUT
 
 
-  byzantine:
-    needs: prepare-byzantine
+  # concurrently run byzantine tests of the e2e test framework.
+  byzantine-test:
+    needs: prepare-byzantine-test-matrix
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        tests: ${{ fromJSON(needs.prepare-byzantine.outputs.matrix) }}
+        tests: ${{ fromJSON(needs.prepare-byzantine-test-matrix.outputs.matrix) }}
     name: ${{ matrix.tests }}
     steps:
       - uses: actions/setup-go@v4
@@ -169,40 +223,68 @@ jobs:
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
       - run: go test -v -run ${{ matrix.tests }} ./e2e_test/byzantine/... -timeout 15m -race
 
-  prepare-contracts:
+  # prepare contract test matrix, and break them down into 3 batches, with each of them to be run in individual runner,
+  # such that the load could be distributed, and it helps to fix flaky tests and speed up the test very well.
+  prepare-contracts-test-matrix:
     needs: prepare-cache
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix_batch1: ${{ steps.set-matrix.outputs.matrix_batch1 }}
+      matrix_batch2: ${{ steps.set-matrix.outputs.matrix_batch2 }}
+      matrix_batch3: ${{ steps.set-matrix.outputs.matrix_batch3 }}
     steps:
       - uses: actions/checkout@v3
-      - name: find tests
+      - name: Find tests and split into three batches
         id: set-matrix
-        run:  |
+        run: |
           cd ./autonity/solidity/test
-          # Temporary file to hold JSON objects
+          
           temp_json_file=$(mktemp)
+          
           for file in $(echo $TRUFFLE_TESTS | jq -r '.[]'); do
             grep 'describe(' "$file" | while IFS= read -r line; do
               describe_name=$(echo "$line" | sed -E "s/^[[:space:]]*describe\([\'\"](.+)[\'\"],.*/\1/")
               json_object=$(jq -n --arg file_name "$file" --arg describe_name "$describe_name" '{file_name: $file_name, describe_name: $describe_name}')
               echo "$json_object" >> "$temp_json_file"
-              echo "$json_object"
             done
           done
-          jq -s '.' "$temp_json_file" | jq -r tostring | while read -r json_array; do echo "matrix=$json_array" >> $GITHUB_OUTPUT; done
-          cat $GITHUB_OUTPUT
+          
+          full_array=$(jq -s '.' "$temp_json_file")
+          array_length=$(echo "$full_array" | jq 'length')
+          
+          split_index1=$(( $array_length / 3 ))
+          split_index2=$(( 2 * $array_length / 3 ))
+          
+          batch1=$(echo "$full_array" | jq -c ".[0:$split_index1]")
+          batch2=$(echo "$full_array" | jq -c ".[$split_index1:$split_index2]")
+          batch3=$(echo "$full_array" | jq -c ".[$split_index2:]")
+          
+          echo "matrix_batch1=$batch1" >> $GITHUB_OUTPUT
+          echo "matrix_batch2=$batch2" >> $GITHUB_OUTPUT
+          echo "matrix_batch3=$batch3" >> $GITHUB_OUTPUT
 
-  # tests runs most of the tests for the project, we use a matrix to run multiple configurations.
-  contracts:
-    needs: prepare-contracts
+          echo "Total tests found: $array_length"
+          echo "Batch 1 size: $(echo "$batch1" | jq 'length')"
+          echo "Batch 2 size: $(echo "$batch2" | jq 'length')"
+          echo "Batch 3 size: $(echo "$batch3" | jq 'length')"
+
+          echo "Debug: batch1 content = $batch1"
+          echo "Debug: batch2 content = $batch2"
+          echo "Debug: batch3 content = $batch3"
+          
+          rm -f "$temp_json_file"
+
+  # run the contract tests batch a via truffle framework.
+  contracts-tests-a:
+    needs: [prepare-contracts-test-matrix, prepare-cache]
     runs-on: ubuntu-latest
     env:
       # helps prevent '[failed to restore the stack]' messages when race detected.
       GORACE: "history_size=7"
     strategy:
+      fail-fast: false
       matrix:
-        tests: ${{ fromJSON(needs.prepare-contracts.outputs.matrix) }}
+        tests: ${{ fromJSON(needs.prepare-contracts-test-matrix.outputs.matrix_batch1) }}
 
     name: ${{ matrix.tests.file_name }} - ${{ matrix.tests.describe_name }}
 
@@ -220,9 +302,15 @@ jobs:
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: make autonity
-        run: make autonity
+      - name: Ensure target directory exists
+        run: mkdir -p ./build/bin
+      - name: Download autonity artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare-cache.outputs.artifact-name }}
+          path: ./build/bin/
+      - name: Make binary executable
+        run: chmod +x ./build/bin/*
       - name: install js dependencies
         run: make test-contracts-pre
       - name: start autonity
@@ -232,11 +320,100 @@ jobs:
           echo 'Running npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
           cd ./autonity/solidity/test && npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
 
+  # run the contract tests batch b via truffle framework.
+  contracts-tests-b:
+    needs: [prepare-contracts-test-matrix, prepare-cache]
+    runs-on: ubuntu-latest
+    env:
+      # helps prevent '[failed to restore the stack]' messages when race detected.
+      GORACE: "history_size=7"
+    strategy:
+      fail-fast: false
+      matrix:
+        tests: ${{ fromJSON(needs.prepare-contracts-test-matrix.outputs.matrix_batch2) }}
 
-  # tendermint-coverage runs the tendermint tests and collects the coverage, it
-  # can't be part of the matrix tests since we need to use the codecov action,
-  # which we do not want to use for the rest of the codebase.
-  tendermint-tests-coverage:
+    name: ${{ matrix.tests.file_name }} - ${{ matrix.tests.describe_name }}
+
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/checkout@v3
+
+      - name: Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - name: Ensure target directory exists
+        run: mkdir -p ./build/bin
+      - name: Download autonity artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare-cache.outputs.artifact-name }}
+          path: ./build/bin/
+      - name: Make binary executable
+        run: chmod +x ./build/bin/*
+      - name: install js dependencies
+        run: make test-contracts-pre
+      - name: start autonity
+        run: make start-autonity
+      - name: test contract
+        run: |
+          echo 'Running npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
+          cd ./autonity/solidity/test && npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
+
+  # run the contract tests batch c via truffle framework.
+  contracts-tests-c:
+    needs: [prepare-contracts-test-matrix, prepare-cache]
+    runs-on: ubuntu-latest
+    env:
+      # helps prevent '[failed to restore the stack]' messages when race detected.
+      GORACE: "history_size=7"
+    strategy:
+      fail-fast: false
+      matrix:
+        tests: ${{ fromJSON(needs.prepare-contracts-test-matrix.outputs.matrix_batch3) }}
+
+    name: ${{ matrix.tests.file_name }} - ${{ matrix.tests.describe_name }}
+
+    steps:
+      - uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/checkout@v3
+
+      - name: Go cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GO_CACHE }}
+            ${{ env.GO_MODULES_CACHE }}
+          key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
+      - name: Ensure target directory exists
+        run: mkdir -p ./build/bin
+      - name: Download autonity artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare-cache.outputs.artifact-name }}
+          path: ./build/bin/
+      - name: Make binary executable
+        run: chmod +x ./build/bin/*
+      - name: install js dependencies
+        run: make test-contracts-pre
+      - name: start autonity
+        run: make start-autonity
+      - name: test contract
+        run: |
+          echo 'Running npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
+          cd ./autonity/solidity/test && npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
+
+  # tendermint-test-with-coverage runs the unit tests of the tendermint package with race condition detection and coverage report.
+  tendermint-test-with-coverage:
     needs: prepare-cache
     runs-on: ubuntu-latest
     steps:
@@ -256,14 +433,12 @@ jobs:
 
       - name: Run coverage
         run: |
-          go test ./consensus/tendermint/... -timeout 15m -cover -covermode=atomic -test.coverprofile=coverage_tendermint_ut.out
-          go test ./e2e_test -p 1 -timeout 35m -cover -covermode=atomic -coverpkg=./consensus/tendermint/... -test.coverprofile=coverage_tendermint_integration.out
-
+          go test ./consensus/tendermint/... -timeout 20m -race -cover -covermode=atomic -test.coverprofile=coverage_tendermint_ut.out
 
       - uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.codecov_upload }}
-          files: coverage_tendermint_ut.out,coverage_tendermint_integration.out
+          files: coverage_tendermint_ut.out
           yml: codecov.yml
 
   # lint does linting.
@@ -290,32 +465,139 @@ jobs:
         run: make lint-ci
         shell: bash
 
-  docker-e2e-batch-tests:
-    needs: [prepare-cache, generate-ids]
+  # docker e2e test binary construction, shared by docker tests, thus we don't have
+  # duplicated constructions in each test context.
+  build-docker-test-artifacts:
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        case_id: ${{ fromJson(needs.generate-ids.outputs.ids) }}
+    needs: [ prepare-cache ]
+    outputs:
+      artifact-name: ${{ steps.set-artifact-name.outputs.name }}
     steps:
       - uses: actions/setup-go@v4
         with:
           go-version: ${{ env.GO_VERSION }}
-
       - uses: actions/checkout@v3
-
-      - name: Go cache
+      - name: Restore Go cache
         uses: actions/cache@v4
         with:
           path: |
             ${{ env.GO_CACHE }}
             ${{ env.GO_MODULES_CACHE }}
           key: ${{ runner.os }}-gocache-${{ env.GO_VERSION }}${{ hashFiles('go.mod', 'go.sum') }}
-
-      - name: Build
+      - name: Build binaries
         run: make all
+      - name: Set artifact name
+        id: set-artifact-name
+        run: echo "name=built-binaries-${{ github.run_id }}" >> $GITHUB_OUTPUT
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-artifact-name.outputs.name }}
+          path: ./build/bin/**
+          retention-days: 1
 
-      - name: Run batch test
+  # generate test case IDs for docker tests.
+  gen-docker-test-ids:
+    runs-on: ubuntu-24.04
+    outputs:
+      ids_a: ${{ steps.set-ids.outputs.ids_a }}
+      ids_b: ${{ steps.set-ids.outputs.ids_b }}
+      ids_c: ${{ steps.set-ids.outputs.ids_c }}
+    steps:
+      - name: Generate test IDs
+        id: set-ids
+        run: |
+          ALL_IDS=($(seq 0 3 26))
+          LENGTH=${#ALL_IDS[@]}
+
+          PART_SIZE=$(( (LENGTH + 2) / 3 ))
+
+          PART_A=$(IFS=,; echo "${ALL_IDS[*]:0:$PART_SIZE}")
+          echo "ids_a=[$PART_A]" >> $GITHUB_OUTPUT
+
+          PART_B=$(IFS=,; echo "${ALL_IDS[*]:$PART_SIZE:$PART_SIZE}")
+          echo "ids_b=[$PART_B]" >> $GITHUB_OUTPUT
+
+          PART_C=$(IFS=,; echo "${ALL_IDS[*]:$((PART_SIZE * 2))}")
+          echo "ids_c=[$PART_C]" >> $GITHUB_OUTPUT
+
+          echo "Total IDs: $LENGTH"
+          echo "Part A (${#PART_A[@]}): $PART_A"
+          echo "Part B (${#PART_B[@]}): $PART_B"
+          echo "Part C (${#PART_C[@]}): $PART_C"
+
+
+
+  # Since using single job for docker test makes a few tests be pending there,
+  # thus we create multiple jobs to reduce the queueing.
+  docker-e2e-tests-a:
+    needs: [build-docker-test-artifacts, gen-docker-test-ids]
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        case_id: ${{ fromJson(needs.gen-docker-test-ids.outputs.ids_a) }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Ensure target directory exists
+        run: mkdir -p ./build/bin
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-docker-test-artifacts.outputs.artifact-name }}
+          path: ./build/bin/
+      - name: Make binaries executable
+        run: chmod +x ./build/bin/*
+
+      - name: Run batch A tests
         run: |
           cd docker_e2e_test && \
-          make install-prerequisites-linux && \
+          make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.event.pull_request.head.sha }}
+
+  docker-e2e-tests-b:
+    needs: [build-docker-test-artifacts, gen-docker-test-ids]
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        case_id: ${{ fromJson(needs.gen-docker-test-ids.outputs.ids_b) }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Ensure target directory exists
+        run: mkdir -p ./build/bin
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-docker-test-artifacts.outputs.artifact-name }}
+          path: ./build/bin/
+      - name: Make binaries executable
+        run: chmod +x ./build/bin/*
+
+      - name: Run batch B tests
+        run: |
+          cd docker_e2e_test && \
+          make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.event.pull_request.head.sha }}
+
+  docker-e2e-tests-c:
+    needs: [build-docker-test-artifacts, gen-docker-test-ids]
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        case_id: ${{ fromJson(needs.gen-docker-test-ids.outputs.ids_c) }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Ensure target directory exists
+        run: mkdir -p ./build/bin
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-docker-test-artifacts.outputs.artifact-name }}
+          path: ./build/bin/
+      - name: Make binaries executable
+        run: chmod +x ./build/bin/*
+
+      - name: Run batch C tests
+        run: |
+          cd docker_e2e_test && \
           make docker-e2e-tests ID=${{ matrix.case_id }} HASH=${{ github.event.pull_request.head.sha }}

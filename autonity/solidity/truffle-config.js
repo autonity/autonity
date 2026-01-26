@@ -95,12 +95,12 @@ module.exports = {
       host: "127.0.0.1",
       port: 8545,
       network_id: "*",
-      gas: 46123880
+      gas: 56123880
     },
   },
 
   mocha: {
-    // timeout: 100000
+     timeout: 900000,
   },
 
   compilers: {

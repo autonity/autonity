@@ -220,6 +220,7 @@ func (s *InvalidProposal) Broadcast(msg message.Msg) {
 	s.BroadcastAll(newProposal)
 }
 
+// InvalidProposer being used for those context that invalid proposer keeps sending proposals.
 func newInvalidProposer(c interfaces.Core) interfaces.Broadcaster {
 	return &InvalidProposer{c.(*core.Core)}
 }
@@ -234,6 +235,7 @@ func (s *InvalidProposer) Broadcast(msg message.Msg) {
 		s.BroadcastAll(msg)
 		return
 	}
+
 	// current node is not the proposer of current round, propose a proposal.
 	header := &types.Header{Number: new(big.Int).SetUint64(msg.H())}
 	block := types.NewBlockWithHeader(header)

@@ -8,11 +8,14 @@ coverage:
   precision: 2
   round: nearest
 
+  # As the coverage ratio drops to 60+% due to the data measurement of e2e-test is no longer counted, thus we target to
+  # 60% now. If we count coverage ratio collected by the e2e-test, it would rise to 70+%, however it would cost long
+  # test period in CI. To speed up the CI jobs, now we set the target to 60%.
   status:
     patch: off
     project:
       default:
-        target: 70%
+        target: 60%
 
 comment:
   behavior: default
