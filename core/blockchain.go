@@ -408,6 +408,7 @@ func NewBlockChain(
 		bc.log.Error("new blockchain", "loadstate failure", "error", err)
 		return nil, err
 	}
+	bc.repairEpochHead()
 
 	// Make sure the state associated with the block is available, or log out
 	// if there is no available state, waiting for state sync.
@@ -667,6 +668,42 @@ func (bc *BlockChain) loadLastState() error {
 		log.Info("Loaded last snap-sync pivot marker", "number", *pivot)
 	}
 	return nil
+}
+
+// repairEpochHead fixes a stale or missing epoch head marker after an unclean shutdown.
+// It walks back from the canonical head until the latest epoch header is found.
+func (bc *BlockChain) repairEpochHead() {
+	head := bc.CurrentHeader()
+	if head == nil {
+		return
+	}
+	if _, err := bc.EpochByHeight(head.Number.Uint64()); err == nil {
+		return
+	} else if !errors.Is(err, consensus.ErrOutOfEpochRange) && !errors.Is(err, ErrMissingEpochHeader) {
+		bc.log.Warn("Epoch head marker check failed", "err", err)
+		return
+	}
+	bc.log.Warn("Epoch head marker missing or stale, repairing", "head", head.Number, "hash", head.Hash())
+	hdr := head
+	for {
+		if hdr.IsEpochHeader() {
+			rawdb.WriteEpochHeaderHash(bc.db, hdr.Hash())
+			bc.hc.SetCurrentHeadEpochHeader(hdr)
+			headEpochHeaderGauge.Update(int64(hdr.Number.Uint64()))
+			bc.log.Warn("Epoch head marker repaired", "number", hdr.Number, "hash", hdr.Hash())
+			return
+		}
+		if hdr.Number.Uint64() == 0 {
+			break
+		}
+		parent := bc.GetHeader(hdr.ParentHash, hdr.Number.Uint64()-1)
+		if parent == nil {
+			bc.log.Warn("Epoch head repair failed, missing parent header", "number", hdr.Number.Uint64()-1, "hash", hdr.ParentHash)
+			return
+		}
+		hdr = parent
+	}
+	bc.log.Warn("Epoch head repair failed, no epoch header found", "head", head.Number, "hash", head.Hash())
 }
 
 // SetHead rewinds the local chain to a new head. Depending on whether the node

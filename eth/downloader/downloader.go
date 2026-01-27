@@ -872,6 +872,8 @@ func (d *Downloader) processSnapSyncContent() error {
 				return errCanceled
 			default:
 			}
+			d.log.Debug("Snap sync content empty, waiting for results")
+			continue
 		}
 		if d.chainInsertHook != nil {
 			d.chainInsertHook(results)

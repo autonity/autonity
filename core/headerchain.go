@@ -514,8 +514,8 @@ func (hc *HeaderChain) EpochByHeight(height uint64) (*types.EpochInfo, error) {
 		epochHeadNum := epochHead.Epoch.PreviousEpochBlock.Uint64()
 		epochHead = hc.GetHeaderByNumber(epochHeadNum)
 		if epochHead == nil {
-			// must not happen
-			log.Error("EpochByHeight", "epoch Head", "nil")
+			// Should not happen, but can occur after unclean shutdowns with partial headers.
+			log.Debug("EpochByHeight missing epoch header", "height", height)
 			return nil, consensus.ErrOutOfEpochRange
 		}
 	}

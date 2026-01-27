@@ -246,12 +246,12 @@ func executeGenesisDelegations(config *params.ChainConfig, genesisBonds GenesisB
 			balanceToMint.Add(balanceToMint, delegation.Amount)
 		}
 		if balanceToMint.Cmp(common.Big0) > 0 {
-			log.Info("Executing genesis delegations", "staker", alloc.Staker.Hex(), "balanceToMint", balanceToMint.String())
+			log.Debug("Executing genesis delegations", "staker", alloc.Staker.Hex(), "balanceToMint", balanceToMint.String())
 			if err := mint(alloc.Staker, balanceToMint); err != nil {
 				return fmt.Errorf("error while minting Newton: %w", err)
 			}
 			for _, delegation := range alloc.Bonds {
-				log.Info("Executing genesis delegation", "staker", alloc.Staker.Hex(), "validator", delegation.Validator.Hex(), "amount", delegation.Amount.String())
+				log.Debug("Executing genesis delegation", "staker", alloc.Staker.Hex(), "validator", delegation.Validator.Hex(), "amount", delegation.Amount.String())
 				if err := bond(alloc.Staker, delegation.Validator, delegation.Amount); err != nil {
 					return fmt.Errorf("error while bonding: %w", err)
 				}

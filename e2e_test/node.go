@@ -98,6 +98,12 @@ func NewValidatorNode(t *testing.T, validator *gengen.Validator, genesis *core.G
 	// p2p key and address
 	nodeConfig.ExecutionP2P.PrivateKey = validator.NodeKey
 	nodeConfig.ExecutionP2P.ListenAddr = fmt.Sprintf("%s:%d", localhost, validator.NodePort)
+	// seed execution peers from genesis validators
+	eNodes := make([]string, len(genesis.Config.AutonityContractConfig.Validators))
+	for i, n := range genesis.Config.AutonityContractConfig.Validators {
+		eNodes[i] = n.Enode
+	}
+	nodeConfig.ExecutionP2P.StaticNodes = types.NewNodes(eNodes, false).List
 
 	// consensus key used by consensus engine.
 	nodeConfig.ConsensusKey = validator.ConsensusKey

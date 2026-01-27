@@ -209,15 +209,15 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	nodeKey, _ := stack.Config().AutonityKeys()
 
 	eth := &Ethereum{
-		config:            config,
-		chainDb:           chainDb,
-		eventMux:          stack.EventMux(),
-		accountManager:    stack.AccountManager(),
-		engine:            consensusEngine,
-		networkID:         networkID,
-		gasPrice:          config.Miner.GasPrice,
-		p2pServer:         stack.ExecutionServer(),
-		discmix:           enode.NewFairMix(0),
+		config:         config,
+		chainDb:        chainDb,
+		eventMux:       stack.EventMux(),
+		accountManager: stack.AccountManager(),
+		engine:         consensusEngine,
+		networkID:      networkID,
+		gasPrice:       config.Miner.GasPrice,
+		p2pServer:      stack.ExecutionServer(),
+		discmix:        enode.NewFairMix(0),
 		// Autonity stuff:
 		shutdownTracker:  shutdowncheck.NewShutdownTracker(chainDb),
 		log:              stack.Logger(),
@@ -477,14 +477,30 @@ func (s *Ethereum) Start() error {
 	// let only tendermint bft engine to start its sub modules
 	switch s.engine.(type) {
 	case *backend.Backend:
-		s.log.Info("Starting consensus sub-modules")
-		go s.faultDetector.Start()
 		go func() {
 			header := s.blockchain.CurrentHeader()
 			if header.Number.BitLen() == 0 && header.Time > uint64(time.Now().Unix()) {
 				s.genesisCountdown()
 			}
-			s.validatorController()
+			events := s.eventMux.Subscribe(downloader.SyncedEvent{})
+			defer func() {
+				if !events.Closed() {
+					events.Unsubscribe()
+				}
+			}()
+			select {
+			case ev := <-events.Chan():
+				if ev == nil {
+					return
+				}
+				if _, ok := ev.Data.(downloader.SyncedEvent); ok {
+					s.log.Info("Starting consensus sub-modules")
+					go s.faultDetector.Start()
+					s.validatorController()
+				}
+			case <-s.handler.quitSync:
+				return
+			}
 		}()
 	default:
 		s.log.Info("running eth backend without Tendermint BFT engine")
