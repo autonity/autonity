@@ -62,12 +62,14 @@ func NewRevertError(revert []byte) *revertError {
 // fully finished yet with JSON error code and a binary data blob.
 type TxIndexingError struct{}
 
+const txIndexingInProgressMessage = "transaction indexing is in progress"
+
 // NewTxIndexingError creates a TxIndexingError instance.
 func NewTxIndexingError() *TxIndexingError { return &TxIndexingError{} }
 
 // Error implement error interface, returning the error message.
 func (e *TxIndexingError) Error() string {
-	return "transaction indexing is in progress"
+	return txIndexingInProgressMessage
 }
 
 // ErrorCode returns the JSON error code for a revert.
@@ -77,7 +79,7 @@ func (e *TxIndexingError) ErrorCode() int {
 }
 
 // ErrorData returns the hex encoded revert reason.
-func (e *TxIndexingError) ErrorData() interface{} { return "transaction indexing is in progress" }
+func (e *TxIndexingError) ErrorData() interface{} { return txIndexingInProgressMessage }
 
 type callError struct {
 	Message string `json:"message"`

@@ -69,6 +69,12 @@ const (
 	BlockRangeUpdateMsg           = 0x11
 )
 
+const (
+	statusPacketName               = "Status"
+	newPooledTransactionHashesName = "NewPooledTransactionHashes"
+	receiptsPacketName             = "Receipts"
+)
+
 var (
 	errNoStatusMsg             = errors.New("no status message")
 	errMsgTooLarge             = errors.New("message too long")
@@ -351,10 +357,10 @@ type BlockRangeUpdatePacket struct {
 	LatestBlockHash common.Hash
 }
 
-func (*StatusPacket68) Name() string { return "Status" }
+func (*StatusPacket68) Name() string { return statusPacketName }
 func (*StatusPacket68) Kind() byte   { return StatusMsg }
 
-func (*StatusPacket69) Name() string { return "Status" }
+func (*StatusPacket69) Name() string { return statusPacketName }
 func (*StatusPacket69) Kind() byte   { return StatusMsg }
 
 func (*NewBlockHashesPacket) Name() string { return "NewBlockHashes" }
@@ -378,10 +384,10 @@ func (*BlockBodiesResponse) Kind() byte   { return BlockBodiesMsg }
 func (*NewBlockPacket) Name() string { return "NewBlock" }
 func (*NewBlockPacket) Kind() byte   { return NewBlockMsg }
 
-func (*NewPooledTransactionHashesPacket66) Name() string { return "NewPooledTransactionHashes" }
+func (*NewPooledTransactionHashesPacket66) Name() string { return newPooledTransactionHashesName }
 func (*NewPooledTransactionHashesPacket66) Kind() byte   { return NewPooledTransactionHashesMsg }
 
-func (*NewPooledTransactionHashesPacket) Name() string { return "NewPooledTransactionHashes" }
+func (*NewPooledTransactionHashesPacket) Name() string { return newPooledTransactionHashesName }
 func (*NewPooledTransactionHashesPacket) Kind() byte   { return NewPooledTransactionHashesMsg }
 
 func (*GetPooledTransactionsRequest) Name() string { return "GetPooledTransactions" }
@@ -393,10 +399,10 @@ func (*PooledTransactionsResponse) Kind() byte   { return PooledTransactionsMsg 
 func (*GetReceiptsRequest) Name() string { return "GetReceipts" }
 func (*GetReceiptsRequest) Kind() byte   { return GetReceiptsMsg }
 
-func (*ReceiptsResponse) Name() string { return "Receipts" }
+func (*ReceiptsResponse) Name() string { return receiptsPacketName }
 func (*ReceiptsResponse) Kind() byte   { return ReceiptsMsg }
 
-func (*ReceiptsRLPResponse) Name() string { return "Receipts" }
+func (*ReceiptsRLPResponse) Name() string { return receiptsPacketName }
 func (*ReceiptsRLPResponse) Kind() byte   { return ReceiptsMsg }
 
 func (*BlockRangeUpdatePacket) Name() string { return "BlockRangeUpdate" }

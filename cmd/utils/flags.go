@@ -81,6 +81,11 @@ import (
 	"github.com/autonity/autonity/triedb/pathdb"
 )
 
+const (
+	defaultLocalhost = "127.0.0.1"
+	gcModeFull       = "full"
+)
+
 // These are all the command line flags we support.
 // If you add to this list, please remember to include the
 // flag in the appropriate command definition.
@@ -1052,7 +1057,7 @@ func SplitAndTrim(input string) (ret []string) {
 func setHTTP(ctx *cli.Context, cfg *node.Config) {
 	if ctx.Bool(HTTPEnabledFlag.Name) {
 		if cfg.HTTPHost == "" {
-			cfg.HTTPHost = "127.0.0.1"
+			cfg.HTTPHost = defaultLocalhost
 		}
 		if ctx.IsSet(HTTPListenAddrFlag.Name) {
 			cfg.HTTPHost = ctx.String(HTTPListenAddrFlag.Name)
@@ -1107,7 +1112,7 @@ func setGraphQL(ctx *cli.Context, cfg *node.Config) {
 func setWS(ctx *cli.Context, cfg *node.Config) {
 	if ctx.Bool(WSEnabledFlag.Name) {
 		if cfg.WSHost == "" {
-			cfg.WSHost = "127.0.0.1"
+			cfg.WSHost = defaultLocalhost
 		}
 		if ctx.IsSet(WSListenAddrFlag.Name) {
 			cfg.WSHost = ctx.String(WSListenAddrFlag.Name)
@@ -1533,8 +1538,8 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		cfg.DatabaseFreezer = ctx.String(AncientFlag.Name)
 	}
 
-	if gcmode := ctx.String(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
-		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
+	if gcmode := ctx.String(GCModeFlag.Name); gcmode != gcModeFull && gcmode != "archive" {
+		Fatalf("--%s must be either '%s' or 'archive'", GCModeFlag.Name, gcModeFull)
 	}
 	if ctx.IsSet(GCModeFlag.Name) {
 		cfg.NoPruning = ctx.String(GCModeFlag.Name) == "archive"

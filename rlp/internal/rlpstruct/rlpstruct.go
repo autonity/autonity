@@ -62,6 +62,12 @@ const (
 	NilKindList   NilKind = 0xC0
 )
 
+const (
+	rlpTagNil       = "nil"
+	rlpTagNilString = "nilString"
+	rlpTagNilList   = "nilList"
+)
+
 // Tags represents struct tags.
 type Tags struct {
 	// rlp:"nil" controls whether empty input results in a nil pointer.
@@ -154,17 +160,17 @@ func parseTag(field Field, lastPublic int) (Tags, error) {
 			// empty tag is allowed for some reason
 		case "-":
 			ts.Ignored = true
-		case "nil", "nilString", "nilList":
+		case rlpTagNil, rlpTagNilString, rlpTagNilList:
 			ts.NilOK = true
 			if field.Type.Kind != reflect.Ptr {
 				return ts, TagError{Field: name, Tag: t, Err: "field is not a pointer"}
 			}
 			switch t {
-			case "nil":
+			case rlpTagNil:
 				ts.NilKind = field.Type.Elem.DefaultNilValue()
-			case "nilString":
+			case rlpTagNilString:
 				ts.NilKind = NilKindString
-			case "nilList":
+			case rlpTagNilList:
 				ts.NilKind = NilKindList
 			}
 		case "optional":

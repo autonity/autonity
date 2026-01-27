@@ -23,11 +23,13 @@ import (
 	"testing"
 )
 
+const customNetwork = "custom"
+
 // customNetAddr is a custom implementation of net.Addr for testing purposes.
 type customNetAddr struct{}
 
-func (c *customNetAddr) Network() string { return "custom" }
-func (c *customNetAddr) String() string  { return "custom" }
+func (c *customNetAddr) Network() string { return customNetwork }
+func (c *customNetAddr) String() string  { return customNetwork }
 
 func TestAddrAddr(t *testing.T) {
 	tempDir := t.TempDir()

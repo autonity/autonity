@@ -46,6 +46,8 @@ import (
 	"github.com/autonity/autonity/triedb"
 )
 
+const nilPlaceholder = "<nil>"
+
 var (
 	removeStateDataFlag = &cli.BoolFlag{
 		Name:  "remove.state",
@@ -810,11 +812,11 @@ func inspectAccount(db *triedb.Database, start uint64, end uint64, address commo
 				if err := rlp.DecodeBytes(stats.Origins[i], account); err != nil {
 					panic(err)
 				}
-				code := "<nil>"
+				code := nilPlaceholder
 				if len(account.CodeHash) > 0 {
 					code = fmt.Sprintf("%#x", account.CodeHash)
 				}
-				root := "<nil>"
+				root := nilPlaceholder
 				if len(account.Root) > 0 {
 					root = fmt.Sprintf("%#x", account.Root)
 				}

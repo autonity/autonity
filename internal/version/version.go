@@ -26,7 +26,10 @@ import (
 	"github.com/autonity/autonity/version"
 )
 
-const ourPath = "github.com/autonity/autonity" // Path to our module
+const (
+	ourPath    = "github.com/autonity/autonity" // Path to our module
+	metaStable = "stable"
+)
 
 // Family holds the textual version string for major.minor
 var Family = fmt.Sprintf("%d.%d", version.Major, version.Minor)
@@ -48,7 +51,7 @@ func WithCommit(gitCommit, gitDate string) string {
 	if len(gitCommit) >= 8 {
 		vsn += "-" + gitCommit[:8]
 	}
-	if (version.Meta != "stable") && (gitDate != "") {
+	if (version.Meta != metaStable) && (gitDate != "") {
 		vsn += "-" + gitDate
 	}
 	return vsn
@@ -59,7 +62,7 @@ func WithCommit(gitCommit, gitDate string) string {
 // releases.
 func Archive(gitCommit string) string {
 	vsn := Semantic
-	if version.Meta != "stable" {
+	if version.Meta != metaStable {
 		vsn += "-" + version.Meta
 	}
 	if len(gitCommit) >= 8 {
