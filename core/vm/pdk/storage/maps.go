@@ -19,7 +19,7 @@ func (m *Map[K, V]) Bind(st *Storage, baseSlot common.Hash, offset uint64) (comm
 	}
 	m.baseSlot = baseSlot
 	// return next usable slot
-	return addSlot(m.baseSlot, 1), offset
+	return addSlot(m.baseSlot, 1), 0
 }
 
 // Get obtains the pointer to value Wrapper, which is bound to the key slot

@@ -26,19 +26,25 @@ type Var[T any] struct {
 }
 
 func (v *Var[T]) Bind(st *Storage, baseSlot common.Hash, offset uint64) (common.Hash, uint64) {
-	size := uint64(reflect.TypeOf(*new(T)).Size())
-	if size+offset > 32 {
+	var zero T
+	acc, ok := getAccessor(reflect.TypeOf(zero))
+	if !ok {
+		panic(fmt.Errorf("no accessor for type %T", zero))
+	}
+	size := acc.Size()
+
+	if uint64(size)+offset > 32 {
 		baseSlot = addSlot(baseSlot, 1)
 		offset = 0
 	}
 	v.st = st
 	v.offset = offset
 	v.baseSlot = baseSlot
-	if offset+size == 32 { // exactly filled the slot
+	if offset+uint64(size) == 32 { // exactly filled the slot
 		// return new slot
 		return addSlot(baseSlot, 1), 0
 	}
-	return baseSlot, offset + size
+	return baseSlot, offset + uint64(size)
 }
 
 func (v *Var[T]) Get() T {
@@ -72,6 +78,8 @@ type ValueAccessor interface {
 	ReadAt(slot common.Hash, offset int, st *Storage) (any, error)
 	//WriteAt writes the value at the given slot and offset
 	WriteAt(slot common.Hash, offset int, value any, st *Storage) error
+
+	Size() int
 }
 
 var registry = make(map[reflect.Type]ValueAccessor)
@@ -94,10 +102,64 @@ func init() {
 	registry[reflect.TypeOf([]byte{})] = ByteAccessor{}
 	registry[reflect.TypeOf(common.Hash{})] = HashAccessor{}
 	registry[reflect.TypeOf(&big.Int{})] = BigIntAccessor{}
+
+	// Register fixed byte arrays [1]byte ... [32]byte
+	byteType := reflect.TypeOf(uint8(0))
+	for i := 1; i <= 32; i++ {
+		arrType := reflect.ArrayOf(i, byteType)
+		registry[arrType] = FixedByteAccessor{
+			typ:  arrType,
+			size: i,
+		}
+	}
+}
+
+type FixedByteAccessor struct {
+	typ  reflect.Type
+	size int
+}
+
+func (f FixedByteAccessor) Size() int { return f.size }
+
+func (f FixedByteAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
+	if offset+f.size > 32 {
+		return nil, fmt.Errorf("offset and size exceed slot boundary")
+	}
+	data := st.GetState(slot)
+	slice := data[offset : offset+f.size]
+
+	val := reflect.New(f.typ).Elem()
+	for i := 0; i < f.size; i++ {
+		val.Index(i).Set(reflect.ValueOf(slice[i]))
+	}
+	return val.Interface(), nil
+}
+
+func (f FixedByteAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
+	if offset+f.size > 32 {
+		panic(fmt.Errorf("offset and size exceed slot boundary"))
+	}
+	// Value is expected to be [N]byte. We need to convert it to a slice to copy it.
+	valVal := reflect.ValueOf(value)
+	if valVal.Kind() != reflect.Array || valVal.Type().Elem().Kind() != reflect.Uint8 {
+		return fmt.Errorf("expected [N]byte, got %T", value)
+	}
+
+	data := st.GetState(slot)
+	copy(data[offset:offset+f.size], zeroHashBytes[:f.size]) // Clear previous
+
+	for i := 0; i < f.size; i++ {
+		data[offset+i] = uint8(valVal.Index(i).Uint())
+	}
+
+	st.SetState(slot, data)
+	return nil
 }
 
 // BigIntAccessor handles reading and writing big.Int values in the range of int256. for uint256 use Uint256Accessor
 type BigIntAccessor struct{}
+
+func (b BigIntAccessor) Size() int { return 32 }
 
 func (b BigIntAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	if offset != 0 {
@@ -136,6 +198,7 @@ func (b BigIntAccessor) WriteAt(slot common.Hash, _ int, value any, st *Storage)
 
 type HashAccessor struct{}
 
+func (b HashAccessor) Size() int { return 32 }
 func (u HashAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	if offset != 0 {
 		return nil, fmt.Errorf("hash values must start from zero offset")
@@ -153,6 +216,7 @@ func (u HashAccessor) WriteAt(slot common.Hash, offset int, value any, st *Stora
 
 type Uint256Accessor struct{}
 
+func (u Uint256Accessor) Size() int { return 32 }
 func (u Uint256Accessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	if offset != 0 {
 		return nil, fmt.Errorf("uint256 values must start from zero offset")
@@ -173,6 +237,7 @@ func (u Uint256Accessor) WriteAt(slot common.Hash, _ int, value any, st *Storage
 
 type AddressAccessor struct{}
 
+func (a AddressAccessor) Size() int { return 20 }
 func (a AddressAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	data := st.GetState(slot)
 	return common.BytesToAddress(data[offset : offset+20]), nil
@@ -190,6 +255,7 @@ func (a AddressAccessor) WriteAt(slot common.Hash, offset int, value any, st *St
 
 type uintAccessor struct{ size int }
 
+func (u uintAccessor) Size() int { return u.size }
 func (u uintAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	if offset+u.size > 32 {
 		return nil, fmt.Errorf("offset and size exceed slot boundary")
@@ -234,6 +300,7 @@ func (u uintAccessor) WriteAt(slot common.Hash, offset int, value any, st *Stora
 
 type intAccessor struct{ size int }
 
+func (i intAccessor) Size() int { return i.size }
 func (i intAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	uVal, err := uintAccessor{size: i.size}.ReadAt(slot, offset, st)
 	if err != nil {
@@ -249,6 +316,8 @@ func (i intAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storag
 }
 
 type boolAccessor struct{}
+
+func (b boolAccessor) Size() int { return 1 }
 
 func (b boolAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	data := st.GetState(slot)
@@ -266,6 +335,8 @@ func (b boolAccessor) WriteAt(slot common.Hash, offset int, value any, st *Stora
 }
 
 type ByteAccessor struct{}
+
+func (b ByteAccessor) Size() int { return 32 }
 
 func (b ByteAccessor) ReadAt(headSlot common.Hash, _ int, st *Storage) (any, error) {
 	if st == nil {

@@ -34,6 +34,7 @@ func (b *BaseContract) RequiredGas(_ []byte) uint64 {
 	return 1000
 }
 
+// AddToPrecompiles registers a PDK contract as a precompile at the given address.
 func AddToPrecompiles(
 	address common.Address,
 	contractPtr interface{},
@@ -49,7 +50,11 @@ func AddToPrecompiles(
 
 	if initFunc != nil {
 		initFunc(st, base)
+		st.Commit()
 	}
+
+	vm.PrecompiledContractRWMutex.Lock()
+	defer vm.PrecompiledContractRWMutex.Unlock()
 
 	addToPrecompile := func(registry map[common.Address]vm.PrecompiledContract) {
 		if registry == nil {
@@ -63,4 +68,10 @@ func AddToPrecompiles(
 	addToPrecompile(vm.PrecompiledContractsIstanbul)
 	addToPrecompile(vm.PrecompiledContractsBerlin)
 	addToPrecompile(vm.PrecompiledContractsBLS)
+
+	// Update address lists for EIP-2929 warming
+	vm.PrecompiledAddressesHomestead = append(vm.PrecompiledAddressesHomestead, address)
+	vm.PrecompiledAddressesByzantium = append(vm.PrecompiledAddressesByzantium, address)
+	vm.PrecompiledAddressesIstanbul = append(vm.PrecompiledAddressesIstanbul, address)
+	vm.PrecompiledAddressesBerlin = append(vm.PrecompiledAddressesBerlin, address)
 }

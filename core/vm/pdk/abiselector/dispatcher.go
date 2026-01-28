@@ -45,9 +45,6 @@ var (
 		reflect.TypeOf(uint64(0)): func() (abi.Type, error) {
 			return abi.NewType("uint64", "", nil)
 		},
-		reflect.TypeOf(uint(0)): func() (abi.Type, error) {
-			return abi.NewType("uint256", "", nil)
-		},
 		reflect.TypeOf(int8(0)): func() (abi.Type, error) {
 			return abi.NewType("int8", "", nil)
 		},
@@ -60,20 +57,8 @@ var (
 		reflect.TypeOf(int64(0)): func() (abi.Type, error) {
 			return abi.NewType("int64", "", nil)
 		},
-		reflect.TypeOf(int(0)): func() (abi.Type, error) {
-			return abi.NewType("int256", "", nil)
-		},
 		reflect.TypeOf(common.Hash{}): func() (abi.Type, error) {
 			return abi.NewType("bytes32", "", nil)
-		},
-		reflect.TypeOf([32]byte{}): func() (abi.Type, error) {
-			return abi.NewType("bytes32", "", nil)
-		},
-		reflect.TypeOf([20]byte{}): func() (abi.Type, error) {
-			return abi.NewType("bytes20", "", nil)
-		},
-		reflect.TypeOf([4]byte{}): func() (abi.Type, error) {
-			return abi.NewType("bytes4", "", nil)
 		},
 	}
 )
@@ -102,6 +87,14 @@ func (d *Dispatcher) AddMethod(method abi.Method, goMethod reflect.Value) {
 }
 
 func ResolveABIType(goType reflect.Type) (abi.Type, error) {
+	// Reject platform-dependent int/uint types
+	if goType.Kind() == reflect.Int {
+		return abi.Type{}, fmt.Errorf("unsupported type 'int': use *big.Int for int256, or sized types (int8, int16, int32, int64)")
+	}
+	if goType.Kind() == reflect.Uint {
+		return abi.Type{}, fmt.Errorf("unsupported type 'uint': use *big.Int for uint256, or sized types (uint8, uint16, uint32, uint64)")
+	}
+
 	mapped, ok := GoTypeToABI[goType]
 	if ok {
 		return mapped()
@@ -109,6 +102,30 @@ func ResolveABIType(goType reflect.Type) (abi.Type, error) {
 
 	if goType.Kind() == reflect.Ptr {
 		return ResolveABIType(goType.Elem())
+	}
+
+	// Handle fixed-size byte arrays: [N]byte -> bytesN (Solidity bytes1-bytes32)
+	if goType.Kind() == reflect.Array {
+		elemType := goType.Elem()
+		arrayLen := goType.Len()
+
+		if elemType.Kind() == reflect.Uint8 {
+			if arrayLen >= 1 && arrayLen <= 32 {
+				typeName := fmt.Sprintf("bytes%d", arrayLen)
+				return abi.NewType(typeName, "", nil)
+			}
+			return abi.Type{}, fmt.Errorf("fixed byte array size must be 1-32, got [%d]byte", arrayLen)
+		}
+
+		// Generic fixed-size arrays: [N]T -> T[N]
+		elemABIType, err := ResolveABIType(elemType)
+		if err != nil {
+			return abi.Type{}, fmt.Errorf("failed to resolve array element type %s: %w", elemType, err)
+		}
+		// Construct array type string: "uint256[2]", "address[10]", etc.
+		// Use abi.NewType logic to parse it
+		typeName := fmt.Sprintf("%s[%d]", elemABIType.String(), arrayLen)
+		return abi.NewType(typeName, typeName, nil)
 	}
 
 	// Handle dynamic arrays (slices only)
@@ -169,7 +186,6 @@ func resolveStructABIType(goType reflect.Type) (abi.Type, error) {
 	return tupleType, nil
 }
 
-// convertTupleElemsToArgumentMarshaling converts []*abi.Type to []abi.ArgumentMarshaling for nested tuples
 func convertTupleElemsToArgumentMarshaling(tupleElems []*abi.Type) []abi.ArgumentMarshaling {
 	if tupleElems == nil {
 		return nil
@@ -198,7 +214,7 @@ loop:
 		}
 		mt := m.Type
 		// method signature ==> func (evm *vm.EVM, caller common.Address, storage *storage.Storage, args...)
-		if mt.NumIn() < 3 || mt.NumOut() < 1 ||
+		if mt.NumIn() < 4 || mt.NumOut() < 1 ||
 			mt.In(0) != contractType || // first arg is receiver itself (contract)
 			mt.In(1) != reflect.TypeOf((*vm.EVM)(nil)) || // second arg is *vm.EVM
 			mt.In(2) != reflect.TypeOf(common.Address{}) || // third arg is caller address
@@ -211,7 +227,8 @@ loop:
 		// structure inputs
 		inputs := abi.Arguments{}
 		for j := 4; j < mt.NumIn(); j++ {
-			abiType, err := ResolveABIType(mt.In(j))
+			paramType := mt.In(j)
+			abiType, err := ResolveABIType(paramType)
 			if err != nil {
 				log.Info("Skipping method due to input type", "method", m.Name, "err", err)
 				continue loop
@@ -260,14 +277,26 @@ func (d *Dispatcher) Dispatch(input []byte, evm interface{}, caller interface{},
 		return nil, fmt.Errorf("method not found")
 	}
 	method := d.ABI.Methods[methodName]
+
 	args, err := method.Inputs.Unpack(input[4:])
 	if err != nil {
 		return nil, err
 	}
+
+	methodType := goMethod.Type()
 	in := []reflect.Value{reflect.ValueOf(evm), reflect.ValueOf(caller), reflect.ValueOf(storage)}
-	for _, arg := range args {
-		in = append(in, reflect.ValueOf(arg))
+
+	// Convert unpacked args to expected types
+	// User params start at In(3): In(0)=EVM, In(1)=caller, In(2)=storage, In(3+)=user params
+	for i, arg := range args {
+		expectedType := methodType.In(i + 3) // +3 to skip evm, caller, storage (no receiver in bound method type)
+		converted, err := convertToTargetType(arg, expectedType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert argument %d: %w", i, err)
+		}
+		in = append(in, converted)
 	}
+
 	out := goMethod.Call(in)
 
 	// error would be last
@@ -287,4 +316,228 @@ func (d *Dispatcher) Dispatch(input []byte, evm interface{}, caller interface{},
 	}
 	// void returns
 	return nil, nil
+}
+
+func convertToTargetType(value interface{}, targetType reflect.Type) (reflect.Value, error) {
+	srcVal := reflect.ValueOf(value)
+	if !srcVal.IsValid() {
+		return reflect.Zero(targetType), nil
+	}
+
+	srcType := srcVal.Type()
+
+	if srcType == targetType {
+		return srcVal, nil
+	}
+
+	if srcType.AssignableTo(targetType) {
+		return srcVal, nil
+	}
+
+	// Handle target pointer wrapping: method expects *T but we have T
+	needsPointer := targetType.Kind() == reflect.Ptr
+	actualTarget := targetType
+	if needsPointer {
+		actualTarget = targetType.Elem()
+	}
+
+	wrap := func(v reflect.Value) reflect.Value {
+		if needsPointer {
+			ptr := reflect.New(actualTarget)
+			ptr.Elem().Set(v)
+			return ptr
+		}
+		return v
+	}
+
+	// Check identity/assignability after considering pointer wrapping
+	if srcType == actualTarget {
+		return wrap(srcVal), nil
+	}
+
+	if srcType.AssignableTo(actualTarget) {
+		return wrap(srcVal), nil
+	}
+
+	// *big.Int to sized integer conversion
+	if srcType == reflect.TypeOf((*big.Int)(nil)) && canConvertBigInt(actualTarget) {
+		bi := value.(*big.Int)
+		converted, err := convertBigInt(bi, actualTarget)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		return wrap(converted), nil
+	}
+
+	// Direct type conversion (e.g., int32 -> int64, uint8 -> uint16)
+	if srcType.ConvertibleTo(actualTarget) {
+		return wrap(srcVal.Convert(actualTarget)), nil
+	}
+
+	// Struct conversion (ABI tuple -> Go struct)
+	if srcType.Kind() == reflect.Struct && actualTarget.Kind() == reflect.Struct {
+		converted, err := convertStruct(srcVal, actualTarget)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		return wrap(converted), nil
+	}
+
+	// Slice conversion (element-by-element)
+	if srcType.Kind() == reflect.Slice && actualTarget.Kind() == reflect.Slice {
+		converted, err := convertSlice(srcVal, actualTarget)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		return wrap(converted), nil
+	}
+
+	if srcType.Kind() == reflect.Slice && actualTarget.Kind() == reflect.Array {
+		converted, err := convertArray(srcVal, actualTarget)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		return wrap(converted), nil
+	}
+
+	return reflect.Value{}, fmt.Errorf("cannot convert %v to %v", srcType, targetType)
+}
+
+func canConvertBigInt(t reflect.Type) bool {
+	k := t.Kind()
+	return k == reflect.Int8 || k == reflect.Int16 || k == reflect.Int32 || k == reflect.Int64 ||
+		k == reflect.Uint8 || k == reflect.Uint16 || k == reflect.Uint32 || k == reflect.Uint64
+}
+
+func convertBigInt(bi *big.Int, t reflect.Type) (reflect.Value, error) {
+	// Note: checking for overflow would be ideal here.
+	// For now, we follow standard Go conversion semantics (truncation/wrapping).
+
+	switch t.Kind() {
+	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if !bi.IsInt64() {
+			return reflect.Value{}, fmt.Errorf("value %s too large for %s (max: int64)", bi, t)
+		}
+		return reflect.ValueOf(bi.Int64()).Convert(t), nil
+	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		if !bi.IsUint64() {
+			return reflect.Value{}, fmt.Errorf("value %s too large for %s (max: uint64)", bi, t)
+		}
+		return reflect.ValueOf(bi.Uint64()).Convert(t), nil
+	}
+	return reflect.Value{}, fmt.Errorf("unsupported integer type %s: use *big.Int or sized integer types", t)
+}
+
+func convertStruct(src reflect.Value, targetType reflect.Type) (reflect.Value, error) {
+	srcType := src.Type()
+
+	if srcType == targetType {
+		return src, nil
+	}
+
+	if src.Kind() != reflect.Struct {
+		return reflect.Value{}, fmt.Errorf("source is not a struct: %v", srcType)
+	}
+	if targetType.Kind() != reflect.Struct {
+		return reflect.Value{}, fmt.Errorf("target is not a struct: %v", targetType)
+	}
+
+	// Field count must match exactly for tuple unpacking
+	// ABI tuples unpack to structs with matching field count
+	srcFieldCount := src.NumField()
+	dstFieldCount := targetType.NumField()
+	if srcFieldCount != dstFieldCount {
+		return reflect.Value{}, fmt.Errorf(
+			"struct field count mismatch: source has %d fields, target has %d",
+			srcFieldCount, dstFieldCount)
+	}
+
+	// Create destination struct and convert each field
+	dst := reflect.New(targetType).Elem()
+	for i := 0; i < dstFieldCount; i++ {
+		srcField := src.Field(i)
+		dstField := dst.Field(i)
+
+		if !dstField.CanSet() {
+			return reflect.Value{}, fmt.Errorf("target field %d (%s) is not settable",
+				i, targetType.Field(i).Name)
+		}
+
+		// Recursively convert field value
+		converted, err := convertToTargetType(srcField.Interface(), dstField.Type())
+		if err != nil {
+			return reflect.Value{}, fmt.Errorf("field %d (%s -> %s): %w",
+				i, srcType.Field(i).Name, targetType.Field(i).Name, err)
+		}
+
+		dstField.Set(converted)
+	}
+
+	return dst, nil
+}
+
+// convertSlice handles slice conversion element by element
+func convertSlice(src reflect.Value, targetType reflect.Type) (reflect.Value, error) {
+	srcType := src.Type()
+
+	if srcType == targetType {
+		return src, nil
+	}
+
+	if src.Kind() != reflect.Slice {
+		return reflect.Value{}, fmt.Errorf("source is not a slice: %v", srcType)
+	}
+	if targetType.Kind() != reflect.Slice {
+		return reflect.Value{}, fmt.Errorf("target is not a slice: %v", targetType)
+	}
+
+	srcElemType := srcType.Elem()
+	dstElemType := targetType.Elem()
+	if srcElemType == dstElemType {
+		return src, nil
+	}
+
+	length := src.Len()
+	result := reflect.MakeSlice(targetType, length, length)
+
+	for i := 0; i < length; i++ {
+		elem := src.Index(i)
+		converted, err := convertToTargetType(elem.Interface(), dstElemType)
+		if err != nil {
+			return reflect.Value{}, fmt.Errorf("element %d (%v -> %v): %w",
+				i, srcElemType, dstElemType, err)
+		}
+		result.Index(i).Set(converted)
+	}
+	return result, nil
+}
+
+func convertArray(src reflect.Value, targetType reflect.Type) (reflect.Value, error) {
+	if src.Kind() != reflect.Slice {
+		return reflect.Value{}, fmt.Errorf("source is not a slice: %v", src.Type())
+	}
+	if targetType.Kind() != reflect.Array {
+		return reflect.Value{}, fmt.Errorf("target is not an array: %v", targetType)
+	}
+
+	srcLen := src.Len()
+	dstLen := targetType.Len()
+
+	if srcLen != dstLen {
+		return reflect.Value{}, fmt.Errorf("length mismatch: source slice len %d, target array len %d", srcLen, dstLen)
+	}
+
+	dst := reflect.New(targetType).Elem()
+	dstElemType := targetType.Elem()
+
+	for i := 0; i < dstLen; i++ {
+		elem := src.Index(i)
+		converted, err := convertToTargetType(elem.Interface(), dstElemType)
+		if err != nil {
+			return reflect.Value{}, fmt.Errorf("element %d: %w", i, err)
+		}
+		dst.Index(i).Set(converted)
+	}
+
+	return dst, nil
 }
