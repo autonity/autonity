@@ -45,6 +45,7 @@ type mockContract struct {
 	byteParam   ByteArrayStruct
 	structRet   TestStruct
 	sliceParam  []TestStruct
+	u256Param   storage.Uint256
 }
 
 func (m *mockContract) NoParamVoid(_ *vm.EVM, _ common.Address, _ *storage.Storage) error {
@@ -93,6 +94,11 @@ func (m *mockContract) WithStructReturn(_ *vm.EVM, _ common.Address, _ *storage.
 func (m *mockContract) WithStructSlice(_ *vm.EVM, _ common.Address, _ *storage.Storage, params []TestStruct) ([]TestStruct, error) {
 	m.sliceParam = params
 	return params, nil
+}
+
+func (m *mockContract) WithUint256Param(_ *vm.EVM, _ common.Address, _ *storage.Storage, param storage.Uint256) error {
+	m.u256Param = param
+	return nil
 }
 
 // Test methods with platform-dependent types (should be rejected)
@@ -173,7 +179,7 @@ func TestInferABIMethods(t *testing.T) {
 	expectedMethods := []string{
 		"NoParamVoid", "WithUintParam", "WithReturn", "MultiParamReturn",
 		"WithStructParam", "WithNestedStructParam", "WithByteArrayStruct",
-		"WithStructReturn", "WithStructSlice",
+		"WithStructReturn", "WithStructSlice", "WithUint256Param",
 		"WithBytes16", "WithBytes8", // Added for byte array tests
 	} // Unsupported skipped.
 	if len(dispatcher.ABI.Methods) != len(expectedMethods) {
@@ -297,7 +303,7 @@ func TestResolveABIType_BasicStruct(t *testing.T) {
 	abiType, err := ResolveABIType(structType)
 	require.NoError(t, err)
 
-	expected := "(uint256,address,uint256,bool,bytes)"
+	expected := "(int256,address,int256,bool,bytes)"
 	require.Equal(t, expected, abiType.String())
 }
 
@@ -306,7 +312,7 @@ func TestResolveABIType_NestedStruct(t *testing.T) {
 	abiType, err := ResolveABIType(structType)
 	require.NoError(t, err)
 
-	expected := "((uint256,address,uint256,bool,bytes),uint256[],string)"
+	expected := "((int256,address,int256,bool,bytes),int256[],string)"
 	require.Equal(t, expected, abiType.String())
 }
 
@@ -324,7 +330,7 @@ func TestResolveABIType_StructSlice(t *testing.T) {
 	abiType, err := ResolveABIType(sliceType)
 	require.NoError(t, err)
 
-	expected := "(uint256,address,uint256,bool,bytes)[]"
+	expected := "(int256,address,int256,bool,bytes)[]"
 	require.Equal(t, expected, abiType.String())
 }
 
@@ -430,7 +436,7 @@ func TestResolveABIType_RejectPlatformDependentTypes(t *testing.T) {
 		{
 			"uint",
 			reflect.TypeOf(uint(0)),
-			"unsupported type 'uint': use *big.Int for uint256, or sized types (uint8, uint16, uint32, uint64)",
+			"unsupported type 'uint': use storage.Uint256 for uint256, or sized types (uint8, uint16, uint32, uint64)",
 		},
 	}
 
@@ -619,6 +625,28 @@ func TestDispatch_WithBytes16(t *testing.T) {
 	require.Equal(t, testData, returnedData)
 }
 
+func TestDispatch_WithUint256(t *testing.T) {
+	d := newDispatcher()
+	mock := &mockContract{}
+	err := InferABIMethods(d, reflect.ValueOf(mock))
+	require.NoError(t, err)
+
+	method := d.ABI.Methods["WithUint256Param"]
+	require.Equal(t, "uint256", method.Inputs[0].Type.String())
+
+	val := big.NewInt(12345)
+	args, err := method.Inputs.Pack(val)
+	require.NoError(t, err)
+
+	sel := crypto.Keccak256Hash([]byte(method.Sig)).Bytes()[:4]
+	input := append(sel, args...)
+
+	_, err = d.Dispatch(input, mockEVM(), common.Address{}, mockStorage())
+	require.NoError(t, err)
+
+	require.Equal(t, uint64(12345), mock.u256Param.Uint64())
+}
+
 // Integration test for struct ABI generation
 func TestInferABIMethods_StructTypes(t *testing.T) {
 	d := newDispatcher()
@@ -633,11 +661,11 @@ func TestInferABIMethods_StructTypes(t *testing.T) {
 	}{
 		{
 			"WithStructParam",
-			"withStructParam((uint256,address,uint256,bool,bytes))",
+			"withStructParam((int256,address,int256,bool,bytes))",
 		},
 		{
 			"WithNestedStructParam",
-			"withNestedStructParam(((uint256,address,uint256,bool,bytes),uint256[],string))",
+			"withNestedStructParam(((int256,address,int256,bool,bytes),int256[],string))",
 		},
 		{
 			"WithByteArrayStruct",
@@ -649,7 +677,7 @@ func TestInferABIMethods_StructTypes(t *testing.T) {
 		},
 		{
 			"WithStructSlice",
-			"withStructSlice((uint256,address,uint256,bool,bytes)[])",
+			"withStructSlice((int256,address,int256,bool,bytes)[])",
 		},
 	}
 

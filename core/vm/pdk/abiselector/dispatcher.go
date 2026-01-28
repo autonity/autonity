@@ -22,6 +22,9 @@ var (
 			return abi.NewType("address", "address", nil)
 		},
 		reflect.TypeOf((*big.Int)(nil)): func() (abi.Type, error) {
+			return abi.NewType("int256", "int256", nil)
+		},
+		reflect.TypeOf(storage.Uint256{}): func() (abi.Type, error) {
 			return abi.NewType("uint256", "uint256", nil)
 		},
 		reflect.TypeOf(false): func() (abi.Type, error) {
@@ -92,7 +95,7 @@ func ResolveABIType(goType reflect.Type) (abi.Type, error) {
 		return abi.Type{}, fmt.Errorf("unsupported type 'int': use *big.Int for int256, or sized types (int8, int16, int32, int64)")
 	}
 	if goType.Kind() == reflect.Uint {
-		return abi.Type{}, fmt.Errorf("unsupported type 'uint': use *big.Int for uint256, or sized types (uint8, uint16, uint32, uint64)")
+		return abi.Type{}, fmt.Errorf("unsupported type 'uint': use storage.Uint256 for uint256, or sized types (uint8, uint16, uint32, uint64)")
 	}
 
 	mapped, ok := GoTypeToABI[goType]
@@ -357,6 +360,18 @@ func convertToTargetType(value interface{}, targetType reflect.Type) (reflect.Va
 
 	if srcType.AssignableTo(actualTarget) {
 		return wrap(srcVal), nil
+	}
+
+	// Handle *big.Int -> storage.Uint256 conversion
+	// ABI decodes 'uint256' as *big.Int. If target is storage.Uint256, convert it.
+	if srcType == reflect.TypeOf((*big.Int)(nil)) && actualTarget == reflect.TypeOf(storage.Uint256{}) {
+		bi := value.(*big.Int)
+		if bi.Sign() < 0 {
+			return reflect.Value{}, fmt.Errorf("cannot convert negative *big.Int to Uint256")
+		}
+		// Use storage helper to create Uint256
+		u := storage.NewUint256FromBig(bi)
+		return wrap(reflect.ValueOf(u)), nil
 	}
 
 	// *big.Int to sized integer conversion
