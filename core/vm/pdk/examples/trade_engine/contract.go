@@ -12,6 +12,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/core/vm/pdk"
+	"github.com/autonity/autonity/core/vm/pdk/gas"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/log"
@@ -30,7 +31,13 @@ type TradingEngineContract struct {
 
 func SetupTradingEngineContract(vm *vm.EVM) *TradingEngineContract {
 	c := &TradingEngineContract{}
-	pdk.AddToPrecompiles(ContractAddress, c, vm, initialize)
+
+	gasConfig := gas.NewConfig(50_000)
+	gasConfig.SetMethodGas("MatchOrders", gas.MethodGas{Base: 200_000})
+	gasConfig.SetMethodGas("SubmitOrder", gas.MethodGas{Base: 100_000})
+	gasConfig.SetMethodGas("CancelOrder", gas.MethodGas{Base: 80_000})
+
+	pdk.AddToPrecompiles(ContractAddress, c, vm, initialize, gasConfig)
 	return c
 }
 

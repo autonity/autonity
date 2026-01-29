@@ -73,6 +73,31 @@ func (v *Var[T]) Set(val T) {
 	return
 }
 
+func (v *Var[T]) Clear() {
+	var zero T
+	typ := reflect.TypeOf(zero)
+	acc, ok := getAccessor(typ)
+	if !ok {
+		panic(fmt.Errorf("no accessor for type %T", zero))
+	}
+
+	if clearer, ok := acc.(ClearerAccessor); ok {
+		if err := clearer.Clear(v.baseSlot, int(v.offset), v.st); err != nil {
+			panic(err)
+		}
+		return
+	}
+
+	if err := acc.WriteAt(v.baseSlot, int(v.offset), zero, v.st); err != nil {
+		panic(err)
+	}
+}
+
+// ClearerAccessor is an optional interface for accessors that need special cleanup logic
+type ClearerAccessor interface {
+	Clear(slot common.Hash, offset int, st *Storage) error
+}
+
 type ValueAccessor interface {
 	//ReadAt reads the value at the given slot and offset
 	ReadAt(slot common.Hash, offset int, st *Storage) (any, error)
@@ -394,5 +419,32 @@ func (b ByteAccessor) WriteAt(headSlot common.Hash, _ int, value any, st *Storag
 		chunkSlot := common.BigToHash(chunkSlotBig)
 		st.SetState(chunkSlot, chunk)
 	}
+	return nil
+}
+
+func (b ByteAccessor) Clear(headSlot common.Hash, _ int, st *Storage) error {
+	if st == nil {
+		return nil
+	}
+	lenData := st.GetState(headSlot)
+	length := binary.BigEndian.Uint64(lenData[24:])
+	if length == 0 {
+		return nil
+	}
+
+	// Zero out data chunks
+	base := crypto.Keccak256Hash(headSlot.Bytes())
+	baseBig := new(big.Int).SetBytes(base.Bytes())
+	numChunks := (length + 31) / 32
+	zeroHash := common.Hash{}
+
+	for i := 0; i < int(numChunks); i++ {
+		chunkSlotBig := new(big.Int).Add(baseBig, big.NewInt(int64(i)))
+		chunkSlot := common.BigToHash(chunkSlotBig)
+		st.SetState(chunkSlot, zeroHash)
+	}
+
+	// Zero out length
+	st.SetState(headSlot, zeroHash)
 	return nil
 }

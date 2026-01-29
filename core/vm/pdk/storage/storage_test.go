@@ -414,3 +414,76 @@ func TestBigIntAccessor(t *testing.T) {
 		require.Equal(t, 0, val1.Cmp(got1))
 	})
 }
+
+type SliceInMap struct {
+	// Map: Address -> Slice[uint64]
+	Data Map[common.Address, Slice[Var[uint64]]]
+}
+
+type MapInSlice struct {
+	// Slice of Map: uint64 -> uint64
+	History Slice[Map[uint64, Var[uint64]]]
+}
+
+
+func TestStorage_SliceInMap(t *testing.T) {
+	r := tests.Setup(t, nil)
+	addr := common.HexToAddress("0x1111")
+	st := NewStorage(addr, r.Evm.StateDB)
+
+	state := new(SliceInMap)
+	BindState(st, common.Hash{}, state)
+
+	user := common.HexToAddress("0xAAAA")
+
+	// Append to slice inside map
+	slice := state.Data.Get(user)
+	slice.Append(func(v *Var[uint64]) {
+		v.Set(100)
+	})
+	slice.Append(func(v *Var[uint64]) {
+		v.Set(200)
+	})
+
+	// Verify length
+	require.Equal(t, uint64(2), slice.Len())
+
+	// Verify elements
+	require.Equal(t, uint64(100), slice.Get(0).Get())
+	require.Equal(t, uint64(200), slice.Get(1).Get())
+
+	// Verify isolation (another user)
+	otherUser := common.HexToAddress("0xBBBB")
+	otherSlice := state.Data.Get(otherUser)
+	require.Equal(t, uint64(0), otherSlice.Len())
+}
+
+func TestStorage_MapInSlice(t *testing.T) {
+	r := tests.Setup(t, nil)
+	addr := common.HexToAddress("0x2222")
+	st := NewStorage(addr, r.Evm.StateDB)
+
+	state := new(MapInSlice)
+	BindState(st, common.Hash{}, state)
+
+	// Create a new map in the slice
+	state.History.Append(func(m *Map[uint64, Var[uint64]]) {
+		m.Get(1).Set(10)
+		m.Get(2).Set(20)
+	})
+
+	// Create another map
+	state.History.Append(func(m *Map[uint64, Var[uint64]]) {
+		m.Get(1).Set(99) // Different value for same key
+	})
+
+	// Verify Map 0
+	map0 := state.History.Get(0)
+	require.Equal(t, uint64(10), map0.Get(1).Get())
+	require.Equal(t, uint64(20), map0.Get(2).Get())
+
+	// Verify Map 1
+	map1 := state.History.Get(1)
+	require.Equal(t, uint64(99), map1.Get(1).Get())
+	require.Equal(t, uint64(0), map1.Get(2).Get()) // Should be empty
+}

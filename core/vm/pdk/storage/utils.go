@@ -24,7 +24,7 @@ func slotDiff(baseSlot, nextSlot common.Hash) uint64 {
 
 func getSlotConsumption[T any]() uint64 {
 	var zero T
-	// simulating bindstate toe get the consumed slots
+	// simulating bindstate to get the consumed slots
 	consumed := BindState(nil, common.Hash{}, &zero)
 	if consumed == 0 {
 		return 1
@@ -112,4 +112,29 @@ func encodeTo32Bytes(key interface{}, keyType reflect.Type) ([]byte, error) {
 	// Right-align the key bytes.
 	copy(encodedBytes[32-len(keyBytes):], keyBytes)
 	return encodedBytes, nil
+}
+
+type Clearer interface {
+	Clear()
+}
+
+func RecursiveClear(target any) {
+	if c, ok := target.(Clearer); ok {
+		c.Clear()
+		return
+	}
+
+	val := reflect.ValueOf(target)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+
+	if val.Kind() == reflect.Struct {
+		for i := 0; i < val.NumField(); i++ {
+			field := val.Field(i)
+			if field.CanAddr() {
+				RecursiveClear(field.Addr().Interface())
+			}
+		}
+	}
 }

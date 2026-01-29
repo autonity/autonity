@@ -1,99 +1,98 @@
 package fba
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/core/vm/pdk"
+	"github.com/autonity/autonity/core/vm/pdk/gas"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 )
 
-var (
-	// todo
-	clearingAddress = common.HexToAddress("0xFBACLeaRing")
-)
+var ClearingContractAddress = common.HexToAddress("0x0000000000000000000000000000000000009999")
 
-type Side int
-
-const (
-	SideAsk = iota + 1
-	SideBid
-)
-
-type BatchHandler struct {
+type Trade struct {
+	Buyer    common.Address
+	Seller   common.Address
+	Quantity uint64
+	Price    *big.Int
 }
 
-func (bh *BatchHandler) ExecuteBatch(
+type ClearingContract struct {
+	Margins           storage.Map[common.Address, storage.Var[*big.Int]]
+	MaxTradesPerBatch uint64
+}
+
+func (c *ClearingContract) GetMargin(
 	evm *vm.EVM,
 	caller common.Address,
 	st *storage.Storage,
-	intents []OrderIntent,
+	account common.Address,
+) (*big.Int, error) {
+	return c.Margins.Get(account).Get(), nil
+}
+
+func (c *ClearingContract) SetMargin(
+	evm *vm.EVM,
+	caller common.Address,
+	st *storage.Storage,
+	account common.Address,
+	amount *big.Int,
 ) error {
-	// implementation of batch execution logic
-	bh.RunFBA(intents)
+	c.Margins.Get(account).Set(amount)
 	return nil
 }
 
-func (bh *BatchHandler) ValidateIntents(intents []OrderIntent) error {
-	// implementation of OrderIntent validation logic
-	// mae check
-	//
+func (c *ClearingContract) ProcessBatch(
+	evm *vm.EVM,
+	caller common.Address,
+	st *storage.Storage,
+	trades []Trade,
+) error {
+	if uint64(len(trades)) > c.MaxTradesPerBatch {
+		return fmt.Errorf("batch too large: %d > %d", len(trades), c.MaxTradesPerBatch)
+	}
+
+	for _, trade := range trades {
+		buyerMargin := c.Margins.Get(trade.Buyer).Get()
+		buyerMargin.Sub(buyerMargin, trade.Price)
+		c.Margins.Get(trade.Buyer).Set(buyerMargin)
+
+		sellerMargin := c.Margins.Get(trade.Seller).Get()
+		sellerMargin.Add(sellerMargin, trade.Price)
+		c.Margins.Get(trade.Seller).Set(sellerMargin)
+	}
+
 	return nil
 }
 
-func (bh *BatchHandler) RunFBA(intents []OrderIntent) {
-	// implementation of FBA logic
-	// filter order
-	// verify using allowlist
-	// since we trust our off chain engine, it can sign the whole batch and we verify once
-	for _, intent := range intents {
-		_ = intent.Quantity
+func calculateProcessBatchGas(params []byte) uint64 {
+	if len(params) < 32 {
+		return 0
 	}
+
+	numTrades := new(big.Int).SetBytes(params[:32]).Uint64()
+	tradesGas := numTrades * 500
+	accountsGas := numTrades * 2 * 1000
+
+	return tradesGas + accountsGas
 }
 
-func (bh *BatchHandler) ComputeClearingPrice(intents []OrderIntent) *big.Int {
-	// implementation of clearing price computation logic
-	var asks, bids []OrderIntent
-	for _, intent := range intents {
-		if intent.Side == SideAsk {
-			asks = append(asks, intent)
-		} else if intent.Side == SideBid {
-			bids = append(bids, intent)
-		}
-	}
-	/* assume we have sorted asks and bids
-		- find intersection point, price p, where best bid >= best ask
-		- build demand and supply curves
-	 		- cumulative quantity at each price level,
-			- Demand = sum abs( bid quantities at price >= p)     1000 P  900
-			- Supply = sum abs( ask quantities at price <= p)
-		- allocate quantity ()
-			-
-
-	*/
-	for i, j := 0, 0; i < len(asks) && j < len(bids); {
-		ask := asks[i]
-		bid := bids[j]
-		if bid.Price.Cmp(ask.Price) >= 0 {
-			// match found
-			// determine matched quantity
-			if bid.Quantity.Cmp(ask.Quantity) >= 0 {
-				// bid can fully satisfy ask
-				bid.Quantity.Sub(bid.Quantity, ask.Quantity)
-				ask.Quantity.SetInt64(0)
-				i++
-			} else {
-				// ask can fully satisfy bid
-				ask.Quantity.Sub(ask.Quantity, bid.Quantity)
-				bid.Quantity.SetInt64(0)
-				j++
-			}
-			// record the trade at ask.Price
-		} else {
-			// no match
-			i++
-		}
+func SetupClearingContract(evm *vm.EVM) *ClearingContract {
+	contract := &ClearingContract{
+		MaxTradesPerBatch: 1000,
 	}
 
-	return big.NewInt(0)
+	gasConfig := gas.NewConfig(50_000)
+	gasConfig.SetMethodGas("GetMargin", gas.MethodGas{Base: 30_000})
+	gasConfig.SetMethodGas("SetMargin", gas.MethodGas{Base: 80_000})
+	gasConfig.SetMethodGas("ProcessBatch", gas.MethodGas{
+		Base:       100_000,
+		Calculator: calculateProcessBatchGas,
+	})
+
+	pdk.AddToPrecompiles(ClearingContractAddress, contract, evm, nil, gasConfig)
+	return contract
 }

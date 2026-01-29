@@ -40,7 +40,7 @@ func (a *Array[V, S]) Len() uint64 {
 
 func (a *Array[V, S]) Get(index uint64) *V {
 	if index >= a.len {
-		return nil
+		panic("array index out of bounds")
 	}
 	itemSlot := addSlot(a.baseSlot, index*a.elemSize)
 	val := new(V)

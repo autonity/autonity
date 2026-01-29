@@ -22,8 +22,23 @@ func (m *Map[K, V]) Bind(st *Storage, baseSlot common.Hash, offset uint64) (comm
 	return addSlot(m.baseSlot, 1), 0
 }
 
+// Delete removes the key from the map and recursively clears all storage used by the value.
+func (m *Map[K, V]) Delete(key K) {
+	keyBytes, err := encodeTo32Bytes(key, reflect.TypeOf(key))
+	if err != nil {
+		panic(err)
+	}
+	keyHash := crypto.Keccak256Hash(append(keyBytes, m.baseSlot.Bytes()...))
+
+	// We must bind it to the state so it knows WHERE to clear data from.
+	val := new(V)
+	BindState(m.st, keyHash, val)
+
+	RecursiveClear(val)
+}
+
 // Get obtains the pointer to value Wrapper, which is bound to the key slot
-// there is no need ot set, because the V can be used to V.Set(...) directly
+// there is no need to set, because the V can be used to V.Set(...) directly
 func (m *Map[K, V]) Get(key K) *V {
 	keyBytes, err := encodeTo32Bytes(key, reflect.TypeOf(key))
 	if err != nil {

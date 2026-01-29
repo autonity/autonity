@@ -67,3 +67,39 @@ func buildInput(t *testing.T, d *abiselector.Dispatcher, methodName string, args
 	input := append(sel, argsPacked...)
 	return input
 }
+
+func TestDeleteOrder(t *testing.T) {
+	r := tests.Setup(t, nil)
+	te := SetupTradingEngineContract(r.Evm)
+
+	pair := "NTN/USDC"
+	side := uint8(0) // Bid
+	price := big.NewInt(100)
+	qty := big.NewInt(10)
+	sender := common.HexToAddress("0xdummyuser")
+
+	bc := vm.PrecompiledContractsIstanbul[ContractAddress]
+	bcTyped, _ := bc.(*pdk.BaseContract)
+	input := buildInput(t, bcTyped.Dispatcher, "SubmitOrder", pair, side, price, qty)
+
+	result, err := bc.Run(input, r.Evm.Context.BlockNumber.Uint64(), r.Evm, sender)
+	require.NoError(t, err)
+	orderID := common.BytesToHash(result[:32])
+
+	// Verify order exists
+	ord := te.Orders.Get(orderID)
+	require.Equal(t, sender, ord.User.Get())
+
+	// Force Delete via PDK Map.Delete logic
+	te.Orders.Delete(orderID)
+	// We must verify it's gone.
+	// Since Orders.Get(id) will return a bound wrapper for zero state if deleted,
+	// checking primitive fields for zero values confirms deletion.
+	ordDeleted := te.Orders.Get(orderID)
+
+	require.Equal(t, common.Address{}, ordDeleted.User.Get())
+	require.Equal(t, uint8(0), ordDeleted.Side.Get())
+	// Uint256 zero check
+	p := ordDeleted.Price.Get()
+	require.Equal(t, uint64(0), p.Uint64())
+}

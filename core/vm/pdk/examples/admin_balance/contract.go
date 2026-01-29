@@ -7,6 +7,7 @@ import (
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/core/vm/pdk"
 	"github.com/autonity/autonity/core/vm/pdk/examples/trade_engine"
+	"github.com/autonity/autonity/core/vm/pdk/gas"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 	"github.com/autonity/autonity/log"
 )
@@ -23,7 +24,13 @@ type AdminBalanceContract struct {
 
 func SetupAdminBalanceContract(vm *vm.EVM) *AdminBalanceContract {
 	c := &AdminBalanceContract{}
-	pdk.AddToPrecompiles(ContractAddress, c, vm, initialize)
+
+	gasConfig := gas.NewConfig(50_000)
+	gasConfig.SetMethodGas("UpdateBalance", gas.MethodGas{Base: 80_000})
+	gasConfig.SetMethodGas("UpdateAdmin", gas.MethodGas{Base: 80_000})
+	gasConfig.SetMethodGas("CallSubmitOrder", gas.MethodGas{Base: 150_000})
+
+	pdk.AddToPrecompiles(ContractAddress, c, vm, initialize, gasConfig)
 	return c
 }
 
@@ -34,7 +41,6 @@ func initialize(st *storage.Storage, bc *pdk.BaseContract) {
 
 	ac.Admin.Set(protocolAdmin)
 	ac.Balance.Set(storage.NewUint256FromInt(100))
-	st.Commit()
 }
 
 func (c *AdminBalanceContract) UpdateBalance(evm *vm.EVM, caller common.Address, st *storage.Storage, newBalance *big.Int) error {
