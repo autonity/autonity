@@ -88,8 +88,8 @@ graph LR
     end
 
     subgraph "Packed Vars (Slot 0)"
-       ID[Var: ID (uint64)]
-       Active[Var: Active (bool)]
+       ID["Var: ID (uint64)"]
+       Active["Var: Active (bool)"]
     end
     Slot0 --> ID
     Slot0 --> Active
