@@ -11,7 +11,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/core/vm/pdk"
-	"github.com/autonity/autonity/core/vm/pdk/abiselector"
+	"github.com/autonity/autonity/core/vm/pdk/dispatcher"
 	"github.com/autonity/autonity/crypto"
 )
 
@@ -57,7 +57,7 @@ func TestSubmitOrder(t *testing.T) {
 	require.Equal(t, orderID, updatedBook.Bids.Get(0).OrderIDs.Get(0).Get())
 }
 
-func buildInput(t *testing.T, d *abiselector.Dispatcher, methodName string, args ...interface{}) []byte {
+func buildInput(t *testing.T, d *dispatcher.Dispatcher, methodName string, args ...interface{}) []byte {
 	abiMethod, ok := d.ABI.Methods[methodName]
 	require.True(t, ok, "Method not found: %s", methodName)
 

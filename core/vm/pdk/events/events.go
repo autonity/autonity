@@ -8,7 +8,7 @@ import (
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/vm/pdk/abiselector"
+	"github.com/autonity/autonity/core/vm/pdk/dispatcher"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 	"github.com/autonity/autonity/crypto"
 )
@@ -73,7 +73,7 @@ func Emit(st *storage.Storage, event interface{}) error {
 }
 
 func encodeTopic(fieldValue reflect.Value) (common.Hash, error) {
-	abiType, err := abiselector.ResolveABIType(fieldValue.Type())
+	abiType, err := dispatcher.ResolveABIType(fieldValue.Type())
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("unsupported indexed field type %s", fieldValue.Type().String())
 	}
@@ -112,7 +112,7 @@ func inferEventSchema(typ reflect.Type) (*eventSchema, error) {
 			continue
 		}
 
-		abiType, err := abiselector.ResolveABIType(field.Type)
+		abiType, err := dispatcher.ResolveABIType(field.Type)
 		if err != nil {
 			return nil, fmt.Errorf("unsupported field type %s for field %s", field.Type.String(), field.Name)
 		}

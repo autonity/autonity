@@ -1,4 +1,4 @@
-package abiselector
+package dispatcher
 
 import (
 	"reflect"

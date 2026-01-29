@@ -11,7 +11,7 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/core/vm/pdk"
-	"github.com/autonity/autonity/core/vm/pdk/abiselector"
+	"github.com/autonity/autonity/core/vm/pdk/dispatcher"
 	"github.com/autonity/autonity/core/vm/pdk/examples/trade_engine"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 	"github.com/autonity/autonity/crypto"
@@ -127,7 +127,7 @@ func TestCrossContractCallInSolidity_SubmitOrder(t *testing.T) {
 }
 */
 
-func buildInput(t *testing.T, d *abiselector.Dispatcher, methodName string, args ...interface{}) []byte {
+func buildInput(t *testing.T, d *dispatcher.Dispatcher, methodName string, args ...interface{}) []byte {
 	abiMethod, ok := d.ABI.Methods[methodName]
 	if !ok {
 		t.Error("Method not found")

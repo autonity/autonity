@@ -6,20 +6,20 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/core/vm/pdk/abiselector"
+	"github.com/autonity/autonity/core/vm/pdk/dispatcher"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 )
 
 // Client is a PDK contract client which can call methods on a PDK contract deployed at a specific address.
 type Client struct {
 	address    common.Address
-	dispatcher *abiselector.Dispatcher
+	dispatcher *dispatcher.Dispatcher
 }
 
 func NewClient(address common.Address, logic interface{}) *Client {
 	return &Client{
 		address:    address,
-		dispatcher: abiselector.GetDispatcher(logic),
+		dispatcher: dispatcher.GetDispatcher(logic),
 	}
 }
 

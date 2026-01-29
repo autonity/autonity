@@ -5,7 +5,7 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/core/vm/pdk/abiselector"
+	"github.com/autonity/autonity/core/vm/pdk/dispatcher"
 	"github.com/autonity/autonity/core/vm/pdk/gas"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 )
@@ -14,7 +14,7 @@ type BaseContract struct {
 	contract interface{}
 
 	Address    common.Address
-	Dispatcher *abiselector.Dispatcher
+	Dispatcher *dispatcher.Dispatcher
 	gasConfig  *gas.Config
 }
 
@@ -60,7 +60,7 @@ func AddToPrecompiles(
 	base := &BaseContract{
 		contract:   contractPtr,
 		Address:    address,
-		Dispatcher: abiselector.RegisterDispatcher(contractPtr),
+		Dispatcher: dispatcher.RegisterDispatcher(contractPtr),
 		gasConfig:  gasConfig,
 	}
 

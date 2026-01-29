@@ -1,4 +1,4 @@
-package abiselector
+package dispatcher
 
 import (
 	"math/big"
@@ -476,11 +476,10 @@ func TestConvertToTargetType_IdenticalTypes(t *testing.T) {
 	require.Equal(t, val, result.Interface())
 }
 
-
 func TestConvertToTargetType_BigIntOverflow(t *testing.T) {
 	// Value too large for int64 should error
 	tooLarge := new(big.Int).SetUint64(^uint64(0)) // Max uint64
-	tooLarge.Add(tooLarge, big.NewInt(1))           // Overflow uint64
+	tooLarge.Add(tooLarge, big.NewInt(1))          // Overflow uint64
 
 	_, err := convertToTargetType(tooLarge, reflect.TypeOf(int64(0)))
 	require.Error(t, err)

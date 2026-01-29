@@ -9,7 +9,7 @@ import (
 	"github.com/autonity/autonity/autonity/tests"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/vm"
-	"github.com/autonity/autonity/core/vm/pdk/abiselector"
+	"github.com/autonity/autonity/core/vm/pdk/dispatcher"
 	"github.com/autonity/autonity/core/vm/pdk/gas"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 	"github.com/autonity/autonity/params"
@@ -91,7 +91,7 @@ func TestRun_PanicRecovery_Execution(t *testing.T) {
 	base := &BaseContract{
 		contract:   pc,
 		Address:    testAddr,
-		Dispatcher: abiselector.RegisterDispatcher(pc),
+		Dispatcher: dispatcher.RegisterDispatcher(pc),
 		gasConfig:  gasConfig,
 	}
 
