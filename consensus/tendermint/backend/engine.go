@@ -98,14 +98,33 @@ func (sb *Backend) VerifyHeader(chain consensus.ChainHeaderReader, header *types
 	}
 
 	hash := func(h uint64) (common.Hash, error) {
-		targetHeader := sb.BlockChain().GetHeaderByNumber(h)
-		if targetHeader == nil {
-			return common.Hash{}, errCannotFindHash
+		if targetHeader := chain.GetHeaderByNumber(h); targetHeader != nil {
+			return targetHeader.Hash(), nil
 		}
-		return targetHeader.Hash(), nil
+		// Fall back to walking the parent chain if canonical mapping is missing.
+		if targetHeader := resolveHeaderByHeight(chain, header, h); targetHeader != nil {
+			return targetHeader.Hash(), nil
+		}
+		return common.Hash{}, errCannotFindHash
 	}
 
 	return sb.verifyHeader(chain.Config(), header, parent, epoch, hash)
+}
+
+// resolveHeaderByHeight walks back the parent links from start until it reaches height.
+// It uses the hash+number lookup to tolerate non-canonical headers.
+func resolveHeaderByHeight(chain consensus.ChainHeaderReader, start *types.Header, height uint64) *types.Header {
+	if start == nil || start.Number.Uint64() < height {
+		return nil
+	}
+	curr := start
+	for curr != nil && curr.Number.Uint64() > height {
+		curr = chain.GetHeader(curr.ParentHash, curr.Number.Uint64()-1)
+	}
+	if curr != nil && curr.Number.Uint64() == height {
+		return curr
+	}
+	return nil
 }
 
 type HashGetter func(h uint64) (common.Hash, error)
@@ -233,8 +252,13 @@ func (sb *Backend) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*t
 			if index < uint64(len(headers)) {
 				targetHeader = headers[index]
 			}
-		} else {
-			targetHeader = sb.BlockChain().GetHeaderByNumber(h)
+		}
+		if targetHeader == nil {
+			targetHeader = chain.GetHeaderByNumber(h)
+		}
+		if targetHeader == nil && h < headers[0].Number.Uint64() {
+			// Fallback to walking back from the first header when canonical lookup is missing.
+			targetHeader = resolveHeaderByHeight(chain, headers[0], h)
 		}
 		if targetHeader == nil {
 			return common.Hash{}, errCannotFindHash

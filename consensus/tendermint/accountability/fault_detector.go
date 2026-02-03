@@ -154,10 +154,6 @@ func NewFaultDetector(
 		logger:                logger, // Todo(youssef): remove context
 		scanned:               make(map[uint64]struct{}),
 	}
-	// use ChainEvent instead of ChainHeadEvent as we want the relative select cases to ran at every single block.
-	// ChainHeadEvent might be fired a single time for a batch of inserted blocks.
-	fd.ruleEngineBlockSub = fd.blockchain.SubscribeChainEvent(fd.ruleEngineBlockCh)
-	fd.chainEventSub = fd.blockchain.SubscribeChainEvent(fd.chainEventCh)
 
 	fd.accountabilityEventSub, _ = protocolContracts.WatchNewAccusation(
 		nil,
@@ -174,6 +170,11 @@ func NewFaultDetector(
 // Fault Detector rule engine could also trigger from here to scan those msgs of msg store by applying rules.
 // TODO: should we start accountability module only once we are in sync with the chain? Right now it is started when the node starts.
 func (fd *FaultDetector) Start() {
+	// use ChainEvent instead of ChainHeadEvent as we want the relative select cases to ran at every single block.
+	// ChainHeadEvent might be fired a single time for a batch of inserted blocks.
+	fd.ruleEngineBlockSub = fd.blockchain.SubscribeChainEvent(fd.ruleEngineBlockCh)
+	fd.chainEventSub = fd.blockchain.SubscribeChainEvent(fd.chainEventCh)
+
 	fd.wg.Add(1)
 	go fd.eventReporter()
 	go fd.ruleEngine()
@@ -458,10 +459,18 @@ func (fd *FaultDetector) canReport(height uint64) bool {
 }
 
 func (fd *FaultDetector) Stop() {
-	fd.ruleEngineBlockSub.Unsubscribe()
-	fd.chainEventSub.Unsubscribe()
-	fd.tendermintMsgSub.Unsubscribe()
-	fd.accountabilityEventSub.Unsubscribe()
+	if fd.ruleEngineBlockSub != nil {
+		fd.ruleEngineBlockSub.Unsubscribe()
+	}
+	if fd.chainEventSub != nil {
+		fd.chainEventSub.Unsubscribe()
+	}
+	if fd.tendermintMsgSub != nil {
+		fd.tendermintMsgSub.Unsubscribe()
+	}
+	if fd.accountabilityEventSub != nil {
+		fd.accountabilityEventSub.Unsubscribe()
+	}
 	close(fd.stopRetry)
 	close(fd.eventReporterCh)
 	fd.wg.Wait()
