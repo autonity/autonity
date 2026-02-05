@@ -89,6 +89,23 @@
 //  }
 //}
 
+const HDWalletProvider = require("@truffle/hdwallet-provider");
+
+// Private keys for the 10 test accounts, ordered to match the original
+// --unlock order so that accounts[N] indices are preserved.
+const TEST_PRIVATE_KEYS = [
+  "a4b489752489e0f47e410b8e8cbb1ac1b56770d202ffd45b346ca8355c602c91", // 0x850c1eb8d190e05845ad7f84ac95a318c8aab07f
+  "aa4b77b1305f8f265e81599587c623d8950624f3e1bd9c121ef2461a7a1e7527", // 0x4ad219b58a5b46a1d9662beaa6a70db9f570dea5
+  "9e19e8f26a59eb5465cf39dde39161eafc84ba934fb641bb0078ffcf8393e133", // 0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d
+  "4ec99383dc50aa3f3117fcbfba7b69188ba60d3418185fb353c9a69d066e55d9", // 0xc443c6c6ae98f5110702921138d840e77da67702
+  "0c8698f456533170fe07c6dcb753d47bef8bedd46443efa57a859c989887b56b", // 0x09428e8674496e2d1e965402f33a9520c5fcbbe2
+  "82b34a8613c090fd991f7c6e2122f28752fd7066a26e5105576f6ef78d49b7d5", // 0x64852003fc0b84d6c49c5cb3dfcd17922affddc1
+  "3073d06125723c03a4b2317b73280878e2d5e7916731e1dc27f7650e13b03d5c", // 0x4839950a5f07d6d6cd82f933d1de8574c48d6e74
+  "fa59cb05e77d39425f16d17277bafdfb742e1057177476173d9c79576c6bf779", // 0x160bc705bf2e5871557722c9332cfa185c02b765
+  "58951d75562e20501fdcbc8fa6d36b6a10e87aa429ea0e0d302cc0718973f9f2", // 0xe12b43b69e57ed6acdd8721eb092bf7c8d41df41
+  "e59be7e486afab41ec6ef6f23746d78e5dbf9e3f9b0ac699b5566e4f675e976b", // 0xde03b7806f885ae79d2aa56568b77cadb0de073e
+];
+
 module.exports = {
   networks: {
     development: {
@@ -96,6 +113,14 @@ module.exports = {
       port: 8545,
       network_id: "*",
       gas: 56123880
+    },
+    autonity: {
+      provider: () => new HDWalletProvider({
+        privateKeys: TEST_PRIVATE_KEYS,
+        providerOrUrl: "http://127.0.0.1:8545",
+      }),
+      network_id: "*",
+      gas: 56123880,
     },
   },
 
@@ -107,7 +132,7 @@ module.exports = {
     solc: {
       version: "0.8.30",
       evmVersion: "london",
-      // docker: true,    
+      // docker: true,
       optimizer: {
         enabled: true,
         runs: 1

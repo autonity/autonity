@@ -317,8 +317,8 @@ jobs:
         run: make start-autonity
       - name: test contract
         run: |
-          echo 'Running npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
-          cd ./autonity/solidity/test && npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
+          echo 'Running npx truffle test --network autonity --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
+          cd ./autonity/solidity/test && npx truffle test --network autonity --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
 
   # run the contract tests batch b via truffle framework.
   contracts-tests-b:
@@ -363,8 +363,8 @@ jobs:
         run: make start-autonity
       - name: test contract
         run: |
-          echo 'Running npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
-          cd ./autonity/solidity/test && npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
+          echo 'Running npx truffle test --network autonity --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
+          cd ./autonity/solidity/test && npx truffle test --network autonity --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
 
   # run the contract tests batch c via truffle framework.
   contracts-tests-c:
@@ -409,8 +409,8 @@ jobs:
         run: make start-autonity
       - name: test contract
         run: |
-          echo 'Running npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
-          cd ./autonity/solidity/test && npx truffle test --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
+          echo 'Running npx truffle test --network autonity --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}'
+          cd ./autonity/solidity/test && npx truffle test --network autonity --grep "${{ matrix.tests.describe_name }}" ${{ matrix.tests.file_name }}
 
   # tendermint-test-with-coverage runs the unit tests of the tendermint package with race condition detection and coverage report.
   tendermint-test-with-coverage:

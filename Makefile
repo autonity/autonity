@@ -170,6 +170,8 @@ test-contracts-pre:
 	@npm list truffle-assertions > /dev/null || npm install truffle-assertions
 	@echo "check and install ganache"
 	@npm list ganache > /dev/null || npm install ganache
+	@echo "check and install @truffle/hdwallet-provider"
+	@npm list @truffle/hdwallet-provider > /dev/null || npm install @truffle/hdwallet-provider
 	@npx truffle version
 
 # start an autonity network for contract tests
@@ -192,15 +194,15 @@ start-ganache:
 
 # This runs the contract tests using truffle against an Autonity node instance.
 test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test accountability.js && cd -
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity autonity.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity oracle.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity liquid.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity accountability.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity protocol.js && cd -
 	@#refund.js is ran only against Autonity, since ganache does not implement the oracle vote refund logic
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test refund.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity refund.js && cd -
 	@#validator_management.js is ran only against Autonity, since ganache does not implement the POP  logic
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test validator_management.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity validator_management.js && cd -
 	@echo "killing test autonity network and cleaning chaindata"
 	@-pkill autonity
 	@cd $(CONTRACTS_TEST_DIR)/autonity/ && rm -Rdf ./data

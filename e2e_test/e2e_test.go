@@ -1538,11 +1538,13 @@ loop:
 
 	_, err = autonityContract.UpdateEnode(transactor, network[0].Address, newEnode)
 	require.NoError(t, err)
+
 	// turn off validator to restart it with new port
 	network[0].Close(true)
 
 	err = network.WaitToMineNBlocks(1, 10, false)
 	require.NoError(t, err)
+
 	// verify other client only has 3 connection now
 	require.Equal(t, 3, network[1].ConsensusServer().PeerCount(), "connection with paused validator is not dropped after it got evicted from committee")
 

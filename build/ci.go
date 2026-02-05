@@ -24,19 +24,18 @@ Usage: go run build/ci.go <command> <command flags/arguments>
 
 Available commands are:
 
-   install    [ -arch architecture ] [ -cc compiler ] [ packages... ]                          -- builds packages and executables
-   test       [ -coverage ] [ packages... ]                                                    -- runs the tests
-   lint                                                                                        -- runs certain pre-selected linters
-   archive    [ -arch architecture ] [ -type zip|tar ] [ -signer key-envvar ] [ -signify key-envvar ] [ -upload dest ] -- archives build artifacts
-   importkeys                                                                                  -- imports signing keys from env
-   debsrc     [ -signer key-id ] [ -upload dest ]                                              -- creates a debian source package
-   nsis                                                                                        -- creates a Windows NSIS installer
-   aar        [ -local ] [ -sign key-id ] [-deploy repo] [ -upload dest ]                      -- creates an Android archive
-   xcode      [ -local ] [ -sign key-id ] [-deploy repo] [ -upload dest ]                      -- creates an iOS XCode framework
-   purge      [ -store blobstore ] [ -days threshold ]                                         -- purges old archives from the blobstore
+	install    [ -arch architecture ] [ -cc compiler ] [ packages... ]                          -- builds packages and executables
+	test       [ -coverage ] [ packages... ]                                                    -- runs the tests
+	lint                                                                                        -- runs certain pre-selected linters
+	archive    [ -arch architecture ] [ -type zip|tar ] [ -signer key-envvar ] [ -signify key-envvar ] [ -upload dest ] -- archives build artifacts
+	importkeys                                                                                  -- imports signing keys from env
+	debsrc     [ -signer key-id ] [ -upload dest ]                                              -- creates a debian source package
+	nsis                                                                                        -- creates a Windows NSIS installer
+	aar        [ -local ] [ -sign key-id ] [-deploy repo] [ -upload dest ]                      -- creates an Android archive
+	xcode      [ -local ] [ -sign key-id ] [-deploy repo] [ -upload dest ]                      -- creates an iOS XCode framework
+	purge      [ -store blobstore ] [ -days threshold ]                                         -- purges old archives from the blobstore
 
 For all commands, -n prevents execution of external programs (dry run mode).
-
 */
 package main
 
@@ -60,7 +59,8 @@ import (
 
 	"github.com/autonity/autonity/crypto/signify"
 	"github.com/autonity/autonity/internal/build"
-	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/internal/version"
+	gethversion "github.com/autonity/autonity/version"
 	"github.com/cespare/cp"
 )
 
@@ -118,7 +118,7 @@ var (
 	// A debian package is created for all executables listed here.
 	debEthereum = debPackage{
 		Name:        "ethereum",
-		Version:     params.Version,
+		Version:     version.Semantic,
 		Executables: debExecutables,
 	}
 
@@ -372,7 +372,7 @@ func doArchive(cmdline []string) {
 
 	var (
 		env          = build.Env()
-		baseautonity = archiveBasename(*arch, params.ArchiveVersion(env.Commit))
+		baseautonity = archiveBasename(*arch, version.Archive(env.Commit))
 		autonity     = "autonity-" + baseautonity + ext
 		alltools     = "autonity-alltools-" + baseautonity + ext
 	)
@@ -497,12 +497,12 @@ func doDocker(cmdline []string) {
 	case env.Branch == "master":
 		tags = []string{"latest"}
 	case strings.HasPrefix(env.Tag, "v1."):
-		tags = []string{"stable", fmt.Sprintf("release-1.%d", params.VersionMinor), "v" + params.Version}
+		tags = []string{"stable", fmt.Sprintf("release-1.%d", gethversion.Minor), "v" + version.Semantic}
 	}
 	// If architecture specific image builds are requested, build and push them
 	if *image {
-		build.MustRunCommand("docker", "build", "--build-arg", "COMMIT="+env.Commit, "--build-arg", "VERSION="+params.VersionWithMeta, "--build-arg", "BUILDNUM="+env.Buildnum, "--tag", fmt.Sprintf("%s:TAG", *upload), ".")
-		build.MustRunCommand("docker", "build", "--build-arg", "COMMIT="+env.Commit, "--build-arg", "VERSION="+params.VersionWithMeta, "--build-arg", "BUILDNUM="+env.Buildnum, "--tag", fmt.Sprintf("%s:alltools-TAG", *upload), "-f", "Dockerfile.alltools", ".")
+		build.MustRunCommand("docker", "build", "--build-arg", "COMMIT="+env.Commit, "--build-arg", "VERSION="+version.WithMeta, "--build-arg", "BUILDNUM="+env.Buildnum, "--tag", fmt.Sprintf("%s:TAG", *upload), ".")
+		build.MustRunCommand("docker", "build", "--build-arg", "COMMIT="+env.Commit, "--build-arg", "VERSION="+version.WithMeta, "--build-arg", "BUILDNUM="+env.Buildnum, "--tag", fmt.Sprintf("%s:alltools-TAG", *upload), "-f", "Dockerfile.alltools", ".")
 
 		// Tag and upload the images to Docker Hub
 		for _, tag := range tags {
@@ -957,16 +957,16 @@ func doWindowsInstaller(cmdline []string) {
 	// Build the installer. This assumes that all the needed files have been previously
 	// built (don't mix building and packaging to keep cross compilation complexity to a
 	// minimum).
-	version := strings.Split(params.Version, ".")
+	versionParts := strings.Split(version.Semantic, ".")
 	if env.Commit != "" {
-		version[2] += "-" + env.Commit[:8]
+		versionParts[2] += "-" + env.Commit[:8]
 	}
-	installer, _ := filepath.Abs("autonity-" + archiveBasename(*arch, params.ArchiveVersion(env.Commit)) + ".exe")
+	installer, _ := filepath.Abs("autonity-" + archiveBasename(*arch, version.Archive(env.Commit)) + ".exe")
 	build.MustRunCommand("makensis.exe",
 		"/DOUTPUTFILE="+installer,
-		"/DMAJORVERSION="+version[0],
-		"/DMINORVERSION="+version[1],
-		"/DBUILDVERSION="+version[2],
+		"/DMAJORVERSION="+versionParts[0],
+		"/DMINORVERSION="+versionParts[1],
+		"/DBUILDVERSION="+versionParts[2],
 		"/DARCH="+*arch,
 		filepath.Join(*workdir, "autonity.nsi"),
 	)
@@ -1020,7 +1020,7 @@ func doAndroidArchive(cmdline []string) {
 	maybeSkipArchive(env)
 
 	// Sign and upload the archive to Azure
-	archive := "autonity-" + archiveBasename("android", params.ArchiveVersion(env.Commit)) + ".aar"
+	archive := "autonity-" + archiveBasename("android", version.Archive(env.Commit)) + ".aar"
 	os.Rename("autonity.aar", archive)
 
 	if err := archiveUpload(archive, *upload, *signer, *signify); err != nil {
@@ -1100,13 +1100,13 @@ func newMavenMetadata(env build.Environment) mavenMetadata {
 		}
 	}
 	// Render the version and package strings
-	version := params.Version
+	ver := version.Semantic
 	if isUnstableBuild(env) {
-		version += "-SNAPSHOT"
+		ver += "-SNAPSHOT"
 	}
 	return mavenMetadata{
-		Version:      version,
-		Package:      "autonity-" + version,
+		Version:      ver,
+		Package:      "autonity-" + ver,
 		Develop:      isUnstableBuild(env),
 		Contributors: contribs,
 	}
@@ -1145,7 +1145,7 @@ func doXCodeFramework(cmdline []string) {
 
 	// Create the archive.
 	maybeSkipArchive(env)
-	archive := "autonity-" + archiveBasename("ios", params.ArchiveVersion(env.Commit))
+	archive := "autonity-" + archiveBasename("ios", version.Archive(env.Commit))
 	if err := os.MkdirAll(archive, 0755); err != nil {
 		log.Fatal(err)
 	}
@@ -1198,13 +1198,13 @@ func newPodMetadata(env build.Environment, archive string) podMetadata {
 			}
 		}
 	}
-	version := params.Version
+	ver := version.Semantic
 	if isUnstableBuild(env) {
-		version += "-unstable." + env.Buildnum
+		ver += "-unstable." + env.Buildnum
 	}
 	return podMetadata{
 		Archive:      archive,
-		Version:      version,
+		Version:      ver,
 		Commit:       env.Commit,
 		Contributors: contribs,
 	}
