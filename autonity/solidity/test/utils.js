@@ -161,7 +161,8 @@ async function mockCommitteeSelectorPrecompile() {
 
 // mine an empty block.
 // If we are on an autonity network the rpc request will fail.
-// In that case we just wait for an empty block to be mined
+// In that case we need to trigger a block by sending a minimal tx, because
+// the local tendermint testnet config does not produce empty blocks.
 async function mineEmptyBlock() {
   let height = await web3.eth.getBlockNumber()
   let evmMineSuccess;
@@ -173,6 +174,25 @@ async function mineEmptyBlock() {
       evmMineSuccess = false
     })
   if(!evmMineSuccess){
+    const accounts = await web3.eth.getAccounts()
+    if (!accounts || accounts.length === 0) {
+      throw new Error("mineEmptyBlock: no accounts available to trigger a block when evm_mine is unsupported")
+    }
+    const from = accounts[0]
+
+    // Ensure the tx is accepted on post-London chains.
+    let gasPrice
+    try {
+      gasPrice = await web3.eth.getGasPrice()
+    } catch (_) {
+      gasPrice = undefined
+    }
+    const tx = { from, to: from, value: "0x0", gas: 21000 }
+    if (gasPrice != null) {
+      tx.gasPrice = gasPrice
+    }
+    await web3.eth.sendTransaction(tx)
+
     await waitForNewBlock(height)
   }
 }
@@ -183,7 +203,7 @@ async function waitForNewBlock(height){
     if (newHeight > height){
       break
     }
-    timeout(100)
+    await timeout(100)
   }
 }
 

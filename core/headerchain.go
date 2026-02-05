@@ -69,7 +69,7 @@ type HeaderChain struct {
 	// of epoch head for the blockchain synchronization context and the header chain synchronization context.
 	currentEpochHeader atomic.Value
 	currentHeader      atomic.Value // Current head of the header chain (may be above the block chain!)
-	currentHeaderHash  common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
+	currentHeaderHash  atomic.Value // common.Hash; hash of the current head (avoid recomputing)
 
 	headerCache *lru.Cache // Cache for the most recent block headers
 	numberCache *lru.Cache // Cache for the most recent block numbers
@@ -124,9 +124,13 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 		headEpochHeaderGauge.Update(epochHead.Number.Int64())
 	}
 
-	hc.currentHeaderHash = hc.CurrentHeader().Hash()
+	hc.currentHeaderHash.Store(hc.CurrentHeader().Hash())
 	headHeaderGauge.Update(hc.CurrentHeader().Number.Int64())
 	return hc, nil
+}
+
+func (hc *HeaderChain) currentHeadHash() common.Hash {
+	return hc.currentHeaderHash.Load().(common.Hash)
 }
 
 // GetBlockNumber retrieves the block number belonging to the given hash
@@ -176,7 +180,7 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 		last  = headers[len(headers)-1]
 		batch = hc.chainDb.NewBatch()
 	)
-	if first.ParentHash != hc.currentHeaderHash {
+	if first.ParentHash != hc.currentHeadHash() {
 		// Delete any canonical number assignments above the new head
 		for i := last.Number.Uint64() + 1; ; i++ {
 			hash := rawdb.ReadCanonicalHash(hc.chainDb, i)
@@ -237,7 +241,7 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 	}
 
 	// Last step update all in-memory head header markers
-	hc.currentHeaderHash = last.Hash()
+	hc.currentHeaderHash.Store(last.Hash())
 	hc.currentHeader.Store(types.CopyHeader(last))
 	headHeaderGauge.Update(last.Number.Int64())
 	// update in-memory epoch header
@@ -597,7 +601,7 @@ func (hc *HeaderChain) SetCurrentHeadEpochHeader(head *types.Header) {
 // as the given header.
 func (hc *HeaderChain) SetCurrentHeader(head *types.Header) {
 	hc.currentHeader.Store(head)
-	hc.currentHeaderHash = head.Hash()
+	hc.currentHeaderHash.Store(head.Hash())
 	headHeaderGauge.Update(head.Number.Int64())
 }
 
@@ -697,7 +701,7 @@ func (hc *HeaderChain) setHead(headBlock uint64, headTime uint64, updateFn Updat
 			log.Crit("Failed to update chain markers", "error", err)
 		}
 		hc.currentHeader.Store(parent)
-		hc.currentHeaderHash = parentHash
+		hc.currentHeaderHash.Store(parentHash)
 		headHeaderGauge.Update(parent.Number.Int64())
 
 		// If this is the first iteration, wipe any leftover data upwards too so

@@ -1244,26 +1244,44 @@ func TestAllowedTxSize(t *testing.T) {
 
 	// Find the maximum data length for the kind of transaction which will
 	// be generated in the pool.addRemoteSync calls below.
-	const largeDataLength = txMaxSize - 200 // enough to have a 5 bytes RLP encoding of the data length number
-	txWithLargeData := pricedDataTransaction(0, pool.currentHead.Load().GasLimit, big.NewInt(1), key, largeDataLength)
-	maxTxLengthWithoutData := txWithLargeData.Size() - largeDataLength // 103 bytes
-	maxTxDataLength := txMaxSize - maxTxLengthWithoutData              // 131072 - 103 = 130953 bytes
+	//
+	// Transaction RLP encodes signature values (r,s) as minimal-length integers, so
+	// the encoded tx size may vary by a few bytes between otherwise similar txs. To
+	// keep this boundary test stable, only consider txs whose signature values are
+	// full-size (32 bytes each), i.e. worst-case encoding.
+	gasLimit := pool.currentHead.Load().GasLimit
+	mkTx := func(nonce uint64, dataLen uint64) *types.Transaction {
+		for i := 0; i < 1024; i++ {
+			tx := pricedDataTransaction(nonce, gasLimit, big.NewInt(1), key, dataLen)
+			_, r, s := tx.RawSignatureValues()
+			if len(r.Bytes()) == 32 && len(s.Bytes()) == 32 {
+				return tx
+			}
+		}
+		t.Fatalf("failed to generate tx with full-size signature after many attempts")
+		return nil
+	}
+
+	const largeDataLength = uint64(txMaxSize - 200) // enough to have a 5 bytes RLP encoding of the data length number
+	txWithLargeData := mkTx(0, largeDataLength)
+	maxTxLengthWithoutData := uint64(txWithLargeData.Size()) - largeDataLength
+	maxTxDataLength := uint64(txMaxSize) - maxTxLengthWithoutData
 
 	// Try adding a transaction with maximal allowed size
-	tx := pricedDataTransaction(0, pool.currentHead.Load().GasLimit, big.NewInt(1), key, maxTxDataLength)
+	tx := mkTx(0, maxTxDataLength)
 	if err := pool.addRemoteSync(tx); err != nil {
 		t.Fatalf("failed to add transaction of size %d, close to maximal: %v", int(tx.Size()), err)
 	}
 	// Try adding a transaction with random allowed size
-	if err := pool.addRemoteSync(pricedDataTransaction(1, pool.currentHead.Load().GasLimit, big.NewInt(1), key, uint64(rand.Intn(int(maxTxDataLength+1))))); err != nil {
+	if err := pool.addRemoteSync(mkTx(1, uint64(rand.Intn(int(maxTxDataLength+1))))); err != nil {
 		t.Fatalf("failed to add transaction of random allowed size: %v", err)
 	}
 	// Try adding a transaction above maximum size by one
-	if err := pool.addRemoteSync(pricedDataTransaction(2, pool.currentHead.Load().GasLimit, big.NewInt(1), key, maxTxDataLength+1)); err == nil {
+	if err := pool.addRemoteSync(mkTx(2, maxTxDataLength+1)); err == nil {
 		t.Fatalf("expected rejection on slightly oversize transaction")
 	}
 	// Try adding a transaction above maximum size by more than one
-	if err := pool.addRemoteSync(pricedDataTransaction(2, pool.currentHead.Load().GasLimit, big.NewInt(1), key, maxTxDataLength+1+uint64(rand.Intn(10*txMaxSize)))); err == nil {
+	if err := pool.addRemoteSync(mkTx(2, maxTxDataLength+1+uint64(rand.Intn(10*txMaxSize)))); err == nil {
 		t.Fatalf("expected rejection on oversize transaction")
 	}
 	// Run some sanity checks on the pool internals

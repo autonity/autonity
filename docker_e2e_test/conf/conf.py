@@ -108,6 +108,5 @@ def parse_public_ip_from_text(file):
                             ip_set.add(str(a.network_address))
     except Exception as e:
         LOGGER.error('Cannot parse ip from input file. %s', e)
-    finally:
-        print('Get public IP from file, counted: ', len(ip_set), file)
-        return sorted(ip_set)
+    print('Get public IP from file, counted: ', len(ip_set), file)
+    return sorted(ip_set)

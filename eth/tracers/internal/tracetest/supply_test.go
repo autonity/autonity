@@ -83,10 +83,15 @@ func TestSupplyOmittedFields(t *testing.T) {
 		t.Fatalf("failed to test supply tracer: %v", err)
 	}
 
+	genesisBlock, err := gspec.ToBlock(nil)
+	if err != nil {
+		t.Fatalf("failed to build genesis block: %v", err)
+	}
+
 	expected := supplyInfo{
 		Number:     0,
-		Hash:       common.HexToHash("0xc5f6fcb97274635e4bfca634d7f07b56633a859783874ffcc926f8f9a45736de"),
-		ParentHash: common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		Hash:       genesisBlock.Hash(),
+		ParentHash: genesisBlock.ParentHash(),
 	}
 	actual := out[expected.Number]
 

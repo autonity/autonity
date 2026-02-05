@@ -72,7 +72,7 @@ require (
 	go.uber.org/atomic v1.7.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/goleak v1.1.12
-	go.uber.org/mock v0.3.0
+	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.45.0
 	golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611
 	golang.org/x/sync v0.18.0

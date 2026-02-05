@@ -218,7 +218,7 @@ test-contracts-truffle-fast: contracts test-contracts-pre start-ganache
 
 docker-e2e-test: contracts
 	build/env.sh go run build/ci.go install
-	cd docker_e2e_test && sudo python3 test_via_docker.py ..
+	$(MAKE) -C docker_e2e_test docker-e2e-tests ID=0 HASH=$$(git rev-parse HEAD)
 
 mock-gen:
 	mockgen -source=consensus/tendermint/core/interfaces/core_backend.go -package=interfaces -destination=consensus/tendermint/core/interfaces/core_backend_mock.go
