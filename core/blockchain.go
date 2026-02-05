@@ -674,7 +674,7 @@ func (bc *BlockChain) loadLastState() error {
 // It walks back from the canonical head until the latest epoch header is found.
 func (bc *BlockChain) repairEpochHead() {
 	head := bc.CurrentHeader()
-	if head == nil {
+	if head == nil || head.MixDigest != types.BFTDigest {
 		return
 	}
 	if _, err := bc.EpochByHeight(head.Number.Uint64()); err == nil {

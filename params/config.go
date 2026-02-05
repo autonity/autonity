@@ -673,6 +673,15 @@ func (c *ChainConfig) SetDefaults() {
 	} else {
 		c.ASM.SupplyControlConfig.SetDefaults()
 	}
+	if c.EnableVerkleAtGenesis && c.ASM.SupplyControlConfig != nil && c.ASM.SupplyControlConfig.InitialAllocation != nil {
+		maxVerkleBalance := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1))
+		if (*big.Int)(c.ASM.SupplyControlConfig.InitialAllocation).Cmp(maxVerkleBalance) > 0 {
+			log.Warn("Supply control initial allocation exceeds Verkle balance limit, capping", "requested", (*big.Int)(c.ASM.SupplyControlConfig.InitialAllocation), "cap", maxVerkleBalance)
+			updated := *c.ASM.SupplyControlConfig
+			updated.InitialAllocation = (*math.HexOrDecimal256)(maxVerkleBalance)
+			c.ASM.SupplyControlConfig = &updated
+		}
+	}
 	// Stabilization
 	if c.ASM.StabilizationContractConfig == nil {
 		log.Info("Config missing, using default parameters for the Stabilization contract")
