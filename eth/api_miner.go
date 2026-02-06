@@ -32,6 +32,30 @@ func NewMinerAPI(e *Ethereum) *MinerAPI {
 	return &MinerAPI{e}
 }
 
+// Start starts mining.
+//
+// Note: this uses ForceStart to bypass the initial chain-sync gate. This is
+// required for single-node private networks (and CI harnesses) where no peers
+// are present to ever trigger downloader synced events.
+func (api *MinerAPI) Start(_ *int) bool {
+	if api.e.blockchain.Config().TestMode {
+		api.e.Miner().DisablePreseal()
+	}
+	api.e.Miner().ForceStart()
+	return true
+}
+
+// Stop stops mining.
+func (api *MinerAPI) Stop() bool {
+	api.e.Miner().Stop()
+	return true
+}
+
+// Mining returns true if the miner is currently running.
+func (api *MinerAPI) Mining() bool {
+	return api.e.IsMining()
+}
+
 // SetExtra sets the extra data string that is included when this miner mines a block.
 func (api *MinerAPI) SetExtra(extra string) (bool, error) {
 	if err := api.e.Miner().SetExtra([]byte(extra)); err != nil {

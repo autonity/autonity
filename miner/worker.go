@@ -203,6 +203,10 @@ type worker struct {
 	exitCh                  chan struct{}
 	resubmitIntervalCh      chan time.Duration
 	resubmitAdjustCh        chan *intervalAdjust
+	// newTxCommitCh forces an immediate work commit on tx arrival. Used only in
+	// TestMode to avoid waiting for the recommit timer, which makes Truffle tests
+	// painfully slow.
+	newTxCommitCh chan struct{}
 
 	wg sync.WaitGroup
 
@@ -254,6 +258,7 @@ func newWorker(config *ethconfig.MinerConfig, chainConfig *params.ChainConfig, e
 		startCh:                 make(chan struct{}, 1),
 		resubmitIntervalCh:      make(chan time.Duration),
 		resubmitAdjustCh:        make(chan *intervalAdjust, resubmitAdjustChanSize),
+		newTxCommitCh:           make(chan struct{}, 1),
 	}
 	// Subscribe NewTxsEvent for tx pool
 	worker.txsSub = eth.TxPool().SubscribeTransactions(worker.txsCh, true)
@@ -470,6 +475,13 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 				commit(true, commitInterruptResubmit, nil)
 			}
 
+		case <-w.newTxCommitCh:
+			// In TestMode, seal as soon as txs arrive to keep tests fast.
+			if w.isRunning() && w.chainConfig.TestMode && atomic.LoadInt32(&w.newTxs) > 0 {
+				timestamp = time.Now().Unix()
+				commit(true, commitInterruptResubmit, nil)
+			}
+
 		case interval := <-w.resubmitIntervalCh:
 			// Adjust resubmit interval explicitly by user.
 			if interval < minRecommitInterval {
@@ -535,6 +547,13 @@ func (w *worker) mainLoop() {
 
 		case ev := <-w.txsCh:
 			atomic.AddInt32(&w.newTxs, int32(len(ev.Txs)))
+			if w.chainConfig.TestMode && w.isRunning() {
+				// Wake newWorkLoop to commit immediately (debounced).
+				select {
+				case w.newTxCommitCh <- struct{}{}:
+				default:
+				}
+			}
 		// System stopped
 		case <-w.exitCh:
 			return
@@ -1111,6 +1130,18 @@ func (w *worker) commitWork(req *newWorkReq) {
 		now := time.Now()
 		FillWorkTimer.Update(now.Sub(fillTxStart))
 		FillWorkBg.Add(now.Sub(fillTxStart).Nanoseconds())
+	}
+
+	// In TestMode (FullFaker), sealing is instantaneous. If we always commit empty
+	// blocks, the chain will advance extremely fast and tests relying on block-based
+	// delays (e.g. unbonding periods) become nondeterministic. Only propose a block
+	// when there is something to include.
+	if w.chainConfig.TestMode && work.tcount == 0 {
+		if w.current != nil {
+			w.current.discard()
+		}
+		w.current = work
+		return
 	}
 
 	commitWorkStart := time.Now()

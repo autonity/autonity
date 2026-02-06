@@ -347,11 +347,14 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	// Successful startup; push a marker and check previous unclean shutdowns.
 	eth.shutdownTracker.MarkStartup()
 
-	if !chainConfig.TestMode {
-		eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine)
-		eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
-		eth.miner.SetPrioAddresses(config.TxPool.Locals)
-	}
+	// Always construct the miner.
+	//
+	// In TestMode the chain runs with a fake ethash engine (FullFaker). If we don't
+	// construct the miner, `--mine` cannot start block production and external test
+	// harnesses (e.g. Truffle) will hang waiting for receipts.
+	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine)
+	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
+	eth.miner.SetPrioAddresses(config.TxPool.Locals)
 	return eth, nil
 }
 

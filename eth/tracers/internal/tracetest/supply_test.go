@@ -77,15 +77,15 @@ func TestSupplyOmittedFields(t *testing.T) {
 		}
 	)
 
-	out, _, err := testSupplyTracer(t, gspec, func(b *core.BlockGen) {
+	out, chain, err := testSupplyTracer(t, gspec, func(b *core.BlockGen) {
 	})
 	if err != nil {
 		t.Fatalf("failed to test supply tracer: %v", err)
 	}
 
-	genesisBlock, err := gspec.ToBlock(nil)
-	if err != nil {
-		t.Fatalf("failed to build genesis block: %v", err)
+	genesisBlock := chain.GetBlockByNumber(0)
+	if genesisBlock == nil {
+		t.Fatalf("failed to retrieve genesis block from test chain")
 	}
 
 	expected := supplyInfo{

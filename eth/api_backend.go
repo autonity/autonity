@@ -74,8 +74,15 @@ func (b *EthAPIBackend) HeaderByNumber(ctx context.Context, number rpc.BlockNumb
 		return block.Header(), nil
 	}
 	// Otherwise resolve and return the block
-	if number == rpc.LatestBlockNumber {
-		return b.eth.blockchain.CurrentBlock(), nil
+	switch number {
+	case rpc.LatestBlockNumber, rpc.SafeBlockNumber, rpc.FinalizedBlockNumber:
+		// The headerchain's head is the safest representation of "latest" to return.
+		// The blockchain's cached currentBlock header may temporarily lead ahead of
+		// the persisted body under rapid local mining, causing `eth_getBlockByNumber`
+		// ("latest") to return null and breaking web3/truffle.
+		return b.eth.blockchain.CurrentHeader(), nil
+	case rpc.EarliestBlockNumber:
+		return b.eth.blockchain.GetHeaderByNumber(0), nil
 	}
 	return b.eth.blockchain.GetHeaderByNumber(uint64(number)), nil
 }
@@ -102,10 +109,24 @@ func (b *EthAPIBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*ty
 }
 
 func (b *EthAPIBackend) BlockByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Block, error) {
-	// Return in the future for the pending block, the current proposal
-	if number == rpc.LatestBlockNumber || number == rpc.PendingBlockNumber {
-		header := b.eth.blockchain.CurrentBlock()
+	// Pending block is only known by the miner.
+	if number == rpc.PendingBlockNumber {
+		block, _, _ := b.eth.miner.Pending()
+		if block == nil {
+			return nil, nil
+		}
+		return block, nil
+	}
+	// For "latest" variants, rely on the headerchain head for stability.
+	if number == rpc.LatestBlockNumber || number == rpc.SafeBlockNumber || number == rpc.FinalizedBlockNumber {
+		header := b.eth.blockchain.CurrentHeader()
+		if header == nil {
+			return nil, nil
+		}
 		return b.eth.blockchain.GetBlock(header.Hash(), header.Number.Uint64()), nil
+	}
+	if number == rpc.EarliestBlockNumber {
+		return b.eth.blockchain.GetBlockByNumber(0), nil
 	}
 	return b.eth.blockchain.GetBlockByNumber(uint64(number)), nil
 }

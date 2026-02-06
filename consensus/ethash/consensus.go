@@ -491,21 +491,38 @@ func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header
 	body *types.Body, _ []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, body.Uncles)
+	// For ethash-based (TestMode) chains we still need to propagate the protocol
+	// config into the block metadata so that the miner can apply the correct gas
+	// limit and EIP-1559 parameters. Do not hardcode `params.TestChainConfig` here
+	// since it ignores the genesis-provided config.
+	chainCfg := chain.Config()
+	acfg := chainCfg.AutonityContractConfig
+	if acfg == nil {
+		acfg = params.TestChainConfig.AutonityContractConfig
+	}
+	accCfg := chainCfg.AccountabilityConfig
+	if accCfg == nil {
+		accCfg = params.TestChainConfig.AccountabilityConfig
+	}
+	minBaseFee := acfg.MinBaseFee
+	if minBaseFee == 0 {
+		minBaseFee = params.TestMinBaseFee
+	}
 	contractsConfig := &types.ContractsConfig{
-		EpochPeriod:         new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.EpochPeriod),
-		BlockPeriod:         new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.BlockPeriod),
-		GasLimit:            new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.GasLimit),
-		ClusteringThreshold: new(big.Int).SetUint64(params.TestChainConfig.AutonityContractConfig.ClusteringThreshold),
+		EpochPeriod:         new(big.Int).SetUint64(acfg.EpochPeriod),
+		BlockPeriod:         new(big.Int).SetUint64(acfg.BlockPeriod),
+		GasLimit:            new(big.Int).SetUint64(acfg.GasLimit),
+		ClusteringThreshold: new(big.Int).SetUint64(acfg.ClusteringThreshold),
 		Accountability: types.AccountabilityParams{
-			Range:       new(big.Int).SetUint64(params.TestChainConfig.AccountabilityConfig.Range),
-			Delta:       new(big.Int).SetUint64(params.TestChainConfig.AccountabilityConfig.Delta),
+			Range:       new(big.Int).SetUint64(accCfg.Range),
+			Delta:       new(big.Int).SetUint64(accCfg.Delta),
 			GracePeriod: new(big.Int),
 		},
 		Eip1559: types.Eip1559Params{
-			MinBaseFee:               new(big.Int).SetUint64(params.TestMinBaseFee),
-			BaseFeeChangeDenominator: new(big.Int).SetUint64(params.DefaultBaseFeeChangeDenominator),
-			ElasticityMultiplier:     new(big.Int).SetUint64(params.DefaultElasticityMultiplier),
-			GasLimitBoundDivisor:     new(big.Int).SetUint64(params.DefaultGasLimitBoundDivisor),
+			MinBaseFee:               new(big.Int).SetUint64(minBaseFee),
+			BaseFeeChangeDenominator: new(big.Int).SetUint64(acfg.BaseFeeChangeDenominator),
+			ElasticityMultiplier:     new(big.Int).SetUint64(acfg.ElasticityMultiplier),
+			GasLimitBoundDivisor:     new(big.Int).SetUint64(acfg.GasLimitBoundDivisor),
 		},
 	}
 	return nil, nil, contractsConfig, nil

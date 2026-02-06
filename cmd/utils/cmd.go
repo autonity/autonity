@@ -74,6 +74,15 @@ func StartNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
 	if err := stack.Start(); err != nil {
 		Fatalf("Error starting protocol stack: %v", err)
 	}
+	// If requested, start mining immediately and bypass the initial chain-sync gate.
+	// This is relied upon by CI test harnesses running a single local node.
+	if ctx.Bool(MiningEnabledFlag.Name) {
+		rpcClient := stack.Attach()
+		var ok bool
+		if err := rpcClient.Call(&ok, "miner_start"); err != nil {
+			Fatalf("Error starting miner (--%s): %v", MiningEnabledFlag.Name, err)
+		}
+	}
 	go func() {
 		sigc := make(chan os.Signal, 1)
 		signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)

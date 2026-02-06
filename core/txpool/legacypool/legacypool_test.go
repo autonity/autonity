@@ -1236,7 +1236,17 @@ func TestAllowedTxSize(t *testing.T) {
 	t.Parallel()
 
 	// Create a test account and fund it
-	pool, key := setupPool()
+	// Use a high block gas limit so this test exercises only the tx size limit,
+	// not the intrinsic gas or "exceeds block gas limit" checks.
+	statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
+	blockchain := newTestBlockChain(params.TestChainConfig, 100_000_000, statedb, new(event.Feed))
+
+	key, _ := crypto.GenerateKey()
+	pool := New(testTxPoolConfig, blockchain)
+	if err := pool.Init(testTxPoolConfig.PriceLimit, blockchain.CurrentBlock(), newReserver()); err != nil {
+		panic(err)
+	}
+	<-pool.initDoneCh
 	defer pool.Close()
 
 	account := crypto.PubkeyToAddress(key.PublicKey)
@@ -1249,7 +1259,11 @@ func TestAllowedTxSize(t *testing.T) {
 	// the encoded tx size may vary by a few bytes between otherwise similar txs. To
 	// keep this boundary test stable, only consider txs whose signature values are
 	// full-size (32 bytes each), i.e. worst-case encoding.
-	gasLimit := pool.currentHead.Load().GasLimit
+	// The tx size limit is enforced at the pool level, but a large data payload
+	// also increases intrinsic gas. Ensure the txs we generate have enough gas to
+	// cover the data floor cost, otherwise this boundary test becomes flaky when
+	// txMaxSize is adjusted.
+	gasLimit := uint64(100_000_000)
 	mkTx := func(nonce uint64, dataLen uint64) *types.Transaction {
 		for i := 0; i < 1024; i++ {
 			tx := pricedDataTransaction(nonce, gasLimit, big.NewInt(1), key, dataLen)
