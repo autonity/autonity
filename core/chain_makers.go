@@ -342,7 +342,10 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		body := types.Body{Transactions: b.txs, Uncles: b.uncles}
 		// Finalize and seal the block
 		chainReader := &fakeChainReader{config: b.cm.config}
-		block, _, _ := b.engine.FinalizeAndAssemble(chainReader, b.header, statedb, &body, &b.receipts)
+		block, _, err := b.engine.FinalizeAndAssemble(chainReader, b.header, statedb, &body, &b.receipts)
+		if err != nil {
+			panic(fmt.Sprintf("block finalization failed: %v", err))
+		}
 
 		// Write state changes to db
 		root, err := statedb.Commit(b.header.Number.Uint64(), config.IsEIP158(b.header.Number), config.IsCancun(b.header.Number))

@@ -153,6 +153,35 @@ func NewProtocolContracts(
 	return &contract, nil
 }
 
+// NewEVMOnlyAutonityContract creates an AutonityContract backed only by an EVM provider.
+//
+// This is useful in contexts where we want to execute Autonity contract calls against an
+// in-memory state (e.g. chain generators / tests) but don't have access to the full
+// blockchain plumbing (ethdb + contract backend) required by NewProtocolContracts.
+//
+// Note: methods that require persistent storage (e.g. ABI persistence during contract
+// upgrade) will not work with this contract because it has no database.
+func NewEVMOnlyAutonityContract(config *params.ChainConfig, provider EVMProvider) (*AutonityContract, error) {
+	if config == nil || config.AutonityContractConfig == nil || config.AutonityContractConfig.ABI == nil {
+		return nil, ErrNoAutonityConfig
+	}
+	if provider == nil {
+		return nil, errors.New("nil EVM provider")
+	}
+
+	contract := &AutonityContract{
+		evmContract: evmContract{
+			evmProvider: provider,
+			contractABI: config.AutonityContractConfig.ABI,
+			db:          nil,
+			chainConfig: config,
+		},
+		AutonityFilterer: nil,
+		proposers:        make(map[uint64]map[int64]common.Address),
+	}
+	return contract, nil
+}
+
 // Proposer election is now computed by committee structure, it is on longer depends on AC contract.
 func (c *AutonityContract) Proposer(committee *types.Committee, _ vm.StateDB, height uint64, round int64) (proposer common.Address) {
 	c.Lock()

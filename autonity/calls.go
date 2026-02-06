@@ -309,6 +309,16 @@ func (c *AutonityContract) callFinalize(state vm.StateDB, header *types.Header) 
 	return result.ContractUpgradeReady, epoch, contractsConfig, nil
 }
 
+// CallFinalize executes Autonity.finalize() and returns any epoch/config updates.
+//
+// This is an exported wrapper around the internal finalize call, intended for
+// contexts that only need the returned metadata (e.g. alternative consensus
+// engines in TestMode) without necessarily building a full receipt or applying
+// contract upgrades.
+func (c *AutonityContract) CallFinalize(state vm.StateDB, header *types.Header) (bool, *types.Epoch, *types.ContractsConfig, error) {
+	return c.callFinalize(state, header)
+}
+
 func (c *AutonityContract) callRetrieveContract(state vm.StateDB, header *types.Header) ([]byte, string, error) {
 	var bytecode []byte
 	var updateAbi string

@@ -26,6 +26,7 @@ import (
 	"github.com/holiman/uint256"
 	"golang.org/x/crypto/sha3"
 
+	"github.com/autonity/autonity/autonity"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/misc"
@@ -491,6 +492,95 @@ func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header
 	body *types.Body, _ []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, body.Uncles)
+
+	// In Autonity's TestMode (ethash FullFaker), protocol finalization still needs
+	// to happen at end-of-block to advance epochs/rounds (e.g. Oracle.finalize()).
+	//
+	// Tendermint does this through ProtocolContracts().FinalizeAndGetCommittee in
+	// its engine finalization; mirror that behavior here when the chain supports it.
+	if chain.Config().TestMode {
+		// Some generic tests use a TestMode config without actually deploying the
+		// Autonity system contract. Only attempt protocol finalization when the
+		// contract is present.
+		if len(state.GetCode(params.AutonityContractAddress)) == 0 {
+			goto fallbackConfig
+		}
+
+		type protocolContractsProvider interface {
+			ProtocolContracts() *autonity.ProtocolContracts
+		}
+
+		// Ensure the system call has a unique hash/index for potential logs.
+		state.SetTxContext(common.ACHash(header.Number), len(body.Transactions))
+
+		if p, ok := chain.(protocolContractsProvider); ok && p.ProtocolContracts() != nil {
+			receipt, epochInfo, contractsConfig, err := p.ProtocolContracts().FinalizeAndGetCommittee(header, state)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			// Do not add an extra receipt in ethash blocks.
+			//
+			// Many tests (and chain generators) assume receipt roots are derived only
+			// from user transactions. We still execute the protocol finalization call
+			// to advance rounds/epochs and return the resulting config/epoch metadata.
+			_ = receipt
+			return nil, epochInfo, contractsConfig, nil
+		}
+
+		cfg := chain.Config()
+		if cfg.AutonityContractConfig == nil || cfg.AutonityContractConfig.ABI == nil {
+			// No ABI available: keep the legacy behavior of just returning config derived
+			// from the chain config (or test defaults) without executing finalize().
+			goto fallbackConfig
+		}
+
+		// Fall back to an EVM-only Autonity contract caller when we don't have a
+		// full blockchain instance (and thus no ProtocolContracts() accessor).
+		provider := func(h *types.Header, origin common.Address, statedb vm.StateDB) *vm.EVM {
+			var (
+				difficulty = h.Difficulty
+				baseFee    = h.BaseFee
+			)
+			if difficulty == nil {
+				difficulty = new(big.Int)
+			}
+			// BaseFee should be present post-London; guard against nil in synthetic headers.
+			if baseFee == nil {
+				baseFee = new(big.Int)
+			} else {
+				baseFee = new(big.Int).Set(baseFee)
+			}
+			blockCtx := vm.BlockContext{
+				CanTransfer: testModeCanTransfer,
+				Transfer:    testModeTransfer,
+				GetHash:     testModeGetHashFn(h, chain),
+				Coinbase:    h.Coinbase,
+				BlockNumber: new(big.Int).Set(h.Number),
+				Time:        h.Time,
+				Difficulty:  new(big.Int).Set(difficulty),
+				BaseFee:     baseFee,
+				GasLimit:    h.GasLimit,
+
+				ActivityProof:      h.ActivityProof,
+				ActivityProofRound: h.ActivityProofRound,
+			}
+			txCtx := vm.TxContext{Origin: origin, GasPrice: new(big.Int)}
+			evm := vm.NewEVM(blockCtx, statedb, chain.Config(), vm.Config{})
+			evm.SetTxContext(txCtx)
+			return evm
+		}
+		ac, err := autonity.NewEVMOnlyAutonityContract(cfg, provider)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		_, epochInfo, contractsConfig, err := ac.CallFinalize(state, header)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return nil, epochInfo, contractsConfig, nil
+	}
+
+fallbackConfig:
 	// For ethash-based (TestMode) chains we still need to propagate the protocol
 	// config into the block metadata so that the miner can apply the correct gas
 	// limit and EIP-1559 parameters. Do not hardcode `params.TestChainConfig` here
@@ -528,11 +618,46 @@ func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header
 	return nil, nil, contractsConfig, nil
 }
 
+func testModeCanTransfer(db vm.StateDB, addr common.Address, amount *uint256.Int) bool {
+	return db.GetBalance(addr).Cmp(amount) >= 0
+}
+
+func testModeTransfer(db vm.StateDB, sender, recipient common.Address, amount *uint256.Int) {
+	db.SubBalance(sender, amount, tracing.BalanceChangeTransfer)
+	db.AddBalance(recipient, amount, tracing.BalanceChangeTransfer)
+}
+
+func testModeGetHashFn(ref *types.Header, chain consensus.ChainReader) func(uint64) common.Hash {
+	refNumber := uint64(0)
+	if ref.Number != nil {
+		refNumber = ref.Number.Uint64()
+	}
+	return func(n uint64) common.Hash {
+		if n >= refNumber {
+			return common.Hash{}
+		}
+		h := chain.GetHeaderByNumber(n)
+		if h == nil {
+			return common.Hash{}
+		}
+		return h.Hash()
+	}
+}
+
 // FinalizeAndAssemble implements consensus.Engine, accumulating the block and
 // uncle rewards, setting the final state and assembling the block.
 func (ethash *Ethash) FinalizeAndAssemble(chain consensus.ChainReader, header *types.Header, state *state.StateDB, body *types.Body, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error) {
 	// Finalize block
-	_, _, contractsConfig, _ := ethash.Finalize(chain, header, state, body, *receipts)
+	receipt, epochInfo, contractsConfig, err := ethash.Finalize(chain, header, state, body, *receipts)
+	if err != nil {
+		return nil, nil, err
+	}
+	if receipt != nil {
+		*receipts = append(*receipts, receipt)
+	}
+	if epochInfo != nil {
+		header.Epoch = epochInfo
+	}
 	// Assign the final state root to header.
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 
