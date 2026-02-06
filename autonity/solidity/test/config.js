@@ -7,15 +7,18 @@ const GAS_LIMIT_BOUND_DIVISOR = 1024;
 const BASE_FEE_CHANGE_DENOMINATOR = 8;
 const ELASTICITY_MULTIPLIER = 2;
 const MAX_SCHEDULE_DURATION = 3*365*24*3600; // 3 years in seconds
-const EPOCH_PERIOD = 30;
+// Keep these low: Tendermint enforces a 1s minimum block interval, and many tests
+// advance time by mining empty blocks.
+const EPOCH_PERIOD = 10;
 const DELEGATION_RATE = 100;
-const UN_BONDING_PERIOD = 60;
+const UN_BONDING_PERIOD = 10;
 const TREASURY_FEE = "10000000000000000";
 // because we cannot test inflation in truffle properly, due to the fact that its time of deployment is not same as that of autonity contract
 const INITIAL_INFLATION_RESERVE = "0";
 const PROPOSER_REWARD_RATE = 1000
 const WITHHOLDING_THRESHOLD = 0
-const MIN_EPOCH_PERIOD = 30;
+// This value is used as protocol.blockPeriod in these Truffle tests.
+const MIN_EPOCH_PERIOD = 1;
 const VERSION = 0;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const SLASHING_RATE_PRECISION = 10000; // needs to match the slashing rate precision in Slasher.sol
@@ -23,7 +26,7 @@ const ORACLE_REWARD_RATE = 0; // tests for oracle rewards are outside of the Tru
 const CLUSTERING_THRESHOLD = 64; // 64 validators before clustering kicks in
 
 const ACCOUNTABILITY_CONFIG = {
-        "innocenceProofSubmissionWindow": 30,
+        "innocenceProofSubmissionWindow": 5,
         "delta": 10,
         "range": 256,
         "baseSlashingRates" : {
@@ -40,10 +43,10 @@ const ACCOUNTABILITY_CONFIG = {
 
 const OMISSION_ACCOUNTABILITY_CONFIG = {
     "inactivityThreshold": 1000,     // 10%
-    "lookbackWindow":  10,   // 10 blocks
+    "lookbackWindow":  5,   // 5 blocks
     "pastPerformanceWeight":   1000, // 10%
-    "initialJailingPeriod":    300,  // 300 blocks
-    "initialProbationPeriod":  24,  // 24 epochs
+    "initialJailingPeriod":    20,  // blocks
+    "initialProbationPeriod":  3,  // epochs
     "initialSlashingRate":     25, // 0.25%
     "delta": 5, // 5 blocks
 }

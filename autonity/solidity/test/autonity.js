@@ -281,21 +281,18 @@ contract('Autonity', function (accounts) {
     });
 
     it("should revert with bad input", async () => {
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.changeCommissionRate(genesisNodeAddresses[1], 1337, {from: accounts[3]}),
-        truffleAssert.ErrorType.REVERT,
         "require caller to be validator admin account"
       );
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.changeCommissionRate(accounts[5], 1337, {from: accounts[3]}),
-        truffleAssert.ErrorType.REVERT,
         "validator must be registered"
       );
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.changeCommissionRate(genesisNodeAddresses[3], 13370, {from: accounts[4]}),
-        truffleAssert.ErrorType.REVERT,
         "require correct commission rate"
       );
 
@@ -375,14 +372,13 @@ contract('Autonity', function (accounts) {
     it('test regular validator cannot set eip1559 parameters', async function () {
       let initConfig = await autonity.getConfig({from: operator});
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
           autonity.setEip1559Params({
             minBaseFee: 50000,
             baseFeeChangeDenominator: 13,
             elasticityMultiplier: 3,
             gasLimitBoundDivisor: 1117,
           }, {from: accounts[9]}),
-        truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
       await utils.endEpoch(autonity,operator,deployer)
@@ -400,9 +396,8 @@ contract('Autonity', function (accounts) {
     it('test regular validator cannot set committee size', async function () {
       let initCommitteeSize = await autonity.getMaxCommitteeSize({from: operator});
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.setCommitteeSize(500, {from: accounts[9]}),
-        truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
 
@@ -419,9 +414,8 @@ contract('Autonity', function (accounts) {
     it('test regular validator cannot set un-bonding period', async function () {
       let initUP = await autonity.getUnbondingPeriod({from: operator});
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.setUnbondingPeriod(127, {from: accounts[9]}),
-        truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
       let uP = await autonity.getUnbondingPeriod({from: operator});
@@ -438,9 +432,8 @@ contract('Autonity', function (accounts) {
     it('test regular validator cannot extend epoch period', async function () {
       let initEP = await autonity.getEpochPeriod({from: operator});
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.setEpochPeriod(98, {from: accounts[9]}),
-        truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
 
@@ -458,9 +451,8 @@ contract('Autonity', function (accounts) {
     it('test regular validator cannot set operator account', async function () {
       let initOperator = await autonity.getOperator({from: operator});
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.setOperatorAccount(accounts[1], {from: accounts[9]}),
-        truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
 
@@ -479,9 +471,8 @@ contract('Autonity', function (accounts) {
     it('test regular validator cannot set treasury account', async function () {
       let initTreasury = await autonity.getTreasuryAccount({from: operator});
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.setTreasuryAccount(accounts[9], {from: accounts[9]}),
-        truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
 
@@ -500,18 +491,16 @@ contract('Autonity', function (accounts) {
     it.skip('test set treasury fee with invalid value by operator', async function () {
       // treasury fee should never exceed 1e9.
       let newFee = 10000000000;
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.setTreasuryFee(newFee, {from: operator}),
-        truffleAssert.ErrorType.REVERT,
       );
     });
 
     it('test regular validator cannot set treasury fee', async function () {
       let initFee = await autonity.getTreasuryFee({from: operator});
       let newFee = initFee + 1;
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.setTreasuryFee(newFee, {from: accounts[9]}),
-        truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
       let treasuryFee = await autonity.getTreasuryFee({from: operator});
@@ -548,9 +537,8 @@ contract('Autonity', function (accounts) {
       let initBalance = await autonity.balanceOf(accounts[1]);
       let tokenMint = 20;
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.mint(accounts[1], tokenMint, {from: anyAccount}),
-        truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
       let balance = await autonity.balanceOf(accounts[1]);
@@ -575,9 +563,8 @@ contract('Autonity', function (accounts) {
       let initBalance = await autonity.balanceOf(accounts[1]);
       let tokenBurn = 10;
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.burn(accounts[1], tokenBurn, {from: anyAccount}),
-        truffleAssert.ErrorType.REVERT,
         "caller is not the operator"
       );
       let balance = await autonity.balanceOf(accounts[1]);
@@ -603,9 +590,8 @@ contract('Autonity', function (accounts) {
       let initBalanceA = await autonity.balanceOf(accounts[1]);
       let initBalanceB = await autonity.balanceOf(accounts[3]);
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.transfer(accounts[1], amount, {from: accounts[3]}),
-        truffleAssert.ErrorType.REVERT,
         "amount exceeds balance"
       );
 
@@ -741,9 +727,8 @@ contract('Autonity', function (accounts) {
       await autonity.mint(newAccount, tokenMint, {from: operator});
 
       // bond new minted Newton to a not registered validator.
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.bond(anyAccount, tokenMint, {from: newAccount}),
-        truffleAssert.ErrorType.REVERT,
         "validator not registered"
       );
     });
@@ -757,9 +742,8 @@ contract('Autonity', function (accounts) {
     it("can't bond to a paused validator", async function () {
       await autonity.pauseValidator(validators[0].nodeAddress, {from: validators[0].treasury});
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.bond(validators[0].nodeAddress, 100, {from: validators[0].treasury}),
-        truffleAssert.ErrorType.REVERT,
         "validator need to be active"
       );
     });
@@ -885,9 +869,8 @@ contract('Autonity', function (accounts) {
       let unRegisteredVal = anyAccount;
       let tokenUnBond = 10;
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.unbond(unRegisteredVal, tokenUnBond, {from: validators[0].treasury}),
-        truffleAssert.ErrorType.REVERT,
         "validator not registered",
       );
     });
@@ -896,9 +879,8 @@ contract('Autonity', function (accounts) {
       let tokenUnBond = 99999;
       let from = validators[0].treasury;
 
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.unbond(validators[0].nodeAddress, tokenUnBond, {from: from}),
-        truffleAssert.ErrorType.REVERT,
         "insufficient self bonded newton balance"
       );
     });
@@ -907,9 +889,8 @@ contract('Autonity', function (accounts) {
       const newAccount = accounts[8];
       const validator = validators[0].nodeAddress;
       // should fail
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.unbond(validator, 0, {from: newAccount}),
-        truffleAssert.ErrorType.REVERT,
         "unbonding amount is 0"
       );
       // if the tx above is not failed, then triggering end-epoch will fail
@@ -1033,9 +1014,8 @@ contract('Autonity', function (accounts) {
       }, 'should emit newUnbondingRequest event');
 
       // if the following does not fail, then we will have panic error in epoch end due to arithmetic underflow
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.unbond(validator, tokenUnbond, {from: treasury}),
-        truffleAssert.ErrorType.REVERT,
         "insufficient self bonded newton balance"
       );
 
@@ -1076,9 +1056,8 @@ contract('Autonity', function (accounts) {
       }, 'should emit newUnbondingRequest event');
 
       // if the following does not fail, then we will have panic error in epoch end due to arithmetic underflow
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.unbond(validator, tokenUnbond, {from: newAccount}),
-        truffleAssert.ErrorType.REVERT,
         "insufficient unlocked Liquid Newton balance"
       );
 
@@ -1110,9 +1089,8 @@ contract('Autonity', function (accounts) {
     });
 
     it('test finalize with not deployer account, exception should rise.', async function () {
-      await truffleAssert.fails(
+      await utils.failsRevert(
         token.finalize({from: anyAccount}),
-        truffleAssert.ErrorType.REVERT,
         "function restricted to the protocol",
       );
     });

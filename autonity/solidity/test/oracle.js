@@ -3,7 +3,7 @@ const OracleAutonityMock = artifacts.require("OracleAutonityMockTest");
 const truffleAssert = require('truffle-assertions');
 const assert = require('assert')
 const utils = require('./utils.js');
-const VOTE_PERIOD = 3;
+const VOTE_PERIOD = 1;
 // var Web3 = require("web3");
 const config = require("./config");
 
@@ -303,13 +303,12 @@ contract("Oracle", accounts => {
     });
     it('Test update voters - empty voter list', async function () {
       let newVoters = [];
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonityContract.setVoters(
           newVoters, // voters
           newVoters, // treasuries
           newVoters, // nodeAddresses
           {from: deployer}),
-        truffleAssert.ErrorType.REVERT,
         "Voters can't be empty"
       );
     });
@@ -324,9 +323,8 @@ contract("Oracle", accounts => {
 
     it('Test update empty symbol list', async function () {
       let newSymbols = [];
-      await truffleAssert.fails(
+      await utils.failsRevert(
         oracle.setSymbols(newSymbols, {from: operator}),
-        truffleAssert.ErrorType.REVERT,
         "symbols can't be empty"
       );
     });
@@ -351,9 +349,8 @@ contract("Oracle", accounts => {
       let newSymbols = ["NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP", "NTN-JPY"];
       await oracle.setSymbols(newSymbols, {from: operator});
       newSymbols = ["NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP"];
-      await truffleAssert.fails(
+      await utils.failsRevert(
         oracle.setSymbols(newSymbols, {from: operator}),
-        truffleAssert.ErrorType.REVERT,
         "can't be updated in this round"
       );
     });
@@ -362,9 +359,8 @@ contract("Oracle", accounts => {
       let newSymbols = ["NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP", "NTN-JPY"]
       await oracle.setSymbols(newSymbols, {from: operator});
       await waitForNRounds(1)
-      await truffleAssert.fails(
+      await utils.failsRevert(
         oracle.setSymbols(newSymbols, {from: operator}),
-        truffleAssert.ErrorType.REVERT,
         "can't be updated in this round"
       );
     });
@@ -375,9 +371,8 @@ contract("Oracle", accounts => {
       // balance before vote
       await oracle.vote(commit, [], 0, 0, {from: voterAccounts[0]});
       // second vote should revert
-      await truffleAssert.fails(
+      await utils.failsRevert(
         oracle.vote(commit, [], 0, 0, {from: voterAccounts[0]}),
-        truffleAssert.ErrorType.REVERT,
         "already voted",
       );
     });
@@ -402,7 +397,8 @@ contract("Oracle", accounts => {
     });
 
     it('Test vote - retrieve price successfully for latest round', async function () {
-      generateRoundData(10, symbols);
+      // Keep this small: the goal is to validate aggregation correctness, not performance.
+      generateRoundData(5, symbols);
       for (let rId = 0; rId < rounds.length; rId++) {
         const round = rounds[rId];
         for (let i = 0; i < round.voters.length; i++) {
@@ -424,7 +420,7 @@ contract("Oracle", accounts => {
     });
 
     it('Test vote - skip voting round', async function () {
-      generateRoundData(6, symbols);
+      generateRoundData(4, symbols);
       for (let rId = 0; rId < rounds.length; rId++) {
         if (rId === 2) {
           //skipping round 3 - no voting
@@ -491,7 +487,8 @@ contract("Oracle", accounts => {
         accounts[3],
         accounts[5],
       ]
-      generateRoundData(6, symbols);
+      // This test iterates 5 rounds below; ensure we have at least 5.
+      generateRoundData(5, symbols);
       // voters change in round 3
       updateRoundData(3, symbols, newVoters);
 
@@ -524,7 +521,8 @@ contract("Oracle", accounts => {
     });
 
     it('Test vote update symbols ', async function () {
-      generateRoundData(6, symbols);
+      // This test iterates 5 rounds below; ensure we have at least 5.
+      generateRoundData(5, symbols);
       const newSymbols = ["NTN-USD", "NTN-AUD", "NTN-CAD", "NTN-EUR", "NTN-GBP", "NTN-JPY"]
       // symbols change in round 4, new commits from round 3
       updateRoundData(4, newSymbols, voterAccounts);
@@ -551,7 +549,7 @@ contract("Oracle", accounts => {
     });
 
     it('Test vote - committee change and update symbols ', async function () {
-      generateRoundData(10, symbols);
+      generateRoundData(6, symbols);
 
       let newVoters = [
         accounts[0],

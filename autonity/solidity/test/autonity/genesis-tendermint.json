@@ -1,6 +1,18 @@
 {
   "config": {
     "chainId": 1,
+    "homesteadBlock": 0,
+    "eip150Block": 0,
+    "eip155Block": 0,
+    "eip158Block": 0,
+    "byzantiumBlock": 0,
+    "constantinopleBlock": 0,
+    "petersburgBlock": 0,
+    "istanbulBlock": 0,
+    "muirGlacierBlock": 0,
+    "berlinBlock": 0,
+    "londonBlock": 0,
+    "arrowGlacierBlock": 0,
     "autonity": {
       "minBaseFee": 5000,
       "delegationRate": 1000,
@@ -21,7 +33,7 @@
       "clusteringThreshold": 64,
       "validators": [
         {
-          "enode": "enode://e766ac390e2d99b559aef773c3656fa8d50df2310496ac26ca6c3fc84e21dabb8a0162cc8e34f938d45e0a8ed04955f8ddf1c380182f8ef17a3f08885064505f@172.25.0.11:30303",
+          "enode": "enode://e766ac390e2d99b559aef773c3656fa8d50df2310496ac26ca6c3fc84e21dabb8a0162cc8e34f938d45e0a8ed04955f8ddf1c380182f8ef17a3f08885064505f@127.0.0.1:30303",
           "treasury": "0x4b07239bd581d21aefcdee0c6db38070f9a5fd2d",
           "consensusKey": "0x87d9b1ece0ad65d41a3ae80c7bd0669f8b7c54ebcaf5a80d8ab452cf8ebcb3092491ce1336a1407eee313f69582361f3",
           "oracleAddress": "0xDE03B7806f885Ae79d2aa56568b77caDB0de073E",
@@ -56,7 +68,7 @@
   },
   "nonce": "0x0",
   "timestamp": "0x66428631",
-  "baseFee": "15000000000",
+  "baseFeePerGas": "0x37e11d600",
   "gasLimit": "0xffffffffffff",
   "difficulty": "0x0",
   "coinbase": "0x0000000000000000000000000000000000000000",
