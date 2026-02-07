@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"sync"
 	"testing"
@@ -41,6 +42,8 @@ const (
 	localhost = "127.0.0.1"
 	verbosity = log.LvlDebug
 )
+
+const pipeHandshakeTimeout = 5 * time.Second
 
 var (
 	baseNodeConfig = &node.Config{
@@ -736,9 +739,6 @@ func (pm *pipeManager) createPipeDialer(node *Node) *pipeDialer {
 // an in-memory net.Pipe
 func (p *pipeDialer) Dial(_ context.Context, dest *enode.Node) (conn net.Conn, err error) {
 	p.count++
-	if p.node.ID == 0 {
-		fmt.Println("attempt", "cs", p.count, "f", p.fail, "type", p.manager.network)
-	}
 	n, ok := p.manager.nodes.Load(dest.ID())
 	if !ok || !n.(*Node).Running() {
 		// try again a bit later, the node may not have started yet
@@ -750,7 +750,19 @@ func (p *pipeDialer) Dial(_ context.Context, dest *enode.Node) (conn net.Conn, e
 		}
 	}
 	pipe1, pipe2 := net.Pipe()
+	// SetupConn runs crypto + protocol handshakes. If the node is stopping or the
+	// dial is racy, these handshakes can stall and prevent shutdown (Server.Stop
+	// waits for in-flight peers/conns). Give the pipe a short deadline for
+	// handshake then clear it once setup completes.
+	_ = pipe1.SetDeadline(time.Now().Add(pipeHandshakeTimeout))
+	_ = pipe2.SetDeadline(time.Now().Add(pipeHandshakeTimeout))
 	go func() {
+		defer func() {
+			// SetupConn returns after the peer is added or handshake fails.
+			// Clear deadlines so the connection can be long-lived.
+			_ = pipe1.SetDeadline(time.Time{})
+			_ = pipe2.SetDeadline(time.Time{})
+		}()
 		switch p.manager.network {
 		case p2p.Execution:
 			n.(*Node).Node.ExecutionServer().SetupConn(pipe1, 4, nil)
@@ -837,19 +849,44 @@ func (nw Network) AwaitTransactions(ctx context.Context, txs ...*types.Transacti
 // Shutdown closes all nodes in the network, any errors that are encounter are
 // printed to stdout.
 func (nw Network) Shutdown(t *testing.T) {
-	var wg sync.WaitGroup
 	fmt.Fprintf(os.Stderr, "[ORC] Shutting down network\n")
+	var wg sync.WaitGroup
 	for i, node := range nw {
+		i, node := i, node // capture loop vars
+		if node == nil || !node.isRunning {
+			continue
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if node != nil && node.isRunning {
-				fmt.Fprintf(os.Stderr, "[ORC] Closing Node %d \n", i)
-				err := node.Close(true)
+			fmt.Fprintf(os.Stderr, "[ORC] Closing Node %d \n", i)
+
+			// In-process node shutdown can occasionally hang while stopping P2P peers.
+			// Run close with a deadline to avoid "go test -timeout" killing the whole package.
+			closeErr := make(chan error, 1)
+			go func(n *Node) {
+				// Datadir cleanup is already handled by the per-test cleanup in NewValidatorNode.
+				// Avoid doing a potentially expensive recursive delete on the test hot path.
+				closeErr <- n.Close(false)
+			}(node)
+
+			select {
+			case err := <-closeErr:
 				if err != nil {
 					t.Errorf("error shutting down node %v: %v", node.Address.String(), err)
 				} else {
 					fmt.Fprintf(os.Stderr, "[ORC] Node %d OFF\n", i)
+				}
+			case <-time.After(2 * time.Minute):
+				// Write a goroutine dump to help debug shutdown hangs without
+				// relying on the global `go test -timeout` stack dump.
+				if f, err := os.CreateTemp("", "autonity-shutdown-timeout-*.txt"); err == nil {
+					_, _ = fmt.Fprintf(f, "timeout shutting down node %d (%s)\n", i, node.Address.String())
+					_ = pprof.Lookup("goroutine").WriteTo(f, 2)
+					_ = f.Close()
+					t.Errorf("timeout shutting down node %v (goroutine dump: %s)", node.Address.String(), f.Name())
+				} else {
+					t.Errorf("timeout shutting down node %v", node.Address.String())
 				}
 			}
 		}()

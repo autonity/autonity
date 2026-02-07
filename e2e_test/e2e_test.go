@@ -183,7 +183,16 @@ func setEip1559Params(t *testing.T, autonity *bindings.Autonity, transactOpts *b
 
 func TestCachedProtocolParameterChange(t *testing.T) {
 	t.Run("If minimum base fee is updated, at epoch end cached value is updated as well", func(t *testing.T) {
-		network, err := NewNetwork(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
+		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
+		require.NoError(t, err)
+		epochPeriod := uint64(20)
+		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
+			// Keep epochs short; CI runs e2e tests with -race and a 15m timeout per test.
+			genesis.Config.AutonityContractConfig.EpochPeriod = epochPeriod
+			// Allow short epochs by shortening omission settings.
+			genesis.Config.OmissionAccountabilityConfig.LookbackWindow = 1
+			genesis.Config.OmissionAccountabilityConfig.Delta = 2
+		})
 		require.NoError(t, err)
 		defer network.Shutdown(t)
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -205,9 +214,8 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.NoError(t, err)
 
 		// close epoch
-		epochPeriod := params.TestAutonityContractConfig.EpochPeriod
 		// Give enough slack for -race / CI slowness, and wait past the epoch boundary.
-		err = network.WaitForHeight(epochPeriod+1, int(epochPeriod*2))
+		err = network.WaitForHeight(epochPeriod+1, int(epochPeriod*6))
 		require.NoError(t, err)
 
 		// contract should be updated
@@ -231,9 +239,15 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 	t.Run("gas limit parameters update", func(t *testing.T) {
 		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
+		epochPeriod := uint64(20)
 		// set genesis gas limit to the target to ease future computations
 		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
 			genesis.GasLimit = params.TestChainConfig.AutonityContractConfig.GasLimit
+			// Keep epochs short; CI runs e2e tests with -race and a 15m timeout per test.
+			genesis.Config.AutonityContractConfig.EpochPeriod = epochPeriod
+			// Allow short epochs by shortening omission settings.
+			genesis.Config.OmissionAccountabilityConfig.LookbackWindow = 1
+			genesis.Config.OmissionAccountabilityConfig.Delta = 2
 		})
 		require.NoError(t, err)
 		defer network.Shutdown(t)
@@ -244,7 +258,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.Equal(t, initialGasLimit.String(), fetchGasLimit(t, network[1].Eth.BlockChain(), nil).String())
 
 		// mine a couple blocks
-		require.NoError(t, network.WaitToMineNBlocks(5, 20, false))
+		require.NoError(t, network.WaitToMineNBlocks(3, 20, false))
 
 		startBlock := network[0].Eth.BlockChain().CurrentBlock()
 		startGasLimit := startBlock.GasLimit
@@ -282,7 +296,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.Equal(t, updatedGasLimit.String(), fetchGasLimit(t, network[1].Eth.BlockChain(), &firstBlockAfterChange).String())
 
 		// mined block gas limit should start to increase towards the new limit
-		err = network.WaitToMineNBlocks(20, 30, false)
+		err = network.WaitToMineNBlocks(8, 30, false)
 		require.NoError(t, err)
 
 		endBlock := network[0].Eth.BlockChain().CurrentBlock()
@@ -322,15 +336,14 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		receipt, err = network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
 		t.Logf("gas limit bound divisor change tx mined at block %d", receipt.BlockNumber.Uint64())
 
-		require.NoError(t, network.WaitToMineNBlocks(2, 10, false))
+		require.NoError(t, network.WaitToMineNBlocks(2, 15, false))
 
 		// cache should be on the old value still
 		require.Equal(t, params.DefaultGasLimitBoundDivisor, fetchGasLimitBoundDivisor(t, network[0].Eth.BlockChain(), nil).Uint64())
 
 		// close the epoch so change is applied
-		epochPeriod := params.TestChainConfig.AutonityContractConfig.EpochPeriod
 		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod)
-		require.NoError(t, network.WaitForHeight(epochPeriod+5, int(epochPeriod*2)))
+		require.NoError(t, network.WaitForHeight(epochPeriod+2, int(epochPeriod*4)))
 
 		require.Equal(t, params.DefaultGasLimitBoundDivisor, fetchGasLimitBoundDivisor(t, network[0].Eth.BlockChain(), &epochPeriod).Uint64())
 		firstBlock := epochPeriod + 1
@@ -340,7 +353,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		startNumber = startBlock.Number.Uint64()
 		startGasLimit = startBlock.GasLimit
 
-		require.NoError(t, network.WaitToMineNBlocks(20, 30, false))
+		require.NoError(t, network.WaitToMineNBlocks(8, 30, false))
 
 		endBlock = network[0].Eth.BlockChain().CurrentBlock()
 		endNumber = endBlock.Number.Uint64()
@@ -377,10 +390,10 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 
 		// close the epoch so change is applied
 		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod*2)
-		require.NoError(t, network.WaitForHeight(epochPeriod*2+5, int(epochPeriod*2)))
+		require.NoError(t, network.WaitForHeight(epochPeriod*2+2, int(epochPeriod*6)))
 
 		// mine some blocks with the new params
-		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+		require.NoError(t, network.WaitToMineNBlocks(5, 20, false))
 	})
 	t.Run("gas limit == gas limit bound divisor doesn't cause issues", func(t *testing.T) {
 		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
@@ -393,7 +406,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.NoError(t, err)
 		defer network.Shutdown(t)
 
-		require.NoError(t, network.WaitToMineNBlocks(20, 30, false))
+		require.NoError(t, network.WaitToMineNBlocks(8, 30, false))
 	})
 	t.Run("gas limit < min gas limit doesn't cause issues", func(t *testing.T) {
 		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
@@ -404,7 +417,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.NoError(t, err)
 		defer network.Shutdown(t)
 
-		require.NoError(t, network.WaitToMineNBlocks(20, 30, false))
+		require.NoError(t, network.WaitToMineNBlocks(8, 30, false))
 	})
 	t.Run("minbasefee == 0 does not cause issues", func(t *testing.T) {
 		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
@@ -417,7 +430,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.NoError(t, err)
 		defer network.Shutdown(t)
 
-		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+		require.NoError(t, network.WaitToMineNBlocks(5, 20, false))
 
 		// send tx with gasprice 0, should be mined
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -473,6 +486,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 	t.Run("testing changes of baseFeeChangeDenominator", func(t *testing.T) {
 		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
+		epochPeriod := uint64(20)
 		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
 			// set a high gas limit, base fee should decrease
 			// faster with lower denominator
@@ -481,6 +495,10 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 			genesis.GasLimit = 100_000_000
 			genesis.Config.AutonityContractConfig.GasLimit = genesis.GasLimit * 10
 			genesis.Config.AutonityContractConfig.BaseFeeChangeDenominator = 32
+			genesis.Config.AutonityContractConfig.EpochPeriod = epochPeriod
+			// Allow short epochs by shortening omission settings.
+			genesis.Config.OmissionAccountabilityConfig.LookbackWindow = 1
+			genesis.Config.OmissionAccountabilityConfig.Delta = 2
 		})
 		require.NoError(t, err)
 		defer network.Shutdown(t)
@@ -488,7 +506,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		startBlock := network[0].Eth.BlockChain().CurrentBlock()
 		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
-		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+		require.NoError(t, network.WaitToMineNBlocks(6, 60, false))
 
 		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
@@ -519,14 +537,13 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		t.Logf("basefee change denominator change tx mined at block %d", receipt.BlockNumber.Uint64())
 
 		// close the epoch so change is applied
-		epochPeriod := params.TestChainConfig.AutonityContractConfig.EpochPeriod
 		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod)
-		require.NoError(t, network.WaitForHeight(epochPeriod+5, int(epochPeriod*2)))
+		require.NoError(t, network.WaitForHeight(epochPeriod+2, int(epochPeriod*6)))
 
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
 		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
-		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+		require.NoError(t, network.WaitToMineNBlocks(6, 60, false))
 
 		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
@@ -559,14 +576,13 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		t.Logf("base fee change denominator change tx mined at block %d", receipt.BlockNumber.Uint64())
 
 		// close the epoch so change is applied
-		epochPeriod = params.TestChainConfig.AutonityContractConfig.EpochPeriod
 		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod*2)
-		require.NoError(t, network.WaitForHeight(epochPeriod*2+5, int(epochPeriod*2)))
+		require.NoError(t, network.WaitForHeight(epochPeriod*2+2, int(epochPeriod*10)))
 
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
 		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
-		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+		require.NoError(t, network.WaitToMineNBlocks(6, 60, false))
 
 		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
@@ -598,7 +614,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		startBlock := network[0].Eth.BlockChain().CurrentBlock()
 		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
-		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+		require.NoError(t, network.WaitToMineNBlocks(6, 60, false))
 
 		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
@@ -627,7 +643,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		startBlock := network[0].Eth.BlockChain().CurrentBlock()
 		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
-		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+		require.NoError(t, network.WaitToMineNBlocks(6, 60, false))
 
 		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
@@ -643,12 +659,17 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 	t.Run("testing changes of elasticityMultiplier", func(t *testing.T) {
 		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
+		epochPeriod := uint64(20)
 		network, err := NewNetworkFromValidators(t, validators, true, func(genesis *ccore.Genesis) {
 			genesis.BaseFee = new(big.Int).SetUint64(100_000_000_000_00)
 			genesis.GasLimit = 100_000_000
 			genesis.Config.AutonityContractConfig.GasLimit = genesis.GasLimit * 10
 			genesis.Config.AutonityContractConfig.ElasticityMultiplier = 4
 			genesis.Config.AutonityContractConfig.BaseFeeChangeDenominator = 64
+			genesis.Config.AutonityContractConfig.EpochPeriod = epochPeriod
+			// Allow short epochs by shortening omission settings.
+			genesis.Config.OmissionAccountabilityConfig.LookbackWindow = 1
+			genesis.Config.OmissionAccountabilityConfig.Delta = 2
 		})
 		require.NoError(t, err)
 		defer network.Shutdown(t)
@@ -656,7 +677,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		startBlock := network[0].Eth.BlockChain().CurrentBlock()
 		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
-		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+		require.NoError(t, network.WaitToMineNBlocks(6, 60, false))
 
 		endBlock := network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
@@ -686,9 +707,8 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		t.Logf("elasticity multiplier change tx mined at block %d", receipt.BlockNumber.Uint64())
 
 		// close the epoch so change is applied
-		epochPeriod := params.TestChainConfig.AutonityContractConfig.EpochPeriod
 		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod)
-		require.NoError(t, network.WaitForHeight(epochPeriod+5, int(epochPeriod*2)))
+		require.NoError(t, network.WaitForHeight(epochPeriod+2, int(epochPeriod*6)))
 
 		// check if cache has changed
 		require.Equal(t, uint64(4), fetchElasticityMultiplier(t, network[0].Eth.BlockChain(), &epochPeriod).Uint64())
@@ -700,7 +720,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
 		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
-		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+		require.NoError(t, network.WaitToMineNBlocks(6, 60, false))
 
 		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
@@ -730,9 +750,8 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		t.Logf("gas limit bound divisor change tx mined at block %d", receipt.BlockNumber.Uint64())
 
 		// close the epoch so change is applied
-		epochPeriod = params.TestChainConfig.AutonityContractConfig.EpochPeriod
 		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod*2)
-		require.NoError(t, network.WaitForHeight(epochPeriod*2+5, int(epochPeriod*2)))
+		require.NoError(t, network.WaitForHeight(epochPeriod*2+2, int(epochPeriod*10)))
 
 		// check if cache has changed
 		lastBlockOfEpoch := epochPeriod * 2
@@ -745,7 +764,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
 		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
 
-		require.NoError(t, network.WaitToMineNBlocks(10, 20, false))
+		require.NoError(t, network.WaitToMineNBlocks(6, 60, false))
 
 		endBlock = network[0].Eth.BlockChain().GetBlockByNumber(startBlock.Number.Uint64() + 5)
 		t.Logf("end %s: baseFee %s, gasUsed %d", endBlock.Number().String(), endBlock.BaseFee().String(), endBlock.GasUsed())
