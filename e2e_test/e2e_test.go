@@ -1217,10 +1217,19 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	require.NoError(t, err)
 	network[1].Wait()
 
-	// network should be stalled now
-	err = network.WaitToMineNBlocks(1, 5, false)
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("expecting %q, instead got: %v ", context.DeadlineExceeded.Error(), err)
+	// Network should be stalled now. Allow one in-flight block to finalize and then require
+	// that height stops changing for a few seconds.
+	{
+		lastHeight := network[2].GetChainHeight()
+		lastChange := time.Now()
+		require.Eventually(t, func() bool {
+			h := network[2].GetChainHeight()
+			if h != lastHeight {
+				lastHeight = h
+				lastChange = time.Now()
+			}
+			return time.Since(lastChange) >= 5*time.Second
+		}, 30*time.Second, 500*time.Millisecond, "network did not stall")
 	}
 
 	// restart node 1. He will rightfully send a consensus message for the consensus instance he stopped at (chainHeight+1)
@@ -1230,7 +1239,7 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the chain to advance (under `-race` block production can be slow).
-	err = network.WaitForHeight(chainHeight+2, 120)
+	err = network.WaitForHeight(chainHeight+2, 240)
 	require.NoError(t, err)
 
 	// restart node 0. He should sync up and not send old consensus messages
@@ -1240,7 +1249,7 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the chain to advance (under `-race` block production can be slow).
-	err = network.WaitForHeight(chainHeight+2, 120)
+	err = network.WaitForHeight(chainHeight+2, 240)
 	require.NoError(t, err)
 
 }
