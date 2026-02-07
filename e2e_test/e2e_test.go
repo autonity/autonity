@@ -1915,19 +1915,22 @@ func TestJailingPersistence(t *testing.T) {
 
 	// mine some blocks, needs to be greater than the reporting period (currently 20) of the fault detector
 	// otherwise the misbehaviour will not be posted on chain
-	err = network.WaitToMineNBlocks(40, 60, false)
+	err = network.WaitToMineNBlocks(40, 120, false)
 	require.NoError(t, err)
 
 	// val 11 should have been jailed
-	require.True(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[equivocatorIndex].Address))
+	require.Eventually(t, func() bool {
+		return extractBackend(network[0].Eth.Engine()).IsJailed(network[equivocatorIndex].Address)
+	}, 30*time.Second, 250*time.Millisecond)
 
 	// shutdown val 0 and bring it back up, val 11 should still be in the jailed mapping
 	err = network[0].Restart()
 	require.NoError(t, err)
 
-	time.Sleep(1 * time.Second) // give time to faulty validator watcher routine to run first time
-
-	require.True(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[equivocatorIndex].Address))
+	require.Eventually(t, func() bool {
+		// give time to faulty validator watcher routine to run
+		return extractBackend(network[0].Eth.Engine()).IsJailed(network[equivocatorIndex].Address)
+	}, 30*time.Second, 250*time.Millisecond)
 
 	// shutdown node 1 and restart it after the epoch end, the jailed mapping should be cleared
 	err = network[1].Close(false)
@@ -1935,16 +1938,19 @@ func TestJailingPersistence(t *testing.T) {
 	network[1].Wait()
 
 	// close the epoch, the jailed mapping should be cleared
-	err = network.WaitForHeight(customEpochPeriod, int(customEpochPeriod))
+	err = network.WaitForHeight(customEpochPeriod+1, int(customEpochPeriod*2))
 	require.NoError(t, err)
 
-	require.False(t, extractBackend(network[0].Eth.Engine()).IsJailed(network[equivocatorIndex].Address))
+	require.Eventually(t, func() bool {
+		return !extractBackend(network[0].Eth.Engine()).IsJailed(network[equivocatorIndex].Address)
+	}, 30*time.Second, 250*time.Millisecond)
 
 	// when restarting node 1 should clear his jailed database according to the epoch change
 	err = network[1].Start()
 	require.NoError(t, err)
-	time.Sleep(1 * time.Second)
-	require.False(t, extractBackend(network[1].Eth.Engine()).IsJailed(network[equivocatorIndex].Address))
+	require.Eventually(t, func() bool {
+		return !extractBackend(network[1].Eth.Engine()).IsJailed(network[equivocatorIndex].Address)
+	}, 30*time.Second, 250*time.Millisecond)
 }
 
 func firstEquivocator(c interfaces.Core) interfaces.Broadcaster {

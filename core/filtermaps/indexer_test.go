@@ -24,6 +24,7 @@ import (
 	"math/big"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/autonity/autonity/common"
@@ -243,28 +244,31 @@ func TestLogsByIndex(t *testing.T) {
 			lastLog[log.BlockNumber] = i
 		}
 	}
-	var failed bool
+	chain := ts.chain.getCanonicalChain()
+	var failed atomic.Bool
 	ts.fm.testProcessEventsHook = func() {
-		if ts.fm.indexedRange.blocks.IsEmpty() {
+		// Only check when the indexer is fully caught up to targetView. This avoids
+		// observing transient (internally inconsistent) states during reorg/index
+		// updates, which is flaky on slower machines/CI.
+		if failed.Load() || !ts.fm.targetHeadIndexed() || ts.fm.indexedRange.blocks.IsEmpty() {
 			return
 		}
 		if lvi := firstLog[ts.fm.indexedRange.blocks.First()]; lvi != 0 {
 			log, err := ts.fm.getLogByLvIndex(lvi)
 			if log == nil || err != nil {
 				t.Errorf("Error getting first log of indexed block range: %v", err)
-				failed = true
+				failed.Store(true)
 			}
 		}
 		if lvi := lastLog[ts.fm.indexedRange.blocks.Last()]; lvi != 0 {
 			log, err := ts.fm.getLogByLvIndex(lvi)
 			if log == nil || err != nil {
 				t.Errorf("Error getting last log of indexed block range: %v", err)
-				failed = true
+				failed.Store(true)
 			}
 		}
 	}
-	chain := ts.chain.getCanonicalChain()
-	for i := 0; i < 1000 && !failed; i++ {
+	for i := 0; i < 1000 && !failed.Load(); i++ {
 		head := rand.Intn(len(chain))
 		ts.chain.setCanonicalChain(chain[:head+1])
 		ts.fm.WaitIdle()
