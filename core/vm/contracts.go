@@ -254,6 +254,11 @@ func activePrecompiledContracts(rules params.Rules) PrecompiledContracts {
 
 // ActivePrecompiledContracts returns a copy of precompiled contracts enabled with the current configuration.
 func ActivePrecompiledContracts(rules params.Rules) PrecompiledContracts {
+	// The global precompile registries are mutated during startup by some components
+	// (e.g. accountability), so protect cloning with the same RWMutex guarding writes.
+	// In a future PR, we should just avoid this kind of mutation.
+	PrecompiledContractRWMutex.RLock()
+	defer PrecompiledContractRWMutex.RUnlock()
 	return maps.Clone(activePrecompiledContracts(rules))
 }
 

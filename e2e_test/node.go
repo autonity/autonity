@@ -526,11 +526,20 @@ func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int, verifyRate boo
 	// cache current chain height for all nodes
 	chainHeights := make([]uint64, len(nw))
 	lastHeights := make([]uint64, len(nw))
+	startHeight := uint64(^uint64(0)) // min height among running nodes at call start
+	runningCount := 0
 	for i, n := range nw {
 		if n.isRunning {
 			chainHeights[i] = n.Eth.BlockChain().CurrentHeader().Number.Uint64()
 			lastHeights[i] = chainHeights[i]
+			if chainHeights[i] < startHeight {
+				startHeight = chainHeights[i]
+			}
+			runningCount++
 		}
+	}
+	if runningCount == 0 {
+		return fmt.Errorf("can't mine new blocks, there are no running nodes in the quorum")
 	}
 	syncTicker := time.NewTicker(1 * time.Second)
 	for {
@@ -545,7 +554,10 @@ func (nw Network) WaitToMineNBlocks(numBlocks uint64, numSec int, verifyRate boo
 				}
 				currHeader := n.Eth.BlockChain().CurrentHeader()
 				currHeight := currHeader.Number.Uint64()
-				if currHeight > chainHeights[i]+numBlocks {
+				// Treat "mine N blocks" as: all running nodes have advanced to at least
+				// min(startHeights)+N. This avoids flakiness when nodes start at slightly
+				// different heights due to startup skew.
+				if currHeight >= startHeight+numBlocks {
 					syncedNodes++
 				}
 				totalRunning++

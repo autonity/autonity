@@ -114,13 +114,17 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 	// the more faulty nodes --> the lower the block mining rate
 	faultyFactor := 1 + (float32(len(faultyNodes)) / float32(nodesCount))
 
+	// With `-race` (as in CI), block production can be materially slower than
+	// 1 block/sec. Keep timeouts generous so these tests don't flake under load.
+	const blockTimeSlackFactor = float32(2.0)
+
 	// consensus engine now takes ~10 second to start, since it waits for block sync success
 	// adding 5 seconds in time out, sometimes slashing event comes after the timeout
 	consensusEngineOffset := float32(10) + float32(5)
 
 	// run extra epochs
 	for i := 1; i < epochs; i++ {
-		timeout, cancel := context.WithTimeout(ctx, time.Duration((float32(epochPeriod)*faultyFactor)+consensusEngineOffset)*time.Second)
+		timeout, cancel := context.WithTimeout(ctx, time.Duration((float32(epochPeriod)*faultyFactor*blockTimeSlackFactor)+consensusEngineOffset)*time.Second)
 		defer cancel()
 		slashingEvents := WaitForSlashingEvents(timeout, t, len(faultyNodes), dedicatedNode)
 
@@ -136,7 +140,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 		validatorsBefore[i] = validatorBefore
 	}
 
-	timeout, cancel := context.WithTimeout(ctx, time.Duration((float32(epochPeriod)*faultyFactor)+consensusEngineOffset)*time.Second)
+	timeout, cancel := context.WithTimeout(ctx, time.Duration((float32(epochPeriod)*faultyFactor*blockTimeSlackFactor)+consensusEngineOffset)*time.Second)
 	defer cancel()
 	slashingEvents := WaitForSlashingEvents(timeout, t, len(faultyNodes), dedicatedNode)
 

@@ -1203,8 +1203,8 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	err = network[1].Start()
 	require.NoError(t, err)
 
-	// give time for node 1 to come back up
-	err = network.WaitToMineNBlocks(15, 60, false)
+	// Wait for the chain to advance (under `-race` block production can be slow).
+	err = network.WaitForHeight(chainHeight+2, 120)
 	require.NoError(t, err)
 
 	// restart node 0. He should sync up and not send old consensus messages
@@ -1213,8 +1213,8 @@ func TestWaitForChainSyncAfterStop(t *testing.T) {
 	err = network[0].Start()
 	require.NoError(t, err)
 
-	// give time for node 0 to come back up
-	err = network.WaitToMineNBlocks(15, 60, false)
+	// Wait for the chain to advance (under `-race` block production can be slow).
+	err = network.WaitForHeight(chainHeight+2, 120)
 	require.NoError(t, err)
 
 }

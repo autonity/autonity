@@ -134,7 +134,9 @@ func NewEVM(blockCtx BlockContext, statedb StateDB, chainConfig *params.ChainCon
 		chainConfig: chainConfig,
 		chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil),
 	}
-	evm.precompiles = activePrecompiledContracts(evm.chainRules)
+	// Snapshot precompiles per-EVM to avoid sharing global maps across concurrently
+	// running nodes/tests (the EVM itself is not thread-safe).
+	evm.precompiles = ActivePrecompiledContracts(evm.chainRules)
 	evm.interpreter = NewEVMInterpreter(evm)
 	return evm
 }
