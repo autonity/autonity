@@ -31,12 +31,10 @@ import (
 	"github.com/autonity/autonity/consensus/tendermint/core/message"
 	ccore "github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
-	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/params"
-	"github.com/autonity/autonity/triedb"
 )
 
 // This test checks that we can process transactions that transfer value from
@@ -1068,22 +1066,43 @@ func TestNodeAlreadyHasProposedBlock(t *testing.T) {
 	// reset current round message to force verify proposal
 	node0Core.Messages().Reset()
 
-	// get latest inserted block and generate proposal out of it
-	header := node.Eth.BlockChain().CurrentBlock()
-	block := node.Eth.BlockChain().GetBlock(header.Hash(), header.Number.Uint64())
-	proposal := message.NewPropose(0, header.Number.Uint64(), -1, block, func(hash common.Hash) blst.Signature {
-		return node.ConsensusKey.Sign(hash.Bytes())
-	}, &types.CommitteeMember{
-		Address:           node.Address,
-		VotingPower:       common.Big1,
-		ConsensusKeyBytes: node.ConsensusKey.PublicKey().Marshal(),
-		ConsensusKey:      node.ConsensusKey.PublicKey(),
-	})
-	//reset cache to force verify proposal
-	ethDb := rawdb.NewMemoryDatabase()
-	db := state.NewDatabase(triedb.NewDatabase(ethDb, nil), nil)
-	stateDB, _ := state.New(common.Hash{}, db)
-	node0Core.Backend().BlockChain().CacheProposalState(common.Hash{}, nil, 0, stateDB, &types.ContractsConfig{})
+	// We want to hit the VerifyProposal fast-path returning ErrAlreadyHaveBlock.
+	// To do so, craft a proposal for the *current* consensus height, but ensure the
+	// corresponding header already exists in the local chain DB (simulating the
+	// finalized block arriving via p2p while we're verifying the proposal).
+	parent := node.Eth.BlockChain().CurrentHeader()
+	height := node0Core.Height().Uint64()
+
+	// Determine who the proposer is for (height, round=0) as seen by node0.
+	proposerMember := node0Core.CommitteeSet().GetProposer(0)
+	var proposerNode *Node
+	for _, n := range network {
+		if n.Address == proposerMember.Address {
+			proposerNode = n
+			break
+		}
+	}
+	require.NotNil(t, proposerNode, "could not find proposer node in network")
+
+	// Create a synthetic block header at the current height and store it, so
+	// blockchain.HasHeader(hash, number) returns true.
+	baseFee := parent.BaseFee
+	if baseFee == nil {
+		baseFee = common.Big0
+	}
+	fakeHeader := &types.Header{
+		ParentHash: parent.Hash(),
+		Number:     new(big.Int).SetUint64(height),
+		Time:       parent.Time + 1,
+		GasLimit:   parent.GasLimit,
+		BaseFee:    new(big.Int).Set(baseFee),
+	}
+	rawdb.WriteHeader(node.Eth.ChainDb(), fakeHeader)
+
+	fakeBlock := types.NewBlockWithHeader(fakeHeader)
+	proposal := message.NewPropose(0, height, -1, fakeBlock, func(hash common.Hash) blst.Signature {
+		return proposerNode.ConsensusKey.Sign(hash.Bytes())
+	}, proposerMember)
 
 	// handle the proposal
 	err = proposer.HandleProposal(context.TODO(), proposal)
