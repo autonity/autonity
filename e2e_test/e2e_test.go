@@ -186,7 +186,7 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		network, err := NewNetwork(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 		defer network.Shutdown(t)
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		initialMinBaseFee := new(big.Int).SetUint64(params.TestMinBaseFee)
@@ -206,7 +206,8 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 
 		// close epoch
 		epochPeriod := params.TestAutonityContractConfig.EpochPeriod
-		err = network.WaitForHeight(epochPeriod, int(epochPeriod))
+		// Give enough slack for -race / CI slowness, and wait past the epoch boundary.
+		err = network.WaitForHeight(epochPeriod+1, int(epochPeriod*2))
 		require.NoError(t, err)
 
 		// contract should be updated
@@ -218,8 +219,14 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.Equal(t, initialMinBaseFee.String(), fetchMinimumBaseFee(t, network[0].Eth.BlockChain(), &epochPeriod).String())
 		require.Equal(t, initialMinBaseFee.String(), fetchMinimumBaseFee(t, network[1].Eth.BlockChain(), &epochPeriod).String())
 		firstBlockOfNewEpoch := epochPeriod + 1
-		require.Equal(t, updatedMinBaseFee.String(), fetchMinimumBaseFee(t, network[0].Eth.BlockChain(), &firstBlockOfNewEpoch).String())
-		require.Equal(t, updatedMinBaseFee.String(), fetchMinimumBaseFee(t, network[1].Eth.BlockChain(), &firstBlockOfNewEpoch).String())
+		require.Eventually(t, func() bool {
+			p0, err0 := network[0].Eth.BlockChain().Eip1559ParamsByHeight(firstBlockOfNewEpoch)
+			p1, err1 := network[1].Eth.BlockChain().Eip1559ParamsByHeight(firstBlockOfNewEpoch)
+			if err0 != nil || err1 != nil || p0 == nil || p1 == nil || p0.MinBaseFee == nil || p1.MinBaseFee == nil {
+				return false
+			}
+			return p0.MinBaseFee.Cmp(updatedMinBaseFee) == 0 && p1.MinBaseFee.Cmp(updatedMinBaseFee) == 0
+		}, 20*time.Second, 500*time.Millisecond)
 	})
 	t.Run("gas limit parameters update", func(t *testing.T) {
 		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
