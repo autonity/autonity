@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -183,13 +182,23 @@ func TestInflationContract(t *testing.T) {
 		goDeltaComputation := goP.calculateSupplyDelta(circulatingSupply, inflationReserve, lastEpochTime, currentEpochTime)
 		inflationReserve.Sub(inflationReserve, delta)
 
-		// Compare the go implementation with the solidity one
-		diffSolWithGoBasis := new(big.Int).Quo(new(big.Int).Mul(new(big.Int).Sub(goDeltaComputation, delta), big.NewInt(10000)), delta)
+			// Compare the go implementation with the solidity one
+			diffSolWithGoBasis := new(big.Int).Quo(new(big.Int).Mul(new(big.Int).Sub(goDeltaComputation, delta), big.NewInt(10000)), delta)
 
-		fmt.Println("y:", years, "d:", days, "b:", currentEpochTime, "supply:", circulatingSupply, "delta:", delta, "delta_ntn:", new(big.Int).Div(delta, params.DecimalFactor), "go:", goDeltaComputation, "diffBpts:", diffSolWithGoBasis)
-		require.True(r.T, diffSolWithGoBasis.Cmp(common.Big0) == 0, "inflation reward calculation mismatch")
+			if diffSolWithGoBasis.Cmp(common.Big0) != 0 {
+				r.T.Fatalf(
+					"inflation reward calculation mismatch: y=%d d=%d epochTime=%s supply=%s deltaSol=%s deltaGo=%s diffBpts=%s",
+					years,
+					days,
+					currentEpochTime.String(),
+					circulatingSupply.String(),
+					delta.String(),
+					goDeltaComputation.String(),
+					diffSolWithGoBasis.String(),
+				)
+			}
 
-		circulatingSupply.Add(circulatingSupply, delta)
-	}
+			circulatingSupply.Add(circulatingSupply, delta)
+		}
 	r.T.Log("final NTN supply", new(big.Int).Div(circulatingSupply, params.DecimalFactor))
 }
