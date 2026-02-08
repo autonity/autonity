@@ -181,6 +181,34 @@ func setEip1559Params(t *testing.T, autonity *bindings.Autonity, transactOpts *b
 	return autonity.SetEip1559Params(transactOpts, *eip1559Params)
 }
 
+func epochEndForHeight(height uint64, epochPeriod uint64) uint64 {
+	// Epochs start at block 1. For a given height, the epoch end is the next multiple of epochPeriod.
+	//
+	// Examples (epochPeriod=20): height=1..20 -> end=20; height=21..40 -> end=40.
+	if epochPeriod == 0 {
+		panic("epochPeriod must be > 0")
+	}
+	if height == 0 {
+		// Height 0 is genesis. Treat it as "before epoch 1".
+		return epochPeriod
+	}
+	k := (height - 1) / epochPeriod
+	return (k + 1) * epochPeriod
+}
+
+func waitForNextEpochStart(t *testing.T, network Network, epochPeriod uint64, minedAt uint64) (lastBlockOfEpoch uint64, firstBlockOfNextEpoch uint64) {
+	t.Helper()
+	lastBlockOfEpoch = epochEndForHeight(minedAt, epochPeriod)
+	firstBlockOfNextEpoch = lastBlockOfEpoch + 1
+	// CI can be slow under -race; keep a minimum.
+	timeoutSec := int(epochPeriod * 12)
+	if timeoutSec < 60 {
+		timeoutSec = 60
+	}
+	require.NoError(t, network.WaitForHeight(firstBlockOfNextEpoch, timeoutSec))
+	return lastBlockOfEpoch, firstBlockOfNextEpoch
+}
+
 func TestCachedProtocolParameterChange(t *testing.T) {
 	t.Run("If minimum base fee is updated, at epoch end cached value is updated as well", func(t *testing.T) {
 		validators, err := Validators(t, 2, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
@@ -289,9 +317,10 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.Equal(t, updatedGasLimit.String(), config.Protocol.GasLimit.String())
 
 		// caches should be updated only from the block after the change tx was mined
+		firstBlockAfterChange := changeBlockNumber + 1
+		require.NoError(t, network.WaitForHeight(firstBlockAfterChange, 120))
 		require.Equal(t, initialGasLimit.String(), fetchGasLimit(t, network[0].Eth.BlockChain(), &changeBlockNumber).String())
 		require.Equal(t, initialGasLimit.String(), fetchGasLimit(t, network[1].Eth.BlockChain(), &changeBlockNumber).String())
-		firstBlockAfterChange := changeBlockNumber + 1
 		require.Equal(t, updatedGasLimit.String(), fetchGasLimit(t, network[0].Eth.BlockChain(), &firstBlockAfterChange).String())
 		require.Equal(t, updatedGasLimit.String(), fetchGasLimit(t, network[1].Eth.BlockChain(), &firstBlockAfterChange).String())
 
@@ -310,14 +339,19 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.True(t, endGasLimit > startGasLimit)
 
 		// verify that the increase is correct
+		changeBlock := network[0].Eth.BlockChain().GetBlockByNumber(changeBlockNumber)
+		require.NotNil(t, changeBlock)
+		startGasLimitAtChange := changeBlock.GasLimit()
 		numBlocks := endNumber - changeBlockNumber
 
 		expectedIncrease := uint64(0)
 		for i := 0; i < int(numBlocks); i++ {
-			expectedIncrease += (startGasLimit+expectedIncrease)/params.DefaultGasLimitBoundDivisor - 1
+			expectedIncrease += (startGasLimitAtChange+expectedIncrease)/params.DefaultGasLimitBoundDivisor - 1
 		}
-		t.Logf("expected increase: %d, actual increase: %d", expectedIncrease, endGasLimit-startGasLimit)
-		require.Equal(t, expectedIncrease, endGasLimit-startGasLimit)
+		require.GreaterOrEqual(t, endGasLimit, startGasLimitAtChange)
+		actualIncrease := endGasLimit - startGasLimitAtChange
+		t.Logf("expected increase: %d, actual increase: %d", expectedIncrease, actualIncrease)
+		require.Equal(t, expectedIncrease, actualIncrease)
 
 		// now change the gas limit bound divisor, the gas limit should start increasing faster
 		updatedGasLimitBoundDivisor := new(big.Int).SetUint64(params.DefaultGasLimitBoundDivisor / 10)
@@ -334,20 +368,11 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		ctx, cancel3 := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel3()
 		receipt, err = network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		require.NoError(t, err)
 		t.Logf("gas limit bound divisor change tx mined at block %d", receipt.BlockNumber.Uint64())
-
-		require.NoError(t, network.WaitToMineNBlocks(2, 15, false))
-
-		// cache should be on the old value still
-		require.Equal(t, params.DefaultGasLimitBoundDivisor, fetchGasLimitBoundDivisor(t, network[0].Eth.BlockChain(), nil).Uint64())
-
-		// close the epoch so change is applied
-		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod)
-		require.NoError(t, network.WaitForHeight(epochPeriod+2, int(epochPeriod*4)))
-
-		require.Equal(t, params.DefaultGasLimitBoundDivisor, fetchGasLimitBoundDivisor(t, network[0].Eth.BlockChain(), &epochPeriod).Uint64())
-		firstBlock := epochPeriod + 1
-		require.Equal(t, params.DefaultGasLimitBoundDivisor/10, fetchGasLimitBoundDivisor(t, network[0].Eth.BlockChain(), &firstBlock).Uint64())
+		lastBlockOfEpoch, firstBlockOfNextEpoch := waitForNextEpochStart(t, network, epochPeriod, receipt.BlockNumber.Uint64())
+		require.Equal(t, params.DefaultGasLimitBoundDivisor, fetchGasLimitBoundDivisor(t, network[0].Eth.BlockChain(), &lastBlockOfEpoch).Uint64())
+		require.Equal(t, params.DefaultGasLimitBoundDivisor/10, fetchGasLimitBoundDivisor(t, network[0].Eth.BlockChain(), &firstBlockOfNextEpoch).Uint64())
 
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
 		startNumber = startBlock.Number.Uint64()
@@ -386,11 +411,11 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		ctx, cancel5 := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel5()
 		receipt, err = network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		require.NoError(t, err)
 		t.Logf("gas limit bound divisor change tx mined at block %d", receipt.BlockNumber.Uint64())
 
 		// close the epoch so change is applied
-		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod*2)
-		require.NoError(t, network.WaitForHeight(epochPeriod*2+2, int(epochPeriod*6)))
+		_, _ = waitForNextEpochStart(t, network, epochPeriod, receipt.BlockNumber.Uint64())
 
 		// mine some blocks with the new params
 		require.NoError(t, network.WaitToMineNBlocks(5, 20, false))
@@ -534,11 +559,11 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.NoError(t, err)
 
 		receipt, err := network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		require.NoError(t, err)
 		t.Logf("basefee change denominator change tx mined at block %d", receipt.BlockNumber.Uint64())
 
 		// close the epoch so change is applied
-		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod)
-		require.NoError(t, network.WaitForHeight(epochPeriod+2, int(epochPeriod*6)))
+		_, _ = waitForNextEpochStart(t, network, epochPeriod, receipt.BlockNumber.Uint64())
 
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
 		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
@@ -573,11 +598,11 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.NoError(t, err)
 
 		receipt, err = network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		require.NoError(t, err)
 		t.Logf("base fee change denominator change tx mined at block %d", receipt.BlockNumber.Uint64())
 
 		// close the epoch so change is applied
-		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod*2)
-		require.NoError(t, network.WaitForHeight(epochPeriod*2+2, int(epochPeriod*10)))
+		_, _ = waitForNextEpochStart(t, network, epochPeriod, receipt.BlockNumber.Uint64())
 
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
 		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
@@ -704,18 +729,17 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.NoError(t, err)
 
 		receipt, err := network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		require.NoError(t, err)
 		t.Logf("elasticity multiplier change tx mined at block %d", receipt.BlockNumber.Uint64())
 
 		// close the epoch so change is applied
-		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod)
-		require.NoError(t, network.WaitForHeight(epochPeriod+2, int(epochPeriod*6)))
+		lastBlockOfEpoch, firstBlockOfNextEpoch := waitForNextEpochStart(t, network, epochPeriod, receipt.BlockNumber.Uint64())
 
 		// check if cache has changed
-		require.Equal(t, uint64(4), fetchElasticityMultiplier(t, network[0].Eth.BlockChain(), &epochPeriod).Uint64())
-		require.Equal(t, uint64(4), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &epochPeriod).Uint64())
-		firstBlock := epochPeriod + 1
-		require.Equal(t, uint64(8), fetchElasticityMultiplier(t, network[0].Eth.BlockChain(), &firstBlock).Uint64())
-		require.Equal(t, uint64(8), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &firstBlock).Uint64())
+		require.Equal(t, uint64(4), fetchElasticityMultiplier(t, network[0].Eth.BlockChain(), &lastBlockOfEpoch).Uint64())
+		require.Equal(t, uint64(4), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &lastBlockOfEpoch).Uint64())
+		require.Equal(t, uint64(8), fetchElasticityMultiplier(t, network[0].Eth.BlockChain(), &firstBlockOfNextEpoch).Uint64())
+		require.Equal(t, uint64(8), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &firstBlockOfNextEpoch).Uint64())
 
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
 		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
@@ -747,19 +771,17 @@ func TestCachedProtocolParameterChange(t *testing.T) {
 		require.NoError(t, err)
 
 		receipt, err = network[0].WsClient.TransactionReceipt(ctx, tx.Hash())
+		require.NoError(t, err)
 		t.Logf("gas limit bound divisor change tx mined at block %d", receipt.BlockNumber.Uint64())
 
 		// close the epoch so change is applied
-		require.True(t, network[0].Eth.BlockChain().CurrentBlock().Number.Uint64() < epochPeriod*2)
-		require.NoError(t, network.WaitForHeight(epochPeriod*2+2, int(epochPeriod*10)))
+		lastBlockOfEpoch, firstBlockOfNextEpoch = waitForNextEpochStart(t, network, epochPeriod, receipt.BlockNumber.Uint64())
 
 		// check if cache has changed
-		lastBlockOfEpoch := epochPeriod * 2
 		require.Equal(t, uint64(8), fetchElasticityMultiplier(t, network[0].Eth.BlockChain(), &lastBlockOfEpoch).Uint64())
 		require.Equal(t, uint64(8), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &lastBlockOfEpoch).Uint64())
-		firstBlock = lastBlockOfEpoch + 1
-		require.Equal(t, uint64(2), fetchElasticityMultiplier(t, network[0].Eth.BlockChain(), &firstBlock).Uint64())
-		require.Equal(t, uint64(2), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &firstBlock).Uint64())
+		require.Equal(t, uint64(2), fetchElasticityMultiplier(t, network[0].Eth.BlockChain(), &firstBlockOfNextEpoch).Uint64())
+		require.Equal(t, uint64(2), fetchElasticityMultiplier(t, network[1].Eth.BlockChain(), &firstBlockOfNextEpoch).Uint64())
 
 		startBlock = network[0].Eth.BlockChain().CurrentBlock()
 		t.Logf("start %s: baseFee %s, gasUsed %d", startBlock.Number.String(), startBlock.BaseFee.String(), startBlock.GasUsed)
