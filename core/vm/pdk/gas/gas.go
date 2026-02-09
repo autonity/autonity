@@ -7,11 +7,11 @@ import (
 	"github.com/autonity/autonity/accounts/abi"
 )
 
-type GasCalculator func(params []byte) uint64
+type Calculator func(params []byte) uint64
 
 type MethodGas struct {
 	Base       uint64
-	Calculator GasCalculator
+	Calculator Calculator
 }
 
 type Config struct {
@@ -75,7 +75,7 @@ func (c *Config) GetDefaultGas() uint64 {
 }
 
 // ArrayLengthCalculator charges based on array length from ABI encoding
-func ArrayLengthCalculator(costPerItem uint64) GasCalculator {
+func ArrayLengthCalculator(costPerItem uint64) Calculator {
 	return func(params []byte) uint64 {
 		if len(params) < 32 {
 			return 0
@@ -86,8 +86,8 @@ func ArrayLengthCalculator(costPerItem uint64) GasCalculator {
 }
 
 // FixedCalculator returns a constant additional gas cost
-func FixedCalculator(additionalGas uint64) GasCalculator {
-	return func(params []byte) uint64 {
+func FixedCalculator(additionalGas uint64) Calculator {
+	return func(_ []byte) uint64 {
 		return additionalGas
 	}
 }

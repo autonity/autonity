@@ -19,7 +19,6 @@ var (
 	tt256            = new(big.Int).Lsh(big.NewInt(1), 256) // two to the power of 256 for modulo operation
 )
 
-
 // ClearerAccessor is an optional interface for accessors that need special cleanup logic
 type ClearerAccessor interface {
 	Clear(slot common.Hash, offset int, st *Storage) error
@@ -151,14 +150,14 @@ func (b BigIntAccessor) WriteAt(slot common.Hash, _ int, value any, st *Storage)
 type HashAccessor struct{}
 
 func (b HashAccessor) Size() int { return 32 }
-func (u HashAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
+func (b HashAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	if offset != 0 {
 		return nil, fmt.Errorf("hash values must start from zero offset")
 	}
 	return st.GetState(slot), nil
 }
 
-func (u HashAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
+func (b HashAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
 	if offset != 0 {
 		return fmt.Errorf("hash values must start from zero offset")
 	}
@@ -254,7 +253,7 @@ type intAccessor struct{ size int }
 
 func (i intAccessor) Size() int { return i.size }
 func (i intAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
-	uVal, err := uintAccessor{size: i.size}.ReadAt(slot, offset, st)
+	uVal, err := uintAccessor(i).ReadAt(slot, offset, st)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +263,7 @@ func (i intAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, err
 func (i intAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
 	uval := uint64(value.(int64))
 
-	return uintAccessor{size: i.size}.WriteAt(slot, offset, uval, st)
+	return uintAccessor(i).WriteAt(slot, offset, uval, st)
 }
 
 type boolAccessor struct{}

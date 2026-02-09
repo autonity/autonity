@@ -54,8 +54,8 @@ func TestMixedTypesPacking(t *testing.T) {
 	st := NewStorage(testAddr, r.Evm.StateDB)
 
 	type MixedStruct struct {
-		SmallInt Var[uint8]
-		BigInt   Var[*big.Int]
+		SmallInt        Var[uint8]
+		BigInt          Var[*big.Int]
 		AnotherSmallInt Var[uint16]
 	}
 
@@ -140,9 +140,9 @@ func TestUint256AlwaysFullSlot(t *testing.T) {
 	st := NewStorage(testAddr, r.Evm.StateDB)
 
 	type WithUint256 struct {
-		Small1  Var[uint8]
-		BigNum  Var[Uint256]
-		Small2  Var[uint8]
+		Small1 Var[uint8]
+		BigNum Var[Uint256]
+		Small2 Var[uint8]
 	}
 
 	var s WithUint256

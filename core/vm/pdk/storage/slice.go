@@ -60,7 +60,9 @@ func (s *Slice[T]) Clear() {
 		RecursiveClear(elem)
 	}
 	// Now safe to zero the header/slots
-	s.setLength(0)
+	if err := s.setLength(0); err != nil {
+		panic(err)
+	}
 }
 
 func (s *Slice[T]) setLength(newLen uint64) error {

@@ -425,7 +425,6 @@ type MapInSlice struct {
 	History Slice[Map[uint64, Var[uint64]]]
 }
 
-
 func TestStorage_SliceInMap(t *testing.T) {
 	r := tests.Setup(t, nil)
 	addr := common.HexToAddress("0x1111")

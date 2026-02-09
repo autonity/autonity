@@ -47,7 +47,7 @@ func TestByteAccessorSizeLimit(t *testing.T) {
 		}
 	}()
 
-	err = accessor.WriteAt(slot, 0, oversizeData, st)
+	_ = accessor.WriteAt(slot, 0, oversizeData, st)
 	t.Error("Should not reach here - should have panicked")
 }
 
@@ -166,7 +166,7 @@ func TestAddressAccessor_Packing(t *testing.T) {
 	// Offset 12 means bytes [0-12] are untouched (zero), [12-32] are address
 	st.Commit()
 	raw := r.Evm.StateDB.GetState(contractAddr, slot)
-	
+
 	// Bytes 0-12 should be zero
 	for i := 0; i < 12; i++ {
 		require.Equal(t, byte(0), raw[i], "Byte at index %d should be zero", i)

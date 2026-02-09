@@ -36,7 +36,6 @@ func (s *Storage) GetState(slot common.Hash) common.Hash {
 func (s *Storage) SetState(slot common.Hash, value common.Hash) {
 	s.cache[slot] = value
 	s.dirty[slot] = struct{}{}
-	return
 }
 
 func (s *Storage) Commit() {
@@ -45,7 +44,6 @@ func (s *Storage) Commit() {
 		s.stateDB.SetState(s.address, slot, val)
 	}
 	s.dirty = make(map[common.Hash]struct{})
-	return
 }
 
 func (s *Storage) AddLog(topics []common.Hash, data []byte) {
@@ -56,5 +54,4 @@ func (s *Storage) AddLog(topics []common.Hash, data []byte) {
 	}
 
 	s.stateDB.AddLog(log)
-	return
 }

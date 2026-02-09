@@ -30,9 +30,9 @@ func TestEncodeTo32Bytes_SignExtension(t *testing.T) {
 			expected: bytes.Repeat([]byte{0xff}, 32),
 		},
 		{
-			name:    "int16(-1)",
-			key:     int16(-1),
-			keyType: reflect.TypeOf(int16(0)),
+			name:     "int16(-1)",
+			key:      int16(-1),
+			keyType:  reflect.TypeOf(int16(0)),
 			expected: bytes.Repeat([]byte{0xff}, 32),
 		},
 		{
@@ -49,9 +49,9 @@ func TestEncodeTo32Bytes_SignExtension(t *testing.T) {
 			}(),
 		},
 		{
-			name:    "int64(-1)",
-			key:     int64(-1),
-			keyType: reflect.TypeOf(int64(0)),
+			name:     "int64(-1)",
+			key:      int64(-1),
+			keyType:  reflect.TypeOf(int64(0)),
 			expected: bytes.Repeat([]byte{0xff}, 32),
 		},
 		{

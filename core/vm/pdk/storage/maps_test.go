@@ -119,8 +119,8 @@ func TestMapHasMissing(t *testing.T) {
 	// This test demonstrates that Has() doesn't exist
 	// Uncomment to verify compilation error:
 	/*
-	var m Map[common.Address, Var[uint64]]
-	exists := m.Has(common.Address{}) // Compilation error: Has undefined
+		var m Map[common.Address, Var[uint64]]
+		exists := m.Has(common.Address{}) // Compilation error: Has undefined
 	*/
 
 	t.Skip("Has() method doesn't exist - feature not implemented")

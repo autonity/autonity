@@ -61,7 +61,6 @@ func (v *Var[T]) Set(val T) {
 	if err != nil {
 		panic(err)
 	}
-	return
 }
 
 func (v *Var[T]) Clear() {

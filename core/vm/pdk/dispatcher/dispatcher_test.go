@@ -102,11 +102,11 @@ func (m *mockContract) WithUint256Param(_ *vm.EVM, _ common.Address, _ *storage.
 }
 
 // Test methods with platform-dependent types (should be rejected)
-func (m *mockContract) WithIntParam(_ *vm.EVM, _ common.Address, _ *storage.Storage, param int) error {
+func (m *mockContract) WithIntParam(_ *vm.EVM, _ common.Address, _ *storage.Storage, _ int) error {
 	return nil
 }
 
-func (m *mockContract) WithUintParam2(_ *vm.EVM, _ common.Address, _ *storage.Storage, param uint) error {
+func (m *mockContract) WithUintParam2(_ *vm.EVM, _ common.Address, _ *storage.Storage, _ uint) error {
 	return nil
 }
 
@@ -115,14 +115,14 @@ func (m *mockContract) WithBytes16(_ *vm.EVM, _ common.Address, _ *storage.Stora
 	return data, nil
 }
 
-func (m *mockContract) WithBytes8(_ *vm.EVM, _ common.Address, _ *storage.Storage, data [8]byte) error {
+func (m *mockContract) WithBytes8(_ *vm.EVM, _ common.Address, _ *storage.Storage, _ [8]byte) error {
 	return nil
 }
 
 type ArrayContract struct{}
 
 // Method with fixed array input
-func (c *ArrayContract) TestArray(evm *vm.EVM, caller common.Address, st *storage.Storage, arr [2]uint64) error {
+func (c *ArrayContract) TestArray(_ *vm.EVM, _ common.Address, _ *storage.Storage, _ [2]uint64) error {
 	return nil
 }
 
@@ -172,8 +172,8 @@ func TestInferABIMethods(t *testing.T) {
 		ret2: true,
 	}
 	dispatcher := newDispatcher()
-	_ = InferABIMethods(dispatcher, reflect.ValueOf(mc))
-	//t.Log("Error:", err)
+	err := InferABIMethods(dispatcher, reflect.ValueOf(mc))
+	require.NoError(t, err)
 
 	// Check registered methods.
 	expectedMethods := []string{
@@ -201,7 +201,8 @@ func TestInferABIMethods(t *testing.T) {
 func TestDispatch_SimpleVoid(t *testing.T) {
 	d := newDispatcher()
 	mock := &mockContract{}
-	_ = InferABIMethods(d, reflect.ValueOf(mock))
+	err := InferABIMethods(d, reflect.ValueOf(mock))
+	require.NoError(t, err)
 
 	// Compute selector for NoParamVoid().
 	method := d.ABI.Methods["NoParamVoid"]
@@ -244,7 +245,8 @@ func TestDispatch_WithParam(t *testing.T) {
 func TestDispatch_WithReturn(t *testing.T) {
 	d := newDispatcher()
 	mock := &mockContract{ret1: big.NewInt(100)}
-	InferABIMethods(d, reflect.ValueOf(mock))
+	err := InferABIMethods(d, reflect.ValueOf(mock))
+	require.NoError(t, err)
 
 	method := d.ABI.Methods["WithReturn"]
 	sel := crypto.Keccak256Hash([]byte(method.Sig)).Bytes()[:4]
@@ -268,7 +270,8 @@ func TestDispatch_WithReturn(t *testing.T) {
 func TestDispatch_MultiParamReturn(t *testing.T) {
 	d := newDispatcher()
 	mock := &mockContract{ret1: big.NewInt(200), ret2: true}
-	InferABIMethods(d, reflect.ValueOf(mock))
+	err := InferABIMethods(d, reflect.ValueOf(mock))
+	require.NoError(t, err)
 
 	method := d.ABI.Methods["MultiParamReturn"]
 	sel := crypto.Keccak256Hash([]byte(method.Sig)).Bytes()[:4]

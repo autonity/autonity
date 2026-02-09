@@ -26,18 +26,18 @@ type ClearingContract struct {
 }
 
 func (c *ClearingContract) GetMargin(
-	evm *vm.EVM,
-	caller common.Address,
-	st *storage.Storage,
+	_ *vm.EVM,
+	_ common.Address,
+	_ *storage.Storage,
 	account common.Address,
 ) (*big.Int, error) {
 	return c.Margins.Get(account).Get(), nil
 }
 
 func (c *ClearingContract) SetMargin(
-	evm *vm.EVM,
-	caller common.Address,
-	st *storage.Storage,
+	_ *vm.EVM,
+	_ common.Address,
+	_ *storage.Storage,
 	account common.Address,
 	amount *big.Int,
 ) error {
@@ -46,9 +46,9 @@ func (c *ClearingContract) SetMargin(
 }
 
 func (c *ClearingContract) ProcessBatch(
-	evm *vm.EVM,
-	caller common.Address,
-	st *storage.Storage,
+	_ *vm.EVM,
+	_ common.Address,
+	_ *storage.Storage,
 	trades []Trade,
 ) error {
 	if uint64(len(trades)) > c.MaxTradesPerBatch {

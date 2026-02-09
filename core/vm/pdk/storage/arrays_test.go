@@ -19,7 +19,6 @@ func TestArrays(t *testing.T) {
 
 	// Array of uint64
 
-
 	// Create an array with 3 elements (using [3]uint64 as shape)
 	var arr Array[Var[uint64], [3]uint64]
 	arr.Bind(st, baseSlot, 0)

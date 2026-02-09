@@ -59,7 +59,7 @@ func TestAddToPrecompiles_InitCommit(t *testing.T) {
 	initCalled := false
 	initValue := common.HexToAddress("0xDEADBEEF")
 
-	initFunc := func(st *storage.Storage, bc *BaseContract) {
+	initFunc := func(_ *storage.Storage, bc *BaseContract) {
 		initCalled = true
 		contract := bc.GetAppContract().(*TestContract)
 		contract.Value.Set(initValue)
@@ -77,7 +77,7 @@ func TestAddToPrecompiles_InitCommit(t *testing.T) {
 
 type PanicContract struct{}
 
-func (p *PanicContract) Explode(evm *vm.EVM, caller common.Address, st *storage.Storage) error {
+func (p *PanicContract) Explode(_ *vm.EVM, _ common.Address, _ *storage.Storage) error {
 	panic("boom")
 }
 
@@ -95,7 +95,8 @@ func TestRun_PanicRecovery_Execution(t *testing.T) {
 		gasConfig:  gasConfig,
 	}
 
-	gasConfig.Finalize(base.Dispatcher.ABI)
+	err := gasConfig.Finalize(base.Dispatcher.ABI)
+	require.NoError(t, err)
 
 	method, ok := base.Dispatcher.ABI.Methods["Explode"]
 	require.True(t, ok, "Method Explode should be registered")
@@ -116,11 +117,11 @@ type TestContract struct {
 	Value storage.Var[uint64]
 }
 
-func (t *TestContract) GetValue(evm *vm.EVM, caller common.Address, st *storage.Storage) (uint64, error) {
+func (t *TestContract) GetValue(_ *vm.EVM, _ common.Address, _ *storage.Storage) (uint64, error) {
 	return t.Value.Get(), nil
 }
 
-func (t *TestContract) SetValue(evm *vm.EVM, caller common.Address, st *storage.Storage, value uint64) error {
+func (t *TestContract) SetValue(_ *vm.EVM, _ common.Address, _ *storage.Storage, value uint64) error {
 	t.Value.Set(value)
 	return nil
 }
@@ -159,7 +160,7 @@ type BatchContract struct {
 	Items storage.Slice[storage.Var[uint64]]
 }
 
-func (b *BatchContract) ProcessBatch(evm *vm.EVM, caller common.Address, st *storage.Storage, items []uint64) error {
+func (b *BatchContract) ProcessBatch(_ *vm.EVM, _ common.Address, _ *storage.Storage, items []uint64) error {
 	for _, item := range items {
 		b.Items.Append(func(v *storage.Var[uint64]) {
 			v.Set(item)
