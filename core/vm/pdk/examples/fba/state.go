@@ -5,8 +5,8 @@ import (
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 )
 
-// FBAContract holds the state variables using the SDK
-type FBAContract struct {
+// Contract holds the state variables using the SDK
+type Contract struct {
 	// Access Control Roles (Simple single-admin for demo, can be expanded)
 	Admin storage.Var[common.Address]
 
@@ -20,7 +20,7 @@ type FBAContract struct {
 	CollateralToken   storage.Var[common.Address]
 }
 
-// NewFBAContract initializes the contract state structure
-func NewFBAContract() *FBAContract {
-	return &FBAContract{}
+// NewContract initializes the contract state structure
+func NewContract() *Contract {
+	return &Contract{}
 }

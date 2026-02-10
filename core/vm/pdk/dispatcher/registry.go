@@ -10,6 +10,7 @@ var (
 	registry = sync.Map{}
 )
 
+// RegisterDispatcher creates and registers a dispatcher for a given logic interface.
 func RegisterDispatcher(logic interface{}) *Dispatcher {
 	typ := reflect.TypeOf(logic)
 	if typ.Kind() == reflect.Ptr {
@@ -24,6 +25,7 @@ func RegisterDispatcher(logic interface{}) *Dispatcher {
 	return d
 }
 
+// GetDispatcher retrieves the registered dispatcher for a given logic interface.
 func GetDispatcher(logic interface{}) *Dispatcher {
 	typ := reflect.TypeOf(logic)
 	if typ.Kind() == reflect.Ptr {

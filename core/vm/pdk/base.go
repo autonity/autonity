@@ -1,3 +1,4 @@
+// Package pdk provides the core framework for building precompiled contracts in Go.
 package pdk
 
 import (
@@ -10,6 +11,7 @@ import (
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 )
 
+// BaseContract is the base implementation for all PDK contracts.
 type BaseContract struct {
 	contract interface{}
 
@@ -18,10 +20,12 @@ type BaseContract struct {
 	gasConfig  *gas.Config
 }
 
+// GetAppContract returns the underlying application contract instance.
 func (b *BaseContract) GetAppContract() interface{} {
 	return b.contract
 }
 
+// Run executes the contract with the given input.
 func (b *BaseContract) Run(input []byte, _ uint64, evm *vm.EVM, caller common.Address) (ret []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -39,6 +43,7 @@ func (b *BaseContract) Run(input []byte, _ uint64, evm *vm.EVM, caller common.Ad
 	return out, nil
 }
 
+// RequiredGas returns the gas required for the given input.
 func (b *BaseContract) RequiredGas(input []byte) uint64 {
 	if b.gasConfig == nil {
 		return 100_000

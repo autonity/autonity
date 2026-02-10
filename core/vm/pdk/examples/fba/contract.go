@@ -1,3 +1,4 @@
+// Package fba provides a frequent batch auction contract example.
 package fba
 
 import (
@@ -11,8 +12,10 @@ import (
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 )
 
+// ClearingContractAddress is the address of the clearing contract.
 var ClearingContractAddress = common.HexToAddress("0x0000000000000000000000000000000000009999")
 
+// Trade represents a trade execution.
 type Trade struct {
 	Buyer    common.Address
 	Seller   common.Address
@@ -20,11 +23,13 @@ type Trade struct {
 	Price    *big.Int
 }
 
+// ClearingContract handles margins and trade clearing.
 type ClearingContract struct {
 	Margins           storage.Map[common.Address, storage.Var[*big.Int]]
 	MaxTradesPerBatch uint64
 }
 
+// GetMargin retrieves the margin for an account.
 func (c *ClearingContract) GetMargin(
 	_ *vm.EVM,
 	_ common.Address,
@@ -34,6 +39,7 @@ func (c *ClearingContract) GetMargin(
 	return c.Margins.Get(account).Get(), nil
 }
 
+// SetMargin sets the margin for an account.
 func (c *ClearingContract) SetMargin(
 	_ *vm.EVM,
 	_ common.Address,
@@ -45,6 +51,7 @@ func (c *ClearingContract) SetMargin(
 	return nil
 }
 
+// ProcessBatch processes a batch of trades.
 func (c *ClearingContract) ProcessBatch(
 	_ *vm.EVM,
 	_ common.Address,
@@ -80,6 +87,7 @@ func calculateProcessBatchGas(params []byte) uint64 {
 	return tradesGas + accountsGas
 }
 
+// SetupClearingContract initializes and registers the ClearingContract.
 func SetupClearingContract(evm *vm.EVM) *ClearingContract {
 	contract := &ClearingContract{
 		MaxTradesPerBatch: 1000,

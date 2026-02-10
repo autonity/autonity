@@ -6,10 +6,12 @@ import (
 	"github.com/autonity/autonity/common"
 )
 
+// Binder defines the interface for types that can be bound to storage.
 type Binder interface {
 	Bind(st *Storage, baseSlot common.Hash, startOffset uint64) (nextSlot common.Hash, nextOffset uint64)
 }
 
+// BindState binds a struct or a binder to storage recursively.
 func BindState(st *Storage, baseSlot common.Hash, target any) uint64 {
 	nextSlot, _ := bindStateRecursive(st, baseSlot, 0, target)
 	return slotDiff(baseSlot, nextSlot)

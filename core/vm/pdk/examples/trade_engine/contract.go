@@ -1,4 +1,5 @@
-package trade_engine
+// Package tradeengine provides an example trading engine contract.
+package tradeengine
 
 import (
 	"crypto/sha256"
@@ -19,9 +20,11 @@ import (
 )
 
 var (
+	// ContractAddress is the example address for the precompiled contract.
 	ContractAddress = common.HexToAddress("0x23") // example address for precompiled contract
 )
 
+// TradingEngineContract implements a simple order book trading engine.
 type TradingEngineContract struct {
 	// storage layout
 	Books        storage.Map[common.Hash, OrderBook] // per pair orderbook, e.g. NTN/USDC, ATN/USDC etc.
@@ -29,6 +32,7 @@ type TradingEngineContract struct {
 	TradeHistory storage.Slice[Trade]
 }
 
+// SetupTradingEngineContract initializes and registers the TradingEngineContract precompile.
 func SetupTradingEngineContract(vm *vm.EVM) *TradingEngineContract {
 	c := &TradingEngineContract{}
 
@@ -51,12 +55,14 @@ func initialize(st *storage.Storage, bc *pdk.BaseContract) {
 	st.Commit()
 }
 
-func (te *TradingEngineContract) MatchOrders(evm *vm.EVM, caller common.Address, st *storage.Storage, pair string) error {
+// MatchOrders matches orders for a given pair.
+func (te *TradingEngineContract) MatchOrders(_ *vm.EVM, _ common.Address, _ *storage.Storage, _ string) error {
 	// only autonity contract can call this function
 	return nil
 }
 
-func (te *TradingEngineContract) SubmitOrder(evm *vm.EVM, caller common.Address, st *storage.Storage,
+// SubmitOrder submits a new order to the order book.
+func (te *TradingEngineContract) SubmitOrder(_ *vm.EVM, caller common.Address, _ *storage.Storage,
 	pair string, side uint8, price, qty *big.Int) (common.Hash, error) {
 	pairHash := sha256.Sum256([]byte(pair))
 	ob := te.Books.Get(pairHash)
@@ -97,16 +103,17 @@ func (te *TradingEngineContract) SubmitOrder(evm *vm.EVM, caller common.Address,
 		})
 	}
 
-	nextId := ob.NextID.Get()
-	nextId.Add(&nextId.Int, &uint256.Int{1})
-	ob.NextID.Set(nextId)
+	nextID := ob.NextID.Get()
+	nextID.Add(&nextID.Int, &uint256.Int{1})
+	ob.NextID.Set(nextID)
 
 	book := te.Books.Get(pairHash)
 	log.Info("updated book", "value ", book.NextID.Get())
 	return newID, nil
 }
 
-func (te *TradingEngineContract) CancelOrder(evm *vm.EVM, caller common.Address, st *storage.Storage, pair string, orderID common.Hash) error {
+// CancelOrder cancels an existing order.
+func (te *TradingEngineContract) CancelOrder(_ *vm.EVM, caller common.Address, _ *storage.Storage, _ string, orderID common.Hash) error {
 	ord := te.Orders.Get(orderID)
 	if ord.User.Get() != caller || ord.Status.Get() != 0 {
 		return fmt.Errorf("unauthorized: wrong user or already cancelled")
@@ -121,6 +128,9 @@ func (te *TradingEngineContract) CancelOrder(evm *vm.EVM, caller common.Address,
 // stub function to generate order ID
 func genOrderID(user common.Address, next storage.Uint256, ts int64) common.Hash {
 	bytes := append(user.Bytes(), append(next.Bytes(), make([]byte, 8)...)...)
-	binary.BigEndian.PutUint64(bytes[len(bytes)-8:], uint64(ts))
+	if ts < 0 {
+		ts = 0
+	}
+	binary.BigEndian.PutUint64(bytes[len(bytes)-8:], uint64(ts)) // #nosec G115
 	return common.BytesToHash(crypto.Keccak256(bytes))
 }

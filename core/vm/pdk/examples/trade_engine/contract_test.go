@@ -1,4 +1,4 @@
-package trade_engine
+package tradeengine
 
 import (
 	"crypto/sha256"

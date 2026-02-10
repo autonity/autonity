@@ -7,6 +7,7 @@ import (
 	"github.com/autonity/autonity/crypto"
 )
 
+// Slice represents a dynamic-size slice in storage.
 type Slice[T any] struct {
 	st           *Storage
 	lenSlot      common.Hash
@@ -14,6 +15,7 @@ type Slice[T any] struct {
 	elemSize     uint64
 }
 
+// Bind binds the slice to a storage instance and a base slot.
 func (s *Slice[T]) Bind(st *Storage, baseSlot common.Hash, offset uint64) (common.Hash, uint64) {
 	s.st = st
 	if offset > 0 {
@@ -25,6 +27,7 @@ func (s *Slice[T]) Bind(st *Storage, baseSlot common.Hash, offset uint64) (commo
 	return addSlot(baseSlot, 1), 0
 }
 
+// Len returns the current length of the slice.
 func (s *Slice[T]) Len() uint64 {
 	if s.st == nil {
 		return 0
@@ -33,6 +36,7 @@ func (s *Slice[T]) Len() uint64 {
 	return binary.BigEndian.Uint64(data[24:])
 }
 
+// Get returns a pointer to the element at the given index.
 func (s *Slice[T]) Get(i uint64) *T {
 	itemSlot := addSlot(s.elemBaseSlot, i*s.elemSize)
 	val := new(T)
@@ -40,6 +44,7 @@ func (s *Slice[T]) Get(i uint64) *T {
 	return val
 }
 
+// Append adds a new element to the slice and calls the provided setFunc to initialize it.
 func (s *Slice[T]) Append(setFunc func(*T)) {
 	length := s.Len()
 	// set the length
@@ -51,6 +56,7 @@ func (s *Slice[T]) Append(setFunc func(*T)) {
 	setFunc(elem)
 }
 
+// Clear removes all elements from the slice and recursively clears their storage.
 func (s *Slice[T]) Clear() {
 	length := s.Len()
 	for i := uint64(0); i < length; i++ {

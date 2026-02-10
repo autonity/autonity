@@ -1,4 +1,5 @@
-package admin_balance
+// Package adminbalance provides an example contract for managing admin balances.
+package adminbalance
 
 import (
 	"math/big"
@@ -13,17 +14,19 @@ import (
 )
 
 var (
-	contractOwner   = common.BytesToAddress([]byte("owner"))
+	// ContractAddress is the example address for the precompiled contract.
 	ContractAddress = common.HexToAddress("0x1") // example address for precompiled contract
 )
 
-type AdminBalanceContract struct {
+// Contract is an example contract managing admin balances.
+type Contract struct {
 	Admin   storage.Var[common.Address]
 	Balance storage.Var[storage.Uint256]
 }
 
-func SetupAdminBalanceContract(vm *vm.EVM) *AdminBalanceContract {
-	c := &AdminBalanceContract{}
+// SetupAdminBalanceContract initializes and registers the Contract precompile.
+func SetupAdminBalanceContract(vm *vm.EVM) *Contract {
+	c := &Contract{}
 
 	gasConfig := gas.NewConfig(50_000)
 	gasConfig.SetMethodGas("UpdateBalance", gas.MethodGas{Base: 80_000})
@@ -34,35 +37,38 @@ func SetupAdminBalanceContract(vm *vm.EVM) *AdminBalanceContract {
 	return c
 }
 
-func initialize(st *storage.Storage, bc *pdk.BaseContract) {
+func initialize(_ *storage.Storage, bc *pdk.BaseContract) {
 	// set default values
 	protocolAdmin := common.HexToAddress("0x000000000000000000000000000000000000dead")
-	ac := bc.GetAppContract().(*AdminBalanceContract)
+	ac := bc.GetAppContract().(*Contract)
 
 	ac.Admin.Set(protocolAdmin)
 	ac.Balance.Set(storage.NewUint256FromInt(100))
 }
 
-func (c *AdminBalanceContract) UpdateBalance(evm *vm.EVM, caller common.Address, st *storage.Storage, newBalance *big.Int) error {
+// UpdateBalance updates the balance of the contract.
+func (c *Contract) UpdateBalance(_ *vm.EVM, _ common.Address, _ *storage.Storage, newBalance *big.Int) error {
 	// authorization checks
 	newbal := storage.NewUint256FromBig(newBalance)
 	c.Balance.Set(newbal)
 	return nil
 }
 
-func (c *AdminBalanceContract) UpdateAdmin(evm *vm.EVM, caller common.Address, st *storage.Storage, adminAddress common.Address) error {
+// UpdateAdmin updates the admin address of the contract.
+func (c *Contract) UpdateAdmin(_ *vm.EVM, _ common.Address, _ *storage.Storage, adminAddress common.Address) error {
 	c.Admin.Set(adminAddress)
 	log.Info("admin updated", "newAdmin", c.Admin.Get())
 	return nil
 }
 
-func (c *AdminBalanceContract) CallSubmitOrder(evm *vm.EVM, caller common.Address, st *storage.Storage,
+// CallSubmitOrder calls the SubmitOrder method on the TradingEngineContract.
+func (c *Contract) CallSubmitOrder(evm *vm.EVM, caller common.Address, st *storage.Storage,
 	teAddress common.Address, pair string, side uint8, price, qty *big.Int) (common.Hash, error) {
-	cl := pdk.NewClient(teAddress, &trade_engine.TradingEngineContract{})
+	cl := pdk.NewClient(teAddress, &tradeengine.TradingEngineContract{})
 	result, err := cl.Call(evm, caller, st, "SubmitOrder", pair, side, price, qty)
 	if err != nil {
 		return common.Hash{}, err
 	}
-	orderId := common.BytesToHash(result[:32])
-	return orderId, nil
+	orderID := common.BytesToHash(result[:32])
+	return orderID, nil
 }

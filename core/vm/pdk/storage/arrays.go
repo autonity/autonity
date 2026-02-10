@@ -6,6 +6,7 @@ import (
 	"github.com/autonity/autonity/common"
 )
 
+// Array represents a fixed-size array in storage.
 type Array[V any, S any] struct {
 	st       *Storage
 	len      uint64
@@ -13,6 +14,7 @@ type Array[V any, S any] struct {
 	elemSize uint64
 }
 
+// Bind binds the array to a storage instance and a base slot.
 func (a *Array[V, S]) Bind(st *Storage, baseSlot common.Hash, offset uint64) (common.Hash, uint64) {
 	a.st = st
 	// new slot for all arrays
@@ -26,7 +28,11 @@ func (a *Array[V, S]) Bind(st *Storage, baseSlot common.Hash, offset uint64) (co
 	if shapeType.Kind() != reflect.Array {
 		panic("shape must be an array")
 	}
-	a.len = uint64(shapeType.Len())
+	l := shapeType.Len()
+	if l < 0 {
+		l = 0
+	}
+	a.len = uint64(l) // #nosec G115
 	// determine slot consumption per element V
 	a.elemSize = getSlotConsumption[V]()
 	totalSlots := a.len * a.elemSize
@@ -34,10 +40,12 @@ func (a *Array[V, S]) Bind(st *Storage, baseSlot common.Hash, offset uint64) (co
 	return addSlot(baseSlot, totalSlots), 0
 }
 
+// Len returns the length of the array.
 func (a *Array[V, S]) Len() uint64 {
 	return a.len
 }
 
+// Get returns a pointer to the element at the given index.
 func (a *Array[V, S]) Get(index uint64) *V {
 	if index >= a.len {
 		panic("array index out of bounds")

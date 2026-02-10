@@ -80,24 +80,26 @@ func encodeTo32Bytes(key interface{}, keyType reflect.Type) ([]byte, error) {
 		isNegative = val < 0
 		switch size {
 		case 1:
-			keyBytes[0] = byte(int8(val))
+			keyBytes[0] = byte(int8(val)) // #nosec G115
 		case 2:
-			binary.BigEndian.PutUint16(keyBytes, uint16(int16(val)))
+			binary.BigEndian.PutUint16(keyBytes, uint16(int16(val))) // #nosec G115
 		case 4:
-			binary.BigEndian.PutUint32(keyBytes, uint32(int32(val)))
+			binary.BigEndian.PutUint32(keyBytes, uint32(int32(val))) // #nosec G115
 		case 8:
-			binary.BigEndian.PutUint64(keyBytes, uint64(val))
+			keyBytes = make([]byte, 8)
+			binary.BigEndian.PutUint64(keyBytes, uint64(val)) // #nosec G115
 		}
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		uval := keyValue.Uint()
 		switch size {
 		case 1:
-			keyBytes[0] = uint8(uval)
+			keyBytes[0] = uint8(uval) // #nosec G115
 		case 2:
-			binary.BigEndian.PutUint16(keyBytes, uint16(uval))
+			binary.BigEndian.PutUint16(keyBytes, uint16(uval)) // #nosec G115
 		case 4:
-			binary.BigEndian.PutUint32(keyBytes, uint32(uval))
+			binary.BigEndian.PutUint32(keyBytes, uint32(uval)) // #nosec G115
 		case 8:
+			keyBytes = make([]byte, 8)
 			binary.BigEndian.PutUint64(keyBytes, uval)
 		}
 	default:
@@ -114,10 +116,12 @@ func encodeTo32Bytes(key interface{}, keyType reflect.Type) ([]byte, error) {
 	return encodedBytes, nil
 }
 
+// Clearer defines the interface for types that can be cleared from storage.
 type Clearer interface {
 	Clear()
 }
 
+// RecursiveClear clears a value from storage recursively.
 func RecursiveClear(target any) {
 	if c, ok := target.(Clearer); ok {
 		c.Clear()

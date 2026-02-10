@@ -7,11 +7,13 @@ import (
 	"github.com/autonity/autonity/crypto"
 )
 
+// Map represents a key-value mapping in storage.
 type Map[K any, V any] struct {
 	st       *Storage
 	baseSlot common.Hash
 }
 
+// Bind binds the map to a storage instance and a base slot.
 func (m *Map[K, V]) Bind(st *Storage, baseSlot common.Hash, offset uint64) (common.Hash, uint64) {
 	m.st = st
 	if offset > 0 {

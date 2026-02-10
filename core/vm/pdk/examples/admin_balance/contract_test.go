@@ -1,4 +1,4 @@
-package admin_balance
+package adminbalance
 
 import (
 	"math/big"
@@ -15,6 +15,10 @@ import (
 	"github.com/autonity/autonity/core/vm/pdk/examples/trade_engine"
 	"github.com/autonity/autonity/core/vm/pdk/storage"
 	"github.com/autonity/autonity/crypto"
+)
+
+var (
+	contractOwner = common.BytesToAddress([]byte("owner"))
 )
 
 // TestAdminBalanceContract_Init verifies defaults are set.
@@ -71,13 +75,13 @@ func TestCrossContractCallInPrecompile_SubmitOrder(t *testing.T) {
 	bc := vm.PrecompiledContractsIstanbul[ContractAddress]
 	bcTyped, _ := bc.(*pdk.BaseContract)
 
-	trade_engine.SetupTradingEngineContract(r.Evm)
+	tradeengine.SetupTradingEngineContract(r.Evm)
 
 	pair := "NTN/USDC"
 	side := uint8(0) // Bid
 	price := big.NewInt(100)
 	qty := big.NewInt(10)
-	input := buildInput(t, bcTyped.Dispatcher, "CallSubmitOrder", trade_engine.ContractAddress,
+	input := buildInput(t, bcTyped.Dispatcher, "CallSubmitOrder", tradeengine.ContractAddress,
 		pair, side, price, qty)
 
 	sender := common.HexToAddress("0xdummyuser")

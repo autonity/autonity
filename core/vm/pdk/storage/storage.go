@@ -6,6 +6,7 @@ import (
 	"github.com/autonity/autonity/core/vm"
 )
 
+// Storage handles the interaction with the underlying state database and provides a cache.
 type Storage struct {
 	address common.Address // storage scope, should be contract address
 	stateDB vm.StateDB     // state accessor
@@ -15,6 +16,7 @@ type Storage struct {
 	dirty map[common.Hash]struct{}
 }
 
+// NewStorage creates a new storage instance.
 func NewStorage(address common.Address, stateDB vm.StateDB) *Storage {
 	return &Storage{
 		address: address,
@@ -24,6 +26,7 @@ func NewStorage(address common.Address, stateDB vm.StateDB) *Storage {
 	}
 }
 
+// GetState retrieves the state value for a given slot.
 func (s *Storage) GetState(slot common.Hash) common.Hash {
 	if val, ok := s.cache[slot]; ok {
 		return val
@@ -33,11 +36,13 @@ func (s *Storage) GetState(slot common.Hash) common.Hash {
 	return val
 }
 
+// SetState sets the state value for a given slot.
 func (s *Storage) SetState(slot common.Hash, value common.Hash) {
 	s.cache[slot] = value
 	s.dirty[slot] = struct{}{}
 }
 
+// Commit flushes all dirty state changes to the state database.
 func (s *Storage) Commit() {
 	for slot := range s.dirty {
 		val := s.cache[slot]
@@ -46,6 +51,7 @@ func (s *Storage) Commit() {
 	s.dirty = make(map[common.Hash]struct{})
 }
 
+// AddLog adds a log to the state database.
 func (s *Storage) AddLog(topics []common.Hash, data []byte) {
 	log := &types.Log{
 		Address: s.address,

@@ -16,6 +16,7 @@ type Client struct {
 	dispatcher *dispatcher.Dispatcher
 }
 
+// NewClient creates a new PDK contract client.
 func NewClient(address common.Address, logic interface{}) *Client {
 	return &Client{
 		address:    address,
@@ -23,6 +24,7 @@ func NewClient(address common.Address, logic interface{}) *Client {
 	}
 }
 
+// Call executes a method on the PDK contract.
 func (c *Client) Call(evm *vm.EVM, caller common.Address, st *storage.Storage, method string, args ...interface{}) ([]byte, error) {
 	if st != nil {
 		// commit any pending state changes before making the call

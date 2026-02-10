@@ -1,3 +1,4 @@
+// Package dispatcher handles method dispatching for PDK contracts.
 package dispatcher
 
 import (
@@ -17,6 +18,7 @@ import (
 type selector [4]byte
 
 var (
+	// GoTypeToABI maps Go types to ABI types.
 	GoTypeToABI = map[reflect.Type]func() (abi.Type, error){
 		reflect.TypeOf(common.Address{}): func() (abi.Type, error) {
 			return abi.NewType("address", "address", nil)
@@ -66,6 +68,7 @@ var (
 	}
 )
 
+// Dispatcher handles the mapping of method selectors to Go methods and dispatching calls.
 type Dispatcher struct {
 	ABI            abi.ABI
 	Methods        map[selector]reflect.Value // selector registry
@@ -80,6 +83,7 @@ func newDispatcher() *Dispatcher {
 	}
 }
 
+// AddMethod registers a new ABI method and its corresponding Go method.
 func (d *Dispatcher) AddMethod(method abi.Method, goMethod reflect.Value) {
 	d.ABI.Methods[method.Name] = method
 	var sel = crypto.Keccak256Hash([]byte(method.Sig)).Bytes()[:4]
@@ -89,6 +93,7 @@ func (d *Dispatcher) AddMethod(method abi.Method, goMethod reflect.Value) {
 	d.SelectorToName[selArray] = method.Name
 }
 
+// ResolveABIType converts a Go reflect.Type to a corresponding abi.Type.
 func ResolveABIType(goType reflect.Type) (abi.Type, error) {
 	// Reject platform-dependent int/uint types
 	if goType.Kind() == reflect.Int {
@@ -194,7 +199,7 @@ func convertTupleElemsToArgumentMarshaling(tupleElems []*abi.Type) []abi.Argumen
 		return nil
 	}
 
-	var components []abi.ArgumentMarshaling
+	components := make([]abi.ArgumentMarshaling, 0, len(tupleElems))
 	for i, elem := range tupleElems {
 		components = append(components, abi.ArgumentMarshaling{
 			Name:         fmt.Sprintf("field%d", i),
@@ -206,6 +211,7 @@ func convertTupleElemsToArgumentMarshaling(tupleElems []*abi.Type) []abi.Argumen
 	return components
 }
 
+// InferABIMethods inspects a contract struct and registers its exported methods to the dispatcher.
 func InferABIMethods(d *Dispatcher, contractVal reflect.Value) error {
 	contractType := contractVal.Type()
 loop:
@@ -263,6 +269,7 @@ loop:
 	return nil
 }
 
+// Dispatch executes the mapped Go method for the given input data.
 func (d *Dispatcher) Dispatch(input []byte, evm interface{}, caller interface{}, storage interface{}) ([]byte, error) {
 	if len(input) < 4 {
 		return nil, fmt.Errorf("input too short")

@@ -76,7 +76,7 @@ func TestEmit_IndexedEvent(t *testing.T) {
 
 	// verify indexed field 2 (size), which is uint32, we can retrieve the value from topic[2]
 	retrieveSize := log.Topics[2].Big().Uint64()
-	require.Equal(t, size, uint32(retrieveSize))
+	require.Equal(t, uint64(size), retrieveSize)
 	// verify data field
 	require.Equal(t, uint64(32), uint64(len(log.Data)))
 	fieldData := log.Data[24:32]

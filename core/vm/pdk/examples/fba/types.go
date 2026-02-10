@@ -12,8 +12,10 @@ const (
 	SideAsk = 1
 )
 
+// Side represents the side of an order (Bid/Ask).
 type Side int
 
+// IntentData holds the core data of a trading intent.
 type IntentData struct {
 	Nonce             *big.Int
 	TradingProtocolID common.Address
@@ -25,6 +27,7 @@ type IntentData struct {
 	Side              uint8 // 0: BID, 1: ASK
 }
 
+// Intent represents a user intent to trade.
 type Intent struct {
 	MarginAccountID common.Address
 	IntentAccountID common.Address
@@ -33,14 +36,14 @@ type Intent struct {
 	Signature       []byte
 }
 
-// FBA Specific Wrapper
+// Order represents an order in the order book.
 type Order struct {
 	Intent            Intent
 	IntervalID        *big.Int
 	RemainingQuantity *big.Int
 }
 
-// Batch Input
+// Batch represents a batch of orders to be processed.
 type Batch struct {
 	BatchID         *big.Int
 	ProductID       common.Hash
@@ -50,16 +53,16 @@ type Batch struct {
 	Asks            []Order // Sorted: Price ASC, Interval ASC
 }
 
-// Output Results
+// FillResult represents the result of filling an order.
 type FillResult struct {
 	IntentHash        common.Hash
 	FillQuantity      *big.Int
 	RemainingQuantity *big.Int
 }
 
-// Settlement struct for MAE Check (Matches IMarginAccount)
+// Settlement represents the settlement details for a position.
 type Settlement struct {
-	PositionId common.Hash
+	PositionID common.Hash
 	Quantity   *big.Int // Signed int256
 	Price      *big.Int
 }

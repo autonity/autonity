@@ -44,7 +44,7 @@ func TestEncodeTo32Bytes_SignExtension(t *testing.T) {
 			expected: func() []byte {
 				b := bytes.Repeat([]byte{0xff}, 32)
 				val := int32(-256)
-				binary.BigEndian.PutUint32(b[28:32], uint32(val))
+				binary.BigEndian.PutUint32(b[28:32], uint32(val)) // #nosec G115
 				return b
 			}(),
 		},

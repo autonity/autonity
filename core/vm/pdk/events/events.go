@@ -1,3 +1,4 @@
+// Package events handles event emission for PDK contracts.
 package events
 
 import (

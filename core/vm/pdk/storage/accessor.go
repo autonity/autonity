@@ -1,3 +1,4 @@
+// Package storage provides the PDK storage abstraction layer.
 package storage
 
 import (
@@ -24,10 +25,11 @@ type ClearerAccessor interface {
 	Clear(slot common.Hash, offset int, st *Storage) error
 }
 
+// ValueAccessor defines the interface for reading and writing values to storage.
 type ValueAccessor interface {
-	//ReadAt reads the value at the given slot and offset
+	// ReadAt reads the value at the given slot and offset
 	ReadAt(slot common.Hash, offset int, st *Storage) (any, error)
-	//WriteAt writes the value at the given slot and offset
+	// WriteAt writes the value at the given slot and offset
 	WriteAt(slot common.Hash, offset int, value any, st *Storage) error
 
 	Size() int
@@ -65,13 +67,16 @@ func init() {
 	}
 }
 
+// FixedByteAccessor handles reading and writing fixed-size byte arrays.
 type FixedByteAccessor struct {
 	typ  reflect.Type
 	size int
 }
 
+// Size returns the size in bytes.
 func (f FixedByteAccessor) Size() int { return f.size }
 
+// ReadAt reads the fixed byte array from storage.
 func (f FixedByteAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	if offset+f.size > 32 {
 		return nil, fmt.Errorf("offset and size exceed slot boundary")
@@ -86,6 +91,7 @@ func (f FixedByteAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (an
 	return val.Interface(), nil
 }
 
+// WriteAt writes the fixed byte array to storage.
 func (f FixedByteAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
 	if offset+f.size > 32 {
 		panic(fmt.Errorf("offset and size exceed slot boundary"))
@@ -100,7 +106,7 @@ func (f FixedByteAccessor) WriteAt(slot common.Hash, offset int, value any, st *
 	copy(data[offset:offset+f.size], zeroHashBytes[:f.size]) // Clear previous
 
 	for i := 0; i < f.size; i++ {
-		data[offset+i] = uint8(valVal.Index(i).Uint())
+		data[offset+i] = byte(valVal.Index(i).Uint())
 	}
 
 	st.SetState(slot, data)
@@ -110,8 +116,10 @@ func (f FixedByteAccessor) WriteAt(slot common.Hash, offset int, value any, st *
 // BigIntAccessor handles reading and writing big.Int values in the range of int256. for uint256 use Uint256Accessor
 type BigIntAccessor struct{}
 
+// Size returns the size in bytes (32).
 func (b BigIntAccessor) Size() int { return 32 }
 
+// ReadAt reads the big.Int value from storage.
 func (b BigIntAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	if offset != 0 {
 		return nil, fmt.Errorf("big.Int values must start from zero offset")
@@ -126,6 +134,7 @@ func (b BigIntAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, 
 	return ret, nil
 }
 
+// WriteAt writes the big.Int value to storage.
 func (b BigIntAccessor) WriteAt(slot common.Hash, _ int, value any, st *Storage) error {
 	valBig, ok := value.(*big.Int)
 	if !ok {
@@ -147,9 +156,13 @@ func (b BigIntAccessor) WriteAt(slot common.Hash, _ int, value any, st *Storage)
 	return nil
 }
 
+// HashAccessor handles reading and writing common.Hash values.
 type HashAccessor struct{}
 
+// Size returns the size in bytes (32).
 func (b HashAccessor) Size() int { return 32 }
+
+// ReadAt reads the hash from storage.
 func (b HashAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	if offset != 0 {
 		return nil, fmt.Errorf("hash values must start from zero offset")
@@ -157,6 +170,7 @@ func (b HashAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, er
 	return st.GetState(slot), nil
 }
 
+// WriteAt writes the hash to storage.
 func (b HashAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
 	if offset != 0 {
 		return fmt.Errorf("hash values must start from zero offset")
@@ -165,9 +179,13 @@ func (b HashAccessor) WriteAt(slot common.Hash, offset int, value any, st *Stora
 	return nil
 }
 
+// Uint256Accessor handles reading and writing Uint256 values.
 type Uint256Accessor struct{}
 
+// Size returns the size in bytes (32).
 func (u Uint256Accessor) Size() int { return 32 }
+
+// ReadAt reads the Uint256 from storage.
 func (u Uint256Accessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	if offset != 0 {
 		return nil, fmt.Errorf("uint256 values must start from zero offset")
@@ -178,6 +196,7 @@ func (u Uint256Accessor) ReadAt(slot common.Hash, offset int, st *Storage) (any,
 	return u256, nil
 }
 
+// WriteAt writes the Uint256 to storage.
 func (u Uint256Accessor) WriteAt(slot common.Hash, _ int, value any, st *Storage) error {
 	var u256 = value.(Uint256)
 	var data common.Hash
@@ -186,14 +205,19 @@ func (u Uint256Accessor) WriteAt(slot common.Hash, _ int, value any, st *Storage
 	return nil
 }
 
+// AddressAccessor handles reading and writing common.Address values.
 type AddressAccessor struct{}
 
+// Size returns the size in bytes (20).
 func (a AddressAccessor) Size() int { return 20 }
+
+// ReadAt reads the address from storage.
 func (a AddressAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, error) {
 	data := st.GetState(slot)
 	return common.BytesToAddress(data[offset : offset+20]), nil
 }
 
+// WriteAt writes the address to storage.
 func (a AddressAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
 	data := st.GetState(slot)
 	var addr = value.(common.Address)
@@ -257,11 +281,11 @@ func (i intAccessor) ReadAt(slot common.Hash, offset int, st *Storage) (any, err
 	if err != nil {
 		return nil, err
 	}
-	return int64(uVal.(uint64)), nil
+	return int64(uVal.(uint64)), nil // #nosec G115
 }
 
 func (i intAccessor) WriteAt(slot common.Hash, offset int, value any, st *Storage) error {
-	uval := uint64(value.(int64))
+	uval := uint64(value.(int64)) // #nosec G115
 
 	return uintAccessor(i).WriteAt(slot, offset, uval, st)
 }
@@ -285,10 +309,13 @@ func (b boolAccessor) WriteAt(slot common.Hash, offset int, value any, st *Stora
 	return nil
 }
 
+// ByteAccessor handles reading and writing dynamic byte slices.
 type ByteAccessor struct{}
 
+// Size returns the size in bytes (32 for the length slot).
 func (b ByteAccessor) Size() int { return 32 }
 
+// ReadAt reads the byte slice from storage.
 func (b ByteAccessor) ReadAt(headSlot common.Hash, _ int, st *Storage) (any, error) {
 	if st == nil {
 		return nil, fmt.Errorf("storage is nil")
@@ -303,7 +330,7 @@ func (b ByteAccessor) ReadAt(headSlot common.Hash, _ int, st *Storage) (any, err
 	baseBig := new(big.Int).SetBytes(base.Bytes())
 	numChunks := (length + 31) / 32
 	for i := range numChunks {
-		chunkSlotBig := new(big.Int).Add(baseBig, big.NewInt(int64(i)))
+		chunkSlotBig := new(big.Int).Add(baseBig, big.NewInt(int64(i))) // #nosec G115
 		// calculate slot for this chunk
 		chunkSlotHash := common.BigToHash(chunkSlotBig)
 		chunkData := st.GetState(chunkSlotHash)
@@ -318,6 +345,7 @@ func (b ByteAccessor) ReadAt(headSlot common.Hash, _ int, st *Storage) (any, err
 	return result, nil
 }
 
+// WriteAt writes the byte slice to storage.
 func (b ByteAccessor) WriteAt(headSlot common.Hash, _ int, value any, st *Storage) error {
 	if st == nil {
 		panic("BytesAccessor requires Storage for multi-slot write")
@@ -333,13 +361,13 @@ func (b ByteAccessor) WriteAt(headSlot common.Hash, _ int, value any, st *Storag
 	base := crypto.Keccak256Hash(headSlot.Bytes())
 	baseBig := new(big.Int).SetBytes(base.Bytes())
 	numChunks := (length + 31) / 32
-	for i := 0; i < int(numChunks); i++ {
-		chunkSlotBig := new(big.Int).Add(baseBig, big.NewInt(int64(i)))
+	for i := uint64(0); i < numChunks; i++ {
+		chunkSlotBig := new(big.Int).Add(baseBig, big.NewInt(int64(i))) // #nosec G115
 		var chunk common.Hash
 		start := i * 32
 		end := start + 32
-		if end > int(length) {
-			end = int(length)
+		if end > length {
+			end = length
 		}
 		copy(chunk[:end-start], bytesVal[start:end])
 		chunkSlot := common.BigToHash(chunkSlotBig)
@@ -348,6 +376,7 @@ func (b ByteAccessor) WriteAt(headSlot common.Hash, _ int, value any, st *Storag
 	return nil
 }
 
+// Clear removes the byte slice from storage.
 func (b ByteAccessor) Clear(headSlot common.Hash, _ int, st *Storage) error {
 	if st == nil {
 		return nil
@@ -364,8 +393,8 @@ func (b ByteAccessor) Clear(headSlot common.Hash, _ int, st *Storage) error {
 	numChunks := (length + 31) / 32
 	zeroHash := common.Hash{}
 
-	for i := 0; i < int(numChunks); i++ {
-		chunkSlotBig := new(big.Int).Add(baseBig, big.NewInt(int64(i)))
+	for i := uint64(0); i < numChunks; i++ {
+		chunkSlotBig := new(big.Int).Add(baseBig, big.NewInt(int64(i))) // #nosec G115
 		chunkSlot := common.BigToHash(chunkSlotBig)
 		st.SetState(chunkSlot, zeroHash)
 	}
