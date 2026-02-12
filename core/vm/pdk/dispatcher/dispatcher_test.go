@@ -20,8 +20,6 @@ type TestStruct struct {
 	Amount  *big.Int
 	Active  bool
 	Data    []byte
-	NewF    []uint32
-	NewF1   uint32
 }
 
 type NestedStruct struct {
@@ -30,7 +28,7 @@ type NestedStruct struct {
 	Name   string
 }
 
-type NestedStruct2 struct {
+type NestedStruct1 struct {
 	Inner [10]TestStruct
 	Id    uint32
 }
@@ -309,7 +307,7 @@ func TestDispatch_MultiParamReturn(t *testing.T) {
 }
 
 func Test_Test(t *testing.T) {
-	var arr []NestedStruct2
+	var arr []NestedStruct1
 	structType := reflect.TypeOf(arr)
 	_, err := ResolveABIType(structType)
 	require.NoError(t, err)
