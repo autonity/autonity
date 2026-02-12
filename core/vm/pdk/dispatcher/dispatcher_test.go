@@ -20,12 +20,19 @@ type TestStruct struct {
 	Amount  *big.Int
 	Active  bool
 	Data    []byte
+	NewF    []uint32
+	NewF1   uint32
 }
 
 type NestedStruct struct {
 	Inner  TestStruct
 	Values []*big.Int
 	Name   string
+}
+
+type NestedStruct2 struct {
+	Inner [10]TestStruct
+	Id    uint32
 }
 
 type ByteArrayStruct struct {
@@ -299,6 +306,13 @@ func TestDispatch_MultiParamReturn(t *testing.T) {
 	if retBig, ok := ret[1].(*big.Int); !ok || retBig.Cmp(big.NewInt(200)) != 0 {
 		t.Error("big.Int return mismatch")
 	}
+}
+
+func Test_Test(t *testing.T) {
+	var arr []NestedStruct2
+	structType := reflect.TypeOf(arr)
+	_, err := ResolveABIType(structType)
+	require.NoError(t, err)
 }
 
 func TestResolveABIType_BasicStruct(t *testing.T) {
