@@ -165,7 +165,7 @@ func NewType(t string, internalType string, components []ArgumentMarshaling) (ty
 			expression string // canonical parameter expression
 		)
 		expression += "("
-		overloadedNames := make(map[string]struct{})
+		overloadedNames := make(map[string]string)
 		for idx, c := range components {
 			cType, err := NewType(c.Type, c.InternalType, c.Components)
 			if err != nil {
@@ -178,7 +178,7 @@ func NewType(t string, internalType string, components []ArgumentMarshaling) (ty
 			if !isValidFieldName(fieldName) {
 				return Type{}, fmt.Errorf("field %d has invalid name", idx)
 			}
-			overloadedNames[fieldName] = struct{}{}
+			overloadedNames[fieldName] = fieldName
 			fields = append(fields, reflect.StructField{
 				Name: fieldName, // reflect.StructOf will panic for any exported field.
 				Type: cType.GetType(),
@@ -258,7 +258,7 @@ func CreateAbiTupleType(components []Type, tupleRawNames []string, internalType 
 	fields := make([]reflect.StructField, 0, len(components))
 	elems := make([]*Type, 0, len(components))
 	expression := "(" // canonical parameter expression
-	overloadedNames := make(map[string]struct{})
+	overloadedNames := make(map[string]string)
 	for idx, eType := range components {
 		name := tupleRawNames[idx]
 		fieldName, err := overloadedArgName(name, overloadedNames)
@@ -268,7 +268,7 @@ func CreateAbiTupleType(components []Type, tupleRawNames []string, internalType 
 		if !isValidFieldName(fieldName) {
 			return Type{}, fmt.Errorf("field %d has invalid name", idx)
 		}
-		overloadedNames[fieldName] = struct{}{}
+		overloadedNames[fieldName] = fieldName
 		fields = append(fields, reflect.StructField{
 			Name: fieldName, // reflect.StructOf will panic for any exported field.
 			Type: eType.GetType(),
@@ -337,7 +337,7 @@ func (t Type) GetType() reflect.Type {
 	}
 }
 
-func overloadedArgName(rawName string, names map[string]struct{}) (string, error) {
+func overloadedArgName(rawName string, names map[string]string) (string, error) {
 	fieldName := ToCamelCase(rawName)
 	if fieldName == "" {
 		return "", errors.New("abi: purely anonymous or underscored field is not supported")
