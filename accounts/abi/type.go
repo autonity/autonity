@@ -219,8 +219,11 @@ func NewType(t string, internalType string, components []ArgumentMarshaling) (ty
 	return
 }
 
+const Uint8Type = "uint8"
+
+// CreateAbiArrayType creates a new reflection type of abi slice type with underlying type given in `elem`.
 func CreateAbiSliceType(elem Type) (typ Type) {
-	if elem.stringKind == "uint8" {
+	if elem.stringKind == Uint8Type {
 		typ.stringKind = "bytes"
 		typ.T = BytesTy
 	} else {
@@ -231,8 +234,9 @@ func CreateAbiSliceType(elem Type) (typ Type) {
 	return
 }
 
+// CreateAbiArrayType creates a new reflection type of abi fixed size array type with underlying type given in `elem`.
 func CreateAbiArrayType(elem Type, size int) (typ Type) {
-	if elem.stringKind == "uint8" && size > 0 && size < 33 {
+	if elem.stringKind == Uint8Type && size > 0 && size < 33 {
 		typ.stringKind = fmt.Sprintf("bytes%d", size)
 		typ.T = FixedBytesTy
 		typ.Size = size
@@ -245,16 +249,15 @@ func CreateAbiArrayType(elem Type, size int) (typ Type) {
 	return
 }
 
+// CreateAbiTupleType creates a new reflection type of abi tupe type with the components given in `components`.
 func CreateAbiTupleType(components []Type, tupleRawNames []string, internalType string) (typ Type, err error) {
 	if len(components) != len(tupleRawNames) {
 		return Type{}, fmt.Errorf("length mismatch of components and raw names: %d != %d", len(components), len(tupleRawNames))
 	}
-	var (
-		fields     []reflect.StructField
-		elems      []*Type
-		expression string // canonical parameter expression
-	)
-	expression += "("
+
+	fields := make([]reflect.StructField, 0, len(components))
+	elems := make([]*Type, 0, len(components))
+	expression := "(" // canonical parameter expression
 	overloadedNames := make(map[string]struct{})
 	for idx, eType := range components {
 		name := tupleRawNames[idx]
@@ -295,7 +298,7 @@ func CreateAbiTupleType(components []Type, tupleRawNames []string, internalType 
 		typ.TupleRawName = strings.Replace(internalType[len(structPrefix):], ".", "", -1)
 	}
 
-	return
+	return typ, nil
 }
 
 // GetType returns the reflection type of the ABI type.

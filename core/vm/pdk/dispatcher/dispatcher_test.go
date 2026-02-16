@@ -30,7 +30,7 @@ type NestedStruct struct {
 
 type NestedStruct1 struct {
 	Inner [10]TestStruct
-	Id    uint32
+	ID    uint32
 }
 
 type ByteArrayStruct struct {
