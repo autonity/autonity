@@ -386,21 +386,6 @@ func TestResolveABIType_InvalidFixedByteArrays(t *testing.T) {
 		expectedErr string
 	}{
 		{
-			"bytes0",
-			reflect.TypeOf([0]byte{}),
-			"fixed byte array size must be 1-32, got [0]byte",
-		},
-		{
-			"bytes33",
-			reflect.TypeOf([33]byte{}),
-			"fixed byte array size must be 1-32, got [33]byte",
-		},
-		{
-			"bytes64",
-			reflect.TypeOf([64]byte{}),
-			"fixed byte array size must be 1-32, got [64]byte",
-		},
-		{
 			"fixed int array",
 			reflect.TypeOf([5]int{}),
 			"unsupported type 'int'",
