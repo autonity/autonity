@@ -181,23 +181,6 @@ func resolveStructABIType(goType reflect.Type) (abi.Type, error) {
 	return tupleType, nil
 }
 
-func convertTupleElemsToArgumentMarshaling(tupleElems []*abi.Type) []abi.ArgumentMarshaling {
-	if tupleElems == nil {
-		return nil
-	}
-
-	components := make([]abi.ArgumentMarshaling, 0, len(tupleElems))
-	for i, elem := range tupleElems {
-		components = append(components, abi.ArgumentMarshaling{
-			Name:         fmt.Sprintf("field%d", i),
-			Type:         elem.String(),
-			InternalType: elem.String(),
-			Components:   convertTupleElemsToArgumentMarshaling(elem.TupleElems), // Recursive for deeply nested
-		})
-	}
-	return components
-}
-
 // InferABIMethods inspects a contract struct and registers its exported methods to the dispatcher.
 func InferABIMethods(d *Dispatcher, contractVal reflect.Value) error {
 	contractType := contractVal.Type()
