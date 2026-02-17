@@ -29,7 +29,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/prometheus/common/version"
+	autversion "github.com/autonity/autonity/internal/version"
 	"go.uber.org/mock/gomock"
 
 	"github.com/autonity/autonity/accounts/abi/bind"
@@ -2694,8 +2694,12 @@ func summarizeBadBlock(block *types.Block, receipts []*types.Receipt, config *pa
 			i, receipt.CumulativeGasUsed, receipt.GasUsed, receipt.ContractAddress.Hex(),
 			receipt.Status, receipt.TxHash.Hex(), receipt.Logs, receipt.Bloom, receipt.PostState)
 	}
-	version := version.Info()
-	platform := fmt.Sprintf("%s %s %s %s", version, runtime.Version(), runtime.GOARCH, runtime.GOOS)
+	ver, vcs := autversion.Info()
+	build := ver
+	if vcs != "" {
+		build += " (" + vcs + ")"
+	}
+	platform := fmt.Sprintf("%s %s %s %s", build, runtime.Version(), runtime.GOARCH, runtime.GOOS)
 	return fmt.Sprintf(`
 ########## BAD BLOCK #########
 Block: %v (%#x)

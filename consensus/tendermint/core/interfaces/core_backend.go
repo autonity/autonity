@@ -65,7 +65,7 @@ type Backend interface {
 
 	Subscribe(types ...any) *event.TypeMuxSubscription
 
-	// VerifyProposal verifies the proposal. If a consensus.ErrFutureBlock error is returned,
+	// VerifyProposal verifies the proposal. If a consensus.ErrFutureTimestampBlock error is returned,
 	// the time difference of the proposal and current time is also returned.
 	VerifyProposal(*types.Block) (time.Duration, error)
 
