@@ -117,23 +117,14 @@ func ResolveABIType(goType reflect.Type) (abi.Type, error) {
 		elemType := goType.Elem()
 		arrayLen := goType.Len()
 
-		if elemType.Kind() == reflect.Uint8 {
-			if arrayLen >= 1 && arrayLen <= 32 {
-				typeName := fmt.Sprintf("bytes%d", arrayLen)
-				return abi.NewType(typeName, "", nil)
-			}
-			return abi.Type{}, fmt.Errorf("fixed byte array size must be 1-32, got [%d]byte", arrayLen)
-		}
-
 		// Generic fixed-size arrays: [N]T -> T[N]
 		elemABIType, err := ResolveABIType(elemType)
 		if err != nil {
 			return abi.Type{}, fmt.Errorf("failed to resolve array element type %s: %w", elemType, err)
 		}
 		// Construct array type string: "uint256[2]", "address[10]", etc.
-		// Use abi.NewType logic to parse it
-		typeName := fmt.Sprintf("%s[%d]", elemABIType.String(), arrayLen)
-		return abi.NewType(typeName, typeName, nil)
+		// Use abi.CreateAbiArrayType logic to parse it
+		return abi.CreateAbiArrayType(elemABIType, arrayLen), nil
 	}
 
 	// Handle dynamic arrays (slices only)
@@ -143,8 +134,7 @@ func ResolveABIType(goType reflect.Type) (abi.Type, error) {
 		if err != nil {
 			return abi.Type{}, fmt.Errorf("failed to resolve slice element type %s: %w", elemType, err)
 		}
-		arrayTypeStr := elemABIType.String() + "[]"
-		return abi.NewType(arrayTypeStr, arrayTypeStr, nil)
+		return abi.CreateAbiSliceType(elemABIType), nil
 	}
 
 	if goType.Kind() == reflect.Struct {
@@ -160,7 +150,8 @@ func resolveStructABIType(goType reflect.Type) (abi.Type, error) {
 		return abi.Type{}, fmt.Errorf("expected struct type, got %s", goType.Kind())
 	}
 
-	var components []abi.ArgumentMarshaling
+	var components []abi.Type
+	var tupleNames []string
 	for i := 0; i < goType.NumField(); i++ {
 		field := goType.Field(i)
 		// Skip unexported fields
@@ -174,41 +165,20 @@ func resolveStructABIType(goType reflect.Type) (abi.Type, error) {
 		}
 
 		fieldName := strings.ToLower(field.Name[0:1]) + field.Name[1:]
-		components = append(components, abi.ArgumentMarshaling{
-			Name:         fieldName,
-			Type:         fieldABIType.String(),
-			InternalType: fieldABIType.String(),
-			Components:   convertTupleElemsToArgumentMarshaling(fieldABIType.TupleElems),
-		})
+		components = append(components, fieldABIType)
+		tupleNames = append(tupleNames, fieldName)
 	}
 
 	if len(components) == 0 {
 		return abi.Type{}, fmt.Errorf("struct %s has no ABI-serializable fields", goType.Name())
 	}
 
-	tupleType, err := abi.NewType("tuple", "", components)
+	tupleType, err := abi.CreateAbiTupleType(components, tupleNames, "")
 	if err != nil {
 		return abi.Type{}, fmt.Errorf("failed to create tuple type for struct %s: %w", goType.Name(), err)
 	}
 
 	return tupleType, nil
-}
-
-func convertTupleElemsToArgumentMarshaling(tupleElems []*abi.Type) []abi.ArgumentMarshaling {
-	if tupleElems == nil {
-		return nil
-	}
-
-	components := make([]abi.ArgumentMarshaling, 0, len(tupleElems))
-	for i, elem := range tupleElems {
-		components = append(components, abi.ArgumentMarshaling{
-			Name:         fmt.Sprintf("field%d", i),
-			Type:         elem.String(),
-			InternalType: elem.String(),
-			Components:   convertTupleElemsToArgumentMarshaling(elem.TupleElems), // Recursive for deeply nested
-		})
-	}
-	return components
 }
 
 // InferABIMethods inspects a contract struct and registers its exported methods to the dispatcher.

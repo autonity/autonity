@@ -219,6 +219,88 @@ func NewType(t string, internalType string, components []ArgumentMarshaling) (ty
 	return
 }
 
+const Uint8Type = "uint8"
+
+// CreateAbiArrayType creates a new reflection type of abi slice type with underlying type given in `elem`.
+func CreateAbiSliceType(elem Type) (typ Type) {
+	if elem.stringKind == Uint8Type {
+		typ.stringKind = "bytes"
+		typ.T = BytesTy
+	} else {
+		typ.stringKind = elem.stringKind + "[]"
+		typ.Elem = &elem
+		typ.T = SliceTy
+	}
+	return
+}
+
+// CreateAbiArrayType creates a new reflection type of abi fixed size array type with underlying type given in `elem`.
+func CreateAbiArrayType(elem Type, size int) (typ Type) {
+	if elem.stringKind == Uint8Type && size > 0 && size < 33 {
+		typ.stringKind = fmt.Sprintf("bytes%d", size)
+		typ.T = FixedBytesTy
+		typ.Size = size
+	} else {
+		typ.T = ArrayTy
+		typ.Elem = &elem
+		typ.Size = size
+		typ.stringKind = elem.stringKind + "[" + strconv.Itoa(size) + "]"
+	}
+	return
+}
+
+// CreateAbiTupleType creates a new reflection type of abi tupe type with the components given in `components`.
+func CreateAbiTupleType(components []Type, tupleRawNames []string, internalType string) (typ Type, err error) {
+	if len(components) != len(tupleRawNames) {
+		return Type{}, fmt.Errorf("length mismatch of components and raw names: %d != %d", len(components), len(tupleRawNames))
+	}
+
+	fields := make([]reflect.StructField, 0, len(components))
+	elems := make([]*Type, 0, len(components))
+	expression := "(" // canonical parameter expression
+	overloadedNames := make(map[string]string)
+	for idx, eType := range components {
+		name := tupleRawNames[idx]
+		fieldName, err := overloadedArgName(name, overloadedNames)
+		if err != nil {
+			return Type{}, err
+		}
+		if !isValidFieldName(fieldName) {
+			return Type{}, fmt.Errorf("field %d has invalid name", idx)
+		}
+		overloadedNames[fieldName] = fieldName
+		fields = append(fields, reflect.StructField{
+			Name: fieldName, // reflect.StructOf will panic for any exported field.
+			Type: eType.GetType(),
+			Tag:  reflect.StructTag("json:\"" + name + "\""),
+		})
+		elems = append(elems, &eType)
+		expression += eType.stringKind
+		if idx != len(components)-1 {
+			expression += ","
+		}
+	}
+	expression += ")"
+
+	typ.TupleType = reflect.StructOf(fields)
+	typ.TupleElems = elems
+	typ.TupleRawNames = tupleRawNames
+	typ.T = TupleTy
+	typ.stringKind = expression
+
+	const structPrefix = "struct "
+	// After solidity 0.5.10, a new field of abi "internalType"
+	// is introduced. From that we can obtain the struct name
+	// user defined in the source code.
+	if internalType != "" && strings.HasPrefix(internalType, structPrefix) {
+		// Foo.Bar type definition is not allowed in golang,
+		// convert the format to FooBar
+		typ.TupleRawName = strings.Replace(internalType[len(structPrefix):], ".", "", -1)
+	}
+
+	return typ, nil
+}
+
 // GetType returns the reflection type of the ABI type.
 func (t Type) GetType() reflect.Type {
 	switch t.T {

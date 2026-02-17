@@ -28,6 +28,11 @@ type NestedStruct struct {
 	Name   string
 }
 
+type NestedStruct1 struct {
+	Inner [10]TestStruct
+	ID    uint32
+}
+
 type ByteArrayStruct struct {
 	Hash32   [32]byte
 	Address  [20]byte
@@ -301,6 +306,13 @@ func TestDispatch_MultiParamReturn(t *testing.T) {
 	}
 }
 
+func Test_Test(t *testing.T) {
+	var arr []NestedStruct1
+	structType := reflect.TypeOf(arr)
+	_, err := ResolveABIType(structType)
+	require.NoError(t, err)
+}
+
 func TestResolveABIType_BasicStruct(t *testing.T) {
 	structType := reflect.TypeOf(TestStruct{})
 	abiType, err := ResolveABIType(structType)
@@ -373,21 +385,6 @@ func TestResolveABIType_InvalidFixedByteArrays(t *testing.T) {
 		goType      reflect.Type
 		expectedErr string
 	}{
-		{
-			"bytes0",
-			reflect.TypeOf([0]byte{}),
-			"fixed byte array size must be 1-32, got [0]byte",
-		},
-		{
-			"bytes33",
-			reflect.TypeOf([33]byte{}),
-			"fixed byte array size must be 1-32, got [33]byte",
-		},
-		{
-			"bytes64",
-			reflect.TypeOf([64]byte{}),
-			"fixed byte array size must be 1-32, got [64]byte",
-		},
 		{
 			"fixed int array",
 			reflect.TypeOf([5]int{}),
