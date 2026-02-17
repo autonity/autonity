@@ -52,7 +52,7 @@ func (s *randomBytesBroadcaster) Broadcast(_ message.Msg) {
 // Receiving nodes should also disconnect misbehaving nodes
 func TestRandomBytesBroadcaster(t *testing.T) {
 	numOfNodes := 6
-	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	f := bft.F(new(big.Int).SetUint64(uint64(numOfNodes)))
@@ -104,7 +104,7 @@ func (s *garbageMessageBroadcaster) Broadcast(_ message.Msg) {
 // Receiving nodes should also disconnect misbehaving nodes
 func TestGarbageMessageBroadcaster(t *testing.T) {
 	numOfNodes := 6
-	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	f := bft.F(new(big.Int).SetUint64(uint64(numOfNodes)))
@@ -170,7 +170,7 @@ func (c *fuzzPrecommitSender) SendPrecommit(_ context.Context, isNil bool) {
 // Receiving nodes should also disconnect misbehaving nodes
 func TestFuzzPrecommitter(t *testing.T) {
 	numOfNodes := 6
-	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	f := bft.F(new(big.Int).SetUint64(uint64(numOfNodes)))
 	i := uint64(0)
@@ -235,7 +235,7 @@ func (c *fuzzPrevoter) SendPrevote(_ context.Context, isNil bool) {
 // Receiving nodes should also disconnect misbehaving nodes
 func TestFuzzPrevoter(t *testing.T) {
 	numOfNodes := 6
-	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	f := bft.F(new(big.Int).SetUint64(uint64(numOfNodes)))
 	for i := uint64(0); i < f.Uint64(); i++ {
@@ -281,7 +281,7 @@ func (c *fuzzProposer) SendProposal(_ context.Context, p *types.Block) {
 // Receiving nodes should also disconnect misbehaving nodes
 func TestFuzzProposer(t *testing.T) {
 	numOfNodes := 6
-	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, numOfNodes, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	f := bft.F(new(big.Int).SetUint64(uint64(numOfNodes)))
 	for i := uint64(0); i < f.Uint64(); i++ {

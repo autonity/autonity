@@ -29,15 +29,14 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/fdlimit"
-	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/eth"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/eth/ethconfig"
+	"github.com/autonity/autonity/internal/version"
 	"github.com/autonity/autonity/log"
-	"github.com/autonity/autonity/miner"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
 	"github.com/autonity/autonity/p2p/enode"
@@ -49,7 +48,7 @@ var (
 )
 
 func main() {
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+
 	fdlimit.Raise(2048)
 
 	// Generate a batch of accounts to seal and fund with
@@ -57,8 +56,6 @@ func main() {
 	for i := 0; i < len(faucets); i++ {
 		faucets[i], _ = crypto.GenerateKey()
 	}
-	// Pre-generate the ethash mining DAG so we don't race
-	ethash.MakeDataset(1, ethconfig.Defaults.Ethash.DatasetDir)
 
 	// Create an Ethash network based off of the Ropsten config
 	genesis := makeGenesis(faucets)
@@ -95,7 +92,7 @@ func main() {
 	// Iterate over all the nodes and start mining
 	time.Sleep(3 * time.Second)
 	for _, node := range nodes {
-		if err := node.StartMining(1); err != nil {
+		if err := node.Start(); err != nil {
 			panic(err)
 		}
 	}
@@ -131,7 +128,7 @@ func main() {
 		// and 1559 transactions can all be created by random even if the
 		// fork is not happened.
 		tx := makeTransaction(nonces[index], faucets[index], signer, baseFee)
-		if err := backend.TxPool().AddLocal(tx); err != nil {
+		if err := backend.TxPool().Add([]*types.Transaction{tx}, false); err != nil {
 			continue
 		}
 		nonces[index]++
@@ -195,11 +192,10 @@ func makeTransaction(nonce uint64, privKey *ecdsa.PrivateKey, signer types.Signe
 // makeGenesis creates a custom Ethash genesis block based on some pre-defined
 // faucet accounts.
 func makeGenesis(faucets []*ecdsa.PrivateKey) *core.Genesis {
-	genesis := core.DefaultRopstenGenesisBlock()
+	genesis := core.DefaultGenesisBlock()
 
-	genesis.Config = params.AllEthashProtocolChanges
-	genesis.Config.LondonBlock = londonBlock
-	genesis.Difficulty = params.MinimumDifficulty
+	genesis.Config = params.TestChainConfig
+	genesis.Difficulty = new(big.Int)
 
 	// Small gaslimit for easier basefee moving testing.
 	genesis.GasLimit = 8_000_000
@@ -207,10 +203,10 @@ func makeGenesis(faucets []*ecdsa.PrivateKey) *core.Genesis {
 	genesis.Config.ChainID = big.NewInt(18)
 	genesis.Config.EIP150Hash = common.Hash{}
 
-	genesis.Alloc = core.GenesisAlloc{}
+	genesis.Alloc = types.GenesisAlloc{}
 	for _, faucet := range faucets {
-		genesis.Alloc[crypto.PubkeyToAddress(faucet.PublicKey)] = core.GenesisAccount{
-			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(128), nil),
+		genesis.Alloc[crypto.PubkeyToAddress(faucet.PublicKey)] = types.Account{
+			Balance: new(big.Int).Exp(big.NewInt(2), big.NewInt(127), nil),
 		}
 	}
 	if londonBlock.Sign() == 0 {
@@ -227,7 +223,7 @@ func makeMiner(genesis *core.Genesis) (*node.Node, *eth.Ethereum, error) {
 
 	config := &node.Config{
 		Name:    "geth",
-		Version: params.Version,
+		Version: version.WithMeta,
 		DataDir: datadir,
 		ExecutionP2P: p2p.Config{
 			ListenAddr:  "0.0.0.0:0",
@@ -243,14 +239,13 @@ func makeMiner(genesis *core.Genesis) (*node.Node, *eth.Ethereum, error) {
 	}
 	ethBackend, err := eth.New(stack, &ethconfig.Config{
 		Genesis:         genesis,
-		NetworkID:       genesis.Config.ChainID.Uint64(),
+		NetworkId:       genesis.Config.ChainID.Uint64(),
 		SyncMode:        downloader.FullSync,
 		DatabaseCache:   256,
 		DatabaseHandles: 256,
-		TxPool:          core.DefaultTxPoolConfig,
+		TxPool:          ethconfig.Defaults.TxPool,
 		GPO:             ethconfig.Defaults.GPO,
-		Ethash:          ethconfig.Defaults.Ethash,
-		Miner: miner.Config{
+		Miner: ethconfig.MinerConfig{
 			Etherbase: common.Address{1},
 			GasPrice:  big.NewInt(1),
 			Recommit:  time.Second,

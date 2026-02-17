@@ -114,13 +114,17 @@ def start_client_containers(job_id):
                                               volumes={"/sys/fs/cgroup": {"bind": "/sys/fs/cgroup", "mode": "ro"}})
             print("create new container: ", container.id)
             container.logs()
-            result = utility.execute("sudo docker inspect -f \'{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}\' " + node_name)
-            if result[1] != "":
-                print("cannot get container ip: ", result[1])
+            # Prefer docker-py inspection over shelling out to `docker inspect` (and avoids sudo requirements in CI).
+            container.reload()
+            networks = (container.attrs.get("NetworkSettings") or {}).get("Networks") or {}
+            ips = [n.get("IPAddress", "") for n in networks.values()]
+            ips = [ip for ip in ips if ip]
+            if not ips:
+                print("cannot get container ip: no IPAddress found in NetworkSettings for ", node_name)
                 continue
 
-            print("get container ip: ", result[0])
-            for part in result[0].split():
+            print("get container ip: ", ",".join(ips))
+            for part in ips:
                 try:
                     a = ipaddress.ip_network(part)
                 except ValueError:
@@ -130,9 +134,8 @@ def start_client_containers(job_id):
                         ip_set.add(str(a.network_address))
     except Exception as e:
         print("create container failed: ", e)
-    finally:
-        print("test bed was created: ", ip_set)
-        return sorted(ip_set)
+    print("test bed was created: ", ip_set)
+    return sorted(ip_set)
 
 
 def prune_unused_images():

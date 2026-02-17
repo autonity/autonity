@@ -257,7 +257,7 @@ func TestOffChainAccusation(t *testing.T) {
 	}
 
 	t.Run("off-chain accusation - C1 rule", func(t *testing.T) {
-		validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
+		validators, err := e2e.Validators(t, 4, "10e36,v,100,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 
 		c := committeeFromValidators(validators)
@@ -330,7 +330,7 @@ func TestOffChainAccusation(t *testing.T) {
 		require.ErrorIs(t, err, e2e.ErrAccountabilityEventMissing)
 	})
 	t.Run("off-chain accusation - PVN rule", func(t *testing.T) {
-		validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
+		validators, err := e2e.Validators(t, 4, "10e36,v,100,127.0.0.1:%s,%s,%s,%s")
 		require.NoError(t, err)
 
 		c := committeeFromValidators(validators)
@@ -338,13 +338,16 @@ func TestOffChainAccusation(t *testing.T) {
 		// prepare artificial prevote so that PVN accusation can be triggered at height 15
 		accuserIndex := 0
 		accusedIndex := 1
-		otherProposer := 2 // someone has to propose the new proposal, and will be misbehaving of PN
-		r := int64(99)     // high round, so that equivocation does not come into the picture
+		r := int64(99) // high round, so that equivocation does not come into the picture
 		h := uint64(15)
 		header := fakeHeader()
 		block := types.NewBlockWithHeader(header)
 		accusableVote := message.NewPrevote(r, h, block.Hash(), validatorToSigner(validators[accusedIndex]), &c.Members[accusedIndex], c)
-		innocenceProof := message.NewPropose(r, h, -1, block, validatorToSigner(validators[otherProposer]), &c.Members[otherProposer])
+		// For PVN, a proposal for the voted value is a valid innocence proof, but it must come
+		// from the proposer selected for that (height-1, round).
+		proposerAddr := c.Proposer(h-1, r)
+		proposerIndex := int(c.MemberByAddress(proposerAddr).Index)
+		innocenceProof := message.NewPropose(r, h, -1, block, validatorToSigner(validators[proposerIndex]), &c.Members[proposerIndex])
 
 		network, err := e2e.NewNetworkFromValidators(t, validators, true)
 		require.NoError(t, err)
@@ -417,7 +420,7 @@ func TestOffChainAccusation(t *testing.T) {
 }
 
 func runDropPeerConnectionTest(t *testing.T, handler *interfaces.Services, testPeriod uint64, numSec int) { // nolint
-	validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, 4, "10e36,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// set malicious

@@ -2,12 +2,13 @@ package sync
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/eth/downloader"
 	"github.com/autonity/autonity/params"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestSnapSyncMode(t *testing.T) {
@@ -19,7 +20,7 @@ func TestFullSyncMode(t *testing.T) {
 }
 
 func testSyncMode(t *testing.T, mode downloader.SyncMode) {
-	network, err := e2e.NewNetwork(t, 7, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, 7, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 
@@ -31,7 +32,7 @@ func testSyncMode(t *testing.T, mode downloader.SyncMode) {
 	_ = network.WaitToMineNBlocks(100, 100, false)
 
 	// create a node which runs in the specified sync mode.
-	identities, err := e2e.Validators(t, 1, "10e18,v,10000,0.0.0.0:%s,%s,%s,%s")
+	identities, err := e2e.Validators(t, 1, "10e18,v,10000,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	syncNode, err := e2e.NewNoneValidatorNode(identities[0], network[0].EthConfig.Genesis, len(network), mode)

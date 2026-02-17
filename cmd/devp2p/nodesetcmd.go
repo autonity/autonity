@@ -19,35 +19,37 @@ package main
 import (
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/urfave/cli/v2"
+
+	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/forkid"
 	"github.com/autonity/autonity/p2p/enr"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
-	nodesetCommand = cli.Command{
+	nodesetCommand = &cli.Command{
 		Name:  "nodeset",
 		Usage: "Node set tools",
-		Subcommands: []cli.Command{
+		Subcommands: []*cli.Command{
 			nodesetInfoCommand,
 			nodesetFilterCommand,
 		},
 	}
-	nodesetInfoCommand = cli.Command{
+	nodesetInfoCommand = &cli.Command{
 		Name:      "info",
 		Usage:     "Shows statistics about a node set",
 		Action:    nodesetInfo,
 		ArgsUsage: "<nodes.json>",
 	}
-	nodesetFilterCommand = cli.Command{
+	nodesetFilterCommand = &cli.Command{
 		Name:      "filter",
 		Usage:     "Filters a node set",
 		Action:    nodesetFilter,
@@ -59,7 +61,7 @@ var (
 
 func nodesetInfo(ctx *cli.Context) error {
 	if ctx.NArg() < 1 {
-		return fmt.Errorf("need nodes file as argument")
+		return errors.New("need nodes file as argument")
 	}
 
 	ns := loadNodesJSON(ctx.Args().First())
@@ -98,7 +100,7 @@ func showAttributeCounts(ns nodeSet) {
 
 func nodesetFilter(ctx *cli.Context) error {
 	if ctx.NArg() < 1 {
-		return fmt.Errorf("need nodes file as argument")
+		return errors.New("need nodes file as argument")
 	}
 	// Parse -limit.
 	limit, err := parseFilterLimit(ctx.Args().Tail())
@@ -181,7 +183,7 @@ func parseFilterLimit(args []string) (int, error) {
 	return limit, nil
 }
 
-// andFilter parses node filters in args and and returns a single filter that requires all
+// andFilter parses node filters in args and returns a single filter that requires all
 // of them to match.
 func andFilter(args []string) (nodeFilter, error) {
 	checks, err := parseFilters(args)
@@ -204,11 +206,11 @@ func trueFilter(args []string) (nodeFilter, error) {
 }
 
 func ipFilter(args []string) (nodeFilter, error) {
-	_, cidr, err := net.ParseCIDR(args[0])
+	prefix, err := netip.ParsePrefix(args[0])
 	if err != nil {
 		return nil, err
 	}
-	f := func(n nodeJSON) bool { return cidr.Contains(n.N.IP()) }
+	f := func(n nodeJSON) bool { return prefix.Contains(n.N.IPAddr()) }
 	return f, nil
 }
 
@@ -228,15 +230,14 @@ func ethFilter(args []string) (nodeFilter, error) {
 	var filter forkid.Filter
 	switch args[0] {
 	case "mainnet":
-		filter = forkid.NewStaticFilter(params.MainnetChainConfig, params.MainnetGenesisHash)
-	case "rinkeby":
-		filter = forkid.NewStaticFilter(params.RinkebyChainConfig, params.RinkebyGenesisHash)
-	case "goerli":
-		filter = forkid.NewStaticFilter(params.GoerliChainConfig, params.GoerliGenesisHash)
-	case "ropsten":
-		filter = forkid.NewStaticFilter(params.RopstenChainConfig, params.RopstenGenesisHash)
-	case "sepolia":
-		filter = forkid.NewStaticFilter(params.SepoliaChainConfig, params.SepoliaGenesisHash)
+		b, _ := core.DefaultGenesisBlock().ToBlock(nil)
+		filter = forkid.NewStaticFilter(params.MainnetChainConfig, b)
+	case "bakerloo":
+		b, _ := core.DefaultGenesisBlock().ToBlock(nil)
+		filter = forkid.NewStaticFilter(params.BakerlooChainConfig, b)
+	case "piccadilly":
+		b, _ := core.DefaultGenesisBlock().ToBlock(nil)
+		filter = forkid.NewStaticFilter(params.PiccadillyChainConfig, b)
 	default:
 		return nil, fmt.Errorf("unknown network %q", args[0])
 	}

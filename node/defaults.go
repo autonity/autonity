@@ -45,11 +45,11 @@ const (
 var DefaultConfig = Config{
 	DataDir:             DefaultDataDir(),
 	HTTPPort:            DefaultHTTPPort,
-	HTTPModules:         []string{"net", "web3", "aut", "tendermint"},
+	HTTPModules:         []string{"net", "web3", "tendermint"},
 	HTTPVirtualHosts:    []string{"localhost"},
 	HTTPTimeouts:        rpc.DefaultHTTPTimeouts,
 	WSPort:              DefaultWSPort,
-	WSModules:           []string{"net", "web3", "aut", "tendermint"},
+	WSModules:           []string{"net", "web3", "tendermint"},
 	GraphQLVirtualHosts: []string{"localhost"},
 	ExecutionP2P: p2p.Config{
 		ListenAddr: DefaultETHPort,

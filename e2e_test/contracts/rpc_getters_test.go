@@ -3,11 +3,12 @@ package contracts
 import (
 	"bytes"
 	"encoding/json"
-	e2e "github.com/autonity/autonity/e2e_test"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"testing"
+
+	e2e "github.com/autonity/autonity/e2e_test"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -32,7 +33,8 @@ var (
 
 // This test checks that those getter functions can be accessed via the client's HTTP RPC calls.
 func TestACGetterRPCs(t *testing.T) {
-	network, err := e2e.NewNetwork(t, 1, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	t.Skip("aut namespace currently disabled")
+	network, err := e2e.NewNetwork(t, 1, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 

@@ -23,7 +23,7 @@ const (
 
 // Start implements core.Tendermint.Start
 func (c *Core) Start(ctx context.Context, contract *autonity.ProtocolContracts) {
-	chainHead := c.backend.HeadBlock().Header()
+	chainHead := c.backend.HeadBlock()
 	epoch, err := c.Backend().EpochByHeight(chainHead.Number.Uint64() + 1)
 	if err != nil {
 		panic(fmt.Sprintf("failed to fetch epoch information for height: %d, err: %s", chainHead.Number.Uint64()+1, err.Error()))
@@ -52,7 +52,6 @@ func (c *Core) Stop() {
 	c.cancel()
 	c.proposer.StopFutureProposalTimer()
 	c.unsubscribeEvents()
-
 	// Ensure all event handling go routines exit
 	<-c.stopped
 	<-c.stopped
@@ -101,7 +100,7 @@ func shouldJailSigner(err error) bool {
 }
 
 func recordMessageProcessingTime(code uint8, start time.Time) {
-	if !metrics.Enabled {
+	if !metrics.Enabled() {
 		return
 	}
 	switch code {
@@ -165,7 +164,7 @@ func (c *Core) handleTimeout(ctx context.Context, timeoutE TimeoutEvent) {
 
 // abstracts away the check for whether metrics are enabled
 func addValue(bg metrics.BufferedGauge, value int64) {
-	if !metrics.Enabled {
+	if !metrics.Enabled() {
 		return
 	}
 	bg.Add(value)
@@ -374,7 +373,7 @@ eventLoop:
 				break eventLoop
 			}
 			newCandidateBlockEvent := ev
-			c.proposer.HandleNewCandidateBlockMsg(ctx, &newCandidateBlockEvent.NewCandidateBlock)
+			c.proposer.HandleNewCandidateBlockMsg(ctx, newCandidateBlockEvent.NewCandidateBlock)
 			if c.IsProposer() {
 				addValue(CandidateBlockDelayBg, time.Since(ev.CreatedAt).Nanoseconds())
 			}

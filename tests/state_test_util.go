@@ -19,6 +19,7 @@ package tests
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -27,16 +28,22 @@ import (
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/common/math"
+	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/state/snapshot"
+	"github.com/autonity/autonity/core/tracing"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/ethdb"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
+	"github.com/autonity/autonity/triedb"
+	"github.com/autonity/autonity/triedb/hashdb"
+	"github.com/autonity/autonity/triedb/pathdb"
+	"github.com/holiman/uint256"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -58,7 +65,7 @@ func (t *StateTest) UnmarshalJSON(in []byte) error {
 
 type stJSON struct {
 	Env  stEnv                    `json:"env"`
-	Pre  core.GenesisAlloc        `json:"pre"`
+	Pre  types.GenesisAlloc       `json:"pre"`
 	Tx   stTransaction            `json:"transaction"`
 	Out  hexutil.Bytes            `json:"out"`
 	Post map[string][]stPostState `json:"post"`
@@ -76,29 +83,31 @@ type stPostState struct {
 	}
 }
 
-//go:generate gencodec -type stEnv -field-override stEnvMarshaling -out gen_stenv.go
+//go:generate go run github.com/fjl/gencodec -type stEnv -field-override stEnvMarshaling -out gen_stenv.go
 
 type stEnv struct {
-	Coinbase   common.Address `json:"currentCoinbase"   gencodec:"required"`
-	Difficulty *big.Int       `json:"currentDifficulty" gencodec:"optional"`
-	Random     *big.Int       `json:"currentRandom"     gencodec:"optional"`
-	GasLimit   uint64         `json:"currentGasLimit"   gencodec:"required"`
-	Number     uint64         `json:"currentNumber"     gencodec:"required"`
-	Timestamp  uint64         `json:"currentTimestamp"  gencodec:"required"`
-	BaseFee    *big.Int       `json:"currentBaseFee"    gencodec:"optional"`
+	Coinbase      common.Address `json:"currentCoinbase"      gencodec:"required"`
+	Difficulty    *big.Int       `json:"currentDifficulty"    gencodec:"optional"`
+	Random        *big.Int       `json:"currentRandom"        gencodec:"optional"`
+	GasLimit      uint64         `json:"currentGasLimit"      gencodec:"required"`
+	Number        uint64         `json:"currentNumber"        gencodec:"required"`
+	Timestamp     uint64         `json:"currentTimestamp"     gencodec:"required"`
+	BaseFee       *big.Int       `json:"currentBaseFee"       gencodec:"optional"`
+	ExcessBlobGas *uint64        `json:"currentExcessBlobGas" gencodec:"optional"`
 }
 
 type stEnvMarshaling struct {
-	Coinbase   common.UnprefixedAddress
-	Difficulty *math.HexOrDecimal256
-	Random     *math.HexOrDecimal256
-	GasLimit   math.HexOrDecimal64
-	Number     math.HexOrDecimal64
-	Timestamp  math.HexOrDecimal64
-	BaseFee    *math.HexOrDecimal256
+	Coinbase      common.UnprefixedAddress
+	Difficulty    *math.HexOrDecimal256
+	Random        *math.HexOrDecimal256
+	GasLimit      math.HexOrDecimal64
+	Number        math.HexOrDecimal64
+	Timestamp     math.HexOrDecimal64
+	BaseFee       *math.HexOrDecimal256
+	ExcessBlobGas *math.HexOrDecimal64
 }
 
-//go:generate gencodec -type stTransaction -field-override stTransactionMarshaling -out gen_sttransaction.go
+//go:generate go run github.com/fjl/gencodec -type stTransaction -field-override stTransactionMarshaling -out gen_sttransaction.go
 
 type stTransaction struct {
 	GasPrice             *big.Int            `json:"gasPrice"`
@@ -111,6 +120,10 @@ type stTransaction struct {
 	GasLimit             []uint64            `json:"gasLimit"`
 	Value                []string            `json:"value"`
 	PrivateKey           []byte              `json:"secretKey"`
+	Sender               *common.Address     `json:"sender"`
+	BlobVersionedHashes  []common.Hash       `json:"blobVersionedHashes,omitempty"`
+	BlobGasFeeCap        *big.Int            `json:"maxFeePerBlobGas,omitempty"`
+	AuthorizationList    []*stAuthorization  `json:"authorizationList,omitempty"`
 }
 
 type stTransactionMarshaling struct {
@@ -120,6 +133,28 @@ type stTransactionMarshaling struct {
 	Nonce                math.HexOrDecimal64
 	GasLimit             []math.HexOrDecimal64
 	PrivateKey           hexutil.Bytes
+	BlobGasFeeCap        *math.HexOrDecimal256
+}
+
+//go:generate go run github.com/fjl/gencodec -type stAuthorization -field-override stAuthorizationMarshaling -out gen_stauthorization.go
+
+// Authorization is an authorization from an account to deploy code at it's address.
+type stAuthorization struct {
+	ChainID *big.Int       `json:"chainId" gencodec:"required"`
+	Address common.Address `json:"address" gencodec:"required"`
+	Nonce   uint64         `json:"nonce" gencodec:"required"`
+	V       uint8          `json:"v" gencodec:"required"`
+	R       *big.Int       `json:"r" gencodec:"required"`
+	S       *big.Int       `json:"s" gencodec:"required"`
+}
+
+// field type overrides for gencodec
+type stAuthorizationMarshaling struct {
+	ChainID *math.HexOrDecimal256
+	Nonce   math.HexOrDecimal64
+	V       math.HexOrDecimal64
+	R       *math.HexOrDecimal256
+	S       *math.HexOrDecimal256
 }
 
 // GetChainConfig takes a fork definition and returns a chain config.
@@ -159,36 +194,71 @@ func (t *StateTest) Subtests() []StateSubtest {
 	return sub
 }
 
+// checkError checks if the error returned by the state transition matches any expected error.
+// A failing expectation returns a wrapped version of the original error, if any,
+// or a new error detailing the failing expectation.
+// This function does not return or modify the original error, it only evaluates and returns expectations for the error.
+func (t *StateTest) checkError(subtest StateSubtest, err error) error {
+	expectedError := t.json.Post[subtest.Fork][subtest.Index].ExpectException
+	if err == nil && expectedError == "" {
+		return nil
+	}
+	if err == nil && expectedError != "" {
+		return fmt.Errorf("expected error %q, got no error", expectedError)
+	}
+	if err != nil && expectedError == "" {
+		return fmt.Errorf("unexpected error: %w", err)
+	}
+	if err != nil && expectedError != "" {
+		// Ignore expected errors (TODO MariusVanDerWijden check error string)
+		return nil
+	}
+	return nil
+}
+
 // Run executes a specific subtest and verifies the post-state and logs
-func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config, snapshotter bool) (*snapshot.Tree, *state.StateDB, error) {
-	snaps, statedb, root, err := t.RunNoVerify(subtest, vmconfig, snapshotter)
+func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config, snapshotter bool, scheme string, postCheck func(err error, st *StateTestState)) (result error) {
+	st, root, _, err := t.RunNoVerify(subtest, vmconfig, snapshotter, scheme)
+	// Invoke the callback at the end of function for further analysis.
+	defer func() {
+		postCheck(result, &st)
+		st.Close()
+	}()
+
+	checkedErr := t.checkError(subtest, err)
+	if checkedErr != nil {
+		return checkedErr
+	}
+	// The error has been checked; if it was unexpected, it's already returned.
 	if err != nil {
-		return snaps, statedb, err
+		// Here, an error exists but it was expected.
+		// We do not check the post state or logs.
+		return nil
 	}
 	post := t.json.Post[subtest.Fork][subtest.Index]
 	// N.B: We need to do this in a two-step process, because the first Commit takes care
-	// of suicides, and we need to touch the coinbase _after_ it has potentially suicided.
+	// of self-destructs, and we need to touch the coinbase _after_ it has potentially self-destructed.
 	if root != common.Hash(post.Root) {
-		return snaps, statedb, fmt.Errorf("post state root mismatch: got %x, want %x", root, post.Root)
+		return fmt.Errorf("post state root mismatch: got %x, want %x", root, post.Root)
 	}
-	if logs := rlpHash(statedb.Logs()); logs != common.Hash(post.Logs) {
-		return snaps, statedb, fmt.Errorf("post state logs hash mismatch: got %x, want %x", logs, post.Logs)
+	if logs := rlpHash(st.StateDB.Logs()); logs != common.Hash(post.Logs) {
+		return fmt.Errorf("post state logs hash mismatch: got %x, want %x", logs, post.Logs)
 	}
-	return snaps, statedb, nil
+	st.StateDB, _ = state.New(root, st.StateDB.Database())
+	return nil
 }
 
-// RunNoVerify runs a specific subtest and returns the statedb and post-state root
-func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config, snapshotter bool) (*snapshot.Tree, *state.StateDB, common.Hash, error) {
+// RunNoVerify runs a specific subtest and returns the statedb and post-state root.
+// Remember to call state.Close after verifying the test result!
+func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config, snapshotter bool, scheme string) (st StateTestState, root common.Hash, gasUsed uint64, err error) {
 	config, eips, err := GetChainConfig(subtest.Fork)
 	if err != nil {
-		return nil, nil, common.Hash{}, UnsupportedForkError{subtest.Fork}
+		return st, common.Hash{}, 0, UnsupportedForkError{subtest.Fork}
 	}
 	vmconfig.ExtraEips = eips
-	block, err := t.genesis(config).ToBlock(nil)
-	if err != nil {
-		return nil, nil, common.Hash{}, err
-	}
-	snaps, statedb := MakePreState(rawdb.NewMemoryDatabase(), t.json.Pre, snapshotter)
+
+	block, _ := t.genesis(config).ToBlock(nil)
+	st = MakePreState(rawdb.NewMemoryDatabase(), t.json.Pre, snapshotter, scheme)
 
 	var baseFee *big.Int
 	if config.IsLondon(new(big.Int)) {
@@ -202,7 +272,19 @@ func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config, snapsh
 	post := t.json.Post[subtest.Fork][subtest.Index]
 	msg, err := t.json.Tx.toMessage(post, baseFee)
 	if err != nil {
-		return nil, nil, common.Hash{}, err
+		return st, common.Hash{}, 0, err
+	}
+
+	// Blob transactions may be present after the Cancun fork.
+	// In production,
+	// - the header is verified against the max in eip4844.go:VerifyEIP4844Header
+	// - the block body is verified against the header in block_validator.go:ValidateBody
+	// Here, we just do this shortcut smaller fix, since state tests do not
+	// utilize those codepaths.
+	if config.IsCancun(new(big.Int)) {
+		//	if len(msg.BlobHashes) > eip4844.MaxBlobsPerBlock(config, block.Time()) {
+		//		return st, common.Hash{}, 0, errors.New("blob gas exceeds maximum")
+		//	}
 	}
 
 	// Try to recover tx with current signer
@@ -210,70 +292,62 @@ func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config, snapsh
 		var ttx types.Transaction
 		err := ttx.UnmarshalBinary(post.TxBytes)
 		if err != nil {
-			return nil, nil, common.Hash{}, err
+			return st, common.Hash{}, 0, err
 		}
-
 		if _, err := types.Sender(types.LatestSigner(config), &ttx); err != nil {
-			return nil, nil, common.Hash{}, err
+			return st, common.Hash{}, 0, err
 		}
 	}
 
 	// Prepare the EVM.
-	txContext := core.NewEVMTxContext(msg)
-	context := core.NewEVMBlockContext(block.Header(), nil, &t.json.Env.Coinbase)
+	context := core.NewEVMBlockContext(block.Header(), &dummyChain{config: config}, &t.json.Env.Coinbase)
 	context.GetHash = vmTestBlockHash
 	context.BaseFee = baseFee
-	if t.json.Env.Random != nil {
+	context.Random = nil
+	if t.json.Env.Difficulty != nil {
+		context.Difficulty = new(big.Int).Set(t.json.Env.Difficulty)
+	}
+	if config.IsLondon(new(big.Int)) && t.json.Env.Random != nil {
 		rnd := common.BigToHash(t.json.Env.Random)
 		context.Random = &rnd
 		context.Difficulty = big.NewInt(0)
 	}
-	evm := vm.NewEVM(context, txContext, statedb, config, vmconfig)
+
+	evm := vm.NewEVM(context, st.StateDB, config, vmconfig)
+
+	if tracer := vmconfig.Tracer; tracer != nil && tracer.OnTxStart != nil {
+		tracer.OnTxStart(evm.GetVMContext(), nil, msg.From)
+	}
 	// Execute the message.
-	snapshot := statedb.Snapshot()
+	snapshot := st.StateDB.Snapshot()
 	gaspool := new(core.GasPool)
 	gaspool.AddGas(block.GasLimit())
-	if _, err := core.ApplyMessage(evm, msg, gaspool); err != nil {
-		statedb.RevertToSnapshot(snapshot)
+	vmRet, err := core.ApplyMessage(evm, msg, gaspool)
+	if err != nil {
+		st.StateDB.RevertToSnapshot(snapshot)
+		if tracer := evm.Config.Tracer; tracer != nil && tracer.OnTxEnd != nil {
+			evm.Config.Tracer.OnTxEnd(nil, err)
+		}
+		return st, common.Hash{}, 0, err
 	}
-
-	// Commit block
-	statedb.Commit(config.IsEIP158(block.Number()))
 	// Add 0-value mining reward. This only makes a difference in the cases
 	// where
-	// - the coinbase suicided, or
+	// - the coinbase self-destructed, or
 	// - there are only 'bad' transactions, which aren't executed. In those cases,
 	//   the coinbase gets no txfee, so isn't created, and thus needs to be touched
-	statedb.AddBalance(block.Coinbase(), new(big.Int))
-	// And _now_ get the state root
-	root := statedb.IntermediateRoot(config.IsEIP158(block.Number()))
-	return snaps, statedb, root, nil
+	st.StateDB.AddBalance(block.Coinbase(), new(uint256.Int), tracing.BalanceChangeUnspecified)
+
+	// Commit state mutations into database.
+	root, _ = st.StateDB.Commit(block.NumberU64(), config.IsEIP158(block.Number()), config.IsCancun(block.Number()))
+	if tracer := evm.Config.Tracer; tracer != nil && tracer.OnTxEnd != nil {
+		receipt := &types.Receipt{GasUsed: vmRet.UsedGas}
+		tracer.OnTxEnd(receipt, nil)
+	}
+	return st, root, vmRet.UsedGas, nil
 }
 
 func (t *StateTest) gasLimit(subtest StateSubtest) uint64 {
 	return t.json.Tx.GasLimit[t.json.Post[subtest.Fork][subtest.Index].Indexes.Gas]
-}
-
-func MakePreState(db ethdb.Database, accounts core.GenesisAlloc, snapshotter bool) (*snapshot.Tree, *state.StateDB) {
-	sdb := state.NewDatabase(db)
-	statedb, _ := state.New(common.Hash{}, sdb, nil)
-	for addr, a := range accounts {
-		statedb.SetCode(addr, a.Code)
-		statedb.SetNonce(addr, a.Nonce)
-		statedb.SetBalance(addr, a.Balance)
-		for k, v := range a.Storage {
-			statedb.SetState(addr, k, v)
-		}
-	}
-	// Commit and re-open to start with a clean state.
-	root, _ := statedb.Commit(false)
-
-	var snaps *snapshot.Tree
-	if snapshotter {
-		snaps, _ = snapshot.New(db, sdb.TrieDB(), 1, root, false, true, false)
-	}
-	statedb, _ = state.New(root, sdb, snaps)
-	return snaps, statedb
 }
 
 func (t *StateTest) genesis(config *params.ChainConfig) *core.Genesis {
@@ -294,10 +368,13 @@ func (t *StateTest) genesis(config *params.ChainConfig) *core.Genesis {
 	return genesis
 }
 
-func (tx *stTransaction) toMessage(ps stPostState, baseFee *big.Int) (core.Message, error) {
-	// Derive sender from private key if present.
+func (tx *stTransaction) toMessage(ps stPostState, baseFee *big.Int) (*core.Message, error) {
 	var from common.Address
-	if len(tx.PrivateKey) > 0 {
+	// If 'sender' field is present, use that
+	if tx.Sender != nil {
+		from = *tx.Sender
+	} else if len(tx.PrivateKey) > 0 {
+		// Derive sender from private key if needed.
 		key, err := crypto.ToECDSA(tx.PrivateKey)
 		if err != nil {
 			return nil, fmt.Errorf("invalid private key: %v", err)
@@ -355,15 +432,42 @@ func (tx *stTransaction) toMessage(ps stPostState, baseFee *big.Int) (core.Messa
 		if tx.MaxPriorityFeePerGas == nil {
 			tx.MaxPriorityFeePerGas = tx.MaxFeePerGas
 		}
-		gasPrice = math.BigMin(new(big.Int).Add(tx.MaxPriorityFeePerGas, baseFee),
-			tx.MaxFeePerGas)
+		gasPrice = new(big.Int).Add(tx.MaxPriorityFeePerGas, baseFee)
+		if gasPrice.Cmp(tx.MaxFeePerGas) > 0 {
+			gasPrice = tx.MaxFeePerGas
+		}
 	}
 	if gasPrice == nil {
-		return nil, fmt.Errorf("no gas price provided")
+		return nil, errors.New("no gas price provided")
+	}
+	var authList []types.SetCodeAuthorization
+	if tx.AuthorizationList != nil {
+		authList = make([]types.SetCodeAuthorization, len(tx.AuthorizationList))
+		for i, auth := range tx.AuthorizationList {
+			authList[i] = types.SetCodeAuthorization{
+				ChainID: *uint256.MustFromBig(auth.ChainID),
+				Address: auth.Address,
+				Nonce:   auth.Nonce,
+				V:       auth.V,
+				R:       *uint256.MustFromBig(auth.R),
+				S:       *uint256.MustFromBig(auth.S),
+			}
+		}
 	}
 
-	msg := types.NewMessage(from, to, tx.Nonce, value, gasLimit, gasPrice,
-		tx.MaxFeePerGas, tx.MaxPriorityFeePerGas, data, accessList, false)
+	msg := &core.Message{
+		From:                  from,
+		To:                    to,
+		Nonce:                 tx.Nonce,
+		Value:                 value,
+		GasLimit:              gasLimit,
+		GasPrice:              gasPrice,
+		GasFeeCap:             tx.MaxFeePerGas,
+		GasTipCap:             tx.MaxPriorityFeePerGas,
+		Data:                  data,
+		AccessList:            accessList,
+		SetCodeAuthorizations: authList,
+	}
 	return msg, nil
 }
 
@@ -377,3 +481,76 @@ func rlpHash(x interface{}) (h common.Hash) {
 func vmTestBlockHash(n uint64) common.Hash {
 	return common.BytesToHash(crypto.Keccak256([]byte(big.NewInt(int64(n)).String())))
 }
+
+// StateTestState groups all the state database objects together for use in tests.
+type StateTestState struct {
+	StateDB   *state.StateDB
+	TrieDB    *triedb.Database
+	Snapshots *snapshot.Tree
+}
+
+// MakePreState creates a state containing the given allocation.
+func MakePreState(db ethdb.Database, accounts types.GenesisAlloc, snapshotter bool, scheme string) StateTestState {
+	tconf := &triedb.Config{Preimages: true}
+	if scheme == rawdb.HashScheme {
+		tconf.HashDB = hashdb.Defaults
+	} else {
+		tconf.PathDB = pathdb.Defaults
+	}
+	triedb := triedb.NewDatabase(db, tconf)
+	sdb := state.NewDatabase(triedb, nil)
+	statedb, _ := state.New(types.EmptyRootHash, sdb)
+	for addr, a := range accounts {
+		statedb.SetCode(addr, a.Code)
+		statedb.SetNonce(addr, a.Nonce, tracing.NonceChangeUnspecified)
+		statedb.SetBalance(addr, uint256.MustFromBig(a.Balance), tracing.BalanceChangeUnspecified)
+		for k, v := range a.Storage {
+			statedb.SetState(addr, k, v)
+		}
+	}
+	// Commit and re-open to start with a clean state.
+	root, _ := statedb.Commit(0, false, false)
+
+	// If snapshot is requested, initialize the snapshotter and use it in state.
+	var snaps *snapshot.Tree
+	if snapshotter {
+		snapconfig := snapshot.Config{
+			CacheSize:  1,
+			Recovery:   false,
+			NoBuild:    false,
+			AsyncBuild: false,
+		}
+		snaps, _ = snapshot.New(snapconfig, db, triedb, root)
+	}
+	sdb = state.NewDatabase(triedb, snaps)
+	statedb, _ = state.New(root, sdb)
+	return StateTestState{statedb, triedb, snaps}
+}
+
+// Close should be called when the state is no longer needed, ie. after running the test.
+func (st *StateTestState) Close() {
+	if st.TrieDB != nil {
+		st.TrieDB.Close()
+		st.TrieDB = nil
+	}
+	if st.Snapshots != nil {
+		// Need to call Disable here to quit the snapshot generator goroutine.
+		st.Snapshots.Disable()
+		st.Snapshots.Release()
+		st.Snapshots = nil
+	}
+}
+
+// dummyChain implements the core.ChainContext interface.
+type dummyChain struct {
+	config *params.ChainConfig
+}
+
+func (d *dummyChain) GetHeaderByNumber(u uint64) *types.Header {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (d *dummyChain) Engine() consensus.Engine                        { return nil }
+func (d *dummyChain) GetHeader(h common.Hash, n uint64) *types.Header { return nil }
+func (d *dummyChain) Config() *params.ChainConfig                     { return d.config }

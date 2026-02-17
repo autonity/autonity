@@ -40,6 +40,8 @@ import (
 	"github.com/autonity/autonity/crypto"
 )
 
+func newUint64(val uint64) *uint64 { return &val }
+
 // Genesis hashes to enforce below configs on.
 var (
 	MainnetGenesisHash = common.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
@@ -57,15 +59,6 @@ var TrustedCheckpoints = map[common.Hash]*TrustedCheckpoint{
 	SepoliaGenesisHash: SepoliaTrustedCheckpoint,
 	RinkebyGenesisHash: RinkebyTrustedCheckpoint,
 	GoerliGenesisHash:  GoerliTrustedCheckpoint,
-}
-
-// CheckpointOracles associates each known checkpoint oracles with the genesis hash of
-// the chain it belongs to.
-var CheckpointOracles = map[common.Hash]*CheckpointOracleConfig{
-	MainnetGenesisHash: MainnetCheckpointOracle,
-	RopstenGenesisHash: RopstenCheckpointOracle,
-	RinkebyGenesisHash: RinkebyCheckpointOracle,
-	GoerliGenesisHash:  GoerliCheckpointOracle,
 }
 
 var (
@@ -170,7 +163,13 @@ var (
 		BerlinBlock:         big.NewInt(12_244_000),
 		LondonBlock:         big.NewInt(12_965_000),
 		ArrowGlacierBlock:   big.NewInt(13_773_000),
-		Ethash:              new(EthashConfig),
+
+		MergeForkBlock: big.NewInt(99999999999),
+		CancunBlock:    big.NewInt(99999999999),
+		PragueBlock:    big.NewInt(99999999999),
+		VerkleBlock:    big.NewInt(99999999999),
+
+		Ethash: new(EthashConfig),
 	}
 
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
@@ -329,25 +328,72 @@ var (
 		BloomRoot:    common.HexToHash("0x02a41b6606bd3f741bd6ae88792d75b1ad8cf0ea5e28fbaa03bc8b95cbd20034"),
 	}
 
-	// GoerliCheckpointOracle contains a set of configs for the Goerli test network oracle.
-	GoerliCheckpointOracle = &CheckpointOracleConfig{
-		Address: common.HexToAddress("0x18CA0E045F0D772a851BC7e48357Bcaab0a0795D"),
-		Signers: []common.Address{
-			common.HexToAddress("0x4769bcaD07e3b938B7f43EB7D278Bc7Cb9efFb38"), // Peter
-			common.HexToAddress("0x78d1aD571A1A09D60D9BBf25894b44e4C8859595"), // Martin
-			common.HexToAddress("0x286834935f4A8Cfb4FF4C77D5770C2775aE2b0E7"), // Zsolt
-			common.HexToAddress("0xb86e2B0Ab5A4B1373e40c51A7C712c70Ba2f9f8E"), // Gary
-			common.HexToAddress("0x0DF8fa387C602AE62559cC4aFa4972A7045d6707"), // Guillaume
+	// TestConfigOld is the replication of TestChainConfig in upstream geth
+	// used to make some test pass.
+	TestConfigOld = &ChainConfig{
+		ChainID:                 big.NewInt(1337),
+		HomesteadBlock:          big.NewInt(0),
+		EIP150Block:             big.NewInt(0),
+		EIP155Block:             big.NewInt(0),
+		EIP158Block:             big.NewInt(0),
+		ByzantiumBlock:          big.NewInt(0),
+		ConstantinopleBlock:     big.NewInt(0),
+		PetersburgBlock:         big.NewInt(0),
+		IstanbulBlock:           big.NewInt(0),
+		MuirGlacierBlock:        big.NewInt(0),
+		BerlinBlock:             big.NewInt(0),
+		LondonBlock:             big.NewInt(0),
+		ArrowGlacierBlock:       nil,
+		MergeForkBlock:          nil,
+		CancunBlock:             nil,
+		PragueBlock:             nil,
+		Ethash:                  new(EthashConfig),
+		AutonityContractConfig:  TestAutonityContractConfig,
+		AccountabilityConfig:    TestAccountabilityConfig,
+		OracleContractConfig:    TestOracleConfig,
+		InflationContractConfig: DefaultInflationControllerGenesis,
+		ASM: AsmConfig{
+			ACUContractConfig:           DefaultAcuContractGenesis,
+			StabilizationContractConfig: DefaultStabilizationGenesis,
+			SupplyControlConfig:         DefaultSupplyControlGenesis,
 		},
-		Threshold: 2,
+		OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig,
+		TestMode:                     false,
 	}
 
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//
-	// This configuration is intentionally not using keyed fields to force anyone
-	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, nil, nil, AsmConfig{}, nil, false}
+	TestConfigNoVerkle = &ChainConfig{
+		ChainID:                 big.NewInt(1),
+		HomesteadBlock:          big.NewInt(0),
+		EIP150Block:             big.NewInt(0),
+		EIP155Block:             big.NewInt(0),
+		EIP158Block:             big.NewInt(0),
+		ByzantiumBlock:          big.NewInt(0),
+		ConstantinopleBlock:     big.NewInt(0),
+		PetersburgBlock:         big.NewInt(0),
+		IstanbulBlock:           big.NewInt(0),
+		MuirGlacierBlock:        big.NewInt(0),
+		BerlinBlock:             big.NewInt(0),
+		LondonBlock:             big.NewInt(0),
+		ArrowGlacierBlock:       big.NewInt(0),
+		MergeForkBlock:          big.NewInt(0),
+		CancunBlock:             big.NewInt(0),
+		PragueBlock:             big.NewInt(0),
+		Ethash:                  new(EthashConfig),
+		AutonityContractConfig:  TestAutonityContractConfig,
+		AccountabilityConfig:    TestAccountabilityConfig,
+		OracleContractConfig:    TestOracleConfig,
+		InflationContractConfig: DefaultInflationControllerGenesis,
+		ASM: AsmConfig{
+			ACUContractConfig:           DefaultAcuContractGenesis,
+			StabilizationContractConfig: DefaultStabilizationGenesis,
+			SupplyControlConfig:         DefaultSupplyControlGenesis,
+		},
+		OmissionAccountabilityConfig: DefaultOmissionAccountabilityConfig,
+		TestMode:                     true,
+	}
 
 	TestNodeKeys = []string{
 		"b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291",
@@ -418,7 +464,7 @@ var (
 	}
 
 	TestChainConfig = &ChainConfig{
-		big.NewInt(1337),
+		big.NewInt(1),
 		big.NewInt(0),
 		nil,
 		false,
@@ -434,7 +480,11 @@ var (
 		big.NewInt(0),
 		big.NewInt(0),
 		big.NewInt(0),
-		nil,
+		big.NewInt(0),
+		big.NewInt(0),
+		big.NewInt(0),
+		big.NewInt(0),
+		true,
 		nil,
 		new(EthashConfig),
 		TestAutonityContractConfig,
@@ -451,6 +501,14 @@ var (
 	}
 )
 
+// NetworkNames are user friendly names to use in the chain spec banner.
+var NetworkNames = map[string]string{
+	MainnetChainConfig.ChainID.String():    "mainnet",
+	SepoliaChainConfig.ChainID.String():    "sepolia",
+	BakerlooChainConfig.ChainID.String():   "bakerloo",
+	PiccadillyChainConfig.ChainID.String(): "piccadilly",
+}
+
 func init() {
 	// Setup the validators in TestAutonityContractConfig
 	for i := range TestNodeKeys {
@@ -460,7 +518,7 @@ func init() {
 		validator.NodeAddress = &address
 		validator.Treasury = address
 		validator.OracleAddress = address
-		validator.Enode = enode.NewV4(&nodeKey.PublicKey, net.ParseIP("0.0.0.0"), 0, 0).URLv4()
+		validator.Enode = enode.NewV4(&nodeKey.PublicKey, net.ParseIP("127.0.0.1"), 0, 0).URLv4()
 		consensusKey, _ := blst.SecretKeyFromHex(TestConsensusKeys[i])
 		validator.ConsensusKey = consensusKey.PublicKey().Marshal()
 		TestAutonityContractConfig.Validators = append(TestAutonityContractConfig.Validators, &validator)
@@ -562,7 +620,14 @@ type ChainConfig struct {
 	LondonBlock         *big.Int `json:"londonBlock,omitempty"`         // London switch block (nil = no fork, 0 = already on london)
 	ArrowGlacierBlock   *big.Int `json:"arrowGlacierBlock,omitempty"`   // Eip-4345 (bomb delay) switch block (nil = no fork, 0 = already activated)
 	MergeForkBlock      *big.Int `json:"mergeForkBlock,omitempty"`      // EIP-3675 (TheMerge) switch block (nil = no fork, 0 = already in merge proceedings)
+	CancunBlock         *big.Int `json:"cancunBlock,omitempty"`         // Cancun Fork(nil = no fork, 0 = already in merge proceedings)
+	PragueBlock         *big.Int `json:"pragueBlock,omitempty"`         // Prague Fork(nil = no fork, 0 = already in merge proceedings)
+	VerkleBlock         *big.Int `json:"verkleBlock,omitempty"`         // Prague Fork(nil = no fork, 0 = already in merge proceedings)
 
+	// In production networks (mainnet and public testnets), verkle activation
+	// always occurs after the genesis block, making this flag irrelevant in
+	// those cases.
+	EnableVerkleAtGenesis bool `json:"enableVerkleAtGenesis,omitempty"`
 	// TerminalTotalDifficulty is the amount of total difficulty reached by
 	// the network that triggers the consensus upgrade.
 	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`
@@ -607,6 +672,15 @@ func (c *ChainConfig) SetDefaults() {
 		c.ASM.SupplyControlConfig = DefaultSupplyControlGenesis
 	} else {
 		c.ASM.SupplyControlConfig.SetDefaults()
+	}
+	if c.EnableVerkleAtGenesis && c.ASM.SupplyControlConfig != nil && c.ASM.SupplyControlConfig.InitialAllocation != nil {
+		maxVerkleBalance := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1))
+		if (*big.Int)(c.ASM.SupplyControlConfig.InitialAllocation).Cmp(maxVerkleBalance) > 0 {
+			log.Warn("Supply control initial allocation exceeds Verkle balance limit, capping", "requested", (*big.Int)(c.ASM.SupplyControlConfig.InitialAllocation), "cap", maxVerkleBalance)
+			updated := *c.ASM.SupplyControlConfig
+			updated.InitialAllocation = (*math.HexOrDecimal256)(maxVerkleBalance)
+			c.ASM.SupplyControlConfig = &updated
+		}
 	}
 	// Stabilization
 	if c.ASM.StabilizationContractConfig == nil {
@@ -822,20 +896,49 @@ func (c *ChainConfig) IsArrowGlacier(num *big.Int) bool {
 	return isForked(c.ArrowGlacierBlock, num)
 }
 
+// IsPrague returns whether time is either equal to the Prague fork time or greater.
+func (c *ChainConfig) IsCancun(num *big.Int) bool {
+	return isForked(c.CancunBlock, num)
+}
+
+// IsPrague returns whether time is either equal to the Prague fork time or greater.
+func (c *ChainConfig) IsPrague(num *big.Int) bool {
+	return isForked(c.PragueBlock, num)
+}
+
+// In production networks (mainnet and public testnets), verkle activation
+// always occurs after the genesis block, making this function irrelevant in
+// those cases.
+func (c *ChainConfig) IsVerkleGenesis() bool {
+	return c.EnableVerkleAtGenesis
+}
+
+// IsVerkle returns whether time is either equal to the Verkle fork time or greater.
+func (c *ChainConfig) IsVerkle(num *big.Int) bool {
+	return c.IsLondon(num) && isForked(c.VerkleBlock, num)
+}
+
 // CheckCompatible checks whether scheduled fork transitions have been imported
 // with a mismatching chain configuration.
-func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64) *ConfigCompatError {
-	bhead := new(big.Int).SetUint64(height)
-
+func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64, time uint64) *ConfigCompatError {
+	var (
+		bhead = new(big.Int).SetUint64(height)
+		btime = time
+	)
 	// Iterate checkCompatible to find the lowest conflict.
 	var lasterr *ConfigCompatError
 	for {
-		err := c.checkCompatible(newcfg, bhead)
-		if err == nil || (lasterr != nil && err.RewindTo == lasterr.RewindTo) {
+		err := c.checkCompatible(newcfg, bhead, btime)
+		if err == nil || (lasterr != nil && err.RewindToBlock == lasterr.RewindToBlock && err.RewindToTime == lasterr.RewindToTime) {
 			break
 		}
 		lasterr = err
-		bhead.SetUint64(err.RewindTo)
+
+		if err.RewindToTime > 0 {
+			btime = err.RewindToTime
+		} else {
+			bhead.SetUint64(err.RewindToBlock)
+		}
 	}
 	return lasterr
 }
@@ -886,58 +989,58 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 	return nil
 }
 
-func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *ConfigCompatError {
+func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int, _ uint64) *ConfigCompatError {
 	if isForkIncompatible(c.HomesteadBlock, newcfg.HomesteadBlock, head) {
-		return newCompatError("Homestead fork block", c.HomesteadBlock, newcfg.HomesteadBlock)
+		return newBlockCompatError("Homestead fork block", c.HomesteadBlock, newcfg.HomesteadBlock)
 	}
 	if isForkIncompatible(c.DAOForkBlock, newcfg.DAOForkBlock, head) {
-		return newCompatError("DAO fork block", c.DAOForkBlock, newcfg.DAOForkBlock)
+		return newBlockCompatError("DAO fork block", c.DAOForkBlock, newcfg.DAOForkBlock)
 	}
 	if c.IsDAOFork(head) && c.DAOForkSupport != newcfg.DAOForkSupport {
-		return newCompatError("DAO fork support flag", c.DAOForkBlock, newcfg.DAOForkBlock)
+		return newBlockCompatError("DAO fork support flag", c.DAOForkBlock, newcfg.DAOForkBlock)
 	}
 	if isForkIncompatible(c.EIP150Block, newcfg.EIP150Block, head) {
-		return newCompatError("EIP150 fork block", c.EIP150Block, newcfg.EIP150Block)
+		return newBlockCompatError("EIP150 fork block", c.EIP150Block, newcfg.EIP150Block)
 	}
 	if isForkIncompatible(c.EIP155Block, newcfg.EIP155Block, head) {
-		return newCompatError("EIP155 fork block", c.EIP155Block, newcfg.EIP155Block)
+		return newBlockCompatError("EIP155 fork block", c.EIP155Block, newcfg.EIP155Block)
 	}
 	if isForkIncompatible(c.EIP158Block, newcfg.EIP158Block, head) {
-		return newCompatError("EIP158 fork block", c.EIP158Block, newcfg.EIP158Block)
+		return newBlockCompatError("EIP158 fork block", c.EIP158Block, newcfg.EIP158Block)
 	}
 	if c.IsEIP158(head) && !configNumEqual(c.ChainID, newcfg.ChainID) {
-		return newCompatError("EIP158 chain ID", c.EIP158Block, newcfg.EIP158Block)
+		return newBlockCompatError("EIP158 chain ID", c.EIP158Block, newcfg.EIP158Block)
 	}
 	if isForkIncompatible(c.ByzantiumBlock, newcfg.ByzantiumBlock, head) {
-		return newCompatError("Byzantium fork block", c.ByzantiumBlock, newcfg.ByzantiumBlock)
+		return newBlockCompatError("Byzantium fork block", c.ByzantiumBlock, newcfg.ByzantiumBlock)
 	}
 	if isForkIncompatible(c.ConstantinopleBlock, newcfg.ConstantinopleBlock, head) {
-		return newCompatError("Constantinople fork block", c.ConstantinopleBlock, newcfg.ConstantinopleBlock)
+		return newBlockCompatError("Constantinople fork block", c.ConstantinopleBlock, newcfg.ConstantinopleBlock)
 	}
 	if isForkIncompatible(c.PetersburgBlock, newcfg.PetersburgBlock, head) {
 		// the only case where we allow Petersburg to be set in the past is if it is equal to Constantinople
 		// mainly to satisfy fork ordering requirements which state that Petersburg fork be set if Constantinople fork is set
 		if isForkIncompatible(c.ConstantinopleBlock, newcfg.PetersburgBlock, head) {
-			return newCompatError("Petersburg fork block", c.PetersburgBlock, newcfg.PetersburgBlock)
+			return newBlockCompatError("Petersburg fork block", c.PetersburgBlock, newcfg.PetersburgBlock)
 		}
 	}
 	if isForkIncompatible(c.IstanbulBlock, newcfg.IstanbulBlock, head) {
-		return newCompatError("Istanbul fork block", c.IstanbulBlock, newcfg.IstanbulBlock)
+		return newBlockCompatError("Istanbul fork block", c.IstanbulBlock, newcfg.IstanbulBlock)
 	}
 	if isForkIncompatible(c.MuirGlacierBlock, newcfg.MuirGlacierBlock, head) {
-		return newCompatError("Muir Glacier fork block", c.MuirGlacierBlock, newcfg.MuirGlacierBlock)
+		return newBlockCompatError("Muir Glacier fork block", c.MuirGlacierBlock, newcfg.MuirGlacierBlock)
 	}
 	if isForkIncompatible(c.BerlinBlock, newcfg.BerlinBlock, head) {
-		return newCompatError("Berlin fork block", c.BerlinBlock, newcfg.BerlinBlock)
+		return newBlockCompatError("Berlin fork block", c.BerlinBlock, newcfg.BerlinBlock)
 	}
 	if isForkIncompatible(c.LondonBlock, newcfg.LondonBlock, head) {
-		return newCompatError("London fork block", c.LondonBlock, newcfg.LondonBlock)
+		return newBlockCompatError("London fork block", c.LondonBlock, newcfg.LondonBlock)
 	}
 	if isForkIncompatible(c.ArrowGlacierBlock, newcfg.ArrowGlacierBlock, head) {
-		return newCompatError("Arrow Glacier fork block", c.ArrowGlacierBlock, newcfg.ArrowGlacierBlock)
+		return newBlockCompatError("Arrow Glacier fork block", c.ArrowGlacierBlock, newcfg.ArrowGlacierBlock)
 	}
 	if isForkIncompatible(c.MergeForkBlock, newcfg.MergeForkBlock, head) {
-		return newCompatError("Merge Start fork block", c.MergeForkBlock, newcfg.MergeForkBlock)
+		return newBlockCompatError("Merge Start fork block", c.MergeForkBlock, newcfg.MergeForkBlock)
 	}
 	return nil
 }
@@ -966,17 +1069,35 @@ func configNumEqual(x, y *big.Int) bool {
 	return x.Cmp(y) == 0
 }
 
+// isTimestampForked returns whether a fork scheduled at timestamp s is active
+// at the given head timestamp. Whilst this method is the same as isBlockForked,
+// they are explicitly separate for clearer reading.
+func isTimestampForked(s *uint64, head uint64) bool {
+	if s == nil {
+		return false
+	}
+	return *s <= head
+}
+
 // ConfigCompatError is raised if the locally-stored blockchain is initialised with a
 // ChainConfig that would alter the past.
 type ConfigCompatError struct {
 	What string
-	// block numbers of the stored and new configurations
-	StoredConfig, NewConfig *big.Int
+
+	// block numbers of the stored and new configurations if block based forking
+	StoredBlock, NewBlock *big.Int
+
+	// timestamps of the stored and new configurations if time based forking
+	StoredTime, NewTime *uint64
+
 	// the block number to which the local chain must be rewound to correct the error
-	RewindTo uint64
+	RewindToBlock uint64
+
+	// the timestamp to which the local chain must be rewound to correct the error
+	RewindToTime uint64
 }
 
-func newCompatError(what string, storedblock, newblock *big.Int) *ConfigCompatError {
+func newBlockCompatError(what string, storedblock, newblock *big.Int) *ConfigCompatError {
 	var rew *big.Int
 	switch {
 	case storedblock == nil:
@@ -986,15 +1107,53 @@ func newCompatError(what string, storedblock, newblock *big.Int) *ConfigCompatEr
 	default:
 		rew = newblock
 	}
-	err := &ConfigCompatError{what, storedblock, newblock, 0}
+	err := &ConfigCompatError{
+		What:          what,
+		StoredBlock:   storedblock,
+		NewBlock:      newblock,
+		RewindToBlock: 0,
+	}
 	if rew != nil && rew.Sign() > 0 {
-		err.RewindTo = rew.Uint64() - 1
+		err.RewindToBlock = rew.Uint64() - 1
+	}
+	return err
+}
+
+func newTimestampCompatError(what string, storedtime, newtime *uint64) *ConfigCompatError {
+	var rew *uint64
+	switch {
+	case storedtime == nil:
+		rew = newtime
+	case newtime == nil || *storedtime < *newtime:
+		rew = storedtime
+	default:
+		rew = newtime
+	}
+	err := &ConfigCompatError{
+		What:         what,
+		StoredTime:   storedtime,
+		NewTime:      newtime,
+		RewindToTime: 0,
+	}
+	if rew != nil && *rew != 0 {
+		err.RewindToTime = *rew - 1
 	}
 	return err
 }
 
 func (err *ConfigCompatError) Error() string {
-	return fmt.Sprintf("mismatching %s in database (have %d, want %d, rewindto %d)", err.What, err.StoredConfig, err.NewConfig, err.RewindTo)
+	if err.StoredBlock != nil {
+		return fmt.Sprintf("mismatching %s in database (have block %d, want block %d, rewindto block %d)", err.What, err.StoredBlock, err.NewBlock, err.RewindToBlock)
+	}
+
+	if err.StoredTime == nil && err.NewTime == nil {
+		return ""
+	} else if err.StoredTime == nil && err.NewTime != nil {
+		return fmt.Sprintf("mismatching %s in database (have timestamp nil, want timestamp %d, rewindto timestamp %d)", err.What, *err.NewTime, err.RewindToTime)
+	} else if err.StoredTime != nil && err.NewTime == nil {
+		return fmt.Sprintf("mismatching %s in database (have timestamp %d, want timestamp nil, rewindto timestamp %d)", err.What, *err.StoredTime, err.RewindToTime)
+	}
+	return fmt.Sprintf("mismatching %s in database (have timestamp %d, want timestamp %d, rewindto timestamp %d)", err.What, *err.StoredTime, *err.NewTime, err.RewindToTime)
 }
 
 // Rules wraps ChainConfig and is merely syntactic sugar or can be used for functions
@@ -1005,9 +1164,11 @@ func (err *ConfigCompatError) Error() string {
 type Rules struct {
 	ChainID                                                 *big.Int
 	IsHomestead, IsEIP150, IsEIP155, IsEIP158               bool
+	IsEIP2929, IsEIP4762                                    bool
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
 	IsBerlin, IsLondon                                      bool
-	IsMerge                                                 bool
+	IsMerge, IsShanghai, IsCancun, IsPrague                 bool
+	IsVerkle                                                bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -1016,6 +1177,7 @@ func (c *ChainConfig) Rules(num *big.Int, isMerge bool) Rules {
 	if chainID == nil {
 		chainID = new(big.Int)
 	}
+	isVerkle := c.IsVerkle(num)
 	return Rules{
 		ChainID:          new(big.Int).Set(chainID),
 		IsHomestead:      c.IsHomestead(num),
@@ -1027,9 +1189,25 @@ func (c *ChainConfig) Rules(num *big.Int, isMerge bool) Rules {
 		IsPetersburg:     c.IsPetersburg(num),
 		IsIstanbul:       c.IsIstanbul(num),
 		IsBerlin:         c.IsBerlin(num),
+		IsEIP2929:        c.IsBerlin(num) && !isVerkle,
 		IsLondon:         c.IsLondon(num),
 		IsMerge:          isMerge,
+		IsShanghai:       isMerge && c.IsLondon(num),
+		IsCancun:         isMerge && c.IsCancun(num),
+		IsPrague:         isMerge && c.IsPrague(num),
+		IsVerkle:         isVerkle,
+		IsEIP4762:        isVerkle,
 	}
+}
+
+// BaseFeeChangeDenominator bounds the amount the base fee can change between blocks.
+func (c *ChainConfig) BaseFeeChangeDenominator() uint64 {
+	return DefaultBaseFeeChangeDenominator
+}
+
+// ElasticityMultiplier bounds the maximum gas limit an EIP-1559 block may have.
+func (c *ChainConfig) ElasticityMultiplier() uint64 {
+	return DefaultElasticityMultiplier
 }
 
 func mustParseString(str string) *big.Int {

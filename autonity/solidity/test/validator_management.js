@@ -7,6 +7,51 @@ const liquidStateContract = artifacts.require("ILiquid")
 const AccountabilityTest = artifacts.require("AccountabilityTest")
 const config = require('./config.js')
 const {SLASHING_RATE_PRECISION} = require("./config");
+const toBN = web3.utils.toBN;
+
+function computeSlashAmount(val, slashingRate) {
+    const scale = toBN(SLASHING_RATE_PRECISION.toString());
+    let bondedStake = toBN(val.bondedStake.toString());
+    let unbondingStake = toBN(val.unbondingStake.toString());
+    let selfBondedStake = toBN(val.selfBondedStake.toString());
+    let selfUnbondingStake = toBN(val.selfUnbondingStake.toString());
+
+    const availableFunds = bondedStake.add(unbondingStake).add(selfUnbondingStake);
+    let slashingAmount = slashingRate.mul(availableFunds).div(scale);
+    let remaining = slashingAmount;
+
+    // Self-unbonding stake gets slashed in priority.
+    if (selfUnbondingStake.gte(remaining)) {
+        selfUnbondingStake = selfUnbondingStake.sub(remaining);
+        remaining = toBN("0");
+    } else {
+        remaining = remaining.sub(selfUnbondingStake);
+        selfUnbondingStake = toBN("0");
+    }
+
+    // Then self-bonded stake (which is part of bondedStake).
+    if (remaining.gt(toBN("0"))) {
+        if (selfBondedStake.gte(remaining)) {
+            selfBondedStake = selfBondedStake.sub(remaining);
+            bondedStake = bondedStake.sub(remaining);
+            remaining = toBN("0");
+        } else {
+            remaining = remaining.sub(selfBondedStake);
+            bondedStake = bondedStake.sub(selfBondedStake);
+            selfBondedStake = toBN("0");
+        }
+    }
+
+    // Remaining stake to be slashed is split between bonded and unbonding pools (floored).
+    if (remaining.gt(toBN("0")) && unbondingStake.add(bondedStake).gt(toBN("0"))) {
+        const denom = unbondingStake.add(bondedStake);
+        const unbondingSlash = remaining.mul(unbondingStake).div(denom);
+        const delegatedSlash = remaining.mul(bondedStake).div(denom);
+        remaining = remaining.sub(unbondingSlash.add(delegatedSlash));
+    }
+
+    return slashingAmount.sub(remaining);
+}
 
 contract('Autonity', function (accounts) {
 
@@ -37,9 +82,8 @@ contract('Autonity', function (accounts) {
         let oracle;
         let consensusKey;
         let pop;
-        beforeEach(async function () {
-            autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, false);
-
+        before(async function () {
+            // Key/POP generation spawns the autonity binary; do it once per suite.
             const nodeKeyInfo = await utils.generateAutonityKeys(`./autonity/data/test0.key`)
             const oracleKey = utils.randomPrivateKey();
             const popInfo = await utils.generateAutonityPOP(`./autonity/data/test0.key`, oracleKey, accounts[8])
@@ -48,6 +92,9 @@ contract('Autonity', function (accounts) {
             oracle = utils.address(utils.publicKey(oracleKey, false))
             consensusKey = Buffer.from(nodeKeyInfo.nodeConsensusKey.substring(2), 'hex');
             pop = Buffer.from(popInfo.signatures.substring(2), 'hex')
+        })
+        beforeEach(async function () {
+            autonity = await utils.deployContracts(validators, autonityConfig, accountabilityConfig, omissionAccountabilityConfig, deployer, operator, false);
         });
 
         it('Add validator with already registered address', async function () {
@@ -59,9 +106,8 @@ contract('Autonity', function (accounts) {
             let consensusKeyProof = '0x88a19caac1d02d2efb3675ec9fe99936b1170641b03d7525674ee001446cfd204fa5ba0b5e362d71294f3ba2f758695115a17101fc70b73fe90d7eb83950c3f7ad598b6740698b8e78fb48821c47762cdf2de889deede80fe2e7c085e48562c4';
             multisig = multisig + consensusKeyProof.substring(2);
 
-            await truffleAssert.fails(
+            await utils.failsRevert(
                 autonity.registerValidator(enode, genesisNodeAddresses[0], consensusKey, multisig, {from: treasury}),
-                truffleAssert.ErrorType.REVERT,
                 "validator already registered"
             );
 
@@ -72,9 +118,8 @@ contract('Autonity', function (accounts) {
         it('Add a validator with invalid enode address', async function () {
             let treasury = accounts[8];
             let enode = "enode://invalidEnodeAddress@172.25.0.11:30303";
-            await truffleAssert.fails(
+            await utils.failsRevert(
                 autonity.registerValidator(enode, oracle, consensusKey, pop, {from: treasury}),
-                truffleAssert.ErrorType.REVERT,
                 "enode error"
             );
 
@@ -86,9 +131,8 @@ contract('Autonity', function (accounts) {
             let treasury = accounts[8];
             // set a wrong oracle address on purpose.
             let oracleAddr = treasury
-            await truffleAssert.fails(
+            await utils.failsRevert(
                 autonity.registerValidator(enode, oracleAddr, consensusKey, pop, {from: treasury}),
-                truffleAssert.ErrorType.REVERT,
                 "Invalid oracle key ownership proof provided"
             );
 
@@ -120,18 +164,16 @@ contract('Autonity', function (accounts) {
             let treasury = accounts[8];
 
             // disabling a non registered validator should fail
-            await truffleAssert.fails(
+            await utils.failsRevert(
                 autonity.pauseValidator(node, {from: treasury}),
-                truffleAssert.ErrorType.REVERT,
                 "validator must be registered"
             );
 
             await autonity.registerValidator(enode, oracle, consensusKey, pop, {from: treasury});
 
             // try disabling it with msg.sender not the treasury account, it should fails
-            await truffleAssert.fails(
+            await utils.failsRevert(
                 autonity.pauseValidator(node, {from: accounts[7]}),
-                truffleAssert.ErrorType.REVERT,
                 "require caller to be validator admin account"
             );
 
@@ -140,9 +182,8 @@ contract('Autonity', function (accounts) {
             assert(v.state == 1, "validator state is not expected");
 
             // try disabling it again, it should fail
-            await truffleAssert.fails(
+            await utils.failsRevert(
                 autonity.pauseValidator(node, {from: treasury}),
-                truffleAssert.ErrorType.REVERT,
                 "validator must be active"
             );
         });
@@ -151,25 +192,22 @@ contract('Autonity', function (accounts) {
             let treasury = accounts[8];
 
             // activating a non-existing validator should fail
-            await truffleAssert.fails(
+            await utils.failsRevert(
                 autonity.activateValidator(node, {from: treasury}),
-                truffleAssert.ErrorType.REVERT,
                 "validator must be registered"
             );
 
             await autonity.registerValidator(enode, oracle, consensusKey, pop, {from: treasury});
 
             // activating from non-treasury account should fail
-            await truffleAssert.fails(
+            await utils.failsRevert(
                 autonity.activateValidator(node, {from: accounts[7]}),
-                truffleAssert.ErrorType.REVERT,
                 "require caller to be validator treasury account"
             );
 
             // activating an already active validator should fail
-            await truffleAssert.fails(
+            await utils.failsRevert(
                 autonity.activateValidator(node, {from: treasury}),
-                truffleAssert.ErrorType.REVERT,
                 "validator already active"
             );
             await autonity.pauseValidator(node, {from: treasury});
@@ -184,16 +222,16 @@ contract('Autonity', function (accounts) {
     describe('Test committee members rotation through bonding/unbonding', function () {
 
         let vals = [
-            { ...baseValidator,
-                "treasury": accounts[0],
-                "nodeAddress": genesisNodeAddresses[0],
-                "oracleAddress": accounts[0],
-                "enode": genesisEnodes[0],
-                "commissionRate": 10000,
-                "bondedStake": 100,
-            },
-        ];
-        let copyParams = autonityConfig;
+	        { ...baseValidator,
+	                "treasury": accounts[0],
+	                "nodeAddress": genesisNodeAddresses[0],
+	                "oracleAddress": accounts[0],
+	                "enode": genesisEnodes[0],
+	                "commissionRate": 10000,
+	                "bondedStake": 100,
+	            },
+	        ];
+	        let copyParams;
         let enode1;
         let enode2;
         let node1;
@@ -203,36 +241,41 @@ contract('Autonity', function (accounts) {
         let consensusKey1;
         let consensusKey2;
         let pop1;
-        let pop2;
-        beforeEach(async function () {
-            // set specific timeout for heavy setups
-            this.timeout(600000);
+	        let pop2;
+	        before(async function () {
+	            // Key/POP generation spawns the autonity binary; do it once per suite.
+	            const nodeKeyInfo = await utils.generateAutonityKeys(`./autonity/data/test1.key`)
+	            const oracleKey = utils.randomPrivateKey();
+	            const popInfo = await utils.generateAutonityPOP(`./autonity/data/test1.key`, oracleKey, accounts[1])
+	            enode1 = utils.publicKeyToEnode(nodeKeyInfo.nodePublicKey.substring(2))
+	            node1 = nodeKeyInfo.nodeAddress
+	            oracle1 = utils.address(utils.publicKey(oracleKey, false))
+	            consensusKey1 = Buffer.from(nodeKeyInfo.nodeConsensusKey.substring(2), 'hex');
+	            pop1 = Buffer.from(popInfo.signatures.substring(2), 'hex')
 
-            // set short epoch period
-            let customizedEpochPeriod = 20;
-            copyParams.protocol.epochPeriod = customizedEpochPeriod;
+	            const nodeKeyInfo2 = await utils.generateAutonityKeys(`./autonity/data/test2.key`)
+	            const oracleKey2 = utils.randomPrivateKey();
+	            const popInfo2 = await utils.generateAutonityPOP(`./autonity/data/test2.key`, oracleKey2, accounts[3])
+	            enode2 = utils.publicKeyToEnode(nodeKeyInfo2.nodePublicKey.substring(2))
+	            node2 = nodeKeyInfo2.nodeAddress
+	            oracle2 = utils.address(utils.publicKey(oracleKey2, false))
+	            consensusKey2 = Buffer.from(nodeKeyInfo2.nodeConsensusKey.substring(2), 'hex');
+	            pop2 = Buffer.from(popInfo2.signatures.substring(2), 'hex')
+	        })
+	        beforeEach(async function () {
+	            // set specific timeout for heavy setups
+	            this.timeout(600000);
 
-            autonity = await utils.deployContracts(vals, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
-            assert.equal(customizedEpochPeriod,(await autonity.getEpochPeriod()).toNumber());
+	            // Copy, don't alias: other describes rely on the default autonity config.
+	            copyParams = JSON.parse(JSON.stringify(autonityConfig));
 
-            const nodeKeyInfo = await utils.generateAutonityKeys(`./autonity/data/test1.key`)
-            const oracleKey = utils.randomPrivateKey();
-            const popInfo = await utils.generateAutonityPOP(`./autonity/data/test1.key`, oracleKey, accounts[1])
-            enode1 = utils.publicKeyToEnode(nodeKeyInfo.nodePublicKey.substring(2))
-            node1 = nodeKeyInfo.nodeAddress
-            oracle1 = utils.address(utils.publicKey(oracleKey, false))
-            consensusKey1 = Buffer.from(nodeKeyInfo.nodeConsensusKey.substring(2), 'hex');
-            pop1 = Buffer.from(popInfo.signatures.substring(2), 'hex')
+	            // set short epoch period
+	            let customizedEpochPeriod = 20;
+	            copyParams.protocol.epochPeriod = customizedEpochPeriod;
 
-            const nodeKeyInfo2 = await utils.generateAutonityKeys(`./autonity/data/test2.key`)
-            const oracleKey2 = utils.randomPrivateKey();
-            const popInfo2 = await utils.generateAutonityPOP(`./autonity/data/test2.key`, oracleKey2, accounts[3])
-            enode2 = utils.publicKeyToEnode(nodeKeyInfo2.nodePublicKey.substring(2))
-            node2 = nodeKeyInfo2.nodeAddress
-            oracle2 = utils.address(utils.publicKey(oracleKey2, false))
-            consensusKey2 = Buffer.from(nodeKeyInfo2.nodeConsensusKey.substring(2), 'hex');
-            pop2 = Buffer.from(popInfo2.signatures.substring(2), 'hex')
-        });
+	            autonity = await utils.deployContracts(vals, copyParams, accountabilityConfig, omissionAccountabilityConfig, deployer, operator);
+	            assert.equal(customizedEpochPeriod,(await autonity.getEpochPeriod()).toNumber());
+	        });
 
         it('test bond stake token to new added validators, new validators should be elected as committee member', async function() {
             // register 2 new validators.
@@ -397,17 +440,24 @@ contract('Autonity', function (accounts) {
             // let unbonding apply and unbondingStake create
             await utils.endEpoch(autonity, operator, deployer);
 
-            for (let iter = 0; iter < validatorAddresses.length; iter++) {
-                const validator = validatorAddresses[iter];
-                let epochPeriod = await autonity.getCurrentEpochPeriod();
-                let {txEvent, _} = await utils.slash(config, accountability, 1, validator, validator,epochPeriod);
-                // checking if highest possible slashing can be done without triggering fairness issue
-                // cannot slash (totalStake - 1) because both delegated and unbonding slash is floored
-                assert.equal(txEvent.amount.toNumber(), expectedSlash-1, "highest slash did not happen");
-                let validatorInfo = await autonity.getValidator(validator);
-                assert.equal(validatorInfo.state, utils.ValidatorState.jailed, "validator not jailed");
-                assert(parseInt(validatorInfo.bondedStake) > 0 && parseInt(validatorInfo.unbondingStake) > 0, "fairness issue triggered");
-            }
+	            for (let iter = 0; iter < validatorAddresses.length; iter++) {
+	                const validator = validatorAddresses[iter];
+	                let epochPeriod = await autonity.getCurrentEpochPeriod();
+	                // Compute expected slashing amount from the current on-chain validator state.
+	                const valBefore = await autonity.getValidator(validator);
+	                const historyBefore = (await accountability.getHistory(validator)).toNumber();
+	                const baseRate = toBN(config.baseSlashingRates.mid.toString());
+	                const collusion = toBN(config.factors.collusion.toString());
+	                const historyFactor = toBN(config.factors.history.toString());
+	                const slashingRate = baseRate.add(collusion).add(historyFactor.mul(toBN(historyBefore.toString())));
+	                const expectedAmount = computeSlashAmount(valBefore, slashingRate);
+
+	                let {txEvent, _} = await utils.slash(config, accountability, 1, validator, validator,epochPeriod);
+	                assert.equal(txEvent.amount.toString(), expectedAmount.toString(), "unexpected slashing amount");
+	                let validatorInfo = await autonity.getValidator(validator);
+	                assert.equal(validatorInfo.state, utils.ValidatorState.jailed, "validator not jailed");
+	                assert(parseInt(validatorInfo.bondedStake) > 0 && parseInt(validatorInfo.unbondingStake) > 0, "fairness issue triggered");
+	            }
             await utils.mineTillUnbondingRelease(autonity, operator, deployer);
             assert.equal((await autonity.balanceOf(delegator)).toNumber(), balance, "unbonding released");
         });

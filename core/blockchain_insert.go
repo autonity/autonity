@@ -31,7 +31,7 @@ type insertStats struct {
 	usedGas                    uint64
 	lastIndex                  int
 	startTime                  mclock.AbsTime
-	logger                     log.Logger
+	log                        log.Logger
 }
 
 // statsReportLimit is the time limit during import and export after which we
@@ -40,7 +40,7 @@ const statsReportLimit = 8 * time.Second
 
 // report prints statistics if some number of blocks have been processed
 // or more than a few seconds have passed since the last message.
-func (st *insertStats) report(chain []*types.Block, index int, dirty common.StorageSize) {
+func (st *insertStats) report(chain []*types.Block, index int, snapDiffItems, snapBufItems, trieDiffNodes, triebufNodes common.StorageSize, setHead bool) {
 	// Fetch the timings for the batch
 	var (
 		now     = mclock.Now()
@@ -57,14 +57,23 @@ func (st *insertStats) report(chain []*types.Block, index int, dirty common.Stor
 
 		// Assemble the log context and send it to the logger
 		context := []interface{}{
+			"number", end.Number(), "hash", end.Hash(),
 			"blocks", st.processed, "txs", txs, "mgas", float64(st.usedGas) / 1000000,
 			"elapsed", common.PrettyDuration(elapsed), "mgasps", float64(st.usedGas) * 1000 / float64(elapsed),
-			"number", end.Number(), "hash", end.Hash(),
 		}
 		if timestamp := time.Unix(int64(end.Time()), 0); time.Since(timestamp) > time.Minute {
 			context = append(context, []interface{}{"age", common.PrettyAge(timestamp)}...)
 		}
-		context = append(context, []interface{}{"dirty", dirty}...)
+		if snapDiffItems != 0 || snapBufItems != 0 { // snapshots enabled
+			context = append(context, []interface{}{"snapdiffs", snapDiffItems}...)
+			if snapBufItems != 0 { // future snapshot refactor
+				context = append(context, []interface{}{"snapdirty", snapBufItems}...)
+			}
+		}
+		if trieDiffNodes != 0 { // pathdb
+			context = append(context, []interface{}{"triediffs", trieDiffNodes}...)
+		}
+		context = append(context, []interface{}{"triedirty", triebufNodes}...)
 
 		if st.queued > 0 {
 			context = append(context, []interface{}{"queued", st.queued}...)
@@ -72,10 +81,13 @@ func (st *insertStats) report(chain []*types.Block, index int, dirty common.Stor
 		if st.ignored > 0 {
 			context = append(context, []interface{}{"ignored", st.ignored}...)
 		}
-		st.logger.Info("Imported new chain segment", context...)
-
+		if setHead {
+			st.log.Info("Imported new chain segment", context...)
+		} else {
+			st.log.Info("Imported new potential chain segment", context...)
+		}
 		// Bump the stats reported to the next section
-		*st = insertStats{startTime: now, lastIndex: index + 1, logger: st.logger}
+		*st = insertStats{startTime: now, lastIndex: index + 1, log: st.log}
 	}
 }
 
@@ -159,14 +171,14 @@ func (it *insertIterator) current() *types.Header {
 	return it.chain[it.index].Header()
 }
 
-// first returns the first block in the it.
-func (it *insertIterator) first() *types.Block {
-	return it.chain[0]
-}
-
 // remaining returns the number of remaining blocks.
 func (it *insertIterator) remaining() int {
 	return len(it.chain) - it.index
+}
+
+// first returns the first block in the it.
+func (it *insertIterator) first() *types.Block {
+	return it.chain[0]
 }
 
 // processed returns the number of processed blocks.

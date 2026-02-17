@@ -17,6 +17,8 @@
 package core
 
 import (
+	"sync/atomic"
+
 	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
@@ -31,7 +33,7 @@ type Validator interface {
 
 	// ValidateState validates the given statedb and optionally the receipts and
 	// gas used.
-	ValidateState(block *types.Block, state *state.StateDB, receipts types.Receipts, usedGas uint64) error
+	ValidateState(block *types.Block, state *state.StateDB, res *ProcessResult, stateless bool) error
 }
 
 // Prefetcher is an interface for pre-caching transaction signatures and state.
@@ -39,7 +41,7 @@ type Prefetcher interface {
 	// Prefetch processes the state changes according to the Ethereum rules by running
 	// the transaction messages using the statedb, but any changes are discarded. The
 	// only goal is to pre-cache transaction signatures and state trie nodes.
-	Prefetch(block *types.Block, statedb *state.StateDB, cfg vm.Config, interrupt *uint32)
+	Prefetch(block *types.Block, statedb *state.StateDB, cfg vm.Config, interrupt *atomic.Bool)
 }
 
 // Processor is an interface for processing blocks using a given initial state.
@@ -48,9 +50,18 @@ type Processor interface {
 	// Process processes the state changes according to the Ethereum rules by running
 	// the transaction messages using the statedb and applying any rewards to both
 	// the processor (coinbase) and any included uncles.
-	Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, *types.Epoch, *types.ContractsConfig, error)
+	Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (*ProcessResult, *types.Epoch, *types.ContractsConfig, error)
 
 	// ProcessFromCache processes the state same as Process except it checks the availability
 	// of cached state and utilizes the same if present
-	ProcessFromCache(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, *state.StateDB, uint64, *types.ContractsConfig, error)
+	ProcessFromCache(block *types.Block, statedb *state.StateDB, cfg vm.Config) (*ProcessResult, *state.StateDB, *types.ContractsConfig, error)
+}
+
+// ProcessResult contains the values computed by Process.
+type ProcessResult struct {
+	Receipts types.Receipts
+	Requests [][]byte
+	Logs     []*types.Log
+	GasUsed  uint64
+	// todo(youssef): Include *types.ContractsConfig
 }

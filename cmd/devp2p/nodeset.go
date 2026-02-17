@@ -18,11 +18,11 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/autonity/autonity/common"
@@ -66,7 +66,7 @@ func writeNodesJSON(file string, nodes nodeSet) {
 		os.Stdout.Write(nodesJSON)
 		return
 	}
-	if err := ioutil.WriteFile(file, nodesJSON, 0644); err != nil {
+	if err := os.WriteFile(file, nodesJSON, 0644); err != nil {
 		exit(err)
 	}
 }
@@ -78,8 +78,8 @@ func (ns nodeSet) nodes() []*enode.Node {
 		result = append(result, n.N)
 	}
 	// Sort by ID.
-	sort.Slice(result, func(i, j int) bool {
-		return bytes.Compare(result[i].ID().Bytes(), result[j].ID().Bytes()) < 0
+	slices.SortFunc(result, func(a, b *enode.Node) int {
+		return bytes.Compare(a.ID().Bytes(), b.ID().Bytes())
 	})
 	return result
 }
@@ -104,8 +104,8 @@ func (ns nodeSet) topN(n int) nodeSet {
 	for _, v := range ns {
 		byscore = append(byscore, v)
 	}
-	sort.Slice(byscore, func(i, j int) bool {
-		return byscore[i].Score >= byscore[j].Score
+	slices.SortFunc(byscore, func(a, b nodeJSON) int {
+		return cmp.Compare(b.Score, a.Score)
 	})
 	result := make(nodeSet, n)
 	for _, v := range byscore[:n] {

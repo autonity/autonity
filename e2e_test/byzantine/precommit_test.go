@@ -35,7 +35,7 @@ func (c *malPrecommitService) SendPrecommit(ctx context.Context, isNil bool) {
 }
 
 func TestMaliciousPrecommitSender(t *testing.T) {
-	users, err := e2e.Validators(t, 6, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, 6, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	//set Malicious users
@@ -51,7 +51,7 @@ func TestMaliciousPrecommitSender(t *testing.T) {
 }
 
 func TestMaliciousSenderDisc(t *testing.T) {
-	users, err := e2e.Validators(t, 4, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	users, err := e2e.Validators(t, 4, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	users[0].TendermintServices = &interfaces.Services{Precommiter: newMalPrecommitService}

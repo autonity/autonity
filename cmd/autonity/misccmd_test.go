@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/autonity/autonity/common/hexutil"
-	"github.com/autonity/autonity/crypto"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/crypto"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenPOP(t *testing.T) {
@@ -182,7 +183,7 @@ func genNodeKeyWithExpect(t *testing.T, fileName string, writeAddr bool) {
 	var expected string
 	keyfile := filepath.Join(dir, fileName)
 	if writeAddr {
-		geth = runAutonity(t, "genAutonityKeys", keyfile, "--writeaddress")
+		geth = runAutonity(t, "genAutonityKeys", "--writeaddress", keyfile)
 	} else {
 		geth = runAutonity(t, "genAutonityKeys", keyfile)
 	}

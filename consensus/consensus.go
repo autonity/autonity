@@ -50,9 +50,6 @@ type ChainHeaderReader interface {
 	// GetHeaderByHash retrieves a block header from the database by its hash.
 	GetHeaderByHash(hash common.Hash) *types.Header
 
-	// GetTd retrieves the total difficulty from the database by hash and number.
-	GetTd(hash common.Hash, number uint64) *big.Int
-
 	EpochByHeight(height uint64) (*types.EpochInfo, error)
 }
 
@@ -82,13 +79,13 @@ type Engine interface {
 	// VerifyHeader checks whether a header conforms to the consensus rules of a
 	// given engine. Verifying the seal may be done optionally here, or explicitly
 	// via the VerifySeal method.
-	VerifyHeader(chain ChainHeaderReader, header *types.Header, seal bool) error
+	VerifyHeader(chain ChainHeaderReader, header *types.Header) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 	// concurrently. The method returns a quit channel to abort the operations and
 	// a results channel to retrieve the async verifications (the order is that of
 	// the input slice).
-	VerifyHeaders(chain ChainHeaderReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
+	VerifyHeaders(chain ChainHeaderReader, headers []*types.Header) (chan<- struct{}, <-chan error)
 
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
 	// rules of a given engine.
@@ -103,16 +100,14 @@ type Engine interface {
 	//
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-		uncles []*types.Header, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error)
+	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, body *types.Body, receipts []*types.Receipt) (*types.Receipt, *types.Epoch, *types.ContractsConfig, error)
 
 	// FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
 	// rewards) and assembles the final block.
 	//
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-		uncles []*types.Header, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error)
+	FinalizeAndAssemble(chain ChainReader, header *types.Header, state *state.StateDB, body *types.Body, receipts *[]*types.Receipt) (*types.Block, *types.ContractsConfig, error)
 
 	// Seal generates a new sealing request for the given input block and pushes
 	// the result into the given channel.
@@ -138,7 +133,7 @@ type Engine interface {
 	SetResultChan(results chan<- *types.Block)
 
 	// SetProposalVerifiedEventCh sets the proposal verified event channel to trigger new block preparation
-	SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Block)
+	SetProposalVerifiedEventChan(proposalVerifiedEventCh chan<- *types.Header)
 }
 
 // Handler should be implemented is the consensus needs to handle and send peer's message
@@ -178,7 +173,7 @@ type Syncer interface {
 
 // Enqueuer defines the interface to enqueue blocks to fetcher
 type Enqueuer interface {
-	Enqueue(id string, block *types.Block)
+	Enqueue(id string, block *types.Block) error
 }
 
 // Broadcaster defines the interface to find peer

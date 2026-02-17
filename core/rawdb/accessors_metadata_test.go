@@ -8,11 +8,10 @@ import (
 
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/types"
-	"github.com/autonity/autonity/log"
 )
 
 func TestReadWriteContractsConfig(t *testing.T) {
-	log.Root().SetHandler(log.StderrHandler)
+	//log.Root().SetHandler(log.StderrHandler)
 
 	db := NewMemoryDatabase()
 

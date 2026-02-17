@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"os"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -256,7 +255,7 @@ func TestVerifyProposal(t *testing.T) {
 			parent = blocks[i-1]
 		}
 
-		block, errBlock := makeBlockWithoutSeal(blockchain, backend, parent)
+		block, errBlock := makeBlockWithoutSeal(blockchain, backend, parent.Header())
 		if errBlock != nil {
 			t.Fatalf("could not create block %d, err=%s", i, errBlock)
 		}
@@ -337,7 +336,7 @@ func TestCommit(t *testing.T) {
 		quorumCertificate.Signers.AddSigner(0)
 
 		chain, engine, _ := newBlockChain(1)
-		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -366,7 +365,7 @@ func TestCommit(t *testing.T) {
 		chain, engine, _ := newBlockChain(1)
 		committee, err := chain.CommitteeByHeight(0)
 		require.NoError(t, err)
-		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -404,17 +403,15 @@ func TestCommit(t *testing.T) {
 func TestBackendLastCommittedProposal(t *testing.T) {
 	t.Run("return current block", func(t *testing.T) {
 		block := types.NewBlockWithHeader(&types.Header{})
-
 		b := &Backend{
 			database: rawdb.NewMemoryDatabase(),
-			currentBlock: func() *types.Block {
-				return block
+			currentBlock: func() *types.Header {
+				return block.Header()
 			},
 			logger: log.New("backend", "test", "id", 0),
 		}
-
 		bl := b.HeadBlock()
-		if !reflect.DeepEqual(bl, block) {
+		if !reflect.DeepEqual(bl, block.Header()) {
 			t.Fatalf("expected %v, got %v", block, bl)
 		}
 	})
@@ -423,7 +420,7 @@ func TestBackendLastCommittedProposal(t *testing.T) {
 // Test get contract ABI, it should have the default abi before contract upgrade.
 func TestBackendGetContractABI(t *testing.T) {
 	chain, engine, _ := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
+	block, err := makeBlock(chain, engine, chain.Genesis().Header())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -449,10 +446,9 @@ func newBlockChain(n int) (*core.BlockChain, *Backend, []blst.SecretKey) {
 	afdDispatchCh := make(chan events.MessageEventer, 100)
 	// Use the first key as private key
 	b := New(memDB, nodeKeys[0], consensusKeys[0], &vm.Config{}, nil, new(event.TypeMux), msgStore, afdDispatchCh, log.Root())
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	//log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
-	genesis.MustCommit(memDB)
-	blockchain, err := core.NewBlockChain(memDB, nil, genesis.Config, b, vm.Config{}, nil, core.NewTxSenderCacher(), nil, backends.NewInternalBackend(nil), log.Root())
+	blockchain, err := core.NewBlockChain(memDB, nil, genesis, b, vm.Config{}, nil, backends.NewInternalBackend(nil), log.Root())
 	if err != nil {
 		panic(err)
 	}
@@ -494,7 +490,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.Secret
 	for i := 0; i < n; i++ {
 		nodeKeys[i], _ = crypto.GenerateKey()
 		addrs[i] = crypto.PubkeyToAddress(nodeKeys[i].PublicKey)
-		genesis.Alloc[addrs[i]] = core.GenesisAccount{Balance: new(big.Int).SetUint64(uint64(math.Pow10(18)))}
+		genesis.Alloc[addrs[i]] = types.Account{Balance: new(big.Int).SetUint64(uint64(math.Pow10(18)))}
 		consensusKey, err := blst.RandKey()
 		if err != nil {
 			panic(err)
@@ -504,7 +500,7 @@ func getGenesisAndKeys(n int) (*core.Genesis, []*ecdsa.PrivateKey, []blst.Secret
 
 	// generate genesis block
 
-	genesis.Config = copyConfig(params.TestChainConfig)
+	genesis.Config = copyConfig(params.TestConfigNoVerkle)
 	genesis.Config.AutonityContractConfig.Validators = nil
 	genesis.Config.Ethash = nil
 	genesis.GasLimit = 10000000
@@ -554,22 +550,22 @@ func AppendValidators(genesis *core.Genesis, keys []*ecdsa.PrivateKey, consensus
 	}
 }
 
-func makeHeader(parent *types.Block, eip1559Params *types.Eip1559Params) *types.Header {
+func makeHeader(parent *types.Header, eip1559Params *types.Eip1559Params) *types.Header {
 	return &types.Header{
 		ParentHash: parent.Hash(),
-		Number:     parent.Number().Add(parent.Number(), common.Big1),
-		GasLimit:   core.CalcGasLimit(parent.GasLimit(), 8000000, 1024),
+		Number:     new(big.Int).Add(parent.Number, common.Big1),
+		GasLimit:   core.CalcGasLimit(parent.GasLimit, 8000000, 1024),
 		GasUsed:    0,
-		BaseFee:    misc.CalcBaseFee(params.TestChainConfig, parent.Header(), eip1559Params),
-		Extra:      parent.Extra(),
-		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time())), new(big.Int).SetUint64(1)).Uint64(),
+		BaseFee:    misc.CalcBaseFee(params.TestChainConfig, parent, eip1559Params),
+		Extra:      parent.Extra,
+		Time:       new(big.Int).Add(big.NewInt(int64(parent.Time)), new(big.Int).SetUint64(1)).Uint64(),
 		Difficulty: defaultDifficulty,
 		MixDigest:  types.BFTDigest,
 		Round:      0,
 	}
 }
 
-func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
+func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Header) (*types.Block, error) {
 	block, err := makeBlockWithoutSeal(chain, engine, parent)
 	if err != nil {
 		return nil, err
@@ -590,18 +586,18 @@ func makeBlock(chain *core.BlockChain, engine *Backend, parent *types.Block) (*t
 // TODO: currently this helper will not insert the block into the chain. This is fine by itself,
 // but it means we are not going to be able to prepare another block on top of it (engine.Prepare will fail)
 // might be worth to rewrite this method
-func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Block) (*types.Block, error) {
-	state, err := chain.StateAt(parent.Root())
+func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types.Header) (*types.Block, error) {
+	state, err := chain.StateAt(parent.Root)
 	if err != nil {
 		return nil, err
 	}
 
-	eip1559Params, err := chain.Eip1559ParamsByHeight(parent.Number().Uint64() + 1)
+	eip1559Params, err := chain.Eip1559ParamsByHeight(parent.Number.Uint64() + 1)
 	if err != nil {
 		return nil, err
 	}
 	header := makeHeader(parent, eip1559Params)
-	err = engine.Prepare(chain, parent.Header(), header, state)
+	err = engine.Prepare(chain, parent, header, state)
 	if err != nil {
 		return nil, err
 	}
@@ -611,16 +607,18 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 	nonce := state.GetNonce(engine.address)
 	gasPrice := new(big.Int).Set(header.BaseFee)
 	gasPool := new(core.GasPool).AddGas(header.GasLimit)
+	blockCtx := core.NewEVMBlockContext(header, chain, nil)
+	evm := vm.NewEVM(blockCtx, state, chain.Config(), *engine.vmConfig)
 	var receipts []*types.Receipt
 	for i := range txs {
 		amount := new(big.Int).SetUint64((nonce + 1) * 1000000000)
 		tx := types.NewTransaction(nonce, common.Address{}, amount, params.TxGas, gasPrice, []byte{})
-		tx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(1337)), engine.nodeKey)
+		tx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(1)), engine.nodeKey)
 		if err != nil {
 			return nil, err
 		}
 		txs[i] = tx
-		receipt, err := core.ApplyTransaction(chain.Config(), chain, nil, gasPool, state, header, txs[i], &header.GasUsed, *engine.vmConfig)
+		receipt, err := core.ApplyTransaction(evm, gasPool, state, header, txs[i], &header.GasUsed)
 		if err != nil {
 			return nil, err
 		}
@@ -628,17 +626,18 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 		receipts = append(receipts, receipt)
 	}
 
-	block, _, err := engine.FinalizeAndAssemble(chain, header, state, txs, nil, &receipts)
+	body := &types.Body{Transactions: txs}
+	block, _, err := engine.FinalizeAndAssemble(chain, header, state, body, &receipts)
 	if err != nil {
 		return nil, err
 	}
 
 	// Write state changes to db
-	root, err := state.Commit(chain.Config().IsEIP158(block.Header().Number))
+	root, err := state.Commit(header.Number.Uint64(), chain.Config().IsEIP158(header.Number), chain.Config().IsCancun(header.Number))
 	if err != nil {
-		return nil, fmt.Errorf("state write error: %v", err)
+		panic(fmt.Sprintf("state write error: %v", err))
 	}
-	if err := state.Database().TrieDB().Commit(root, false, nil); err != nil {
+	if err := state.Database().TrieDB().Commit(root, false); err != nil {
 		return nil, fmt.Errorf("trie write error: %v", err)
 	}
 
@@ -647,8 +646,10 @@ func makeBlockWithoutSeal(chain *core.BlockChain, engine *Backend, parent *types
 
 func newTestBlockchain() *core.BlockChain {
 	db := rawdb.NewMemoryDatabase()
-	core.GenesisBlockForTesting(db, common.Address{}, common.Big0)
-	chain, err := core.NewBlockChain(db, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, &core.TxSenderCacher{}, nil, backends.NewInternalBackend(nil), log.Root())
+	genesis := core.DefaultGenesisBlock()
+	genesis.Config = params.TestChainConfig
+	genesis.Config.Ethash = new(params.EthashConfig)
+	chain, err := core.NewBlockChain(db, nil, genesis, ethash.NewFaker(), vm.Config{}, nil, backends.NewInternalBackend(nil), log.Root())
 	if err != nil {
 		panic(err)
 	}

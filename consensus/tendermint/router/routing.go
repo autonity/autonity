@@ -102,7 +102,7 @@ func New(
 		logger:              logger,
 		clusteringThreshold: DefaultScaleThresholdForClustering,
 	}
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		router.hashCache = fixsizecache.New[common.Hash, bool](5987, 5, fixsizecache.HashKey[common.Hash])
 	}
 	return router
@@ -154,7 +154,7 @@ func (m *Router) Recipients(committee *types.Committee, msg message.Msg, from co
 }
 
 func (m *Router) recordDistinctHash(msg message.Msg) {
-	if !metrics.Enabled {
+	if !metrics.Enabled() {
 		return
 	}
 
@@ -185,7 +185,7 @@ func (m *Router) Forward(committee *types.Committee, msg message.Msg, sender com
 	}
 
 	m.recordDistinctHash(msg)
-	if sender != m.self && metrics.Enabled {
+	if sender != m.self && metrics.Enabled() {
 		// simple forward
 		forwardCounter.Inc(1)
 	}

@@ -31,7 +31,7 @@ import (
 )
 
 func tmpdir(t *testing.T) string {
-	dir, err := ioutil.TempDir("", "autonity-test")
+	dir, err := ioutil.TempDir("", "autonity_test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func runAutonity(t *testing.T, args ...string) *testautonity {
 	// Boot "autonity". This actually runs the test binary but the TestMain
 	// function will prevent any tests from running.
 	tt.Run("autonity-test", args...)
-
+	fmt.Println(args)
 	return tt
 }
 

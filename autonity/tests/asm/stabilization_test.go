@@ -422,7 +422,7 @@ func TestStabilizationBorrow(t *testing.T) {
 		borrowAmount := new(big.Int).Div(borrowLimit, big.NewInt(2))
 		cdpsBefore, _, err := r.Stabilization.Cdps(nil, userAccount)
 		require.NoError(t, err)
-		pendingTimestamp := new(big.Int).Set(r.Evm.Context.Time)
+		pendingTimestamp := new(big.Int).SetUint64(r.Evm.Context.Time)
 		debt, _, err := r.Stabilization.DebtAmountAtTime(nil, userAccount, pendingTimestamp)
 		require.NoError(t, err)
 		interest := new(big.Int).Sub(debt, borrowAmount)
@@ -563,7 +563,7 @@ func TestStabilizationRepay(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test repay to below minimum debt requirement", setup, func(r *tests.Runner) {
-		timestamp := new(big.Int).Set(r.Evm.Context.Time)
+		timestamp := new(big.Int).SetUint64(r.Evm.Context.Time)
 		cfg, _, err := r.Stabilization.Config(nil)
 		require.NoError(t, err)
 		debtAmount, _, err := r.Stabilization.DebtAmountAtTime(nil, userAccount, timestamp)
@@ -574,7 +574,7 @@ func TestStabilizationRepay(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test repay to minimum debt", setup, func(r *tests.Runner) {
-		timestamp := new(big.Int).Set(r.Evm.Context.Time)
+		timestamp := new(big.Int).SetUint64(r.Evm.Context.Time)
 		cfg, _, err := r.Stabilization.Config(nil)
 		require.NoError(t, err)
 		debtAmount, _, err := r.Stabilization.DebtAmountAtTime(nil, userAccount, timestamp)
@@ -594,7 +594,7 @@ func TestStabilizationRepay(t *testing.T) {
 
 	tests.RunWithSetup("Test repay interest", setup, func(r *tests.Runner) {
 		borrowAmount := new(big.Int).Div(calcBorrowLimit(r, userAccount), big.NewInt(2))
-		timestamp := new(big.Int).Set(r.Evm.Context.Time)
+		timestamp := new(big.Int).SetUint64(r.Evm.Context.Time)
 		debtAmount, _, err := r.Stabilization.DebtAmountAtTime(nil, userAccount, timestamp)
 		require.NoError(t, err)
 		interest := new(big.Int).Sub(debtAmount, borrowAmount)
@@ -610,7 +610,7 @@ func TestStabilizationRepay(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test repay full debt", setup, func(r *tests.Runner) {
-		timestamp := new(big.Int).Set(r.Evm.Context.Time)
+		timestamp := new(big.Int).SetUint64(r.Evm.Context.Time)
 		debtAmount, _, err := r.Stabilization.DebtAmountAtTime(nil, userAccount, timestamp)
 		require.NoError(t, err)
 
@@ -625,7 +625,7 @@ func TestStabilizationRepay(t *testing.T) {
 	})
 
 	tests.RunWithSetup("Test repay surplus is returned", setup, func(r *tests.Runner) {
-		timestamp := new(big.Int).Set(r.Evm.Context.Time)
+		timestamp := new(big.Int).SetUint64(r.Evm.Context.Time)
 		debtAmount, _, err := r.Stabilization.DebtAmountAtTime(nil, userAccount, timestamp)
 		require.NoError(t, err)
 		surplus := new(big.Int).Set(common.Big256)
@@ -1059,7 +1059,7 @@ func TestInterestCalculation(t *testing.T) {
 	})
 
 	tests.RunWithSetup("single positive rate", setup, func(r *tests.Runner) {
-		rateActive := r.Evm.Context.Time
+		rateActive := new(big.Int).SetUint64(r.Evm.Context.Time)
 		r.NoError(
 			r.Stabilization.RemoveCDPRestrictions(r.Operator),
 		)
@@ -1070,14 +1070,14 @@ func TestInterestCalculation(t *testing.T) {
 			{
 				rate:      currentRate,
 				startTime: rateActive,
-				endTime:   r.Evm.Context.Time,
+				endTime:   new(big.Int).SetUint64(r.Evm.Context.Time),
 			},
 		})
 		require.Equal(r.T, debt, getDebt(r, user))
 	})
 
 	tests.RunWithSetup("multiple rate", setup, func(r *tests.Runner) {
-		rateActive := r.Evm.Context.Time
+		rateActive := new(big.Int).SetUint64(r.Evm.Context.Time)
 		r.NoError(
 			r.Stabilization.RemoveCDPRestrictions(r.Operator),
 		)
@@ -1115,7 +1115,7 @@ func TestInterestCalculation(t *testing.T) {
 		// apply the rates
 		window := getAnnouncementWindow(r)
 		for i, rate := range rates {
-			rates[i].startTime = new(big.Int).Add(window, r.Evm.Context.Time)
+			rates[i].startTime = new(big.Int).Add(window, new(big.Int).SetUint64(r.Evm.Context.Time))
 			if i > 0 {
 				rates[i-1].endTime = rates[i].startTime
 			}
@@ -1128,7 +1128,7 @@ func TestInterestCalculation(t *testing.T) {
 			progressTime(r, window.Int64())
 			progressTime(r, rate.endTime.Int64())
 		}
-		rates[len(rates)-1].endTime = r.Evm.Context.Time
+		rates[len(rates)-1].endTime = new(big.Int).SetUint64(r.Evm.Context.Time)
 		// include the first one
 		rates = append(
 			[]interestRateParam{
@@ -1146,7 +1146,7 @@ func TestInterestCalculation(t *testing.T) {
 	})
 
 	tests.RunWithSetup("single rate with fractional window", setup, func(r *tests.Runner) {
-		rateActive := r.Evm.Context.Time
+		rateActive := new(big.Int).SetUint64(r.Evm.Context.Time)
 		r.NoError(
 			r.Stabilization.RemoveCDPRestrictions(r.Operator),
 		)
@@ -1155,10 +1155,10 @@ func TestInterestCalculation(t *testing.T) {
 		debt := calculateDebt(r, borrowAmount, common.Big0, []interestRateParam{{
 			rate:      rate,
 			startTime: rateActive,
-			endTime:   r.Evm.Context.Time,
+			endTime:   new(big.Int).SetUint64(r.Evm.Context.Time),
 		}})
 
-		rateActive = r.Evm.Context.Time
+		rateActive = new(big.Int).SetUint64(r.Evm.Context.Time)
 		borrow(r, user, borrowAmount)
 		debt = new(big.Int).Add(debt, borrowAmount)
 		cdp := getCdp(r, user)
@@ -1168,13 +1168,13 @@ func TestInterestCalculation(t *testing.T) {
 		debt = calculateDebt(r, debt, common.Big0, []interestRateParam{{
 			rate:      rate,
 			startTime: rateActive,
-			endTime:   r.Evm.Context.Time,
+			endTime:   new(big.Int).SetUint64(r.Evm.Context.Time),
 		}})
 		require.Equal(r.T, debt, getDebt(r, user))
 	})
 
 	tests.RunWithSetup("multiple rates with fractional window", setup, func(r *tests.Runner) {
-		rateActive := r.Evm.Context.Time
+		rateActive := new(big.Int).SetUint64(r.Evm.Context.Time)
 		r.NoError(
 			r.Stabilization.RemoveCDPRestrictions(r.Operator),
 		)
@@ -1217,7 +1217,7 @@ func TestInterestCalculation(t *testing.T) {
 		for i, rate := range rates {
 			rateDuration := rate.endTime
 			if i > 0 {
-				rates[i].startTime = new(big.Int).Add(r.Evm.Context.Time, window)
+				rates[i].startTime = new(big.Int).Add(new(big.Int).SetUint64(r.Evm.Context.Time), window)
 				rates[i-1].endTime = rates[i].startTime
 				r.NoError(
 					r.Stabilization.UpdateBorrowInterestRate(
@@ -1230,10 +1230,10 @@ func TestInterestCalculation(t *testing.T) {
 			}
 
 			progressTime(r, rateDuration.Int64())
-			rates[i].endTime = r.Evm.Context.Time
+			rates[i].endTime = new(big.Int).SetUint64(r.Evm.Context.Time)
 			debt = calculateDebt(r, debt, debtUpdateTime, rates[:i+1])
 
-			debtUpdateTime = r.Evm.Context.Time
+			debtUpdateTime = new(big.Int).SetUint64(r.Evm.Context.Time)
 			borrow(r, user, borrowAmount)
 			debt = new(big.Int).Add(debt, borrowAmount)
 			cdp := getCdp(r, user)
@@ -1241,7 +1241,7 @@ func TestInterestCalculation(t *testing.T) {
 			progressTime(r, rateDuration.Int64()-window.Int64())
 		}
 
-		rates[len(rates)-1].endTime = r.Evm.Context.Time
+		rates[len(rates)-1].endTime = new(big.Int).SetUint64(r.Evm.Context.Time)
 		require.Equal(
 			r.T,
 			calculateDebt(r, debt, debtUpdateTime, rates),
@@ -1250,7 +1250,7 @@ func TestInterestCalculation(t *testing.T) {
 	})
 
 	tests.RunWithSetup("deposit followed by borrow", setup, func(r *tests.Runner) {
-		rateActive := r.Evm.Context.Time
+		rateActive := new(big.Int).SetUint64(r.Evm.Context.Time)
 		r.NoError(
 			r.Stabilization.RemoveCDPRestrictions(r.Operator),
 		)
@@ -1261,7 +1261,7 @@ func TestInterestCalculation(t *testing.T) {
 			{
 				rate:      currentRate,
 				startTime: rateActive,
-				endTime:   r.Evm.Context.Time,
+				endTime:   new(big.Int).SetUint64(r.Evm.Context.Time),
 			},
 		})
 		require.Equal(r.T, debt, getDebt(r, user))
@@ -1319,7 +1319,7 @@ func TestUpdateBorrowInterestRate(t *testing.T) {
 		window := getAnnouncementWindow(r)
 		realTime := new(big.Int).Add(
 			window,
-			r.Evm.Context.Time,
+			new(big.Int).SetUint64(r.Evm.Context.Time),
 		)
 		currentRate := getCurrentRate(r)
 		newRate := common.Big2
@@ -1335,7 +1335,7 @@ func TestUpdateBorrowInterestRate(t *testing.T) {
 		require.NoError(r.T, err)
 		require.Equal(r.T, newRate, pendingRate)
 		require.Equal(r.T, realTime, activeSince)
-		progressTime(r, new(big.Int).Sub(realTime, r.Evm.Context.Time).Int64())
+		progressTime(r, new(big.Int).Sub(realTime, new(big.Int).SetUint64(r.Evm.Context.Time)).Int64())
 		require.Equal(r.T, newRate, getCurrentRate(r))
 	})
 
@@ -1353,12 +1353,12 @@ func TestUpdateBorrowInterestRate(t *testing.T) {
 
 		_, activeSince, _, err := r.Stabilization.GetPendingInterestRateInfo(nil)
 		require.NoError(r.T, err)
-		progressTime(r, new(big.Int).Sub(activeSince, r.Evm.Context.Time).Int64()-1)
+		progressTime(r, new(big.Int).Sub(activeSince, new(big.Int).SetUint64(r.Evm.Context.Time)).Int64()-1)
 		// not updated yet
 		require.Equal(r.T, currentRate, getCurrentRate(r))
 		newRate2 := common.Big1
 		require.NotEqual(r.T, newRate2, currentRate, "cannot test")
-		realTime := new(big.Int).Add(window, r.Evm.Context.Time)
+		realTime := new(big.Int).Add(window, new(big.Int).SetUint64(r.Evm.Context.Time))
 		r.NoError(
 			r.Stabilization.UpdateBorrowInterestRate(
 				r.Operator,
@@ -1396,7 +1396,7 @@ func TestUpdateAnnouncementWindow(t *testing.T) {
 	tests.RunWithSetup("pending window takes affect after current window", setup, func(r *tests.Runner) {
 		testWindowUpdate := func(newWindow *big.Int) {
 			currentWindow := getAnnouncementWindow(r)
-			realTime := new(big.Int).Add(r.Evm.Context.Time, currentWindow)
+			realTime := new(big.Int).Add(new(big.Int).SetUint64(r.Evm.Context.Time), currentWindow)
 			r.NoError(
 				r.Stabilization.UpdateAnnouncementWindow(
 					r.Operator,
@@ -1407,7 +1407,7 @@ func TestUpdateAnnouncementWindow(t *testing.T) {
 			require.NoError(r.T, err)
 			require.Equal(r.T, newWindow, pendingAnnouncementWindow)
 			require.Equal(r.T, realTime, activeSince)
-			progressTime(r, new(big.Int).Sub(realTime, r.Evm.Context.Time).Int64()-1)
+			progressTime(r, new(big.Int).Sub(realTime, new(big.Int).SetUint64(r.Evm.Context.Time)).Int64()-1)
 			require.Equal(r.T, currentWindow, getAnnouncementWindow(r))
 			progressTime(r, 1)
 			require.Equal(r.T, newWindow, getAnnouncementWindow(r))
@@ -1419,7 +1419,7 @@ func TestUpdateAnnouncementWindow(t *testing.T) {
 
 	tests.RunWithSetup("cannot update window while there is a pending one", setup, func(r *tests.Runner) {
 		currentWindow := getAnnouncementWindow(r)
-		activeSince := new(big.Int).Add(r.Evm.Context.Time, currentWindow)
+		activeSince := new(big.Int).Add(new(big.Int).SetUint64(r.Evm.Context.Time), currentWindow)
 		r.NoError(
 			r.Stabilization.UpdateAnnouncementWindow(
 				r.Operator,
@@ -1432,7 +1432,7 @@ func TestUpdateAnnouncementWindow(t *testing.T) {
 			currentWindow,
 		)
 		require.ErrorAs(r.T, err, &tests.StabilizationAnnouncementWindowPendingError{})
-		progressTime(r, new(big.Int).Sub(activeSince, r.Evm.Context.Time).Int64()-1)
+		progressTime(r, new(big.Int).Sub(activeSince, new(big.Int).SetUint64(r.Evm.Context.Time)).Int64()-1)
 		_, err = r.Stabilization.UpdateAnnouncementWindow(
 			r.Operator,
 			currentWindow,
@@ -1611,7 +1611,7 @@ func TestUpdatableConfigParams(t *testing.T) {
 		// wait some time
 		progressTime(r, 1000)
 		window := getAnnouncementWindow(r)
-		expectedTime := r.Evm.Context.Time.Int64() + window.Int64()
+		expectedTime := int64(r.Evm.Context.Time) + window.Int64()
 
 		r.NoError(
 			r.Stabilization.UpdateAnnouncementWindow(
@@ -1726,10 +1726,7 @@ func TestFixedGenesisPrices(t *testing.T) {
 
 func progressTime(r *tests.Runner, timeToAdd int64) {
 	require.True(r.T, timeToAdd >= 0)
-	r.Evm.Context.Time = new(big.Int).Add(
-		r.Evm.Context.Time,
-		big.NewInt(timeToAdd),
-	)
+	r.Evm.Context.Time += uint64(timeToAdd)
 }
 
 func getCdp(r *tests.Runner, user common.Address) tests.IStabilizationCDP {

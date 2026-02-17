@@ -30,10 +30,11 @@ import (
 	"math/big"
 	"os"
 
+	"golang.org/x/crypto/sha3"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/rlp"
-	"golang.org/x/crypto/sha3"
 )
 
 // SignatureLength indicates the byte length required to carry a signature with recovery id.
@@ -51,6 +52,15 @@ var (
 )
 
 var errInvalidPubkey = errors.New("invalid secp256k1 public key")
+
+// EllipticCurve contains curve operations.
+type EllipticCurve interface {
+	elliptic.Curve
+
+	// Point marshaling/unmarshaing.
+	Marshal(x, y *big.Int) []byte
+	Unmarshal(data []byte) (x, y *big.Int)
+}
 
 // KeccakState wraps sha3.state. In addition to the usual hash methods, it also supports
 // Read to get a variable amount of data from the hash state. Read is faster than Sum
@@ -282,7 +292,5 @@ func PubkeyToAddress(p ecdsa.PublicKey) common.Address {
 }
 
 func zeroBytes(bytes []byte) {
-	for i := range bytes {
-		bytes[i] = 0
-	}
+	clear(bytes)
 }

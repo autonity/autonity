@@ -3,8 +3,8 @@ package backend
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -30,11 +30,12 @@ import (
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
+	"github.com/autonity/autonity/triedb"
 )
 
 func TestSealCommitted(t *testing.T) {
 	chain, engine, _ := newBlockChain(1)
-	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+	block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 	require.NoError(t, err)
 	expectedBlock, err := engine.AddSeal(block)
 	require.NoError(t, err)
@@ -54,76 +55,76 @@ func TestVerifyHeader(t *testing.T) {
 		chain, engine, _ := newBlockChain(1)
 
 		// errEmptyQuorumCertificate case
-		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		require.NoError(t, err)
 		block, err = engine.AddSeal(block)
 		require.NoError(t, err)
-		err = engine.VerifyHeader(chain, block.Header(), false)
+		err = engine.VerifyHeader(chain, block.Header())
 		require.True(t, errors.Is(err, errEmptyQuorumCertificate))
 
 		// non zero MixDigest
-		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		require.NoError(t, err)
 		header := block.Header()
 		header.MixDigest = common.BytesToHash([]byte("123456789"))
-		err = engine.VerifyHeader(chain, header, false)
+		err = engine.VerifyHeader(chain, header)
 		require.True(t, errors.Is(err, errInvalidMixDigest))
 
 		// invalid uncles hash
-		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		require.NoError(t, err)
 		header = block.Header()
 		header.UncleHash = common.BytesToHash([]byte("123456789"))
-		err = engine.VerifyHeader(chain, header, false)
+		err = engine.VerifyHeader(chain, header)
 		require.True(t, errors.Is(err, errInvalidUncleHash))
 
 		// invalid difficulty
-		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		require.NoError(t, err)
 		header = block.Header()
 		header.Difficulty = big.NewInt(2)
-		err = engine.VerifyHeader(chain, header, false)
+		err = engine.VerifyHeader(chain, header)
 		require.True(t, errors.Is(err, errInvalidDifficulty))
 
 		// invalid timestamp
-		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		require.NoError(t, err)
 		header = block.Header()
 		header.Time = 0
-		err = engine.VerifyHeader(chain, header, false)
+		err = engine.VerifyHeader(chain, header)
 		require.True(t, errors.Is(err, errInvalidTimestamp))
 
 		// future block
-		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		require.NoError(t, err)
 		header = block.Header()
 		header.Time = new(big.Int).Add(big.NewInt(now().Unix()), new(big.Int).SetUint64(10)).Uint64()
-		err = engine.VerifyHeader(chain, header, false)
+		err = engine.VerifyHeader(chain, header)
 		require.True(t, errors.Is(err, consensus.ErrFutureTimestampBlock))
 
 		// invalid nonce
-		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		require.NoError(t, err)
 		header = block.Header()
 		copy(header.Nonce[:], hexutil.MustDecode("0x111111111111"))
-		err = engine.VerifyHeader(chain, header, false)
+		err = engine.VerifyHeader(chain, header)
 		require.True(t, errors.Is(err, errInvalidNonce))
 
 		// invalid base fee
-		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		require.NoError(t, err)
 		header = block.Header()
 		header.BaseFee = new(big.Int).SetUint64(2323452345342523)
-		err = engine.VerifyHeader(chain, header, false)
+		err = engine.VerifyHeader(chain, header)
 		require.Error(t, err)
 		t.Log(err.Error())
 
 		// invalid gas limit
-		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		require.NoError(t, err)
 		header = block.Header()
 		header.GasLimit = uint64(2323452345342523)
-		err = engine.VerifyHeader(chain, header, false)
+		err = engine.VerifyHeader(chain, header)
 		require.Error(t, err)
 		t.Log(err.Error())
 	})
@@ -132,23 +133,23 @@ func TestVerifyHeader(t *testing.T) {
 
 		committee := chain.Genesis().Header().Epoch.Committee
 		// proof should be empty at the first delta block of the epoch
-		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err := makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		require.NoError(t, err)
 		sealedBlock, err := engine.AddSeal(block)
 		require.NoError(t, err)
 		blockWithCertificate, _ := addQuorumCertificate(chain, engine, sealedBlock)
-		err = engine.VerifyHeader(chain, blockWithCertificate.Header(), false)
+		err = engine.VerifyHeader(chain, blockWithCertificate.Header())
 		require.NoError(t, err)
 
 		// not empty activity proof at first delta blocks of the epoch should be rejected
-		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+		block, err = makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		require.NoError(t, err)
 		header := block.Header()
 		header.ActivityProof = types.NewAggregateSignature(testSignature.(*blst.BlsSignature), types.NewSigners(committee))
 		modifiedBlock := types.NewBlockWithHeader(header)
 		sealedBlock, err = engine.AddSeal(modifiedBlock)
 		require.NoError(t, err)
-		err = engine.VerifyHeader(chain, sealedBlock.Header(), false)
+		err = engine.VerifyHeader(chain, sealedBlock.Header())
 		require.True(t, errors.Is(err, errNotEmptyActivityProof))
 
 		// now advance the chain of delta blocks
@@ -165,7 +166,7 @@ func TestVerifyHeader(t *testing.T) {
 		sealedBlock, err = engine.AddSeal(block)
 		require.NoError(t, err)
 		blockWithCertificate, _ = addQuorumCertificate(chain, engine, sealedBlock)
-		err = engine.VerifyHeader(chain, blockWithCertificate.Header(), false)
+		err = engine.VerifyHeader(chain, blockWithCertificate.Header())
 		require.NoError(t, err)
 
 		// not empty valid activity proof should be accepted as well
@@ -178,7 +179,7 @@ func TestVerifyHeader(t *testing.T) {
 		sealedBlock, err = engine.AddSeal(modifiedBlock)
 		require.NoError(t, err)
 		blockWithCertificate, _ = addQuorumCertificate(chain, engine, sealedBlock)
-		err = engine.VerifyHeader(chain, blockWithCertificate.Header(), false)
+		err = engine.VerifyHeader(chain, blockWithCertificate.Header())
 		require.NoError(t, err)
 
 		// invalid proof (signers information too big) should cause error
@@ -192,7 +193,7 @@ func TestVerifyHeader(t *testing.T) {
 		sealedBlock, err = engine.AddSeal(modifiedBlock)
 		require.NoError(t, err)
 		blockWithCertificate, _ = addQuorumCertificate(chain, engine, sealedBlock)
-		err = engine.VerifyHeader(chain, blockWithCertificate.Header(), false)
+		err = engine.VerifyHeader(chain, blockWithCertificate.Header())
 		require.True(t, errors.Is(err, errInvalidActivityProof))
 
 		// invalid proof (invalid sig) should cause error
@@ -205,7 +206,7 @@ func TestVerifyHeader(t *testing.T) {
 		sealedBlock, err = engine.AddSeal(modifiedBlock)
 		require.NoError(t, err)
 		blockWithCertificate, _ = addQuorumCertificate(chain, engine, sealedBlock)
-		err = engine.VerifyHeader(chain, blockWithCertificate.Header(), false)
+		err = engine.VerifyHeader(chain, blockWithCertificate.Header())
 		require.True(t, errors.Is(err, errInvalidActivityProof))
 
 	})
@@ -215,9 +216,8 @@ func TestVerifyHeader(t *testing.T) {
 
 		// lower voting power of validator[1]
 		genesis.Config.AutonityContractConfig.Validators[1].BondedStake = new(big.Int).SetUint64(1)
-
 		memDB := rawdb.NewMemoryDatabase()
-		genesis.MustCommit(memDB)
+		genesis.MustCommit(memDB, triedb.NewDatabase(memDB, nil))
 		afdDispatchCh := make(chan events.MessageEventer, 100)
 		engine := New(
 			memDB,
@@ -230,8 +230,7 @@ func TestVerifyHeader(t *testing.T) {
 			afdDispatchCh,
 			log.Root(),
 		)
-		log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-		chain, err := core.NewBlockChain(memDB, nil, genesis.Config, engine, vm.Config{}, nil, core.NewTxSenderCacher(), nil, backends.NewInternalBackend(nil), log.Root())
+		chain, err := core.NewBlockChain(memDB, nil, genesis, engine, vm.Config{}, nil, backends.NewInternalBackend(nil), log.Root())
 		require.NoError(t, err)
 		engine.SetBlockchain(chain)
 		err = engine.Start(context.Background())
@@ -263,7 +262,7 @@ func TestVerifyHeader(t *testing.T) {
 		sealedBlock, err := engine.AddSeal(modifiedBlock)
 		require.NoError(t, err)
 		blockWithCertificate, _ := addQuorumCertificate(chain, engine, sealedBlock)
-		err = engine.VerifyHeader(chain, blockWithCertificate.Header(), false)
+		err = engine.VerifyHeader(chain, blockWithCertificate.Header())
 		require.True(t, errors.Is(err, errInvalidActivityProof))
 	})
 
@@ -295,10 +294,10 @@ func addQuorumCertificate(chain *core.BlockChain, engine *Backend, b *types.Bloc
 // It returns the block with the quorum certificate
 func insertBlock(t *testing.T, chain *core.BlockChain, engine *Backend, b *types.Block) *types.Block {
 	blockWithCertificate, precommit := addQuorumCertificate(chain, engine, b)
-	time.Sleep(1 * time.Second) // wait a couple seconds so that the block has not future timestamp anymore and the block import is done
-	_, err := chain.InsertChain(types.Blocks{blockWithCertificate})
+	n, err := chain.InsertChain(types.Blocks{blockWithCertificate})
 	require.NoError(t, err)
-
+	require.Equal(t, 1, n, "expected 1 block to be inserted")
+	require.NotNil(t, chain.GetHeaderByNumber(blockWithCertificate.NumberU64()), "block %d not found in chain after insert", blockWithCertificate.NumberU64())
 	engine.MsgStore.Save(precommit)
 	return blockWithCertificate
 }
@@ -306,6 +305,13 @@ func insertBlock(t *testing.T, chain *core.BlockChain, engine *Backend, b *types
 // The logic of this needs to change with respect of Autonity contact
 func TestVerifyHeaders(t *testing.T) {
 	chain, engine, _ := newBlockChain(1)
+
+	timeCounter := 1
+	now = func() time.Time {
+		// engine.prepare is using now() is used to generate the block time
+		return time.Unix(int64(timeCounter), 0)
+	}
+	defer func() { now = time.Now }() // if not reassigned, it will influence future tests
 
 	// success case
 	var headers []*types.Header
@@ -315,11 +321,12 @@ func TestVerifyHeaders(t *testing.T) {
 
 	var err error
 	for i := 0; i < size; i++ {
+		fmt.Printf("generating block %d\n", i)
 		var b *types.Block
 		if i == 0 {
-			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		} else {
-			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
+			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1].Header())
 		}
 		require.NoError(t, err)
 
@@ -330,6 +337,7 @@ func TestVerifyHeaders(t *testing.T) {
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
+		timeCounter += 1
 	}
 
 	// reset the chain to simulate receiving new headers
@@ -341,7 +349,7 @@ func TestVerifyHeaders(t *testing.T) {
 	}
 	defer func() { now = time.Now }() // if not reassigned, it will influence future tests
 
-	_, results := engine.VerifyHeaders(chain, headers, nil)
+	_, results := engine.VerifyHeaders(chain, headers)
 
 	const timeoutDura = 2 * time.Second
 	timeout := time.NewTimer(timeoutDura)
@@ -367,6 +375,13 @@ OUT1:
 func TestVerifyHeadersAbortValidation(t *testing.T) {
 	chain, engine, _ := newBlockChain(1)
 
+	timeCounter := 1
+	now = func() time.Time {
+		// engine.prepare is using now() is used to generate the block time
+		return time.Unix(int64(timeCounter), 0)
+	}
+	defer func() { now = time.Now }() // if not reassigned, it will influence future tests
+
 	// success case
 	var headers []*types.Header
 	var blocks []*types.Block
@@ -376,9 +391,9 @@ func TestVerifyHeadersAbortValidation(t *testing.T) {
 	for i := 0; i < size; i++ {
 		var b *types.Block
 		if i == 0 {
-			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		} else {
-			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
+			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1].Header())
 		}
 		require.NoError(t, err)
 
@@ -389,21 +404,17 @@ func TestVerifyHeadersAbortValidation(t *testing.T) {
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
+		timeCounter += 1
 	}
 
 	// reset the chain to simulate receiving new headers
 	err = chain.Reset()
 	require.NoError(t, err)
 
-	now = func() time.Time {
-		return time.Unix(int64(headers[size-1].Time), 0)
-	}
-	defer func() { now = time.Now }() // if not reassigned, it will influence future tests
-
 	const timeoutDura = 2 * time.Second
 
 	// abort cases
-	abort, results := engine.VerifyHeaders(chain, headers, nil)
+	abort, results := engine.VerifyHeaders(chain, headers)
 	timeout := time.NewTimer(timeoutDura)
 	index := 0
 OUT2:
@@ -432,6 +443,13 @@ OUT2:
 func TestVerifyErrorHeaders(t *testing.T) {
 	chain, engine, _ := newBlockChain(1)
 
+	timeCounter := 1
+	now = func() time.Time {
+		// engine.prepare is using now() is used to generate the block time
+		return time.Unix(int64(timeCounter), 0)
+	}
+	defer func() { now = time.Now }() // if not reassigned, it will influence future tests
+
 	epochPeriodBig, errFetch := chain.EpochPeriodByHeight(0)
 	require.NoError(t, errFetch)
 	epochPeriod := epochPeriodBig.Uint64()
@@ -448,9 +466,9 @@ func TestVerifyErrorHeaders(t *testing.T) {
 	for i := 0; i < size; i++ {
 		var b *types.Block
 		if i == 0 {
-			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis())
+			b, err = makeBlockWithoutSeal(chain, engine, chain.Genesis().Header())
 		} else {
-			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1])
+			b, err = makeBlockWithoutSeal(chain, engine, blocks[i-1].Header())
 		}
 		require.NoError(t, err)
 
@@ -461,17 +479,12 @@ func TestVerifyErrorHeaders(t *testing.T) {
 
 		blocks = append(blocks, b)
 		headers = append(headers, blocks[i].Header())
-		t.Logf("generated block %d", i)
+		timeCounter += 1
 	}
 
 	// reset the chain to simulate receiving new headers
 	err = chain.Reset()
 	require.NoError(t, err)
-
-	now = func() time.Time {
-		return time.Unix(int64(headers[size-1].Time), 0)
-	}
-	defer func() { now = time.Now }() // if not reassigned, it will influence future tests
 
 	const timeoutDura = 2 * time.Second
 
@@ -479,7 +492,7 @@ func TestVerifyErrorHeaders(t *testing.T) {
 	headers[2].Number = big.NewInt(100)
 	require.True(t, headers[epochPeriod-1].IsEpochHeader())
 	headers[epochPeriod-1].Epoch.NextEpochBlock = new(big.Int).SetUint64(epochPeriod + 10) // mess up the epoch boundary
-	_, results := engine.VerifyHeaders(chain, headers, nil)
+	_, results := engine.VerifyHeaders(chain, headers)
 	timeout := time.NewTimer(timeoutDura)
 	index := 0
 	errorCount := 0

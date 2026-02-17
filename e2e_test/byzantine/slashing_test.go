@@ -7,19 +7,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/autonity/bindings"
-
-	"github.com/stretchr/testify/require"
-
 	"github.com/autonity/autonity/accounts/abi/bind"
+	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/consensus/tendermint/core/interfaces"
 	core2 "github.com/autonity/autonity/core"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/ethclient"
 	"github.com/autonity/autonity/params"
+	"github.com/stretchr/testify/require"
 )
 
 // *** e2e tests to write ***:
@@ -47,7 +46,7 @@ const SlashingRatePrecision = 10_000 // needs to match precision in Slasher.sol
 
 func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPeriod, stake, selfBondedStake uint64, faultyNodes []int, offendersCount, faultsCount uint64, epochs int) (uint64, []bindings.IAutonityValidator, []bindings.IAutonityValidator) {
 
-	validators, err := e2e.Validators(t, nodesCount, fmt.Sprintf("10e36,v,%d,0.0.0.0:%%s,%%s,%%s,%%s", selfBondedStake))
+	validators, err := e2e.Validators(t, nodesCount, fmt.Sprintf("10e36,v,%d,127.0.0.1:%%s,%%s,%%s,%%s", selfBondedStake))
 	require.NoError(t, err)
 
 	// set Malicious validators
@@ -86,7 +85,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 			key, _ := crypto.GenerateKey()
 			address := crypto.PubkeyToAddress(key.PublicKey)
 
-			genesis.Alloc[address] = core2.GenesisAccount{
+			genesis.Alloc[address] = types.Account{
 				NewtonBalance: big.NewInt(int64(stake)),
 				Balance:       new(big.Int),
 				Bonds: map[common.Address]*big.Int{
@@ -115,13 +114,17 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 	// the more faulty nodes --> the lower the block mining rate
 	faultyFactor := 1 + (float32(len(faultyNodes)) / float32(nodesCount))
 
+	// With `-race` (as in CI), block production can be materially slower than
+	// 1 block/sec. Keep timeouts generous so these tests don't flake under load.
+	const blockTimeSlackFactor = float32(2.0)
+
 	// consensus engine now takes ~10 second to start, since it waits for block sync success
 	// adding 5 seconds in time out, sometimes slashing event comes after the timeout
 	consensusEngineOffset := float32(10) + float32(5)
 
 	// run extra epochs
 	for i := 1; i < epochs; i++ {
-		timeout, cancel := context.WithTimeout(ctx, time.Duration((float32(epochPeriod)*faultyFactor)+consensusEngineOffset)*time.Second)
+		timeout, cancel := context.WithTimeout(ctx, time.Duration((float32(epochPeriod)*faultyFactor*blockTimeSlackFactor)+consensusEngineOffset)*time.Second)
 		defer cancel()
 		slashingEvents := WaitForSlashingEvents(timeout, t, len(faultyNodes), dedicatedNode)
 
@@ -137,7 +140,7 @@ func runSlashingTest(ctx context.Context, t *testing.T, nodesCount int, epochPer
 		validatorsBefore[i] = validatorBefore
 	}
 
-	timeout, cancel := context.WithTimeout(ctx, time.Duration((float32(epochPeriod)*faultyFactor)+consensusEngineOffset)*time.Second)
+	timeout, cancel := context.WithTimeout(ctx, time.Duration((float32(epochPeriod)*faultyFactor*blockTimeSlackFactor)+consensusEngineOffset)*time.Second)
 	defer cancel()
 	slashingEvents := WaitForSlashingEvents(timeout, t, len(faultyNodes), dedicatedNode)
 
@@ -221,7 +224,7 @@ func TestHistoryFactor(t *testing.T) {
 	// 3. We now need to wait for a next epoch
 	// 4. Since the node continue to produce invalid proposal, we can expect second slashing soon
 
-	validators, err := e2e.Validators(t, 4, "10e36,v,100,0.0.0.0:%s,%s,%s,%s")
+	validators, err := e2e.Validators(t, 4, "10e36,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	// set Malicious validators

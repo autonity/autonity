@@ -43,7 +43,7 @@ var (
 )
 
 func recordMessageProcessingTime(code uint8, start time.Time) {
-	if !metrics.Enabled {
+	if !metrics.Enabled() {
 		return
 	}
 	switch code {
@@ -381,7 +381,7 @@ func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEve
 	if len(batch) == 0 {
 		return
 	}
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		BatchesBg.Add(int64(len(batch)))
 	}
 	candidates := make([]events.UnverifiedMessageEvent, 0, len(batch))
@@ -428,7 +428,7 @@ func (a *aggregator) processAndValidateBatch(batch []events.UnverifiedMessageEve
 	// at least one of the signatures is invalid, find at which index
 	reInjectFiltered = true
 	invalids := blst.FindInvalid(signatures, publicKeys, hash)
-	if metrics.Enabled {
+	if metrics.Enabled() {
 		InvalidBg.Add(int64(len(invalids)))
 	}
 	invalidSet := make(map[int]struct{}, len(invalids))
@@ -631,43 +631,45 @@ func (a *aggregator) handleEvent(event events.UnverifiedMessageEvent) {
 }
 
 func (a *aggregator) oldHeightStats() {
-	a.logger.Debug("Stale message statistics", "stats", log.Lazy{Fn: func() interface{} {
-		stats := make(map[uint64]map[int64][3]int)
-		for _, batch := range a.staleMessages {
-			for _, event := range batch {
-				height := event.Message.H()
-				round := event.Message.R()
-				code := event.Message.Code()
+	if !a.logger.Enabled(context.Background(), log.LevelDebug) {
+		return
+	}
 
-				if stats[height] == nil {
-					stats[height] = make(map[int64][3]int)
-				}
+	stats := make(map[uint64]map[int64][3]int)
+	for _, batch := range a.staleMessages {
+		for _, event := range batch {
+			height := event.Message.H()
+			round := event.Message.R()
+			code := event.Message.Code()
 
-				counts := stats[height][round]
-				counts[code]++
-				stats[height][round] = counts
+			if stats[height] == nil {
+				stats[height] = make(map[int64][3]int)
 			}
+
+			counts := stats[height][round]
+			counts[code]++
+			stats[height][round] = counts
 		}
+	}
 
-		sb := strings.Builder{}
-		sb.Grow(len(stats) * 100)
+	sb := strings.Builder{}
+	sb.Grow(len(stats) * 100)
 
-		sb.WriteString("Stale message Statistics by Height and Round\n")
-		for height, rounds := range stats {
-			for round, counts := range rounds {
-				fmt.Fprintf(&sb, "H: %d R: %d | ", height, round)
-				if counts[message.PrevoteCode] > 0 {
-					fmt.Fprintf(&sb, "prevotes: %d ", counts[message.PrevoteCode])
-				}
-				if counts[message.PrecommitCode] > 0 {
-					fmt.Fprintf(&sb, "precommits: %d ", counts[message.PrecommitCode])
-				}
-				sb.WriteByte('\n')
+	sb.WriteString("Stale message Statistics by Height and Round\n")
+	for height, rounds := range stats {
+		for round, counts := range rounds {
+			fmt.Fprintf(&sb, "H: %d R: %d | ", height, round)
+			if counts[message.PrevoteCode] > 0 {
+				fmt.Fprintf(&sb, "prevotes: %d ", counts[message.PrevoteCode])
 			}
-			sb.WriteString("-------------------------------------")
+			if counts[message.PrecommitCode] > 0 {
+				fmt.Fprintf(&sb, "precommits: %d ", counts[message.PrecommitCode])
+			}
+			sb.WriteByte('\n')
 		}
-		return sb.String()
-	}})
+		sb.WriteString("-------------------------------------")
+	}
+	a.logger.Debug("Stale message statistics", "stats", sb.String())
 }
 
 func (a *aggregator) loop(ctx context.Context) {
@@ -692,7 +694,7 @@ loop:
 			if !ok {
 				break loop
 			}
-			if metrics.Enabled {
+			if metrics.Enabled() {
 				BackendAggregatorTransitBg.Add(time.Since(event.Posted).Nanoseconds())
 			}
 			a.handleEvent(event)

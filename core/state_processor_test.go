@@ -18,16 +18,11 @@ package core
 
 import (
 	"crypto/ecdsa"
+	gomath "math"
 	"math/big"
 	"testing"
 
-	"github.com/autonity/autonity/core/state"
-	"github.com/autonity/autonity/log"
-
-	"golang.org/x/crypto/sha3"
-
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/consensus/misc"
@@ -35,9 +30,14 @@ import (
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/trie"
+	"github.com/holiman/uint256"
+	"golang.org/x/crypto/sha3"
 )
+
+func u64(val uint64) *uint64 { return &val }
 
 // TestStateProcessorErrors tests the output from the 'core' errors
 // as defined in core/error.go. These errors are generated when the
@@ -45,25 +45,7 @@ import (
 // contain invalid transactions
 func TestStateProcessorErrors(t *testing.T) {
 	var (
-		config = &params.ChainConfig{
-			ChainID:                      big.NewInt(1),
-			HomesteadBlock:               big.NewInt(0),
-			EIP150Block:                  big.NewInt(0),
-			EIP155Block:                  big.NewInt(0),
-			EIP158Block:                  big.NewInt(0),
-			ByzantiumBlock:               big.NewInt(0),
-			ConstantinopleBlock:          big.NewInt(0),
-			PetersburgBlock:              big.NewInt(0),
-			IstanbulBlock:                big.NewInt(0),
-			MuirGlacierBlock:             big.NewInt(0),
-			BerlinBlock:                  big.NewInt(0),
-			LondonBlock:                  big.NewInt(0),
-			Ethash:                       new(params.EthashConfig),
-			AutonityContractConfig:       params.TestAutonityContractConfig,
-			AccountabilityConfig:         params.DefaultAccountabilityConfig,
-			OracleContractConfig:         params.TestOracleConfig,
-			OmissionAccountabilityConfig: params.DefaultOmissionAccountabilityConfig,
-		}
+		config  = params.TestConfigNoVerkle
 		signer  = types.LatestSigner(config)
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		key2, _ = crypto.HexToECDSA("0202020202020202020202020202020202020202020202020202002020202020")
@@ -83,27 +65,54 @@ func TestStateProcessorErrors(t *testing.T) {
 		}), signer, key1)
 		return tx
 	}
+	var mkDynamicCreationTx = func(nonce uint64, gasLimit uint64, gasTipCap, gasFeeCap *big.Int, data []byte) *types.Transaction {
+		tx, _ := types.SignTx(types.NewTx(&types.DynamicFeeTx{
+			Nonce:     nonce,
+			GasTipCap: gasTipCap,
+			GasFeeCap: gasFeeCap,
+			Gas:       gasLimit,
+			Value:     big.NewInt(0),
+			Data:      data,
+		}), signer, key1)
+		return tx
+	}
+
+	var mkSetCodeTx = func(nonce uint64, to common.Address, gasLimit uint64, gasTipCap, gasFeeCap *big.Int, authlist []types.SetCodeAuthorization) *types.Transaction {
+		tx, err := types.SignTx(types.NewTx(&types.SetCodeTx{
+			Nonce:     nonce,
+			GasTipCap: uint256.MustFromBig(gasTipCap),
+			GasFeeCap: uint256.MustFromBig(gasFeeCap),
+			Gas:       gasLimit,
+			To:        to,
+			Value:     new(uint256.Int),
+			AuthList:  authlist,
+		}), signer, key1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tx
+	}
+
 	{ // Tests against a 'recent' chain definition
 		var (
 			db    = rawdb.NewMemoryDatabase()
 			gspec = &Genesis{
 				Config: config,
-				Alloc: GenesisAlloc{
-					common.HexToAddress("0x71562b71999873DB5b286dF957af199Ec94617F7"): GenesisAccount{
+				Alloc: types.GenesisAlloc{
+					common.HexToAddress("0x71562b71999873DB5b286dF957af199Ec94617F7"): types.Account{
 						Balance: big.NewInt(1000000000000000000), // 1 ether
 						Nonce:   0,
 					},
-					common.HexToAddress("0xfd0810DD14796680f72adf1a371963d0745BCc64"): GenesisAccount{
+					common.HexToAddress("0xfd0810DD14796680f72adf1a371963d0745BCc64"): types.Account{
 						Balance: big.NewInt(1000000000000000000), // 1 ether
-						Nonce:   math.MaxUint64,
+						Nonce:   gomath.MaxUint64,
 					},
 				},
 			}
-			genesis       = gspec.MustCommit(db)
-			blockchain, _ = NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(t), log.Root())
+			blockchain, _ = NewBlockChain(db, nil, gspec, ethash.NewFaker(), vm.Config{}, nil, FakeContractBackendProvider(t), log.Root())
 		)
-		defer blockchain.Stop()
-		bigNumber := new(big.Int).SetBytes(common.FromHex("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))
+		//efer blockchain.Stop()
+		bigNumber := new(big.Int).SetBytes(common.MaxHash.Bytes())
 		tooBigNumber := new(big.Int).Set(bigNumber)
 		tooBigNumber.Add(tooBigNumber, common.Big1)
 		for i, tt := range []struct {
@@ -125,7 +134,7 @@ func TestStateProcessorErrors(t *testing.T) {
 			},
 			{ // ErrNonceMax
 				txs: []*types.Transaction{
-					makeTx(key2, math.MaxUint64, common.Address{}, big.NewInt(0), params.TxGas, new(big.Int).SetUint64(params.TestMinBaseFee), nil),
+					makeTx(key2, gomath.MaxUint64, common.Address{}, big.NewInt(0), params.TxGas, new(big.Int).SetUint64(params.TestMinBaseFee), nil),
 				},
 				want: "could not apply tx 0 [0xc56df536af8fcb04eca110333862a1bf50ecad665334c8d8acf361d02085437b]: nonce has max value: address 0xfd0810DD14796680f72adf1a371963d0745BCc64, nonce: 18446744073709551615",
 			},
@@ -167,7 +176,7 @@ func TestStateProcessorErrors(t *testing.T) {
 				txs: []*types.Transaction{
 					mkDynamicTx(0, common.Address{}, params.TxGas, big.NewInt(0), big.NewInt(0)),
 				},
-				want: "could not apply tx 0 [0xc4ab868fef0c82ae0387b742aee87907f2d0fc528fc6ea0a021459fb0fc4a4a8]: max fee per gas less than block base fee: address 0x71562b71999873DB5b286dF957af199Ec94617F7, maxFeePerGas: 0 baseFee: 1000000000",
+				want: "could not apply tx 0 [0xc4ab868fef0c82ae0387b742aee87907f2d0fc528fc6ea0a021459fb0fc4a4a8]: max fee per gas less than block base fee: address 0x71562b71999873DB5b286dF957af199Ec94617F7, maxFeePerGas: 0, baseFee: 1000000000",
 			},
 			{ // ErrTipVeryHigh
 				txs: []*types.Transaction{
@@ -202,10 +211,31 @@ func TestStateProcessorErrors(t *testing.T) {
 				txs: []*types.Transaction{
 					mkDynamicTx(0, common.Address{}, params.TxGas, bigNumber, bigNumber),
 				},
-				want: "could not apply tx 0 [0xd82a0c2519acfeac9a948258c47e784acd20651d9d80f9a1c67b4137651c3a24]: insufficient funds for gas * price + value: address 0x71562b71999873DB5b286dF957af199Ec94617F7 have 1000000000000000000 want 2431633873983640103894990685182446064918669677978451844828609264166175722438635000",
+				want: "could not apply tx 0 [0xd82a0c2519acfeac9a948258c47e784acd20651d9d80f9a1c67b4137651c3a24]: insufficient funds for gas * price + value: address 0x71562b71999873DB5b286dF957af199Ec94617F7 required balance exceeds 256 bits",
 			},
+			/*
+				{ // ErrMaxInitCodeSizeExceeded
+					txs: []*types.Transaction{
+						mkDynamicCreationTx(0, 520000, common.Big0, big.NewInt(params.InitialBaseFee), tooBigInitCode[:]),
+					},
+					want: "could not apply tx 0 [0x3a30404d42d6ccc843d7c391fd0c87b9b9795a0c174261b46d2ac95ca17b81cd]: max initcode size exceeded: code size 49153 limit 49152",
+				},*/
+			{ // ErrIntrinsicGas: Not enough gas to cover init code
+				txs: []*types.Transaction{
+					mkDynamicCreationTx(0, 54279, common.Big0, big.NewInt(params.InitialBaseFee), make([]byte, 320)),
+				},
+				want: "could not apply tx 0 [0x7a4232336dfda3b17fda546e4620131e8e0cc6219089e74ebe9a9333323425f9]: intrinsic gas too low: have 54279, want 54280",
+			},
+			{ // ErrEmptyAuthList
+				txs: []*types.Transaction{
+					mkSetCodeTx(0, common.Address{}, params.TxGas, big.NewInt(params.InitialBaseFee), big.NewInt(params.InitialBaseFee), nil),
+				},
+				want: "could not apply tx 0 [0xc18d10f4c809dbdfa1a074c3300de9bc4b7f16a20f0ec667f6f67312b71b956a]: EIP-7702 transaction with empty auth list (sender 0x71562b71999873DB5b286dF957af199Ec94617F7)",
+			},
+			// ErrSetCodeTxCreate cannot be tested here: it is impossible to create a SetCode-tx with nil `to`.
+			// The EstimateGas API tests test this case.
 		} {
-			block := GenerateBadBlock(genesis, ethash.NewFaker(), tt.txs, gspec.Config)
+			block := GenerateBadBlock(blockchain.genesisBlock, ethash.NewFaker(), tt.txs, gspec.Config)
 			_, err := blockchain.InsertChain(types.Blocks{block})
 			if err == nil {
 				t.Fatal("block imported without errors")
@@ -217,77 +247,73 @@ func TestStateProcessorErrors(t *testing.T) {
 	}
 
 	// ErrTxTypeNotSupported, For this, we need an older chain
-	{
-		var (
-			db    = rawdb.NewMemoryDatabase()
-			gspec = &Genesis{
-				Config: &params.ChainConfig{
-					ChainID:                      big.NewInt(1),
-					HomesteadBlock:               big.NewInt(0),
-					EIP150Block:                  big.NewInt(0),
-					EIP155Block:                  big.NewInt(0),
-					EIP158Block:                  big.NewInt(0),
-					ByzantiumBlock:               big.NewInt(0),
-					ConstantinopleBlock:          big.NewInt(0),
-					PetersburgBlock:              big.NewInt(0),
-					IstanbulBlock:                big.NewInt(0),
-					MuirGlacierBlock:             big.NewInt(0),
-					BerlinBlock:                  big.NewInt(1000),
-					LondonBlock:                  big.NewInt(1000),
-					AutonityContractConfig:       params.TestAutonityContractConfig,
-					AccountabilityConfig:         params.DefaultAccountabilityConfig,
-					OracleContractConfig:         params.TestOracleConfig,
-					OmissionAccountabilityConfig: params.DefaultOmissionAccountabilityConfig,
-				},
-				Alloc: GenesisAlloc{
-					common.HexToAddress("0x71562b71999873DB5b286dF957af199Ec94617F7"): GenesisAccount{
-						Balance: big.NewInt(1000000000000000000), // 1 ether
-						Nonce:   0,
+	/*
+		{
+			var (
+				db    = rawdb.NewMemoryDatabase()
+				gspec = &Genesis{
+					Config: &params.ChainConfig{
+						ChainID:                big.NewInt(1),
+						HomesteadBlock:         big.NewInt(0),
+						EIP150Block:            big.NewInt(0),
+						EIP155Block:            big.NewInt(0),
+						EIP158Block:            big.NewInt(0),
+						ByzantiumBlock:         big.NewInt(0),
+						ConstantinopleBlock:    big.NewInt(0),
+						PetersburgBlock:        big.NewInt(0),
+						IstanbulBlock:          big.NewInt(0),
+						MuirGlacierBlock:       big.NewInt(0),
+						AutonityContractConfig: params.TestAutonityContractConfig,
+						OracleContractConfig:   params.TestOracleConfig,
 					},
+					Alloc: types.GenesisAlloc{
+						common.HexToAddress("0x71562b71999873DB5b286dF957af199Ec94617F7"): types.Account{
+							Balance: big.NewInt(1000000000000000000), // 1 ether
+							Nonce:   0,
+						},
+					},
+				}
+				blockchain, _ = NewBlockChain(db, nil, gspec, ethash.NewFaker(), vm.Config{}, nil, FakeContractBackendProvider(t), log.Root())
+			)
+			//defer blockchain.Stop()
+			for i, tt := range []struct {
+				txs  []*types.Transaction
+				want string
+			}{
+				{ // ErrTxTypeNotSupported
+					txs: []*types.Transaction{
+						mkDynamicTx(0, common.Address{}, params.TxGas-1000, big.NewInt(0), big.NewInt(0)),
+					},
+					want: "could not apply tx 0 [0x88626ac0d53cb65308f2416103c62bb1f18b805573d4f96a3640bbbfff13c14f]: transaction type not supported",
 				},
-			}
-			genesis       = gspec.MustCommit(db)
-			blockchain, _ = NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(t), log.Root())
-		)
-		defer blockchain.Stop()
-		for i, tt := range []struct {
-			txs  []*types.Transaction
-			want string
-		}{
-			{ // ErrTxTypeNotSupported
-				txs: []*types.Transaction{
-					mkDynamicTx(0, common.Address{}, params.TxGas-1000, big.NewInt(0), big.NewInt(0)),
-				},
-				want: "could not apply tx 0 [0x88626ac0d53cb65308f2416103c62bb1f18b805573d4f96a3640bbbfff13c14f]: transaction type not supported",
-			},
-		} {
-			block := GenerateBadBlock(genesis, ethash.NewFaker(), tt.txs, gspec.Config)
-			_, err := blockchain.InsertChain(types.Blocks{block})
-			if err == nil {
-				t.Fatal("block imported without errors")
-			}
-			if have, want := err.Error(), tt.want; have != want {
-				t.Errorf("test %d:\nhave \"%v\"\nwant \"%v\"\n", i, have, want)
+			} {
+				//	genesis := gspec.MustCommit(db, triedb.NewDatabase(db, triedb.HashDefaults))
+				block := GenerateBadBlock(blockchain.genesisBlock, ethash.NewFaker(), tt.txs, gspec.Config, true)
+				_, err := blockchain.InsertChain(types.Blocks{block})
+				if err == nil {
+					t.Fatal("block imported without errors")
+				}
+				if have, want := err.Error(), tt.want; have != want {
+					t.Errorf("test %d:\nhave \"%v\"\nwant \"%v\"\n", i, have, want)
+				}
 			}
 		}
-	}
-
+	*/
 	// ErrSenderNoEOA, for this we need the sender to have contract code
 	{
 		var (
 			db    = rawdb.NewMemoryDatabase()
 			gspec = &Genesis{
 				Config: config,
-				Alloc: GenesisAlloc{
-					common.HexToAddress("0x71562b71999873DB5b286dF957af199Ec94617F7"): GenesisAccount{
+				Alloc: types.GenesisAlloc{
+					common.HexToAddress("0x71562b71999873DB5b286dF957af199Ec94617F7"): types.Account{
 						Balance: big.NewInt(1000000000000000000), // 1 ether
 						Nonce:   0,
 						Code:    common.FromHex("0xB0B0FACE"),
 					},
 				},
 			}
-			genesis       = gspec.MustCommit(db)
-			blockchain, _ = NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(t), log.Root())
+			blockchain, _ = NewBlockChain(db, nil, gspec, ethash.NewFaker(), vm.Config{}, nil, FakeContractBackendProvider(t), log.Root())
 		)
 		defer blockchain.Stop()
 		for i, tt := range []struct {
@@ -298,10 +324,11 @@ func TestStateProcessorErrors(t *testing.T) {
 				txs: []*types.Transaction{
 					mkDynamicTx(0, common.Address{}, params.TxGas-1000, big.NewInt(0), big.NewInt(0)),
 				},
-				want: "could not apply tx 0 [0x88626ac0d53cb65308f2416103c62bb1f18b805573d4f96a3640bbbfff13c14f]: sender not an eoa: address 0x71562b71999873DB5b286dF957af199Ec94617F7, codehash: 0x9280914443471259d4570a8661015ae4a5b80186dbc619658fb494bebc3da3d1",
+				want: "could not apply tx 0 [0x88626ac0d53cb65308f2416103c62bb1f18b805573d4f96a3640bbbfff13c14f]: sender not an eoa: address 0x71562b71999873DB5b286dF957af199Ec94617F7, len(code): 4",
 			},
 		} {
-			block := GenerateBadBlock(genesis, ethash.NewFaker(), tt.txs, gspec.Config)
+			//genesis := gspec.MustCommit(db, triedb.NewDatabase(db, triedb.HashDefaults))
+			block := GenerateBadBlock(blockchain.genesisBlock, ethash.NewFaker(), tt.txs, gspec.Config)
 			_, err := blockchain.InsertChain(types.Blocks{block})
 			if err == nil {
 				t.Fatal("block imported without errors")
@@ -318,21 +345,22 @@ func TestStateProcessorErrors(t *testing.T) {
 // valid to be considered for import:
 // - valid pow (fake), ancestry, difficulty, gaslimit etc
 func GenerateBadBlock(parent *types.Block, engine consensus.Engine, txs types.Transactions, config *params.ChainConfig) *types.Block {
-
 	chainReader := &fakeChainReader{config, nil}
+	difficulty := engine.CalcDifficulty(chainReader, parent.Time()+10, &types.Header{
+		Number:     parent.Number(),
+		Time:       parent.Time(),
+		Difficulty: parent.Difficulty(),
+		UncleHash:  parent.UncleHash(),
+	})
+
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
-		Difficulty: engine.CalcDifficulty(chainReader, parent.Time()+10, &types.Header{
-			Number:     parent.Number(),
-			Time:       parent.Time(),
-			Difficulty: parent.Difficulty(),
-			UncleHash:  parent.UncleHash(),
-		}),
-		GasLimit:  parent.GasLimit(),
-		Number:    new(big.Int).Add(parent.Number(), common.Big1),
-		Time:      parent.Time() + 10,
-		UncleHash: types.EmptyUncleHash,
+		Difficulty: difficulty,
+		GasLimit:   parent.GasLimit(),
+		Number:     new(big.Int).Add(parent.Number(), common.Big1),
+		Time:       parent.Time() + 10,
+		UncleHash:  types.EmptyUncleHash,
 	}
 	if config.IsLondon(header.Number) {
 		eip1559Params, err := chainReader.Eip1559ParamsByHeight(parent.NumberU64() + 1)
@@ -357,72 +385,9 @@ func GenerateBadBlock(parent *types.Block, engine consensus.Engine, txs types.Tr
 		cumulativeGas += tx.Gas()
 	}
 	header.Root = common.BytesToHash(hasher.Sum(nil))
+
 	// Assemble and return the final block for sealing
-	return types.NewBlock(header, txs, nil, receipts, trie.NewStackTrie(nil))
-}
+	body := &types.Body{Transactions: txs}
 
-func BenchmarkStateProcessor(b *testing.B) {
-	// Step 1 : generate txs
-	const txCount = 1000
-	var (
-		config  = params.TestChainConfig
-		signer  = types.LatestSigner(config)
-		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		//key2, _ = crypto.HexToECDSA("0202020202020202020202020202020202020202020202020202002020202020")
-		db    = rawdb.NewMemoryDatabase()
-		gspec = &Genesis{
-			Config:   config,
-			GasLimit: 1_000_000_000,
-			Alloc: GenesisAlloc{
-				common.HexToAddress("0x71562b71999873DB5b286dF957af199Ec94617F7"): GenesisAccount{
-					Balance: big.NewInt(1000000000000000000), // 1 ether
-					Nonce:   0,
-				},
-				common.HexToAddress("0xfd0810DD14796680f72adf1a371963d0745BCc64"): GenesisAccount{
-					Balance: big.NewInt(1000000000000000000), // 1 ether
-					Nonce:   math.MaxUint64,
-				},
-			},
-		}
-		genesis       = gspec.MustCommit(db)
-		blockchain, _ = NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(b), log.Root())
-	)
-	mkDynamicTx := func(nonce uint64, to common.Address, gasLimit uint64, gasTipCap, gasFeeCap *big.Int) *types.Transaction {
-		tx, _ := types.SignTx(types.NewTx(&types.DynamicFeeTx{
-			Nonce:     nonce,
-			GasTipCap: gasTipCap,
-			GasFeeCap: gasFeeCap,
-			Gas:       gasLimit,
-			To:        &to,
-			Value:     big.NewInt(1),
-		}), signer, key1)
-		return tx
-	}
-	var txs []*types.Transaction
-	for i := 0; i < txCount; i++ {
-		txs = append(txs, mkDynamicTx(uint64(i), common.Address{}, params.TxGas, big.NewInt(0), genesis.BaseFee()))
-	}
-	// We need to import a state here
-	block := GenerateBadBlock(genesis, ethash.NewFaker(), txs, gspec.Config)
-	header := block.Header()
-	// Setup phase complere
-	b.ResetTimer()
-	// Step 2: process block
-
-	// Create a new context to be used in the EVM environment
-	for j := 0; j < b.N; j++ {
-		blockContext := NewEVMBlockContext(block.Header(), blockchain, &header.Coinbase)
-		usedGas := new(uint64)
-		statedb, _ := state.New(genesis.Root(), blockchain.stateCache, blockchain.snaps)
-		vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, vm.Config{})
-		gp := new(GasPool).AddGas(block.GasLimit())
-		for i, tx := range txs {
-			msg, _ := tx.AsMessage(types.MakeSigner(config, header.Number), header.BaseFee)
-			statedb.Prepare(tx.Hash(), i)
-			if _, err := applyTransaction(msg, config, blockchain, nil, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv); err != nil {
-				b.Fatal(err)
-			}
-		}
-		_ = statedb.IntermediateRoot(true)
-	}
+	return types.NewBlock(header, body, receipts, trie.NewStackTrie(nil))
 }

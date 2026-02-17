@@ -62,7 +62,7 @@ func (bc *BlockChain) readContractsConfigByHeight(height uint64) (*types.Contrac
 func (bc *BlockChain) readContractsConfigAt(height uint64) (*types.ContractsConfig, error) {
 	// check the in-memory cache first
 	if config, isCached := bc.contractsConfigCache.Get(height); isCached {
-		return config.(*types.ContractsConfig), nil
+		return config, nil
 	}
 
 	config, _ := rawdb.ReadContractsConfig(bc.db, height)

@@ -29,13 +29,12 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/crypto"
-
-	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/internal/version"
 )
 
 const (
-	ipcAPIs  = "admin:1.0 aut:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 personal:1.0 rpc:1.0 tendermint:1.0 txpool:1.0 web3:1.0"
-	httpAPIs = "aut:1.0 eth:1.0 net:1.0 rpc:1.0 tendermint:1.0 web3:1.0"
+	ipcAPIs  = "admin:1.0 debug:1.0 eth:1.0 miner:1.0 net:1.0 rpc:1.0 tendermint:1.0 txpool:1.0 web3:1.0"
+	httpAPIs = "eth:1.0 net:1.0 rpc:1.0 tendermint:1.0 web3:1.0"
 )
 
 var genesis = `{
@@ -127,6 +126,9 @@ func tmpGenesisFile(t *testing.T, dir string) string {
 
 func tmpDataDirWithGenesisFile(t *testing.T) (dir string, genesisFile string) {
 	dir = tmpdir(t)
+	t.Cleanup(func() {
+		os.RemoveAll(dir)
+	})
 	genesisFile = tmpGenesisFile(t, dir)
 	return dir, genesisFile
 }
@@ -161,17 +163,15 @@ func TestConsoleWelcome(t *testing.T) {
 	autonity.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	autonity.SetTemplateFunc("coinbase", func() string { return coinbase })
 	autonity.SetTemplateFunc("gover", runtime.Version)
-	autonity.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
+	autonity.SetTemplateFunc("autonityver", func() string { return version.WithCommit("", "") })
 	autonity.SetTemplateFunc("niltime", func() string { return time.Unix(0, 0).Format("Mon Jan 02 2006 15:04:05 GMT-0700 (MST)") })
 	autonity.SetTemplateFunc("apis", func() string { return ipcAPIs })
 
 	// Verify the actual welcome message to the required template
 	autonity.Expect(`
-The embedded Autonity Console is no longer supported, use it at your own risk.
-Consider the Autonity Node.js Console as replacement.
+Welcome to the Autonity JavaScript console!
 
 instance: Autonity/v{{autonityver}}/{{goos}}-{{goarch}}/{{gover}}
-coinbase: {{coinbase}}
 at block: 0 ({{niltime}})
  datadir: {{.Datadir}}
  modules: {{apis}}
@@ -191,7 +191,7 @@ func TestDevMode(t *testing.T) {
 		"--dev", "--ipcpath", ipc)
 
 	// Wait for autonity.
-	waitForEndpoint(t, ipc, 3*time.Second)
+	waitForEndpoint(t, ipc, 6*time.Second)
 
 	autonity.ExpectExit()
 }
@@ -270,7 +270,7 @@ func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis stri
 	attach.SetTemplateFunc("goarch", func() string { return runtime.GOARCH })
 	attach.SetTemplateFunc("gover", runtime.Version)
 	attach.SetTemplateFunc("coinbase", func() string { return coinbase })
-	attach.SetTemplateFunc("autonityver", func() string { return params.VersionWithCommit("", "") })
+	attach.SetTemplateFunc("autonityver", func() string { return version.WithCommit("", "") })
 	attach.SetTemplateFunc("etherbase", func() string { return autonity.Etherbase })
 	attach.SetTemplateFunc("niltime", func() string {
 		return time.Unix(0, 0).Format("Mon Jan 02 2006 15:04:05 GMT-0700 (MST)")
@@ -281,11 +281,9 @@ func testAttachWelcome(t *testing.T, autonity *testautonity, endpoint, apis stri
 
 	// Verify the actual welcome message to the required template
 	attach.Expect(`
-The embedded Autonity Console is no longer supported, use it at your own risk.
-Consider the Autonity Node.js Console as replacement.
+Welcome to the Autonity JavaScript console!
 
 instance: Autonity/v{{autonityver}}/{{goos}}-{{goarch}}/{{gover}}
-coinbase: {{coinbase}}
 at block: 0 ({{niltime}}){{if ipc}}
  datadir: {{datadir}}{{end}}
  modules: {{apis}}

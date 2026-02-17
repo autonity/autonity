@@ -22,35 +22,36 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
-	"github.com/autonity/autonity/accounts/abi/bind/backends"
-	"github.com/autonity/autonity/log"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/txpool"
+	"github.com/autonity/autonity/core/txpool/legacypool"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
 	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/ethdb/memorydb"
 	"github.com/autonity/autonity/event"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/trie"
+	"github.com/autonity/autonity/triedb"
+	"github.com/stretchr/testify/require"
 )
 
 type mockBackend struct {
 	bc     *core.BlockChain
-	txPool *core.TxPool
+	txPool *txpool.TxPool
 }
 
 func (m *mockBackend) Logger() log.Logger {
 	return log.Root()
 }
 
-func NewMockBackend(bc *core.BlockChain, txPool *core.TxPool) *mockBackend {
+func NewMockBackend(bc *core.BlockChain, txPool *txpool.TxPool) *mockBackend {
 	return &mockBackend{
 		bc:     bc,
 		txPool: txPool,
@@ -60,11 +61,11 @@ func (m *mockBackend) BlockChain() *core.BlockChain {
 	return m.bc
 }
 
-func (m *mockBackend) StateAtBlock(block *types.Block, reexec uint64, base *state.StateDB, checkLive bool, preferDisk bool) (statedb *state.StateDB, err error) {
+func (m *mockBackend) StateAtBlock(block *types.Header, reexec uint64, base *state.StateDB, checkLive bool, preferDisk bool) (statedb *state.StateDB, err error) {
 	return m.bc.StateAt(block.Hash())
 }
 
-func (m *mockBackend) TxPool() *core.TxPool {
+func (m *mockBackend) TxPool() *txpool.TxPool {
 	return m.txPool
 }
 
@@ -72,6 +73,7 @@ type testBlockChain struct {
 	statedb       *state.StateDB
 	gasLimit      uint64
 	chainHeadFeed *event.Feed
+	config        *params.ChainConfig
 }
 
 func (bc *testBlockChain) Eip1559ParamsByHeight(_ uint64) (*types.Eip1559Params, error) {
@@ -84,17 +86,17 @@ func (bc *testBlockChain) Eip1559ParamsByHeight(_ uint64) (*types.Eip1559Params,
 }
 
 func (bc *testBlockChain) Config() *params.ChainConfig {
-	return nil
+	return bc.config
 }
 
-func (bc *testBlockChain) CurrentBlock() *types.Block {
-	return types.NewBlock(&types.Header{
+func (bc *testBlockChain) CurrentBlock() *types.Header {
+	return &types.Header{
 		GasLimit: bc.gasLimit,
-	}, nil, nil, nil, new(trie.Trie))
+	}
 }
 
 func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
-	return bc.CurrentBlock()
+	return types.NewBlock(bc.CurrentBlock(), nil, nil, trie.NewStackTrie(nil))
 }
 
 func (bc *testBlockChain) StateAt(common.Hash) (*state.StateDB, error) {
@@ -313,38 +315,37 @@ func waitForMiningState(t *testing.T, m *Miner, mining bool) {
 
 func createMiner(t *testing.T) (*Miner, *event.TypeMux) {
 	// Create Ethash config
-	config := Config{
+	config := ethconfig.MinerConfig{
 		Etherbase: common.HexToAddress("123456789"),
 	}
 	// Create chainConfig
 	memdb := memorydb.New()
 	chainDB := rawdb.NewDatabase(memdb)
 	genesis := core.DefaultGenesisBlock()
-	chainConfig, _, err := core.SetupGenesisBlock(chainDB, genesis)
-	if err != nil {
-		t.Fatalf("can't create new chain config: %v", err)
-	}
 	// Create event Mux
 	mux := new(event.TypeMux)
 	// Create consensus engine
-	engine := ethash.New(ethash.Config{}, []string{}, false)
-	engine.SetThreads(-1)
-	// Create isLocalBlock
-	isLocalBlock := func(block *types.Header) bool {
-		return true
-	}
+	engine := ethash.NewFaker()
+	/*
+		// Create isLocalBlock
+		isLocalBlock := func(block *types.Header) bool {
+			return true
+		}
+
+	*/
 	// Create Ethereum backend
 	limit := uint64(1000)
-	senderCacher := new(core.TxSenderCacher)
-	bc, err := core.NewBlockChain(chainDB, new(core.CacheConfig), chainConfig, engine, vm.Config{}, isLocalBlock, senderCacher, &limit, backends.NewInternalBackend(nil), log.Root())
+	bc, err := core.NewBlockChain(chainDB, new(core.CacheConfig), genesis, engine, vm.Config{}, &limit, core.FakeContractBackendProvider(t), log.Root())
 	if err != nil {
 		t.Fatalf("can't create new chain %v", err)
 	}
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	blockchain := &testBlockChain{statedb, 10000000, new(event.Feed)}
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(triedb.NewDatabase(rawdb.NewMemoryDatabase(), nil), nil))
+	blockchain := &testBlockChain{statedb, 10000000, new(event.Feed), genesis.Config}
 
-	pool := core.NewTxPool(testTxPoolConfig, params.TestChainConfig, blockchain, senderCacher)
+	legacyPool := legacypool.New(legacypool.DefaultConfig, blockchain)
+	pool, err := txpool.New(legacypool.DefaultConfig.PriceLimit, blockchain, []txpool.SubPool{legacyPool})
+	require.NoError(t, err)
 	backend := NewMockBackend(bc, pool)
 	// Create Miner
-	return New(backend, &config, chainConfig, mux, engine, isLocalBlock), mux
+	return New(backend, &config, genesis.Config, mux, engine), mux
 }

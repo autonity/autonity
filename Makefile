@@ -64,7 +64,7 @@ autonity-docker:
 	@echo "Run \"$(BINDIR)/autonity\" to launch autonity."
 
 define gen-contract
-	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --evm-version london --abi --bin --userdoc --devdoc -o $(GENERATED_CONTRACT_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
+	$(SOLC_BINARY) --overwrite --optimize --optimize-runs 10000 --abi --bin --userdoc --devdoc -o $(GENERATED_CONTRACT_DIR) $(CONTRACTS_DIR)/$(1)$(2).sol
 
 	@echo Generating bytecode for $(2)
 	@echo 'package generated' > $(GENERATED_CONTRACT_DIR)/$(2).go
@@ -170,6 +170,8 @@ test-contracts-pre:
 	@npm list truffle-assertions > /dev/null || npm install truffle-assertions
 	@echo "check and install ganache"
 	@npm list ganache > /dev/null || npm install ganache
+	@echo "check and install @truffle/hdwallet-provider"
+	@npm list @truffle/hdwallet-provider > /dev/null || npm install @truffle/hdwallet-provider
 	@npx truffle version
 
 # start an autonity network for contract tests
@@ -192,15 +194,15 @@ start-ganache:
 
 # This runs the contract tests using truffle against an Autonity node instance.
 test-contracts-truffle: autonity contracts test-contracts-pre start-autonity
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test autonity.js && cd -
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test oracle.js && cd -
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test liquid.js && cd -
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test accountability.js && cd -
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test protocol.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity autonity.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity oracle.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity liquid.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity accountability.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity protocol.js && cd -
 	@#refund.js is ran only against Autonity, since ganache does not implement the oracle vote refund logic
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test refund.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity refund.js && cd -
 	@#validator_management.js is ran only against Autonity, since ganache does not implement the POP  logic
-	@cd $(CONTRACTS_TEST_DIR) && npx truffle test validator_management.js && cd -
+	@cd $(CONTRACTS_TEST_DIR) && npx truffle test --network autonity validator_management.js && cd -
 	@echo "killing test autonity network and cleaning chaindata"
 	@-pkill autonity
 	@cd $(CONTRACTS_TEST_DIR)/autonity/ && rm -Rdf ./data
@@ -216,7 +218,7 @@ test-contracts-truffle-fast: contracts test-contracts-pre start-ganache
 
 docker-e2e-test: contracts
 	build/env.sh go run build/ci.go install
-	cd docker_e2e_test && sudo python3 test_via_docker.py ..
+	$(MAKE) -C docker_e2e_test docker-e2e-tests ID=0 HASH=$$(git rev-parse HEAD)
 
 mock-gen:
 	mockgen -source=consensus/tendermint/core/interfaces/core_backend.go -package=interfaces -destination=consensus/tendermint/core/interfaces/core_backend_mock.go

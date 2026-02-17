@@ -16,7 +16,7 @@ In most linux distribution, python3 and pip3 are included, follow below guide in
 `sudo apt-get install python3-pip`
 
 ## [required] 3rd party python libs
-`pip3 install -r requirements_docker_test.txt`
+The docker runner dependencies are installed automatically by `make docker-e2e-tests` (it creates a local `venv/` and installs `requirements_docker_test.txt` into it).
 
 ## [required] docker
 If your linux is on ubuntu-18.04, the script will auto install it for you.
@@ -33,7 +33,7 @@ Run test cases of the playbook: ./etc/testcase.conf.yml by:
 
 or run the script with 1 parameter, the path of autonity work dir.
 For example:
-`sudo python3 test_via_docker.py  ~/your_path_to/autonity`
+`python3 test_via_docker.py  ~/your_path_to/autonity -id=0 -hash=$(git rev-parse HEAD)`
 
 # Outputs and reports.
 The console will collect test report and it collects system logs of each autontiy client for per failed testcase.

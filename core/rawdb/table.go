@@ -74,6 +74,12 @@ func (t *table) Ancients() (uint64, error) {
 	return t.db.Ancients()
 }
 
+// Tail is a noop passthrough that just forwards the request to the underlying
+// database.
+func (t *table) Tail() (uint64, error) {
+	return t.db.Tail()
+}
+
 // AncientSize is a noop passthrough that just forwards the request to the underlying
 // database.
 func (t *table) AncientSize(kind string) (uint64, error) {
@@ -85,20 +91,31 @@ func (t *table) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (int64, erro
 	return t.db.ModifyAncients(fn)
 }
 
-func (t *table) ReadAncients(fn func(reader ethdb.AncientReader) error) (err error) {
+func (t *table) ReadAncients(fn func(reader ethdb.AncientReaderOp) error) (err error) {
 	return t.db.ReadAncients(fn)
 }
 
-// TruncateAncients is a noop passthrough that just forwards the request to the underlying
+// TruncateHead is a noop passthrough that just forwards the request to the underlying
 // database.
-func (t *table) TruncateAncients(items uint64) error {
-	return t.db.TruncateAncients(items)
+func (t *table) TruncateHead(items uint64) (uint64, error) {
+	return t.db.TruncateHead(items)
 }
 
-// Sync is a noop passthrough that just forwards the request to the underlying
+// TruncateTail is a noop passthrough that just forwards the request to the underlying
 // database.
-func (t *table) Sync() error {
-	return t.db.Sync()
+func (t *table) TruncateTail(items uint64) (uint64, error) {
+	return t.db.TruncateTail(items)
+}
+
+// SyncAncient is a noop passthrough that just forwards the request to the underlying
+// database.
+func (t *table) SyncAncient() error {
+	return t.db.SyncAncient()
+}
+
+// AncientDatadir returns the ancient datadir of the underlying database.
+func (t *table) AncientDatadir() (string, error) {
+	return t.db.AncientDatadir()
 }
 
 // Put inserts the given value into the database at a prefixed version of the
@@ -110,6 +127,12 @@ func (t *table) Put(key []byte, value []byte) error {
 // Delete removes the given prefixed key from the database.
 func (t *table) Delete(key []byte) error {
 	return t.db.Delete(append([]byte(t.prefix), key...))
+}
+
+// DeleteRange deletes all of the keys (and values) in the range [start,end)
+// (inclusive on start, exclusive on end).
+func (t *table) DeleteRange(start, end []byte) error {
+	return t.db.DeleteRange(append([]byte(t.prefix), start...), append([]byte(t.prefix), end...))
 }
 
 // NewIterator creates a binary-alphabetical iterator over a subset
@@ -124,9 +147,9 @@ func (t *table) NewIterator(prefix []byte, start []byte) ethdb.Iterator {
 	}
 }
 
-// Stat returns a particular internal stat of the database.
-func (t *table) Stat(property string) (string, error) {
-	return t.db.Stat(property)
+// Stat returns the statistic data of the database.
+func (t *table) Stat() (string, error) {
+	return t.db.Stat()
 }
 
 // Compact flattens the underlying data store for the given key range. In essence,
@@ -165,11 +188,39 @@ func (t *table) Compact(start []byte, limit []byte) error {
 	return t.db.Compact(start, limit)
 }
 
+// SyncKeyValue ensures that all pending writes are flushed to disk,
+// guaranteeing data durability up to the point.
+func (t *table) SyncKeyValue() error {
+	return t.db.SyncKeyValue()
+}
+
 // NewBatch creates a write-only database that buffers changes to its host db
 // until a final write is called, each operation prefixing all keys with the
 // pre-configured string.
 func (t *table) NewBatch() ethdb.Batch {
 	return &tableBatch{t.db.NewBatch(), t.prefix}
+}
+
+// NewBatchWithSize creates a write-only database batch with pre-allocated buffer.
+func (t *table) NewBatchWithSize(size int) ethdb.Batch {
+	return &tableBatch{t.db.NewBatchWithSize(size), t.prefix}
+}
+
+// tableBatch is a wrapper around a database batch that prefixes each key access
+// with a pre-configured string.
+type tableBatch struct {
+	batch  ethdb.Batch
+	prefix string
+}
+
+// Put inserts the given value into the batch for later committing.
+func (b *tableBatch) Put(key, value []byte) error {
+	return b.batch.Put(append([]byte(b.prefix), key...), value)
+}
+
+// Delete inserts a key removal into the batch for later committing.
+func (b *tableBatch) Delete(key []byte) error {
+	return b.batch.Delete(append([]byte(b.prefix), key...))
 }
 
 type tableBatchWithReader struct {
@@ -223,24 +274,6 @@ func (t *table) NewBatchWithReader() ethdb.BatchWithReader {
 		t.prefix,
 	}
 }
-
-// tableBatch is a wrapper around a database batch that prefixes each key access
-// with a pre-configured string.
-type tableBatch struct {
-	batch  ethdb.Batch
-	prefix string
-}
-
-// Put inserts the given value into the batch for later committing.
-func (b *tableBatch) Put(key, value []byte) error {
-	return b.batch.Put(append([]byte(b.prefix), key...), value)
-}
-
-// Delete inserts the a key removal into the batch for later committing.
-func (b *tableBatch) Delete(key []byte) error {
-	return b.batch.Delete(append([]byte(b.prefix), key...))
-}
-
 // ValueSize retrieves the amount of data queued up for writing.
 func (b *tableBatch) ValueSize() int {
 	return b.batch.ValueSize()

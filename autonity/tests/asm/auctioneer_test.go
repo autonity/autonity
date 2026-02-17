@@ -85,7 +85,7 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 		auction := auctions[0]
 		require.NoError(t, err)
 		require.Equal(t, round.Price.Int64(), auction.StartPrice.Int64())
-		require.Equal(t, auction.StartTimestamp, r.Evm.Context.Time)
+		require.Equal(t, auction.StartTimestamp, new(big.Int).SetUint64(r.Evm.Context.Time))
 		require.Equal(t, auctionAmount, auction.Amount)
 		require.Equal(t, newtonAutonPrice, auction.StartPrice)
 
@@ -125,7 +125,7 @@ func TestAuctioneerInterestAuction(t *testing.T) {
 		//wait until the auction ends
 		auctionEnd := new(big.Int).Add(auction.StartTimestamp, config.InterestAuctionDuration)
 
-		for r.Evm.Context.Time.Cmp(auctionEnd) < 0 {
+		for r.Evm.Context.Time < auctionEnd.Uint64() {
 			r.WaitNBlocks(1)
 		}
 

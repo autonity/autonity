@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 
@@ -51,12 +52,9 @@ func main() {
 		err     error
 	)
 	flag.Parse()
-
-	glogger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.TerminalFormat(false)))
-	glogger.Verbosity(log.Lvl(*verbosity))
+	glogger := log.NewGlogHandler(log.NewTerminalHandlerWithLevel(io.Writer(os.Stderr), log.FromLegacyLevel(*verbosity), false))
 	glogger.Vmodule(*vmodule)
-	log.Root().SetHandler(glogger)
-
+	log.SetDefault(log.NewLogger(glogger))
 	natm, err := nat.Parse(*natdesc)
 	if err != nil {
 		utils.Fatalf("-nat: %v", err)

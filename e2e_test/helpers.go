@@ -141,12 +141,9 @@ func FuzBlock(p *types.Block, height *big.Int) {
 	fakeTransactions := make([]*types.Transaction, 0)
 	f := fuzz.New()
 	for i := 0; i < 5; i++ {
-		var fakeTransaction types.Transaction
-		f.Fuzz(&fakeTransaction)
 		var tx types.LegacyTx
 		f.Fuzz(&tx)
-		fakeTransaction.SetInner(&tx)
-		fakeTransactions = append(fakeTransactions, &fakeTransaction)
+		fakeTransactions = append(fakeTransactions, types.NewTx(&tx))
 	}
 	p.SetTransactions(fakeTransactions)
 	var hash common.Hash
@@ -154,6 +151,6 @@ func FuzBlock(p *types.Block, height *big.Int) {
 	var atmHash atomic.Value
 	atmHash.Store(hash)
 	// nil hash
-	p.SetHash(atmHash)
+	p.SetHash(&hash)
 	p.SetHeaderNumber(height)
 }

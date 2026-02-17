@@ -19,8 +19,9 @@ package snap
 import (
 	"math/big"
 
-	"github.com/autonity/autonity/common"
 	"github.com/holiman/uint256"
+
+	"github.com/autonity/autonity/common"
 )
 
 // hashRange is a utility to handle ranges of hashes, Split up the
@@ -67,7 +68,7 @@ func (r *hashRange) End() common.Hash {
 	// If the end overflows (non divisible range), return a shorter interval
 	next, overflow := new(uint256.Int).AddOverflow(r.current, r.step)
 	if overflow {
-		return common.HexToHash("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+		return common.MaxHash
 	}
 	return next.SubUint64(next, 1).Bytes32()
 }

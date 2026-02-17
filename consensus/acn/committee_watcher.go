@@ -10,12 +10,15 @@ import (
 
 func (acn *ACN) watchCommittee(ctx context.Context) {
 	acn.wg.Add(1)
+	var (
+		chainHeadCh  = make(chan core.ChainHeadEvent)
+		chainHeadSub = acn.chain.SubscribeChainHeadEvent(chainHeadCh)
+		epochHeadCh  = make(chan core.EpochHeadEvent)
+		epochHeadSub = acn.chain.SubscribeEpochHeadEvent(epochHeadCh)
 
-	chainHeadCh := make(chan core.ChainHeadEvent)
-	chainHeadSub := acn.chain.SubscribeChainHeadEvent(chainHeadCh)
-
-	epochHeadCh := make(chan core.EpochHeadEvent)
-	epochHeadSub := acn.chain.SubscribeEpochHeadEvent(epochHeadCh)
+		currentHead   = acn.chain.CurrentBlock()
+		wasValidating = false
+	)
 
 	updateConsensusEnodes := func(header *types.Header) {
 		state, err := acn.chain.StateAt(header.Root)
@@ -31,10 +34,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 		acn.server.UpdateConsensusEnodes(enodesList.List, enodesList.List)
 	}
 
-	wasValidating := false
-
 	// read the committee base on latest state.
-	currentHead := acn.chain.CurrentBlock().Header()
 	currentState, err := acn.chain.StateAt(currentHead.Root)
 	if err != nil {
 		panic(err)
@@ -57,7 +57,7 @@ func (acn *ACN) watchCommittee(ctx context.Context) {
 		for {
 			select {
 			case ev := <-chainHeadCh:
-				acn.server.SetCurrentBlockNumber(ev.Block.NumberU64())
+				acn.server.SetCurrentBlockNumber(ev.Header.Number.Uint64())
 			case ev := <-epochHeadCh:
 				committee = ev.Header.Epoch.Committee
 				// check if the local node belongs to the consensus committee.

@@ -20,50 +20,53 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/urfave/cli/v2"
+
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/autonity/autonity/p2p/enr"
 	"github.com/autonity/autonity/rlp"
-	"gopkg.in/urfave/cli.v1"
 )
 
-var enrdumpCommand = cli.Command{
+var fileFlag = &cli.StringFlag{Name: "file"}
+
+var enrdumpCommand = &cli.Command{
 	Name:   "enrdump",
 	Usage:  "Pretty-prints node records",
 	Action: enrdump,
 	Flags: []cli.Flag{
-		cli.StringFlag{Name: "file"},
+		fileFlag,
 	},
 }
 
 func enrdump(ctx *cli.Context) error {
 	var source string
-	if file := ctx.String("file"); file != "" {
+	if file := ctx.String(fileFlag.Name); file != "" {
 		if ctx.NArg() != 0 {
-			return fmt.Errorf("can't dump record from command-line argument in -file mode")
+			return errors.New("can't dump record from command-line argument in -file mode")
 		}
 		var b []byte
 		var err error
 		if file == "-" {
-			b, err = ioutil.ReadAll(os.Stdin)
+			b, err = io.ReadAll(os.Stdin)
 		} else {
-			b, err = ioutil.ReadFile(file)
+			b, err = os.ReadFile(file)
 		}
 		if err != nil {
 			return err
 		}
 		source = string(b)
 	} else if ctx.NArg() == 1 {
-		source = ctx.Args()[0]
+		source = ctx.Args().First()
 	} else {
-		return fmt.Errorf("need record as argument")
+		return errors.New("need record as argument")
 	}
 
 	r, err := parseRecord(source)
@@ -181,8 +184,8 @@ var attrFormatters = map[string]func(rlp.RawValue) (string, bool){
 }
 
 func formatAttrRaw(v rlp.RawValue) (string, bool) {
-	s := hex.EncodeToString(v)
-	return s, true
+	content, _, err := rlp.SplitString(v)
+	return hex.EncodeToString(content), err == nil
 }
 
 func formatAttrString(v rlp.RawValue) (string, bool) {

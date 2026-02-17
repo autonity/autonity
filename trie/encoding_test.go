@@ -79,17 +79,16 @@ func TestHexKeybytes(t *testing.T) {
 }
 
 func TestHexToCompactInPlace(t *testing.T) {
-	for i, keyS := range []string{
+	for i, key := range []string{
 		"00",
 		"060a040c0f000a090b040803010801010900080d090a0a0d0903000b10",
 		"10",
 	} {
-		hexBytes, _ := hex.DecodeString(keyS)
+		hexBytes, _ := hex.DecodeString(key)
 		exp := hexToCompact(hexBytes)
-		sz := hexToCompactInPlace(hexBytes)
-		got := hexBytes[:sz]
+		got := hexToCompactInPlace(hexBytes)
 		if !bytes.Equal(exp, got) {
-			t.Fatalf("test %d: encoding err\ninp %v\ngot %x\nexp %x\n", i, keyS, got, exp)
+			t.Fatalf("test %d: encoding err\ninp %v\ngot %x\nexp %x\n", i, key, got, exp)
 		}
 	}
 }
@@ -102,8 +101,7 @@ func TestHexToCompactInPlaceRandom(t *testing.T) {
 		hexBytes := keybytesToHex(key)
 		hexOrig := []byte(string(hexBytes))
 		exp := hexToCompact(hexBytes)
-		sz := hexToCompactInPlace(hexBytes)
-		got := hexBytes[:sz]
+		got := hexToCompactInPlace(hexBytes)
 
 		if !bytes.Equal(exp, got) {
 			t.Fatalf("encoding err \ncpt %x\nhex %x\ngot %x\nexp %x\n",
@@ -116,6 +114,13 @@ func BenchmarkHexToCompact(b *testing.B) {
 	testBytes := []byte{0, 15, 1, 12, 11, 8, 16 /*term*/}
 	for i := 0; i < b.N; i++ {
 		hexToCompact(testBytes)
+	}
+}
+
+func BenchmarkHexToCompactInPlace(b *testing.B) {
+	testBytes := []byte{0, 15, 1, 12, 11, 8, 16 /*term*/}
+	for i := 0; i < b.N; i++ {
+		hexToCompactInPlace(testBytes)
 	}
 }
 

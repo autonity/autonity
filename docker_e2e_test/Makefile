@@ -7,7 +7,7 @@
 # with ';' or '&&'. So any python commands that depend on a venv needs to be
 # run in the same shell in which the venv is activated.
 docker-e2e-tests: ./venv/bin/activate
-	. venv/bin/activate && sudo python3 test_via_docker.py .. -id=$(ID) -hash=$(HASH)
+	. venv/bin/activate && python3 test_via_docker.py .. -id=$(ID) -hash=$(HASH)
 
 # Creates venv if not present and then installs dependencies. Executes only if
 # requirements_docker_test.txt has been updated since the last time it ran.
@@ -17,8 +17,9 @@ docker-e2e-tests: ./venv/bin/activate
 ./venv/bin/activate: requirements_docker_test.txt
 	test -d venv || python3 -m venv venv
 	python3 --version
-	pip3 --version
-	. venv/bin/activate && sudo pip3 install -r requirements_docker_test.txt
+	. venv/bin/activate && python3 -m pip --version
+	# Install into the venv (do not use sudo, which would bypass the venv and can fail on Ubuntu with PEP 668).
+	. venv/bin/activate && python3 -m pip install -r requirements_docker_test.txt
 	touch ./venv/bin/activate
 
 clean:

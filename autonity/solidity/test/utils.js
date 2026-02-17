@@ -21,6 +21,109 @@ const keccak256 = require('keccak256');
 const ethers = require('ethers');
 const truffleAssert = require('truffle-assertions');
 const {SLASHING_RATE_PRECISION} = require("./config");
+const path = require("path");
+const fs = require("fs");
+
+// Resolve the autonity binary relative to this test directory so the tests work
+// no matter what the process cwd is (e.g. when running `truffle test` from
+// `autonity/solidity`).
+const AUTONITY_BIN = path.resolve(__dirname, "../../../build/bin/autonity");
+
+let _autonityProviderPatched = false;
+let _isAutonityNetworkCached;
+let _cachedGasPrice;
+let _cachedGasPriceAtMs = 0;
+
+async function getCachedGasPrice() {
+  const now = Date.now();
+  // Keep this short to avoid stale pricing if basefee changes.
+  if (_cachedGasPrice != null && (now - _cachedGasPriceAtMs) < 2000) {
+    return _cachedGasPrice;
+  }
+  try {
+    _cachedGasPrice = await web3.eth.getGasPrice();
+    _cachedGasPriceAtMs = now;
+    return _cachedGasPrice;
+  } catch (_) {
+    return undefined;
+  }
+}
+
+function _isTxIndexingInProgressError(err) {
+  if (!err) return false;
+  const msg = (err.message || "").toString().toLowerCase();
+  if (msg.includes("transaction indexing is in progress")) return true;
+  // Some providers attach the JSON-RPC error under `data.originalError`.
+  const orig = err?.data?.originalError;
+  if (orig && typeof orig.message === "string") {
+    if (orig.message.toLowerCase().includes("transaction indexing is in progress")) return true;
+  }
+  return false;
+}
+
+function installAutonityProviderWorkarounds() {
+  if (_autonityProviderPatched) return;
+  _autonityProviderPatched = true;
+
+  // Truffle/Web3 treats JSON-RPC errors as hard failures during receipt polling.
+  // Autonity can legitimately return "transaction indexing is in progress" very
+  // early after startup; for polling callers it should behave like "not yet".
+  const patchSend = (provider, fnName) => {
+    if (!provider || typeof provider[fnName] !== "function") return;
+    const orig = provider[fnName].bind(provider);
+    provider[fnName] = (payload, cb) => {
+      // Preserve default behavior if no callback is provided.
+      if (typeof cb !== "function") return orig(payload, cb);
+
+      return orig(payload, (err, res) => {
+        const method = payload?.method;
+        const isReceiptish =
+          method === "eth_getTransactionReceipt" ||
+          method === "eth_getTransactionByHash";
+
+        // Handle both "err" and "res.error" shapes across providers.
+        if (isReceiptish && _isTxIndexingInProgressError(err)) {
+          return cb(null, { jsonrpc: "2.0", id: payload.id, result: null });
+        }
+        if (isReceiptish && res && res.error) {
+          const emsg = (res.error.message || "").toString().toLowerCase();
+          if (emsg.includes("transaction indexing is in progress")) {
+            return cb(null, { jsonrpc: "2.0", id: payload.id, result: null });
+          }
+        }
+        return cb(err, res);
+      });
+    };
+  };
+
+  patchSend(web3.currentProvider, "send");
+  patchSend(web3.currentProvider, "sendAsync");
+}
+
+async function isAutonityNetwork() {
+  if (_isAutonityNetworkCached !== undefined) return _isAutonityNetworkCached;
+  try {
+    const nodeInfo = await web3.eth.getNodeInfo();
+    _isAutonityNetworkCached = typeof nodeInfo === "string" && nodeInfo.toLowerCase().includes("autonity/");
+  } catch (_) {
+    _isAutonityNetworkCached = false;
+  }
+  return _isAutonityNetworkCached;
+}
+
+async function failsRevert(promise, reason) {
+  // On Autonity nodes, Truffle frequently surfaces reverts as a generic
+  // StatusError (status 0) without the revert reason string. Keep reason checks
+  // where possible, but fall back to "reverted" when the provider doesn't carry
+  // the string.
+  if (await isAutonityNetwork()) {
+    return truffleAssert.fails(promise, truffleAssert.ErrorType.REVERT);
+  }
+  if (reason != null) {
+    return truffleAssert.fails(promise, truffleAssert.ErrorType.REVERT, reason);
+  }
+  return truffleAssert.fails(promise, truffleAssert.ErrorType.REVERT);
+}
 
 // Validator Status in Autonity Contract
 const ValidatorState = {
@@ -31,22 +134,26 @@ const ValidatorState = {
 }
 
 async function endEpoch(contract,operator,deployer){
-  let epochPeriod = (await contract.getEpochPeriod()).toNumber();
-  let currentEpoch = (await contract.getEpochID()).toNumber();
-  let nextEpochBlock = (await contract.getNextEpochBlock()).toNumber();
+  const epochPeriod = (await contract.getEpochPeriod()).toNumber();
+  const currentEpoch = (await contract.getEpochID()).toNumber();
+  const targetEpoch = currentEpoch + 1;
 
-    for (let i=0;i<=epochPeriod;i++) {
-      contract.finalize({from: deployer})
-      let newEpochID = (await contract.getEpochID()).toNumber()
-      if (newEpochID === currentEpoch+1) {
-        console.log("epoch ended successfully", "new epoch ID: ", newEpochID)
-        break;
-      }
-      let height = await web3.eth.getBlockNumber()
-      console.log("end epoch for AC contract, ", "current height: ", height, "epoch ID: ",
-          newEpochID, "nextEpochBlock", nextEpochBlock, "epoch period: ", epochPeriod);
+  const isAutonity = await isAutonityNetwork();
+
+  // Autonity: `finalize()` is what applies the per-block protocol transitions in
+  // these tests (the contract is a deployed test instance, not the system one).
+  // Ganache: same, but also waits for the new block if needed.
+  for (let i = 0; i <= epochPeriod; i++) {
+    await contract.finalize({from: deployer});
+    const newEpochID = (await contract.getEpochID()).toNumber();
+    if (newEpochID === targetEpoch) return;
+    if (!isAutonity) {
+      const height = await web3.eth.getBlockNumber();
       await waitForNewBlock(height);
     }
+  }
+
+  throw new Error(`endEpoch timeout: epoch did not advance from ${currentEpoch} after ${epochPeriod + 1} finalize() calls`);
 }
 
 async function validatorState(autonity, validatorAddresses) {
@@ -123,6 +230,20 @@ async function setCode(addr, code, contractName) {
 }
 
 async function mockPrecompile() {
+  // These mocks are only needed for Ganache. On an Autonity node the precompiles
+  // already exist and `evm_setAccountCode` is not available.
+  try {
+    const nodeInfo = await web3.eth.getNodeInfo();
+    if (typeof nodeInfo === "string" && nodeInfo.toLowerCase().includes("autonity/")) {
+      _isAutonityNetworkCached = true;
+      installAutonityProviderWorkarounds();
+      console.log("\tSkipping precompile mocking on Autonity network")
+      return
+    }
+  } catch (_) {
+    // If we can't detect the node, fall through and attempt mocking.
+  }
+
   await mockEnodePrecompile();
   await mockCommitteeSelectorPrecompile();
 }
@@ -161,19 +282,72 @@ async function mockCommitteeSelectorPrecompile() {
 
 // mine an empty block.
 // If we are on an autonity network the rpc request will fail.
-// In that case we just wait for an empty block to be mined
+// In that case we need to trigger a block by sending a minimal tx, because
+// the local tendermint testnet config does not produce empty blocks.
 async function mineEmptyBlock() {
-  let height = await web3.eth.getBlockNumber()
-  let evmMineSuccess;
-  await _mineEmptyBlock().then(
-    (result) => {
-      evmMineSuccess = true
-    },
-    (error) => {
-      evmMineSuccess = false
-    })
+  const height = await web3.eth.getBlockNumber()
+
+  // Autonity nodes don't support `evm_mine`; avoid spamming failing RPC calls.
+  if (await isAutonityNetwork()) {
+    const accounts = await web3.eth.getAccounts()
+    if (!accounts || accounts.length === 0) {
+      throw new Error("mineEmptyBlock: no accounts available to trigger a block when evm_mine is unsupported")
+    }
+    const from = accounts[0]
+
+    // Ensure the tx is accepted on post-London chains.
+    const gasPrice = await getCachedGasPrice()
+    const tx = { from, to: from, value: "0x0", gas: 21000 }
+    if (gasPrice != null) {
+      tx.gasPrice = gasPrice
+    }
+    const res = await web3.eth.sendTransaction(tx)
+    // HDWalletProvider/web3 typically waits for mining and returns a receipt.
+    // If we only got a tx hash, fall back to height polling.
+    if (!(res && typeof res === "object" && res.blockNumber != null)) {
+      await waitForNewBlock(height)
+    }
+    return
+  }
+
+  let evmMineSuccess = true
+  await _mineEmptyBlock().catch(() => {
+    evmMineSuccess = false
+  })
+
   if(!evmMineSuccess){
-    await waitForNewBlock(height)
+    // If the chain is already producing blocks (e.g. autonity --mine), don't spam
+    // the node with transactions, just wait for the next block.
+    try {
+      // 1.5s covers typical CI latency and the default 1s block period.
+      const start = Date.now()
+      while (Date.now() - start < 1500) {
+        const newHeight = await web3.eth.getBlockNumber()
+        if (newHeight > height) {
+          return
+        }
+        await timeout(50)
+      }
+    } catch (_) {
+      // fall through to tx-triggered block
+    }
+
+    const accounts = await web3.eth.getAccounts()
+    if (!accounts || accounts.length === 0) {
+      throw new Error("mineEmptyBlock: no accounts available to trigger a block when evm_mine is unsupported")
+    }
+    const from = accounts[0]
+
+    // Ensure the tx is accepted on post-London chains.
+    const gasPrice = await getCachedGasPrice()
+    const tx = { from, to: from, value: "0x0", gas: 21000 }
+    if (gasPrice != null) {
+      tx.gasPrice = gasPrice
+    }
+    const res = await web3.eth.sendTransaction(tx)
+    if (!(res && typeof res === "object" && res.blockNumber != null)) {
+      await waitForNewBlock(height)
+    }
   }
 }
 
@@ -183,7 +357,7 @@ async function waitForNewBlock(height){
     if (newHeight > height){
       break
     }
-    timeout(100)
+    await timeout(100)
   }
 }
 
@@ -374,7 +548,10 @@ function generateMultiSig(nodekey, oraclekey, treasuryAddr) {
 }
 
 async function generateAutonityPOP(autonityKeysFile, oracleKeyHex, treasuryAddress) {
-  const command = `../../../build/bin/autonity genOwnershipProof --autonitykeys ${autonityKeysFile} --oraclekeyhex ${oracleKeyHex} ${treasuryAddress}`;
+  const autonityKeysFileResolved = path.isAbsolute(autonityKeysFile)
+    ? autonityKeysFile
+    : path.resolve(__dirname, autonityKeysFile);
+  const command = `${AUTONITY_BIN} genOwnershipProof --autonitykeys ${autonityKeysFileResolved} --oraclekeyhex ${oracleKeyHex} ${treasuryAddress}`;
   try {
     const { stdout, stderr } = await exec(command);
     if (stderr) {
@@ -390,7 +567,11 @@ async function generateAutonityPOP(autonityKeysFile, oracleKeyHex, treasuryAddre
 
 async function generateAutonityKeys(filePath) {
   try {
-    const command = `../../../build/bin/autonity genAutonityKeys --writeaddress ${filePath}`;
+    const filePathResolved = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(__dirname, filePath);
+    fs.mkdirSync(path.dirname(filePathResolved), { recursive: true });
+    const command = `${AUTONITY_BIN} genAutonityKeys --writeaddress ${filePathResolved}`;
     const { stdout, stderr } = await exec(command);
     if (stderr) {
       throw new Error(stderr);
@@ -437,6 +618,8 @@ module.exports.mineEmptyBlock = mineEmptyBlock;
 module.exports.setCode = setCode;
 module.exports.mockPrecompile = mockPrecompile;
 module.exports.mockCommitteeSelectorPrecompile = mockCommitteeSelectorPrecompile;
+module.exports.isAutonityNetwork = isAutonityNetwork;
+module.exports.failsRevert = failsRevert;
 module.exports.timeout = timeout;
 module.exports.waitForNewBlock = waitForNewBlock;
 module.exports.endEpoch = endEpoch;

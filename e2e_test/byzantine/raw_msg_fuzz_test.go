@@ -77,7 +77,7 @@ func (fg *rawMSGFuzzer) AskSync(_ *types.Committee, _ *message.AskSyncMsg, _ int
 func TestRawMessageFuzzer(t *testing.T) {
 	numOfNodes := 10
 	// create 10 validator nodes with each of them has same voting power.
-	vals, err := e2e.Validators(t, numOfNodes, "10e18,v,100,0.0.0.0:%s,%s,%s,%s")
+	vals, err := e2e.Validators(t, numOfNodes, "10e18,v,100,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 
 	f := bft.F(new(big.Int).SetUint64(uint64(numOfNodes)))

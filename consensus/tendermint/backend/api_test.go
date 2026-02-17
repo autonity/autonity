@@ -66,7 +66,7 @@ func TestAPIGetContractABI(t *testing.T) {
 
 func TestAPIGetContractAddress(t *testing.T) {
 	chain, engine, _ := newBlockChain(1)
-	block, err := makeBlock(chain, engine, chain.Genesis())
+	block, err := makeBlock(chain, engine, chain.Genesis().Header())
 	assert.Nil(t, err)
 	_, err = chain.InsertChain(types.Blocks{block})
 	assert.Nil(t, err)

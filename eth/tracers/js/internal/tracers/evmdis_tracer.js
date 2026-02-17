@@ -61,29 +61,27 @@
 				break;
 			case "DELEGATECALL": case "STATICCALL":
 				var instart = log.stack.peek(2).valueOf();
-          var insize = log.stack.peek(3).valueOf();
-          opinfo["op"] = log.op.toString();
-          opinfo["gas"] = log.stack.peek(0).valueOf();
-          opinfo["to"] = log.stack.peek(1).toString(16);
-          opinfo["input"] = log.memory.slice(instart, instart + insize);
-          opinfo["error"] = null;
-          opinfo["return"] = null;
-          opinfo["ops"] = [];
-          this.stack.push(opinfo);
-          break;
-        case "RETURN":
-        case "REVERT":
-          var out = log.stack.peek(0).valueOf();
-          var outsize = log.stack.peek(1).valueOf();
-          frame.return = log.memory.slice(out, out + outsize);
-          break;
-        case "STOP":
-        case "SELFDESTRUCT":
-          frame.return = log.memory.slice(0, 0);
-          break;
-        case "JUMPDEST":
-          opinfo["pc"] = log.getPC();
-      }
+				var insize = log.stack.peek(3).valueOf();
+				opinfo["op"] =  log.op.toString();
+				opinfo["gas"] =  log.stack.peek(0).valueOf();
+				opinfo["to"] =  log.stack.peek(1).toString(16);
+				opinfo["input"] =  log.memory.slice(instart, instart + insize);
+				opinfo["error"] =  null;
+				opinfo["return"] =  null;
+				opinfo["ops"] = [];
+				this.stack.push(opinfo);
+				break;
+			case "RETURN": case "REVERT":
+				var out = log.stack.peek(0).valueOf();
+				var outsize = log.stack.peek(1).valueOf();
+				frame.return = log.memory.slice(out, out + outsize);
+				break;
+			case "STOP": case "SELFDESTRUCT":
+				frame.return = log.memory.slice(0, 0);
+				break;
+			case "JUMPDEST":
+				opinfo["pc"] = log.getPC();
+			}
 			if(log.op.isPush()) {
 				opinfo["len"] = log.op.toNumber() - 0x5e;
 			}

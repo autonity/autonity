@@ -30,7 +30,7 @@ import (
 
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/ecies"
-	"github.com/autonity/autonity/p2p/simulations/pipes"
+	"github.com/autonity/autonity/p2p/pipes"
 	"github.com/autonity/autonity/rlp"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
@@ -149,13 +149,13 @@ func TestFrameReadWrite(t *testing.T) {
 		EgressMAC:  hash,
 	})
 	h := conn.session
+
 	golden := unhex(`
 		00828d18a671018bb0bfa6b551d1cb42
 		01010101010101010101010101010101
 		ba628a4ba590cb43f7848f41c4382885
 		01010101010101010101010101010101
 	`)
-
 	msgCode := uint64(8)
 	msg := []uint{1, 2, 3, 4}
 	msgEnc, _ := rlp.EncodeToBytes(msg)
@@ -447,7 +447,7 @@ func BenchmarkThroughput(b *testing.B) {
 	}
 	conn2.SetSnappy(true)
 	if err := <-handshakeDone; err != nil {
-		b.Fatal("server hanshake error:", err)
+		b.Fatal("server handshake error:", err)
 	}
 
 	// Read N messages.

@@ -4,11 +4,10 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"gopkg.in/urfave/cli.v1"
-
 	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto"
+	"github.com/urfave/cli/v2"
 )
 
 type outputAutInspect struct {
@@ -19,7 +18,7 @@ type outputAutInspect struct {
 	ConsensusPrivateKey string `json:",omitempty"`
 }
 
-var commandAutInspect = cli.Command{
+var commandAutInspect = &cli.Command{
 	Name:      "autinspect",
 	Usage:     "inspect autonity keys file",
 	ArgsUsage: "<keyfile>",
@@ -30,7 +29,7 @@ Private key information can be printed by using the --private flag;
 make sure to use this feature with great caution!`,
 	Flags: []cli.Flag{
 		jsonFlag,
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "private",
 			Usage: "include the private keys in the output",
 		},

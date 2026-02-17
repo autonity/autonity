@@ -3,15 +3,16 @@ package autonity
 import (
 	"bytes"
 	"errors"
-	"math/big"
+	"math"
 	"strings"
 	"sync"
+
+	"github.com/holiman/uint256"
 
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/accounts/abi/bind"
 	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
@@ -79,7 +80,7 @@ func (c *evmContract) ABI() *abi.ABI {
 func (c *evmContract) callContractFunc(statedb vm.StateDB, header *types.Header, contractAddress common.Address, packedArgs []byte) ([]byte, uint64, error) {
 	gas := uint64(math.MaxUint64)
 	evm := c.evmProvider(header, params.DeployerAddress, statedb)
-	packedResult, leftOverGas, err := evm.Call(vm.AccountRef(params.DeployerAddress), contractAddress, packedArgs, gas, new(big.Int))
+	packedResult, leftOverGas, err := evm.Call(params.DeployerAddress, contractAddress, packedArgs, gas, uint256.NewInt(0))
 	usedGas := gas - leftOverGas
 	return packedResult, usedGas, err
 }
@@ -87,7 +88,7 @@ func (c *evmContract) callContractFunc(statedb vm.StateDB, header *types.Header,
 func (c *evmContract) callContractFuncAs(statedb vm.StateDB, header *types.Header, contractAddress common.Address, origin common.Address, packedArgs []byte) ([]byte, error) {
 	gas := uint64(math.MaxUint64)
 	evm := c.evmProvider(header, origin, statedb)
-	packedResult, _, err := evm.Call(vm.AccountRef(origin), contractAddress, packedArgs, gas, new(big.Int))
+	packedResult, _, err := evm.Call(origin, contractAddress, packedArgs, gas, uint256.NewInt(0))
 	return packedResult, err
 }
 
@@ -150,6 +151,35 @@ func NewProtocolContracts(
 	}
 
 	return &contract, nil
+}
+
+// NewEVMOnlyAutonityContract creates an AutonityContract backed only by an EVM provider.
+//
+// This is useful in contexts where we want to execute Autonity contract calls against an
+// in-memory state (e.g. chain generators / tests) but don't have access to the full
+// blockchain plumbing (ethdb + contract backend) required by NewProtocolContracts.
+//
+// Note: methods that require persistent storage (e.g. ABI persistence during contract
+// upgrade) will not work with this contract because it has no database.
+func NewEVMOnlyAutonityContract(config *params.ChainConfig, provider EVMProvider) (*AutonityContract, error) {
+	if config == nil || config.AutonityContractConfig == nil || config.AutonityContractConfig.ABI == nil {
+		return nil, ErrNoAutonityConfig
+	}
+	if provider == nil {
+		return nil, errors.New("nil EVM provider")
+	}
+
+	contract := &AutonityContract{
+		evmContract: evmContract{
+			evmProvider: provider,
+			contractABI: config.AutonityContractConfig.ABI,
+			db:          nil,
+			chainConfig: config,
+		},
+		AutonityFilterer: nil,
+		proposers:        make(map[uint64]map[int64]common.Address),
+	}
+	return contract, nil
 }
 
 // Proposer election is now computed by committee structure, it is on longer depends on AC contract.
@@ -217,15 +247,22 @@ func (c *AutonityContract) FinalizeAndGetCommittee(header *types.Header, statedb
 	}
 
 	// Create a new receipt for the finalize call
-	receipt := types.NewReceipt(nil, false, 0)
-	receipt.TxHash = common.ACHash(header.Number)
-	receipt.GasUsed = 0
-	receipt.Logs = statedb.GetLogs(receipt.TxHash, header.Hash())
-	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-	receipt.BlockHash = header.Hash()
-	receipt.BlockNumber = header.Number
-	receipt.TransactionIndex = uint(statedb.TxIndex())
-
+	// (youssef) Considering building it in the state-processor
+	receipt := &types.Receipt{
+		Type:              types.LegacyTxType,
+		PostState:         nil,
+		Status:            types.ReceiptStatusSuccessful,
+		CumulativeGasUsed: 0,
+		Logs:              statedb.GetLogs(common.ACHash(header.Number), header.Number.Uint64(), header.Hash()),
+		TxHash:            common.ACHash(header.Number),
+		ContractAddress:   common.Address{},
+		GasUsed:           0,
+		EffectiveGasPrice: nil,
+		BlockHash:         header.Hash(),
+		BlockNumber:       header.Number,
+		TransactionIndex:  uint(statedb.TxIndex()),
+	}
+	receipt.Bloom = types.CreateBloom(receipt)
 	if upgradeContract {
 		// warning prints for failure rather than returning error to stuck engine.
 		// in any failure, the state will be rollback to snapshot.

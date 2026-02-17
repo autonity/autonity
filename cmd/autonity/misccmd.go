@@ -19,24 +19,22 @@ package main
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"os"
+	"runtime"
+	"strings"
+
+	"github.com/urfave/cli/v2"
+
+	"github.com/autonity/autonity/cmd/utils"
 	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
-	ethproto "github.com/autonity/autonity/eth/protocols/eth"
-	"os"
-	"runtime"
-	"strconv"
-	"strings"
-
-	"github.com/autonity/autonity/cmd/utils"
-	"github.com/autonity/autonity/consensus/ethash"
-	"github.com/autonity/autonity/params"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/autonity/autonity/internal/version"
 )
 
 var (
-	versionCommand = cli.Command{
-		Action:    utils.MigrateFlags(version),
+	versionCommand = &cli.Command{
+		Action:    printVersion,
 		Name:      "version",
 		Usage:     "Print version numbers",
 		ArgsUsage: " ",
@@ -46,16 +44,16 @@ The output of this command is supposed to be machine-readable.
 `,
 	}
 
-	licenseCommand = cli.Command{
-		Action:    utils.MigrateFlags(license),
+	licenseCommand = &cli.Command{
+		Action:    license,
 		Name:      "license",
 		Usage:     "Display license information",
 		ArgsUsage: " ",
 		Category:  "MISCELLANEOUS COMMANDS",
 	}
 
-	ownershipProofCommand = cli.Command{
-		Action: utils.MigrateFlags(genOwnershipProof),
+	ownershipProofCommand = &cli.Command{
+		Action: genOwnershipProof,
 		Name:   "genOwnershipProof",
 		Usage:  "Generate enode proof",
 		Flags: []cli.Flag{
@@ -83,8 +81,8 @@ The output of this command is supposed to be machine-readable.
 		Category:  "MISCELLANEOUS COMMANDS",
 	}
 
-	genAutonityKeysCommand = cli.Command{
-		Action: utils.MigrateFlags(genAutonityKeys),
+	genAutonityKeysCommand = &cli.Command{
+		Action: genAutonityKeys,
 		Name:   "genAutonityKeys",
 		Usage:  "Generate autonity keys",
 		Flags: []cli.Flag{
@@ -100,49 +98,18 @@ The output of this command is supposed to be machine-readable.
 	}
 )
 
-// makecache generates an ethash verification cache into the provided folder.
-func makecache(ctx *cli.Context) error {
-	args := ctx.Args()
-	if len(args) != 2 {
-		utils.Fatalf(`Usage: autonity makecache <block number> <outputdir>`)
-	}
-	block, err := strconv.ParseUint(args[0], 0, 64)
-	if err != nil {
-		utils.Fatalf("Invalid block number: %v", err)
-	}
-	ethash.MakeCache(block, args[1])
+func printVersion(ctx *cli.Context) error {
+	git, _ := version.VCS()
 
-	return nil
-}
-
-// makedag gene
-//
-//	tes an ethash mining DAG into the provided folder.
-func makedag(ctx *cli.Context) error {
-	args := ctx.Args()
-	if len(args) != 2 {
-		utils.Fatalf(`Usage: autonity makedag <block number> <outputdir>`)
-	}
-	block, err := strconv.ParseUint(args[0], 0, 64)
-	if err != nil {
-		utils.Fatalf("Invalid block number: %v", err)
-	}
-	ethash.MakeDataset(block, args[1])
-
-	return nil
-}
-
-func version(ctx *cli.Context) error {
 	fmt.Println(strings.Title(clientIdentifier))
-	fmt.Println("Version:", params.VersionWithMeta)
-	if gitCommit != "" {
-		fmt.Println("Git Commit:", gitCommit)
+	fmt.Println("Version:", version.WithMeta)
+	if git.Commit != "" {
+		fmt.Println("Git Commit:", git.Commit)
 	}
-	if gitDate != "" {
-		fmt.Println("Git Commit Date:", gitDate)
+	if git.Date != "" {
+		fmt.Println("Git Commit Date:", git.Date)
 	}
 	fmt.Println("Architecture:", runtime.GOARCH)
-	fmt.Println("Protocol Versions:", ethproto.ProtocolVersions)
 	fmt.Println("Go Version:", runtime.Version())
 	fmt.Println("Operating System:", runtime.GOOS)
 	fmt.Printf("GOPATH=%s\n", os.Getenv("GOPATH"))
@@ -170,7 +137,7 @@ along with autonity. If not, see <http://www.gnu.org/licenses/>.`)
 // If the input node key file is with a legacy format which missing a consensus key, the function will generate a random
 // consensus secret key and append it in the legacy node key file.
 func genOwnershipProof(ctx *cli.Context) error {
-	args := ctx.Args()
+	args := ctx.Args().Slice()
 	if len(args) != 1 {
 		utils.Fatalf(`Usage: autonity genOwnershipProof [options] <treasuryAddress>`)
 	}
@@ -179,7 +146,7 @@ func genOwnershipProof(ctx *cli.Context) error {
 	var consensusKey blst.SecretKey
 	var err error
 	// load node key and consensus key, if the consensus key is missing, it generates new one for legacy node key file.
-	if nodeKeyFile := ctx.GlobalString(utils.AutonityKeysFileFlag.Name); nodeKeyFile != "" {
+	if nodeKeyFile := ctx.String(utils.AutonityKeysFileFlag.Name); nodeKeyFile != "" {
 		s, err := os.Stat(nodeKeyFile)
 		if err != nil {
 			utils.Fatalf("Failed to load the node private key: %v", err)
@@ -211,7 +178,7 @@ func genOwnershipProof(ctx *cli.Context) error {
 				utils.Fatalf("Failed to load the node private key: %v", err)
 			}
 		}
-	} else if privateKeysHex := ctx.GlobalString(utils.AutonityKeysHexFlag.Name); privateKeysHex != "" {
+	} else if privateKeysHex := ctx.String(utils.AutonityKeysHexFlag.Name); privateKeysHex != "" {
 		// if the consensus key is missing from the input hex string, terminate the execution.
 		nodePrivateKey, consensusKey, err = crypto.HexToAutonityKeys(privateKeysHex)
 		if err != nil {
@@ -222,12 +189,12 @@ func genOwnershipProof(ctx *cli.Context) error {
 	}
 
 	// load oracle node key from file or from input hex string.
-	if oracleKeyFile := ctx.GlobalString(utils.OracleKeyFileFlag.Name); oracleKeyFile != "" {
+	if oracleKeyFile := ctx.String(utils.OracleKeyFileFlag.Name); oracleKeyFile != "" {
 		oraclePrivateKey, err = crypto.LoadECDSA(oracleKeyFile)
 		if err != nil {
 			utils.Fatalf("Failed to load the oracle private key: %v", err)
 		}
-	} else if oracleKeyHex := ctx.GlobalString(utils.OracleKeyHexFlag.Name); oracleKeyHex != "" {
+	} else if oracleKeyHex := ctx.String(utils.OracleKeyHexFlag.Name); oracleKeyHex != "" {
 		oraclePrivateKey, err = crypto.HexToECDSA(oracleKeyHex)
 		if err != nil {
 			utils.Fatalf("Failed to parse the oracle private key: %v", err)
@@ -265,7 +232,7 @@ func genAutonityKeys(ctx *cli.Context) error {
 		utils.Fatalf("could not save key %v", err)
 	}
 
-	writeAddr := ctx.GlobalBool(utils.WriteAddrFlag.Name)
+	writeAddr := ctx.Bool(utils.WriteAddrFlag.Name)
 	if writeAddr {
 		fmt.Printf("Node address: %s\n", crypto.PubkeyToAddress(nodeKey.PublicKey).String())
 		fmt.Printf("Node public key: 0x%x\n", crypto.FromECDSAPub(&nodeKey.PublicKey)[1:])

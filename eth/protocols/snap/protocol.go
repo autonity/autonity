@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/core/state/snapshot"
+	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/rlp"
 )
 
@@ -104,7 +104,7 @@ func (p *AccountRangePacket) Unpack() ([]common.Hash, [][]byte, error) {
 		accounts = make([][]byte, len(p.Accounts))
 	)
 	for i, acc := range p.Accounts {
-		val, err := snapshot.FullAccountRLP(acc.Body)
+		val, err := types.FullAccountRLP(acc.Body)
 		if err != nil {
 			return nil, nil, fmt.Errorf("invalid account %x: %v", acc.Body, err)
 		}

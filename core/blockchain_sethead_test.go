@@ -22,19 +22,23 @@ package core
 import (
 	"fmt"
 	"math/big"
-	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/autonity/autonity/log"
-
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/consensus/ethash"
 	"github.com/autonity/autonity/core/rawdb"
+	"github.com/autonity/autonity/core/state"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/core/vm"
+	"github.com/autonity/autonity/ethdb"
+	"github.com/autonity/autonity/ethdb/pebble"
+	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
+	"github.com/autonity/autonity/triedb"
+	"github.com/autonity/autonity/triedb/hashdb"
 )
 
 // rewindTest is a test case for chain rollback upon user request.
@@ -54,6 +58,7 @@ type rewindTest struct {
 	expHeadBlock       uint64 // Block number of the expected head full block
 }
 
+//nolint:unused
 func (tt *rewindTest) dump(crash bool) string {
 	buffer := new(strings.Builder)
 
@@ -1951,57 +1956,79 @@ func testLongReorgedSnapSyncingDeepSetHead(t *testing.T, snapshots bool) {
 }
 
 func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
+	for _, scheme := range []string{rawdb.HashScheme, rawdb.PathScheme} {
+		testSetHeadWithScheme(t, tt, snapshots, scheme)
+	}
+}
+
+func testSetHeadWithScheme(t *testing.T, tt *rewindTest, snapshots bool, scheme string) {
 	// It's hard to follow the test case, visualize the input
-	// log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	// log.SetDefault(log.NewLogger(log.NewTerminalHandlerWithLevel(os.Stderr, log.LevelInfo, true)))
 	// fmt.Println(tt.dump(false))
 
 	// Create a temporary persistent database
-	datadir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatalf("Failed to create temporary datadir: %v", err)
-	}
-	os.RemoveAll(datadir)
+	datadir := t.TempDir()
+	ancient := filepath.Join(datadir, "ancient")
 
-	db, err := rawdb.NewLevelDBDatabaseWithFreezer(datadir, 0, 0, datadir, "", false)
+	pdb, err := pebble.New(datadir, 0, 0, "", false)
 	if err != nil {
-		t.Fatalf("Failed to create persistent database: %v", err)
+		t.Fatalf("Failed to create persistent key-value database: %v", err)
+	}
+	db, err := rawdb.NewDatabaseWithFreezer(pdb, ancient, "", false)
+	if err != nil {
+		t.Fatalf("Failed to create persistent freezer database: %v", err)
 	}
 	defer db.Close()
 
 	// Initialize a fresh chain
+	cfg := *params.TestConfigNoVerkle
+	if scheme == rawdb.PathScheme {
+		cfg = *params.TestChainConfig
+	}
 	var (
-		genesis = (&Genesis{BaseFee: big.NewInt(params.InitialBaseFee), Config: params.TestChainConfig}).MustCommit(db)
-		engine  = ethash.NewFullFaker()
-		config  = &CacheConfig{
+		gspec = &Genesis{
+			BaseFee: big.NewInt(params.InitialBaseFee),
+			Config:  &cfg,
+		}
+		engine = ethash.NewFullFaker()
+		config = &CacheConfig{
 			TrieCleanLimit: 256,
 			TrieDirtyLimit: 256,
 			TrieTimeLimit:  5 * time.Minute,
 			SnapshotLimit:  0, // Disable snapshot
+			StateScheme:    scheme,
 		}
 	)
 	if snapshots {
 		config.SnapshotLimit = 256
 		config.SnapshotWait = true
 	}
-	chain, err := NewBlockChain(db, config, params.TestChainConfig, engine, vm.Config{}, nil, NewTxSenderCacher(), nil, FakeContractBackendProvider(t), log.Root())
+	chain, err := NewBlockChain(db, config, gspec, engine, vm.Config{}, nil, FakeContractBackendProvider(t), log.Root())
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
+	}
+	defer chain.Stop()
+	prepareDB := func() ethdb.Database {
+		tmpDb := rawdb.NewMemoryDatabase()
+		tmpCfg := triedb.HashDefaults
+		if scheme == rawdb.PathScheme {
+			tmpCfg = triedb.VerkleDefaults
+		}
+		tmpTdb := triedb.NewDatabase(tmpDb, tmpCfg)
+		gspec.ToBlock(tmpTdb)
+		return tmpDb
 	}
 	// If sidechain blocks are needed, make a light chain and import it
 	var sideblocks types.Blocks
 	if tt.sidechainBlocks > 0 {
-		sidedb := rawdb.NewMemoryDatabase()
-		(&Genesis{BaseFee: big.NewInt(params.InitialBaseFee), Config: params.TestChainConfig}).MustCommit(sidedb)
-		sideblocks, _ = GenerateChain(params.TestChainConfig, genesis, engine, sidedb, tt.sidechainBlocks, func(i int, b *BlockGen) {
+		sideblocks, _ = GenerateChain(gspec.Config, chain.genesisBlock, engine, prepareDB(), tt.sidechainBlocks, func(i int, b *BlockGen) {
 			b.SetCoinbase(common.Address{0x01})
 		})
 		if _, err := chain.InsertChain(sideblocks); err != nil {
 			t.Fatalf("Failed to import side chain: %v", err)
 		}
 	}
-	sidedb := rawdb.NewMemoryDatabase()
-	(&Genesis{BaseFee: big.NewInt(params.InitialBaseFee), Config: params.TestChainConfig}).MustCommit(sidedb)
-	canonblocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, sidedb, tt.canonicalBlocks, func(i int, b *BlockGen) {
+	canonblocks, _ := GenerateChain(gspec.Config, chain.genesisBlock, engine, prepareDB(), tt.canonicalBlocks, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0x02})
 		b.SetDifficulty(big.NewInt(1000000))
 	})
@@ -2009,8 +2036,8 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 		t.Fatalf("Failed to import canonical chain start: %v", err)
 	}
 	if tt.commitBlock > 0 {
-		chain.stateCache.TrieDB().Commit(canonblocks[tt.commitBlock-1].Root(), true, nil)
-		if snapshots {
+		chain.triedb.Commit(canonblocks[tt.commitBlock-1].Root(), false)
+		if snapshots && scheme == rawdb.HashScheme {
 			if err := chain.snaps.Cap(canonblocks[tt.commitBlock-1].Root(), 0); err != nil {
 				t.Fatalf("Failed to flatten snapshots: %v", err)
 			}
@@ -2019,19 +2046,27 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 	if _, err := chain.InsertChain(canonblocks[tt.commitBlock:]); err != nil {
 		t.Fatalf("Failed to import canonical chain tail: %v", err)
 	}
-	// Manually dereference anything not committed to not have to work with 128+ tries
-	for _, block := range sideblocks {
-		chain.stateCache.TrieDB().Dereference(block.Root())
+	// Reopen the trie database without persisting in-memory dirty nodes.
+	chain.triedb.Close()
+	dbconfig := &triedb.Config{}
+	if scheme == rawdb.PathScheme {
+		*dbconfig = *triedb.VerkleDefaults
+	} else {
+		dbconfig.HashDB = hashdb.Defaults
 	}
-	for _, block := range canonblocks {
-		chain.stateCache.TrieDB().Dereference(block.Root())
-	}
+	chain.triedb = triedb.NewDatabase(chain.db, dbconfig)
+	chain.statedb = state.NewDatabase(chain.triedb, chain.snaps)
+
 	// Force run a freeze cycle
 	type freezer interface {
-		Freeze(threshold uint64) error
+		Freeze() error
 		Ancients() (uint64, error)
 	}
-	db.(freezer).Freeze(tt.freezeThreshold)
+	if tt.freezeThreshold < uint64(tt.canonicalBlocks) {
+		final := uint64(tt.canonicalBlocks) - tt.freezeThreshold
+		chain.SetFinalized(canonblocks[int(final)-1].Header())
+	}
+	db.(freezer).Freeze()
 
 	// Set the simulated pivot block
 	if tt.pivotBlock != nil {
@@ -2049,11 +2084,11 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 	if head := chain.CurrentHeader(); head.Number.Uint64() != tt.expHeadHeader {
 		t.Errorf("Head header mismatch: have %d, want %d", head.Number, tt.expHeadHeader)
 	}
-	if head := chain.CurrentFastBlock(); head.NumberU64() != tt.expHeadFastBlock {
-		t.Errorf("Head fast block mismatch: have %d, want %d", head.NumberU64(), tt.expHeadFastBlock)
+	if head := chain.CurrentSnapBlock(); head.Number.Uint64() != tt.expHeadFastBlock {
+		t.Errorf("Head fast block mismatch: have %d, want %d", head.Number, tt.expHeadFastBlock)
 	}
-	if head := chain.CurrentBlock(); head.NumberU64() != tt.expHeadBlock {
-		t.Errorf("Head block mismatch: have %d, want %d", head.NumberU64(), tt.expHeadBlock)
+	if head := chain.CurrentBlock(); head.Number.Uint64() != tt.expHeadBlock {
+		t.Errorf("Head block mismatch: have %d, want %d", head.Number, tt.expHeadBlock)
 	}
 	if frozen, err := db.(freezer).Ancients(); err != nil {
 		t.Errorf("Failed to retrieve ancient count: %v\n", err)

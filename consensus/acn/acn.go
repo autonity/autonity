@@ -31,6 +31,8 @@ import (
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/forkid"
 	"github.com/autonity/autonity/crypto"
+	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/node"
 	"github.com/autonity/autonity/p2p"
@@ -47,6 +49,7 @@ type ACN struct {
 	log        log.Logger
 	address    common.Address
 	cancel     context.CancelFunc
+	eventMux   *event.TypeMux
 }
 
 func New(stack *node.Node, backend *eth.Ethereum, netID uint64) {
@@ -59,6 +62,7 @@ func New(stack *node.Node, backend *eth.Ethereum, netID uint64) {
 		server:     stack.ConsensusServer(),
 		log:        log.New(),
 		address:    crypto.PubkeyToAddress(nodeKey.PublicKey),
+		eventMux:   backend.EventMux(),
 	}
 
 	acn.server.MaxPeers = math.MaxInt
@@ -68,13 +72,36 @@ func New(stack *node.Node, backend *eth.Ethereum, netID uint64) {
 		handler.SetBroadcaster(acn)
 	}
 	// once p2p protocol handler is initialized, set it for accountability module for the off-chain accountability protocol.
-	backend.FD().SetBroadcaster(acn)
+	backend.FaultDetector().SetBroadcaster(acn)
 }
 
 func (acn *ACN) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
-	acn.watchCommittee(ctx)
 	acn.cancel = cancel
+	head := acn.chain.CurrentBlock()
+	if acn.chain.HasState(head.Root) || acn.eventMux == nil {
+		acn.watchCommittee(ctx)
+		return nil
+	}
+	events := acn.eventMux.Subscribe(downloader.SyncedEvent{})
+	go func() {
+		defer func() {
+			if !events.Closed() {
+				events.Unsubscribe()
+			}
+		}()
+		select {
+		case ev := <-events.Chan():
+			if ev == nil {
+				return
+			}
+			if _, ok := ev.Data.(downloader.SyncedEvent); ok {
+				acn.watchCommittee(ctx)
+			}
+		case <-ctx.Done():
+			return
+		}
+	}()
 	return nil
 }
 
@@ -96,9 +123,11 @@ func (acn *ACN) FindPeer(target common.Address) (consensus.Peer, bool) {
 func (acn *ACN) runConsensusPeer(peer *protocol.Peer, handler protocol.HandlerFunc) error {
 	acn.wg.Add(1)
 	defer acn.wg.Done()
-
-	genesis := acn.chain.Genesis()
-	forkID := forkid.NewID(acn.chain.Config(), acn.chain.Genesis().Hash(), acn.chain.CurrentHeader().Number.Uint64())
+	var (
+		genesis = acn.chain.Genesis()
+		head    = acn.chain.CurrentHeader()
+	)
+	forkID := forkid.NewID(acn.chain.Config(), genesis, head.Number.Uint64(), head.Time)
 	if err := peer.Handshake(acn.networkID, genesis.Hash(), forkID, acn.forkFilter); err != nil {
 		peer.Log().Debug("Consensus handshake failed", "err", err)
 		return err

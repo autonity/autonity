@@ -2,17 +2,18 @@ package contracts
 
 import (
 	"crypto/ecdsa"
+	"testing"
+	"time"
+
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	e2e "github.com/autonity/autonity/e2e_test"
 	"github.com/autonity/autonity/p2p/enode"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestValidatorManagement(t *testing.T) {
-	network, err := e2e.NewNetwork(t, 4, "10e18,v,1000,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, 4, "10e18,v,1000,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 
@@ -36,7 +37,7 @@ func TestValidatorManagement(t *testing.T) {
 
 	err = fundingAccounts(operatorNode, []*ecdsa.PrivateKey{validator, delegator})
 	require.NoError(t, err)
-	timeout := 5 * time.Second
+	timeout := 20 * time.Second
 	oracleAddr := crypto.PubkeyToAddress(oracle.PublicKey)
 	enodeURL := enode.V4DNSUrl(validator.PublicKey, "127.0.0.1", 30303, 30303) + ":30303"
 

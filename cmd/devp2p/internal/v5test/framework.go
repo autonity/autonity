@@ -45,6 +45,8 @@ func (p *readError) Unwrap() error       { return p.err }
 func (p *readError) RequestID() []byte   { return nil }
 func (p *readError) SetRequestID([]byte) {}
 
+func (p *readError) AppendLogInfo(ctx []interface{}) []interface{} { return ctx }
+
 // readErrorf creates a readError with the given text.
 func readErrorf(format string, args ...interface{}) *readError {
 	return &readError{fmt.Errorf(format, args...)}
@@ -61,11 +63,9 @@ type conn struct {
 	remoteAddr *net.UDPAddr
 	listeners  []net.PacketConn
 
-	log           logger
-	codec         *v5wire.Codec
-	lastRequest   v5wire.Packet
-	lastChallenge *v5wire.Whoareyou
-	idCounter     uint32
+	log       logger
+	codec     *v5wire.Codec
+	idCounter uint32
 }
 
 type logger interface {
@@ -73,7 +73,7 @@ type logger interface {
 }
 
 // newConn sets up a connection to the given node.
-func newConn(dest *enode.Node, logger logger) *conn {
+func newConn(dest *enode.Node, lg logger) *conn {
 	key, err := crypto.GenerateKey()
 	if err != nil {
 		panic(err)
@@ -89,8 +89,8 @@ func newConn(dest *enode.Node, logger logger) *conn {
 		localNode:  ln,
 		remote:     dest,
 		remoteAddr: &net.UDPAddr{IP: dest.IP(), Port: dest.UDP()},
-		codec:      v5wire.NewCodec(ln, key, mclock.System{}),
-		log:        logger,
+		codec:      v5wire.NewCodec(ln, key, mclock.System{}, nil),
+		log:        lg,
 	}
 }
 
@@ -174,16 +174,16 @@ func (tc *conn) findnode(c net.PacketConn, dists []uint) ([]*enode.Node, error) 
 			// Check total count. It should be greater than one
 			// and needs to be the same across all responses.
 			if first {
-				if resp.Total == 0 || resp.Total > 6 {
-					return nil, fmt.Errorf("invalid NODES response 'total' %d (not in (0,7))", resp.Total)
+				if resp.RespCount == 0 || resp.RespCount > 6 {
+					return nil, fmt.Errorf("invalid NODES response count %d (not in (0,7))", resp.RespCount)
 				}
-				total = resp.Total
+				total = resp.RespCount
 				n = int(total) - 1
 				first = false
 			} else {
 				n--
-				if resp.Total != total {
-					return nil, fmt.Errorf("invalid NODES response 'total' %d (!= %d)", resp.Total, total)
+				if resp.RespCount != total {
+					return nil, fmt.Errorf("invalid NODES response count %d (!= %d)", resp.RespCount, total)
 				}
 			}
 			// Check nodes.
@@ -252,13 +252,4 @@ func checkRecords(records []*enr.Record) ([]*enode.Node, error) {
 		nodes[i] = n
 	}
 	return nodes, nil
-}
-
-func containsUint(ints []uint, x uint) bool {
-	for i := range ints {
-		if ints[i] == x {
-			return true
-		}
-	}
-	return false
 }

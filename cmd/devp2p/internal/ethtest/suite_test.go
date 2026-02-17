@@ -1,26 +1,31 @@
-// Copyright 2020 The go-ethereum Authors
-// This file is part of the go-ethereum library.
+// Copyright 2021 The go-ethereum Authors
+// This file is part of go-ethereum.
 //
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
+// go-ethereum is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// The go-ethereum library is distributed in the hope that it will be useful,
+// go-ethereum is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
+// GNU General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+// You should have received a copy of the GNU General Public License
+// along with go-ethereum. If not, see <http://www.gnu.org/licenses/>.
 
 package ethtest
 
 import (
+	crand "crypto/rand"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/eth"
 	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/internal/utesting"
@@ -28,27 +33,40 @@ import (
 	"github.com/autonity/autonity/p2p"
 )
 
-var (
-	genesisFile   = "./testdata/genesis.json"
-	halfchainFile = "./testdata/halfchain.rlp"
-	fullchainFile = "./testdata/chain.rlp"
-)
+func makeJWTSecret(t *testing.T) (string, [32]byte, error) {
+	var secret [32]byte
+	if _, err := crand.Read(secret[:]); err != nil {
+		return "", secret, fmt.Errorf("failed to create jwt secret: %v", err)
+	}
+	jwtPath := filepath.Join(t.TempDir(), "jwt_secret")
+	if err := os.WriteFile(jwtPath, []byte(hexutil.Encode(secret[:])), 0600); err != nil {
+		return "", secret, fmt.Errorf("failed to prepare jwt secret file: %v", err)
+	}
+	return jwtPath, secret, nil
+}
 
 func TestEthSuite(t *testing.T) {
-	t.Skip("tests depending on non-compatible testdata with Autonity")
-	geth, err := runGeth()
+	t.Skip("data format unsupported")
+	jwtPath, secret, err := makeJWTSecret(t)
+	if err != nil {
+		t.Fatalf("could not make jwt secret: %v", err)
+	}
+	geth, err := runGeth("./testdata", jwtPath)
 	if err != nil {
 		t.Fatalf("could not run geth: %v", err)
 	}
 	defer geth.Close()
 
-	suite, err := NewSuite(geth.ExecutionServer().Self(), fullchainFile, genesisFile)
+	suite, err := NewSuite(geth.ExecutionServer().Self(), "./testdata", "", common.Bytes2Hex(secret[:]))
 	if err != nil {
 		t.Fatalf("could not create new test suite: %v", err)
 	}
-	for _, test := range suite.Eth66Tests() {
+	for _, test := range suite.EthTests() {
 		t.Run(test.Name, func(t *testing.T) {
-			result := utesting.RunTAP([]utesting.Test{{Name: test.Name, Fn: test.Fn}}, os.Stdout)
+			if test.Slow && testing.Short() {
+				t.Skipf("%s: skipping in -short mode", test.Name)
+			}
+			result := utesting.RunTests([]utesting.Test{{Name: test.Name, Fn: test.Fn}}, os.Stdout)
 			if result[0].Failed {
 				t.Fatal()
 			}
@@ -57,20 +75,24 @@ func TestEthSuite(t *testing.T) {
 }
 
 func TestSnapSuite(t *testing.T) {
-	t.Skip("skipping as chain data incompatibe with autonity")
-	geth, err := runGeth()
+	t.Skip("data format unsupported")
+	jwtPath, secret, err := makeJWTSecret(t)
+	if err != nil {
+		t.Fatalf("could not make jwt secret: %v", err)
+	}
+	geth, err := runGeth("./testdata", jwtPath)
 	if err != nil {
 		t.Fatalf("could not run geth: %v", err)
 	}
 	defer geth.Close()
 
-	suite, err := NewSuite(geth.ExecutionServer().Self(), fullchainFile, genesisFile)
+	suite, err := NewSuite(geth.ExecutionServer().Self(), "./testdata", "", common.Bytes2Hex(secret[:]))
 	if err != nil {
 		t.Fatalf("could not create new test suite: %v", err)
 	}
 	for _, test := range suite.SnapTests() {
 		t.Run(test.Name, func(t *testing.T) {
-			result := utesting.RunTAP([]utesting.Test{{Name: test.Name, Fn: test.Fn}}, os.Stdout)
+			result := utesting.RunTests([]utesting.Test{{Name: test.Name, Fn: test.Fn}}, os.Stdout)
 			if result[0].Failed {
 				t.Fatal()
 			}
@@ -79,8 +101,10 @@ func TestSnapSuite(t *testing.T) {
 }
 
 // runGeth creates and starts a geth node
-func runGeth() (*node.Node, error) {
+func runGeth(dir string, jwtPath string) (*node.Node, error) {
 	stack, err := node.New(&node.Config{
+		AuthAddr: "127.0.0.1",
+		AuthPort: 0,
 		ExecutionP2P: p2p.Config{
 			ListenAddr:  "127.0.0.1:0",
 			NoDiscovery: true,
@@ -92,7 +116,7 @@ func runGeth() (*node.Node, error) {
 		return nil, err
 	}
 
-	err = setupGeth(stack)
+	err = setupGeth(stack, dir)
 	if err != nil {
 		stack.Close()
 		return nil, err
@@ -104,27 +128,23 @@ func runGeth() (*node.Node, error) {
 	return stack, nil
 }
 
-func setupGeth(stack *node.Node) error {
-	chain, err := loadChain(halfchainFile, genesisFile)
+func setupGeth(stack *node.Node, dir string) error {
+	chain, err := NewChain(dir)
 	if err != nil {
 		return err
 	}
-
 	backend, err := eth.New(stack, &ethconfig.Config{
-		Genesis:                 &chain.genesis,
-		NetworkID:               chain.genesis.Config.ChainID.Uint64(), // 19763
-		DatabaseCache:           10,
-		TrieCleanCache:          10,
-		TrieCleanCacheJournal:   "",
-		TrieCleanCacheRejournal: 60 * time.Minute,
-		TrieDirtyCache:          16,
-		TrieTimeout:             60 * time.Minute,
-		SnapshotCache:           10,
+		Genesis:        &chain.genesis,
+		NetworkId:      chain.genesis.Config.ChainID.Uint64(), // 19763
+		DatabaseCache:  10,
+		TrieCleanCache: 10,
+		TrieDirtyCache: 16,
+		TrieTimeout:    60 * time.Minute,
+		SnapshotCache:  10,
 	})
 	if err != nil {
 		return err
 	}
-
 	_, err = backend.BlockChain().InsertChain(chain.blocks[1:])
 	return err
 }

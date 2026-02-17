@@ -19,6 +19,7 @@ package types
 import (
 	"bytes"
 	"hash"
+	gomath "math"
 	"math/big"
 	"reflect"
 	"testing"
@@ -31,6 +32,7 @@ import (
 	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
+	"github.com/autonity/autonity/internal/blocktest"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/rlp"
 )
@@ -58,7 +60,7 @@ func TestBlockEncoding(t *testing.T) {
 	check("Hash", block.Hash(), common.HexToHash("0xae9d971d16de73f69f940f1bd4ce5961158781176e73abea92a2b8781403885e"))
 	check("Nonce", block.Nonce(), uint64(0xa13a5a8c8f2bb1c4))
 	check("Time", block.Time(), uint64(1426516743))
-	check("Size", block.Size(), common.StorageSize(len(blockEnc)))
+	check("Size", block.Size(), uint64(len(blockEnc)))
 
 	tx1 := NewTransaction(0, common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"), big.NewInt(10), 50000, big.NewInt(10), nil)
 	tx1, _ = tx1.WithSignature(HomesteadSigner{}, common.Hex2Bytes("9bea4c4daac7c7c52e093e6a4c35dbbcf8856f1af7b059ba20253e70848d094f8a8fae537ce25ed8cb5af9adac3f141af69bd515bd2ba031522df09b97dd72b100"))
@@ -279,7 +281,7 @@ func TestEIP1559BlockEncoding(t *testing.T) {
 	check("Hash", block.Hash(), common.HexToHash("c7252048cd273fe0dac09650027d07f0e3da4ee0675ebbb26627cea92729c372"))
 	check("Nonce", block.Nonce(), uint64(0xa13a5a8c8f2bb1c4))
 	check("Time", block.Time(), uint64(1426516743))
-	check("Size", block.Size(), common.StorageSize(len(blockEnc)))
+	check("Size", block.Size(), uint64(len(blockEnc)))
 	check("BaseFee", block.BaseFee(), new(big.Int).SetUint64(params.InitialBaseFee))
 
 	tx1 := NewTransaction(0, common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"), big.NewInt(10), 50000, big.NewInt(10), nil)
@@ -343,7 +345,7 @@ func TestEIP2718BlockEncoding(t *testing.T) {
 	check("Root", block.Root(), common.HexToHash("ef1552a40b7165c3cd773806b9e0c165b75356e0314bf0706f279c729f51e017"))
 	check("Nonce", block.Nonce(), uint64(0xa13a5a8c8f2bb1c4))
 	check("Time", block.Time(), uint64(1426516743))
-	check("Size", block.Size(), common.StorageSize(len(blockEnc)))
+	check("Size", block.Size(), uint64(len(blockEnc)))
 
 	// Create legacy tx.
 	to := common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
@@ -806,7 +808,7 @@ func makeBenchBlock() *Block {
 			Extra:      []byte("benchmark uncle"),
 		}
 	}
-	return NewBlock(header, txs, uncles, receipts, newHasher())
+	return NewBlock(header, &Body{txs, uncles}, receipts, blocktest.NewHasher())
 }
 
 func TestRlpDecodeParentHash(t *testing.T) {
@@ -829,9 +831,9 @@ func TestRlpDecodeParentHash(t *testing.T) {
 	if rlpData, err := rlp.EncodeToBytes(&Header{
 		ParentHash: want,
 		Difficulty: mainnetTd,
-		Number:     new(big.Int).SetUint64(math.MaxUint64),
+		Number:     new(big.Int).SetUint64(gomath.MaxUint64),
 		Extra:      make([]byte, 65+32),
-		BaseFee:    new(big.Int).SetUint64(math.MaxUint64),
+		BaseFee:    new(big.Int).SetUint64(gomath.MaxUint64),
 	}); err != nil {
 		t.Fatal(err)
 	} else {

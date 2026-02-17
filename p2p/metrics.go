@@ -44,6 +44,18 @@ var (
 	activePeerAcnGauge     = metrics.NewRegisteredGauge("p2p/acn/peers", nil)
 	egressTrafficMeter     = metrics.NewRegisteredMeter(egressMeterName, nil)
 	ingressTrafficMeter    = metrics.NewRegisteredMeter(ingressMeterName, nil)
+
+	// general ingress/egress connection meters
+	// Todo(youssef) distinguish Consensus vs Execution
+	serveMeter          = metrics.NewRegisteredMeter("p2p/serves", nil)
+	serveSuccessMeter   = metrics.NewRegisteredMeter("p2p/serves/success", nil)
+	dialMeter           = metrics.NewRegisteredMeter("p2p/dials", nil)
+	dialSuccessMeter    = metrics.NewRegisteredMeter("p2p/dials/success", nil)
+	dialConnectionError = metrics.NewRegisteredMeter("p2p/dials/error/connection", nil) // dial timeout; no route to host; connection refused; network is unreachable
+
+	// count peers that stayed connected for at least 1 min
+	serve1MinSuccessMeter = metrics.NewRegisteredMeter("p2p/serves/success/1min", nil)
+	dial1MinSuccessMeter  = metrics.NewRegisteredMeter("p2p/dials/success/1min", nil)
 )
 
 // meteredConn is a wrapper around a net.Conn that meters both the
@@ -58,7 +70,7 @@ type meteredConn struct {
 // system is disabled, function returns the original connection.
 func newMeteredConn(conn net.Conn, ingress bool, _ *net.TCPAddr, net Network) net.Conn {
 	// Short circuit if metrics are disabled
-	if !metrics.Enabled {
+	if !metrics.Enabled() {
 		return conn
 	}
 

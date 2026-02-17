@@ -271,6 +271,11 @@ func parsePubkey(in string) (*ecdsa.PublicKey, error) {
 	return crypto.UnmarshalPubkey(b)
 }
 
+// Incomplete returns true for nodes with no IP address.
+func (n *Node) Incomplete() bool {
+	return n.IP() == nil
+}
+
 func (n *Node) URLv4() string {
 	var (
 		scheme enr.ID

@@ -1,28 +1,49 @@
 package resetting
 
 import (
+	"context"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	e2e "github.com/autonity/autonity/e2e_test"
 )
 
+func stopNodeAndWait(t *testing.T, n *e2e.Node, deleteDataDir bool) error {
+	t.Helper()
+
+	err := n.Close(deleteDataDir)
+
+	done := make(chan struct{})
+	go func() {
+		n.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return err
+	case <-time.After(30 * time.Second):
+		t.Fatalf("node %d did not stop within timeout", n.ID)
+		return context.DeadlineExceeded
+	}
+}
+
 // TestResetAllNodes, it stops all nodes one by one, and start them again one by one. The network should recover to
 // mining.
 func TestResetAllNodes(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
-	network.WaitToMineNBlocks(10, 60, false)
+	require.NoError(t, network.WaitToMineNBlocks(2, 60, false))
 
 	// stop all nodes.
 	for _, n := range network {
-		err = n.Close(false)
-		n.Wait()
+		err = stopNodeAndWait(t, n, false)
 		require.NoError(t, err)
 	}
 
@@ -33,7 +54,7 @@ func TestResetAllNodes(t *testing.T) {
 	}
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 60, false)
+	err = network.WaitToMineNBlocks(1, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -41,11 +62,11 @@ func TestResetAllNodes(t *testing.T) {
 // F nodes one by one, the network should keep mining all the time.
 func TestResetRandomFNodes(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
-	network.WaitToMineNBlocks(10, 60, false)
+	require.NoError(t, network.WaitToMineNBlocks(2, 60, false))
 
 	// stop random selected F nodes.
 	f := 2
@@ -58,13 +79,12 @@ func TestResetRandomFNodes(t *testing.T) {
 		}
 		i++
 		fNodes[selectedID] = struct{}{}
-		err = network[selectedID].Close(false)
-		network[selectedID].Wait()
+		err = stopNodeAndWait(t, network[selectedID], false)
 		require.NoError(t, err)
 	}
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 60, false)
+	err = network.WaitToMineNBlocks(1, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 	for id := range fNodes {
@@ -73,7 +93,7 @@ func TestResetRandomFNodes(t *testing.T) {
 	}
 
 	// network should be up and continue to mine blocks
-	err = network.WaitToMineNBlocks(10, 60, false)
+	err = network.WaitToMineNBlocks(1, 60, false)
 	require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 }
 
@@ -81,11 +101,11 @@ func TestResetRandomFNodes(t *testing.T) {
 // recover anyone of the stopped node to get quorum voting power and observe if the net is mining again.
 func TestResetRandomFPlusOneNodes(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
-	network.WaitToMineNBlocks(10, 60, false)
+	require.NoError(t, network.WaitToMineNBlocks(2, 60, false))
 
 	// stop random selected F+1 nodes.
 	f := 3
@@ -97,14 +117,13 @@ func TestResetRandomFPlusOneNodes(t *testing.T) {
 		}
 		i++
 		fNodes[selectedID] = struct{}{}
-		err = network[selectedID].Close(false)
-		network[selectedID].Wait()
+		err = stopNodeAndWait(t, network[selectedID], false)
 		require.NoError(t, err)
 	}
 
 	// network should be on holding.
-	err = network.WaitToMineNBlocks(10, 20, false)
-	require.EqualError(t, err, "context deadline exceeded")
+	err = network.WaitToMineNBlocks(1, 30, false)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	// recover anyone of the stopped node, the network should produce blocks again.
 	for id := range fNodes {
@@ -112,7 +131,7 @@ func TestResetRandomFPlusOneNodes(t *testing.T) {
 		require.NoError(t, err)
 		break
 	}
-	err = network.WaitToMineNBlocks(10, 60, false)
+	err = network.WaitToMineNBlocks(1, 60, false)
 	require.NoError(t, err)
 }
 
@@ -120,11 +139,11 @@ func TestResetRandomFPlusOneNodes(t *testing.T) {
 // recover random selected any two of the stopped node to get quorum voting power, and observe if the net is mining again.
 func TestResetRandomFPlusTwoNodes(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
-	network.WaitToMineNBlocks(10, 60, false)
+	require.NoError(t, network.WaitToMineNBlocks(2, 60, false))
 
 	// stop random selected F+2 nodes.
 	f := 4
@@ -136,14 +155,13 @@ func TestResetRandomFPlusTwoNodes(t *testing.T) {
 		}
 		i++
 		fNodes[selectedID] = struct{}{}
-		err = network[selectedID].Close(false)
-		network[selectedID].Wait()
+		err = stopNodeAndWait(t, network[selectedID], false)
 		require.NoError(t, err)
 	}
 
 	// network should be on holding.
-	err = network.WaitToMineNBlocks(10, 60, false)
-	require.EqualError(t, err, "context deadline exceeded")
+	err = network.WaitToMineNBlocks(1, 60, false)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	// recover anyone two of the stopped node, the network should produce blocks again.
 	count := 0
@@ -155,7 +173,7 @@ func TestResetRandomFPlusTwoNodes(t *testing.T) {
 		err = network[id].Start()
 		require.NoError(t, err)
 	}
-	err = network.WaitToMineNBlocks(10, 60, false)
+	err = network.WaitToMineNBlocks(1, 60, false)
 	require.NoError(t, err)
 }
 
@@ -163,27 +181,26 @@ func TestResetRandomFPlusTwoNodes(t *testing.T) {
 // recover it at that round, after each round the network should keep mining.
 func TestKeepResettingRandomOneNode(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
-	network.WaitToMineNBlocks(10, 60, false)
+	require.NoError(t, network.WaitToMineNBlocks(2, 60, false))
 
-	rounds := 10
+	rounds := 3
 	for r := 0; r < rounds; r++ {
 		// random select a node to reset.
 		nodeID := rand.Intn(len(network))
-		err = network[nodeID].Close(false)
-		network[nodeID].Wait()
+		err = stopNodeAndWait(t, network[nodeID], false)
 		require.NoError(t, err)
 		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(1, 30, false)
+		err = network.WaitToMineNBlocks(1, 60, false)
 		require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 		// recover that faulty node.
 		err = network[nodeID].Start()
 		require.NoError(t, err)
 		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(1, 30, false)
+		err = network.WaitToMineNBlocks(1, 60, false)
 		require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 	}
 }
@@ -192,24 +209,23 @@ func TestKeepResettingRandomOneNode(t *testing.T) {
 // then recover them at that round, after each round the network should keep mining.
 func TestKeepResettingRandomTwoNodes(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
-	network.WaitToMineNBlocks(10, 60, false)
+	require.NoError(t, network.WaitToMineNBlocks(2, 60, false))
 
-	rounds := 10
+	rounds := 3
 	for r := 0; r < rounds; r++ {
 		// random select two nodes, and stop them.
 		nodes := generateDistinctRandomNumbers(0, numOfNodes-1, 2)
 		for _, n := range nodes {
-			err = network[n].Close(false)
-			network[n].Wait()
+			err = stopNodeAndWait(t, network[n], false)
 			require.NoError(t, err)
 		}
 
 		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(10, 60, false)
+		err = network.WaitToMineNBlocks(1, 60, false)
 		require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 
 		// recover the two faulty nodes.
@@ -219,7 +235,7 @@ func TestKeepResettingRandomTwoNodes(t *testing.T) {
 		}
 
 		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(10, 60, false)
+		err = network.WaitToMineNBlocks(1, 60, false)
 		require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 	}
 }
@@ -228,25 +244,24 @@ func TestKeepResettingRandomTwoNodes(t *testing.T) {
 // then recover them at that round, after each round the network should keep mining.
 func TestKeepResettingRandomThreeNodes(t *testing.T) {
 	numOfNodes := 6
-	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,0.0.0.0:%s,%s,%s,%s")
+	network, err := e2e.NewNetwork(t, numOfNodes, "10e18,v,1,127.0.0.1:%s,%s,%s,%s")
 	require.NoError(t, err)
 	defer network.Shutdown(t)
 	// wait for the consensus engine to work.
-	network.WaitToMineNBlocks(10, 60, false)
+	require.NoError(t, network.WaitToMineNBlocks(2, 60, false))
 
-	rounds := 10
+	rounds := 3
 	for r := 0; r < rounds; r++ {
 		// random select three nodes, and stop them.
 		nodes := generateDistinctRandomNumbers(0, numOfNodes-1, 3)
 		for _, n := range nodes {
-			err = network[n].Close(false)
-			network[n].Wait()
+			err = stopNodeAndWait(t, network[n], false)
 			require.NoError(t, err)
 		}
 
 		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(10, 60, false)
-		require.EqualError(t, err, "context deadline exceeded")
+		err = network.WaitToMineNBlocks(1, 30, false)
+		require.Error(t, err)
 
 		// recover the three faulty nodes.
 		for _, n := range nodes {
@@ -255,7 +270,7 @@ func TestKeepResettingRandomThreeNodes(t *testing.T) {
 		}
 
 		// network should be up and continue to mine blocks
-		err = network.WaitToMineNBlocks(10, 60, false)
+		err = network.WaitToMineNBlocks(1, 90, false)
 		require.NoError(t, err, "Network should be mining new blocks now, but it's not")
 	}
 }

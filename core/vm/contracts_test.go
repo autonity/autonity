@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -30,14 +31,16 @@ import (
 	"github.com/autonity/autonity/accounts/abi"
 	"github.com/autonity/autonity/autonity/bindings"
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/math"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/tracing"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/crypto"
 	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/params"
 	"github.com/autonity/autonity/params/generated"
+	"github.com/autonity/autonity/triedb"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 )
 
@@ -111,7 +114,7 @@ func testPrecompiled(addr string, test precompiledTest, t *testing.T) {
 	gas := p.RequiredGas(in)
 	blockNumber := uint64(100)
 	t.Run(fmt.Sprintf("%s-Gas=%d", test.Name, gas), func(t *testing.T) {
-		if res, _, err := RunPrecompiledContract(p, in, gas, blockNumber, nil, common.Address{}); err != nil {
+		if res, _, err := RunPrecompiledContract(p, in, gas, blockNumber, nil, common.Address{}, nil); err != nil {
 			t.Error(err)
 		} else if common.Bytes2Hex(res) != test.Expected {
 			t.Errorf("Expected %v, got %v", test.Expected, common.Bytes2Hex(res))
@@ -133,7 +136,7 @@ func testPrecompiledOOG(addr string, test precompiledTest, t *testing.T) {
 	gas := p.RequiredGas(in) - 1
 	blockNumber := uint64(100)
 	t.Run(fmt.Sprintf("%s-Gas=%d", test.Name, gas), func(t *testing.T) {
-		_, _, err := RunPrecompiledContract(p, in, gas, blockNumber, nil, common.Address{})
+		_, _, err := RunPrecompiledContract(p, in, gas, blockNumber, nil, common.Address{}, nil)
 		if err.Error() != "out of gas" {
 			t.Errorf("Expected error [out of gas], got [%v]", err)
 		}
@@ -151,7 +154,7 @@ func testPrecompiledFailure(addr string, test precompiledFailureTest, t *testing
 	gas := p.RequiredGas(in)
 	blockNumber := uint64(100)
 	t.Run(test.Name, func(t *testing.T) {
-		_, _, err := RunPrecompiledContract(p, in, gas, blockNumber, nil, common.Address{})
+		_, _, err := RunPrecompiledContract(p, in, gas, blockNumber, nil, common.Address{}, nil)
 		if err.Error() != test.ExpectedError {
 			t.Errorf("Expected error [%v], got [%v]", test.ExpectedError, err)
 		}
@@ -183,7 +186,7 @@ func benchmarkPrecompiled(addr string, test precompiledTest, bench *testing.B) {
 		bench.ResetTimer()
 		for i := 0; i < bench.N; i++ {
 			copy(data, in)
-			res, _, err = RunPrecompiledContract(p, data, reqGas, blockNumber, nil, common.Address{})
+			res, _, err = RunPrecompiledContract(p, data, reqGas, blockNumber, nil, common.Address{}, nil)
 			require.NoError(bench, err)
 		}
 		bench.StopTimer()
@@ -524,9 +527,8 @@ func TestReadCommittee(t *testing.T) {
 		err := expectedCommittee.Enrich()
 		require.NoError(t, err)
 
-		ethDb := rawdb.NewMemoryDatabase()
-		db := state.NewDatabase(ethDb)
-		stateDB, err := state.New(common.Hash{}, db, nil)
+		db := state.NewDatabaseForTesting()
+		stateDB, err := state.New(common.Hash{}, db)
 		require.NoError(t, err)
 		caller := common.Address{0xca, 0xfe}
 		committeeSlot := common.LeftPadBytes(big.NewInt(54465465).Bytes(), DataLen)
@@ -579,17 +581,17 @@ func TestReadCommittee(t *testing.T) {
 		}
 
 		// deploy the autonity test contract
-		deployAutonityTest := func(evm *EVM, address common.Address, abi *abi.ABI, bytecode []byte, value *big.Int, args ...interface{}) error {
+		deployAutonityTest := func(evm *EVM, address common.Address, abi *abi.ABI, bytecode []byte, value *uint256.Int, args ...interface{}) error {
 			constructorParams, err := abi.Pack("", args...)
 			if err != nil {
 				return fmt.Errorf("failed to pack parameters: %w", err)
 			}
 			if value.BitLen() != 0 && evm.StateDB.GetBalance(params.DeployerAddress).Cmp(value) < 0 {
-				evm.StateDB.AddBalance(params.DeployerAddress, value)
+				evm.StateDB.AddBalance(params.DeployerAddress, value, tracing.BalanceIncreaseGenesisBalance)
 			}
 			data := append(bytecode, constructorParams...)
 			gas := uint64(math.MaxUint64)
-			_, addr, _, err := evm.Create(AccountRef(params.DeployerAddress), data, gas, value)
+			_, addr, _, err := evm.Create(params.DeployerAddress, data, gas, value)
 			if err != nil {
 				return err
 			}
@@ -602,12 +604,12 @@ func TestReadCommittee(t *testing.T) {
 		// create an evm to deploy contracts
 		getEvm := func(statedb *state.StateDB) *EVM {
 			// redefine to avoid import loops
-			canTransfer := func(db StateDB, addr common.Address, amount *big.Int) bool {
+			canTransfer := func(db StateDB, addr common.Address, amount *uint256.Int) bool {
 				return db.GetBalance(addr).Cmp(amount) >= 0
 			}
-			transfer := func(db StateDB, sender, recipient common.Address, amount *big.Int) {
-				db.SubBalance(sender, amount)
-				db.AddBalance(recipient, amount)
+			transfer := func(db StateDB, sender, recipient common.Address, amount *uint256.Int) {
+				db.SubBalance(sender, amount, tracing.BalanceChangeTransfer)
+				db.AddBalance(recipient, amount, tracing.BalanceChangeTransfer)
 			}
 
 			evmContext := BlockContext{
@@ -616,17 +618,13 @@ func TestReadCommittee(t *testing.T) {
 				GetHash:            func(_ uint64) common.Hash { return common.Hash{} },
 				Coinbase:           common.Address{},
 				BlockNumber:        big.NewInt(0),
-				Time:               new(big.Int).SetUint64(0),
+				Time:               0,
 				GasLimit:           params.GenesisGasLimit,
 				Difficulty:         params.GenesisDifficulty,
 				ActivityProof:      nil,
 				ActivityProofRound: 0,
 			}
-			txContext := TxContext{
-				Origin:   params.DeployerAddress,
-				GasPrice: new(big.Int).SetUint64(0x0),
-			}
-			return NewEVM(evmContext, txContext, statedb, params.TestChainConfig, Config{})
+			return NewEVM(evmContext, statedb, params.TestConfigNoVerkle, Config{})
 		}
 
 		// generic evm caller
@@ -636,21 +634,21 @@ func TestReadCommittee(t *testing.T) {
 				return nil, fmt.Errorf("failed to pack parameters for method: %s %w", method, err)
 			}
 			gas := uint64(math.MaxUint64)
-			packedResult, _, err := evm.Call(AccountRef(origin), contractAddress, packedArgs, gas, common.Big0)
+			packedResult, _, err := evm.Call(origin, contractAddress, packedArgs, gas, &uint256.Int{})
 			return packedResult, err
 		}
 
 		// create db and evm
 		ethDb := rawdb.NewMemoryDatabase()
-		db := state.NewDatabase(ethDb)
-		stateDB, err := state.New(common.Hash{}, db, nil)
+		db := state.NewDatabase(triedb.NewDatabase(ethDb, nil), nil)
+		stateDB, err := state.New(common.Hash{}, db)
 		require.NoError(t, err)
 		evm := getEvm(stateDB)
 
 		// build expected committee and deployment params from test validators
-		validators := make([]params.Validator, 0, len(params.TestChainConfig.AutonityContractConfig.Validators))
-		expectedCommittee := &types.Committee{Members: make([]types.CommitteeMember, 0, len(params.TestChainConfig.AutonityContractConfig.Validators))}
-		for _, v := range params.TestChainConfig.AutonityContractConfig.Validators {
+		validators := make([]params.Validator, 0, len(params.TestConfigNoVerkle.AutonityContractConfig.Validators))
+		expectedCommittee := &types.Committee{Members: make([]types.CommitteeMember, 0, len(params.TestConfigNoVerkle.AutonityContractConfig.Validators))}
+		for _, v := range params.TestConfigNoVerkle.AutonityContractConfig.Validators {
 			validators = append(validators, *v)
 			expectedCommittee.Members = append(expectedCommittee.Members, types.CommitteeMember{
 				Address:           *v.NodeAddress,
@@ -667,9 +665,9 @@ func TestReadCommittee(t *testing.T) {
 			params.AutonityContractAddress,
 			&generated.AutonityTestAbi,
 			generated.AutonityTestBytecode,
-			common.Big0,
+			&uint256.Int{},
 			validators,
-			toContractConfig(params.TestChainConfig.AutonityContractConfig),
+			toContractConfig(params.TestConfigNoVerkle.AutonityContractConfig),
 		)
 		require.NoError(t, err)
 
@@ -680,7 +678,7 @@ func TestReadCommittee(t *testing.T) {
 			params.AutonityContractAddress,
 			&generated.AutonityTestAbi,
 			"finalizeInitialization",
-			new(big.Int).SetUint64(params.TestChainConfig.OmissionAccountabilityConfig.Delta),
+			new(big.Int).SetUint64(params.TestConfigNoVerkle.OmissionAccountabilityConfig.Delta),
 		)
 		require.NoError(t, err)
 
@@ -715,15 +713,16 @@ func TestUpgradeContract(t *testing.T) {
 			common.HexToAddress("0x00000000000000000000000000000000000000000"),
 		}
 		for i := range tests {
-			_, _, err := RunPrecompiledContract(&Upgrader{}, createInput(params.AutonityContractAddress), math.MaxUint64, 3, nil, tests[i])
+			_, _, err := RunPrecompiledContract(&Upgrader{}, createInput(params.AutonityContractAddress), math.MaxUint64, 3, nil, tests[i], nil)
 			require.Error(t, err, errUnauthorized)
 		}
-		statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
+		statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 		_, _, err := RunPrecompiledContract(&Upgrader{},
 			createInput(params.AutonityContractAddress),
 			math.MaxUint64, 3,
-			NewEVM(BlockContext{}, TxContext{}, statedb, params.TestChainConfig, Config{}),
+			NewEVM(BlockContext{}, statedb, params.TestConfigNoVerkle, Config{}),
 			params.UpgradeManagerContractAddress,
+			nil,
 		)
 		require.NoError(t, err)
 	})
@@ -731,9 +730,9 @@ func TestUpgradeContract(t *testing.T) {
 	t.Run("protocols contracts can be upgraded", func(t *testing.T) {
 
 		for i := range params.ProtocolContracts {
-			statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-			evm := NewEVM(BlockContext{}, TxContext{}, statedb, params.TestChainConfig, Config{})
-			_, _, err := RunPrecompiledContract(&Upgrader{}, createInput(params.ProtocolContracts[i]), math.MaxUint64, 3, evm, params.UpgradeManagerContractAddress)
+			statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
+			evm := NewEVM(BlockContext{}, statedb, params.TestConfigNoVerkle, Config{})
+			_, _, err := RunPrecompiledContract(&Upgrader{}, createInput(params.ProtocolContracts[i]), math.MaxUint64, 3, evm, params.UpgradeManagerContractAddress, nil)
 			require.NoError(t, err)
 		}
 	})
@@ -745,9 +744,9 @@ func TestUpgradeContract(t *testing.T) {
 			common.HexToAddress("0x00000000000000000000000000000000000000000"),
 		}
 		for i := range tests {
-			statedb, _ := state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-			evm := NewEVM(BlockContext{}, TxContext{}, statedb, params.TestChainConfig, Config{})
-			_, _, err := RunPrecompiledContract(&Upgrader{}, createInput(tests[i]), math.MaxUint64, 3, evm, params.UpgradeManagerContractAddress)
+			statedb, _ := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
+			evm := NewEVM(BlockContext{}, statedb, params.TestConfigNoVerkle, Config{})
+			_, _, err := RunPrecompiledContract(&Upgrader{}, createInput(tests[i]), math.MaxUint64, 3, evm, params.UpgradeManagerContractAddress, nil)
 			require.Error(t, err, errBadUpgradeTarget)
 		}
 	})

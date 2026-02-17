@@ -68,7 +68,7 @@ func TestSendPropose(t *testing.T) {
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Sign(gomock.Any()).AnyTimes().DoAndReturn(makeSigner(proposerConsensusKey))
 		backendMock.EXPECT().Broadcast(gomock.Any(), proposal)
-		backendMock.EXPECT().HeadBlock().Return(preBlock)
+		backendMock.EXPECT().HeadBlock().Return(preBlock.Header())
 
 		c := &Core{
 			address:          proposer,
@@ -230,7 +230,6 @@ func TestHandleProposal(t *testing.T) {
 		backendMock.EXPECT().ProposedBlockHash().Return(common.Hash{})
 		backendMock.EXPECT().VerifyProposal(gomock.Any()).Return(eventPostingDelay, consensus.ErrFutureTimestampBlock)
 		backendMock.EXPECT().IsProposalStateCached(proposal.Block().Hash()).Return(false)
-
 		messageEventCh := make(chan events.MessageEvent, 1)
 		c := &Core{
 			address:          addr,
@@ -552,7 +551,7 @@ func TestHandleNewCandidateBlockMsg(t *testing.T) {
 		backendMock.EXPECT().SetProposedBlockHash(proposal.Block().Hash())
 		backendMock.EXPECT().Broadcast(gomock.Any(), proposal)
 		backendMock.EXPECT().Sign(gomock.Any()).DoAndReturn(makeSigner(proposerKey))
-		backendMock.EXPECT().HeadBlock().Return(preBlock)
+		backendMock.EXPECT().HeadBlock().Return(preBlock.Header())
 
 		c := &Core{
 			pendingCandidateBlocks: make(map[uint64]*types.Block),

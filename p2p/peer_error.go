@@ -123,7 +123,7 @@ func discReasonForError(err error) DiscReason {
 	if reason, ok := err.(DiscReason); ok {
 		return reason
 	}
-	if err == errProtocolReturned {
+	if errors.Is(err, errProtocolReturned) {
 		return DiscQuitting
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 2020 The go-ethereum Authors
+// Copyright 2021 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -21,25 +21,19 @@ import (
 	"errors"
 	"os"
 
+	bloomfilter "github.com/holiman/bloomfilter/v2"
+
 	"github.com/autonity/autonity/common"
 	"github.com/autonity/autonity/core/rawdb"
 	"github.com/autonity/autonity/log"
-	bloomfilter "github.com/holiman/bloomfilter/v2"
 )
 
-// stateBloomHasher is a wrapper around a byte blob to satisfy the interface API
-// requirements of the bloom library used. It's used to convert a trie hash or
-// contract code hash into a 64 bit mini hash.
-type stateBloomHasher []byte
+// stateBloomHash is used to convert a trie hash or contract code hash into a 64 bit mini hash.
+func stateBloomHash(f []byte) uint64 {
+	return binary.BigEndian.Uint64(f)
+}
 
-func (f stateBloomHasher) Write(p []byte) (n int, err error) { panic("not implemented") }
-func (f stateBloomHasher) Sum(b []byte) []byte               { panic("not implemented") }
-func (f stateBloomHasher) Reset()                            { panic("not implemented") }
-func (f stateBloomHasher) BlockSize() int                    { panic("not implemented") }
-func (f stateBloomHasher) Size() int                         { return 8 }
-func (f stateBloomHasher) Sum64() uint64                     { return binary.BigEndian.Uint64(f) }
-
-// stateBloom is a bloom filter used during the state convesion(snapshot->state).
+// stateBloom is a bloom filter used during the state conversion(snapshot->state).
 // The keys of all generated entries will be recorded here so that in the pruning
 // stage the entries belong to the specific version can be avoided for deletion.
 //
@@ -100,7 +94,7 @@ func (bloom *stateBloom) Commit(filename, tempname string) error {
 	}
 	f.Close()
 
-	// Move the teporary file into it's final location
+	// Move the temporary file into it's final location
 	return os.Rename(tempname, filename)
 }
 
@@ -113,10 +107,10 @@ func (bloom *stateBloom) Put(key []byte, value []byte) error {
 		if !isCode {
 			return errors.New("invalid entry")
 		}
-		bloom.bloom.Add(stateBloomHasher(codeKey))
+		bloom.bloom.AddHash(stateBloomHash(codeKey))
 		return nil
 	}
-	bloom.bloom.Add(stateBloomHasher(key))
+	bloom.bloom.AddHash(stateBloomHash(key))
 	return nil
 }
 
@@ -127,6 +121,6 @@ func (bloom *stateBloom) Delete(key []byte) error { panic("not supported") }
 // reports whether the key is contained.
 // - If it says yes, the key may be contained
 // - If it says no, the key is definitely not contained.
-func (bloom *stateBloom) Contain(key []byte) (bool, error) {
-	return bloom.bloom.Contains(stateBloomHasher(key)), nil
+func (bloom *stateBloom) Contain(key []byte) bool {
+	return bloom.bloom.ContainsHash(stateBloomHash(key))
 }

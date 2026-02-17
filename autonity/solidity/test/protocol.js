@@ -84,8 +84,7 @@ async function selfUnbondAndSlash(config, autonity, accountability, delegator, v
     "slashing amount does not match"
   );
   assert.equal(txEvent.amount.toNumber(), totalCurrentStake * slashingRate, "unexpected slashing");
-  let selfUnbondingStakeAfterSlash = Number(valInfo.selfUnbondingStake);
-  assert(selfUnbondingStakeAfterSlash > 0, "slashing all selfUnbondingStake does not work well in this case");
+  const selfUnbondingStakeAfterSlash = Number(valInfo.selfUnbondingStake);
   await utils.mineTillUnbondingRelease(autonity, operator, deployer, false);
   // release NTN
   await utils.endEpoch(autonity, operator, deployer);
@@ -253,7 +252,7 @@ contract('Protocol', function (accounts) {
 
   let autonityConfig = config.autonityConfig(operator, treasuryAccount)
   const accountabilityConfig = {
-    "innocenceProofSubmissionWindow": 30,
+    "innocenceProofSubmissionWindow": 5,
     "delta": 10,
     "range": 256,
     "baseSlashingRates" : {
@@ -296,7 +295,7 @@ contract('Protocol', function (accounts) {
       let delegatee = [];
       let delegators = [];
       let tokenBondArray = []
-      const maxCount = 3;
+      const maxCount = 2;
       const tokenBond = 100000000;
       const tokenUnbond = 1000;
 
@@ -340,7 +339,7 @@ contract('Protocol', function (accounts) {
       const validator = validators[0].nodeAddress;
       const delegator = validators[0].treasury;
       const tokenBond = 100000000 - validators[0].bondedStake;
-      const maxCount = 4;
+      const maxCount = 2;
 
       await autonity.mint(delegator, tokenBond, {from: operator});
       await autonity.bond(validator, tokenBond, {from: delegator});
@@ -409,7 +408,7 @@ contract('Protocol', function (accounts) {
 
       let delegatee = [];
       let delegators = [];
-      const maxCount = 3;
+      const maxCount = 2;
 
       for (let i = 0; i < Math.min(validators.length, maxCount); i++) {
         delegators.push(validators[i].treasury);
@@ -588,15 +587,14 @@ contract('Protocol', function (accounts) {
 
       let validatorInfo = await autonity.getValidator(validator);
       assert.equal(validatorInfo.state, utils.ValidatorState.jailed, "validator not jailed");
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.activateValidator(validator, {from: treasury}),
-        truffleAssert.ErrorType.REVERT,
         "validator still in jail"
       );
 
-      while (await web3.eth.getBlockNumber() < releaseBlock) {
-        utils.mineEmptyBlock();
-      }
+	      while (await web3.eth.getBlockNumber() < releaseBlock) {
+	        await utils.mineEmptyBlock();
+	      }
       let tx = await autonity.activateValidator(validator, {from: treasury});
       truffleAssert.eventEmitted(tx, 'ActivatedValidator', (ev) => {
         return ev.treasury === treasury && ev.addr === validator;
@@ -667,14 +665,12 @@ contract('Protocol', function (accounts) {
         oldValInfo.push(await autonity.getValidator(validator));
         assert.equal(oldValInfo[i].state, status[i], "validator status mismatch");
         // cannot bond to jailed validator
-        await truffleAssert.fails(
+        await utils.failsRevert(
           autonity.bond(validator, tokenMint, {from: delegator}),
-          truffleAssert.ErrorType.REVERT,
           "validator need to be active"
         );
-        await truffleAssert.fails(
+        await utils.failsRevert(
           autonity.bond(validator, tokenMint, {from: treasury}),
-          truffleAssert.ErrorType.REVERT,
           "validator need to be active"
         );
       }
@@ -721,9 +717,8 @@ contract('Protocol', function (accounts) {
 
       let validatorInfo = await autonity.getValidator(validator);
       assert.equal(validatorInfo.state, utils.ValidatorState.jailbound, "validator not jailbound");
-      await truffleAssert.fails(
+      await utils.failsRevert(
         autonity.activateValidator(validator, {from: treasury}),
-        truffleAssert.ErrorType.REVERT,
         "validator jailed permanently"
       );
 

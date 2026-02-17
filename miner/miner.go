@@ -25,12 +25,13 @@ import (
 	"time"
 
 	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus"
 	"github.com/autonity/autonity/core"
 	"github.com/autonity/autonity/core/state"
+	"github.com/autonity/autonity/core/txpool"
 	"github.com/autonity/autonity/core/types"
 	"github.com/autonity/autonity/eth/downloader"
+	"github.com/autonity/autonity/eth/ethconfig"
 	"github.com/autonity/autonity/event"
 	"github.com/autonity/autonity/log"
 	"github.com/autonity/autonity/params"
@@ -42,21 +43,9 @@ const maxSyncFailures = 100
 // to offer all the functions here.
 type Backend interface {
 	BlockChain() *core.BlockChain
-	TxPool() *core.TxPool
-	StateAtBlock(block *types.Block, reexec uint64, base *state.StateDB, checkLive bool, preferDisk bool) (statedb *state.StateDB, err error)
+	TxPool() *txpool.TxPool
+	StateAtBlock(block *types.Header, reexec uint64, base *state.StateDB, checkLive bool, preferDisk bool) (statedb *state.StateDB, err error)
 	Logger() log.Logger
-}
-
-// Config is the configuration parameters of mining.
-type Config struct {
-	Etherbase  common.Address `toml:",omitempty"` // Public address for block mining rewards (default = first account)
-	Notify     []string       `toml:",omitempty"` // HTTP URL list to be notified of new work packages (only useful in ethash).
-	NotifyFull bool           `toml:",omitempty"` // Notify with pending block headers instead of work packages
-	ExtraData  hexutil.Bytes  `toml:",omitempty"` // Block extra data set by the miner
-	GasFloor   uint64         // Target gas floor for mined blocks.
-	GasPrice   *big.Int       // Minimum gas price for mining a transaction
-	Recommit   time.Duration  // The time interval for miner to re-create mining work.
-	Noverify   bool           // Disable remote mining solution verification(only useful in ethash).
 }
 
 // Miner creates blocks and searches for proof-of-work values.
@@ -69,15 +58,15 @@ type Miner struct {
 	startCh      chan struct{}
 	stopCh       chan struct{}
 	forceStartCh chan struct{}
-
-	wg sync.WaitGroup
+	prio         []common.Address // A list of senders to prioritize
+	wg           sync.WaitGroup
 
 	// used in the miner update loop
 	canStart    bool
 	shouldStart bool
 }
 
-func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, isLocalBlock func(header *types.Header) bool) *Miner {
+func New(eth Backend, config *ethconfig.MinerConfig, chainConfig *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
 	miner := &Miner{
 		eth:          eth,
 		mux:          mux,
@@ -86,7 +75,7 @@ func New(eth Backend, config *Config, chainConfig *params.ChainConfig, mux *even
 		startCh:      make(chan struct{}),
 		stopCh:       make(chan struct{}),
 		forceStartCh: make(chan struct{}),
-		worker:       newWorker(config, chainConfig, engine, eth, mux, isLocalBlock, true),
+		worker:       newWorker(config, chainConfig, engine, eth, mux, true),
 		shouldStart:  false,
 		canStart:     false,
 	}
@@ -135,10 +124,10 @@ func (miner *Miner) update() {
 			}
 			switch ev.Data.(type) {
 			case downloader.StartEvent:
-				miner.eth.Logger().Info("Chain syncing started, waiting for completion to start consensus engine", "shouldStart", miner.shouldStart, "canStart", miner.canStart)
+				miner.eth.Logger().Info("Syncing started", "shouldStart", miner.shouldStart, "canStart", miner.canStart)
 			case downloader.FailedEvent:
 				syncFailures++
-				miner.eth.Logger().Info("Chain syncing failed", "#failures", syncFailures, "shouldStart", miner.shouldStart, "canStart", miner.canStart)
+				miner.eth.Logger().Error("Sync failure", "#failures", syncFailures, "shouldStart", miner.shouldStart, "canStart", miner.canStart)
 				// if we fail more than maxSyncFailures times consequently, assume we are under attack
 				if syncFailures >= maxSyncFailures {
 					miner.eth.Logger().Warn("************************** PROBLEM DETECTED ******************************")
@@ -157,7 +146,7 @@ func (miner *Miner) update() {
 			// The chain halts, and we are restarting our offline validator to make it un-halt.
 			case downloader.DoneEvent, downloader.SyncedEvent:
 				miner.canStart = true
-				miner.eth.Logger().Info("Chain syncing completed, consensus engine can start", "event", reflect.TypeOf(ev.Data), "shouldStart", miner.shouldStart, "canStart", miner.canStart)
+				miner.eth.Logger().Info("Sync complete", "event", reflect.TypeOf(ev.Data), "shouldStart", miner.shouldStart, "canStart", miner.canStart)
 				miner.startWorker()
 				// Stop reacting to downloader events
 				if !events.Closed() {
@@ -239,9 +228,18 @@ func (miner *Miner) SetRecommitInterval(interval time.Duration) {
 	miner.worker.setRecommitInterval(interval)
 }
 
-// Pending returns the currently pending block and associated state.
-func (miner *Miner) Pending() (*types.Block, *state.StateDB) {
-	return miner.worker.pending()
+// Pending returns the currently pending block and associated receipts, logs
+// and statedb. The returned values can be nil in case the pending block is
+// not initialized.
+func (miner *Miner) Pending() (*types.Block, types.Receipts, *state.StateDB) {
+	pending := miner.worker.pendingBlock()
+	block := miner.eth.BlockChain().GetBlockByHash(pending.Hash())
+	state, err := miner.eth.BlockChain().StateAt(pending.Root)
+	receipts := miner.eth.BlockChain().GetReceiptsByHash(pending.Hash())
+	if err != nil {
+		return nil, nil, nil
+	}
+	return block, receipts, state.Copy()
 }
 
 // PendingBlock returns the currently pending block.
@@ -249,7 +247,7 @@ func (miner *Miner) Pending() (*types.Block, *state.StateDB) {
 // Note, to access both the pending block and the pending state
 // simultaneously, please use Pending(), as the pending state can
 // change between multiple method calls
-func (miner *Miner) PendingBlock() *types.Block {
+func (miner *Miner) PendingBlock() *types.Header {
 	return miner.worker.pendingBlock()
 }
 
@@ -280,4 +278,27 @@ func (miner *Miner) GetSealingBlock(parent common.Hash, timestamp uint64, coinba
 // to the given channel.
 func (miner *Miner) SubscribePendingLogs(ch chan<- []*types.Log) event.Subscription {
 	return miner.worker.pendingLogsFeed.Subscribe(ch)
+}
+
+func (miner *Miner) SetPrioAddresses(prio []common.Address) {
+	miner.worker.confMu.Lock()
+	miner.worker.config.Prio = prio
+	miner.prio = prio
+	miner.worker.confMu.Unlock()
+}
+
+// SetGasCeil sets the gaslimit to strive for when mining blocks post 1559.
+// For pre-1559 blocks, it sets the ceiling.
+func (miner *Miner) SetGasCeil(ceil uint64) {
+	miner.worker.confMu.Lock()
+	miner.worker.config.GasCeil = ceil
+	miner.worker.confMu.Unlock()
+}
+
+// SetGasTip sets the minimum gas tip for inclusion.
+func (miner *Miner) SetGasTip(tip *big.Int) error {
+	miner.worker.confMu.Lock()
+	miner.worker.config.GasPrice = tip
+	miner.worker.confMu.Unlock()
+	return nil
 }

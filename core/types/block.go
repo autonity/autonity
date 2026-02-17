@@ -24,21 +24,22 @@ import (
 	"io"
 	"math/big"
 	"reflect"
+	"slices"
 	"sync/atomic"
 	"time"
 
-	"github.com/autonity/autonity/common"
-	"github.com/autonity/autonity/common/hexutil"
 	"github.com/autonity/autonity/consensus/tendermint/bft"
 	"github.com/autonity/autonity/crypto"
-	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/log"
+
+	"github.com/autonity/autonity/common"
+	"github.com/autonity/autonity/common/hexutil"
+	"github.com/autonity/autonity/crypto/blst"
 	"github.com/autonity/autonity/rlp"
 )
 
 var (
-	EmptyRootHash                = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-	EmptyUncleHash               = rlpHash([]*Header(nil))
+	NilValue                     = common.Hash{}
 	errInvalidSignature          = errors.New("aggregate signature is invalid")
 	ErrNonAggregatablePublicKeys = errors.New("provided public keys cannot be aggregated")
 	errNoQuorum                  = errors.New("aggregate signature does not contain quorum voting power")
@@ -331,6 +332,54 @@ func (h *Header) Size() common.StorageSize {
 	return headerSize + common.StorageSize(len(h.Extra)+(h.Difficulty.BitLen()+h.Number.BitLen())/8)
 }
 
+// sanityCheck checks a few basic things -- these checks are way beyond what
+// any 'sane' production values should hold, and can mainly be used to prevent
+// that the unbounded fields are stuffed with junk data to add processing
+// overhead
+func (h *Header) sanityCheck() error {
+	if !h.Number.IsUint64() {
+		return fmt.Errorf("too large block number: bitlen %d", h.Number.BitLen())
+	}
+	if diffLen := h.Difficulty.BitLen(); diffLen > maximumDifficultyBitlen {
+		return fmt.Errorf("too large block difficulty: bitlen %d", diffLen)
+	}
+	if eLen := len(h.Extra); eLen > maximumEpochHeaderSize {
+		return fmt.Errorf("too large block extradata: size %d", eLen)
+	}
+	if bfLen := h.BaseFee.BitLen(); bfLen > maximumBaseFeeBitlen {
+		return fmt.Errorf("too large base fee: bitlen %d", bfLen)
+	}
+
+	// check sanity of epoch info if the header is an epoch header.
+	// assumes sanity nil checks have already been done
+	if h.IsEpochHeader() {
+		if !h.Epoch.PreviousEpochBlock.IsUint64() {
+			return fmt.Errorf("too large previous epoch block number: bitlen %d", h.Epoch.PreviousEpochBlock.BitLen())
+		}
+
+		if !h.Epoch.NextEpochBlock.IsUint64() {
+			return fmt.Errorf("too large next epoch block number: bitlen %d", h.Epoch.NextEpochBlock.BitLen())
+		}
+
+		if !h.Epoch.OmissionDelta.IsUint64() {
+			return fmt.Errorf("too large next epoch delta: bitlen %d", h.Epoch.OmissionDelta.BitLen())
+		}
+
+		if h.Epoch.PreviousEpochBlock.Cmp(h.Number) > 0 {
+			return fmt.Errorf("previous epoch block number %d is larger than current epoch block number %d", h.Epoch.PreviousEpochBlock.Uint64(), h.Number.Uint64())
+		}
+
+		if h.Epoch.PreviousEpochBlock.Cmp(h.Number) == 0 && !h.IsGenesis() { // genesis is allowed to have previousEpochBlock == epochBlock == common.Big0
+			return fmt.Errorf("previous epoch block number %d is equal to current epoch block number %d", h.Epoch.PreviousEpochBlock.Uint64(), h.Number.Uint64())
+		}
+
+		if h.Number.Cmp(h.Epoch.NextEpochBlock) >= 0 {
+			return fmt.Errorf("current epoch block number %d is larger or equal than next epoch block number %d", h.Number.Uint64(), h.Epoch.NextEpochBlock.Uint64())
+		}
+	}
+	return nil
+}
+
 // DecodeRLP decodes the Ethereum
 func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	origin := &originalHeader{}
@@ -535,6 +584,10 @@ func (h *Header) DecodeRLP(s *rlp.Stream) error {
 	h.Nonce = origin.Nonce
 	h.BaseFee = origin.BaseFee
 
+	if err := h.sanityCheck(); err != nil {
+		return fmt.Errorf("failed sanity check: %w", err)
+	}
+
 	return nil
 }
 
@@ -618,8 +671,8 @@ type Block struct {
 	transactions Transactions
 
 	// caches
-	hash atomic.Value
-	size atomic.Value
+	hash atomic.Pointer[common.Hash]
+	size atomic.Uint64
 
 	// Td is used by package core to store the total difficulty
 	// of the chain up to and including the block.
@@ -645,12 +698,18 @@ type extblock struct {
 // The values of TxHash, UncleHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs, uncles
 // and receipts.
-func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*Receipt, hasher TrieHasher) *Block {
-	b := &Block{header: CopyHeader(header), td: new(big.Int)}
+func NewBlock(header *Header, body *Body, receipts []*Receipt, hasher TrieHasher) *Block {
+	if body == nil {
+		body = &Body{}
+	}
+	var (
+		b      = NewBlockWithHeader(header)
+		txs    = body.Transactions
+		uncles = body.Uncles
+	)
 
-	// TODO: panic if len(txs) != len(receipts)
 	if len(txs) == 0 {
-		b.header.TxHash = EmptyRootHash
+		b.header.TxHash = EmptyTxsHash
 	} else {
 		b.header.TxHash = DeriveSha(Transactions(txs), hasher)
 		b.transactions = make(Transactions, len(txs))
@@ -658,10 +717,13 @@ func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*
 	}
 
 	if len(receipts) == 0 {
-		b.header.ReceiptHash = EmptyRootHash
+		b.header.ReceiptHash = EmptyReceiptsHash
 	} else {
 		b.header.ReceiptHash = DeriveSha(Receipts(receipts), hasher)
-		b.header.Bloom = CreateBloom(receipts)
+		// Receipts must go through MakeReceipt to calculate the receipt's bloom
+		// already. Merge the receipt's bloom together instead of recalculating
+		// everything.
+		b.header.Bloom = MergeBloom(receipts)
 	}
 
 	if len(uncles) == 0 {
@@ -673,7 +735,6 @@ func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*
 			b.uncles[i] = CopyHeader(uncles[i])
 		}
 	}
-
 	return b
 }
 
@@ -758,7 +819,7 @@ func CopyHeader(h *Header) *Header {
 	return cpy
 }
 
-// DecodeRLP decodes the Ethereum
+// DecodeRLP decodes a block from RLP.
 func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	var eb extblock
 	_, size, _ := s.Kind()
@@ -766,7 +827,7 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 	b.header, b.uncles, b.transactions = eb.Header, eb.Uncles, eb.Txs
-	b.size.Store(common.StorageSize(rlp.ListSize(size)))
+	b.size.Store(rlp.ListSize(size))
 	return nil
 }
 
@@ -784,7 +845,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 func (b *Block) Uncles() []*Header                 { return b.uncles }
 func (b *Block) Transactions() Transactions        { return b.transactions }
 func (b *Block) SetTransactions(tr []*Transaction) { b.transactions = tr }
-func (b *Block) SetHash(h atomic.Value)            { b.hash = h }
+func (b *Block) SetHash(h *common.Hash)            { b.hash.Store(h) }
 
 func (b *Block) Transaction(hash common.Hash) *Transaction {
 	for _, transaction := range b.transactions {
@@ -828,15 +889,21 @@ func (b *Block) SetHeaderNumber(hNum *big.Int) { b.header.Number = hNum }
 func (b *Block) Body() *Body { return &Body{b.transactions, b.uncles} }
 
 // Size returns the true RLP encoded storage size of the block, either by encoding
-// and returning it, or returning a previsouly cached value.
-func (b *Block) Size() common.StorageSize {
-	if size := b.size.Load(); size != nil {
-		return size.(common.StorageSize)
+// and returning it, or returning a previously cached value.
+func (b *Block) Size() uint64 {
+	if size := b.size.Load(); size > 0 {
+		return size
 	}
 	c := writeCounter(0)
 	rlp.Encode(&c, b)
-	b.size.Store(common.StorageSize(c))
-	return common.StorageSize(c)
+	b.size.Store(uint64(c))
+	return uint64(c)
+}
+
+// SanityCheck can be used to prevent that unbounded fields are
+// stuffed with junk data to add processing overhead
+func (b *Block) SanityCheck() error {
+	return b.header.sanityCheck()
 }
 
 func (b *Block) IsEpochHead() bool { return b.header.IsEpochHeader() }
@@ -872,16 +939,16 @@ func (b *Block) WithSeal(header *Header) *Block {
 	}
 }
 
-// WithBody returns a new block with the given transaction and uncle contents.
-func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
+// WithBody returns a new block with the original header and a deep copy of the
+// provided body.
+func (b *Block) WithBody(body Body) *Block {
 	block := &Block{
-		header:       CopyHeader(b.header),
-		transactions: make([]*Transaction, len(transactions)),
-		uncles:       make([]*Header, len(uncles)),
+		header:       b.header,
+		transactions: slices.Clone(body.Transactions),
+		uncles:       make([]*Header, len(body.Uncles)),
 	}
-	copy(block.transactions, transactions)
-	for i := range uncles {
-		block.uncles[i] = CopyHeader(uncles[i])
+	for i := range body.Uncles {
+		block.uncles[i] = CopyHeader(body.Uncles[i])
 	}
 	return block
 }
@@ -890,11 +957,11 @@ func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
 // The hash is computed on the first call and cached thereafter.
 func (b *Block) Hash() common.Hash {
 	if hash := b.hash.Load(); hash != nil {
-		return hash.(common.Hash)
+		return *hash
 	}
-	v := b.header.Hash()
-	b.hash.Store(v)
-	return v
+	h := b.header.Hash()
+	b.hash.Store(&h)
+	return h
 }
 
 type Blocks []*Block
